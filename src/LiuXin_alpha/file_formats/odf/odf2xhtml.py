@@ -20,6 +20,9 @@
 #
 # import pdb
 # pdb.set_trace()
+from __future__ import annotations
+
+import typing as _typing
 import os
 from xml.sax import handler
 from xml.sax.saxutils import escape, quoteattr
@@ -81,7 +84,7 @@ class StyleToCSS:
     make sense to also contain the Styles in a dict as well..
     """
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         # Font declarations
         self.fontdict = {}
 
@@ -131,7 +134,7 @@ class StyleToCSS:
             # FIXME Should do style:vertical-pos here
         }
 
-    def save_font(self, name, family, generic):
+    def save_font(self: _typing.Self, name: _typing.Any, family: _typing.Any, generic: _typing.Any) -> None:
         """It is possible that the HTML browser doesn't know how to
         show a particular font. Fortunately ODF provides generic fallbacks.
         Unfortunately they are not the same as CSS2.
@@ -154,19 +157,19 @@ class StyleToCSS:
             htmlgeneric = "serif"
         self.fontdict[name] = (family, htmlgeneric)
 
-    def c_drawfillimage(self, ruleset, sdict, rule, val):
+    def c_drawfillimage(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
         """Fill a figure with an image. Since CSS doesn't let you resize images
         this should really be implemented as an absolutely position <img>
         with a width and a height
         """
         sdict["background-image"] = "url('%s')" % self.fillimages[val]
 
-    def c_fo(self, ruleset, sdict, rule, val):
+    def c_fo(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
         """XSL formatting attributes"""
         selector = rule[1]
         sdict[selector] = val
 
-    def c_break(self, ruleset, sdict, rule, val):  # Added by Kovid
+    def c_break(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:  # Added by Kovid
         property = "page-" + rule[1]
         values = {
             "auto": "auto",
@@ -178,18 +181,18 @@ class StyleToCSS:
         }
         sdict[property] = values.get(val, "auto")
 
-    def c_border_model(self, ruleset, sdict, rule, val):
+    def c_border_model(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
         """Convert to CSS2 border model"""
         if val == "collapsing":
             sdict["border-collapse"] = "collapse"
         else:
             sdict["border-collapse"] = "separate"
 
-    def c_width(self, ruleset, sdict, rule, val):
+    def c_width(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
         """Set width of box"""
         sdict["width"] = val
 
-    def c_text_align(self, ruleset, sdict, rule, align):
+    def c_text_align(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, align: _typing.Any) -> None:
         """Text align"""
         if align == "start":
             align = "left"
@@ -197,7 +200,7 @@ class StyleToCSS:
             align = "right"
         sdict["text-align"] = align
 
-    def c_fn(self, ruleset, sdict, rule, fontstyle):
+    def c_fn(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, fontstyle: _typing.Any) -> None:
         """Generate the CSS font family
         A generic font can be found in two ways. In a <style:font-face>
         element or as a font-family-generic attribute in text-properties.
@@ -208,7 +211,7 @@ class StyleToCSS:
         family, htmlgeneric = self.fontdict.get(fontstyle, (fontstyle, "serif"))
         sdict["font-family"] = "%s, %s" % (family, htmlgeneric)
 
-    def c_text_position(self, ruleset, sdict, rule, tp):
+    def c_text_position(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, tp: _typing.Any) -> None:
         """Text position. This is used e.g. to make superscript and subscript
         This attribute can have one or two values.
 
@@ -238,7 +241,7 @@ class StyleToCSS:
         else:
             sdict["vertical-align"] = textpos[0]
 
-    def c_hp(self, ruleset, sdict, rule, hpos):
+    def c_hp(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, hpos: _typing.Any) -> None:
         # FIXME: Frames wrap-style defaults to 'parallel', graphics to 'none'.
         # It is properly set in the parent-styles, but the program doesn't
         # collect the information.
@@ -280,31 +283,31 @@ class StyleToCSS:
                 if (SVGNS, "x") in ruleset:
                     sdict["left"] = ruleset[(SVGNS, "x")]
 
-    def c_page_width(self, ruleset, sdict, rule, val):
+    def c_page_width(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
         """Set width of box
         HTML doesn't really have a page-width. It is always 100% of the browser width
         """
         sdict["width"] = val
 
-    def c_text_underline_style(self, ruleset, sdict, rule, val):
+    def c_text_underline_style(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
         """Set underline decoration
         HTML doesn't really have a page-width. It is always 100% of the browser width
         """
         if val and val != "none":
             sdict["text-decoration"] = "underline"
 
-    def c_text_line_through_style(self, ruleset, sdict, rule, val):
+    def c_text_line_through_style(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
         """Set underline decoration
         HTML doesn't really have a page-width. It is always 100% of the browser width
         """
         if val and val != "none":
             sdict["text-decoration"] = "line-through"
 
-    def c_page_height(self, ruleset, sdict, rule, val):
+    def c_page_height(self: _typing.Self, ruleset: _typing.Any, sdict: _typing.Any, rule: _typing.Any, val: _typing.Any) -> None:
         """Set height of box"""
         sdict["height"] = val
 
-    def convert_styles(self, ruleset):
+    def convert_styles(self: _typing.Self, ruleset: _typing.Any) -> _typing.Any:
         """Rule is a tuple of (namespace, name). If the namespace is '' then
         it is already CSS2
         """
@@ -320,28 +323,28 @@ class StyleToCSS:
 
 
 class TagStack:
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.stack = []
 
-    def push(self, tag, attrs):
+    def push(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.stack.append((tag, attrs))
 
-    def pop(self):
+    def pop(self: _typing.Self) -> _typing.Any:
         item = self.stack.pop()
         return item
 
-    def stackparent(self):
+    def stackparent(self: _typing.Self) -> _typing.Any:
         item = self.stack[-1]
         return item[1]
 
-    def rfindattr(self, attr):
+    def rfindattr(self: _typing.Self, attr: _typing.Any) -> _typing.Any:
         """Find a tag with the given attribute"""
         for tag, attrs in self.stack:
             if attr in attrs:
                 return attrs[attr]
         return None
 
-    def count_tags(self, tag):
+    def count_tags(self: _typing.Self, tag: _typing.Any) -> _typing.Any:
         c = 0
         for ttag, tattrs in self.stack:
             if ttag == tag:
@@ -382,7 +385,7 @@ special_styles = {
 class ODF2XHTML(handler.ContentHandler):
     """The ODF2XHTML parses an ODF file and produces XHTML"""
 
-    def __init__(self, generate_css=True, embedable=False):
+    def __init__(self: _typing.Self, generate_css: bool = True, embedable: bool = False) -> None:
         # Tags
         self.generate_css = generate_css
         self.elements = {
@@ -533,18 +536,18 @@ class ODF2XHTML(handler.ContentHandler):
             self.make_embedable()
         self._resetobject()
 
-    def set_plain(self):
+    def set_plain(self: _typing.Self) -> None:
         """Tell the parser to not generate CSS"""
         self.generate_css = False
 
-    def set_embedable(self):
+    def set_embedable(self: _typing.Self) -> None:
         """Tells the converter to only output the parts inside the <body>"""
         self.elements[(OFFICENS, "text")] = (None, None)
         self.elements[(OFFICENS, "spreadsheet")] = (None, None)
         self.elements[(OFFICENS, "presentation")] = (None, None)
         self.elements[(OFFICENS, "document-content")] = (None, None)
 
-    def add_style_file(self, stylefilename, media=None):
+    def add_style_file(self: _typing.Self, stylefilename: _typing.Any, media: _typing.Any = None) -> None:
         """Add a link to an external style file.
         Also turns of the embedding of styles in the HTML
         """
@@ -557,13 +560,13 @@ class ODF2XHTML(handler.ContentHandler):
         else:
             self.metatags.append('<link rel="stylesheet" type="text/css" href="%s"/>\n' % (stylefilename))
 
-    def _resetfootnotes(self):
+    def _resetfootnotes(self: _typing.Self) -> None:
         # Footnotes and endnotes
         self.notedict = {}
         self.currentnote = 0
         self.notebody = ""
 
-    def _resetobject(self):
+    def _resetobject(self: _typing.Self) -> None:
         self.lines = []
         self._wfunc = self._wlines
         self.xmlfile = ""
@@ -592,16 +595,16 @@ class ODF2XHTML(handler.ContentHandler):
         # Tags from meta.xml
         self.metatags = []
 
-    def writeout(self, s):
+    def writeout(self: _typing.Self, s: _typing.Any) -> None:
         if s != "":
             self._wfunc(s)
 
-    def writedata(self):
+    def writedata(self: _typing.Self) -> None:
         d = "".join(self.data)
         if d != "":
             self.writeout(escape(d))
 
-    def opentag(self, tag, attrs={}, block=False):
+    def opentag(self: _typing.Self, tag: _typing.Any, attrs: dict[_typing.Any, _typing.Any] = {}, block: bool = False) -> None:
         """Create an open HTML tag"""
         self.htmlstack.append((tag, attrs, block))
         a = []
@@ -614,14 +617,14 @@ class ODF2XHTML(handler.ContentHandler):
         if block == True:
             self.writeout("\n")
 
-    def closetag(self, tag, block=True):
+    def closetag(self: _typing.Self, tag: _typing.Any, block: bool = True) -> None:
         """Close an open HTML tag"""
         self.htmlstack.pop()
         self.writeout("</%s>" % tag)
         if block == True:
             self.writeout("\n")
 
-    def emptytag(self, tag, attrs={}):
+    def emptytag(self: _typing.Self, tag: _typing.Any, attrs: dict[_typing.Any, _typing.Any] = {}) -> None:
         a = []
         for key, val in attrs.items():
             a.append("""%s=%s""" % (key, quoteattr(val)))
@@ -630,11 +633,11 @@ class ODF2XHTML(handler.ContentHandler):
     # --------------------------------------------------
     # Interface to parser
     # --------------------------------------------------
-    def characters(self, data):
+    def characters(self: _typing.Self, data: _typing.Any) -> None:
         if self.processelem and self.processcont:
             self.data.append(data)
 
-    def startElementNS(self, tag, qname, attrs):
+    def startElementNS(self: _typing.Self, tag: _typing.Any, qname: _typing.Any, attrs: _typing.Any) -> None:
         self.pstack.append((self.processelem, self.processcont))
         if self.processelem:
             method = self.elements.get(tag, (None, None))[0]
@@ -644,7 +647,7 @@ class ODF2XHTML(handler.ContentHandler):
                 self.unknown_starttag(tag, attrs)
         self.tagstack.push(tag, attrs)
 
-    def endElementNS(self, tag, qname):
+    def endElementNS(self: _typing.Self, tag: _typing.Any, qname: _typing.Any) -> None:
         stag, attrs = self.tagstack.pop()
         if self.processelem:
             method = self.elements.get(tag, (None, None))[1]
@@ -655,39 +658,39 @@ class ODF2XHTML(handler.ContentHandler):
         self.processelem, self.processcont = self.pstack.pop()
 
     # --------------------------------------------------
-    def handle_starttag(self, tag, method, attrs):
+    def handle_starttag(self: _typing.Self, tag: _typing.Any, method: _typing.Any, attrs: _typing.Any) -> None:
         method(tag, attrs)
 
-    def handle_endtag(self, tag, attrs, method):
+    def handle_endtag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any, method: _typing.Any) -> None:
         method(tag, attrs)
 
-    def unknown_starttag(self, tag, attrs):
+    def unknown_starttag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         pass
 
-    def unknown_endtag(self, tag, attrs):
+    def unknown_endtag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         pass
 
-    def s_ignorexml(self, tag, attrs):
+    def s_ignorexml(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Ignore this xml element and all children of it
         It will automatically stop ignoring
         """
         self.processelem = False
 
-    def s_ignorecont(self, tag, attrs):
+    def s_ignorecont(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Stop processing the text nodes"""
         self.processcont = False
 
-    def s_processcont(self, tag, attrs):
+    def s_processcont(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Start processing the text nodes"""
         self.processcont = True
 
-    def classname(self, attrs):
+    def classname(self: _typing.Self, attrs: _typing.Any) -> _typing.Any:
         """Generate a class name from a style name"""
         c = attrs.get((TEXTNS, "style-name"), "")
         c = c.replace(".", "_")
         return c
 
-    def get_anchor(self, name):
+    def get_anchor(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """Create a unique anchor id for a href name"""
         if name not in self.anchors:
             # Changed by Kovid
@@ -696,7 +699,7 @@ class ODF2XHTML(handler.ContentHandler):
 
     # --------------------------------------------------
 
-    def purgedata(self):
+    def purgedata(self: _typing.Self) -> None:
         self.data = []
 
     # -----------------------------------------------------------------------------
@@ -704,30 +707,30 @@ class ODF2XHTML(handler.ContentHandler):
     # Handle meta data
     #
     # -----------------------------------------------------------------------------
-    def e_dc_title(self, tag, attrs):
+    def e_dc_title(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Get the title from the meta data and create a HTML <title>"""
         self.title = "".join(self.data)
         # self.metatags.append('<title>%s</title>\n' % escape(self.title))
         self.data = []
 
-    def e_dc_metatag(self, tag, attrs):
+    def e_dc_metatag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Any other meta data is added as a <meta> element"""
         self.metatags.append('<meta name="%s" content=%s/>\n' % (tag[1], quoteattr("".join(self.data))))
         self.data = []
 
-    def e_dc_contentlanguage(self, tag, attrs):
+    def e_dc_contentlanguage(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Set the content language. Identifies the targeted audience"""
         self.language = "".join(self.data)
         self.metatags.append('<meta http-equiv="content-language" content="%s"/>\n' % escape(self.language))
         self.data = []
 
-    def e_dc_creator(self, tag, attrs):
+    def e_dc_creator(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Set the content creator. Identifies the targeted audience"""
         self.creator = "".join(self.data)
         self.metatags.append('<meta http-equiv="creator" content="%s"/>\n' % escape(self.creator))
         self.data = []
 
-    def s_custom_shape(self, tag, attrs):
+    def s_custom_shape(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """A <draw:custom-shape> is made into a <div> in HTML which is then styled"""
         anchor_type = attrs.get((TEXTNS, "anchor-type"), "notfound")
         htmltag = "div"
@@ -757,11 +760,11 @@ class ODF2XHTML(handler.ContentHandler):
         else:
             self.opentag(htmltag)
 
-    def e_custom_shape(self, tag, attrs):
+    def e_custom_shape(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """End the <draw:frame>"""
         self.closetag("div")
 
-    def s_draw_frame(self, tag, attrs):
+    def s_draw_frame(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """A <draw:frame> is made into a <div> in HTML which is then styled"""
         anchor_type = attrs.get((TEXTNS, "anchor-type"), "notfound")
         htmltag = "div"
@@ -791,23 +794,23 @@ class ODF2XHTML(handler.ContentHandler):
         else:
             self.opentag(htmltag)
 
-    def e_draw_frame(self, tag, attrs):
+    def e_draw_frame(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """End the <draw:frame>"""
         self.closetag("div")
 
-    def s_draw_fill_image(self, tag, attrs):
+    def s_draw_fill_image(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         name = attrs.get((DRAWNS, "name"), "NoName")
         imghref = attrs[(XLINKNS, "href")]
         imghref = self.rewritelink(imghref)
         self.cs.fillimages[name] = imghref
 
-    def rewritelink(self, imghref):
+    def rewritelink(self: _typing.Self, imghref: _typing.Any) -> _typing.Any:
         """Intended to be overloaded if you don't store your pictures
         in a Pictures subfolder
         """
         return imghref
 
-    def s_draw_image(self, tag, attrs):
+    def s_draw_image(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """A <draw:image> becomes an <img/> element"""
         parent = self.tagstack.stackparent()
         anchor_type = parent.get((TEXTNS, "anchor-type"))
@@ -819,7 +822,7 @@ class ODF2XHTML(handler.ContentHandler):
                 htmlattrs["style"] = "display: block;"
         self.emptytag("img", htmlattrs)
 
-    def s_draw_object(self, tag, attrs):
+    def s_draw_object(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """A <draw:object> is embedded object in the document (e.g. spreadsheet in presentation)."""
         return  # Added by Kovid
         objhref = attrs[(XLINKNS, "href")]
@@ -833,7 +836,7 @@ class ODF2XHTML(handler.ContentHandler):
             if c.folder == objhref:
                 self._walknode(c.topnode)
 
-    def s_draw_object_ole(self, tag, attrs):
+    def s_draw_object_ole(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """A <draw:object-ole> is embedded OLE object in the document (e.g. MS Graph)."""
         try:
             class_id = attrs[(DRAWNS, "class-id")]
@@ -844,7 +847,7 @@ class ODF2XHTML(handler.ContentHandler):
             self.opentag("a", tagattrs)
             self.closetag("a", tagattrs)
 
-    def s_draw_page(self, tag, attrs):
+    def s_draw_page(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """A <draw:page> is a slide in a presentation. We use a <fieldset> element in HTML.
         Therefore if you convert a ODP file, you get a series of <fieldset>s.
         Override this for your own purpose.
@@ -862,10 +865,10 @@ class ODF2XHTML(handler.ContentHandler):
         self.writeout(escape(name))
         self.closetag("legend")
 
-    def e_draw_page(self, tag, attrs):
+    def e_draw_page(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.closetag("fieldset")
 
-    def s_draw_textbox(self, tag, attrs):
+    def s_draw_textbox(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         style = ""
         if (FONS, "min-height") in attrs:
             style = style + "min-height:" + attrs[(FONS, "min-height")] + ";"
@@ -873,11 +876,11 @@ class ODF2XHTML(handler.ContentHandler):
 
     #       self.opentag('div', {'style': style})
 
-    def e_draw_textbox(self, tag, attrs):
+    def e_draw_textbox(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """End the <draw:text-box>"""
         self.closetag("div")
 
-    def html_body(self, tag, attrs):
+    def html_body(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.writedata()
         if self.generate_css and self.use_internal_css:
             self.opentag("style", {"type": "text/css"}, True)
@@ -899,7 +902,7 @@ body { margin: 0 1em; }
 ol, ul { padding-left: 2em; }
 """
 
-    def generate_stylesheet(self):
+    def generate_stylesheet(self: _typing.Self) -> None:
         for name in self.stylestack:
             styles = self.styledict.get(name)
             # Preload with the family's default style
@@ -929,7 +932,7 @@ ol, ul { padding-left: 2em; }
             else:
                 css_styles[css2] = [name]
 
-        def filter_margins(css2):
+        def filter_margins(css2: _typing.Any) -> _typing.Iterator[_typing.Any]:
             names = {k for k, v in css2}
             ignore = set()
             if {"margin-left", "margin-right", "margin-top", "margin-bottom"}.issubset(names):
@@ -949,7 +952,7 @@ ol, ul { padding-left: 2em; }
                 self.writeout("\t%s: %s;\n" % (style, val))
             self.writeout("}\n")
 
-    def generate_footnotes(self):
+    def generate_footnotes(self: _typing.Self) -> None:
         if self.currentnote == 0:
             return
         if self.generate_css:
@@ -967,13 +970,13 @@ ol, ul { padding-left: 2em; }
             self.closetag("li")
         self.closetag("ol")
 
-    def s_office_automatic_styles(self, tag, attrs):
+    def s_office_automatic_styles(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         if self.xmlfile == "styles.xml":
             self.autoprefix = "A"
         else:
             self.autoprefix = ""
 
-    def s_office_document_content(self, tag, attrs):
+    def s_office_document_content(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """First tag in the content.xml file"""
         self.writeout('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" ')
         self.writeout('"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">\n')
@@ -984,14 +987,14 @@ ol, ul { padding-left: 2em; }
             self.writeout(metaline)
         self.writeout("<title>%s</title>\n" % escape(self.title))
 
-    def e_office_document_content(self, tag, attrs):
+    def e_office_document_content(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Last tag"""
         self.closetag("html")
 
-    def s_office_master_styles(self, tag, attrs):
+    def s_office_master_styles(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """ """
 
-    def s_office_presentation(self, tag, attrs):
+    def s_office_presentation(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """For some odd reason, OpenOffice Impress doesn't define a default-style
         for the 'paragraph'. We therefore force a standard when we see
         it is a presentation
@@ -1000,30 +1003,30 @@ ol, ul { padding-left: 2em; }
         self.styledict["presentation"] = {(FONS, "font-size"): "24pt"}
         self.html_body(tag, attrs)
 
-    def e_office_presentation(self, tag, attrs):
+    def e_office_presentation(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.generate_footnotes()
         self.closetag("body")
 
-    def s_office_spreadsheet(self, tag, attrs):
+    def s_office_spreadsheet(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.html_body(tag, attrs)
 
-    def e_office_spreadsheet(self, tag, attrs):
+    def e_office_spreadsheet(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.generate_footnotes()
         self.closetag("body")
 
-    def s_office_styles(self, tag, attrs):
+    def s_office_styles(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.autoprefix = ""
 
-    def s_office_text(self, tag, attrs):
+    def s_office_text(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """OpenDocument text"""
         self.styledict["frame"] = {(STYLENS, "wrap"): "parallel"}
         self.html_body(tag, attrs)
 
-    def e_office_text(self, tag, attrs):
+    def e_office_text(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.generate_footnotes()
         self.closetag("body")
 
-    def s_style_handle_properties(self, tag, attrs):
+    def s_style_handle_properties(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Copy all attributes to a struct.
         We will later convert them to CSS2
         """
@@ -1046,7 +1049,7 @@ ol, ul { padding-left: 2em; }
         "graphic": "graphic",
     }
 
-    def s_style_default_style(self, tag, attrs):
+    def s_style_default_style(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """A default style is like a style on an HTML tag"""
         family = attrs[(STYLENS, "family")]
         htmlfamily = self.familymap.get(family, "unknown")
@@ -1054,10 +1057,10 @@ ol, ul { padding-left: 2em; }
         #       self.stylestack.append(self.currentstyle)
         self.styledict[self.currentstyle] = {}
 
-    def e_style_default_style(self, tag, attrs):
+    def e_style_default_style(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.currentstyle = None
 
-    def s_style_font_face(self, tag, attrs):
+    def s_style_font_face(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """It is possible that the HTML browser doesn't know how to
         show a particular font. Luckily ODF provides generic fallbacks
         Unfortunately they are not the same as CSS2.
@@ -1069,41 +1072,41 @@ ol, ul { padding-left: 2em; }
         generic = attrs.get((STYLENS, "font-family-generic"), "")
         self.cs.save_font(name, family, generic)
 
-    def s_style_footer(self, tag, attrs):
+    def s_style_footer(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.opentag("div", {"id": "footer"})
         self.purgedata()
 
-    def e_style_footer(self, tag, attrs):
+    def e_style_footer(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.writedata()
         self.closetag("div")
         self.purgedata()
 
-    def s_style_footer_style(self, tag, attrs):
+    def s_style_footer_style(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.currentstyle = "@print #footer"
         self.stylestack.append(self.currentstyle)
         self.styledict[self.currentstyle] = {}
 
-    def s_style_header(self, tag, attrs):
+    def s_style_header(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.opentag("div", {"id": "header"})
         self.purgedata()
 
-    def e_style_header(self, tag, attrs):
+    def e_style_header(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.writedata()
         self.closetag("div")
         self.purgedata()
 
-    def s_style_header_style(self, tag, attrs):
+    def s_style_header_style(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.currentstyle = "@print #header"
         self.stylestack.append(self.currentstyle)
         self.styledict[self.currentstyle] = {}
 
-    def s_style_default_page_layout(self, tag, attrs):
+    def s_style_default_page_layout(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Collect the formatting for the default page layout style."""
         self.currentstyle = "@page"
         self.stylestack.append(self.currentstyle)
         self.styledict[self.currentstyle] = {}
 
-    def s_style_page_layout(self, tag, attrs):
+    def s_style_page_layout(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Collect the formatting for the page layout style.
         This won't work in CSS 2.1, as page identifiers are not allowed.
         It is legal in CSS3, but the rest of the application doesn't specify when to use what page layout
@@ -1114,11 +1117,11 @@ ol, ul { padding-left: 2em; }
         self.stylestack.append(self.currentstyle)
         self.styledict[self.currentstyle] = {}
 
-    def e_style_page_layout(self, tag, attrs):
+    def e_style_page_layout(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """End this style"""
         self.currentstyle = None
 
-    def s_style_master_page(self, tag, attrs):
+    def s_style_master_page(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Collect the formatting for the page layout style."""
         name = attrs[(STYLENS, "name")]
         name = name.replace(".", "_")
@@ -1152,7 +1155,7 @@ ol, ul { padding-left: 2em; }
         "graphic": "G",
     }
 
-    def s_style_style(self, tag, attrs):
+    def s_style_style(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Collect the formatting for the style.
         Styles have scope. The same name can be used for both paragraph and
         character styles Since CSS has no scope we use a prefix. (Not elegant)
@@ -1184,11 +1187,11 @@ ol, ul { padding-left: 2em; }
             else:
                 self.styledict[self.currentstyle]["__parent-style-name"] = parent
 
-    def e_style_style(self, tag, attrs):
+    def e_style_style(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """End this style"""
         self.currentstyle = None
 
-    def s_table_table(self, tag, attrs):
+    def s_table_table(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Start a table"""
         c = attrs.get((TABLENS, "style-name"), None)
         if c and self.generate_css:
@@ -1198,13 +1201,13 @@ ol, ul { padding-left: 2em; }
             self.opentag("table")
         self.purgedata()
 
-    def e_table_table(self, tag, attrs):
+    def e_table_table(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """End a table"""
         self.writedata()
         self.closetag("table")
         self.purgedata()
 
-    def s_table_table_cell(self, tag, attrs):
+    def s_table_table_cell(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Start a table cell"""
         # FIXME: number-columns-repeated § 8.1.3
         # repeated = int(attrs.get( (TABLENS,'number-columns-repeated'), 1))
@@ -1222,13 +1225,13 @@ ol, ul { padding-left: 2em; }
         self.opentag("td", htmlattrs)
         self.purgedata()
 
-    def e_table_table_cell(self, tag, attrs):
+    def e_table_table_cell(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """End a table cell"""
         self.writedata()
         self.closetag("td")
         self.purgedata()
 
-    def s_table_table_column(self, tag, attrs):
+    def s_table_table_column(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Start a table column"""
         c = attrs.get((TABLENS, "style-name"), None)
         repeated = int(attrs.get((TABLENS, "number-columns-repeated"), 1))
@@ -1239,7 +1242,7 @@ ol, ul { padding-left: 2em; }
             self.emptytag("col", htmlattrs)
         self.purgedata()
 
-    def s_table_table_row(self, tag, attrs):
+    def s_table_table_row(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Start a table row"""
         # FIXME: table:number-rows-repeated
         c = attrs.get((TABLENS, "style-name"), None)
@@ -1249,13 +1252,13 @@ ol, ul { padding-left: 2em; }
         self.opentag("tr", htmlattrs)
         self.purgedata()
 
-    def e_table_table_row(self, tag, attrs):
+    def e_table_table_row(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """End a table row"""
         self.writedata()
         self.closetag("tr")
         self.purgedata()
 
-    def s_text_a(self, tag, attrs):
+    def s_text_a(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Anchors start"""
         self.writedata()
         href = attrs[(XLINKNS, "href")].split("|")[0]
@@ -1264,13 +1267,13 @@ ol, ul { padding-left: 2em; }
         self.opentag("a", {"href": href})
         self.purgedata()
 
-    def e_text_a(self, tag, attrs):
+    def e_text_a(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """End an anchor or bookmark reference"""
         self.writedata()
         self.closetag("a", False)
         self.purgedata()
 
-    def s_text_bookmark(self, tag, attrs):
+    def s_text_bookmark(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Bookmark definition"""
         name = attrs[(TEXTNS, "name")]
         html_id = self.get_anchor(name)
@@ -1279,7 +1282,7 @@ ol, ul { padding-left: 2em; }
         self.closetag("span", False)
         self.purgedata()
 
-    def s_text_bookmark_ref(self, tag, attrs):
+    def s_text_bookmark_ref(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Bookmark reference"""
         name = attrs[(TEXTNS, "ref-name")]
         html_id = "#" + self.get_anchor(name)
@@ -1287,7 +1290,7 @@ ol, ul { padding-left: 2em; }
         self.opentag("a", {"href": html_id})
         self.purgedata()
 
-    def s_text_h(self, tag, attrs):
+    def s_text_h(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Headings start"""
         level = int(attrs[(TEXTNS, "outline-level")])
         if level > 6:
@@ -1305,7 +1308,7 @@ ol, ul { padding-left: 2em; }
             self.opentag("h%s" % level, {"class": "P-%s" % name})
         self.purgedata()
 
-    def e_text_h(self, tag, attrs):
+    def e_text_h(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Headings end
         Side-effect: If there is no title in the metadata, then it is taken
         from the first heading of any level.
@@ -1332,13 +1335,13 @@ ol, ul { padding-left: 2em; }
         self.closetag("h%s" % level)
         self.purgedata()
 
-    def s_text_line_break(self, tag, attrs):
+    def s_text_line_break(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Force a line break (<br/>)"""
         self.writedata()
         self.emptytag("br")
         self.purgedata()
 
-    def s_text_list(self, tag, attrs):
+    def s_text_list(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Start a list (<ul> or <ol>)
         To know which level we're at, we have to count the number
         of <text:list> elements on the tagstack.
@@ -1359,7 +1362,7 @@ ol, ul { padding-left: 2em; }
             self.opentag("%s" % self.listtypes.get(list_class, "ul"))
         self.purgedata()
 
-    def e_text_list(self, tag, attrs):
+    def e_text_list(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """End a list"""
         self.writedata()
         name = attrs.get((TEXTNS, "style-name"))
@@ -1375,18 +1378,18 @@ ol, ul { padding-left: 2em; }
         self.closetag(self.listtypes.get(list_class, "ul"))
         self.purgedata()
 
-    def s_text_list_item(self, tag, attrs):
+    def s_text_list_item(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Start list item"""
         self.opentag("li")
         self.purgedata()
 
-    def e_text_list_item(self, tag, attrs):
+    def e_text_list_item(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """End list item"""
         self.writedata()
         self.closetag("li")
         self.purgedata()
 
-    def s_text_list_level_style_bullet(self, tag, attrs):
+    def s_text_list_level_style_bullet(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """CSS doesn't have the ability to set the glyph
         to a particular character, so we just go through
         the available glyphs
@@ -1404,11 +1407,11 @@ ol, ul { padding-left: 2em; }
         listtype = ("square", "disc", "circle")[level % 3]
         self.styledict[self.currentstyle][("", "list-style-type")] = listtype
 
-    def e_text_list_level_style_bullet(self, tag, attrs):
+    def e_text_list_level_style_bullet(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.currentstyle = self.prevstyle
         del self.prevstyle
 
-    def s_text_list_level_style_number(self, tag, attrs):
+    def s_text_list_level_style_number(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         name = self.tagstack.stackparent()[(STYLENS, "name")]
         level = attrs[(TEXTNS, "level")]
         num_format = attrs.get((STYLENS, "name"), "1")
@@ -1432,35 +1435,35 @@ ol, ul { padding-left: 2em; }
             listtype = "decimal"
         self.styledict[self.currentstyle][("", "list-style-type")] = listtype
 
-    def e_text_list_level_style_number(self, tag, attrs):
+    def e_text_list_level_style_number(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.currentstyle = self.prevstyle
         del self.prevstyle
 
-    def s_text_note(self, tag, attrs):
+    def s_text_note(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.writedata()
         self.purgedata()
         self.currentnote = self.currentnote + 1
         self.notedict[self.currentnote] = {}
         self.notebody = []
 
-    def e_text_note(self, tag, attrs):
+    def e_text_note(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         pass
 
-    def collectnote(self, s):
+    def collectnote(self: _typing.Self, s: _typing.Any) -> None:
         if s != "":
             self.notebody.append(s)
 
-    def s_text_note_body(self, tag, attrs):
+    def s_text_note_body(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self._orgwfunc = self._wfunc
         self._wfunc = self.collectnote
 
-    def e_text_note_body(self, tag, attrs):
+    def e_text_note_body(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self._wfunc = self._orgwfunc
         self.notedict[self.currentnote]["body"] = "".join(self.notebody)
         self.notebody = ""
         del self._orgwfunc
 
-    def e_text_note_citation(self, tag, attrs):
+    def e_text_note_citation(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         mark = "".join(self.data)
         self.notedict[self.currentnote]["citation"] = mark
         self.opentag("a", {"href": "#footnote-%s" % self.currentnote})
@@ -1472,7 +1475,7 @@ ol, ul { padding-left: 2em; }
         self.closetag("sup")
         self.closetag("a")
 
-    def s_text_p(self, tag, attrs):
+    def s_text_p(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Paragraph"""
         htmlattrs = {}
         specialtag = "p"
@@ -1487,7 +1490,7 @@ ol, ul { padding-left: 2em; }
         self.opentag(specialtag, htmlattrs)
         self.purgedata()
 
-    def e_text_p(self, tag, attrs):
+    def e_text_p(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """End Paragraph"""
         specialtag = "p"
         c = attrs.get((TEXTNS, "style-name"), None)
@@ -1503,7 +1506,7 @@ ol, ul { padding-left: 2em; }
         self.closetag(specialtag)
         self.purgedata()
 
-    def s_text_s(self, tag, attrs):
+    def s_text_s(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         # Changed by Kovid to fix non breaking spaces being prepended to
         # element instead of being part of the text flow.
         # We don't use an entity for the nbsp as the contents of self.data will
@@ -1518,7 +1521,7 @@ ol, ul { padding-left: 2em; }
         if c > 0:
             self.data.append("\u00a0" * c)
 
-    def s_text_span(self, tag, attrs):
+    def s_text_span(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """The <text:span> element matches the <span> element in HTML. It is
         typically used to properties of the text.
         """
@@ -1539,7 +1542,7 @@ ol, ul { padding-left: 2em; }
         self.opentag(special, htmlattrs)
         self.purgedata()
 
-    def e_text_span(self, tag, attrs):
+    def e_text_span(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """End the <text:span>"""
         self.writedata()
         c = attrs.get((TEXTNS, "style-name"), None)
@@ -1555,19 +1558,19 @@ ol, ul { padding-left: 2em; }
         self.closetag(special, False)
         self.purgedata()
 
-    def s_text_tab(self, tag, attrs):
+    def s_text_tab(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Move to the next tabstop. We ignore this in HTML"""
         self.writedata()
         self.writeout(" ")
         self.purgedata()
 
-    def s_text_x_source(self, tag, attrs):
+    def s_text_x_source(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Various indexes and tables of contents. We ignore those."""
         self.writedata()
         self.purgedata()
         self.s_ignorexml(tag, attrs)
 
-    def e_text_x_source(self, tag, attrs):
+    def e_text_x_source(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         """Various indexes and tables of contents. We ignore those."""
         self.writedata()
         self.purgedata()
@@ -1578,7 +1581,7 @@ ol, ul { padding-left: 2em; }
     #
     # -----------------------------------------------------------------------------
 
-    def load(self, odffile):
+    def load(self: _typing.Self, odffile: _typing.Any) -> None:
         """Loads a document into the parser and parses it.
         The argument can either be a filename or a document in memory.
         """
@@ -1590,7 +1593,7 @@ ol, ul { padding-left: 2em; }
             self.document = odffile
         self._walknode(self.document.topnode)
 
-    def _walknode(self, node):
+    def _walknode(self: _typing.Self, node: _typing.Any) -> None:
         if node.nodeType == Node.ELEMENT_NODE:
             self.startElementNS(node.qname, node.tagName, node.attributes)
             for c in node.childNodes:
@@ -1599,27 +1602,27 @@ ol, ul { padding-left: 2em; }
         if node.nodeType == Node.TEXT_NODE or node.nodeType == Node.CDATA_SECTION_NODE:
             self.characters(str(node))
 
-    def odf2xhtml(self, odffile):
+    def odf2xhtml(self: _typing.Self, odffile: _typing.Any) -> _typing.Any:
         """Load a file and return the XHTML"""
         self.load(odffile)
         return self.xhtml()
 
-    def _wlines(self, s):
+    def _wlines(self: _typing.Self, s: _typing.Any) -> None:
         if s != "":
             self.lines.append(s)
 
-    def xhtml(self):
+    def xhtml(self: _typing.Self) -> _typing.Any:
         """Returns the xhtml"""
         return "".join(self.lines)
 
-    def _writecss(self, s):
+    def _writecss(self: _typing.Self, s: _typing.Any) -> None:
         if s != "":
             self._csslines.append(s)
 
-    def _writenothing(self, s):
+    def _writenothing(self: _typing.Self, s: _typing.Any) -> None:
         pass
 
-    def css(self):
+    def css(self: _typing.Self) -> _typing.Any:
         """Returns the CSS content"""
         self._csslines = []
         self._wfunc = self._writecss
@@ -1629,7 +1632,7 @@ ol, ul { padding-left: 2em; }
         del self._csslines
         return res
 
-    def save(self, outputfile, addsuffix=False):
+    def save(self: _typing.Self, outputfile: _typing.Any, addsuffix: bool = False) -> None:
         """Save the HTML under the filename.
         If the filename is '-' then save to stdout
         We have the last style filename in self.stylefilename
@@ -1649,7 +1652,7 @@ ol, ul { padding-left: 2em; }
 class ODF2XHTMLembedded(ODF2XHTML):
     """The ODF2XHTML parses an ODF file and produces XHTML"""
 
-    def __init__(self, lines, generate_css=True, embedable=False):
+    def __init__(self: _typing.Self, lines: _typing.Any, generate_css: bool = True, embedable: bool = False) -> None:
         self._resetobject()
         self.lines = lines
 

@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 OPF manifest trimming transform.
@@ -19,14 +22,14 @@ class ManifestTrimmer(object):
     """
 
     @classmethod
-    def config(cls, cfg):
+    def config(cls: type[_typing.Self], cfg: _typing.Any) -> _typing.Any:
         return cfg
 
     @classmethod
-    def generate(cls, opts):
+    def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
         return cls()
 
-    def __call__(self, oeb, context):
+    def __call__(self: _typing.Self, oeb: _typing.Any, context: _typing.Any) -> None:
         """
         Check that every file mentioned in the manifest is being used somewhere. If it isn't then remove it.
         :param oeb:

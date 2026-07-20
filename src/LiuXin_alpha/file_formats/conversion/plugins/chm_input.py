@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import typing as _typing
+
 import os
 from urllib.parse import unquote_to_bytes
 
@@ -19,7 +21,7 @@ class CHMInput(InputFormatPlugin):
     description = "Convert CHM files to OEB"
     file_types = {"chm"}
 
-    def _chmtohtml(self, output_dir, chm_path, no_images, log, debug_dump=False):
+    def _chmtohtml(self: _typing.Self, output_dir: _typing.Any, chm_path: _typing.Any, no_images: _typing.Any, log: _typing.Any, debug_dump: bool = False) -> _typing.Any:
         from LiuXin_alpha.file_formats.chm.reader import CHMReader
 
         log.debug("Opening CHM file")
@@ -29,7 +31,7 @@ class CHMInput(InputFormatPlugin):
         self._chm_reader = rdr
         return rdr.hhc_path
 
-    def _stream_to_path(self, stream, tdir):
+    def _stream_to_path(self: _typing.Self, stream: _typing.Any, tdir: _typing.Any) -> _typing.Any:
         stream_name = getattr(stream, "name", None)
         if stream_name and os.path.exists(stream_name):
             return stream_name
@@ -39,7 +41,7 @@ class CHMInput(InputFormatPlugin):
             out.write(stream.read())
         return temp_input
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """Convert a CHM stream into an OEBBook."""
         from LiuXin_alpha.customize.ui import plugin_for_input_format
         from LiuXin_alpha.file_formats.chm.metadata import get_metadata_from_reader
@@ -102,14 +104,14 @@ class CHMInput(InputFormatPlugin):
 
         return oeb
 
-    def parse_html_toc(self, item):
+    def parse_html_toc(self: _typing.Self, item: _typing.Any) -> _typing.Any:
         """Parse an HTML document into an OEB TOC tree."""
         from LiuXin_alpha.file_formats.oeb.base import TOC, XPath
 
         dx = XPath("./h:div")
         ax = XPath("./h:a[1]")
 
-        def do_node(parent, div):
+        def do_node(parent: _typing.Any, div: _typing.Any) -> None:
             for child in dx(div):
                 links = ax(child)
                 if not links:
@@ -124,7 +126,7 @@ class CHMInput(InputFormatPlugin):
             do_node(toc, roots[0])
         return toc
 
-    def _create_oebbook_html(self, htmlpath, basedir, opts, log, mi):
+    def _create_oebbook_html(self: _typing.Self, htmlpath: _typing.Any, basedir: _typing.Any, opts: _typing.Any, log: _typing.Any, mi: _typing.Any) -> _typing.Any:
         """Use HTMLInput plugin to generate an OEBBook."""
         from LiuXin_alpha.file_formats.conversion.plugins.html_input import HTMLInput
 
@@ -138,7 +140,7 @@ class CHMInput(InputFormatPlugin):
         oeb = htmlinput.create_oebbook(htmlpath, basedir, opts, log, mi)
         return oeb
 
-    def _create_html_root(self, hhcpath, log, encoding):
+    def _create_html_root(self: _typing.Self, hhcpath: _typing.Any, log: _typing.Any, encoding: _typing.Any) -> tuple[_typing.Any, ...]:
         from lxml import html
 
         from LiuXin_alpha.file_formats.chardet import xml_to_unicode
@@ -160,11 +162,11 @@ class CHMInput(InputFormatPlugin):
         htmlpath = os.path.splitext(hhcpath)[0] + ".html"
         base = os.path.dirname(os.path.abspath(htmlpath))
 
-        def unquote(text):
+        def unquote(text: _typing.Any) -> _typing.Any:
             raw = text if isinstance(text, bytes) else text.encode("utf-8")
             return unquote_to_bytes(raw).decode("utf-8", errors="replace")
 
-        def unquote_path(path):
+        def unquote_path(path: _typing.Any) -> tuple[_typing.Any, ...]:
             raw, frag = (path.split("#", 1) + [""])[:2]
             if frag:
                 frag = "#" + frag
@@ -173,7 +175,7 @@ class CHMInput(InputFormatPlugin):
                 raw = decoded
             return raw, frag
 
-        def donode(item, parent, base_dir, subpath):
+        def donode(item: _typing.Any, parent: _typing.Any, base_dir: _typing.Any, subpath: _typing.Any) -> None:
             for child in item:
                 title = child.title
                 if not title:
@@ -212,11 +214,11 @@ class CHMInput(InputFormatPlugin):
                 f.write(hhcdata)
         return htmlpath, toc
 
-    def _read_file(self, name):
+    def _read_file(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         with open(name, "rb") as f:
             return f.read()
 
-    def add_node(self, node, toc, ancestor_map):
+    def add_node(self: _typing.Self, node: _typing.Any, toc: _typing.Any, ancestor_map: _typing.Any) -> None:
         from LiuXin_alpha.file_formats.chm.reader import match_string
 
         if match_string(node.attrib.get("type", ""), "text/sitemap"):
@@ -232,7 +234,7 @@ class CHMInput(InputFormatPlugin):
             child = toc.add(title or _("Unknown"), href)
             ancestor_map[node] = child
 
-    def _process_nodes(self, root):
+    def _process_nodes(self: _typing.Self, root: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.oeb.base import TOC
 
         toc = TOC()

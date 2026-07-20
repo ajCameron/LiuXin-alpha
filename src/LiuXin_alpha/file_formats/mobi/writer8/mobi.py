@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import random
 import time
@@ -26,7 +29,7 @@ NULL_INDEX = 0xFFFFFFFF
 FLIS = b"FLIS\0\0\0\x08\0\x41\0\0\0\0\0\0\xff\xff\xff\xff\0\x01\0\x03\0\0\0\x03\0\0\0\x01" + b"\xff" * 4
 
 
-def fcis(text_length):
+def fcis(text_length: _typing.Any) -> _typing.Any:
     local_fcis = b"FCIS\x00\x00\x00\x14\x00\x00\x00\x10\x00\x00\x00\x02\x00\x00\x00\x00"
     local_fcis += pack(b">L", text_length)
     local_fcis += b"\x00\x00\x00\x00\x00\x00\x00\x28\x00\x00\x00\x00\x00\x00\x00"
@@ -206,11 +209,11 @@ class MOBIHeader(Header):  # {{{
     ALIGN = True
     POSITIONS = {"title_offset": "full_title"}
 
-    def __init__(self, file_version=8):
+    def __init__(self: _typing.Self, file_version: int = 8) -> None:
         self.DEFINITION = self.DEFINITION.format(file_version=file_version, record_size=RECORD_SIZE)
         super(MOBIHeader, self).__init__()
 
-    def format_value(self, name, val):
+    def format_value(self: _typing.Self, name: _typing.Any, val: _typing.Any) -> _typing.Any:
         if name == "compression":
             val = PALMDOC if val else UNCOMPRESSED
         return super(MOBIHeader, self).format_value(name, val)
@@ -244,12 +247,12 @@ HEADER_FIELDS = {
 
 
 class KF8Book(object):
-    def __init__(self, writer, for_joint=False):
+    def __init__(self: _typing.Self, writer: _typing.Any, for_joint: bool = False) -> None:
         self.build_records(writer, for_joint)
         self.used_images = writer.used_images
         self.page_progression_direction = writer.oeb.spine.page_progression_direction
 
-    def build_records(self, writer, for_joint):
+    def build_records(self: _typing.Self, writer: _typing.Any, for_joint: _typing.Any) -> None:
         metadata = writer.oeb.metadata
         # The text records
         for x in ("last_text_record_idx", "first_non_text_record_idx"):
@@ -321,7 +324,7 @@ class KF8Book(object):
         self.kuc = 0 if len(resources.records) > 0 else None
 
     @property
-    def record0(self):
+    def record0(self: _typing.Self) -> _typing.Any:
         """
         We generate the EXTH header and record0 dynamically, to allow other code to customize various values after
         build_records() has been called
@@ -346,7 +349,7 @@ class KF8Book(object):
         kwargs = {field: getattr(self, field) for field in HEADER_FIELDS}
         return MOBIHeader()(**kwargs)
 
-    def write(self, outpath):
+    def write(self: _typing.Self, outpath: _typing.Any) -> None:
         records = [self.record0] + self.records[1:]
 
         with open(outpath, "wb") as f:

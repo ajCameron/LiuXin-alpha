@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 from collections import defaultdict
@@ -33,7 +36,7 @@ class BadLink(BaseError):
 
 
 class CaseMismatch(BadLink):
-    def __init__(self, href, corrected_name, name, lnum, col):
+    def __init__(self: _typing.Self, href: _typing.Any, corrected_name: _typing.Any, name: _typing.Any, lnum: _typing.Any, col: _typing.Any) -> None:
         BadLink.__init__(
             self,
             _("The linked to resource {0} does not exist").format(href),
@@ -49,7 +52,7 @@ class CaseMismatch(BadLink):
         self.corrected_name = corrected_name
         self.href = href
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> _typing.Any:
         frag = urlparse(self.href).fragment
         nhref = container.name_to_href(self.corrected_name, self.name)
         if frag:
@@ -59,7 +62,7 @@ class CaseMismatch(BadLink):
         class LinkReplacer(object):
             replaced = False
 
-            def __call__(self, url):
+            def __call__(self: _typing.Self, url: _typing.Any) -> _typing.Any:
                 if url != orig_href:
                     return url
                 self.replaced = True
@@ -74,7 +77,7 @@ class BadDestinationType(BaseError):
 
     level = WARN
 
-    def __init__(self, link_source, link_dest, link_elem):
+    def __init__(self: _typing.Self, link_source: _typing.Any, link_dest: _typing.Any, link_elem: _typing.Any) -> None:
         BaseError.__init__(
             self,
             _("Link points to a file that is not a text document"),
@@ -95,7 +98,7 @@ class BadDestinationFragment(BaseError):
 
     level = WARN
 
-    def __init__(self, link_source, link_dest, link_elem, fragment):
+    def __init__(self: _typing.Self, link_source: _typing.Any, link_dest: _typing.Any, link_elem: _typing.Any, fragment: _typing.Any) -> None:
         BaseError.__init__(
             self,
             _("Link points to a location not present in the target file"),
@@ -135,7 +138,7 @@ class UnreferencedResource(BadLink):
         " probably remove this file from the book or add a link to it somewhere."
     )
 
-    def __init__(self, name):
+    def __init__(self: _typing.Self, name: _typing.Any) -> None:
         BadLink.__init__(self, _("The file %s is not referenced") % name, name)
 
 
@@ -155,7 +158,7 @@ class Unmanifested(BadLink):
         " file in the manifest or remove it from the book if it is an unnecessary file."
     )
 
-    def __init__(self, name, unreferenced=None):
+    def __init__(self: _typing.Self, name: _typing.Any, unreferenced: _typing.Any = None) -> None:
         BadLink.__init__(self, _("The file %s is not listed in the manifest") % name, name)
         self.file_action = None
         if unreferenced is not None:
@@ -164,7 +167,7 @@ class Unmanifested(BadLink):
             )
             self.file_action = "remove" if unreferenced else "add"
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> None:
         if self.file_action == "remove":
             container.remove_item(self.name)
         else:
@@ -182,14 +185,14 @@ class Bookmarks(BadLink):
     INDIVIDUAL_FIX = _("Remove this file")
     level = INFO
 
-    def __init__(self, name):
+    def __init__(self: _typing.Self, name: _typing.Any) -> None:
         BadLink.__init__(
             self,
             _("The bookmarks file used by the calibre ebook viewer is present"),
             name,
         )
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         container.remove_item(self.name)
         return True
 
@@ -198,7 +201,7 @@ class MimetypeMismatch(BaseError):
 
     level = WARN
 
-    def __init__(self, container, name, opf_mt, ext_mt):
+    def __init__(self: _typing.Self, container: _typing.Any, name: _typing.Any, opf_mt: _typing.Any, ext_mt: _typing.Any) -> None:
         self.opf_mt, self.ext_mt = opf_mt, ext_mt
         self.file_name = name
         BaseError.__init__(
@@ -219,7 +222,7 @@ class MimetypeMismatch(BaseError):
             self.INDIVIDUAL_FIX = _("Change the mimetype for this file in the OPF to %s") % ext_mt
             self.change_ext_to = None
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> _typing.Any:
         changed = False
         if self.change_ext_to is not None:
             from LiuXin_alpha.file_formats.oeb.polish.replace import rename_files
@@ -243,7 +246,7 @@ class MimetypeMismatch(BaseError):
         return changed
 
 
-def check_mimetypes(container):
+def check_mimetypes(container: _typing.Any) -> _typing.Any:
     errors = []
     a = errors.append
     for name, mt in iteritems(container.mime_map):
@@ -255,7 +258,7 @@ def check_mimetypes(container):
     return errors
 
 
-def check_link_destination(container, dest_map, name, href, a, errors):
+def check_link_destination(container: _typing.Any, dest_map: _typing.Any, name: _typing.Any, href: _typing.Any, a: _typing.Any, errors: _typing.Any) -> None:
     if not href or not isinstance(href, str):
         return
     try:
@@ -280,7 +283,7 @@ def check_link_destination(container, dest_map, name, href, a, errors):
                 errors.append(BadDestinationType(name, tname, a))
 
 
-def check_link_destinations(container):
+def check_link_destinations(container: _typing.Any) -> _typing.Any:
     """
     Check destinations of links that point to HTML files
     :param container:
@@ -317,13 +320,13 @@ def check_link_destinations(container):
     return errors
 
 
-def check_links(container):
+def check_links(container: _typing.Any) -> _typing.Any:
     links_map = defaultdict(set)
     xml_types = {guess_type("a.opf"), guess_type("a.ncx")}
     errors = []
     a = errors.append
 
-    def fl(x):
+    def fl(x: _typing.Any) -> _typing.Any:
         x = repr(x)
         if x.startswith("u"):
             x = x[1:]

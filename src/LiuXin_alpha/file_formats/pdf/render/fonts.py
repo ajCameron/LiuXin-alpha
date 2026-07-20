@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 import textwrap
@@ -31,7 +34,7 @@ except Exception:
     class NoGlyphs(Exception):
         pass
 
-    def pdf_subset(*_args, **_kwargs):
+    def pdf_subset(*_args: _typing.Any, **_kwargs: _typing.Any) -> None:
         raise UnsupportedFont("Font subsetting backend is not available.")
 
 __license__ = "GPL v3"
@@ -78,17 +81,17 @@ first. Each number gets mapped to a glyph id equal to itself by the
 
 
 class FontStream(Stream):
-    def __init__(self, is_otf, compress=False):
+    def __init__(self: _typing.Self, is_otf: _typing.Any, compress: bool = False) -> None:
         Stream.__init__(self, compress=compress)
         self.is_otf = is_otf
 
-    def add_extra_keys(self, d):
+    def add_extra_keys(self: _typing.Self, d: _typing.Any) -> None:
         d["Length1"] = d["DL"]
         if self.is_otf:
             d["Subtype"] = Name("CIDFontType0C")
 
 
-def to_hex_string(c):
+def to_hex_string(c: _typing.Any) -> _typing.Any:
     return bytes(hex(int(c))[2:]).rjust(4, b"0").decode("ascii")
 
 
@@ -117,7 +120,7 @@ class CMap(Stream):
         """
     )
 
-    def __init__(self, name, glyph_map, compress=False):
+    def __init__(self: _typing.Self, name: _typing.Any, glyph_map: _typing.Any, compress: bool = False) -> None:
         Stream.__init__(self, compress)
         current_map = OrderedDict()
         maps = []
@@ -141,7 +144,7 @@ class CMap(Stream):
 
 
 class Font(object):
-    def __init__(self, metrics, num, objects, compress):
+    def __init__(self: _typing.Self, metrics: _typing.Any, num: _typing.Any, objects: _typing.Any, compress: _typing.Any) -> None:
         self.metrics, self.compress = metrics, compress
         self.is_otf = self.metrics.is_otf
         self.subset_tag = (
@@ -192,7 +195,7 @@ class Font(object):
 
         self.used_glyphs = set()
 
-    def embed(self, objects, debug):
+    def embed(self: _typing.Self, objects: _typing.Any, debug: _typing.Any) -> None:
         self.font_descriptor["FontFile" + ("3" if self.is_otf else "2")] = objects.add(self.font_stream)
         self.write_widths(objects)
         self.write_to_unicode(objects)
@@ -219,11 +222,11 @@ class Font(object):
             self.metrics.os2.zero_fstype()
             self.metrics.sfnt(self.font_stream)
 
-    def write_to_unicode(self, objects):
+    def write_to_unicode(self: _typing.Self, objects: _typing.Any) -> None:
         cmap = CMap(self.metrics.postscript_name, self.metrics.glyph_map, compress=self.compress)
         self.font_dict["ToUnicode"] = objects.add(cmap)
 
-    def write_widths(self, objects):
+    def write_widths(self: _typing.Self, objects: _typing.Any) -> None:
         glyphs = sorted(self.used_glyphs | {0})
         widths = {g: self.metrics.pdf_scale(w) for g, w in zip(glyphs, self.metrics.glyph_widths(glyphs))}
         counter = Counter()
@@ -246,14 +249,14 @@ class Font(object):
 
 
 class FontManager(object):
-    def __init__(self, objects, compress):
+    def __init__(self: _typing.Self, objects: _typing.Any, compress: _typing.Any) -> None:
         self.objects = objects
         self.compress = compress
         self.std_map = {}
         self.font_map = {}
         self.fonts = []
 
-    def add_font(self, font_metrics, glyph_ids):
+    def add_font(self: _typing.Self, font_metrics: _typing.Any, glyph_ids: _typing.Any) -> _typing.Any:
         if font_metrics not in self.font_map:
             self.fonts.append(Font(font_metrics, len(self.fonts), self.objects, self.compress))
             d = self.objects.add(self.fonts[-1].font_dict)
@@ -263,7 +266,7 @@ class FontManager(object):
         font.used_glyphs |= glyph_ids
         return fontref
 
-    def add_standard_font(self, name):
+    def add_standard_font(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         if name not in STANDARD_FONTS:
             raise ValueError("%s is not a standard font" % name)
         if name not in self.std_map:
@@ -278,6 +281,6 @@ class FontManager(object):
             )
         return self.std_map[name]
 
-    def embed_fonts(self, debug):
+    def embed_fonts(self: _typing.Self, debug: _typing.Any) -> None:
         for font in self.fonts:
             font.embed(self.objects, debug)

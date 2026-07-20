@@ -6,6 +6,8 @@ Transform OEB content into RTF markup.
 
 from __future__ import annotations
 
+import typing as _typing
+
 import os
 import re
 from io import BytesIO
@@ -78,11 +80,11 @@ BLOCK_TAGS = [
 BLOCK_STYLES = ["block"]
 
 
-def _meta_value(raw):
+def _meta_value(raw: _typing.Any) -> _typing.Any:
     return getattr(raw, "value", raw)
 
 
-def _ensure_bytes(data) -> bytes:
+def _ensure_bytes(data: _typing.Any) -> bytes:
     if isinstance(data, bytes):
         return data
     if isinstance(data, bytearray):
@@ -118,7 +120,7 @@ def _convert_image_to_jpeg_bytes(data: bytes) -> bytes:
     return raw
 
 
-def _identify_data(data: bytes):
+def _identify_data(data: bytes) -> _typing.Any:
     raw = _ensure_bytes(data)
     if _identify_data_backend is not None:
         try:
@@ -141,7 +143,7 @@ def _identify_data(data: bytes):
     return 0, 0, "unknown"
 
 
-def txt2rtf(text):
+def txt2rtf(text: _typing.Any) -> _typing.Any:
     if text is None:
         return ""
     if isinstance(text, bytes):
@@ -167,16 +169,16 @@ def txt2rtf(text):
 
 
 class RTFMLizer(object):
-    def __init__(self, log):
+    def __init__(self: _typing.Self, log: _typing.Any) -> None:
         self.log = log
 
-    def extract_content(self, oeb_book, opts):
+    def extract_content(self: _typing.Self, oeb_book: _typing.Any, opts: _typing.Any) -> _typing.Any:
         self.log.info("Converting XHTML to RTF markup...")
         self.oeb_book = oeb_book
         self.opts = opts
         return self.mlize_spine()
 
-    def mlize_spine(self):
+    def mlize_spine(self: _typing.Self) -> _typing.Any:
         from LiuXin_alpha.file_formats.oeb.base import XHTML
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
@@ -212,18 +214,18 @@ class RTFMLizer(object):
         output = self.clean_text(output)
         return output
 
-    def remove_newlines(self, text):
+    def remove_newlines(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         self.log.debug("\tRemove newlines for processing...")
         text = text.replace("\r\n", " ")
         text = text.replace("\n", " ")
         text = text.replace("\r", " ")
         return text
 
-    def remove_tabs(self, text):
+    def remove_tabs(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         self.log.debug("\tReplace tabs with space for processing...")
         return text.replace("\t", " ")
 
-    def header(self):
+    def header(self: _typing.Self) -> _typing.Any:
         title_items = getattr(self.oeb_book.metadata, "title", ()) or ()
         creator_items = getattr(self.oeb_book.metadata, "creator", ()) or ()
         title = _meta_value(title_items[0]) if title_items else "Unknown"
@@ -247,10 +249,10 @@ class RTFMLizer(object):
             "{\\s6\\ql \\li0\\ri0\\sb240\\sa120\\keepn\\nowidctlpar\\wrapdefault\\faauto\\outlinelevel5\\rin0\\lin0\\itap0 \\rtlch\\fcs1 \\ab\\af0\\afs21\\alang1033 \\ltrch\\fcs0 \\b\\fs21\\lang1033\\langfe255\\loch\\f1\\hich\\af1\\dbch\\af26\\cgrid\\langnp1033\\langfenp255 \\sbasedon15 \\snext16 \\slink26 heading 6;}}\n"
         )
 
-    def footer(self):
+    def footer(self: _typing.Self) -> str:
         return " }"
 
-    def insert_images(self, text):
+    def insert_images(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
         for item in self.oeb_book.manifest:
@@ -272,7 +274,7 @@ class RTFMLizer(object):
                 text = text.replace("SPECIAL_IMAGE-%s-REPLACE_ME" % src, repl)
         return text
 
-    def image_to_hexstring(self, data):
+    def image_to_hexstring(self: _typing.Self, data: _typing.Any) -> tuple[_typing.Any, ...]:
         data = _convert_image_to_jpeg_bytes(_ensure_bytes(data))
         width, height = _identify_data(data)[:2]
         raw_hex = data.hex()
@@ -282,7 +284,7 @@ class RTFMLizer(object):
         hex_string = "\n".join(hex_lines)
         return hex_string, width, height
 
-    def clean_text(self, text):
+    def clean_text(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         text = re.sub("%s{3,}" % os.linesep, "%s%s" % (os.linesep, os.linesep), text)
         text = re.sub("[ ]{2,}", " ", text)
         text = re.sub("\t{2,}", "\t", text)
@@ -292,7 +294,7 @@ class RTFMLizer(object):
         text = text.replace("\n\r", "\n")
         return text
 
-    def dump_text(self, elem, stylizer, tag_stack=None):
+    def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, tag_stack: _typing.Any = None) -> _typing.Any:
         from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace, urlnormalize
 
         if tag_stack is None:

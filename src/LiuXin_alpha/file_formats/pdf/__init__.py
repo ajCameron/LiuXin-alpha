@@ -3,6 +3,7 @@
 """
 Used for pdf output for comic2pdf
 """
+from __future__ import annotations
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"

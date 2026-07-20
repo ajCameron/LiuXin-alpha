@@ -20,6 +20,9 @@
 #
 
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 # This script lists the content of the manifest.xml file
 import zipfile
@@ -41,7 +44,7 @@ class ODFManifestHandler(handler.ContentHandler):
     """The ODFManifestHandler parses a manifest file and produces a list of
     content"""
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.manifest = {}
 
         # Tags
@@ -50,36 +53,36 @@ class ODFManifestHandler(handler.ContentHandler):
             (MANIFESTNS, "file-entry"): (self.s_file_entry, self.donothing),
         }
 
-    def handle_starttag(self, tag, method, attrs):
+    def handle_starttag(self: _typing.Self, tag: _typing.Any, method: _typing.Any, attrs: _typing.Any) -> None:
         method(tag, attrs)
 
-    def handle_endtag(self, tag, method):
+    def handle_endtag(self: _typing.Self, tag: _typing.Any, method: _typing.Any) -> None:
         method(tag)
 
-    def startElementNS(self, tag, qname, attrs):
+    def startElementNS(self: _typing.Self, tag: _typing.Any, qname: _typing.Any, attrs: _typing.Any) -> None:
         method = self.elements.get(tag, (None, None))[0]
         if method:
             self.handle_starttag(tag, method, attrs)
         else:
             self.unknown_starttag(tag, attrs)
 
-    def endElementNS(self, tag, qname):
+    def endElementNS(self: _typing.Self, tag: _typing.Any, qname: _typing.Any) -> None:
         method = self.elements.get(tag, (None, None))[1]
         if method:
             self.handle_endtag(tag, method)
         else:
             self.unknown_endtag(tag)
 
-    def unknown_starttag(self, tag, attrs):
+    def unknown_starttag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         pass
 
-    def unknown_endtag(self, tag):
+    def unknown_endtag(self: _typing.Self, tag: _typing.Any) -> None:
         pass
 
-    def donothing(self, tag, attrs=None):
+    def donothing(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any = None) -> None:
         pass
 
-    def s_file_entry(self, tag, attrs):
+    def s_file_entry(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         m = attrs.get((MANIFESTNS, "media-type"), "application/octet-stream")
         p = attrs.get((MANIFESTNS, "full-path"))
         self.manifest[p] = {"media-type": m, "full-path": p}
@@ -92,7 +95,7 @@ class ODFManifestHandler(handler.ContentHandler):
 # -----------------------------------------------------------------------------
 
 
-def manifestlist(manifestxml):
+def manifestlist(manifestxml: _typing.Any) -> _typing.Any:
     odhandler = ODFManifestHandler()
     parser = make_parser()
     parser.setFeature(handler.feature_namespaces, 1)
@@ -109,7 +112,7 @@ def manifestlist(manifestxml):
     return odhandler.manifest
 
 
-def odfmanifest(odtfile):
+def odfmanifest(odtfile: _typing.Any) -> _typing.Any:
     z = zipfile.ZipFile(odtfile)
     manifest = z.read("META-INF/manifest.xml")
     z.close()

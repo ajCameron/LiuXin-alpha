@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import random
 from collections import OrderedDict
@@ -20,15 +23,15 @@ __docformat__ = "restructuredtext en"
 NULL = 0xFFFFFFFF
 
 
-def zeroes(x):
+def zeroes(x: _typing.Any) -> _typing.Any:
     return b"\0" * x
 
 
-def nulls(x):
+def nulls(x: _typing.Any) -> _typing.Any:
     return b"\xff" * x
 
 
-def short(x):
+def short(x: _typing.Any) -> _typing.Any:
     return pack(b">H", x)
 
 
@@ -43,7 +46,7 @@ class Header(OrderedDict):
     POSITIONS = {}  # Mapping of position field to field whose position should be stored in the position field
     SHORT_FIELDS = set()
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         OrderedDict.__init__(self)
 
         for line in self.DEFINITION.splitlines():
@@ -69,10 +72,10 @@ class Header(OrderedDict):
                 raise ValueError("Duplicate field in definition: %r" % name)
             self[name] = val
 
-    def dynamic_fields(self):
+    def dynamic_fields(self: _typing.Self) -> _typing.Any:
         return tuple(k for k, v in iteritems(self) if v is None)
 
-    def __call__(self, **kwargs):
+    def __call__(self: _typing.Self, **kwargs: _typing.Any) -> _typing.Any:
         positions = {}
         for name, val in iteritems(kwargs):
             if name not in self:
@@ -100,5 +103,5 @@ class Header(OrderedDict):
             ans = align_block(ans)
         return ans
 
-    def format_value(self, name, val):
+    def format_value(self: _typing.Self, name: _typing.Any, val: _typing.Any) -> _typing.Any:
         return val

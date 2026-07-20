@@ -1,6 +1,9 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 from collections import namedtuple
@@ -25,16 +28,16 @@ except ImportError:
     }
     _RGB_RE = re.compile(r"^rgba?\((.*?)\)$", re.IGNORECASE)
 
-    def _clamp_channel(x):
+    def _clamp_channel(x: _typing.Any) -> _typing.Any:
         return max(0, min(255, int(x)))
 
-    def _parse_component(raw):
+    def _parse_component(raw: _typing.Any) -> _typing.Any:
         raw = raw.strip()
         if raw.endswith("%"):
             return _clamp_channel(round(float(raw[:-1]) * 255.0 / 100.0))
         return _clamp_channel(float(raw))
 
-    def _parse_alpha(raw):
+    def _parse_alpha(raw: _typing.Any) -> _typing.Any:
         raw = raw.strip()
         if raw.endswith("%"):
             return max(0.0, min(1.0, float(raw[:-1]) / 100.0))
@@ -43,7 +46,7 @@ except ImportError:
             return max(0.0, min(1.0, val / 255.0))
         return max(0.0, min(1.0, val))
 
-    def parse_color_string(value):
+    def parse_color_string(value: _typing.Any) -> _typing.Any:
         if value is None:
             return None
         raw = str(value).strip().lower()
@@ -78,7 +81,7 @@ except ImportError:
         return _Color(r / 255.0, g / 255.0, b / 255.0, alpha)
 
 
-def int_or_zero(raw):
+def int_or_zero(raw: _typing.Any) -> _typing.Any:
     try:
         return int(raw)
     except (ValueError, TypeError, AttributeError):
@@ -86,7 +89,7 @@ def int_or_zero(raw):
 
 
 # convert_color() {{{
-def convert_color(value):
+def convert_color(value: _typing.Any) -> _typing.Any:
     if not value:
         return
     if value.lower() == "currentcolor":
@@ -103,11 +106,11 @@ def convert_color(value):
     )
 
 
-def test_convert_color():
+def test_convert_color() -> None:
     import unittest
 
     class TestColors(unittest.TestCase):
-        def test_color_conversion(self):
+        def test_color_conversion(self: _typing.Self) -> None:
             ae = self.assertEqual
             cc = convert_color
             ae(None, cc(None))

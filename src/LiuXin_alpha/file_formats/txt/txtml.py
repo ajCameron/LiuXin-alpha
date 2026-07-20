@@ -3,6 +3,9 @@
 """
 Transform OEB content into plain text
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 from lxml import etree
@@ -53,7 +56,7 @@ class TXTMLizer(object):
     Converts XHTML to text.
     """
 
-    def __init__(self, log):
+    def __init__(self: _typing.Self, log: _typing.Any) -> None:
         self.log = log
 
         self.oeb_book = None
@@ -62,7 +65,7 @@ class TXTMLizer(object):
         self.toc_ids = None
         self.last_was_heading = None
 
-    def extract_content(self, oeb_book, opts):
+    def extract_content(self: _typing.Self, oeb_book: _typing.Any, opts: _typing.Any) -> _typing.Any:
         self.log.info("Converting XHTML to TXT...")
         self.oeb_book = oeb_book
         self.opts = opts
@@ -74,7 +77,7 @@ class TXTMLizer(object):
 
         return self.mlize_spine()
 
-    def mlize_spine(self):
+    def mlize_spine(self: _typing.Self) -> _typing.Any:
         from LiuXin_alpha.file_formats.oeb.base import XHTML
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
@@ -94,7 +97,7 @@ class TXTMLizer(object):
 
         return output
 
-    def remove_newlines(self, text):
+    def remove_newlines(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         self.log.debug("\tRemove newlines for processing...")
         text = text.replace("\r\n", " ")
         text = text.replace("\n", " ")
@@ -104,7 +107,7 @@ class TXTMLizer(object):
 
         return text
 
-    def get_toc(self):
+    def get_toc(self: _typing.Self) -> _typing.Any:
         toc = [""]
         if getattr(self.opts, "inline_toc", None):
             self.log.debug("Generating table of contents...")
@@ -113,7 +116,7 @@ class TXTMLizer(object):
                 toc.append("* %s\n\n" % item)
         return "".join(toc)
 
-    def create_flat_toc(self, nodes):
+    def create_flat_toc(self: _typing.Self, nodes: _typing.Any) -> None:
         """
         Turns a hierarchical list of TOC href's into a flat list.
         :param nodes:
@@ -123,7 +126,7 @@ class TXTMLizer(object):
             self.toc_ids.append(item.href)
             self.create_flat_toc(item.nodes)
 
-    def cleanup_text(self, text):
+    def cleanup_text(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         self.log.debug("\tClean up text...")
         # Replace bad characters.
         text = text.replace("\xc2", "")
@@ -198,7 +201,7 @@ class TXTMLizer(object):
 
         return text
 
-    def dump_text(self, elem, stylizer, page):
+    def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, page: _typing.Any) -> _typing.Any:
         """
         Dump the processed text.
         :param elem:

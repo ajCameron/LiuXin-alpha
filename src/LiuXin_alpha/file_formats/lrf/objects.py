@@ -1,4 +1,7 @@
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import array
 import collections
@@ -43,7 +46,7 @@ class LRFObject(object):
     }
 
     @classmethod
-    def descramble_buffer(cls, buf, l, xorKey):
+    def descramble_buffer(cls: type[_typing.Self], buf: _typing.Any, l: _typing.Any, xorKey: _typing.Any) -> _typing.Any:
         i = 0
         a = array.array("B", buf)
         while l > 0:
@@ -53,11 +56,11 @@ class LRFObject(object):
         return a.tobytes()
 
     @classmethod
-    def parse_empdots(cls, tag, f):
+    def parse_empdots(cls: type[_typing.Self], tag: _typing.Any, f: _typing.Any) -> None:
         cls.refEmpDotsFont, cls.empDotsFontName, cls.empDotsCode = tag.contents
 
     @staticmethod
-    def tag_to_val(h, obj, tag, stream):
+    def tag_to_val(h: _typing.Any, obj: _typing.Any, tag: _typing.Any, stream: _typing.Any) -> _typing.Any:
         val = None
         if h[1] == "D":
             val = tag.dword
@@ -77,7 +80,7 @@ class LRFObject(object):
             val = h[2](val) if callable(h[2]) else h[2][val]
         return val
 
-    def __init__(self, document, stream, id, scramble_key, boundary):
+    def __init__(self: _typing.Self, document: _typing.Any, stream: _typing.Any, id: _typing.Any, scramble_key: _typing.Any, boundary: _typing.Any) -> None:
         self._scramble_key = scramble_key
         self._document = document
         self.id = id
@@ -86,10 +89,10 @@ class LRFObject(object):
             tag = Tag(stream)
             self.handle_tag(tag, stream)
 
-    def parse_bg_image(self, tag, f):
+    def parse_bg_image(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.bg_image_mode, self.bg_image_id = struct.unpack("<HI", tag.contents)
 
-    def handle_tag(self, tag, stream, tag_map=None):
+    def handle_tag(self: _typing.Self, tag: _typing.Any, stream: _typing.Any, tag_map: _typing.Any = None) -> None:
         if tag_map is None:
             tag_map = self.__class__.tag_map
         if tag.id in tag_map:
@@ -100,14 +103,14 @@ class LRFObject(object):
         else:
             raise LRFParseError("Unknown tag in %s: %s" % (self.__class__.__name__, str(tag)))
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for i in range(0):
             yield i
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         return six_unicode(self.__class__.__name__)
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return self.__unicode__()
 
 
@@ -115,7 +118,7 @@ class LRFContentObject(LRFObject):
 
     tag_map = {}
 
-    def __init__(self, bytes, objects):
+    def __init__(self: _typing.Self, bytes: _typing.Any, objects: _typing.Any) -> None:
         self.stream = bytes if hasattr(bytes, "read") else six_BytesIO(bytes)
         length = self.stream_size()
         self.objects = objects
@@ -124,19 +127,19 @@ class LRFContentObject(LRFObject):
         self.in_container = True
         self.parse_stream(length)
 
-    def parse_stream(self, length):
+    def parse_stream(self: _typing.Self, length: _typing.Any) -> None:
         while self.in_container and self.stream.tell() < length:
             tag = Tag(self.stream)
             self.handle_tag(tag)
 
-    def stream_size(self):
+    def stream_size(self: _typing.Self) -> _typing.Any:
         pos = self.stream.tell()
         self.stream.seek(0, 2)
         size = self.stream.tell()
         self.stream.seek(pos)
         return size
 
-    def handle_tag(self, tag):
+    def handle_tag(self: _typing.Self, tag: _typing.Any) -> None:
         if tag.id in self.tag_map:
             action = self.tag_map[tag.id]
             if isinstance(action, six_string_types):
@@ -147,7 +150,7 @@ class LRFContentObject(LRFObject):
         else:
             raise LRFParseError("Unknown tag in %s: %s" % (self.__class__.__name__, str(tag)))
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for i in self._contents:
             yield i
 
@@ -161,19 +164,19 @@ class LRFStream(LRFObject):
     }
     tag_map.update(LRFObject.tag_map)
 
-    def __init__(self, document, stream, id, scramble_key, boundary):
+    def __init__(self: _typing.Self, document: _typing.Any, stream: _typing.Any, id: _typing.Any, scramble_key: _typing.Any, boundary: _typing.Any) -> None:
         self.stream = b""
         self.stream_size = 0
         self.stream_read = False
         LRFObject.__init__(self, document, stream, id, scramble_key, boundary)
 
-    def read_stream_size(self, tag, stream):
+    def read_stream_size(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
         self.stream_size = tag.dword
 
-    def end_stream(self, tag, stream):
+    def end_stream(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
         self.stream_read = True
 
-    def read_stream(self, tag, stream):
+    def read_stream(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
         if self.stream_read:
             raise LRFParseError("There can be only one stream per object")
         if not hasattr(self, "stream_flags"):
@@ -209,13 +212,13 @@ class PageTree(LRFObject):
     }
     tag_map.update(LRFObject.tag_map)
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for elem_id in getattr(self, "_contents", []):
             yield self._document.objects[elem_id]
 
 
 class StyleObject(object):
-    def _tags_to_xml(self):
+    def _tags_to_xml(self: _typing.Self) -> _typing.Any:
         s = ""
         for h in self.tag_map.values():
             attr = h[0]
@@ -223,7 +226,7 @@ class StyleObject(object):
                 s += '%s="%s" ' % (attr, getattr(self, attr))
         return s
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         s = '<%s objid="%s" stylelabel="%s" ' % (
             self.__class__.__name__.replace("Attr", "Style"),
             self.id,
@@ -233,7 +236,7 @@ class StyleObject(object):
         s += "/>\n"
         return s
 
-    def as_dict(self):
+    def as_dict(self: _typing.Self) -> _typing.Any:
         d = {}
         for h in self.tag_map.values():
             attr = h[0]
@@ -266,12 +269,12 @@ class PageAttr(StyleObject, LRFObject):
     tag_map.update(LRFObject.tag_map)
 
     @classmethod
-    def to_css(cls, obj, inline=False):
+    def to_css(cls: type[_typing.Self], obj: _typing.Any, inline: bool = False) -> str:
         return ""
 
 
 class Color(object):
-    def __init__(self, val):
+    def __init__(self: _typing.Self, val: _typing.Any) -> None:
         self.a, self.r, self.g, self.b = (
             val & 0xFF,
             (val >> 8) & 0xFF,
@@ -279,37 +282,37 @@ class Color(object):
             (val >> 24) & 0xFF,
         )
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         return "0x%02x%02x%02x%02x" % (self.a, self.r, self.g, self.b)
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return self.__unicode__()
 
-    def __len__(self):
+    def __len__(self: _typing.Self) -> int:
         return 4
 
-    def __getitem__(self, i):  # Qt compatible ordering and values
+    def __getitem__(self: _typing.Self, i: _typing.Any) -> _typing.Any:  # Qt compatible ordering and values
         return (self.r, self.g, self.b, 0xFF - self.a)[i]  # In Qt 0xff is opaque while in LRS 0x00 is opaque
 
-    def to_html(self):
+    def to_html(self: _typing.Self) -> _typing.Any:
         return "rgb(%d, %d, %d)" % (self.r, self.g, self.b)
 
 
 class EmptyPageElement(object):
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for i in range(0):
             yield i
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return self.__unicode__()
 
 
 class PageDiv(EmptyPageElement):
-    def __init__(self, pain, spacesize, linewidth, linecolor):
+    def __init__(self: _typing.Self, pain: _typing.Any, spacesize: _typing.Any, linewidth: _typing.Any, linecolor: _typing.Any) -> None:
         self.pain, self.spacesize, self.linewidth = pain, spacesize, linewidth
         self.linecolor = Color(linecolor)
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         return '\n<PageDiv pain="%s" spacesize="%s" linewidth="%s" linecolor="%s" />\n' % (
             self.pain,
             self.spacesize,
@@ -329,13 +332,13 @@ class RuledLine(EmptyPageElement):
         0x13: "unknown13",
     }
 
-    def __init__(self, linelength, linetype, linewidth, linecolor):
+    def __init__(self: _typing.Self, linelength: _typing.Any, linetype: _typing.Any, linewidth: _typing.Any, linecolor: _typing.Any) -> None:
         self.linelength, self.linewidth = linelength, linewidth
         self.linetype = self.linetype_map[linetype]
         self.linecolor = Color(linecolor)
         self.id = -1
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         return '\n<RuledLine linelength="%s" linetype="%s" linewidth="%s" linecolor="%s" />\n' % (
             self.linelength,
             self.linetype,
@@ -345,10 +348,10 @@ class RuledLine(EmptyPageElement):
 
 
 class Wait(EmptyPageElement):
-    def __init__(self, time):
+    def __init__(self: _typing.Self, time: _typing.Any) -> None:
         self.time = time
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         return '\n<Wait time="%d" />\n' % self.time
 
 
@@ -362,18 +365,18 @@ class Locate(EmptyPageElement):
         5: "base",
     }
 
-    def __init__(self, pos):
+    def __init__(self: _typing.Self, pos: _typing.Any) -> None:
         self.pos = self.pos_map[pos]
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         return '\n<Locate pos="%s" />\n' % self.pos
 
 
 class BlockSpace(EmptyPageElement):
-    def __init__(self, xspace, yspace):
+    def __init__(self: _typing.Self, xspace: _typing.Any, yspace: _typing.Any) -> None:
         self.xspace, self.yspace = xspace, yspace
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         return '\n<BlockSpace xspace="%d" yspace="%d" />\n' % (self.xspace, self.yspace)
 
 
@@ -404,44 +407,44 @@ class Page(LRFStream):
             0xF5D6: "sound_stop",
         }
 
-        def __init__(self, bytes, objects):
+        def __init__(self: _typing.Self, bytes: _typing.Any, objects: _typing.Any) -> None:
             self.in_blockspace = False
             LRFContentObject.__init__(self, bytes, objects)
 
-        def link(self, tag):
+        def link(self: _typing.Self, tag: _typing.Any) -> None:
             self.close_blockspace()
             self._contents.append(self.objects[tag.dword])
 
-        def page_div(self, tag):
+        def page_div(self: _typing.Self, tag: _typing.Any) -> None:
             self.close_blockspace()
             pars = struct.unpack("<HIHI", tag.contents)
             self._contents.append(PageDiv(*pars))
 
-        def x_space(self, tag):
+        def x_space(self: _typing.Self, tag: _typing.Any) -> None:
             self.xspace = tag.word
             self.in_blockspace = True
 
-        def y_space(self, tag):
+        def y_space(self: _typing.Self, tag: _typing.Any) -> None:
             self.yspace = tag.word
             self.in_blockspace = True
 
-        def do_pos(self, tag):
+        def do_pos(self: _typing.Self, tag: _typing.Any) -> None:
             self.pos = tag.wordself.pos_map[tag.word]
             self.in_blockspace = True
 
-        def ruled_line(self, tag):
+        def ruled_line(self: _typing.Self, tag: _typing.Any) -> None:
             self.close_blockspace()
             pars = struct.unpack("<HHHI", tag.contents)
             self._contents.append(RuledLine(*pars))
 
-        def wait(self, tag):
+        def wait(self: _typing.Self, tag: _typing.Any) -> None:
             self.close_blockspace()
             self._contents.append(Wait(tag.word))
 
-        def sound_stop(self, tag):
+        def sound_stop(self: _typing.Self, tag: _typing.Any) -> None:
             self.close_blockspace()
 
-        def close_blockspace(self):
+        def close_blockspace(self: _typing.Self) -> None:
             if self.in_blockspace:
                 if hasattr(self, "pos"):
                     self._contents.append(Locate(self.pos))
@@ -455,7 +458,7 @@ class Page(LRFStream):
                     if hasattr(self, "yspace"):
                         delattr(self, "yspace")
 
-    def header(self, odd):
+    def header(self: _typing.Self, odd: _typing.Any) -> _typing.Any:
         header_id = (
             self._document.objects[self.style_id].oddheaderid
             if odd
@@ -463,7 +466,7 @@ class Page(LRFStream):
         )
         return self._document.objects[header_id]
 
-    def footer(self, odd):
+    def footer(self: _typing.Self, odd: _typing.Any) -> _typing.Any:
         footer_id = (
             self._document.objects[self.style_id].oddfooterid
             if odd
@@ -471,24 +474,24 @@ class Page(LRFStream):
         )
         return self._document.objects[footer_id]
 
-    def initialize(self):
+    def initialize(self: _typing.Self) -> None:
         self.content = Page.Content(self.stream, self._document.objects)
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for i in self.content:
             yield i
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         s = '\n<Page pagestyle="%d" objid="%d">\n' % (self.style_id, self.id)
         for i in self:
             s += six_unicode(i)
         s += "\n</Page>\n"
         return s
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return self.__unicode__()
 
-    def to_html(self):
+    def to_html(self: _typing.Self) -> _typing.Any:
         s = ""
         for i in self:
             s += i.to_html()
@@ -524,10 +527,10 @@ class BlockAttr(StyleObject, LRFObject):
     tag_map.update(LRFObject.tag_map)
 
     @classmethod
-    def to_css(cls, obj, inline=False):
+    def to_css(cls: type[_typing.Self], obj: _typing.Any, inline: bool = False) -> _typing.Any:
         ans = ""
 
-        def item(line):
+        def item(line: _typing.Any) -> _typing.Any:
             local_ans = "" if inline else "\t"
             local_ans += line
             local_ans += " " if inline else "\n"
@@ -552,10 +555,10 @@ class BlockAttr(StyleObject, LRFObject):
 
 class TextCSS(object):
     @classmethod
-    def to_css(cls, obj, inline=False):
+    def to_css(cls: type[_typing.Self], obj: _typing.Any, inline: bool = False) -> _typing.Any:
         ans = ""
 
-        def item(line):
+        def item(line: _typing.Any) -> _typing.Any:
             local_ans = "" if inline else "\t"
             local_ans += line
             local_ans += " " if inline else "\n"
@@ -643,7 +646,7 @@ class Block(LRFStream, TextCSS):
     style = property(fget=lambda self: self._document.objects[self.style_id])
     textstyle = property(fget=lambda self: self._document.objects[self.textstyle_id])
 
-    def initialize(self):
+    def initialize(self: _typing.Self) -> None:
         self.attrs = {}
         stream = six_BytesIO(self.stream)
         tag = Tag(stream)
@@ -672,7 +675,7 @@ class Block(LRFStream, TextCSS):
             if hasattr(self, attr):
                 self.attrs[attr] = getattr(self, attr)
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         s = '\n<%s objid="%d" blockstyle="%d" ' % (self.name, self.id, self.style_id)
 
         if hasattr(self, "textstyle_id"):
@@ -689,7 +692,7 @@ class Block(LRFStream, TextCSS):
 
         return s.rstrip() + " />\n"
 
-    def to_html(self):
+    def to_html(self: _typing.Self) -> _typing.Any:
         if self.name == "TextBlock":
             return '<div class="block%s text%s">%s</div>' % (
                 self.style_id,
@@ -759,24 +762,24 @@ class Text(LRFStream):
     }
 
     class TextTag(object):
-        def __init__(self, name, attrs=None, self_closing=False):
+        def __init__(self: _typing.Self, name: _typing.Any, attrs: _typing.Any = None, self_closing: bool = False) -> None:
             if attrs is None:
                 attrs = {}
             self.name = name
             self.attrs = attrs
             self.self_closing = self_closing
 
-        def __unicode__(self):
+        def __unicode__(self: _typing.Self) -> _typing.Any:
             s = "<%s " % (self.name,)
             for name, val in self.attrs.items():
                 s += '%s="%s" ' % (name, val)
             return s.rstrip() + (" />" if self.self_closing else ">")
 
-        def to_html(self):
+        def to_html(self: _typing.Self) -> _typing.Any:
             s = ""
             return s
 
-        def close_html(self):
+        def close_html(self: _typing.Self) -> str:
             return ""
 
     class Span(TextTag):
@@ -792,7 +795,7 @@ class Text(LRFStream):
     adjustment_map = {1: "top", 2: "center", 3: "baseline", 4: "bottom"}
     lineposition_map = {1: "before", 2: "after"}
 
-    def add_text(self, text):
+    def add_text(self: _typing.Self, text: _typing.Any) -> None:
         if isinstance(text, (bytes, bytearray, memoryview)):
             s = bytes(text).decode("utf-16-le", "replace")
         else:
@@ -801,13 +804,13 @@ class Text(LRFStream):
             s = s.translate(self.text_map)
             self.content.append(self.entity_pattern.sub(entity_to_unicode, s))
 
-    def end_container(self, tag, stream):
+    def end_container(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
         self.content.append(None)
 
-    def start_para(self, tag, stream):
+    def start_para(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
         self.content.append(self.__class__.TextTag("P"))
 
-    def close_containers(self, start=0):
+    def close_containers(self: _typing.Self, start: int = 0) -> None:
         if len(self.content) == 0:
             return
         open_containers = 0
@@ -822,7 +825,7 @@ class Text(LRFStream):
             start += 1
         self.content.extend(None for i in range(open_containers))
 
-    def end_para(self, tag, stream):
+    def end_para(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
         i = len(self.content) - 1
         while i > -1:
             if isinstance(self.content[i], Text.TextTag) and self.content[i].name == "P":
@@ -830,17 +833,17 @@ class Text(LRFStream):
             i -= 1
         self.close_containers(start=i)
 
-    def cr(self, tag, stream):
+    def cr(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
         self.content.append(self.__class__.TextTag("CR", self_closing=True))
 
-    def char_button(self, tag, stream):
+    def char_button(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
         self.content.append(self.__class__.TextTag("CharButton", attrs={"refobj": tag.dword}))
 
-    def simple_container(self, tag, name):
+    def simple_container(self: _typing.Self, tag: _typing.Any, name: _typing.Any) -> None:
         self.content.append(self.__class__.TextTag(name))
 
-    def empline(self, tag, stream):
-        def invalid(op):
+    def empline(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        def invalid(op: _typing.Any) -> None:
             stream.seek(op)
             # self.simple_container(None, 'EmpLine')
 
@@ -868,10 +871,10 @@ class Text(LRFStream):
         if attrs:
             self.content.append(self.__class__.TextTag("EmpLine", attrs=attrs))
 
-    def space(self, tag, stream):
+    def space(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
         self.content.append(self.__class__.TextTag("Space", attrs={"xsize": tag.sword}, self_closing=True))
 
-    def plot(self, tag, stream):
+    def plot(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
         xsize, ysize, refobj, adjustment = struct.unpack("<HHII", tag.contents)
         plot = self.__class__.TextTag(
             "Plot",
@@ -886,13 +889,13 @@ class Text(LRFStream):
         plot.refobj = self._document.objects[refobj]
         self.content.append(plot)
 
-    def draw_char(self, tag, stream):
+    def draw_char(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
         self.content.append(self.__class__.TextTag("DrawChar", {"line": tag.word}))
 
-    def box(self, tag, stream):
+    def box(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
         self.content.append(self.__class__.TextTag("Box", {"linetype": self.linetype_map[tag.word]}))
 
-    def initialize(self):
+    def initialize(self: _typing.Self) -> None:
         self.content = collections.deque()
         stream = six_BytesIO(self.stream)
         length = len(self.stream)
@@ -905,7 +908,7 @@ class Text(LRFStream):
         while stream.tell() < length:
 
             # Is there some text before a tag?
-            def find_first_tag(start):
+            def find_first_tag(start: _typing.Any) -> _typing.Any:
                 pos = self.stream.find(b"\xf5", start)
                 if pos == -1:
                     return -1
@@ -956,7 +959,7 @@ class Text(LRFStream):
             self.close_containers()
         self.stream = None
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         s = ""
         open_containers = collections.deque()
         for c in self.content:
@@ -980,7 +983,7 @@ class Text(LRFStream):
                 )
         return s
 
-    def to_html(self):
+    def to_html(self: _typing.Self) -> _typing.Any:
         s = ""
         open_containers = collections.deque()
         in_p = False
@@ -1017,16 +1020,16 @@ class Image(LRFObject):
         0xF555: ["comment", "P"],
     }
 
-    def parse_image_rect(self, tag, f):
+    def parse_image_rect(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.x0, self.y0, self.x1, self.y1 = struct.unpack("<HHHH", tag.contents)
 
-    def parse_image_size(self, tag, f):
+    def parse_image_size(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.xsize, self.ysize = struct.unpack("<HH", tag.contents)
 
     encoding = property(fget=lambda self: self._document.objects[self.refstream].encoding)
     data = property(fget=lambda self: self._document.objects[self.refstream].stream)
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         return '<Image objid="%s" x0="%d" y0="%d" x1="%d" y1="%d" xsize="%d" ysize="%d" refstream="%d" />\n' % (
             self.id,
             self.x0,
@@ -1040,11 +1043,11 @@ class Image(LRFObject):
 
 
 class PutObj(EmptyPageElement):
-    def __init__(self, objects, x1, y1, refobj):
+    def __init__(self: _typing.Self, objects: _typing.Any, x1: _typing.Any, y1: _typing.Any, refobj: _typing.Any) -> None:
         self.x1, self.y1, self.refobj = x1, y1, refobj
         self.object = objects[refobj]
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         return '<PutObj x1="%d" y1="%d" refobj="%d" />' % (
             self.x1,
             self.y1,
@@ -1075,12 +1078,12 @@ class Canvas(LRFStream):
         "framemode",
     ]
 
-    def parse_waits(self, tag, f):
+    def parse_waits(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         val = tag.word
         self.setwaitprop = val & 0xF
         self.setwaitsync = val & 0xF0
 
-    def initialize(self):
+    def initialize(self: _typing.Self) -> None:
         self.attrs = {}
         for attr in self.extra_attrs:
             if hasattr(self, attr):
@@ -1094,7 +1097,7 @@ class Canvas(LRFStream):
             except struct.error:
                 print("Canvas object has errors, skipping.")
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         s = '\n<%s objid="%s" ' % (
             self.__class__.__name__,
             self.id,
@@ -1107,7 +1110,7 @@ class Canvas(LRFStream):
         s += "</%s>\n" % (self.__class__.__name__,)
         return s
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for i in self._contents:
             yield i
 
@@ -1134,13 +1137,13 @@ class ImageStream(LRFStream):
 
     encoding = property(fget=lambda self: self.imgext[self.stream_flags & 0xFF].upper())
 
-    def end_stream(self, *args):
+    def end_stream(self: _typing.Self, *args: _typing.Any) -> None:
         LRFStream.end_stream(self, *args)
         self.file = str(self.id) + "." + self.encoding.lower()
         if self._document is not None:
             self._document.image_map[self.id] = self
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         return '<ImageStream objid="%s" encoding="%s" file="%s" />\n' % (
             self.id,
             self.encoding,
@@ -1174,55 +1177,55 @@ class Button(LRFObject):
     }
     tag_map.update(LRFObject.tag_map)
 
-    def __init__(self, document, stream, id, scramble_key, boundary):
+    def __init__(self: _typing.Self, document: _typing.Any, stream: _typing.Any, id: _typing.Any, scramble_key: _typing.Any, boundary: _typing.Any) -> None:
         self.xml = ""
         self.refimage = {}
         self.actions = {}
         self.to_dump = True
         LRFObject.__init__(self, document, stream, id, scramble_key, boundary)
 
-    def do_ref_image(self, tag, f):
+    def do_ref_image(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.refimage[self.button_type] = tag.dword
 
-    def do_base_button(self, tag, f):
+    def do_base_button(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.button_type = 0
         self.actions[self.button_type] = []
 
-    def do_focus_in_button(self, tag, f):
+    def do_focus_in_button(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.button_type = 1
 
-    def do_push_button(self, tag, f):
+    def do_push_button(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.button_type = 2
 
-    def do_up_button(self, tag, f):
+    def do_up_button(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.button_type = 3
 
-    def do_start_actions(self, tag, f):
+    def do_start_actions(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.actions[self.button_type] = []
 
-    def parse_jump_to(self, tag, f):
+    def parse_jump_to(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.actions[self.button_type].append((1, struct.unpack("<II", tag.contents)))
 
-    def parse_send_message(self, tag, f):
+    def parse_send_message(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         params = (tag.word, Tag.string_parser(f), Tag.string_parser(f))
         self.actions[self.button_type].append((2, params))
 
-    def parse_close_window(self, tag, f):
+    def parse_close_window(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.actions[self.button_type].append((3,))
 
-    def parse_sound_stop(self, tag, f):
+    def parse_sound_stop(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.actions[self.button_type].append((4,))
 
-    def parse_run(self, tag, f):
+    def parse_run(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.actions[self.button_type].append((5, struct.unpack("<HI", tag.contents)))
 
-    def jump_action(self, button_type):
+    def jump_action(self: _typing.Self, button_type: _typing.Any) -> _typing.Any:
         for i in self.actions[button_type]:
             if i[0] == 1:
                 return i[1:][0]
         return None, None
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         s = '<Button objid="%s">\n' % (self.id,)
         if self.button_flags & 0x10 != 0:
             s += "<PushButton "
@@ -1264,12 +1267,12 @@ class Font(LRFStream):
     tag_map.update(LRFStream.tag_map)
     data = property(fget=lambda self: self.stream)
 
-    def end_stream(self, *args):
+    def end_stream(self: _typing.Self, *args: _typing.Any) -> None:
         LRFStream.end_stream(self, *args)
         self._document.font_map[self.fontfacename] = self
         self.file = self.fontfacename + ".ttf"
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         s = '<RegistFont objid="%s" fontfilename="%s" fontname="%s" encoding="TTF" file="%s" />\n' % (
             self.id,
             self.fontfilename,
@@ -1293,14 +1296,14 @@ class BookAttr(StyleObject, LRFObject):
     tag_map.update(LRFObject.tag_map)
     binding_map = {1: "Lr", 16: "Rl"}
 
-    def __init__(self, document, stream, id, scramble_key, boundary):
+    def __init__(self: _typing.Self, document: _typing.Any, stream: _typing.Any, id: _typing.Any, scramble_key: _typing.Any, boundary: _typing.Any) -> None:
         self.font_link_list = []
         LRFObject.__init__(self, document, stream, id, scramble_key, boundary)
 
-    def add_font(self, tag, f):
+    def add_font(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
         self.font_link_list.append(tag.dword)
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         s = '<BookStyle objid="%s" stylelabel="%s">\n' % (self.id, self.id)
         s += "<SetDefault %s />\n" % (self._tags_to_xml(),)
         doc = self._document
@@ -1322,10 +1325,10 @@ class SimpleText(Text):
 
 
 class TocLabel(object):
-    def __init__(self, refpage, refobject, label):
+    def __init__(self: _typing.Self, refpage: _typing.Any, refobject: _typing.Any, label: _typing.Any) -> None:
         self.refpage, self.refobject, self.label = refpage, refobject, label
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         return '<TocLabel refpage="%s" refobj="%s">%s</TocLabel>\n' % (
             self.refpage,
             self.refobject,
@@ -1334,7 +1337,7 @@ class TocLabel(object):
 
 
 class TOCObject(LRFStream):
-    def initialize(self):
+    def initialize(self: _typing.Self) -> None:
         stream = six_BytesIO(self.stream)
         c = struct.unpack("<H", stream.read(2))[0]
         stream.seek(4 * (c + 1))
@@ -1348,11 +1351,11 @@ class TOCObject(LRFStream):
             self._contents.append(TocLabel(refpage, refobj, label))
             c -= 1
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for i in self._contents:
             yield i
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         s = "<TOC>\n"
         for i in self:
             s += six_unicode(i)
@@ -1394,7 +1397,7 @@ object_map = [
 ]
 
 
-def get_object(document, stream, id, offset, size, scramble_key):
+def get_object(document: _typing.Any, stream: _typing.Any, id: _typing.Any, offset: _typing.Any, size: _typing.Any, scramble_key: _typing.Any) -> _typing.Any:
     stream.seek(offset)
     start_tag = Tag(stream)
     if start_tag.id != 0xF500:

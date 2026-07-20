@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys, os
 
 from LiuXin_alpha.file_formats.rtf2xml import copy
@@ -42,13 +45,13 @@ class Paragraphs:
     """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        copy=None,
-        write_empty_para=1,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        write_empty_para: int = 1,
+        run_level: int = 1,
+    ) -> None:
         """
         Required:
             'file'--file to parse
@@ -66,7 +69,7 @@ class Paragraphs:
         self.__run_level = run_level
         self.__write_to = better_mktemp()
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
         """
@@ -106,7 +109,7 @@ class Paragraphs:
             "cw<pf<page-break": self.__empty_pgbk_func,  # page break
         }
 
-    def __before_body_func(self, line):
+    def __before_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- line to parse
@@ -120,7 +123,7 @@ class Paragraphs:
             self.__state = "not_paragraph"
         self.__write_obj.write(line)
 
-    def __not_paragraph_func(self, line):
+    def __not_paragraph_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line --line to parse
@@ -136,7 +139,7 @@ class Paragraphs:
             action(line)
         self.__write_obj.write(line)
 
-    def __paragraph_func(self, line):
+    def __paragraph_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line --line to parse
@@ -154,7 +157,7 @@ class Paragraphs:
         else:
             self.__write_obj.write(line)
 
-    def __start_para_func(self, line):
+    def __start_para_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to parse
@@ -169,7 +172,7 @@ class Paragraphs:
         self.__write_obj.write(self.__start2_marker)
         self.__state = "paragraph"
 
-    def __empty_para_func(self, line):
+    def __empty_para_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to parse
@@ -184,7 +187,7 @@ class Paragraphs:
             self.__write_obj.write("mi<tg<empty_____<para\n")
             self.__write_obj.write(self.__end_marker)  # marker for later parsing
 
-    def __empty_pgbk_func(self, line):
+    def __empty_pgbk_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to parse
@@ -195,7 +198,7 @@ class Paragraphs:
         """
         self.__write_obj.write("mi<tg<empty_____<page-break\n")
 
-    def __close_para_func(self, line):
+    def __close_para_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to parse
@@ -211,7 +214,7 @@ class Paragraphs:
         self.__write_obj.write(line)
         self.__state = "not_paragraph"
 
-    def __bogus_para__def_func(self, line):
+    def __bogus_para__def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to parse
@@ -222,7 +225,7 @@ class Paragraphs:
         """
         self.__write_obj.write("mi<mk<bogus-pard\n")
 
-    def make_paragraphs(self):
+    def make_paragraphs(self: _typing.Self) -> None:
         """
         Requires:
             nothing

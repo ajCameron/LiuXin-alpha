@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 import re
 
 __license__ = "GPL 3"
@@ -7,7 +10,7 @@ __copyright__ = "2011, Leigh Parry <leighparry@blueyonder.co.uk>"
 __docformat__ = "restructuredtext en"
 
 
-def unsmarten(txt):
+def unsmarten(txt: _typing.Any) -> _typing.Any:
     txt = re.sub("&#162;|&cent;|¢", r"{c\}", txt)  # cent
     txt = re.sub("&#163;|&pound;|£", r"{L-}", txt)  # pound
     txt = re.sub("&#165;|&yen;|¥", r"{Y=}", txt)  # yen

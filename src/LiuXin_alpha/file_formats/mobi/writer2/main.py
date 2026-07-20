@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import random
 import time
@@ -41,7 +44,7 @@ NULL_INDEX = 0xFFFFFFFF
 FLIS = b"FLIS\0\0\0\x08\0\x41\0\0\0\0\0\0\xff\xff\xff\xff\0\x01\0\x03\0\0\0\x03\0\0\0\x01" + b"\xff" * 4
 
 
-def fcis(text_length):
+def fcis(text_length: _typing.Any) -> _typing.Any:
     local_fcis = b"FCIS\x00\x00\x00\x14\x00\x00\x00\x10\x00\x00\x00\x01\x00\x00\x00\x00"
     local_fcis += pack(b">I", text_length)
     local_fcis += b"\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x08\x00\x01\x00\x01\x00\x00\x00\x00"
@@ -49,7 +52,7 @@ def fcis(text_length):
 
 
 class MobiWriter(object):
-    def __init__(self, opts, resources, kf8, write_page_breaks_after_item=True):
+    def __init__(self: _typing.Self, opts: _typing.Any, resources: _typing.Any, kf8: _typing.Any, write_page_breaks_after_item: bool = True) -> None:
         self.opts = opts
         self.resources = resources
         self.kf8 = kf8
@@ -59,7 +62,7 @@ class MobiWriter(object):
         self.prefer_author_sort = opts.prefer_author_sort
         self.last_text_record_idx = 1
 
-    def __call__(self, oeb, path_or_stream):
+    def __call__(self: _typing.Self, oeb: _typing.Any, path_or_stream: _typing.Any) -> _typing.Any:
         self.log = oeb.log
         pt = None
         if oeb.metadata.publication_type:
@@ -73,14 +76,14 @@ class MobiWriter(object):
         with open(path_or_stream, "w+b") as stream:
             return self.dump_stream(oeb, stream)
 
-    def write(self, *args):
+    def write(self: _typing.Self, *args: _typing.Any) -> None:
         for datum in args:
             self.stream.write(datum)
 
-    def tell(self):
+    def tell(self: _typing.Self) -> _typing.Any:
         return self.stream.tell()
 
-    def dump_stream(self, oeb, stream):
+    def dump_stream(self: _typing.Self, oeb: _typing.Any, stream: _typing.Any) -> None:
         self.oeb = oeb
         self.stream = stream
         self.records = [None]
@@ -89,7 +92,7 @@ class MobiWriter(object):
         self.write_header()
         self.write_content()
 
-    def generate_content(self):
+    def generate_content(self: _typing.Self) -> None:
         self.is_periodical = detect_periodical(self.oeb.toc, self.oeb.log)
         # Image records are stored in their own list, they are merged into the
         # main record list at the end
@@ -102,7 +105,7 @@ class MobiWriter(object):
         self.generate_index()
 
     # Indexing {{{
-    def generate_index(self):
+    def generate_index(self: _typing.Self) -> None:
         self.primary_index_record_idx = None
         if self.oeb.toc.count() < 1:
             self.log.warn("No TOC, MOBI index not generated")
@@ -132,7 +135,7 @@ class MobiWriter(object):
 
     # }}}
 
-    def write_uncrossable_breaks(self):  # {{{
+    def write_uncrossable_breaks(self: _typing.Self) -> None:  # {{{
         """
         Write information about uncrossable breaks (non linear items in
         the spine.
@@ -162,7 +165,7 @@ class MobiWriter(object):
 
     # Images {{{
 
-    def generate_images(self):
+    def generate_images(self: _typing.Self) -> None:
         resources = self.resources
         image_records = resources.records
         self.image_map = resources.item_map
@@ -175,7 +178,7 @@ class MobiWriter(object):
 
     # }}}
 
-    def generate_text(self):  # {{{
+    def generate_text(self: _typing.Self) -> None:  # {{{
         self.oeb.logger.info("Serializing markup content...")
         self.serializer = Serializer(
             self.oeb,
@@ -213,7 +216,7 @@ class MobiWriter(object):
 
     # }}}
 
-    def generate_record0(self):  # MOBI header {{{
+    def generate_record0(self: _typing.Self) -> None:  # MOBI header {{{
         metadata = self.oeb.metadata
         bt = 0x002
         if self.primary_index_record_idx is not None:
@@ -407,7 +410,7 @@ class MobiWriter(object):
 
     # }}}
 
-    def generate_joint_record0(self):  # {{{
+    def generate_joint_record0(self: _typing.Self) -> None:  # {{{
         from LiuXin_alpha.file_formats.mobi.writer8.mobi import MOBIHeader, HEADER_FIELDS
         from LiuXin_alpha.file_formats.mobi.writer8.exth import build_exth
 
@@ -492,7 +495,7 @@ class MobiWriter(object):
 
     # }}}
 
-    def write_header(self):  # PalmDB header {{{
+    def write_header(self: _typing.Self) -> None:  # PalmDB header {{{
         """
         Write the PalmDB header
         """
@@ -521,6 +524,6 @@ class MobiWriter(object):
 
     # }}}
 
-    def write_content(self):
+    def write_content(self: _typing.Self) -> None:
         for record in self.records:
             self.write(record)

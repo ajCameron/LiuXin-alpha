@@ -21,6 +21,9 @@
 # *
 # */
 
+from __future__ import annotations
+
+import typing as _typing
 from LiuXin_alpha.file_formats.unihandecode.pykakasi.jisyo import jisyo
 
 
@@ -28,13 +31,13 @@ class K2a(object):
 
     kanwa = None
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.kanwa = jisyo()
 
-    def isKatakana(self, char):
+    def isKatakana(self: _typing.Self, char: _typing.Any) -> bool:
         return 0x30A0 < ord(char) and ord(char) < 0x30F7
 
-    def convert(self, text):
+    def convert(self: _typing.Self, text: _typing.Any) -> tuple[_typing.Any, ...]:
         Hstr = ""
         max_len = -1
         r = min(10, len(text) + 1)

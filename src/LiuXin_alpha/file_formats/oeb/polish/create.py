@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import sys
@@ -34,17 +37,17 @@ from LiuXin_alpha.utils.libraries.calibre_zipfile import ZIP_STORED, ZipFile
 
 
 class DevNull(object):
-    def __call__(self, *args, **kwargs):
+    def __call__(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
         return None
 
-    def __getattr__(self, name):
+    def __getattr__(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         return self
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def create_toc(mi, opf, html_name, lang):
+def create_toc(mi: _typing.Any, opf: _typing.Any, html_name: _typing.Any, lang: _typing.Any) -> _typing.Any:
     uuid = ""
     for u in opf.xpath('//*[@id="uuid_id"]'):
         uuid = u.text
@@ -54,13 +57,13 @@ def create_toc(mi, opf, html_name, lang):
 
 
 def create_book(
-    mi,
-    path,
-    fmt="epub",
-    opf_name="metadata.opf",
-    html_name="start.xhtml",
-    toc_name="toc.ncx",
-):
+    mi: _typing.Any,
+    path: _typing.Any,
+    fmt: str = "epub",
+    opf_name: str = "metadata.opf",
+    html_name: str = "start.xhtml",
+    toc_name: str = "toc.ncx",
+) -> None:
     """
     Create an empty book in the specified format at the specified location.
     :param mi:

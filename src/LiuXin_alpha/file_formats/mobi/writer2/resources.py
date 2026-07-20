@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.file_formats import generate_masthead
 from LiuXin_alpha.file_formats.mobi import MAX_THUMB_DIMEN, MAX_THUMB_SIZE
@@ -29,7 +32,7 @@ PLACEHOLDER_GIF = (
 
 
 class Resources(object):
-    def __init__(self, oeb, opts, is_periodical, add_fonts=False, process_images=True):
+    def __init__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, is_periodical: _typing.Any, add_fonts: bool = False, process_images: bool = True) -> None:
         self.oeb, self.log, self.opts = oeb, oeb.log, opts
         self.is_periodical = is_periodical
         self.process_images = process_images
@@ -45,12 +48,12 @@ class Resources(object):
 
         self.add_resources(add_fonts)
 
-    def process_image(self, data):
+    def process_image(self: _typing.Self, data: _typing.Any) -> _typing.Any:
         if not self.process_images:
             return data
         return mobify_image(data) if self.opts.mobi_keep_original_images else rescale_image(data)
 
-    def add_resources(self, add_fonts):
+    def add_resources(self: _typing.Self, add_fonts: _typing.Any) -> None:
         oeb = self.oeb
         oeb.logger.info("Serializing resources...")
         index = 1
@@ -122,7 +125,7 @@ class Resources(object):
                     self.item_map[item.href] = len(self.records)
                     self.has_fonts = True
 
-    def add_extra_images(self):
+    def add_extra_images(self: _typing.Self) -> None:
         """
         Add any images that were created after the call to add_resources()
         """
@@ -139,13 +142,13 @@ class Resources(object):
             finally:
                 item.unload_data_from_memory()
 
-    def serialize(self, records, used_images):
+    def serialize(self: _typing.Self, records: _typing.Any, used_images: _typing.Any) -> None:
         used_image_indices = self.used_image_indices | {v - 1 for k, v in iteritems(self.item_map) if k in used_images}
         for i in self.image_indices - used_image_indices:
             self.records[i] = PLACEHOLDER_GIF
         records.extend(self.records)
 
-    def __bool__(self):
+    def __bool__(self: _typing.Self) -> _typing.Any:
         return bool(self.records)
 
     __nonzero__ = __bool__

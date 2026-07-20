@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+from __future__ import annotations
+
+import typing as _typing
 from uuid import uuid4
 import time
 
@@ -84,7 +87,7 @@ SONY_ATOM_ENTRY = """\
 """
 
 
-def sony_metadata(oeb):
+def sony_metadata(oeb: _typing.Any) -> tuple[_typing.Any, ...]:
     m = oeb.metadata
     title = short_title = six_unicode(m.title[0])
     publisher = __appname__ + " " + __version__
@@ -114,7 +117,7 @@ def sony_metadata(oeb):
 
     updated = strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
-    def cal_id(local_x):
+    def cal_id(local_x: _typing.Any) -> bool:
         for k, v in local_x.attrib.items():
             if k.endswith("scheme") and v == "uuid":
                 return True

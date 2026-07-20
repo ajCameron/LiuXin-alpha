@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
@@ -16,7 +19,7 @@ __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def update_internal_links(mobi8_reader, log):
+def update_internal_links(mobi8_reader: _typing.Any, log: _typing.Any) -> _typing.Any:
     # need to update all links that are internal which
     # are based on positions within the xhtml files **BEFORE**
     # cutting and pasting any pieces into the xhtml text files
@@ -58,7 +61,7 @@ def update_internal_links(mobi8_reader, log):
     return parts
 
 
-def remove_kindlegen_markup(parts):
+def remove_kindlegen_markup(parts: _typing.Any) -> None:
 
     # we can safely remove all of the Kindlegen generated aid tags
     find_tag_with_aid_pattern = re.compile(r"""(<[^>]*\said\s*=[^>]*>)""", re.IGNORECASE)
@@ -96,7 +99,7 @@ def remove_kindlegen_markup(parts):
         parts[i] = part
 
 
-def update_flow_links(mobi8_reader, resource_map, log):
+def update_flow_links(mobi8_reader: _typing.Any, resource_map: _typing.Any, log: _typing.Any) -> _typing.Any:
     #   kindle:embed:XXXX?mime=image/gif (png, jpeg, etc) (used for images)
     #   kindle:flow:XXXX?mime=YYYY/ZZZ (used for style sheets, svg images, etc)
     #   kindle:embed:XXXX   (used for fonts)
@@ -203,7 +206,7 @@ def update_flow_links(mobi8_reader, resource_map, log):
     return flows
 
 
-def insert_flows_into_markup(parts, flows, mobi8_reader, log):
+def insert_flows_into_markup(parts: _typing.Any, flows: _typing.Any, mobi8_reader: _typing.Any, log: _typing.Any) -> None:
     mr = mobi8_reader
 
     # kindle:flow:XXXX?mime=YYYY/ZZZ (used for style sheets, svg images, etc)
@@ -236,7 +239,7 @@ def insert_flows_into_markup(parts, flows, mobi8_reader, log):
         parts[i] = part
 
 
-def insert_images_into_markup(parts, resource_map, log):
+def insert_images_into_markup(parts: _typing.Any, resource_map: _typing.Any, log: _typing.Any) -> None:
     # Handle any embedded raster images links in the xhtml text
     # kindle:embed:XXXX?mime=image/gif (png, jpeg, etc) (used for images)
     img_pattern = re.compile(r"""(<[img\s|image\s][^>]*>)""", re.IGNORECASE)
@@ -286,7 +289,7 @@ def insert_images_into_markup(parts, resource_map, log):
         parts[i] = part
 
 
-def upshift_markup(parts):
+def upshift_markup(parts: _typing.Any) -> None:
     tag_pattern = re.compile(r"""(<(?:svg)[^>]*>)""", re.IGNORECASE)
 
     for i in memory_range(len(parts)):
@@ -305,7 +308,7 @@ def upshift_markup(parts):
         parts[i] = part
 
 
-def expand_mobi8_markup(mobi8_reader, resource_map, log):
+def expand_mobi8_markup(mobi8_reader: _typing.Any, resource_map: _typing.Any, log: _typing.Any) -> _typing.Any:
     # First update all internal links that are based on offsets
     parts = update_internal_links(mobi8_reader, log)
 

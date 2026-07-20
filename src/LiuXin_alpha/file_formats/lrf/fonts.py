@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import typing as _typing
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
@@ -22,7 +25,7 @@ LIBERATION_FONT_MAP = {
 FONT_FILE_MAP = {}
 
 
-def get_font(name, size, encoding="unic"):
+def get_font(name: _typing.Any, size: _typing.Any, encoding: str = "unic") -> _typing.Any:
     """
     Get an ImageFont object by name.
     @param size: Font height in pixels. To convert from pts:

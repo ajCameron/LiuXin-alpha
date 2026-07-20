@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import shutil
 import re
@@ -21,12 +24,12 @@ try:
 except ModuleNotFoundError:
     from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as _FallbackImage
 
-    def identify(path):
+    def identify(path: _typing.Any) -> tuple[_typing.Any, ...]:
         with _FallbackImage(path) as img:
             meta = img.identify()
         return meta.get("width", -1), meta.get("height", -1), meta.get("format")
 
-    def identify_data(data):
+    def identify_data(data: _typing.Any) -> tuple[_typing.Any, ...]:
         with _FallbackImage(data) as img:
             meta = img.identify()
         return meta.get("width", -1), meta.get("height", -1), meta.get("format")
@@ -39,7 +42,7 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def set_azw3_cover(container, cover_path, report, options=None):
+def set_azw3_cover(container: _typing.Any, cover_path: _typing.Any, report: _typing.Any, options: _typing.Any = None) -> None:
     existing_image = options is not None and options.get("existing_image", False)
     name = None
     found = True
@@ -65,7 +68,7 @@ def set_azw3_cover(container, cover_path, report, options=None):
     report(_("Cover updated") if found else _("Cover inserted"))
 
 
-def get_azw3_raster_cover_name(container):
+def get_azw3_raster_cover_name(container: _typing.Any) -> _typing.Any:
     items = container.opf_xpath('//opf:guide/opf:reference[@href and contains(@type, "cover")]')
     if items:
         try:
@@ -74,7 +77,7 @@ def get_azw3_raster_cover_name(container):
             return None
 
 
-def mark_as_cover_azw3(container, name):
+def mark_as_cover_azw3(container: _typing.Any, name: _typing.Any) -> None:
     href = container.name_to_href(name, container.opf_name)
     found = False
     for item in container.opf_xpath('//opf:guide/opf:reference[@href and contains(@type, "cover")]'):
@@ -86,19 +89,19 @@ def mark_as_cover_azw3(container, name):
     container.dirty(container.opf_name)
 
 
-def get_raster_cover_name(container):
+def get_raster_cover_name(container: _typing.Any) -> _typing.Any:
     if container.book_type == "azw3":
         return get_azw3_raster_cover_name(container)
     return find_cover_image(container, strict=True)
 
 
-def get_cover_page_name(container):
+def get_cover_page_name(container: _typing.Any) -> _typing.Any:
     if container.book_type == "azw3":
         return
     return find_cover_page(container)
 
 
-def set_cover(container, cover_path, report=None, options=None):
+def set_cover(container: _typing.Any, cover_path: _typing.Any, report: _typing.Any = None, options: _typing.Any = None) -> None:
     """
     Set the cover of the book to the image pointed to by cover_path.
 
@@ -121,7 +124,7 @@ def set_cover(container, cover_path, report=None, options=None):
         set_epub_cover(container, cover_path, report, options=options)
 
 
-def mark_as_cover(container, name):
+def mark_as_cover(container: _typing.Any, name: _typing.Any) -> None:
     """
     Mark the specified image as the cover image.
     :param container:
@@ -143,7 +146,7 @@ def mark_as_cover(container, name):
 # The delightful EPUB cover processing
 
 
-def is_raster_image(media_type):
+def is_raster_image(media_type: _typing.Any) -> bool:
     return media_type and media_type.lower() in {
         "image/png",
         "image/jpeg",
@@ -165,7 +168,7 @@ COVER_TYPES = {
 }
 
 
-def find_cover_image(container, strict=False):
+def find_cover_image(container: _typing.Any, strict: bool = False) -> _typing.Any:
     """
     Find a raster image marked as a cover in the OPF.
     :param container:
@@ -207,7 +210,7 @@ def find_cover_image(container, strict=False):
         return largest_cover[0]
 
 
-def get_guides(container):
+def get_guides(container: _typing.Any) -> _typing.Any:
     guides = container.opf_xpath("//opf:guide")
     if not guides:
         container.insert_into_xml(container.opf, container.opf.makeelement(OPF("guide")))
@@ -215,7 +218,7 @@ def get_guides(container):
     return guides
 
 
-def mark_as_cover_epub(container, name):
+def mark_as_cover_epub(container: _typing.Any, name: _typing.Any) -> None:
     """
     Mark an object as the cover of an epub book.
     :param container:
@@ -259,7 +262,7 @@ def mark_as_cover_epub(container, name):
     container.dirty(container.opf_name)
 
 
-def mark_as_titlepage(container, name, move_to_start=True):
+def mark_as_titlepage(container: _typing.Any, name: _typing.Any, move_to_start: bool = True) -> None:
     """
     Mark the specified HTML file as the titlepage of the EPUB.
 
@@ -293,7 +296,7 @@ def mark_as_titlepage(container, name, move_to_start=True):
     container.dirty(container.opf_name)
 
 
-def find_cover_page(container):
+def find_cover_page(container: _typing.Any) -> _typing.Any:
     """
     Find a document marked as a cover in the OPF
     :param container:
@@ -306,7 +309,7 @@ def find_cover_page(container):
             return name
 
 
-def find_cover_image_in_page(container, cover_page):
+def find_cover_image_in_page(container: _typing.Any, cover_page: _typing.Any) -> _typing.Any:
     root = container.parsed(cover_page)
     body = XPath("//h:body")(root)
     if len(body) != 1:
@@ -329,7 +332,7 @@ def find_cover_image_in_page(container, cover_page):
         return images[0]
 
 
-def clean_opf(container):
+def clean_opf(container: _typing.Any) -> _typing.Iterator[_typing.Any]:
     """
     Remove all references to covers from the OPF
     :param container:
@@ -354,7 +357,7 @@ def clean_opf(container):
     container.dirty(container.opf_name)
 
 
-def create_epub_cover(container, cover_path, existing_image, options=None):
+def create_epub_cover(container: _typing.Any, cover_path: _typing.Any, existing_image: _typing.Any, options: _typing.Any = None) -> tuple[_typing.Any, ...]:
     """
     Create a cover suitable for an
     :param container:
@@ -454,7 +457,7 @@ def create_epub_cover(container, cover_path, existing_image, options=None):
     return raster_cover, titlepage
 
 
-def remove_cover_image_in_page(container, page, cover_images):
+def remove_cover_image_in_page(container: _typing.Any, page: _typing.Any, cover_images: _typing.Any) -> None:
     for img in container.parsed(page).xpath('//*[local-name()="img" and @src]'):
         href = img.get("src")
         try:
@@ -466,7 +469,7 @@ def remove_cover_image_in_page(container, page, cover_images):
         break
 
 
-def set_epub_cover(container, cover_path, report, options=None):
+def set_epub_cover(container: _typing.Any, cover_path: _typing.Any, report: _typing.Any, options: _typing.Any = None) -> None:
     existing_image = options is not None and options.get("existing_image", False)
     if existing_image:
         existing_image = cover_path

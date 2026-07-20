@@ -8,11 +8,14 @@ AZW4 is essentially a PDF wrapped in a MOBI/PDB-like container.
 
 from __future__ import annotations
 
+import typing as _typing
+
 import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from typing import BinaryIO, Union
+from collections.abc import Iterable, Mapping
+from typing import BinaryIO, Protocol, Union, cast
 
 from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
@@ -24,7 +27,26 @@ _PDF_START_MARKER = b"%PDF"
 _PDF_END_MARKER = b"%%EOF"
 
 
-def extract_embedded_pdf_bytes(raw_data: bytes) -> bytes:
+class _Logger(Protocol):
+    def info(self: _typing.Self, *args: object) -> object: ...
+
+
+class _InputPlugin(Protocol):
+    options: Iterable[object]
+
+    def convert(
+        self: _typing.Self,
+        stream: BinaryIO,
+        options: object,
+        file_ext: str,
+        log: _Logger,
+        accelerators: Mapping[str, object],
+    ) -> object: ...
+
+
+def extract_embedded_pdf_bytes(
+    raw_data: bytes | bytearray | memoryview,
+) -> bytes:
     """
     Extract the embedded PDF payload from raw AZW4 bytes.
 
@@ -66,7 +88,7 @@ def unwrap(stream: BinaryIO, output_path: Union[str, Path]) -> None:
         f.write(pdf_data)
 
 
-def _plugin_for_input_format(file_ext: str):
+def _plugin_for_input_format(file_ext: str) -> _InputPlugin | None:
     """
     Return the reader plugin for the given file extension.
 
@@ -75,10 +97,13 @@ def _plugin_for_input_format(file_ext: str):
     """
     from LiuXin_alpha.customize.ui import plugin_for_input_format
 
-    return plugin_for_input_format(file_ext)
+    return cast(_InputPlugin | None, plugin_for_input_format(file_ext))
 
 
-def _apply_recommended_options(options, plugin) -> None:
+def _apply_recommended_options(
+    options: object | None,
+    plugin: _InputPlugin,
+) -> None:
     if options is None:
         return
     for opt in getattr(plugin, "options", ()):
@@ -91,13 +116,22 @@ def _apply_recommended_options(options, plugin) -> None:
 
 
 class Reader(FormatReader):
-    def __init__(self, header, stream, log, options):
+    def __init__(
+        self: _typing.Self,
+        header: object,
+        stream: BinaryIO,
+        log: object,
+        options: object,
+    ) -> None:
         self.header = header
         self.stream = stream
-        self.log = log
+        self.log = cast(_Logger, log)
         self.options = options
 
-    def extract_content(self, output_dir):
+    def extract_content(
+        self: _typing.Self,
+        output_dir: str | os.PathLike[str] | None,
+    ) -> object:
         self.log.info("Extracting PDF from AZW4 Container...")
 
         self.stream.seek(0)

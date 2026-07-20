@@ -21,6 +21,9 @@
 # *
 # */
 
+from __future__ import annotations
+
+import typing as _typing
 from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 
@@ -259,15 +262,15 @@ class H2a(object):
     # this class is Borg
     _shared_state = {}
 
-    def __new__(cls, *p, **k):
+    def __new__(cls: type[_typing.Self], *p: _typing.Any, **k: _typing.Any) -> _typing.Any:
         self = object.__new__(cls, *p, **k)
         self.__dict__ = cls._shared_state
         return self
 
-    def isHiragana(self, char):
+    def isHiragana(self: _typing.Self, char: _typing.Any) -> bool:
         return 0x3040 < ord(char) and ord(char) < 0x3094
 
-    def convert(self, text):
+    def convert(self: _typing.Self, text: _typing.Any) -> tuple[_typing.Any, ...]:
         Hstr = ""
         max_len = -1
         r = min(4, len(text) + 1)

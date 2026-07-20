@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 INLINE PATTERNS
@@ -60,7 +63,7 @@ except ImportError:
     import htmlentitydefs as entities
 
 
-def build_inlinepatterns(md_instance, **kwargs):
+def build_inlinepatterns(md_instance: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     """
     Build the default set of inline patterns for Markdown.
     """
@@ -122,7 +125,7 @@ ENTITY_RE = r"(&[\#a-zA-Z0-9]*;)"  # &amp;
 LINE_BREAK_RE = r"  \n"  # two spaces at end of line
 
 
-def dequote(string):
+def dequote(string: _typing.Any) -> _typing.Any:
     """Remove quotes from around a string."""
     if (string.startswith('"') and string.endswith('"')) or (string.startswith("'") and string.endswith("'")):
         return string[1:-1]
@@ -133,10 +136,10 @@ def dequote(string):
 ATTR_RE = re.compile(r"\{@([^\}]*)=([^\}]*)}")  # {@id=123}
 
 
-def handleAttributes(text, parent):
+def handleAttributes(text: _typing.Any, parent: _typing.Any) -> _typing.Any:
     """Set values of an element based on attribute definitions ({@id=123})."""
 
-    def attributeCallback(match):
+    def attributeCallback(match: _typing.Any) -> None:
         parent.set(match.group(1), match.group(2).replace("\n", " "))
 
     return ATTR_RE.sub(attributeCallback, text)
@@ -151,7 +154,7 @@ The pattern classes
 class Pattern(object):
     """Base class that inline patterns subclass."""
 
-    def __init__(self, pattern, markdown_instance=None):
+    def __init__(self: _typing.Self, pattern: _typing.Any, markdown_instance: _typing.Any = None) -> None:
         """
         Create an instant of an inline pattern.
 
@@ -168,11 +171,11 @@ class Pattern(object):
         if markdown_instance:
             self.markdown = markdown_instance
 
-    def getCompiledRegExp(self):
+    def getCompiledRegExp(self: _typing.Self) -> _typing.Any:
         """Return a compiled regular expression."""
         return self.compiled_re
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> None:
         """Return a ElementTree element from the given match.
 
         Subclasses should override this method.
@@ -184,18 +187,18 @@ class Pattern(object):
         """
         pass
 
-    def type(self):
+    def type(self: _typing.Self) -> _typing.Any:
         """Return class name, to define pattern type"""
         return self.__class__.__name__
 
-    def unescape(self, text):
+    def unescape(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """Return unescaped text given text with an inline placeholder."""
         try:
             stash = self.markdown.treeprocessors["inline"].stashed_nodes
         except KeyError:
             return text
 
-        def itertext(el):
+        def itertext(el: _typing.Any) -> _typing.Iterator[_typing.Any]:
             "Reimplement Element.itertext for older python versions"
             tag = el.tag
             if not isinstance(tag, util.string_type) and tag is not None:
@@ -208,7 +211,7 @@ class Pattern(object):
                 if e.tail:
                     yield e.tail
 
-        def get_stash(m):
+        def get_stash(m: _typing.Any) -> _typing.Any:
             id = m.group(1)
             if id in stash:
                 value = stash.get(id)
@@ -224,7 +227,7 @@ class Pattern(object):
 class SimpleTextPattern(Pattern):
     """Return a simple text of group(2) of a Pattern."""
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         text = m.group(2)
         if text == util.INLINE_PLACEHOLDER_PREFIX:
             return None
@@ -234,7 +237,7 @@ class SimpleTextPattern(Pattern):
 class EscapePattern(Pattern):
     """Return an escaped character."""
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         char = m.group(2)
         if char in self.markdown.ESCAPED_CHARS:
             return "%s%s%s" % (util.STX, ord(char), util.ETX)
@@ -249,11 +252,11 @@ class SimpleTagPattern(Pattern):
 
     """
 
-    def __init__(self, pattern, tag):
+    def __init__(self: _typing.Self, pattern: _typing.Any, tag: _typing.Any) -> None:
         Pattern.__init__(self, pattern)
         self.tag = tag
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         el = util.etree.Element(self.tag)
         el.text = m.group(3)
         return el
@@ -262,18 +265,18 @@ class SimpleTagPattern(Pattern):
 class SubstituteTagPattern(SimpleTagPattern):
     """Return an element of type `tag` with no children."""
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         return util.etree.Element(self.tag)
 
 
 class BacktickPattern(Pattern):
     """Return a `<code>` element containing the matching text."""
 
-    def __init__(self, pattern):
+    def __init__(self: _typing.Self, pattern: _typing.Any) -> None:
         Pattern.__init__(self, pattern)
         self.tag = "code"
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         el = util.etree.Element(self.tag)
         el.text = util.AtomicString(m.group(3).strip())
         return el
@@ -286,7 +289,7 @@ class DoubleTagPattern(SimpleTagPattern):
 
     """
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         tag1, tag2 = self.tag.split(",")
         el1 = util.etree.Element(tag1)
         el2 = util.etree.SubElement(el1, tag2)
@@ -297,19 +300,19 @@ class DoubleTagPattern(SimpleTagPattern):
 class HtmlPattern(Pattern):
     """Store raw inline html and return a placeholder."""
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         rawhtml = self.unescape(m.group(2))
         place_holder = self.markdown.htmlStash.store(rawhtml)
         return place_holder
 
-    def unescape(self, text):
+    def unescape(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """Return unescaped text given text with an inline placeholder."""
         try:
             stash = self.markdown.treeprocessors["inline"].stashed_nodes
         except KeyError:
             return text
 
-        def get_stash(m):
+        def get_stash(m: _typing.Any) -> _typing.Any:
             id = m.group(1)
             value = stash.get(id)
             if value is not None:
@@ -324,7 +327,7 @@ class HtmlPattern(Pattern):
 class LinkPattern(Pattern):
     """Return a link element from the given match."""
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         el = util.etree.Element("a")
         el.text = m.group(2)
         title = m.group(13)
@@ -342,7 +345,7 @@ class LinkPattern(Pattern):
             el.set("title", title)
         return el
 
-    def sanitize_url(self, url):
+    def sanitize_url(self: _typing.Self, url: _typing.Any) -> _typing.Any:
         """
         Sanitize a url against xss attacks in "safe_mode".
 
@@ -392,7 +395,7 @@ class LinkPattern(Pattern):
 class ImagePattern(LinkPattern):
     """Return a img element from the given match."""
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         el = util.etree.Element("img")
         src_parts = m.group(9).split()
         if src_parts:
@@ -419,7 +422,7 @@ class ReferencePattern(LinkPattern):
 
     NEWLINE_CLEANUP_RE = re.compile(r"[ ]?\n", re.MULTILINE)
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         try:
             id = m.group(9).lower()
         except IndexError:
@@ -438,7 +441,7 @@ class ReferencePattern(LinkPattern):
         text = m.group(2)
         return self.makeTag(href, title, text)
 
-    def makeTag(self, href, title, text):
+    def makeTag(self: _typing.Self, href: _typing.Any, title: _typing.Any, text: _typing.Any) -> _typing.Any:
         el = util.etree.Element("a")
 
         el.set("href", self.sanitize_url(href))
@@ -452,7 +455,7 @@ class ReferencePattern(LinkPattern):
 class ImageReferencePattern(ReferencePattern):
     """Match to a stored reference and return img element."""
 
-    def makeTag(self, href, title, text):
+    def makeTag(self: _typing.Self, href: _typing.Any, title: _typing.Any, text: _typing.Any) -> _typing.Any:
         el = util.etree.Element("img")
         el.set("src", self.sanitize_url(href))
         if title:
@@ -468,7 +471,7 @@ class ImageReferencePattern(ReferencePattern):
 class AutolinkPattern(Pattern):
     """Return a link Element given an autolink (`<http://example/com>`)."""
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         el = util.etree.Element("a")
         el.set("href", self.unescape(m.group(2)))
         el.text = util.AtomicString(m.group(2))
@@ -480,13 +483,13 @@ class AutomailPattern(Pattern):
     Return a mailto link Element given an automail link (`<foo@example.com>`).
     """
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         el = util.etree.Element("a")
         email = self.unescape(m.group(2))
         if email.startswith("mailto:"):
             email = email[len("mailto:") :]
 
-        def codepoint2name(code):
+        def codepoint2name(code: _typing.Any) -> _typing.Any:
             """Return entity definition by code, or the code if not defined."""
             entity = entities.codepoint2name.get(code)
             if entity:

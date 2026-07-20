@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 ========================= FOOTNOTES =================================
@@ -45,7 +48,7 @@ TABBED_RE = re.compile(r"((\t)|(    ))(.*)")
 class FootnoteExtension(Extension):
     """Footnote Extension."""
 
-    def __init__(self, configs):
+    def __init__(self: _typing.Self, configs: _typing.Any) -> None:
         """Setup configs."""
         self.config = {
             "PLACE_MARKER": [
@@ -70,7 +73,7 @@ class FootnoteExtension(Extension):
 
         self.reset()
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         """Add pieces to Markdown."""
         md.registerExtension(self)
         self.parser = md.parser
@@ -90,15 +93,15 @@ class FootnoteExtension(Extension):
         # Insert a postprocessor after amp_substitute oricessor
         md.postprocessors.add("footnote", FootnotePostprocessor(self), ">amp_substitute")
 
-    def reset(self):
+    def reset(self: _typing.Self) -> None:
         """Clear the footnotes on reset, and prepare for a distinct document."""
         self.footnotes = OrderedDict()
         self.unique_prefix += 1
 
-    def findFootnotesPlaceholder(self, root):
+    def findFootnotesPlaceholder(self: _typing.Self, root: _typing.Any) -> _typing.Any:
         """Return ElementTree Element that contains Footnote placeholder."""
 
-        def finder(element):
+        def finder(element: _typing.Any) -> tuple[_typing.Any, ...] | None:
             for child in element:
                 if child.text:
                     if child.text.find(self.getConfig("PLACE_MARKER")) > -1:
@@ -112,25 +115,25 @@ class FootnoteExtension(Extension):
         res = finder(root)
         return res
 
-    def setFootnote(self, id, text):
+    def setFootnote(self: _typing.Self, id: _typing.Any, text: _typing.Any) -> None:
         """Store a footnote for later retrieval."""
         self.footnotes[id] = text
 
-    def makeFootnoteId(self, id):
+    def makeFootnoteId(self: _typing.Self, id: _typing.Any) -> _typing.Any:
         """Return footnote link id."""
         if self.getConfig("UNIQUE_IDS"):
             return "fn%s%d-%s" % (self.sep, self.unique_prefix, id)
         else:
             return "fn%s%s" % (self.sep, id)
 
-    def makeFootnoteRefId(self, id):
+    def makeFootnoteRefId(self: _typing.Self, id: _typing.Any) -> _typing.Any:
         """Return footnote back-link id."""
         if self.getConfig("UNIQUE_IDS"):
             return "fnref%s%d-%s" % (self.sep, self.unique_prefix, id)
         else:
             return "fnref%s%s" % (self.sep, id)
 
-    def makeFootnotesDiv(self, root):
+    def makeFootnotesDiv(self: _typing.Self, root: _typing.Any) -> _typing.Any:
         """Return div of footnotes as et Element."""
 
         if not list(self.footnotes.keys()):
@@ -170,10 +173,10 @@ class FootnoteExtension(Extension):
 class FootnotePreprocessor(Preprocessor):
     """Find all footnote references and store for later use."""
 
-    def __init__(self, footnotes):
+    def __init__(self: _typing.Self, footnotes: _typing.Any) -> None:
         self.footnotes = footnotes
 
-    def run(self, lines):
+    def run(self: _typing.Self, lines: _typing.Any) -> _typing.Any:
         """
         Loop through lines and find, set, and remove footnote definitions.
 
@@ -201,7 +204,7 @@ class FootnotePreprocessor(Preprocessor):
                 break
         return newlines
 
-    def detectTabbed(self, lines):
+    def detectTabbed(self: _typing.Self, lines: _typing.Any) -> tuple[_typing.Any, ...]:
         """Find indented text and remove indent before further proccesing.
 
         Keyword arguments:
@@ -215,7 +218,7 @@ class FootnotePreprocessor(Preprocessor):
         blank_line = False  # have we encountered a blank line yet?
         i = 0  # to keep track of where we are
 
-        def detab(line):
+        def detab(line: _typing.Any) -> _typing.Any:
             match = TABBED_RE.match(line)
             if match:
                 return match.group(4)
@@ -262,11 +265,11 @@ class FootnotePreprocessor(Preprocessor):
 class FootnotePattern(Pattern):
     """InlinePattern for footnote markers in a document's body text."""
 
-    def __init__(self, pattern, footnotes):
+    def __init__(self: _typing.Self, pattern: _typing.Any, footnotes: _typing.Any) -> None:
         super(FootnotePattern, self).__init__(pattern)
         self.footnotes = footnotes
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         id = m.group(2)
         if id in self.footnotes.footnotes.keys():
             sup = etree.Element("sup")
@@ -285,10 +288,10 @@ class FootnotePattern(Pattern):
 class FootnoteTreeprocessor(Treeprocessor):
     """Build and append footnote div to end of document."""
 
-    def __init__(self, footnotes):
+    def __init__(self: _typing.Self, footnotes: _typing.Any) -> None:
         self.footnotes = footnotes
 
-    def run(self, root):
+    def run(self: _typing.Self, root: _typing.Any) -> None:
         footnotesDiv = self.footnotes.makeFootnotesDiv(root)
         if footnotesDiv is not None:
             result = self.footnotes.findFootnotesPlaceholder(root)
@@ -308,14 +311,14 @@ class FootnoteTreeprocessor(Treeprocessor):
 class FootnotePostprocessor(Postprocessor):
     """Replace placeholders with html entities."""
 
-    def __init__(self, footnotes):
+    def __init__(self: _typing.Self, footnotes: _typing.Any) -> None:
         self.footnotes = footnotes
 
-    def run(self, text):
+    def run(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         text = text.replace(FN_BACKLINK_TEXT, self.footnotes.getConfig("BACKLINK_TEXT"))
         return text.replace(NBSP_PLACEHOLDER, "&#160;")
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     """Return an instance of the FootnoteExtension"""
     return FootnoteExtension(configs=configs or [])

@@ -12,6 +12,9 @@
 #########################################################################
 
 
+from __future__ import annotations
+
+import typing as _typing
 class OverrideTable:
     """
     Parse a line of text to make the override table. Return a string
@@ -22,17 +25,17 @@ class OverrideTable:
     """
 
     def __init__(
-        self,
-        list_of_lists,
-        bug_handler=Exception,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        list_of_lists: _typing.Any,
+        bug_handler: _typing.Any = Exception,
+        run_level: int = 1,
+    ) -> None:
         self.__list_of_lists = list_of_lists
         self.__bug_handler = bug_handler
         self.__initiate_values()
         self.__run_level = run_level
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         self.__override_table_final = ""
         self.__state = "default"
         self.__override_list = []
@@ -46,7 +49,7 @@ class OverrideTable:
             "cw<ls<list-id___": "list-id",
         }
 
-    def __override_func(self, line):
+    def __override_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line to parse
@@ -66,7 +69,7 @@ class OverrideTable:
                 value = line[20:]
                 self.__override_list[-1][att] = value
 
-    def __parse_override_dict(self):
+    def __parse_override_dict(self: _typing.Self) -> None:
         """
         Requires:
             nothing
@@ -104,7 +107,7 @@ class OverrideTable:
                 break
             counter += 1
 
-    def __parse_lines(self, line):
+    def __parse_lines(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --ine to parse
@@ -133,7 +136,7 @@ class OverrideTable:
         self.__write_final_string()
         # self.__add_to_final_line()
 
-    def __default_func(self, line):
+    def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line to parse
@@ -145,7 +148,7 @@ class OverrideTable:
         if self.__token_info == "ob<nu<open-brack":
             self.__state = "unsure_ob"
 
-    def __after_bracket_func(self, line):
+    def __after_bracket_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line to parse
@@ -169,7 +172,7 @@ class OverrideTable:
             msg += 'token is "%s\n"' % (line)
             raise self.__bug_handler(msg)
 
-    def __write_final_string(self):
+    def __write_final_string(self: _typing.Self) -> None:
         """
         Requires:
             line -- line to parse
@@ -195,7 +198,7 @@ class OverrideTable:
         self.__override_table_final += "mi<mk<overri-end\n" + "mi<tg<close_____<override-table\n"
         self.__override_table_final += "mi<mk<overribend_\n"
 
-    def parse_override_table(self, line):
+    def parse_override_table(self: _typing.Self, line: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Requires:
             line -- line with border definition in it

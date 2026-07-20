@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import logging
 from collections import defaultdict
@@ -49,7 +52,7 @@ __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def used_font(style, embedded_fonts):
+def used_font(style: _typing.Any, embedded_fonts: _typing.Any) -> tuple[_typing.Any, ...]:
     ff = [
         six_unicode(f)
         for f in style.get("font-family", [])
@@ -121,7 +124,7 @@ class EmbedFonts(object):
     Embed all referenced fonts, if found on system. Must be called after CSS flattening.
     """
 
-    def __call__(self, oeb, log, opts):
+    def __call__(self: _typing.Self, oeb: _typing.Any, log: _typing.Any, opts: _typing.Any) -> None:
         if not _HAS_CSSUTILS:
             raise ModuleNotFoundError("cssutils is required for font embedding transforms")
         if not _HAS_FONT_SUBSET:
@@ -147,7 +150,7 @@ class EmbedFonts(object):
             if sheets:
                 self.process_item(item, sheets)
 
-    def find_embedded_fonts(self):
+    def find_embedded_fonts(self: _typing.Self) -> None:
         """
         Find all @font-face rules and extract the relevant info from them.
         :return:
@@ -158,7 +161,7 @@ class EmbedFonts(object):
                 continue
             self.embedded_fonts.extend(find_font_face_rules(item, self.oeb))
 
-    def find_style_rules(self):
+    def find_style_rules(self: _typing.Self) -> None:
         """
         Extract all font related style information from all stylesheets into a
         dict mapping classes to font properties specified by that class. All
@@ -185,7 +188,7 @@ class EmbedFonts(object):
 
         self.style_rules = dict(rules)
 
-    def get_page_sheet(self):
+    def get_page_sheet(self: _typing.Self) -> _typing.Any:
         if self.page_sheet is None:
             manifest = self.oeb.manifest
             id_, href = manifest.generate("page_css", "page_styles.css")
@@ -199,7 +202,7 @@ class EmbedFonts(object):
                 self.log.warn("No <head> cannot embed font rules")
         return self.page_sheet
 
-    def process_item(self, item, sheets):
+    def process_item(self: _typing.Self, item: _typing.Any, sheets: _typing.Any) -> None:
         ff_rules = []
         self.current_item = item
         self.page_sheet = None
@@ -218,7 +221,7 @@ class EmbedFonts(object):
         for body in item.data.xpath('//*[local-name()="body"]'):
             self.find_usage_in(body, base, ff_rules)
 
-    def find_usage_in(self, elem, inherited_style, ff_rules):
+    def find_usage_in(self: _typing.Self, elem: _typing.Any, inherited_style: _typing.Any, ff_rules: _typing.Any) -> None:
         style = elem_style(self.style_rules, elem.get("class", "") or "", inherited_style)
         for child in elem:
             self.find_usage_in(child, style, ff_rules)
@@ -244,7 +247,7 @@ class EmbedFonts(object):
                 ff_rules.append(find_font_face_rules(sheet, self.oeb)[0])
                 page_sheet.data.insertRule(rule, len(page_sheet.data.cssRules))
 
-    def embed_font(self, style):
+    def embed_font(self: _typing.Self, style: _typing.Any) -> _typing.Any:
         ff = [
             six_unicode(f)
             for f in style.get("font-family", [])

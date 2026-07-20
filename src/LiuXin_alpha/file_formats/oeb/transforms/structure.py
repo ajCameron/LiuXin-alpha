@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 import uuid
@@ -21,18 +24,18 @@ __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def XPath(x):
+def XPath(x: _typing.Any) -> _typing.Any:
     try:
         return etree.XPath(x, namespaces=XPNSMAP)
     except etree.XPathSyntaxError:
         raise ConversionError("The syntax of the XPath expression %s is invalid." % repr(x))
 
 
-def isspace(x):
+def isspace(x: _typing.Any) -> bool:
     return not x or x.replace("\xa0", "").isspace()
 
 
-def at_start(elem):
+def at_start(elem: _typing.Any) -> bool:
     """
     Return True if there is no content before elem
     :param elem:
@@ -59,7 +62,7 @@ class DetectStructure(object):
     Detect and implement the structure of the book.
     """
 
-    def __call__(self, oeb, opts):
+    def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any) -> None:
         self.log = oeb.log
         self.oeb = oeb
         self.opts = opts
@@ -126,7 +129,7 @@ class DetectStructure(object):
         if self.opts.start_reading_at:
             self.detect_start_reading()
 
-    def detect_start_reading(self):
+    def detect_start_reading(self: _typing.Self) -> None:
         expr = self.opts.start_reading_at
         try:
             expr = XPath(expr)
@@ -153,7 +156,7 @@ class DetectStructure(object):
                 return
         self.log.warn("Failed to find start reading at position: %s" % self.opts.start_reading_at)
 
-    def get_toc_parts_for_xpath(self, expr):
+    def get_toc_parts_for_xpath(self: _typing.Self, expr: _typing.Any) -> tuple[_typing.Any, ...]:
         # if an attribute is selected by the xpath expr then truncate it
         # from the path and instead return it as where to find the title text
         title_attribute_regex = re.compile(r"/@([-\w]+)$")
@@ -163,11 +166,11 @@ class DetectStructure(object):
 
         return expr, None
 
-    def detect_chapters(self):
+    def detect_chapters(self: _typing.Self) -> None:
         self.detected_chapters = []
         self.chapter_title_attribute = None
 
-        def find_matches(expr, doc):
+        def find_matches(expr: _typing.Any, doc: _typing.Any) -> _typing.Any:
             try:
                 ans = XPath(expr)(doc)
                 len(ans)
@@ -215,18 +218,18 @@ class DetectStructure(object):
                 except TypeError:
                     self.log.exception("Failed to mark chapter")
 
-    def create_level_based_toc(self):
+    def create_level_based_toc(self: _typing.Self) -> None:
         if self.opts.level1_toc is not None:
             self.add_leveled_toc_items()
 
-    def create_toc_from_chapters(self):
+    def create_toc_from_chapters(self: _typing.Self) -> None:
         counter = self.oeb.toc.next_play_order()
         for item, elem in self.detected_chapters:
             text, href = self.elem_to_link(item, elem, self.chapter_title_attribute, counter)
             self.oeb.toc.add(text, href, play_order=counter)
             counter += 1
 
-    def create_toc_from_links(self):
+    def create_toc_from_links(self: _typing.Self) -> None:
         num = 0
         for item in self.oeb.spine:
             for a in XPath("//h:a[@href]")(item.data):
@@ -252,7 +255,7 @@ class DetectStructure(object):
                             self.log("Maximum TOC links reached, stopping.")
                             return
 
-    def elem_to_link(self, item, elem, title_attribute, counter):
+    def elem_to_link(self: _typing.Self, item: _typing.Any, elem: _typing.Any, title_attribute: _typing.Any, counter: _typing.Any) -> tuple[_typing.Any, ...]:
         text = ""
         if title_attribute is not None:
             text = elem.get(title_attribute, "")
@@ -269,12 +272,12 @@ class DetectStructure(object):
         href = "#".join((item.href, elem_id))
         return text, href
 
-    def add_leveled_toc_items(self):
+    def add_leveled_toc_items(self: _typing.Self) -> None:
         added = OrderedDict()
         added2 = OrderedDict()
         counter = 1
 
-        def find_matches(expr, doc):
+        def find_matches(expr: _typing.Any, doc: _typing.Any) -> _typing.Any:
             try:
                 ans = XPath(expr)(doc)
                 len(ans)

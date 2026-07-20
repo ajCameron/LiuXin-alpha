@@ -1,11 +1,14 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
+from __future__ import annotations
+
+import typing as _typing
 from . import util
 from . import odict
 from . import inlinepatterns
 
 
-def build_treeprocessors(md_instance, **kwargs):
+def build_treeprocessors(md_instance: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     """Build the default treeprocessors for Markdown."""
     treeprocessors = odict.OrderedDict()
     treeprocessors["inline"] = InlineProcessor(md_instance)
@@ -13,7 +16,7 @@ def build_treeprocessors(md_instance, **kwargs):
     return treeprocessors
 
 
-def isString(s):
+def isString(s: _typing.Any) -> _typing.Any:
     """Check if it's string"""
     if not isinstance(s, util.AtomicString):
         return isinstance(s, util.string_type)
@@ -32,7 +35,7 @@ class Treeprocessor(util.Processor):
 
     """
 
-    def run(self, root):
+    def run(self: _typing.Self, root: _typing.Any) -> None:
         """
         Subclasses of Treeprocessor should implement a `run` method, which
         takes a root ElementTree. This method can return another ElementTree
@@ -47,20 +50,20 @@ class InlineProcessor(Treeprocessor):
     A Treeprocessor that traverses a tree, applying inline patterns.
     """
 
-    def __init__(self, md):
+    def __init__(self: _typing.Self, md: _typing.Any) -> None:
         self.__placeholder_prefix = util.INLINE_PLACEHOLDER_PREFIX
         self.__placeholder_suffix = util.ETX
         self.__placeholder_length = 4 + len(self.__placeholder_prefix) + len(self.__placeholder_suffix)
         self.__placeholder_re = util.INLINE_PLACEHOLDER_RE
         self.markdown = md
 
-    def __makePlaceholder(self, type):
+    def __makePlaceholder(self: _typing.Self, type: _typing.Any) -> tuple[_typing.Any, ...]:
         """Generate a placeholder"""
         id = "%04d" % len(self.stashed_nodes)
         hash = util.INLINE_PLACEHOLDER % id
         return hash, id
 
-    def __findPlaceholder(self, data, index):
+    def __findPlaceholder(self: _typing.Self, data: _typing.Any, index: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Extract id from data string, start from index
 
@@ -78,13 +81,13 @@ class InlineProcessor(Treeprocessor):
         else:
             return None, index + 1
 
-    def __stashNode(self, node, type):
+    def __stashNode(self: _typing.Self, node: _typing.Any, type: _typing.Any) -> _typing.Any:
         """Add node to stash"""
         placeholder, id = self.__makePlaceholder(type)
         self.stashed_nodes[id] = node
         return placeholder
 
-    def __handleInline(self, data, patternIndex=0):
+    def __handleInline(self: _typing.Self, data: _typing.Any, patternIndex: int = 0) -> _typing.Any:
         """
         Process string with inline patterns and replace it
         with placeholders
@@ -110,7 +113,7 @@ class InlineProcessor(Treeprocessor):
                     patternIndex += 1
         return data
 
-    def __processElementText(self, node, subnode, isText=True):
+    def __processElementText(self: _typing.Self, node: _typing.Any, subnode: _typing.Any, isText: bool = True) -> None:
         """
         Process placeholders in Element.text or Element.tail
         of Elements popped from self.stashed_nodes.
@@ -143,7 +146,7 @@ class InlineProcessor(Treeprocessor):
         for newChild in childResult:
             node.insert(pos, newChild)
 
-    def __processPlaceholders(self, data, parent):
+    def __processPlaceholders(self: _typing.Self, data: _typing.Any, parent: _typing.Any) -> _typing.Any:
         """
         Process string with placeholders and generate ElementTree tree.
 
@@ -156,7 +159,7 @@ class InlineProcessor(Treeprocessor):
 
         """
 
-        def linkText(text):
+        def linkText(text: _typing.Any) -> None:
             if text:
                 if result:
                     if result[-1].tail:
@@ -213,7 +216,7 @@ class InlineProcessor(Treeprocessor):
 
         return result
 
-    def __applyPattern(self, pattern, data, patternIndex, startIndex=0):
+    def __applyPattern(self: _typing.Self, pattern: _typing.Any, data: _typing.Any, patternIndex: _typing.Any, startIndex: int = 0) -> tuple[_typing.Any, ...]:
         """
         Check if the line fits the pattern, create the necessary
         elements, add it to stashed_nodes.
@@ -257,7 +260,7 @@ class InlineProcessor(Treeprocessor):
             0,
         )
 
-    def run(self, tree):
+    def run(self: _typing.Self, tree: _typing.Any) -> _typing.Any:
         """Apply inline patterns to a parsed Markdown tree.
 
         Iterate over ElementTree, find elements with inline tag, apply inline
@@ -323,7 +326,7 @@ class InlineProcessor(Treeprocessor):
 class PrettifyTreeprocessor(Treeprocessor):
     """Add linebreaks to the html document."""
 
-    def _prettifyETree(self, elem):
+    def _prettifyETree(self: _typing.Self, elem: _typing.Any) -> None:
         """Recursively add linebreaks to ElementTree children."""
 
         i = "\n"
@@ -338,7 +341,7 @@ class PrettifyTreeprocessor(Treeprocessor):
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
 
-    def run(self, root):
+    def run(self: _typing.Self, root: _typing.Any) -> None:
         """Add linebreaks to ElementTree root object."""
 
         self._prettifyETree(root)

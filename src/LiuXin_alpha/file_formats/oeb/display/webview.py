@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 
@@ -16,7 +19,7 @@ __docformat__ = "restructuredtext en"
 
 
 class EntityDeclarationProcessor(object):  # {{{
-    def __init__(self, html):
+    def __init__(self: _typing.Self, html: _typing.Any) -> None:
         self.declared_entities = {}
         for match in re.finditer(r"<!\s*ENTITY\s+([^>]+)>", html):
             tokens = match.group(1).split()
@@ -30,7 +33,7 @@ class EntityDeclarationProcessor(object):  # {{{
 # }}}
 
 
-def self_closing_sub(match):
+def self_closing_sub(match: _typing.Any) -> _typing.Any:
     tag = match.group(1)
     if tag.lower().strip() == "br":
         return match.group()
@@ -38,14 +41,14 @@ def self_closing_sub(match):
 
 
 def load_html(
-    path,
-    view,
-    codec="utf-8",
-    mime_type=None,
-    pre_load_callback=lambda x: None,
-    path_is_html=False,
-    force_as_html=False,
-):
+    path: _typing.Any,
+    view: _typing.Any,
+    codec: str = "utf-8",
+    mime_type: _typing.Any = None,
+    pre_load_callback: _typing.Callable[..., _typing.Any] = lambda x: None,
+    path_is_html: bool = False,
+    force_as_html: bool = False,
+) -> bool:
     from PyQt5.Qt import QUrl, QByteArray
 
     if mime_type is None:

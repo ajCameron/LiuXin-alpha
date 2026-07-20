@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 import os
 import io
 
@@ -49,7 +52,7 @@ class PMLOutput(OutputFormatPlugin):
         ),
     }
 
-    def convert(self, oeb_book, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         from LiuXin_alpha.file_formats.pml.pmlml import PMLMLizer
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
@@ -80,7 +83,7 @@ class PMLOutput(OutputFormatPlugin):
             pmlz = ZipFile(output_path, "w")
             pmlz.add_dir(tdir)
 
-    def write_images(self, manifest, image_hrefs, out_dir, opts):
+    def write_images(self: _typing.Self, manifest: _typing.Any, image_hrefs: _typing.Any, out_dir: _typing.Any, opts: _typing.Any) -> None:
         """
         Write images out to the file.
         :param manifest:

@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
@@ -68,7 +71,7 @@ class HTMLInput(InputFormatPlugin):
         ),
     }
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """
         Convert a html file stream into an OEB file.
         :param stream: The html stream (open as rb).
@@ -134,7 +137,7 @@ class HTMLInput(InputFormatPlugin):
 
         return create_oebbook(log, stream.name, options, encoding=options.input_encoding)
 
-    def is_case_sensitive(self, path):
+    def is_case_sensitive(self: _typing.Self, path: _typing.Any) -> _typing.Any:
 
         if getattr(self, "_is_case_sensitive", None) is not None:
             return self._is_case_sensitive
@@ -143,7 +146,7 @@ class HTMLInput(InputFormatPlugin):
         self._is_case_sensitive = not (os.path.exists(path.lower()) and os.path.exists(path.upper()))
         return self._is_case_sensitive
 
-    def create_oebbook(self, htmlpath, basedir, opts, log, mi):
+    def create_oebbook(self: _typing.Self, htmlpath: _typing.Any, basedir: _typing.Any, opts: _typing.Any, log: _typing.Any, mi: _typing.Any) -> _typing.Any:
         """
         Create an oeb book from an HTML document.
         :param htmlpath: The path to the HTML
@@ -286,7 +289,7 @@ class HTMLInput(InputFormatPlugin):
         oeb.container = DirContainer(os.getcwd(), oeb.log, ignore_opf=True)
         return oeb
 
-    def link_to_local_path(self, link_, base=None):
+    def link_to_local_path(self: _typing.Self, link_: _typing.Any, base: _typing.Any = None) -> tuple[_typing.Any, ...]:
 
         from LiuXin_alpha.file_formats.html.input import Link
 
@@ -312,7 +315,7 @@ class HTMLInput(InputFormatPlugin):
             return None, None
         return link, frag
 
-    def resource_adder(self, link_, base=None):
+    def resource_adder(self: _typing.Self, link_: _typing.Any, base: _typing.Any = None) -> _typing.Any:
         from urllib.parse import quote
 
         link, frag = self.link_to_local_path(link_, base=base)
@@ -369,7 +372,7 @@ class HTMLInput(InputFormatPlugin):
             nlink = "#".join((nlink, frag))
         return nlink
 
-    def css_import_handler(self, base, href):
+    def css_import_handler(self: _typing.Self, base: _typing.Any, href: _typing.Any) -> tuple[_typing.Any, ...]:
         link, frag = self.link_to_local_path(href, base=base)
         if link is None or not os.access(link, os.R_OK) or os.path.isdir(link):
             return None, None

@@ -1,5 +1,8 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
+from __future__ import annotations
+
+import typing as _typing
 
 from . import util
 from . import odict
@@ -23,15 +26,15 @@ class State(list):
 
     """
 
-    def set(self, state):
+    def set(self: _typing.Self, state: _typing.Any) -> None:
         """Set a new state."""
         self.append(state)
 
-    def reset(self):
+    def reset(self: _typing.Self) -> None:
         """Step back one step in nested state."""
         self.pop()
 
-    def isstate(self, state):
+    def isstate(self: _typing.Self, state: _typing.Any) -> bool:
         """Test that top (current) level is of given state."""
         if len(self):
             return self[-1] == state
@@ -46,12 +49,12 @@ class BlockParser:
     looping through them and creating an ElementTree object.
     """
 
-    def __init__(self, markdown):
+    def __init__(self: _typing.Self, markdown: _typing.Any) -> None:
         self.blockprocessors = odict.OrderedDict()
         self.state = State()
         self.markdown = markdown
 
-    def parseDocument(self, lines):
+    def parseDocument(self: _typing.Self, lines: _typing.Any) -> _typing.Any:
         """Parse a markdown document into an ElementTree.
 
         Given a list of lines, an ElementTree object (not just a parent Element)
@@ -66,7 +69,7 @@ class BlockParser:
         self.parseChunk(self.root, "\n".join(lines))
         return util.etree.ElementTree(self.root)
 
-    def parseChunk(self, parent, text):
+    def parseChunk(self: _typing.Self, parent: _typing.Any, text: _typing.Any) -> None:
         """Parse a chunk of markdown text and attach to given etree node.
 
         While the ``text`` argument is generally assumed to contain multiple
@@ -80,7 +83,7 @@ class BlockParser:
         """
         self.parseBlocks(parent, text.split("\n\n"))
 
-    def parseBlocks(self, parent, blocks):
+    def parseBlocks(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         """Process blocks of markdown text and attach to given etree node.
 
         Given a list of ``blocks``, each blockprocessor is stepped through

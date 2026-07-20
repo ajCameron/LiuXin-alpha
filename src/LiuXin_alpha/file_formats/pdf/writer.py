@@ -3,6 +3,9 @@
 """
 Write content to PDF.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import shutil
@@ -32,7 +35,7 @@ except Exception:
 
     QEventLoop = QObject = QPrinter = QSizeF = Qt = QPainter = QPixmap = QTimer = QSize = QWebSettings = QWebView = QWebPage = _QtMissingBase
 
-    def pyqtProperty(*_args, **kwargs):
+    def pyqtProperty(*_args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         return property(kwargs.get("fget"), kwargs.get("fset"))
 
 from LiuXin_alpha.file_formats.oeb.display.webview import load_html
@@ -50,12 +53,12 @@ __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def _require_qt():
+def _require_qt() -> None:
     if not _HAS_QT:
         raise RuntimeError("PyQt5 + QtWebKit are required for PDF writing.")
 
 
-def get_custom_size(opts):
+def get_custom_size(opts: _typing.Any) -> _typing.Any:
     custom_size = None
     if opts.custom_size is not None:
         width, sep, height = opts.custom_size.partition("x")
@@ -69,7 +72,7 @@ def get_custom_size(opts):
     return custom_size
 
 
-def get_pdf_printer(opts, for_comic=False, output_file_name=None):  # {{{
+def get_pdf_printer(opts: _typing.Any, for_comic: bool = False, output_file_name: _typing.Any = None) -> _typing.Any:  # {{{
     _require_qt()
     from LiuXin_alpha.surfaces.gui2 import must_use_qt
 
@@ -126,7 +129,7 @@ def get_pdf_printer(opts, for_comic=False, output_file_name=None):  # {{{
 # }}}
 
 
-def draw_image_page(printer, painter, p, preserve_aspect_ratio=True):
+def draw_image_page(printer: _typing.Any, painter: _typing.Any, p: _typing.Any, preserve_aspect_ratio: bool = True) -> None:
     page_rect = printer.pageRect()
     if preserve_aspect_ratio:
         aspect_ratio = float(p.width()) / p.height()
@@ -145,7 +148,7 @@ def draw_image_page(printer, painter, p, preserve_aspect_ratio=True):
 
 
 class Page(QWebPage):  # {{{
-    def __init__(self, opts, log):
+    def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any) -> None:
         _require_qt()
         self.log = log
         QWebPage.__init__(self)
@@ -169,10 +172,10 @@ class Page(QWebPage):  # {{{
         if opts.pdf_mono_family:
             settings.setFontFamily(QWebSettings.FixedFont, opts.pdf_mono_family)
 
-    def javaScriptConsoleMessage(self, msg, lineno, msgid):
+    def javaScriptConsoleMessage(self: _typing.Self, msg: _typing.Any, lineno: _typing.Any, msgid: _typing.Any) -> None:
         self.log.debug("JS:", six_unicode(msg))
 
-    def javaScriptAlert(self, frame, msg):
+    def javaScriptAlert(self: _typing.Self, frame: _typing.Any, msg: _typing.Any) -> None:
         self.log(six_unicode(msg))
 
 
@@ -180,7 +183,7 @@ class Page(QWebPage):  # {{{
 
 
 class PDFWriter(QObject):  # {{{
-    def __init__(self, opts, log, cover_data=None, toc=None):
+    def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any, cover_data: _typing.Any = None, toc: _typing.Any = None) -> None:
         _require_qt()
         from LiuXin_alpha.surfaces.gui2 import must_use_qt
         from LiuXin_alpha.utils.podofo import get_podofo
@@ -209,7 +212,7 @@ class PDFWriter(QObject):  # {{{
         self.paged_js = None
         self.toc = toc
 
-    def dump(self, items, out_stream, pdf_metadata):
+    def dump(self: _typing.Self, items: _typing.Any, out_stream: _typing.Any, pdf_metadata: _typing.Any) -> None:
         self.metadata = pdf_metadata
         self._delete_tmpdir()
         self.outline = Outline(self.toc, items)
@@ -234,7 +237,7 @@ class PDFWriter(QObject):  # {{{
         if not self.render_succeeded:
             raise Exception("Rendering HTML to PDF failed")
 
-    def _render_book(self):
+    def _render_book(self: _typing.Self) -> None:
         try:
             if len(self.render_queue) == 0:
                 self._write()
@@ -244,14 +247,14 @@ class PDFWriter(QObject):  # {{{
             self.logger.exception("Rendering failed - %s", e)
             self.loop.exit(1)
 
-    def _render_next(self):
+    def _render_next(self: _typing.Self) -> None:
         item = six_unicode(self.render_queue.pop(0))
 
         self.logger.debug("Processing %s..." % item)
         self.current_item = item
         load_html(item, self.view)
 
-    def _render_html(self, ok):
+    def _render_html(self: _typing.Self, ok: _typing.Any) -> None:
         if ok:
             self.do_paged_render()
         else:
@@ -261,16 +264,16 @@ class PDFWriter(QObject):  # {{{
             return
         self._render_book()
 
-    def _pass_json_value_getter(self):
+    def _pass_json_value_getter(self: _typing.Self) -> _typing.Any:
         val = json.dumps(self.bridge_value)
         return val
 
-    def _pass_json_value_setter(self, value):
+    def _pass_json_value_setter(self: _typing.Self, value: _typing.Any) -> None:
         self.bridge_value = json.loads(six_unicode(value))
 
     _pass_json_value = pyqtProperty(str, fget=_pass_json_value_getter, fset=_pass_json_value_setter)
 
-    def setup_printer(self, outpath):
+    def setup_printer(self: _typing.Self, outpath: _typing.Any) -> None:
         self.printer = self.painter = None
         printer = get_pdf_printer(self.opts, output_file_name=outpath)
         painter = QPainter(printer)
@@ -282,7 +285,7 @@ class PDFWriter(QObject):  # {{{
         self.viewport_size = QSize(pr.width() / zoomx, pr.height() / zoomy)
         self.page.setViewportSize(self.viewport_size)
 
-    def do_paged_render(self):
+    def do_paged_render(self: _typing.Self) -> None:
         if self.paged_js is None:
             from LiuXin_alpha.utils.resources import compiled_coffeescript
 
@@ -334,19 +337,19 @@ class PDFWriter(QObject):  # {{{
             pagenum, ypos = x
             self.outline.set_pos(self.current_item, anchor, start_page + pagenum, ypos)
 
-    def append_doc(self, outpath):
+    def append_doc(self: _typing.Self, outpath: _typing.Any) -> None:
         doc = self.podofo.PDFDoc()
         with open(outpath, "rb") as f:
             raw = f.read()
         doc.load(raw)
         self.doc.append(doc)
 
-    def _delete_tmpdir(self):
+    def _delete_tmpdir(self: _typing.Self) -> None:
         if os.path.exists(self.tmp_path):
             shutil.rmtree(self.tmp_path, True)
             self.tmp_path = PersistentTemporaryDirectory("_pdf_output_parts")
 
-    def insert_cover(self):
+    def insert_cover(self: _typing.Self) -> None:
         if not isinstance(self.cover_data, bytes):
             return
         item_path = os.path.join(self.tmp_path, "cover.pdf")
@@ -366,7 +369,7 @@ class PDFWriter(QObject):  # {{{
             self.append_doc(item_path)
         printer.abort()
 
-    def _write(self):
+    def _write(self: _typing.Self) -> None:
         self.painter.end()
         self.printer.abort()
         self.painter = self.printer = None
@@ -393,11 +396,11 @@ class PDFWriter(QObject):  # {{{
 
 
 class ImagePDFWriter(object):  # {{{
-    def __init__(self, opts, log, cover_data=None, toc=None):
+    def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any, cover_data: _typing.Any = None, toc: _typing.Any = None) -> None:
         self.opts = opts
         self.log = log
 
-    def dump(self, items, out_stream, pdf_metadata):
+    def dump(self: _typing.Self, items: _typing.Any, out_stream: _typing.Any, pdf_metadata: _typing.Any) -> None:
         from LiuXin_alpha.utils.podofo import get_podofo
 
         f = PersistentTemporaryFile("_comic2pdf.pdf")
@@ -425,7 +428,7 @@ class ImagePDFWriter(object):  # {{{
             except:
                 pass
 
-    def render_images(self, outpath, mi, items):
+    def render_images(self: _typing.Self, outpath: _typing.Any, mi: _typing.Any, items: _typing.Any) -> None:
         _require_qt()
         printer = get_pdf_printer(self.opts, for_comic=True, output_file_name=outpath)
         printer.setDocName(mi.title)

@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import struct
@@ -35,7 +38,7 @@ __docformat__ = "restructuredtext en"
 
 
 class FDST(object):
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         if raw[:4] != b"FDST":
             raise ValueError("KF8 does not have a valid FDST record")
         self.sec_off, self.num_sections = struct.unpack_from(b">LL", raw, 4)
@@ -48,10 +51,10 @@ class FDST(object):
             raise ValueError("FDST record has trailing data: %s" % format_bytes(rest))
         self.sections = tuple(six_zip(secs[::2], secs[1::2]))
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         ans = ["FDST record"]
 
-        def a(k, v):
+        def a(k: _typing.Any, v: _typing.Any) -> None:
             ans.append("%s: %s" % (k, v))
 
         a("Offset to sections", self.sec_off)
@@ -64,12 +67,12 @@ class FDST(object):
 
 
 class File(object):
-    def __init__(self, skel, skeleton, text, first_aid, sections):
+    def __init__(self: _typing.Self, skel: _typing.Any, skeleton: _typing.Any, text: _typing.Any, first_aid: _typing.Any, sections: _typing.Any) -> None:
         self.name = "part%04d" % skel.file_number
         self.skeleton, self.text, self.first_aid = skeleton, text, first_aid
         self.sections = sections
 
-    def dump(self, ddir):
+    def dump(self: _typing.Self, ddir: _typing.Any) -> None:
         with open(os.path.join(ddir, self.name + ".html"), "wb") as f:
             f.write(self.text)
         base = os.path.join(ddir, self.name + "-parts")
@@ -83,7 +86,7 @@ class File(object):
 
 
 class MOBIFile(object):
-    def __init__(self, mf):
+    def __init__(self: _typing.Self, mf: _typing.Any) -> None:
         self.mf = mf
         h, h8 = mf.mobi_header, mf.mobi8_header
         first_text_record = 1
@@ -111,7 +114,7 @@ class MOBIFile(object):
         self.build_files()
         self.read_tbs()
 
-    def print_header(self, f=sys.stdout):
+    def print_header(self: _typing.Self, f: _typing.Any = sys.stdout) -> None:
         print(str(self.mf.palmdb).encode("utf-8"), file=f)
         print(file=f)
         print("Record headers:", file=f)
@@ -121,7 +124,7 @@ class MOBIFile(object):
         print(file=f)
         print(str(self.mf.mobi8_header).encode("utf-8"), file=f)
 
-    def read_fdst(self):
+    def read_fdst(self: _typing.Self) -> None:
         self.fdst = None
 
         if self.header.fdst_idx != NULL_INDEX:
@@ -130,13 +133,13 @@ class MOBIFile(object):
             if self.fdst.num_sections != self.header.fdst_count:
                 raise ValueError("KF8 Header contains invalid FDST count")
 
-    def read_indices(self):
+    def read_indices(self: _typing.Self) -> None:
         self.skel_index = SKELIndex(self.header.skel_idx, self.mf.records, self.header.encoding)
         self.sect_index = SECTIndex(self.header.sect_idx, self.mf.records, self.header.encoding)
         self.ncx_index = NCXIndex(self.header.primary_index_record, self.mf.records, self.header.encoding)
         self.guide_index = GuideIndex(self.header.oth_idx, self.mf.records, self.header.encoding)
 
-    def build_files(self):
+    def build_files(self: _typing.Self) -> None:
         text = self.raw_text
         self.files = []
         for skel in self.skel_index.records:
@@ -155,7 +158,7 @@ class MOBIFile(object):
 
             self.files.append(File(skel, skeleton, ftext, first_aid, sections))
 
-    def dump_flows(self, ddir):
+    def dump_flows(self: _typing.Self, ddir: _typing.Any) -> None:
         boundaries = [(0, len(self.raw_text))]
         if self.fdst is not None:
             boundaries = self.fdst.sections
@@ -165,7 +168,7 @@ class MOBIFile(object):
             with open(os.path.join(ddir, "flow%04d.txt" % i), "wb") as f:
                 f.write(raw)
 
-    def extract_resources(self, records):
+    def extract_resources(self: _typing.Self, records: _typing.Any) -> None:
         self.resource_map = []
         self.containers = []
         known_types = {
@@ -242,7 +245,7 @@ class MOBIFile(object):
 
             self.resource_map.append(("%s/%06d%s.%s" % (prefix, resource_index, suffix, ext), payload))
 
-    def read_tbs(self):
+    def read_tbs(self: _typing.Self) -> None:
         from LiuXin_alpha.file_formats.mobi.writer8.tbs import (
             Entry,
             DOC,
@@ -331,7 +334,7 @@ class MOBIFile(object):
             self.indexing_data.append("\n".join(desc))
 
 
-def inspect_mobi(mobi_file, ddir):
+def inspect_mobi(mobi_file: _typing.Any, ddir: _typing.Any) -> None:
     f = MOBIFile(mobi_file)
     with open(os.path.join(ddir, "header.txt"), "wb") as out:
         f.print_header(f=out)

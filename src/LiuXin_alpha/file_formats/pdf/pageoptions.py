@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 # Probably used as part of the reader system
+from __future__ import annotations
+
+import typing as _typing
 try:
     from PyQt5.Qt import QPrinter
 except Exception:
@@ -64,7 +67,7 @@ UNITS = {
 }
 
 
-def unit(unit):
+def unit(unit: _typing.Any) -> _typing.Any:
     return UNITS.get(unit, QPrinter.Inch)
 
 
@@ -103,7 +106,7 @@ PAPER_SIZES = {
 }
 
 
-def paper_size(size):
+def paper_size(size: _typing.Any) -> _typing.Any:
     return PAPER_SIZES.get(size, QPrinter.Letter)
 
 
@@ -113,11 +116,11 @@ ORIENTATIONS = {
 }
 
 
-def orientation(orientation):
+def orientation(orientation: _typing.Any) -> _typing.Any:
     return ORIENTATIONS.get(orientation, QPrinter.Portrait)
 
 
-def size(size):
+def size(size: _typing.Any) -> _typing.Any:
     try:
         return int(size)
     except:

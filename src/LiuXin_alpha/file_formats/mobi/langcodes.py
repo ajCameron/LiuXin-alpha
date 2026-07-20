@@ -1,5 +1,8 @@
 #!/usr/bin/env  python
 
+from __future__ import annotations
+
+import typing as _typing
 from struct import pack
 
 # Todo: Test and make sure this hack actually works
@@ -306,7 +309,7 @@ IANA_MOBI = {
 }
 
 
-def iana2mobi(icode):
+def iana2mobi(icode: _typing.Any) -> _typing.Any:
     langdict, subtags = IANA_MOBI[None], []
     if icode:
         subtags = list(icode.split("-"))
@@ -330,7 +333,7 @@ def iana2mobi(icode):
     return pack(">HBB", 0, mcode[1], mcode[0])
 
 
-def mobi2iana(langcode, sublangcode):
+def mobi2iana(langcode: _typing.Any, sublangcode: _typing.Any) -> _typing.Any:
     prefix = suffix = None
     for code, d in IANA_MOBI.items():
         for subcode, t in d.items():

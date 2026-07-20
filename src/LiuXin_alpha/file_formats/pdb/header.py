@@ -2,6 +2,9 @@
 """
 Read the header data from a pdb file.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 import struct
@@ -20,7 +23,7 @@ PALMDB_RECORD_TABLE_TRAILER_SIZE = 2
 
 
 class PdbHeaderReader(object):
-    def __init__(self, stream):
+    def __init__(self: _typing.Self, stream: _typing.Any) -> None:
         self.stream = stream
         self.stream_length = self._stream_length()
         self.ident = self.identity()
@@ -28,7 +31,7 @@ class PdbHeaderReader(object):
         self.title = self.name()
         self.section_headers = self._read_section_table()
 
-    def _stream_length(self):
+    def _stream_length(self: _typing.Self) -> _typing.Any:
         try:
             current = self.stream.tell()
         except Exception:
@@ -44,7 +47,7 @@ class PdbHeaderReader(object):
             except Exception:
                 pass
 
-    def _read_exact(self, offset, length, context):
+    def _read_exact(self: _typing.Self, offset: _typing.Any, length: _typing.Any, context: _typing.Any) -> _typing.Any:
         try:
             self.stream.seek(offset)
             data = self.stream.read(length)
@@ -56,25 +59,25 @@ class PdbHeaderReader(object):
             raise PDBError("Truncated %s" % context)
         return data
 
-    def _validate_section_number(self, number):
+    def _validate_section_number(self: _typing.Self, number: _typing.Any) -> None:
         if not (0 <= number < self.num_sections):
             raise PDBError("Not a valid section number %i" % number)
 
-    def identity(self):
+    def identity(self: _typing.Self) -> _typing.Any:
         return self._read_exact(60, 8, "PDB identity").decode("utf-8", "replace")
 
-    def section_count(self):
+    def section_count(self: _typing.Self) -> _typing.Any:
         (count,) = struct.unpack(">H", self._read_exact(76, 2, "PDB record count"))
         if count < 1:
             raise PDBError("PDB record count must be at least one")
         return count
 
-    def name(self):
+    def name(self: _typing.Self) -> _typing.Any:
         raw_name = self._read_exact(0, 32, "PDB name")
         cleaned = re.sub(br"[^-A-Za-z0-9 ]+", b"_", raw_name.replace(b"\x00", b""))
         return cleaned.decode("ascii", "replace")
 
-    def _read_section_table(self):
+    def _read_section_table(self: _typing.Self) -> _typing.Any:
         table_start = PALMDB_HEADER_SIZE
         table_length = self.num_sections * PALMDB_RECORD_TABLE_ENTRY_SIZE
         table_end = table_start + table_length
@@ -105,15 +108,15 @@ class PdbHeaderReader(object):
 
         return tuple(headers)
 
-    def full_section_info(self, number):
+    def full_section_info(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         self._validate_section_number(number)
         return self.section_headers[number]
 
-    def section_offset(self, number):
+    def section_offset(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         self._validate_section_number(number)
         return self.section_headers[number][0]
 
-    def section_data(self, number):
+    def section_data(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         self._validate_section_number(number)
 
         start = self.section_offset(number)
@@ -125,13 +128,13 @@ class PdbHeaderReader(object):
 
 
 class PdbHeaderBuilder(object):
-    def __init__(self, identity, title):
+    def __init__(self: _typing.Self, identity: _typing.Any, title: _typing.Any) -> None:
         self.identity = identity.ljust(3, "\x00")[:8].encode("utf-8")
         if isinstance(title, str):
             title = title.encode("ascii", "replace")
         self.title = b"%s\x00" % re.sub(br"[^-A-Za-z0-9 ]+", b"_", title).ljust(31, b"\x00")[:31]
 
-    def build_header(self, section_lengths, out_stream):
+    def build_header(self: _typing.Self, section_lengths: _typing.Any, out_stream: _typing.Any) -> None:
         """
         Make a header for a pdb file.
         :param section_lengths: Length of each section in file

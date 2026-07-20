@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import sys
@@ -26,7 +29,7 @@ class LRFInput(InputFormatPlugin):
     description = "Convert LRF files to HTML"
     file_types = {"lrf"}
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """
         Convert an lrf file to an OEB.
         :param stream:

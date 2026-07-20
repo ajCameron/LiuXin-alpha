@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Tables Extension for Python-Markdown
@@ -25,7 +28,7 @@ from ..util import etree
 class TableProcessor(BlockProcessor):
     """Process Tables."""
 
-    def test(self, parent, block):
+    def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> bool:
         rows = block.split("\n")
         return (
             len(rows) > 2
@@ -35,7 +38,7 @@ class TableProcessor(BlockProcessor):
             and rows[1].strip()[0] in ["|", ":", "-"]
         )
 
-    def run(self, parent, blocks):
+    def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         """Parse a table block and build table."""
         block = blocks.pop(0).split("\n")
         header = block[0].strip()
@@ -64,7 +67,7 @@ class TableProcessor(BlockProcessor):
         for row in rows:
             self._build_row(row.strip(), tbody, align, border)
 
-    def _build_row(self, row, parent, align, border):
+    def _build_row(self: _typing.Self, row: _typing.Any, parent: _typing.Any, align: _typing.Any, border: _typing.Any) -> None:
         """Given a row of text, build table cells."""
         tr = etree.SubElement(parent, "tr")
         tag = "td"
@@ -82,7 +85,7 @@ class TableProcessor(BlockProcessor):
             if a:
                 c.set("align", a)
 
-    def _split_row(self, row, border):
+    def _split_row(self: _typing.Self, row: _typing.Any, border: _typing.Any) -> _typing.Any:
         """split a row of text into list of cells."""
         if border:
             if row.startswith("|"):
@@ -95,10 +98,10 @@ class TableProcessor(BlockProcessor):
 class TableExtension(Extension):
     """Add tables to Markdown."""
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         """Add an instance of TableProcessor to BlockParser."""
         md.parser.blockprocessors.add("table", TableProcessor(md.parser), "<hashheader")
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return TableExtension(configs=configs)

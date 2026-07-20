@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys
 import os
 from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
@@ -22,7 +25,7 @@ class Output:
     Output file
     """
 
-    def __init__(self, file, orig_file, output_dir=None, out_file=None, no_ask=True):
+    def __init__(self: _typing.Self, file: _typing.Any, orig_file: _typing.Any, output_dir: _typing.Any = None, out_file: _typing.Any = None, no_ask: bool = True) -> None:
         """
         Required:
             'file' -- xml file ready to output
@@ -38,7 +41,7 @@ class Output:
         self.__no_ask = no_ask
         self.__out_file = out_file
 
-    def output(self):
+    def output(self: _typing.Self) -> None:
         """
         Required:
             nothing
@@ -56,7 +59,7 @@ class Output:
         else:
             self.__output_to_standard_func()
 
-    def __output_to_dir_func(self):
+    def __output_to_dir_func(self: _typing.Self) -> None:
         """
         Requires:
             nothing
@@ -86,7 +89,7 @@ class Output:
         else:
             self.__output_to_standard_func()
 
-    def __output_to_file_func(self):
+    def __output_to_file_func(self: _typing.Self) -> None:
         """
         Required:
             nothing
@@ -100,7 +103,7 @@ class Output:
                 for line in read_obj:
                     write_obj.write(line)
 
-    def __output_to_standard_func(self):
+    def __output_to_standard_func(self: _typing.Self) -> None:
         """
         Required:
             nothing

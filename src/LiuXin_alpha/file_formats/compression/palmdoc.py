@@ -5,8 +5,11 @@
 
 from __future__ import annotations
 
+import typing as _typing
+
 from struct import pack
-from typing import Any
+from collections.abc import Callable
+from typing import Protocol, TypeAlias, cast
 
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.plugins import plugins
@@ -17,7 +20,36 @@ __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def _as_bytes(data: Any) -> bytes:
+PalmDocInput: TypeAlias = str | bytes | bytearray | memoryview | None
+
+
+class _PalmDocCodec(Protocol):
+    def compress(self: _typing.Self, data: bytes) -> bytes: ...
+
+    def decompress(self: _typing.Self, data: bytes) -> bytes: ...
+
+
+class _PalmDocModuleAdapter:
+    """Give compiled or Python plugin modules one checked codec interface."""
+
+    def __init__(self: _typing.Self, module: object) -> None:
+        self._compress = cast(
+            Callable[[bytes], bytes],
+            getattr(module, "compress"),
+        )
+        self._decompress = cast(
+            Callable[[bytes], bytes],
+            getattr(module, "decompress"),
+        )
+
+    def compress(self: _typing.Self, data: bytes) -> bytes:
+        return self._compress(data)
+
+    def decompress(self: _typing.Self, data: bytes) -> bytes:
+        return self._decompress(data)
+
+
+def _as_bytes(data: PalmDocInput) -> bytes:
     if data is None:
         return b""
     if isinstance(data, bytes):
@@ -32,27 +64,27 @@ def _as_bytes(data: Any) -> bytes:
     raise TypeError(f"Expected bytes-like data, got {type(data)!r}")
 
 
-def _load_cpalmdoc():
+def _load_cpalmdoc() -> _PalmDocCodec:
     if plugins.plugin_okay("cPalmdoc"):
         module, _err = plugins["cPalmdoc"]
         if module is not None:
-            return module
+            return _PalmDocModuleAdapter(module)
 
     default_log.info("cPalmdoc plugin unavailable, using bundled Python fallback.")
     from LiuXin_alpha.utils.plugins.fallbacks import cPalmdoc
 
-    return cPalmdoc
+    return _PalmDocModuleAdapter(cPalmdoc)
 
 
 _CPALMDOC = _load_cpalmdoc()
 
 
-def decompress_doc(data):
+def decompress_doc(data: PalmDocInput) -> bytes:
     """Decompress PalmDOC data into raw bytes."""
     return _CPALMDOC.decompress(_as_bytes(data))
 
 
-def compress_doc(data):
+def compress_doc(data: PalmDocInput) -> bytes:
     """Compress raw bytes into PalmDOC format."""
     payload = _as_bytes(data)
     if not payload:
@@ -60,7 +92,7 @@ def compress_doc(data):
     return _CPALMDOC.compress(payload)
 
 
-def py_compress_doc(data):
+def py_compress_doc(data: PalmDocInput) -> bytes:
     """Pure-python PalmDOC compressor (reference implementation)."""
     data = _as_bytes(data)
     out = six_BytesIO()
@@ -117,8 +149,8 @@ def py_compress_doc(data):
     return out.getvalue()
 
 
-def test():
-    tests = [
+def test() -> None:
+    tests: list[bytes] = [
         b"abc\x03\x04\x05\x06ms",
         b"a b c \xfed ",
         b"0123456789axyz2bxyz2cdfgfo9iuyerh",

@@ -1,6 +1,9 @@
 # -*- encoding: utf-8 -*-
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 CSS property propagation class.
@@ -31,16 +34,16 @@ except ModuleNotFoundError:
     _HAS_CSSUTILS = False
 
     class _NoopLogger:
-        def setLevel(self, *args, **kwargs):
+        def setLevel(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
             return None
 
     class _MissingCSSProfiles:
         @staticmethod
-        def addProfile(*args, **kwargs):
+        def addProfile(*args: _typing.Any, **kwargs: _typing.Any) -> None:
             return None
 
         @staticmethod
-        def validateWithProfile(*args, **kwargs):
+        def validateWithProfile(*args: _typing.Any, **kwargs: _typing.Any) -> tuple[_typing.Any, ...]:
             return (None, False)
 
     class _MissingProfiles:
@@ -49,10 +52,10 @@ except ModuleNotFoundError:
 
     class _MissingCSSProperties:
         @staticmethod
-        def _toDOMname(name):
+        def _toDOMname(name: _typing.Any) -> _typing.Any:
             return str(name).replace("-", "_")
 
-    def _missing_cssutils(*args, **kwargs):
+    def _missing_cssutils(*args: _typing.Any, **kwargs: _typing.Any) -> None:
         raise ModuleNotFoundError("cssutils is required for OEB styling operations")
 
     cssprofiles = _MissingCSSProfiles()
@@ -87,7 +90,7 @@ _html_css_stylesheet = None
 css_to_xpath = HTMLTranslator().css_to_xpath
 
 
-def html_css_stylesheet():
+def html_css_stylesheet() -> _typing.Any:
     global _html_css_stylesheet
     if _html_css_stylesheet is None:
         with open(P("templates/html.css"), "rb") as temp_html_css:
@@ -145,7 +148,7 @@ INHERITED = {
 FONT_SIZE_NAMES = {"xx-small", "x-small", "small", "medium", "large", "x-large", "xx-large"}
 
 
-def xpath_lower_case(arg):
+def xpath_lower_case(arg: _typing.Any) -> _typing.Any:
     """
     An ASCII lowercase function for XPath
     :param arg:
@@ -162,7 +165,7 @@ class CaseInsensitiveAttributesTranslator(HTMLTranslator):
     Treat class and id CSS selectors case-insensitively
     """
 
-    def xpath_class(self, class_selector):
+    def xpath_class(self: _typing.Self, class_selector: _typing.Any) -> _typing.Any:
         """
         Translate a class selector.
         :param class_selector:
@@ -182,7 +185,7 @@ class CaseInsensitiveAttributesTranslator(HTMLTranslator):
             x.add_condition("0")
         return x
 
-    def xpath_hash(self, id_selector):
+    def xpath_hash(self: _typing.Self, id_selector: _typing.Any) -> _typing.Any:
         """
         Translate an ID selector.
         :param id_selector:
@@ -203,7 +206,7 @@ except AttributeError:
     NULL_NAMESPACE_REGEX = re.compile(raw_null_namespace_regex)
 
 
-def fix_namespace(raw):
+def fix_namespace(raw: _typing.Any) -> _typing.Any:
     """
     cssselect uses name() = 'h:p' to select tags for some CSS selectors (e.g.
     h|p+h|p).
@@ -220,13 +223,13 @@ def fix_namespace(raw):
 
 
 class CSSSelector(object):
-    def __init__(self, css, log=None, namespaces=XPNSMAP):
+    def __init__(self: _typing.Self, css: _typing.Any, log: _typing.Any = None, namespaces: _typing.Any = XPNSMAP) -> None:
         self.namespaces = namespaces
         self.sel = self.build_selector(css, log)
         self.css = css
         self.used_ci_sel = False
 
-    def build_selector(self, css, log, func=css_to_xpath):
+    def build_selector(self: _typing.Self, css: _typing.Any, log: _typing.Any, func: _typing.Any = css_to_xpath) -> _typing.Any:
         try:
             return etree.XPath(fix_namespace(func(css)), namespaces=self.namespaces)
         except:
@@ -234,7 +237,7 @@ class CSSSelector(object):
                 log.exception("Failed to parse CSS selector: %r" % css)
         return None
 
-    def __call__(self, node, log):
+    def __call__(self: _typing.Self, node: _typing.Any, log: _typing.Any) -> _typing.Any:
         if self.sel is None:
             return []
         try:
@@ -265,7 +268,7 @@ _selector_cache = {}
 MIN_SPACE_RE = re.compile(r" *([>~+]) *")
 
 
-def get_css_selector(raw_selector, log):
+def get_css_selector(raw_selector: _typing.Any, log: _typing.Any) -> _typing.Any:
     css = MIN_SPACE_RE.sub(r"\1", raw_selector)
     ans = _selector_cache.get(css, None)
     if ans is None:
@@ -277,7 +280,7 @@ def get_css_selector(raw_selector, log):
 class Stylizer(object):
     STYLESHEETS = WeakKeyDictionary()
 
-    def __init__(self, tree, path, oeb, opts, profile=None, extra_css="", user_css=""):
+    def __init__(self: _typing.Self, tree: _typing.Any, path: _typing.Any, oeb: _typing.Any, opts: _typing.Any, profile: _typing.Any = None, extra_css: str = "", user_css: str = "") -> None:
         if not _HAS_CSSUTILS:
             raise ModuleNotFoundError("cssutils is required for Stylizer; install cssutils to enable OEB CSS handling")
         self.oeb, self.opts = oeb, opts
@@ -478,7 +481,7 @@ class Stylizer(object):
                 if upd:
                     style._update_cssdict(upd)
 
-    def _fetch_css_file(self, path):
+    def _fetch_css_file(self: _typing.Self, path: _typing.Any) -> tuple[_typing.Any, ...]:
         hrefs = self.oeb.manifest.hrefs
         if path not in hrefs:
             self.logger.warn("CSS import of missing file %r" % path)
@@ -490,7 +493,7 @@ class Stylizer(object):
         data = item.data.cssText
         return "utf-8", data
 
-    def flatten_rule(self, rule, href, index, is_user_agent_sheet=False):
+    def flatten_rule(self: _typing.Self, rule: _typing.Any, href: _typing.Any, index: _typing.Any, is_user_agent_sheet: bool = False) -> _typing.Any:
         results = []
         sheet_index = 0 if is_user_agent_sheet else 1
         if isinstance(rule, CSSStyleRule):
@@ -511,7 +514,7 @@ class Stylizer(object):
                 self.font_face_rules.append(rule)
         return results
 
-    def flatten_style(self, cssstyle):
+    def flatten_style(self: _typing.Self, cssstyle: _typing.Any) -> _typing.Any:
         style = {}
         for prop in cssstyle:
             name = prop.name
@@ -532,18 +535,18 @@ class Stylizer(object):
                 style["font-size"] = "%dpt" % self.profile.fnames[size]
         return style
 
-    def _apply_text_align(self, text):
+    def _apply_text_align(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         if text in ("left", "justify") and self.opts.change_justification in ("left", "justify"):
             text = self.opts.change_justification
         return text
 
-    def style(self, element):
+    def style(self: _typing.Self, element: _typing.Any) -> _typing.Any:
         try:
             return self._styles[element]
         except KeyError:
             return Style(element, self)
 
-    def stylesheet(self, name, font_scale=None):
+    def stylesheet(self: _typing.Self, name: _typing.Any, font_scale: _typing.Any = None) -> _typing.Any:
         rules = []
         for _, _, style, selector, href in self.rules:
             if href != name:
@@ -560,7 +563,7 @@ class Stylizer(object):
 class Style(object):
     MS_PAT = re.compile(r"^\s*(mso-|panose-|text-underline|tab-interval)")
 
-    def __init__(self, element, stylizer):
+    def __init__(self: _typing.Self, element: _typing.Any, stylizer: _typing.Any) -> None:
         self._element = element
         self._profile = stylizer.profile
         self._stylizer = stylizer
@@ -573,21 +576,21 @@ class Style(object):
         self._pseudo_classes = {}
         stylizer._styles[element] = self
 
-    def set(self, prop, val):
+    def set(self: _typing.Self, prop: _typing.Any, val: _typing.Any) -> None:
         self._style[prop] = val
 
-    def drop(self, prop, default=None):
+    def drop(self: _typing.Self, prop: _typing.Any, default: _typing.Any = None) -> _typing.Any:
         return self._style.pop(prop, default)
 
-    def _update_cssdict(self, cssdict):
+    def _update_cssdict(self: _typing.Self, cssdict: _typing.Any) -> None:
         self._style.update(cssdict)
 
-    def _update_pseudo_class(self, name, cssdict):
+    def _update_pseudo_class(self: _typing.Self, name: _typing.Any, cssdict: _typing.Any) -> None:
         orig = self._pseudo_classes.get(name, {})
         orig.update(cssdict)
         self._pseudo_classes[name] = orig
 
-    def _apply_style_attr(self, url_replacer=None):
+    def _apply_style_attr(self: _typing.Self, url_replacer: _typing.Any = None) -> None:
         attrib = self._element.attrib
         if "style" not in attrib:
             return
@@ -604,22 +607,22 @@ class Style(object):
             replaceUrls(style, url_replacer, ignoreImportRules=True)
         self._style.update(self._stylizer.flatten_style(style))
 
-    def _has_parent(self):
+    def _has_parent(self: _typing.Self) -> bool:
         return self._element.getparent() is not None
 
-    def _get_parent(self):
+    def _get_parent(self: _typing.Self) -> _typing.Any:
         elem = self._element.getparent()
         if elem is None:
             return None
         return self._stylizer.style(elem)
 
-    def __getitem__(self, name):
+    def __getitem__(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         domname = cssproperties._toDOMname(name)
         if hasattr(self, domname):
             return getattr(self, domname)
         return self._unit_convert(self._get(name))
 
-    def _get(self, name):
+    def _get(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         result = None
         if name in self._style:
             result = self._style[name]
@@ -630,7 +633,7 @@ class Style(object):
             result = DEFAULTS[name]
         return result
 
-    def _unit_convert(self, value, base=None, font=None):
+    def _unit_convert(self: _typing.Self, value: _typing.Any, base: _typing.Any = None, font: _typing.Any = None) -> _typing.Any:
         """
         Return value in pts
         :param value:
@@ -644,11 +647,11 @@ class Style(object):
             font = self.fontSize
         return unit_convert(value, base, font, self._profile.dpi, body_font_size=self._stylizer.body_font_size)
 
-    def pt_to_px(self, value):
+    def pt_to_px(self: _typing.Self, value: _typing.Any) -> _typing.Any:
         return (self._profile.dpi / 72.0) * value
 
     @property
-    def backgroundColor(self):
+    def backgroundColor(self: _typing.Self) -> _typing.Any:
         """
         Return the background color by parsing both the background-color and
         background shortcut properties. Note that inheritance/default values
@@ -656,7 +659,7 @@ class Style(object):
         :return:
         """
 
-        def validate_color(col):
+        def validate_color(col: _typing.Any) -> _typing.Any:
             return cssprofiles.validateWithProfile("color", col, profiles=[profiles.Profiles.CSS_LEVEL_2])[1]
 
         if self._bgcolor is None:
@@ -689,8 +692,8 @@ class Style(object):
         return self._bgcolor if self._bgcolor else None
 
     @property
-    def fontSize(self):
-        def normalize_fontsize(value, base):
+    def fontSize(self: _typing.Self) -> _typing.Any:
+        def normalize_fontsize(value: _typing.Any, base: _typing.Any) -> _typing.Any:
             value = value.replace('"', "").replace("'", "")
             result = None
             factor = None
@@ -738,7 +741,7 @@ class Style(object):
         return self._fontSize
 
     @property
-    def width(self):
+    def width(self: _typing.Self) -> _typing.Any:
         if self._width is None:
             width = None
 
@@ -773,14 +776,14 @@ class Style(object):
         return self._width
 
     @property
-    def parent_width(self):
+    def parent_width(self: _typing.Self) -> _typing.Any:
         parent = self._get_parent()
         if parent is None:
             return self.width
         return parent.width
 
     @property
-    def height(self):
+    def height(self: _typing.Self) -> _typing.Any:
         if self._height is None:
             height = None
             base = None
@@ -810,7 +813,7 @@ class Style(object):
         return self._height
 
     @property
-    def lineHeight(self):
+    def lineHeight(self: _typing.Self) -> _typing.Any:
         if self._lineHeight is None:
             result = None
             parent = self._get_parent()
@@ -831,7 +834,7 @@ class Style(object):
         return self._lineHeight
 
     @property
-    def effective_text_decoration(self):
+    def effective_text_decoration(self: _typing.Self) -> _typing.Any:
         """
         Browsers do this creepy thing with text-decoration where even though the
         property is not inherited, it looks like it is because containing
@@ -852,7 +855,7 @@ class Style(object):
         return css
 
     @property
-    def first_vertical_align(self):
+    def first_vertical_align(self: _typing.Self) -> _typing.Any:
         """
         For docx output where tags are not nested, we cannot directly simulate the HTML vertical-align rendering model.
         Instead use the approximation of considering the first non-default vertical-align
@@ -869,45 +872,45 @@ class Style(object):
             return parent.first_vertical_align
 
     @property
-    def marginTop(self):
+    def marginTop(self: _typing.Self) -> _typing.Any:
         return self._unit_convert(self._get("margin-top"), base=self.height)
 
     @property
-    def marginBottom(self):
+    def marginBottom(self: _typing.Self) -> _typing.Any:
         return self._unit_convert(self._get("margin-bottom"), base=self.height)
 
     @property
-    def marginLeft(self):
+    def marginLeft(self: _typing.Self) -> _typing.Any:
         return self._unit_convert(self._get("margin-left"), base=self.parent_width)
 
     @property
-    def marginRight(self):
+    def marginRight(self: _typing.Self) -> _typing.Any:
         return self._unit_convert(self._get("margin-right"), base=self.parent_width)
 
     @property
-    def paddingTop(self):
+    def paddingTop(self: _typing.Self) -> _typing.Any:
         return self._unit_convert(self._get("padding-top"), base=self.height)
 
     @property
-    def paddingBottom(self):
+    def paddingBottom(self: _typing.Self) -> _typing.Any:
         return self._unit_convert(self._get("padding-bottom"), base=self.height)
 
     @property
-    def paddingLeft(self):
+    def paddingLeft(self: _typing.Self) -> _typing.Any:
         return self._unit_convert(self._get("padding-left"), base=self.parent_width)
 
     @property
-    def paddingRight(self):
+    def paddingRight(self: _typing.Self) -> _typing.Any:
         return self._unit_convert(self._get("padding-right"), base=self.parent_width)
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         items = sorted(iteritems(self._style))
         return "; ".join("%s: %s" % (key, val) for key, val in items)
 
-    def cssdict(self):
+    def cssdict(self: _typing.Self) -> _typing.Any:
         return dict(self._style)
 
-    def pseudo_classes(self, filter_css):
+    def pseudo_classes(self: _typing.Self, filter_css: _typing.Any) -> _typing.Any:
         if filter_css:
             css = copy.deepcopy(self._pseudo_classes)
             for psel, cssdict in iteritems(css):
@@ -918,5 +921,5 @@ class Style(object):
         return {k: v for k, v in iteritems(css) if v}
 
     @property
-    def is_hidden(self):
+    def is_hidden(self: _typing.Self) -> bool:
         return self._style.get("display") == "none" or self._style.get("visibility") == "hidden"

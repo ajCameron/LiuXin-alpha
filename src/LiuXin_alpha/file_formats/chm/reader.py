@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import typing as _typing
+
 import codecs
 import os
 import struct
@@ -16,7 +18,7 @@ __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>, and Alex Bramley <a.bramley at gmail.com>."
 
 
-def match_string(s1, s2_already_lowered):
+def match_string(s1: _typing.Any, s2_already_lowered: _typing.Any) -> bool:
     if s1 is not None and s2_already_lowered is not None:
         if s1.lower() == s2_already_lowered:
             return True
@@ -24,7 +26,7 @@ def match_string(s1, s2_already_lowered):
 
 
 class CHMReader(CHMFile):
-    def __init__(self, input_path, log, input_encoding=None):
+    def __init__(self: _typing.Self, input_path: _typing.Any, log: _typing.Any, input_encoding: _typing.Any = None) -> None:
         super().__init__()
         if not self.LoadCHM(input_path):
             raise CHMError(f"Unable to open CHM file {input_path!r}")
@@ -48,7 +50,7 @@ class CHMReader(CHMFile):
         self.root = os.path.splitext(base.lstrip("/"))[0]
         self.hhc_path = self.root + ".hhc"
 
-    def _log_exception(self, message, exception=None, level="INFO"):
+    def _log_exception(self: _typing.Self, message: _typing.Any, exception: _typing.Any = None, level: str = "INFO") -> None:
         if hasattr(self.log, "log_exception"):
             self.log.log_exception(message=message, exception=exception, level=level)
             return
@@ -61,7 +63,7 @@ class CHMReader(CHMFile):
         if hasattr(self.log, "warning"):
             self.log.warning(message)
 
-    def relpath_to_first_html_file(self):
+    def relpath_to_first_html_file(self: _typing.Self) -> _typing.Any:
         data = self.GetFile("/#SYSTEM")
         pos = 4
         while pos + 4 <= len(data):
@@ -76,7 +78,7 @@ class CHMReader(CHMFile):
         default_topic = self.decode_hhp_filename(b"/" + default_topic)
         return default_topic[1:]
 
-    def decode_hhp_filename(self, path):
+    def decode_hhp_filename(self: _typing.Self, path: _typing.Any) -> _typing.Any:
         if isinstance(path, str):
             return path
         for enc in (self.encoding_from_system_file, self.encoding_from_lcid, "cp1252", "cp1251", "latin1", "utf-8"):
@@ -90,7 +92,7 @@ class CHMReader(CHMFile):
                     return q
         return path.decode("latin1", errors="replace")
 
-    def get_encodings(self):
+    def get_encodings(self: _typing.Self) -> None:
         self.encoding_from_system_file = self.encoding_from_lcid = None
 
         q = self.GetEncoding()
@@ -115,10 +117,10 @@ class CHMReader(CHMFile):
                 except Exception:
                     pass
 
-    def get_encoding(self):
+    def get_encoding(self: _typing.Self) -> bool:
         return self.encoding_from_system_file or self.encoding_from_lcid or "cp1252"
 
-    def _parse_toc(self, ul, basedir=os.getcwd()):
+    def _parse_toc(self: _typing.Self, ul: _typing.Any, basedir: _typing.Any = os.getcwd()) -> _typing.Any:
         toc = TOC(play_order=self._playorder, base_path=basedir, text="")
         self._playorder += 1
         for li in ul("li", recursive=False):
@@ -139,16 +141,16 @@ class CHMReader(CHMFile):
                 toc.append(child)
         return toc
 
-    def ResolveObject(self, path):
+    def ResolveObject(self: _typing.Self, path: _typing.Any) -> _typing.Any:
         if not isinstance(path, bytes):
             path = path.encode("utf-8")
         return CHMFile.ResolveObject(self, path)
 
-    def file_exists(self, path):
+    def file_exists(self: _typing.Self, path: _typing.Any) -> bool:
         res, _ui = self.ResolveObject(path)
         return res == CHM_RESOLVE_SUCCESS
 
-    def GetFile(self, path):
+    def GetFile(self: _typing.Self, path: _typing.Any) -> _typing.Any:
         if isinstance(path, bytes):
             path = path.decode("utf-8", errors="replace")
         if not path.startswith("/"):
@@ -163,10 +165,10 @@ class CHMReader(CHMFile):
             raise CHMError(f"{path!r} is zero bytes in length!")
         return data
 
-    def get_home(self):
+    def get_home(self: _typing.Self) -> _typing.Any:
         return self.GetFile(self.home)
 
-    def ExtractFiles(self, output_dir=os.getcwd(), debug_dump=False):
+    def ExtractFiles(self: _typing.Self, output_dir: _typing.Any = os.getcwd(), debug_dump: bool = False) -> None:
         html_files = set()
 
         try:
@@ -259,7 +261,7 @@ class CHMReader(CHMFile):
         if self.hhc_path not in relative_files and relative_files:
             self.hhc_path = relative_files[0]
 
-    def _reformat(self, data, htmlpath):
+    def _reformat(self: _typing.Self, data: _typing.Any, htmlpath: _typing.Any) -> _typing.Any:
         from lxml import html
 
         if self.input_encoding and isinstance(data, bytes):
@@ -284,7 +286,7 @@ class CHMReader(CHMFile):
         body_nodes = root.xpath("//body")
         body = body_nodes[0] if body_nodes else root
 
-        def nav_table_candidate(table):
+        def nav_table_candidate(table: _typing.Any) -> _typing.Any:
             try:
                 alt = "".join(table.xpath(".//img[1]/@alt")).lower()
             except Exception:
@@ -349,13 +351,13 @@ class CHMReader(CHMFile):
         except Exception:
             return normalized
 
-    def Contents(self):
+    def Contents(self: _typing.Self) -> _typing.Any:
         if self._contents is not None:
             return self._contents
 
         paths = []
 
-        def get_paths(_chm, ui, _ctx):
+        def get_paths(_chm: _typing.Any, ui: _typing.Any, _ctx: _typing.Any) -> None:
             path = ui.path
             if isinstance(path, bytes):
                 path = path.decode("utf-8", errors="replace")
@@ -366,10 +368,10 @@ class CHMReader(CHMFile):
         self._contents = paths
         return self._contents
 
-    def _ensure_dir(self, path):
+    def _ensure_dir(self: _typing.Self, path: _typing.Any) -> None:
         local_dir = os.path.dirname(path)
         if local_dir and not os.path.isdir(local_dir):
             os.makedirs(local_dir, exist_ok=True)
 
-    def extract_content(self, output_dir=os.getcwd(), debug_dump=False):
+    def extract_content(self: _typing.Self, output_dir: _typing.Any = os.getcwd(), debug_dump: bool = False) -> None:
         self.ExtractFiles(output_dir=output_dir, debug_dump=debug_dump)

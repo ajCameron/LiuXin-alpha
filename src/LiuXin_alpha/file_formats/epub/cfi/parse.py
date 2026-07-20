@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import sys
 
@@ -32,7 +35,7 @@ class Parser(object):
     it can be used from multiple threads simulataneously.
     """
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         # All allowed unicode characters + escaped special characters
         special_char = r"[\[\](),;=^]"
         if _HAS_REGEX and is_narrow_build:
@@ -51,7 +54,7 @@ class Parser(object):
         frac = r"\.[0-9]*[1-9]"
         number = r"(?:[1-9][0-9]*(?:{0})?)|(?:0{0})|(?:0)".format(frac)
 
-        def c(x):
+        def c(x: _typing.Any) -> _typing.Any:
             if _HAS_REGEX:
                 return _regex.compile(x, flags=_regex.VERSION1)
             return _regex.compile(x, flags=_regex.UNICODE)
@@ -80,7 +83,7 @@ class Parser(object):
         unescape_pat = c(r"%s(%s)" % (escaped_char[:2], escaped_char[2:]))
         self.unescape = lambda x: unescape_pat.sub(r"\1", x)
 
-    def parse_epubcfi(self, raw):
+    def parse_epubcfi(self: _typing.Self, raw: _typing.Any) -> _typing.Any:
         """
         Parse a full epubcfi of the form epubcfi(path [ , path , path ])
         :param raw:
@@ -107,7 +110,7 @@ class Parser(object):
 
         return parent_cfi, start_cfi, end_cfi, raw
 
-    def parse_path(self, raw):
+    def parse_path(self: _typing.Self, raw: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Parse the path component of an epubcfi of the form /step...
         :param raw:
@@ -119,13 +122,13 @@ class Parser(object):
             path = {}
         return path, raw
 
-    def do_match(self, pat, raw):
+    def do_match(self: _typing.Self, pat: _typing.Any, raw: _typing.Any) -> tuple[_typing.Any, ...]:
         m = pat.match(raw)
         if m is not None:
             raw = raw[len(m.group()) :]
         return m, raw
 
-    def _parse_path(self, raw, ans):
+    def _parse_path(self: _typing.Self, raw: _typing.Any, ans: _typing.Any) -> _typing.Any:
         m, raw = self.do_match(self.step_pat, raw)
         if m is None:
             return raw
@@ -140,7 +143,7 @@ class Parser(object):
             remaining_raw = self.parse_offset(raw, ans["steps"][-1])
             return self._parse_path(raw, ans) if remaining_raw is None else remaining_raw
 
-    def parse_offset(self, raw, ans):
+    def parse_offset(self: _typing.Self, raw: _typing.Any, ans: _typing.Any) -> _typing.Any:
         m, raw = self.do_match(self.text_offset_pat, raw)
         if m is not None:
             ans["text_offset"] = int(m.group(1))
@@ -160,7 +163,7 @@ class Parser(object):
             ans["spatial_offset"] = tuple(six_map(float, m.groups()))
             return raw
 
-    def parse_text_assertion(self, raw, ans):
+    def parse_text_assertion(self: _typing.Self, raw: _typing.Any, ans: _typing.Any) -> _typing.Any:
         oraw = raw
         if not raw.startswith("["):
             return oraw
@@ -200,7 +203,7 @@ class Parser(object):
             ans["text_assertion"] = ta
         return raw[1:]
 
-    def consume_chars(self, raw, stop_chars):
+    def consume_chars(self: _typing.Self, raw: _typing.Any, stop_chars: _typing.Any) -> tuple[_typing.Any, ...]:
         out = []
         idx = 0
         while idx < len(raw):
@@ -224,7 +227,7 @@ class Parser(object):
             return None, raw
         return token, raw[idx:]
 
-    def parse_params_without_regex(self, raw):
+    def parse_params_without_regex(self: _typing.Self, raw: _typing.Any) -> tuple[_typing.Any, ...]:
         params = {}
         while raw.startswith(";"):
             raw = raw[1:]
@@ -255,21 +258,21 @@ class Parser(object):
 _parser = None
 
 
-def parser():
+def parser() -> _typing.Any:
     global _parser
     if _parser is None:
         _parser = Parser()
     return _parser
 
 
-def get_steps(pcfi):
+def get_steps(pcfi: _typing.Any) -> _typing.Any:
     ans = tuple(pcfi["steps"])
     if "redirect" in pcfi:
         ans += get_steps(pcfi["redirect"])
     return ans
 
 
-def cfi_sort_key(cfi, only_path=True):
+def cfi_sort_key(cfi: _typing.Any, only_path: bool = True) -> tuple[_typing.Any, ...]:
     p = parser()
     try:
         if only_path:

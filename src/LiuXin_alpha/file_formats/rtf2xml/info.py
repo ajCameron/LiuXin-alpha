@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys, os, re
 
 from LiuXin_alpha.file_formats.rtf2xml import copy
@@ -23,12 +26,12 @@ class Info:
     """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         """
         Required:
             'file'--file to parse
@@ -45,7 +48,7 @@ class Info:
         self.__run_level = run_level
         self.__write_to = better_mktemp()
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
         """
@@ -103,7 +106,7 @@ class Info:
             "internalID": "internal-id-number",
         }
 
-    def __before_info_table_func(self, line):
+    def __before_info_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- the line to parse
@@ -117,7 +120,7 @@ class Info:
             self.__state = "in_info_table"
         self.__write_obj.write(line)
 
-    def __in_info_table_func(self, line):
+    def __in_info_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line to parse
@@ -138,7 +141,7 @@ class Info:
             else:
                 self.__write_obj.write(line)
 
-    def __found_tag_with_text_func(self, line, tag):
+    def __found_tag_with_text_func(self: _typing.Self, line: _typing.Any, tag: _typing.Any) -> None:
         """
         Requires:
             line -- line to parse
@@ -153,7 +156,7 @@ class Info:
         self.__tag = tag
         self.__state = "collect_text"
 
-    def __collect_text_func(self, line):
+    def __collect_text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line to parse
@@ -177,7 +180,7 @@ class Info:
         elif line[0:2] == "tx":
             self.__text_string += line[17:-1]
 
-    def __found_tag_with_tokens_func(self, line, tag):
+    def __found_tag_with_tokens_func(self: _typing.Self, line: _typing.Any, tag: _typing.Any) -> None:
         """
         Requires:
             line -- line to parse
@@ -194,7 +197,7 @@ class Info:
         self.__text_string = "mi<tg<empty-att_<%s" % tag
         # mi<tg<empty-att_<page-definition<margin>33\n
 
-    def __collect_tokens_func(self, line):
+    def __collect_tokens_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line to parse
@@ -230,11 +233,11 @@ class Info:
             else:
                 self.__text_string += f"<{att_changed}>{value}"
 
-    def __single_field_func(self, line, tag):
+    def __single_field_func(self: _typing.Self, line: _typing.Any, tag: _typing.Any) -> None:
         value = line[20:-1]
         self.__write_obj.write(f"mi<tg<empty-att_<{tag}<{tag}>{value}\n")
 
-    def __after_info_table_func(self, line):
+    def __after_info_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to write to file
@@ -246,7 +249,7 @@ class Info:
         """
         self.__write_obj.write(line)
 
-    def fix_info(self):
+    def fix_info(self: _typing.Self) -> None:
         """
         Requires:
             nothing

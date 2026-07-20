@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
@@ -17,7 +20,7 @@ class LITInput(InputFormatPlugin):
     description = "Convert LIT files to HTML"
     file_types = {"lit"}
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
 
         from LiuXin_alpha.file_formats.lit.reader import LitReader
         from LiuXin_alpha.file_formats.conversion.plumber import create_oebbook
@@ -25,7 +28,7 @@ class LITInput(InputFormatPlugin):
         self.log = log
         return create_oebbook(log, stream, options, reader=LitReader)
 
-    def postprocess_book(self, oeb, opts, log):
+    def postprocess_book(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
 
         from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, XPath, XHTML
 

@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys
 import re
 
@@ -20,7 +23,7 @@ class FieldStrings:
     returns a list of three values.
     """
 
-    def __init__(self, bug_handler, run_level=1):
+    def __init__(self: _typing.Self, bug_handler: _typing.Any, run_level: int = 1) -> None:
         """
         Requires:
             nothing
@@ -31,7 +34,7 @@ class FieldStrings:
         self.__bug_handler = bug_handler
         self.__initiate_values()
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Requires:
             nothing.
@@ -182,7 +185,7 @@ class FieldStrings:
         self.__filter_switch = re.compile(r"\\c\s{1,}(.*?)\s")
         self.__link_switch = re.compile(r"\\l\s{1,}(.*?)\s")
 
-    def process_string(self, my_string, type):
+    def process_string(self: _typing.Self, my_string: _typing.Any, type: _typing.Any) -> _typing.Any:
         """
         Requires:
             my_string --the string to parse.
@@ -226,7 +229,7 @@ class FieldStrings:
             return the_list
         return the_list
 
-    def __default_inst_func(self, field_name, name, line):
+    def __default_inst_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Requires:
             field_name -- the first word in the string
@@ -239,7 +242,7 @@ class FieldStrings:
         """
         return [None, None, name]
 
-    def __fall_back_func(self, field_name, line):
+    def __fall_back_func(self: _typing.Self, field_name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Requires:
             field_name -- the first word in the string
@@ -254,7 +257,7 @@ class FieldStrings:
         the_string += "<update>none"
         return [None, None, the_string]
 
-    def __equation_func(self, field_name, name, line):
+    def __equation_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Required:
             field_name -- the first word in the string
@@ -266,7 +269,7 @@ class FieldStrings:
         """
         return [None, None, name]
 
-    def __no_switch_func(self, field_name, name, line):
+    def __no_switch_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Required:
             field_name --the first
@@ -279,7 +282,7 @@ class FieldStrings:
         """
         return [None, None, name]
 
-    def __num_type_and_format_func(self, field_name, name, line):
+    def __num_type_and_format_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Required:
             field_name -- the first word in the string
@@ -306,7 +309,7 @@ class FieldStrings:
                 the_string += "<argument>%s" % arg
         return [None, None, the_string]
 
-    def __num_format_func(self, field_name, name, line):
+    def __num_format_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Required:
             field_name -- the first word in the string
@@ -322,7 +325,7 @@ class FieldStrings:
             the_string += "<number-format>%s" % num_format
         return [None, None, the_string]
 
-    def __parse_num_format(self, the_string):
+    def __parse_num_format(self: _typing.Self, the_string: _typing.Any) -> _typing.Any:
         """
         Required:
             the_string -- the string to parse
@@ -335,7 +338,7 @@ class FieldStrings:
         if match_group:
             return match_group(1)
 
-    def __parse_num_type(self, the_string):
+    def __parse_num_type(self: _typing.Self, the_string: _typing.Any) -> _typing.Any:
         """
         Required:
             the_string -- the string to parse
@@ -360,7 +363,7 @@ class FieldStrings:
                 sys.stderr.write("method is __parse_num_type\n")
                 sys.stderr.write("no dictionary entry for %s\n" % name)
 
-    def __date_func(self, field_name, name, line):
+    def __date_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Required:
             field_name --the fist
@@ -377,7 +380,7 @@ class FieldStrings:
             the_string += "<date-format>%s" % match_group.group(1)
         return [None, None, the_string]
 
-    def __simple_info_func(self, field_name, name, line):
+    def __simple_info_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Required:
             field_name -- the first word in the string
@@ -405,7 +408,7 @@ class FieldStrings:
                 sys.stderr.write("no dictionary entry for %s\n" % name)
         return [None, None, the_string]
 
-    def __hyperlink_func(self, field_name, name, line):
+    def __hyperlink_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Required:
             field_name -- the first word in the string
@@ -441,7 +444,7 @@ class FieldStrings:
             the_string += "<no-history>true"
         return [None, None, the_string]
 
-    def __include_text_func(self, field_name, name, line):
+    def __include_text_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Required:
             field_name -- the first word in the string
@@ -483,7 +486,7 @@ class FieldStrings:
             the_string += "<no-field-update>true"
         return [None, None, the_string]
 
-    def __include_pict_func(self, field_name, name, line):
+    def __include_pict_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Required:
             field_name -- the first word in the string
@@ -515,7 +518,7 @@ class FieldStrings:
             the_string += "<external>true"
         return [None, None, the_string]
 
-    def __ref_func(self, field_name, name, line):
+    def __ref_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Requires:
             field_name -- the first word in the string
@@ -569,7 +572,7 @@ class FieldStrings:
             the_string += "<insert-number-full>true"
         return [None, None, the_string]
 
-    def __toc_table_func(self, field_name, name, line):
+    def __toc_table_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Requires:
             field_name -- the name of the first word in the string
@@ -588,7 +591,7 @@ class FieldStrings:
         # don't really need the first value in this list, I don't believe
         return [name, None, the_string]
 
-    def __sequence_func(self, field_name, name, line):
+    def __sequence_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Requires:
             field_name --the name of the first word in the string.
@@ -607,7 +610,7 @@ class FieldStrings:
         my_string = f"{name}<label>{label}"
         return [None, None, my_string]
 
-    def __ta_func(self, field_name, name, line):
+    def __ta_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Requires:
             field_name --the name of the first word in the string.
@@ -638,7 +641,7 @@ class FieldStrings:
             the_string += "<italics>true"
         return [None, None, the_string]
 
-    def __index_func(self, field_name, name, line):
+    def __index_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Requires:
             field_name --the name of the first word in the string.
@@ -711,7 +714,7 @@ class FieldStrings:
             the_string += "<enable-yomi-text>true"
         return [None, None, the_string]
 
-    def __page_ref_func(self, field_name, name, line):
+    def __page_ref_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Requires:
             field_name --first name in the string.
@@ -742,7 +745,7 @@ class FieldStrings:
             the_string += "<paragraph-relative-position>true"
         return [None, None, the_string]
 
-    def __note_ref_func(self, field_name, name, line):
+    def __note_ref_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Requires:
             field_name --first name in the string.
@@ -770,7 +773,7 @@ class FieldStrings:
             the_string += "<include-note-number>true"
         return [None, None, the_string]
 
-    def __symbol_func(self, field_name, name, line):
+    def __symbol_func(self: _typing.Self, field_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> list[_typing.Any]:
         """
         Requires:
             field_name --first name in the string.

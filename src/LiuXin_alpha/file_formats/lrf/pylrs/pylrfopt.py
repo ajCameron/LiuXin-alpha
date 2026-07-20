@@ -1,4 +1,7 @@
-def _optimize(tagList, tagName, conversion):
+from __future__ import annotations
+
+import typing as _typing
+def _optimize(tagList: _typing.Any, tagName: _typing.Any, conversion: _typing.Any) -> None:
     # copy the tag of interest plus any text
     new_tag_list = []
     for tag in tagList:
@@ -27,7 +30,7 @@ def _optimize(tagList, tagName, conversion):
         del tagList[-1]
 
 
-def tagListOptimizer(tagList):
+def tagListOptimizer(tagList: _typing.Any) -> _typing.Any:
     # this function eliminates redundant or unnecessary tags
     # it scans a list of tags, looking for text settings that are
     # changed before any text is output

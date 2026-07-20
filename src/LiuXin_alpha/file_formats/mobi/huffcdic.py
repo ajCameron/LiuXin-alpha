@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Decompress MOBI files compressed with the Huff/cdic algorithm. Code thanks to darkninja
@@ -17,20 +20,20 @@ __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def _require_bytes(data, length, context):
+def _require_bytes(data: _typing.Any, length: _typing.Any, context: _typing.Any) -> None:
     if len(data) < length:
         raise MobiError("Truncated %s" % context)
 
 
 class Reader(object):
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.q = struct.Struct(b">Q").unpack_from
         self.dict1 = ()
         self.mincode = ()
         self.maxcode = ()
         self.dictionary = []
 
-    def load_huff(self, huff):
+    def load_huff(self: _typing.Self, huff: _typing.Any) -> None:
         _require_bytes(huff, 16, "HUFF header")
         if huff[0:8] != b"HUFF\x00\x00\x00\x18":
             raise MobiError("Invalid HUFF header")
@@ -38,7 +41,7 @@ class Reader(object):
         _require_bytes(huff, off1 + 256 * 4, "HUFF dictionary table")
         _require_bytes(huff, off2 + 64 * 4, "HUFF code table")
 
-        def dict1_unpack(v):
+        def dict1_unpack(v: _typing.Any) -> tuple[_typing.Any, ...]:
             local_codelen, term, local_maxcode = v & 0x1F, v & 0x80, v >> 8
             if local_codelen == 0:
                 raise MobiError("Invalid HUFF code length")
@@ -59,7 +62,7 @@ class Reader(object):
 
         self.dictionary = []
 
-    def load_cdic(self, cdic):
+    def load_cdic(self: _typing.Self, cdic: _typing.Any) -> None:
         _require_bytes(cdic, 16, "CDIC header")
         if cdic[0:8] != b"CDIC\x00\x00\x00\x10":
             raise MobiError("Invalid CDIC header")
@@ -72,7 +75,7 @@ class Reader(object):
         _require_bytes(cdic, 16 + 2 * n, "CDIC offset table")
         h = struct.Struct(b">H").unpack_from
 
-        def getslice(off):
+        def getslice(off: _typing.Any) -> tuple[_typing.Any, ...]:
             _require_bytes(cdic, 16 + off + 2, "CDIC phrase length")
             (blen,) = h(cdic, 16 + off)
             _require_bytes(cdic, 18 + off + (blen & 0x7FFF), "CDIC phrase data")
@@ -82,7 +85,7 @@ class Reader(object):
         offsets = struct.unpack_from(b">%dH" % n, cdic, 16) if n else ()
         self.dictionary += map(getslice, offsets)
 
-    def unpack(self, data, max_output_size=None):
+    def unpack(self: _typing.Self, data: _typing.Any, max_output_size: _typing.Any = None) -> _typing.Any:
         if not self.dict1 or not self.dictionary:
             raise MobiError("HUFF/CDIC tables are not loaded")
         q = self.q
@@ -135,7 +138,7 @@ class Reader(object):
 
 
 class HuffReader(object):
-    def __init__(self, huffs, max_output_size=None):
+    def __init__(self: _typing.Self, huffs: _typing.Any, max_output_size: _typing.Any = None) -> None:
         if not huffs:
             raise MobiError("Missing HUFF record")
         self.max_output_size = max_output_size
@@ -144,5 +147,5 @@ class HuffReader(object):
         for cdic in huffs[1:]:
             self.reader.load_cdic(cdic)
 
-    def unpack(self, section):
+    def unpack(self: _typing.Self, section: _typing.Any) -> _typing.Any:
         return self.reader.unpack(section, max_output_size=self.max_output_size)

@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from collections import namedtuple
 
@@ -30,22 +33,22 @@ border_style_weight = {
 
 
 class SpannedCell(object):
-    def __init__(self, spanning_cell, horizontal=True):
+    def __init__(self: _typing.Self, spanning_cell: _typing.Any, horizontal: bool = True) -> None:
         self.spanning_cell = spanning_cell
         self.horizontal = horizontal
         self.row_span = self.col_span = 1
 
-    def resolve_borders(self):
+    def resolve_borders(self: _typing.Self) -> None:
         pass
 
-    def serialize(self, tr, makeelement):
+    def serialize(self: _typing.Self, tr: _typing.Any, makeelement: _typing.Any) -> None:
         tc = makeelement(tr, "w:tc")
         tc_pr = makeelement(tc, "w:tcPr")
         makeelement(tc_pr, "w:%sMerge" % ("h" if self.horizontal else "v"), w_val="continue")
         makeelement(tc, "w:p")
 
 
-def read_css_block_borders(self, css):
+def read_css_block_borders(self: _typing.Any, css: _typing.Any) -> None:
     obj = Dummy()
     rcbb(obj, css, store_css_style=True)
     for edge in border_edges:
@@ -63,7 +66,7 @@ def read_css_block_borders(self, css):
         setattr(self, "padding_" + edge, getattr(obj, "padding_" + edge))
 
 
-def as_percent(x):
+def as_percent(x: _typing.Any) -> _typing.Any:
     if x and x.endswith("%"):
         try:
             return float(x.rstrip("%"))
@@ -71,7 +74,7 @@ def as_percent(x):
             pass
 
 
-def convert_width(tag_style):
+def convert_width(tag_style: _typing.Any) -> tuple[_typing.Any, ...]:
     if tag_style is not None:
         w = tag_style._get("width")
         wp = as_percent(w)
@@ -91,7 +94,7 @@ class Cell(object):
 
     BLEVEL = 2
 
-    def __init__(self, row, html_tag, tag_style):
+    def __init__(self: _typing.Self, row: _typing.Any, html_tag: _typing.Any, tag_style: _typing.Any) -> None:
         self.row = row
         self.table = self.row.table
         self.html_tag = html_tag
@@ -109,15 +112,15 @@ class Cell(object):
         self.background_color = None if tag_style is None else convert_color(tag_style.backgroundColor)
         read_css_block_borders(self, tag_style)
 
-    def add_block(self, block):
+    def add_block(self: _typing.Self, block: _typing.Any) -> None:
         self.items.append(block)
         block.parent_items = self.items
 
-    def add_table(self, table):
+    def add_table(self: _typing.Self, table: _typing.Any) -> _typing.Any:
         self.items.append(table)
         return table
 
-    def serialize(self, parent, makeelement):
+    def serialize(self: _typing.Self, parent: _typing.Any, makeelement: _typing.Any) -> None:
         tc = makeelement(parent, "w:tc")
         tc_pr = makeelement(tc, "w:tcPr")
         makeelement(tc_pr, "w:tcW", w_type=self.width[0], w_w=str(self.width[1]))
@@ -170,7 +173,7 @@ class Cell(object):
             # Word 2007 requires the last element in a table cell to be a paragraph
             makeelement(tc, "w:p")
 
-    def applicable_borders(self, edge):
+    def applicable_borders(self: _typing.Self, edge: _typing.Any) -> _typing.Any:
         if edge == "left":
             items = {self.table, self.row, self} if self.row.first_cell is self else {self}
         elif edge == "top":
@@ -187,7 +190,7 @@ class Cell(object):
             }
         return {getattr(x, "border_" + edge) for x in items}
 
-    def resolve_border(self, edge):
+    def resolve_border(self: _typing.Self, edge: _typing.Any) -> _typing.Any:
         # In Word cell borders override table borders, and Word ignores row
         # borders, so we consolidate all borders as cell borders
         # In HTML the priority is as described here:
@@ -207,7 +210,7 @@ class Cell(object):
             if b.css_style == "hidden":
                 return None
 
-        def weight(local_border):
+        def weight(local_border: _typing.Any) -> tuple[_typing.Any, ...]:
             return (
                 0 if local_border.css_style == "none" else 1,
                 local_border.width,
@@ -218,10 +221,10 @@ class Cell(object):
         border = sorted(borders, key=weight)[-1]
         return border
 
-    def resolve_borders(self):
+    def resolve_borders(self: _typing.Self) -> None:
         self.borders = {edge: self.resolve_border(edge) for edge in border_edges}
 
-    def neighbor(self, edge):
+    def neighbor(self: _typing.Self, edge: _typing.Any) -> _typing.Any:
         idx = self.row.cells.index(self)
         ans = None
         if edge == "left":
@@ -243,7 +246,7 @@ class Row(object):
 
     BLEVEL = 1
 
-    def __init__(self, table, html_tag, tag_style=None):
+    def __init__(self: _typing.Self, table: _typing.Any, html_tag: _typing.Any, tag_style: _typing.Any = None) -> None:
         self.table = table
         self.html_tag = html_tag
         self.cells = []
@@ -252,29 +255,29 @@ class Row(object):
         read_css_block_borders(self, tag_style)
 
     @property
-    def first_cell(self):
+    def first_cell(self: _typing.Self) -> _typing.Any:
         return self.cells[0] if self.cells else None
 
     @property
-    def last_cell(self):
+    def last_cell(self: _typing.Self) -> _typing.Any:
         return self.cells[-1] if self.cells else None
 
-    def start_new_cell(self, html_tag, tag_style):
+    def start_new_cell(self: _typing.Self, html_tag: _typing.Any, tag_style: _typing.Any) -> None:
         self.current_cell = Cell(self, html_tag, tag_style)
 
-    def finish_tag(self, html_tag):
+    def finish_tag(self: _typing.Self, html_tag: _typing.Any) -> None:
         if self.current_cell is not None:
             if html_tag is self.current_cell.html_tag:
                 self.cells.append(self.current_cell)
                 self.current_cell = None
 
-    def add_block(self, block):
+    def add_block(self: _typing.Self, block: _typing.Any) -> None:
         self.current_cell.add_block(block)
 
-    def add_table(self, table):
+    def add_table(self: _typing.Self, table: _typing.Any) -> _typing.Any:
         return self.current_cell.add_table(table)
 
-    def serialize(self, parent, makeelement):
+    def serialize(self: _typing.Self, parent: _typing.Any, makeelement: _typing.Any) -> None:
         tr = makeelement(parent, "w:tr")
         for cell in self.cells:
             cell.serialize(tr, makeelement)
@@ -284,7 +287,7 @@ class Table(object):
 
     BLEVEL = 0
 
-    def __init__(self, namespace, html_tag, tag_style=None):
+    def __init__(self: _typing.Self, namespace: _typing.Any, html_tag: _typing.Any, tag_style: _typing.Any = None) -> None:
         self.namespace = namespace
         self.html_tag = html_tag
         self.rows = []
@@ -304,14 +307,14 @@ class Table(object):
         read_css_block_borders(self, tag_style)
 
     @property
-    def first_row(self):
+    def first_row(self: _typing.Self) -> _typing.Any:
         return self.rows[0] if self.rows else None
 
     @property
-    def last_row(self):
+    def last_row(self: _typing.Self) -> _typing.Any:
         return self.rows[-1] if self.rows else None
 
-    def finish_tag(self, html_tag):
+    def finish_tag(self: _typing.Self, html_tag: _typing.Any) -> _typing.Any:
         if self.current_row is not None:
             self.current_row.finish_tag(html_tag)
             if self.current_row.html_tag is html_tag:
@@ -325,7 +328,7 @@ class Table(object):
                     cell.resolve_borders()
         return table_ended
 
-    def expand_spanned_cells(self):
+    def expand_spanned_cells(self: _typing.Self) -> None:
         # Expand horizontally
         for row in self.rows:
             for cell in tuple(row.cells):
@@ -360,23 +363,23 @@ class Table(object):
                             else:
                                 nrow.cells.insert(idx, sc)
 
-    def start_new_row(self, html_tag, html_style):
+    def start_new_row(self: _typing.Self, html_tag: _typing.Any, html_style: _typing.Any) -> None:
         if self.current_row is not None:
             self.rows.append(self.current_row)
         self.current_row = Row(self, html_tag, html_style)
 
-    def start_new_cell(self, html_tag, html_style):
+    def start_new_cell(self: _typing.Self, html_tag: _typing.Any, html_style: _typing.Any) -> None:
         if self.current_row is None:
             self.start_new_row(html_tag, None)
         self.current_row.start_new_cell(html_tag, html_style)
 
-    def add_block(self, block):
+    def add_block(self: _typing.Self, block: _typing.Any) -> None:
         self.current_row.add_block(block)
 
-    def add_table(self, table):
+    def add_table(self: _typing.Self, table: _typing.Any) -> _typing.Any:
         return self.current_row.add_table(table)
 
-    def serialize(self, parent):
+    def serialize(self: _typing.Self, parent: _typing.Any) -> None:
         makeelement = self.namespace.makeelement
         rows = [r for r in self.rows if r.cells]
         if not rows:

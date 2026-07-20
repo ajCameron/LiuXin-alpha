@@ -1,6 +1,9 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 import string
@@ -37,7 +40,7 @@ STYLE_MAP = {
 }
 
 
-def alphabet(val, lower=True):
+def alphabet(val: _typing.Any, lower: bool = True) -> _typing.Any:
     x = string.ascii_lowercase if lower else string.ascii_uppercase
     return x[(abs(val - 1)) % len(x)]
 
@@ -52,7 +55,7 @@ alphabet_map = {
 
 
 class Level(object):
-    def __init__(self, namespace, lvl=None):
+    def __init__(self: _typing.Self, namespace: _typing.Any, lvl: _typing.Any = None) -> None:
         self.namespace = namespace
         self.restart = None
         self.start = 0
@@ -67,7 +70,7 @@ class Level(object):
         if lvl is not None:
             self.read_from_xml(lvl)
 
-    def copy(self):
+    def copy(self: _typing.Self) -> _typing.Any:
         ans = Level(self.namespace)
         for x in (
             "restart",
@@ -84,8 +87,8 @@ class Level(object):
             setattr(ans, x, getattr(self, x))
         return ans
 
-    def format_template(self, counter, ilvl, template):
-        def sub(m):
+    def format_template(self: _typing.Self, counter: _typing.Any, ilvl: _typing.Any, template: _typing.Any) -> _typing.Any:
+        def sub(m: _typing.Any) -> _typing.Any:
             x = int(m.group(1)) - 1
             if x > ilvl or x not in counter:
                 return ""
@@ -95,7 +98,7 @@ class Level(object):
 
         return re.sub(r"%(\d+)", sub, template).rstrip() + "\xa0"
 
-    def read_from_xml(self, lvl, override=False):
+    def read_from_xml(self: _typing.Self, lvl: _typing.Any, override: bool = False) -> None:
         xpath, get = self.namespace.XPath, self.namespace.get
         for lr in xpath("./w:lvlRestart[@w:val]")(lvl):
             try:
@@ -151,7 +154,7 @@ class Level(object):
             else:
                 self.paragraph_style.update(ps)
 
-    def css(self, images, pic_map, rid_map):
+    def css(self: _typing.Self, images: _typing.Any, pic_map: _typing.Any, rid_map: _typing.Any) -> _typing.Any:
         ans = {"list-style-type": self.fmt}
         if self.pic_id:
             rid = pic_map.get(self.pic_id, None)
@@ -164,7 +167,7 @@ class Level(object):
                     ans["list-style-image"] = 'url("images/%s")' % fname
         return ans
 
-    def char_css(self):
+    def char_css(self: _typing.Self) -> _typing.Any:
         try:
             css = self.character_style.css
         except AttributeError:
@@ -174,7 +177,7 @@ class Level(object):
 
 
 class NumberingDefinition(object):
-    def __init__(self, namespace, parent=None, an_id=None):
+    def __init__(self: _typing.Self, namespace: _typing.Any, parent: _typing.Any = None, an_id: _typing.Any = None) -> None:
         self.namespace = namespace
         xpath, get = self.namespace.XPath, self.namespace.get
         self.levels = {}
@@ -187,7 +190,7 @@ class NumberingDefinition(object):
                     ilvl = 0
                 self.levels[ilvl] = Level(namespace, lvl)
 
-    def copy(self):
+    def copy(self: _typing.Self) -> _typing.Any:
         ans = NumberingDefinition(self.namespace, an_id=self.abstract_numbering_definition_id)
         for l, lvl in iteritems(self.levels):
             ans.levels[l] = lvl.copy()
@@ -195,7 +198,7 @@ class NumberingDefinition(object):
 
 
 class Numbering(object):
-    def __init__(self, namespace):
+    def __init__(self: _typing.Self, namespace: _typing.Any) -> None:
         self.namespace = namespace
         self.definitions = {}
         self.instances = {}
@@ -203,7 +206,7 @@ class Numbering(object):
         self.starts = {}
         self.pic_map = {}
 
-    def __call__(self, root, styles, rid_map):
+    def __call__(self: _typing.Self, root: _typing.Any, styles: _typing.Any, rid_map: _typing.Any) -> None:
         """
         Read all numbering style definitions
         :param root:
@@ -228,7 +231,7 @@ class Numbering(object):
                 nd = NumberingDefinition(self.namespace, an, an_id=an_id)
                 self.definitions[an_id] = nd
 
-        def create_instance(local_n, definition):
+        def create_instance(local_n: _typing.Any, definition: _typing.Any) -> _typing.Any:
             nd = definition.copy()
             start_overrides = {}
             for lo in xpath("./w:lvlOverride")(local_n):
@@ -282,27 +285,27 @@ class Numbering(object):
         for num_id, d in iteritems(self.instances):
             self.starts[num_id] = {lvl: d.levels[lvl].start for lvl in d.levels}
 
-    def get_pstyle(self, num_id, style_id):
+    def get_pstyle(self: _typing.Self, num_id: _typing.Any, style_id: _typing.Any) -> _typing.Any:
         d = self.instances.get(num_id, None)
         if d is not None:
             for ilvl, lvl in iteritems(d.levels):
                 if lvl.para_link == style_id:
                     return ilvl
 
-    def get_para_style(self, num_id, lvl):
+    def get_para_style(self: _typing.Self, num_id: _typing.Any, lvl: _typing.Any) -> _typing.Any:
         d = self.instances.get(num_id, None)
         if d is not None:
             lvl = d.levels.get(lvl, None)
             return getattr(lvl, "paragraph_style", None)
 
-    def update_counter(self, counter, levelnum, levels):
+    def update_counter(self: _typing.Self, counter: _typing.Any, levelnum: _typing.Any, levels: _typing.Any) -> None:
         counter[levelnum] += 1
         for ilvl, lvl in iteritems(levels):
             restart = lvl.restart
             if (restart is None and ilvl == levelnum + 1) or restart == levelnum + 1:
                 counter[ilvl] = lvl.start
 
-    def apply_markup(self, items, body, styles, object_map, images):
+    def apply_markup(self: _typing.Self, items: _typing.Any, body: _typing.Any, styles: _typing.Any, object_map: _typing.Any, images: _typing.Any) -> None:
         seen_instances = set()
         for p, num_id, ilvl in items:
             d = self.instances.get(num_id, None)
@@ -328,7 +331,7 @@ class Numbering(object):
 
         templates = {}
 
-        def commit(current_run):
+        def commit(current_run: _typing.Any) -> None:
             if not current_run:
                 return
             start = current_run[0]

@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys, os, re
 from LiuXin_alpha.file_formats.rtf2xml import copy
 from LiuXin_alpha.utils.ptempfiles import better_mktemp
@@ -25,13 +28,13 @@ class GroupBorders:
     """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        copy=None,
-        run_level=1,
-        wrap=0,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+        wrap: int = 0,
+    ) -> None:
         """
         Required:
             'file'
@@ -49,7 +52,7 @@ class GroupBorders:
         self.__write_to = better_mktemp()
         self.__wrap = wrap
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Required:
             Nothing
@@ -119,7 +122,7 @@ class GroupBorders:
         self.__border_regex = re.compile(r"(<border-paragraph[^<]+|<border-for-every-paragraph[^<]+)")
         self.__last_border_string = ""
 
-    def __in_pard_func(self, line):
+    def __in_pard_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- the line of current text.
@@ -134,7 +137,7 @@ class GroupBorders:
         else:
             self.__write_obj.write(line)
 
-    def __after_pard_func(self, line):
+    def __after_pard_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- the line of current text.
@@ -160,14 +163,14 @@ class GroupBorders:
         else:
             self.__list_chunk += line
 
-    def __close_pard_(self, line):
+    def __close_pard_(self: _typing.Self, line: _typing.Any) -> None:
         self.__write_obj.write(self.__list_chunk)
         self.__write_obj.write("mi<tg<close_____<paragraph-definition\n")
         self.__write_end_wrap()
         self.__list_chunk = ""
         self.__state = "default"
 
-    def __pard_after_par_def_func(self, line):
+    def __pard_after_par_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- the line of current text.
@@ -204,7 +207,7 @@ class GroupBorders:
                 self.__last_border_string = border_string
                 self.__list_chunk = ""
 
-    def __default_func(self, line):
+    def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             self, line
@@ -228,7 +231,7 @@ class GroupBorders:
         else:
             self.__write_obj.write(line)
 
-    def __write_start_border_tag(self, the_string):
+    def __write_start_border_tag(self: _typing.Self, the_string: _typing.Any) -> None:
         self.__write_obj.write("mi<mk<start-brdg\n")
         self.__border_num += 1
         num = "%04d" % self.__border_num
@@ -236,18 +239,18 @@ class GroupBorders:
         the_string += "<num>%s" % num_string
         self.__write_obj.write("mi<tg<open-att__<border-group%s\n" % the_string)
 
-    def __write_end_border_tag(self):
+    def __write_end_border_tag(self: _typing.Self) -> None:
         self.__write_obj.write("mi<mk<end-brdg__\n")
         self.__write_obj.write("mi<tg<close_____<border-group\n")
 
-    def __is_border_func(self, line):
+    def __is_border_func(self: _typing.Self, line: _typing.Any) -> int:
         line = re.sub(self.__name_regex, "", line)
         index = line.find("border-paragraph")
         if index > -1:
             return 1
         return 0
 
-    def __parse_pard_with_border(self, line):
+    def __parse_pard_with_border(self: _typing.Self, line: _typing.Any) -> tuple[_typing.Any, ...]:
         border_string = ""
         pard_string = ""
         tokens = re.split(self.__border_regex, line)
@@ -258,7 +261,7 @@ class GroupBorders:
                 pard_string += token
         return border_string, pard_string
 
-    def __write_pard_with_border(self, line):
+    def __write_pard_with_border(self: _typing.Self, line: _typing.Any) -> None:
         border_string = ""
         pard_string = ""
         tokens = re.split(self.__border_regex, line)
@@ -270,11 +273,11 @@ class GroupBorders:
         self.__write_start_border_tag(border_string)
         self.__write_obj.write(pard_string)
 
-    def __get_style_name(self, line):
+    def __get_style_name(self: _typing.Self, line: _typing.Any) -> None:
         if self.__token_info == "mi<mk<style-name":
             self.__style_name = line[17:-1]
 
-    def group_borders(self):
+    def group_borders(self: _typing.Self) -> None:
         """
         Required:
             nothing

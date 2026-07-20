@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.file_formats.oeb.base import XPath
 
@@ -11,10 +14,10 @@ __docformat__ = "restructuredtext en"
 
 
 class CSSCleanup(object):
-    def __init__(self, log, opts):
+    def __init__(self: _typing.Self, log: _typing.Any, opts: _typing.Any) -> None:
         self.log, self.opts = log, opts
 
-    def __call__(self, item, stylizer):
+    def __call__(self: _typing.Self, item: _typing.Any, stylizer: _typing.Any) -> None:
         if not hasattr(item.data, "xpath"):
             return
 

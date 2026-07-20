@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys
 import os
 from LiuXin_alpha.file_formats.rtf2xml import field_strings, copy
@@ -93,12 +96,12 @@ class FieldsLarge:
     """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         """
         Required:
             'file'--file to parse
@@ -115,7 +118,7 @@ class FieldsLarge:
         self.__run_level = run_level
         self.__write_to = better_mktemp()
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
         """
@@ -151,7 +154,7 @@ class FieldsLarge:
         self.__sec_in_field = []  # sections in field?
         self.__field_string = []  # list of field strings
 
-    def __before_body_func(self, line):
+    def __before_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line --line ro parse
@@ -165,7 +168,7 @@ class FieldsLarge:
             self.__state = "in_body"
         self.__write_obj.write(line)
 
-    def __in_body_func(self, line):
+    def __in_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line --line to parse
@@ -179,7 +182,7 @@ class FieldsLarge:
             action(line)
         self.__write_obj.write(line)
 
-    def __found_field_func(self, line):
+    def __found_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to parse
@@ -197,7 +200,7 @@ class FieldsLarge:
         self.__sec_in_field.append(0)
         self.__par_in_field.append(0)
 
-    def __in_field_func(self, line):
+    def __in_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to parse
@@ -218,7 +221,7 @@ class FieldsLarge:
             else:
                 self.__field_string[-1] += line
 
-    def __par_in_field_func(self, line):
+    def __par_in_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to parse
@@ -231,7 +234,7 @@ class FieldsLarge:
         self.__field_string[-1] += line
         self.__par_in_field[-1] = 1
 
-    def __sec_in_field_func(self, line):
+    def __sec_in_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to parse
@@ -244,7 +247,7 @@ class FieldsLarge:
         self.__field_string[-1] += line
         self.__sec_in_field[-1] = 1
 
-    def __found_field_instruction_func(self, line):
+    def __found_field_instruction_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line to parse
@@ -258,7 +261,7 @@ class FieldsLarge:
         self.__field_instruction_count = self.__ob_count
         self.__cb_count = 0
 
-    def __field_instruction_func(self, line):
+    def __field_instruction_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to parse
@@ -283,7 +286,7 @@ class FieldsLarge:
         else:
             self.__field_instruction_string += line
 
-    def __end_field_func(self):
+    def __end_field_func(self: _typing.Self) -> None:
         """
         Requires:
             nothing
@@ -336,11 +339,11 @@ class FieldsLarge:
             self.__field_string[-1] += inner_field_string
         self.__symbol = 0
 
-    def __write_field_string(self, the_string):
+    def __write_field_string(self: _typing.Self, the_string: _typing.Any) -> None:
         self.__state = "in_body"
         self.__write_obj.write(the_string)
 
-    def fix_fields(self):
+    def fix_fields(self: _typing.Self) -> None:
         """
         Requires:
             nothing

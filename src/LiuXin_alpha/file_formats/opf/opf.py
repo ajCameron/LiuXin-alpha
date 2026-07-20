@@ -3,6 +3,9 @@
 # License: GPLv3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 import os
 from copy import deepcopy
 from collections.abc import Mapping
@@ -26,16 +29,16 @@ from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 
 class DummyFile(object):
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         self.raw = raw
 
-    def read(self, size=-1):
+    def read(self: _typing.Self, size: _typing.Any = -1) -> _typing.Any:
         if size is None or size < 0:
             return self.raw
         return self.raw[:size]
 
 
-def _coerce_input_stream(stream):
+def _coerce_input_stream(stream: _typing.Any) -> _typing.Any:
     if isinstance(stream, (bytes, bytearray, memoryview)):
         return DummyFile(bytes(stream))
     if isinstance(stream, os.PathLike):
@@ -43,7 +46,7 @@ def _coerce_input_stream(stream):
     return stream
 
 
-def _parse_opf_from_input(stream):
+def _parse_opf_from_input(stream: _typing.Any) -> _typing.Any:
     stream = _coerce_input_stream(stream)
     if hasattr(stream, "read"):
         # parse_opf() reads from current position; for robustness we parse from
@@ -70,7 +73,7 @@ def _parse_opf_from_input(stream):
     return parse_opf(stream)
 
 
-def _clean_xml_text(value):
+def _clean_xml_text(value: _typing.Any) -> _typing.Any:
     if value is None:
         return value
     if isinstance(value, (bytes, bytearray, memoryview)):
@@ -80,7 +83,7 @@ def _clean_xml_text(value):
     return value
 
 
-def _clean_xml_list(values):
+def _clean_xml_list(values: _typing.Any) -> _typing.Any:
     if not values:
         return []
     ans = []
@@ -94,7 +97,7 @@ def _clean_xml_list(values):
     return ans
 
 
-def _sanitize_metadata_for_xml(mi):
+def _sanitize_metadata_for_xml(mi: _typing.Any) -> _typing.Any:
     """
     Return a metadata object safe for XML serialization.
 
@@ -162,36 +165,36 @@ def _sanitize_metadata_for_xml(mi):
     return safe_mi
 
 
-def get_metadata2(root, ver):
+def get_metadata2(root: _typing.Any, ver: _typing.Any) -> tuple[_typing.Any, ...]:
     opf = OPF(None, preparsed_opf=root, read_toc=False)
     return opf.to_book_metadata(), ver, opf.raster_cover, opf.first_spine_item()
 
 
-def get_metadata3(root, ver):
+def get_metadata3(root: _typing.Any, ver: _typing.Any) -> _typing.Any:
     return read_metadata(root, ver=ver, return_extra_data=True)
 
 
-def get_metadata_from_parsed(root):
+def get_metadata_from_parsed(root: _typing.Any) -> _typing.Any:
     ver = parse_opf_version(root.get("version"))
     f = get_metadata2 if ver.major < 3 else get_metadata3
     return f(root, ver)
 
 
-def get_metadata(stream):
+def get_metadata(stream: _typing.Any) -> _typing.Any:
     root = _parse_opf_from_input(stream)
     return get_metadata_from_parsed(root)
 
 
 def set_metadata(
-    stream,
-    mi,
-    cover_prefix="",
-    cover_data=None,
-    apply_null=False,
-    update_timestamp=False,
-    force_identifiers=False,
-    add_missing_cover=True,
-):
+    stream: _typing.Any,
+    mi: _typing.Any,
+    cover_prefix: str = "",
+    cover_data: _typing.Any = None,
+    apply_null: bool = False,
+    update_timestamp: bool = False,
+    force_identifiers: bool = False,
+    add_missing_cover: bool = True,
+) -> tuple[_typing.Any, ...]:
     """
     Front end for the set_metadata_opf2 and set_metadata_opf3 methods - detects the version then  calls the appropriate
     method to actually set the metadata.
@@ -224,16 +227,16 @@ def set_metadata(
 
 
 def set_metadata_opf2(
-    root,
-    cover_prefix,
-    mi,
-    opf_version,
-    cover_data=None,
-    apply_null=False,
-    update_timestamp=False,
-    force_identifiers=False,
-    add_missing_cover=True,
-):
+    root: _typing.Any,
+    cover_prefix: _typing.Any,
+    mi: _typing.Any,
+    opf_version: _typing.Any,
+    cover_data: _typing.Any = None,
+    apply_null: bool = False,
+    update_timestamp: bool = False,
+    force_identifiers: bool = False,
+    add_missing_cover: bool = True,
+) -> tuple[_typing.Any, ...]:
     """
     Set the metadata for an opf 2 file.
     :param root:
@@ -300,16 +303,16 @@ def set_metadata_opf2(
 
 # Todo: Current md test file is for epub version 2 - find one for epub version 3 for testing
 def set_metadata_opf3(
-    root,
-    cover_prefix,
-    mi,
-    opf_version,
-    cover_data=None,
-    apply_null=False,
-    update_timestamp=False,
-    force_identifiers=False,
-    add_missing_cover=True,
-):
+    root: _typing.Any,
+    cover_prefix: _typing.Any,
+    mi: _typing.Any,
+    opf_version: _typing.Any,
+    cover_data: _typing.Any = None,
+    apply_null: bool = False,
+    update_timestamp: bool = False,
+    force_identifiers: bool = False,
+    add_missing_cover: bool = True,
+) -> tuple[_typing.Any, ...]:
     """
     Sets metadata for the OPF3 standard.
     :param root:

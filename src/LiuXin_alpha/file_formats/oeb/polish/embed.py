@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import sys
 
@@ -32,7 +35,7 @@ props = {
 }
 
 
-def matching_rule(font, rules):
+def matching_rule(font: _typing.Any, rules: _typing.Any) -> _typing.Any:
     ff = font["font-family"]
     if not isinstance(ff, six_string_types):
         ff = tuple(ff)[0]
@@ -50,7 +53,7 @@ def matching_rule(font, rules):
                 return rule
 
 
-def embed_font(container, font, all_font_rules, report, warned):
+def embed_font(container: _typing.Any, font: _typing.Any, all_font_rules: _typing.Any, report: _typing.Any, warned: _typing.Any) -> _typing.Any:
     rule = matching_rule(font, all_font_rules)
     ff = font["font-family"]
     if not isinstance(ff, six_string_types):
@@ -115,7 +118,7 @@ def embed_font(container, font, all_font_rules, report, warned):
         return rule
 
 
-def embed_all_fonts(container, stats, report):
+def embed_all_fonts(container: _typing.Any, stats: _typing.Any, report: _typing.Any) -> bool:
     all_font_rules = tuple(itervalues(stats.all_font_rules))
     warned = set()
     rules, nrules = [], []

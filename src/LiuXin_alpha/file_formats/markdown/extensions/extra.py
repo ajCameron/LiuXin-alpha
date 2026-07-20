@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Python-Markdown Extra Extension
@@ -45,7 +48,7 @@ extensions = [
 class ExtraExtension(Extension):
     """Add various extensions to Markdown class."""
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         """Register extension instances."""
         md.registerExtensions(extensions, self.config)
         if not md.safeMode:
@@ -53,5 +56,5 @@ class ExtraExtension(Extension):
             md.preprocessors["html_block"].markdown_in_raw = True
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return ExtraExtension(configs=dict(configs or {}))

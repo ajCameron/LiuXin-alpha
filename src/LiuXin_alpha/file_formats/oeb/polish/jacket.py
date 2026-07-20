@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.file_formats.oeb.base import XPath, OPF
 from LiuXin_alpha.file_formats.oeb.polish.cover import find_cover_page
@@ -11,7 +14,7 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def render_jacket(container, jacket):
+def render_jacket(container: _typing.Any, jacket: _typing.Any) -> _typing.Any:
     from LiuXin_alpha.customize.ui import output_profiles
     from LiuXin_alpha.file_formats.conversion.config import load_defaults
     from LiuXin_alpha.file_formats.oeb.transforms.jacket import (
@@ -38,15 +41,15 @@ def render_jacket(container, jacket):
     return root
 
 
-def is_legacy_jacket(root):
+def is_legacy_jacket(root: _typing.Any) -> bool:
     return len(root.xpath('//*[starts-with(@class,"calibrerescale") and (local-name()="h1" or local-name()="h2")]')) > 0
 
 
-def is_current_jacket(root):
+def is_current_jacket(root: _typing.Any) -> bool:
     return len(XPath('//h:meta[@name="calibre-content" and @content="jacket"]')(root)) > 0
 
 
-def find_existing_jacket(container):
+def find_existing_jacket(container: _typing.Any) -> _typing.Any:
     for item in container.spine_items:
         name = container.abspath_to_name(item)
         if container.book_type == "azw3":
@@ -60,13 +63,13 @@ def find_existing_jacket(container):
                     return name
 
 
-def replace_jacket(container, name):
+def replace_jacket(container: _typing.Any, name: _typing.Any) -> None:
     root = render_jacket(container, name)
     container.parsed_cache[name] = root
     container.dirty(name)
 
 
-def remove_jacket(container):
+def remove_jacket(container: _typing.Any) -> bool:
     """
     Remove an existing jacket, if any. Returns False if no existing jacket was found.
     :param container:
@@ -80,7 +83,7 @@ def remove_jacket(container):
     return False
 
 
-def remove_jacket_images(container, name):
+def remove_jacket_images(container: _typing.Any, name: _typing.Any) -> None:
     root = container.parsed_cache[name]
     for img in root.xpath('//*[local-name() = "img" and @src]'):
         iname = container.href_to_name(img.get("src"), name)
@@ -88,7 +91,7 @@ def remove_jacket_images(container, name):
             container.remove_item(iname)
 
 
-def add_or_replace_jacket(container):
+def add_or_replace_jacket(container: _typing.Any) -> _typing.Any:
     """
     Either create a new jacket from the book's metadata or replace an
     existing jacket. Returns True if an existing jacket was replaced.

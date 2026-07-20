@@ -1,4 +1,7 @@
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Compile a LRS file into a LRF file.
@@ -76,7 +79,7 @@ class LrsParser(object):
         ]
     ]
 
-    def __init__(self, stream, logger):
+    def __init__(self: _typing.Self, stream: _typing.Any, logger: _typing.Any) -> None:
         self.logger = logger
         src = stream.read()
         self.soup = BeautifulStoneSoup(
@@ -95,14 +98,14 @@ class LrsParser(object):
         self.fourth_pass()
         self.fifth_pass()
 
-    def fifth_pass(self):
+    def fifth_pass(self: _typing.Self) -> None:
         for tag in self.soup.findAll(["canvas", "header", "footer"]):
             canvas = self.parsed_objects[tag.get("objid")]
             for po in tag.findAll("putobj"):
                 canvas.put_object(self.parsed_objects[po.get("refobj")], po.get("x1"), po.get("y1"))
 
     @classmethod
-    def attrs_to_dict(cls, tag, exclude=("objid",)):
+    def attrs_to_dict(cls: type[_typing.Self], tag: _typing.Any, exclude: tuple[_typing.Any, ...] = ("objid",)) -> _typing.Any:
         result = {}
         for key, val in tag.attrs:
             if key in exclude:
@@ -110,7 +113,7 @@ class LrsParser(object):
             result[str(key)] = val
         return result
 
-    def text_tag_to_element(self, tag):
+    def text_tag_to_element(self: _typing.Self, tag: _typing.Any) -> _typing.Any:
         element_map = {
             "span": Span,
             "italic": Italic,
@@ -132,7 +135,7 @@ class LrsParser(object):
         settings.pop("spanstyle", "")
         return element_map[tag.name](**settings)
 
-    def process_text_element(self, tag, elem):
+    def process_text_element(self: _typing.Self, tag: _typing.Any, elem: _typing.Any) -> None:
         for item in tag.contents:
             if isinstance(item, NavigableString):
                 elem.append(item.string)
@@ -141,7 +144,7 @@ class LrsParser(object):
                 elem.append(subelem)
                 self.process_text_element(item, subelem)
 
-    def process_paragraph(self, tag):
+    def process_paragraph(self: _typing.Self, tag: _typing.Any) -> _typing.Any:
         p = Paragraph()
         contents = [i for i in tag.contents]
         if contents:
@@ -158,7 +161,7 @@ class LrsParser(object):
                     self.process_text_element(item, elem)
         return p
 
-    def process_text_block(self, tag):
+    def process_text_block(self: _typing.Self, tag: _typing.Any) -> None:
         tb = self.parsed_objects[tag.get("objid")]
         for item in tag.contents:
             if hasattr(item, "name"):
@@ -173,7 +176,7 @@ class LrsParser(object):
                     self.process_text_element(item, elem)
                     p.append(elem)
 
-    def fourth_pass(self):
+    def fourth_pass(self: _typing.Self) -> None:
         for tag in self.soup.findAll("page"):
             page = self.parsed_objects[tag.get("objid")]
             self.book.append(page)
@@ -198,7 +201,7 @@ class LrsParser(object):
                 label = self.tag_to_string(tag)
                 self.book.addTocEntry(label, self.parsed_objects[tag.get("refobj")])
 
-    def third_pass(self):
+    def third_pass(self: _typing.Self) -> None:
         local_map = {
             "page": (
                 Page,
@@ -240,7 +243,7 @@ class LrsParser(object):
                     args += [tag.get("canvaswidth"), tag.get("canvasheight")]
                 self.parsed_objects[item_id] = local_map[tag.name][0](*args, **settings)
 
-    def second_pass(self):
+    def second_pass(self: _typing.Self) -> None:
         map = {
             "pagestyle": (
                 PageStyle,
@@ -279,7 +282,7 @@ class LrsParser(object):
                     self.book.append(self.parsed_objects[object_id])
 
     @classmethod
-    def tag_to_string(cls, tag):
+    def tag_to_string(cls: type[_typing.Self], tag: _typing.Any) -> _typing.Any:
         """
         Convenience method to take a BeautifulSoup Tag and extract the text from it recursively.
         :param tag:
@@ -297,12 +300,12 @@ class LrsParser(object):
                     strings.append(res)
         return "".join(strings)
 
-    def first_pass(self):
+    def first_pass(self: _typing.Self) -> None:
         info = self.soup.find("bbebxylog").find("bookinformation").find("info")
         book_info = info.find("bookinfo")
         doc_info = info.find("docinfo")
 
-        def me(base, tagname):
+        def me(base: _typing.Any, tagname: _typing.Any) -> _typing.Any:
             tag = base.find(tagname.lower())
             if tag is None:
                 return "", "", ""
@@ -357,14 +360,14 @@ class LrsParser(object):
             elem = Header if hdr.name == "header" else Footer
             self.parsed_objects[hdr.get("objid")] = elem(**self.attrs_to_dict(hdr))
 
-    def render(self, file, to_lrs=False):
+    def render(self: _typing.Self, file: _typing.Any, to_lrs: bool = False) -> None:
         if to_lrs:
             self.book.renderLrs(file, "utf-8")
         else:
             self.book.renderLrf(file)
 
 
-def option_parser():
+def option_parser() -> _typing.Any:
     parser = OptionParser(usage=_("%prog [options] file.lrs\nCompile an LRS file into an LRF file."))
     parser.add_option("-o", "--output", default=None, help=_("Path to output file"))
     parser.add_option("--verbose", default=False, action="store_true", help=_("Verbose processing"))
@@ -377,7 +380,7 @@ def option_parser():
     return parser
 
 
-def main(args=sys.argv, logger=None):
+def main(args: _typing.Any = sys.argv, logger: _typing.Any = None) -> int:
     parser = option_parser()
     opts, args = parser.parse_args(args)
     if logger is None:

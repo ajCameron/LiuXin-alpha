@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 from struct import pack
@@ -57,20 +60,20 @@ COLLAPSE_RE = re.compile(r"[ \t\r\n\v]+")
 
 
 def build_exth(
-    metadata,
-    prefer_author_sort=False,
-    is_periodical=False,
-    share_not_sync=True,
-    cover_offset=None,
-    thumbnail_offset=None,
-    start_offset=None,
-    mobi_doctype=2,
-    num_of_resources=None,
-    kf8_unknown_count=0,
-    be_kindlegen2=False,
-    kf8_header_index=None,
-    page_progression_direction=None,
-):
+    metadata: _typing.Any,
+    prefer_author_sort: bool = False,
+    is_periodical: bool = False,
+    share_not_sync: bool = True,
+    cover_offset: _typing.Any = None,
+    thumbnail_offset: _typing.Any = None,
+    start_offset: _typing.Any = None,
+    mobi_doctype: int = 2,
+    num_of_resources: _typing.Any = None,
+    kf8_unknown_count: int = 0,
+    be_kindlegen2: bool = False,
+    kf8_header_index: _typing.Any = None,
+    page_progression_direction: _typing.Any = None,
+) -> _typing.Any:
     """
     Construct an EXTH header for a mobi file
     :param metadata: Metadata object to render to EXTH - must be calibreMetadata

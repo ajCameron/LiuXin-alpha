@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Command line interface to conversion sub-system
@@ -74,15 +77,15 @@ HEURISTIC_OPTIONS = [
 DEFAULT_TRUE_OPTIONS = HEURISTIC_OPTIONS + ["remove_fake_margins"]
 
 
-def patheq(path_a, path_b):
+def patheq(path_a: _typing.Any, path_b: _typing.Any) -> bool:
     return os.path.normcase(os.path.abspath(path_a)) == os.path.normcase(os.path.abspath(path_b))
 
 
-def print_help(parser, log):
+def print_help(parser: _typing.Any, log: _typing.Any) -> None:
     parser.print_help()
 
 
-def check_command_line_options(parser, args, log):
+def check_command_line_options(parser: _typing.Any, args: _typing.Any, log: _typing.Any) -> tuple[_typing.Any, ...]:
     if len(args) < 3 or args[1].startswith("-") or args[2].startswith("-"):
         print_help(parser, log)
         log.error("\n\nYou must specify the input AND output files")
@@ -107,7 +110,7 @@ def check_command_line_options(parser, args, log):
     return usr_input, output
 
 
-def option_recommendation_to_cli_option(add_option, rec):
+def option_recommendation_to_cli_option(add_option: _typing.Any, rec: _typing.Any) -> None:
     opt = rec.option
     switches = ["-" + opt.short_switch] if opt.short_switch else []
     switches.append("--" + opt.long_switch)
@@ -131,15 +134,15 @@ def option_recommendation_to_cli_option(add_option, rec):
     add_option(Option(*switches, **attrs))
 
 
-def group_titles():
+def group_titles() -> tuple[_typing.Any, ...]:
     return _("INPUT OPTIONS"), _("OUTPUT OPTIONS")
 
 
-def recipe_test(option, opt_str, value, parser):
+def recipe_test(option: _typing.Any, opt_str: _typing.Any, value: _typing.Any, parser: _typing.Any) -> None:
     assert value is None
     value = []
 
-    def floatable(str_for_conv):
+    def floatable(str_for_conv: _typing.Any) -> bool:
         try:
             float(str_for_conv)
             return True
@@ -167,10 +170,10 @@ def recipe_test(option, opt_str, value, parser):
     setattr(parser.values, option.dest, tuple(value))
 
 
-def add_input_output_options(parser, plumber):
+def add_input_output_options(parser: _typing.Any, plumber: _typing.Any) -> None:
     input_options, output_options = plumber.input_options, plumber.output_options
 
-    def add_options(group, options):
+    def add_options(group: _typing.Any, options: _typing.Any) -> None:
         for opt in options:
             if plumber.input_fmt == "recipe" and opt.option.long_switch == "test":
                 group(Option("--test", dest="test", action="callback", callback=recipe_test))
@@ -198,7 +201,7 @@ def add_input_output_options(parser, plumber):
         parser.add_option_group(oo)
 
 
-def add_pipeline_options(parser, plumber):
+def add_pipeline_options(parser: _typing.Any, plumber: _typing.Any) -> None:
     groups = OrderedDict(
         (
             (
@@ -340,7 +343,7 @@ def add_pipeline_options(parser, plumber):
                 option_recommendation_to_cli_option(add_option, rec)
 
 
-def option_parser():
+def option_parser() -> _typing.Any:
     parser = OptionParser(usage=USAGE)
     parser.add_option(
         "--list-recipes",
@@ -356,16 +359,16 @@ def option_parser():
 
 
 class ProgressBar(object):
-    def __init__(self, log):
+    def __init__(self: _typing.Self, log: _typing.Any) -> None:
         self.log = log
 
-    def __call__(self, frac, msg=""):
+    def __call__(self: _typing.Self, frac: _typing.Any, msg: str = "") -> None:
         if msg:
             percent = int(frac * 100)
             self.log("%d%% %s" % (percent, msg))
 
 
-def create_option_parser(args, log):
+def create_option_parser(args: _typing.Any, log: _typing.Any) -> tuple[_typing.Any, ...]:
     if "--version" in args:
         from LiuXin_alpha.constants import __appname__, __version__, __author__
 
@@ -405,13 +408,13 @@ def create_option_parser(args, log):
     return parser, plumber
 
 
-def abspath(x):
+def abspath(x: _typing.Any) -> _typing.Any:
     if x.startswith("http:") or x.startswith("https:"):
         return x
     return os.path.abspath(os.path.expanduser(x))
 
 
-def read_sr_patterns(path, log=None):
+def read_sr_patterns(path: _typing.Any, log: _typing.Any = None) -> _typing.Any:
 
     import json
     import re
@@ -443,7 +446,7 @@ def read_sr_patterns(path, log=None):
     return json.dumps(pats)
 
 
-def main(args=sys.argv):
+def main(args: _typing.Any = sys.argv) -> int:
     log = Log()
     parser, plumber = create_option_parser(args, log)
     opts, leftover_args = parser.parse_args(args)
@@ -476,7 +479,7 @@ def main(args=sys.argv):
     return 0
 
 
-def manual_index_strings():
+def manual_index_strings() -> _typing.Any:
     return _(
         """\
 The options and default values for the options change depending on both the

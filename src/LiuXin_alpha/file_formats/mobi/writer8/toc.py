@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from lxml import etree
 
@@ -42,7 +45,7 @@ TEMPLATE = """
 """
 
 
-def find_previous_calibre_inline_toc(oeb):
+def find_previous_calibre_inline_toc(oeb: _typing.Any) -> _typing.Any:
     if "toc" in oeb.guide:
         href = urlnormalize(oeb.guide["toc"].href.partition("#")[0])
         if href in oeb.manifest.hrefs:
@@ -52,7 +55,7 @@ def find_previous_calibre_inline_toc(oeb):
 
 
 class TOCAdder(object):
-    def __init__(self, oeb, opts, replace_previous_inline_toc=False, ignore_existing_toc=False):
+    def __init__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, replace_previous_inline_toc: bool = False, ignore_existing_toc: bool = False) -> None:
         self.oeb, self.opts, self.log = oeb, opts, oeb.log
         self.title = opts.toc_title or DEFAULT_TITLE
         self.at_start = opts.mobi_toc_at_start
@@ -120,7 +123,7 @@ class TOCAdder(object):
 
         oeb.guide.add("toc", "Table of Contents", href)
 
-    def process_toc_node(self, toc, parent, level=0):
+    def process_toc_node(self: _typing.Self, toc: _typing.Any, parent: _typing.Any, level: int = 0) -> None:
         li = parent.makeelement(XHTML("li"))
         li.tail = "\n" + ("\t" * level)
         parent.append(li)
@@ -139,7 +142,7 @@ class TOCAdder(object):
             for child in toc:
                 self.process_toc_node(child, parent, level + 1)
 
-    def remove_generated_toc(self):
+    def remove_generated_toc(self: _typing.Self) -> None:
         if self.generated_item is not None:
             self.oeb.manifest.remove(self.generated_item)
             self.generated_item = None

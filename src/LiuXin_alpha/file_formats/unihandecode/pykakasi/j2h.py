@@ -21,6 +21,9 @@
 # *
 # */
 
+from __future__ import annotations
+
+import typing as _typing
 import re
 
 from LiuXin_alpha.file_formats.unihandecode.pykakasi.jisyo import jisyo
@@ -131,18 +134,18 @@ class J2H(object):
         "",
     ]
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.kanwa = jisyo()
 
-    def isKanji(self, c):
+    def isKanji(self: _typing.Self, c: _typing.Any) -> bool:
         return 0x3400 <= ord(c) and ord(c) < 0xFA2E
 
-    def isCletter(self, l, c):
+    def isCletter(self: _typing.Self, l: _typing.Any, c: _typing.Any) -> bool:
         if (ord("ぁ") <= ord(c) and ord(c) <= 0x309F) and (l in self.cl_table[ord(c) - ord("ぁ") - 1]):
             return True
         return False
 
-    def itaiji_conv(self, text):
+    def itaiji_conv(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         r = []
         for c in text:
             if c in self.kanwa.itaijidict:
@@ -151,7 +154,7 @@ class J2H(object):
             text = re.sub(c, self.kanwa.itaijidict[c], text)
         return text
 
-    def convert(self, text):
+    def convert(self: _typing.Self, text: _typing.Any) -> tuple[_typing.Any, ...]:
         max_len = 0
         Hstr = ""
         table = self.kanwa.load_jisyo(text[0])

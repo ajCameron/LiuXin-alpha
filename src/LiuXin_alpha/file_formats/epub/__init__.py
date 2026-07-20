@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Conversion to EPUB
@@ -11,7 +14,7 @@ __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
 __docformat__ = "restructuredtext en"
 
 
-def rules(stylesheets):
+def rules(stylesheets: _typing.Any) -> _typing.Iterator[_typing.Any]:
     for s in stylesheets:
         if hasattr(s, "cssText"):
             for r in s:
@@ -19,7 +22,7 @@ def rules(stylesheets):
                     yield r
 
 
-def initialize_container(path_to_container, opf_name="metadata.opf", extra_entries=None):
+def initialize_container(path_to_container: _typing.Any, opf_name: str = "metadata.opf", extra_entries: _typing.Any = None) -> _typing.Any:
     """
     Create an empty EPUB document, with a default skeleton.
     :param path_to_container: Path to the epub container

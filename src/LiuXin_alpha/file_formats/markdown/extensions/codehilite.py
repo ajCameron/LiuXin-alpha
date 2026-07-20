@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 CodeHilite Extension for Python-Markdown
@@ -62,16 +65,16 @@ class CodeHilite(object):
     """
 
     def __init__(
-        self,
-        src=None,
-        linenums=None,
-        guess_lang=True,
-        css_class="codehilite",
-        lang=None,
-        style="default",
-        noclasses=False,
-        tab_length=4,
-    ):
+        self: _typing.Self,
+        src: _typing.Any = None,
+        linenums: _typing.Any = None,
+        guess_lang: bool = True,
+        css_class: str = "codehilite",
+        lang: _typing.Any = None,
+        style: str = "default",
+        noclasses: bool = False,
+        tab_length: int = 4,
+    ) -> None:
         self.src = src
         self.lang = lang
         self.linenums = linenums
@@ -81,7 +84,7 @@ class CodeHilite(object):
         self.noclasses = noclasses
         self.tab_length = tab_length
 
-    def hilite(self):
+    def hilite(self: _typing.Self) -> _typing.Any:
         """
         Pass code to the [Pygments](http://pygments.pocoo.org/) highliter with
         optional line numbers. The output should then be styled with css to
@@ -135,7 +138,7 @@ class CodeHilite(object):
                 txt,
             )
 
-    def _getLang(self):
+    def _getLang(self: _typing.Self) -> None:
         """
         Determines language of a code block from shebang line and whether said
         line should be removed or left in place. If the sheband line contains a
@@ -190,7 +193,7 @@ class CodeHilite(object):
 class HiliteTreeprocessor(Treeprocessor):
     """Hilight source code in code blocks."""
 
-    def run(self, root):
+    def run(self: _typing.Self, root: _typing.Any) -> None:
         """Find code blocks and store in htmlStash."""
         blocks = root.iter("pre")
         for block in blocks:
@@ -217,7 +220,7 @@ class HiliteTreeprocessor(Treeprocessor):
 class CodeHiliteExtension(Extension):
     """Add source code hilighting to markdown codeblocks."""
 
-    def __init__(self, configs):
+    def __init__(self: _typing.Self, configs: _typing.Any) -> None:
         # define default configs
         self.config = {
             "linenums": [None, "Use lines numbers. True=yes, False=no, None=auto"],
@@ -263,7 +266,7 @@ class CodeHiliteExtension(Extension):
 
             self.setConfig(key, value)
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         """Add HilitePostprocessor to Markdown instance."""
         hiliter = HiliteTreeprocessor(md)
         hiliter.config = self.getConfigs()
@@ -272,5 +275,5 @@ class CodeHiliteExtension(Extension):
         md.registerExtension(self)
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return CodeHiliteExtension(configs=configs or {})

@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.file_formats import DRMError as _DRMError
 
@@ -17,7 +20,7 @@ class InvalidBook(ValueError):
 
 
 class DRMError(_DRMError):
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         super(DRMError, self).__init__(_("This file is locked with DRM. It cannot be edited."))
 
 

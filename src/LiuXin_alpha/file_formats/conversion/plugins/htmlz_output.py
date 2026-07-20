@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 
@@ -61,7 +64,7 @@ class HTMLZOutput(OutputFormatPlugin):
         ),
     }
 
-    def convert(self, oeb_book, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         from LiuXin_alpha.file_formats.oeb.base import OEB_IMAGES, SVG_MIME
         from LiuXin_alpha.file_formats.opf.opf2 import OPF, metadata_to_opf
 

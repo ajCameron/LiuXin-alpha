@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys
 import os
 import re
@@ -38,12 +41,12 @@ class FieldsSmall:
     """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         """
         Required:
             'file'--file to parse
@@ -60,7 +63,7 @@ class FieldsSmall:
         self.__write_to = better_mktemp()
         self.__run_level = run_level
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
         """
@@ -87,7 +90,7 @@ class FieldsSmall:
         reg_st = ob + bk_st + tx + cb
         self.__book_start = re.compile(r"%s" % reg_st)
 
-    def __before_body_func(self, line):
+    def __before_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --the line to parse
@@ -101,7 +104,7 @@ class FieldsSmall:
             self.__state = "body"
         self.__write_obj.write(line)
 
-    def __body_func(self, line):
+    def __body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --the line to parse
@@ -117,7 +120,7 @@ class FieldsSmall:
         else:
             self.__write_obj.write(line)
 
-    def __found_bookmark_func(self, line, tag):
+    def __found_bookmark_func(self: _typing.Self, line: _typing.Any, tag: _typing.Any) -> None:
         """
         Requires:
             line --the line to parse
@@ -133,7 +136,7 @@ class FieldsSmall:
         self.__state = "bookmark"
         self.__type_of_bookmark = tag
 
-    def __bookmark_func(self, line):
+    def __bookmark_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --the line to parse
@@ -161,7 +164,7 @@ class FieldsSmall:
         elif line[0:2] == "tx":
             self.__text_string += line[17:-1]
 
-    def __parse_index_func(self, my_string):
+    def __parse_index_func(self: _typing.Self, my_string: _typing.Any) -> _typing.Any:
         """
         Requires:
             my_string --string to parse
@@ -210,7 +213,7 @@ class FieldsSmall:
         my_changed_string += "\n"
         return my_changed_string
 
-    def __index_see_func(self, my_string):
+    def __index_see_func(self: _typing.Self, my_string: _typing.Any) -> tuple[_typing.Any, ...]:
         in_see = 0
         bracket_count = 0
         see_string = ""
@@ -236,7 +239,7 @@ class FieldsSmall:
                 changed_string += "%s\n" % line
         return changed_string, see_string
 
-    def __index_bookmark_func(self, my_string):
+    def __index_bookmark_func(self: _typing.Self, my_string: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Requires:
             my_string -- string in all the index
@@ -273,7 +276,7 @@ class FieldsSmall:
                 index_string += "%s\n" % line
         return index_string, bookmark_string
 
-    def __index__format_func(self, my_string):
+    def __index__format_func(self: _typing.Self, my_string: _typing.Any) -> tuple[_typing.Any, ...]:
         italics = 0
         bold = 0
         lines = my_string.split("\n")
@@ -285,7 +288,7 @@ class FieldsSmall:
                 italics = 1
         return italics, bold
 
-    def __parse_toc_func(self, my_string):
+    def __parse_toc_func(self: _typing.Self, my_string: _typing.Any) -> _typing.Any:
         """
         Requires:
             my_string -- all the string in the toc
@@ -320,7 +323,7 @@ class FieldsSmall:
         my_changed_string += "\n"
         return my_changed_string
 
-    def __parse_bookmark_for_toc(self, my_string):
+    def __parse_bookmark_for_toc(self: _typing.Self, my_string: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Requires:
             the_string --string of toc, with new lines
@@ -366,7 +369,7 @@ class FieldsSmall:
                 toc_string += "%s\n" % line
         return toc_string, book_start_string, book_end_string
 
-    def __parse_bookmark_func(self, my_string, type):
+    def __parse_bookmark_func(self: _typing.Self, my_string: _typing.Any, type: _typing.Any) -> _typing.Any:
         """
         Requires:
             my_string --string to parse
@@ -380,7 +383,7 @@ class FieldsSmall:
         my_changed_string = "mi<tg<empty-att_<field<type>%s" "<number>%s<update>none\n" % (type, my_string)
         return my_changed_string
 
-    def __found_toc_index_func(self, line, tag):
+    def __found_toc_index_func(self: _typing.Self, line: _typing.Any, tag: _typing.Any) -> None:
         """
         Requires:
             line --the line to parse
@@ -396,7 +399,7 @@ class FieldsSmall:
         self.__state = "toc_index"
         self.__tag = tag
 
-    def __toc_index_func(self, line):
+    def __toc_index_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --the line to parse
@@ -422,7 +425,7 @@ class FieldsSmall:
         else:
             self.__text_string += line
 
-    def fix_fields(self):
+    def fix_fields(self: _typing.Self) -> None:
         """
         Requires:
             nothing

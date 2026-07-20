@@ -55,6 +55,9 @@ Codepages as to RTF 1.9.1:
     57010	Gujarati
     57011	Punjabi
 """
+from __future__ import annotations
+
+import typing as _typing
 import re
 from LiuXin_alpha.file_formats.rtf2xml import open_for_read
 
@@ -92,7 +95,7 @@ class DefaultEncoding:
         "gb18030": "54936",
     }
 
-    def __init__(self, in_file, bug_handler, default_encoding, run_level=1, check_raw=False):
+    def __init__(self: _typing.Self, in_file: _typing.Any, bug_handler: _typing.Any, default_encoding: _typing.Any, run_level: int = 1, check_raw: bool = False) -> None:
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__platform = "Windows"
@@ -101,7 +104,7 @@ class DefaultEncoding:
         self.__datafetched = False
         self.__fetchraw = check_raw
 
-    def find_default_encoding(self):
+    def find_default_encoding(self: _typing.Self) -> tuple[_typing.Any, ...]:
         if not self.__datafetched:
             self._encoding()
             self.__datafetched = True
@@ -110,7 +113,7 @@ class DefaultEncoding:
             # self.__code_page = 'mac_roman'
         return self.__platform, code_page, self.__default_num
 
-    def get_codepage(self):
+    def get_codepage(self: _typing.Self) -> _typing.Any:
         if not self.__datafetched:
             self._encoding()
             self.__datafetched = True
@@ -118,13 +121,13 @@ class DefaultEncoding:
             # self.__code_page = 'mac_roman'
         return self.__code_page
 
-    def get_platform(self):
+    def get_platform(self: _typing.Self) -> _typing.Any:
         if not self.__datafetched:
             self._encoding()
             self.__datafetched = True
         return self.__platform
 
-    def _encoding(self):
+    def _encoding(self: _typing.Self) -> None:
         with open_for_read(self.__file) as read_obj:
             cpfound = False
             if not self.__fetchraw:

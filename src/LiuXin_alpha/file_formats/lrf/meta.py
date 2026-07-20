@@ -1,4 +1,7 @@
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 """
 This module presents an easy to use interface for getting and setting
@@ -48,7 +51,7 @@ class field(object):
     that implements access to protocol packets in a human readable way.
     """
 
-    def __init__(self, start=16, fmt=DWORD):
+    def __init__(self: _typing.Self, start: int = 16, fmt: _typing.Any = DWORD) -> None:
         """
         See U{struct<http://docs.python.org/lib/module-struct.html>}.
         :param start: The byte at which this field is stored in the buffer
@@ -57,13 +60,13 @@ class field(object):
         self._fmt = fmt
         self._start = start
 
-    def __get__(self, obj, typ=None):
+    def __get__(self: _typing.Self, obj: _typing.Any, typ: _typing.Any = None) -> _typing.Any:
         return obj.unpack(start=self._start, fmt=self._fmt)[0]
 
-    def __set__(self, obj, val):
+    def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
         obj.pack(val, start=self._start, fmt=self._fmt)
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         typ = ""
         if self._fmt == DWORD:
             typ = "unsigned int"
@@ -80,11 +83,11 @@ class field(object):
 
 
 class versioned_field(field):
-    def __init__(self, vfield, version, start=0, fmt=WORD):
+    def __init__(self: _typing.Self, vfield: _typing.Any, version: _typing.Any, start: int = 0, fmt: _typing.Any = WORD) -> None:
         field.__init__(self, start=start, fmt=fmt)
         self.vfield, self.version = vfield, version
 
-    def enabled(self, obj):
+    def enabled(self: _typing.Self, obj: _typing.Any) -> bool:
         if isinstance(self.vfield, field):
             if obj is None:
                 return False
@@ -93,13 +96,13 @@ class versioned_field(field):
             vfield_value = self.vfield
         return vfield_value > self.version
 
-    def __get__(self, obj, typ=None):
+    def __get__(self: _typing.Self, obj: _typing.Any, typ: _typing.Any = None) -> _typing.Any:
         if self.enabled(obj):
             return field.__get__(self, obj, typ=typ)
         else:
             return None
 
-    def __set__(self, obj, val):
+    def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
         if not self.enabled(obj):
             raise LRFException("Trying to set disabled field")
         else:
@@ -115,7 +118,7 @@ class fixed_stringfield(object):
     A field storing a variable length string.
     """
 
-    def __init__(self, length=8, start=0):
+    def __init__(self: _typing.Self, length: int = 8, start: int = 0) -> None:
         """
         :param length: Size of this string
         :param start: The byte at which this field is stored in the buffer
@@ -123,18 +126,18 @@ class fixed_stringfield(object):
         self._length = length
         self._start = start
 
-    def __get__(self, obj, typ=None):
+    def __get__(self: _typing.Self, obj: _typing.Any, typ: _typing.Any = None) -> _typing.Any:
         length = str(self._length)
         return obj.unpack(start=self._start, fmt="<" + length + "s")[0]
 
-    def __set__(self, obj, val):
+    def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
         if val.__class__.__name__ != "str":
             val = str(val)
         if len(val) != self._length:
             raise LRFException("Trying to set fixed_stringfield with a string of  incorrect length")
         obj.pack(val, start=self._start, fmt="<" + str(len(val)) + "s")
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "A string of length " + str(self._length) + " starting at byte " + str(self._start)
 
 
@@ -143,7 +146,7 @@ class xml_attr_field(object):
     descriptor for an xml_attr_field - gets and sets values for an xml attribute field
     """
 
-    def __init__(self, tag_name, attr, parent="BookInfo"):
+    def __init__(self: _typing.Self, tag_name: _typing.Any, attr: _typing.Any, parent: str = "BookInfo") -> None:
         """
         :param tag_name: Name of the xml tag
         :param attr:
@@ -153,7 +156,7 @@ class xml_attr_field(object):
         self.parent = parent
         self.attr = attr
 
-    def __get__(self, obj, typ=None):
+    def __get__(self: _typing.Self, obj: _typing.Any, typ: _typing.Any = None) -> _typing.Any:
         """
         Return the data in this field or '' if the field is empty
         :param obj:
@@ -171,7 +174,7 @@ class xml_attr_field(object):
                 return elem.getAttribute(self.attr)
         return ""
 
-    def __set__(self, obj, val):
+    def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
         if val is None:
             val = ""
         document = obj.info
@@ -185,10 +188,10 @@ class xml_attr_field(object):
             elem.setAttribute(self.attr, val)
         obj.info = document
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "XML Attr Field: {} in {}".format(self.tag_name, self.parent)
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return "{}.{}".format(self.tag_name, self.attr)
 
 
@@ -198,7 +201,7 @@ class xml_field(object):
     Works for simple XML fields of the form <tagname>data</tagname>
     """
 
-    def __init__(self, tag_name, parent="BookInfo"):
+    def __init__(self: _typing.Self, tag_name: _typing.Any, parent: str = "BookInfo") -> None:
         """
         :param tag_name: The XML tag whose data we operate on
         :param parent: The tagname of the parent element of C{tag_name}
@@ -206,7 +209,7 @@ class xml_field(object):
         self.tag_name = tag_name
         self.parent = parent
 
-    def __get__(self, obj, typ=None):
+    def __get__(self: _typing.Self, obj: _typing.Any, typ: _typing.Any = None) -> _typing.Any:
         """
         Return the data in this field or '' if the field is empty.
         :param obj:
@@ -230,7 +233,7 @@ class xml_field(object):
 
         return ""
 
-    def __set__(self, obj, val):
+    def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
         """
         Writes the element - into an existing element if a suitable one exists - creating one otherwise.
         :param obj:
@@ -243,7 +246,7 @@ class xml_field(object):
         # Directly access the document
         document = obj.info
 
-        def create_elem():
+        def create_elem() -> _typing.Any:
             """
             Used to make an element if a suitable one doesn't already exist
             :return:
@@ -282,10 +285,10 @@ class xml_field(object):
 
         obj.info = document
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return self.tag_name
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "XML Field: {} in {}".format(self.tag_name, self.parent)
 
 
@@ -296,7 +299,7 @@ class xml_multivalued_field(object):
     Works for simple XMl fields of the form <tagname>data</tagname> - can cope with there being more than one of them.
     """
 
-    def __init__(self, tag_name, parent="BookInfo"):
+    def __init__(self: _typing.Self, tag_name: _typing.Any, parent: str = "BookInfo") -> None:
         """
         :param tag_name: The XML tag whose data we operate on
         :param parent: The tagname of the parent element of C{tag_name}
@@ -304,7 +307,7 @@ class xml_multivalued_field(object):
         self.tag_name = tag_name
         self.parent = parent
 
-    def __get__(self, obj, typ=None):
+    def __get__(self: _typing.Self, obj: _typing.Any, typ: _typing.Any = None) -> _typing.Any:
         """
         Return the data for all the matching fields as a list.
         Returns an empty list if there are no matching elements.
@@ -324,11 +327,11 @@ class xml_multivalued_field(object):
 
         return vals
 
-    def __set__(self, instance, value):
+    def __set__(self: _typing.Self, instance: _typing.Any, value: _typing.Any) -> None:
         raise NotImplementedError
 
 
-def insert_into_file(fileobj, data, start, end):
+def insert_into_file(fileobj: _typing.Any, data: _typing.Any, start: _typing.Any, end: _typing.Any) -> _typing.Any:
     """
     Insert data into fileobj at position C{start}.
 
@@ -358,7 +361,7 @@ def insert_into_file(fileobj, data, start, end):
     return delta
 
 
-def get_metadata(stream, calibre_md=True):
+def get_metadata(stream: _typing.Any, calibre_md: bool = True) -> _typing.Any:
     """
     Return basic meta-data about the LRF file in C{stream} as a
     L{MetaInformation} object.
@@ -468,14 +471,14 @@ class LRFMetaFile(object):
     producer = xml_field("Producer", parent="DocInfo")
     page = xml_field("SumPage", parent="DocInfo")
 
-    def safe(func):
+    def safe(func: _typing.Any) -> _typing.Any:
         """
         Decorator that ensures that function calls leave the pos
         in the underlying file unchanged
         """
 
         @wraps(func)
-        def restore_pos(*args, **kwargs):
+        def restore_pos(*args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
             obj = args[0]
             pos = obj._file.tell()
             res = func(*args, **kwargs)
@@ -486,13 +489,13 @@ class LRFMetaFile(object):
 
         return restore_pos
 
-    def safe_property(func):
+    def safe_property(func: _typing.Any) -> _typing.Any:
         """
         Decorator that ensures that read or writing a property leaves the position in the underlying file unchanged
         """
 
-        def decorator(f):
-            def restore_pos(*args, **kwargs):
+        def decorator(f: _typing.Any) -> _typing.Any:
+            def restore_pos(*args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
                 obj = args[0]
                 pos = obj._file.tell()
                 res = f(*args, **kwargs)
@@ -511,13 +514,13 @@ class LRFMetaFile(object):
         return property(**locals_)
 
     @safe_property
-    def info():
+    def info() -> dict[_typing.Any, _typing.Any]:
         doc = """
         Document meta information as a minidom Document object.
         To set use a minidom document object.
         """
 
-        def fget(self):
+        def fget(self: _typing.Any) -> _typing.Any:
             if self.compressed_info_size == 0:
                 raise LRFException("This document has no meta info")
             size = self.compressed_info_size - 4
@@ -540,7 +543,7 @@ class LRFMetaFile(object):
             except zlib.error:
                 raise LRFException("Unable to decompress document meta information")
 
-        def fset(self, document):
+        def fset(self: _typing.Any, document: _typing.Any) -> None:
             info = document.toxml("utf-8")
             self.uncompressed_info_size = len(info)
             stream = zlib.compress(info)
@@ -556,16 +559,16 @@ class LRFMetaFile(object):
         return {"fget": fget, "fset": fset, "doc": doc}
 
     @safe_property
-    def thumbnail_pos():
+    def thumbnail_pos() -> dict[_typing.Any, _typing.Any]:
         doc = """ The position of the thumbnail in the LRF file """
 
-        def fget(self):
+        def fget(self: _typing.Any) -> _typing.Any:
             return self.info_start + self.compressed_info_size - 4
 
         return {"fget": fget, "doc": doc}
 
     @classmethod
-    def _detect_thumbnail_type(cls, slice):
+    def _detect_thumbnail_type(cls: type[_typing.Self], slice: _typing.Any) -> _typing.Any:
         """@param slice: The first 16 bytes of the thumbnail"""
         if isinstance(slice, str):
             slice = slice.encode("latin-1", "replace")
@@ -579,20 +582,20 @@ class LRFMetaFile(object):
         return ttype
 
     @safe_property
-    def thumbnail():
+    def thumbnail() -> dict[_typing.Any, _typing.Any]:
         doc = """
         The thumbnail.
         Represented as a string.
         The string you would get from the file read function.
         """
 
-        def fget(self):
+        def fget(self: _typing.Any) -> _typing.Any:
             size = self.thumbnail_size
             if size:
                 self._file.seek(self.thumbnail_pos)
                 return self._file.read(size)
 
-        def fset(self, data):
+        def fset(self: _typing.Any, data: _typing.Any) -> None:
             if self.version <= 800:
                 raise LRFException("Cannot store thumbnails in LRF files of version <= 800")
             slice = data[0:16]
@@ -606,7 +609,7 @@ class LRFMetaFile(object):
 
         return {"fget": fget, "fset": fset, "doc": doc}
 
-    def __init__(self, file):
+    def __init__(self: _typing.Self, file: _typing.Any) -> None:
         """@param file: A file object opened in the r+b mode"""
         file.seek(0, 2)
         self.size = file.tell()
@@ -617,7 +620,7 @@ class LRFMetaFile(object):
         self.info_start = 0x58 if self.version > 800 else 0x53
 
     @safe
-    def update_object_offsets(self, delta):
+    def update_object_offsets(self: _typing.Self, delta: _typing.Any) -> None:
         """
         Run through the LRF Object index changing the offset by C{delta}.
         :param delta:
@@ -637,7 +640,7 @@ class LRFMetaFile(object):
         self._file.flush()
 
     @safe
-    def unpack(self, fmt=DWORD, start=0):
+    def unpack(self: _typing.Self, fmt: _typing.Any = DWORD, start: int = 0) -> _typing.Any:
         """
         Return decoded data from file.
 
@@ -650,7 +653,7 @@ class LRFMetaFile(object):
         return ret
 
     @safe
-    def pack(self, *args, **kwargs):
+    def pack(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
         """
         Encode C{args} and write them to file.
         C{kwargs} must contain the keywords C{fmt} and C{start}
@@ -664,7 +667,7 @@ class LRFMetaFile(object):
         self._file.write(encoded)
         self._file.flush()
 
-    def thumbail_extension(self):
+    def thumbail_extension(self: _typing.Self) -> _typing.Any:
         """
         Return the extension for the thumbnail image type as specified
         by L{self.thumbnail_type}. If the LRF file was created by buggy
@@ -680,7 +683,7 @@ class LRFMetaFile(object):
             ext = "bmp"
         return ext
 
-    def fix_thumbnail_type(self):
+    def fix_thumbnail_type(self: _typing.Self) -> None:
         """
         Attempt to guess the thumbnail image format and set
         L{self.thumbnail_type} accordingly.
@@ -688,23 +691,23 @@ class LRFMetaFile(object):
         slice = self.thumbnail[0:16]
         self.thumbnail_type = self._detect_thumbnail_type(slice)
 
-    def seek(self, *args):
+    def seek(self: _typing.Self, *args: _typing.Any) -> _typing.Any:
         """See L{file.seek}"""
         return self._file.seek(*args)
 
-    def tell(self):
+    def tell(self: _typing.Self) -> _typing.Any:
         """See L{file.tell}"""
         return self._file.tell()
 
-    def read(self):
+    def read(self: _typing.Self) -> _typing.Any:
         """See L{file.read}"""
         return self._file.read()
 
-    def write(self, val):
+    def write(self: _typing.Self, val: _typing.Any) -> None:
         """See L{file.write}"""
         self._file.write(val)
 
-    def _objects(self):
+    def _objects(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         self._file.seek(self.object_index_offset)
         c = self.number_of_objects
         while c > 0:
@@ -714,7 +717,7 @@ class LRFMetaFile(object):
             yield struct.unpack("<IIII", raw)[:3]
             self._file.seek(pos)
 
-    def get_objects_by_type(self, type):
+    def get_objects_by_type(self: _typing.Self, type: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.lrf.tags import Tag
 
         objects = []
@@ -727,7 +730,7 @@ class LRFMetaFile(object):
                     objects.append((obj_id, offset, size))
         return objects
 
-    def get_object_by_id(self, tid):
+    def get_object_by_id(self: _typing.Self, tid: _typing.Any) -> tuple[_typing.Any, ...]:
         from LiuXin_alpha.file_formats.lrf.tags import Tag
 
         for id, offset, size in self._objects():
@@ -740,7 +743,7 @@ class LRFMetaFile(object):
         return False, False, False, False
 
     @safe
-    def get_cover(self):
+    def get_cover(self: _typing.Self) -> tuple[_typing.Any, ...] | None:
         from LiuXin_alpha.file_formats.lrf.objects import get_object
 
         for id, offset, size in self.get_objects_by_type(0x0C):
@@ -751,7 +754,7 @@ class LRFMetaFile(object):
         return None
 
 
-def option_parser():
+def option_parser() -> _typing.Any:
     from LiuXin_alpha.utils.config import OptionParser
     from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
 
@@ -855,7 +858,7 @@ Show/edit the metadata in an LRF file.\n\n"""
     return parser
 
 
-def set_metadata(stream, mi):
+def set_metadata(stream: _typing.Any, mi: _typing.Any) -> None:
     """
     Write the given metadata into a lrf stream.
     Supports writing title, authors, tags, comments, author_sort and publisher
@@ -889,7 +892,7 @@ def set_metadata(stream, mi):
         lrf.publisher = mi.publisher
 
 
-def main(args=sys.argv):
+def main(args: _typing.Any = sys.argv) -> int:
     parser = option_parser()
     options, args = parser.parse_args(args)
     if len(args) != 2:

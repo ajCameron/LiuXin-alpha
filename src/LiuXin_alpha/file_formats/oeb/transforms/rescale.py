@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.utils.calibre import fit_image
 
@@ -15,14 +18,14 @@ class RescaleImages(object):
     Rescale all images to fit inside given screen size
     """
 
-    def __init__(self, check_colorspaces=False):
+    def __init__(self: _typing.Self, check_colorspaces: bool = False) -> None:
         self.check_colorspaces = check_colorspaces
 
-    def __call__(self, oeb, opts):
+    def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any) -> None:
         self.oeb, self.opts, self.log = oeb, opts, oeb.log
         self.rescale()
 
-    def rescale(self):
+    def rescale(self: _typing.Self) -> None:
         try:
             from LiuXin_alpha.utils.magick.draw import Image
         except ImportError:

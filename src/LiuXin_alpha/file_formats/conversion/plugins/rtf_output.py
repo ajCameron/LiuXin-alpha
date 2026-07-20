@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 import os
 
 from LiuXin_alpha.customize.conversion import OutputFormatPlugin
@@ -15,7 +18,7 @@ class RTFOutput(OutputFormatPlugin):
     author = "John Schember"
     file_type = "rtf"
 
-    def convert(self, oeb_book, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         """
         Make a rtf file out of an OEB one.
         :param oeb_book:

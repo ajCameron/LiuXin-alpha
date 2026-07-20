@@ -1,3 +1,4 @@
+from __future__ import annotations
 from LiuXin_alpha.file_formats.unihandecode.pykakasi.kakasi import kakasi
 
 kakasi

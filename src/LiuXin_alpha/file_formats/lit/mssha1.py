@@ -3,6 +3,9 @@ Modified version of SHA-1 used in Microsoft LIT files.
 
 Adapted from the PyPy pure-Python SHA-1 implementation.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import copy
 import struct
@@ -10,7 +13,7 @@ import struct
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"
 
-def _ensure_bytes(data):
+def _ensure_bytes(data: _typing.Any) -> _typing.Any:
     if data is None:
         return b""
     if isinstance(data, bytes):
@@ -25,7 +28,7 @@ def _ensure_bytes(data):
         raise TypeError("Expected bytes-like input, got %r" % (type(data),)) from exc
 
 
-def _byte_value(value):
+def _byte_value(value: _typing.Any) -> _typing.Any:
     if isinstance(value, int):
         return value
     return ord(value)
@@ -39,7 +42,7 @@ def _byte_value(value):
 # ======================================================================
 
 
-def _long2bytesBigEndian(n, blocksize=0):
+def _long2bytesBigEndian(n: _typing.Any, blocksize: int = 0) -> _typing.Any:
     """
     Convert a long integer to a byte string.
 
@@ -75,7 +78,7 @@ def _long2bytesBigEndian(n, blocksize=0):
     return s
 
 
-def _bytelist2longBigEndian(data):
+def _bytelist2longBigEndian(data: _typing.Any) -> _typing.Any:
     """
     Transform a list of characters into a list of longs.
     :param data:
@@ -99,7 +102,7 @@ def _bytelist2longBigEndian(data):
     return hl
 
 
-def _rotateLeft(x, n):
+def _rotateLeft(x: _typing.Any, n: _typing.Any) -> _typing.Any:
     """
     Rotate x (32 bit) left n bits circularly.
     :param x:
@@ -115,24 +118,24 @@ def _rotateLeft(x, n):
 # ======================================================================
 
 
-def f0_19(B, C, D):
+def f0_19(B: _typing.Any, C: _typing.Any, D: _typing.Any) -> _typing.Any:
     return (B & (C ^ D)) ^ D
 
 
-def f20_39(B, C, D):
+def f20_39(B: _typing.Any, C: _typing.Any, D: _typing.Any) -> _typing.Any:
     return B ^ C ^ D
 
 
-def f40_59(B, C, D):
+def f40_59(B: _typing.Any, C: _typing.Any, D: _typing.Any) -> _typing.Any:
     return ((B | C) & D) | (B & C)
 
 
-def f60_79(B, C, D):
+def f60_79(B: _typing.Any, C: _typing.Any, D: _typing.Any) -> _typing.Any:
     return B ^ C ^ D
 
 
 # Microsoft's lovely addition...
-def f6_42(B, C, D):
+def f6_42(B: _typing.Any, C: _typing.Any, D: _typing.Any) -> _typing.Any:
     return (B + C) ^ C
 
 
@@ -164,7 +167,7 @@ class mssha1(object):
     An implementation of the MD5 hash function in pure Python.
     """
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         """
         Initialisation.
         """
@@ -180,7 +183,7 @@ class mssha1(object):
         # to start from scratch on the same object.
         self.init()
 
-    def init(self):
+    def init(self: _typing.Self) -> None:
         """
         Initialize the message-digest and set all fields to zero.
         :return:
@@ -197,7 +200,7 @@ class mssha1(object):
         self.H3 = 0xDC679823
         self.H4 = 0xD0857A34
 
-    def _transform(self, W):
+    def _transform(self: _typing.Self, W: _typing.Any) -> None:
         for t in range(16, 80):
             W.append(_rotateLeft(W[t - 3] ^ W[t - 8] ^ W[t - 14] ^ W[t - 16], 1) & 0xFFFFFFFF)
 
@@ -223,7 +226,7 @@ class mssha1(object):
 
     # Down from here all methods follow the Python Standard Library API of the sha module.
 
-    def update(self, inBuf):
+    def update(self: _typing.Self, inBuf: _typing.Any) -> None:
         """Add to the current message.
 
         Update the mssha1 object with the string arg. Repeated calls
@@ -266,7 +269,7 @@ class mssha1(object):
             i = 0
             self.input = self.input + list(inBuf)
 
-    def digest(self):
+    def digest(self: _typing.Self) -> _typing.Any:
         """
         Terminate the message-digest computation and return digest.
 
@@ -318,7 +321,7 @@ class mssha1(object):
 
         return digest
 
-    def hexdigest(self):
+    def hexdigest(self: _typing.Self) -> _typing.Any:
         """
         Terminate and return digest in HEX form.
 
@@ -329,7 +332,7 @@ class mssha1(object):
         """
         return self.digest().hex()
 
-    def copy(self):
+    def copy(self: _typing.Self) -> _typing.Any:
         """
         Return a clone object.
 
@@ -353,7 +356,7 @@ digest_size = digestsize = 20
 blocksize = 1
 
 
-def new(arg=None):
+def new(arg: _typing.Any = None) -> _typing.Any:
     """Return a new mssha1 crypto object.
 
     If arg is present, the method call update(arg) is made.
@@ -368,7 +371,7 @@ def new(arg=None):
 
 if __name__ == "__main__":
 
-    def main():
+    def main() -> None:
         import sys
 
         file = None

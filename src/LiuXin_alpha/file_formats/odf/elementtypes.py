@@ -19,6 +19,7 @@
 # Contributor(s):
 #
 
+from __future__ import annotations
 from LiuXin_alpha.file_formats.odf.namespaces import *
 
 # Inline element don't cause a box

@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 
@@ -11,7 +14,7 @@ try:
     from lxml import html  # type: ignore
 except Exception:  # pragma: no cover - runtime without lxml
     class _MissingLxmlHtml:
-        def __getattr__(self, name):
+        def __getattr__(self: _typing.Self, name: _typing.Any) -> None:
             raise ImportError("lxml.html is unavailable in this runtime")
 
     html = _MissingLxmlHtml()
@@ -44,35 +47,35 @@ XMLNS_NS = "http://www.w3.org/2000/xmlns/"
 
 
 class NotHTML(Exception):
-    def __init__(self, root_tag):
+    def __init__(self: _typing.Self, root_tag: _typing.Any) -> None:
         Exception.__init__(self, "Data is not HTML")
         self.root_tag = root_tag
 
 
-def barename(name):
+def barename(name: _typing.Any) -> _typing.Any:
     return name.rpartition("}")[-1]
 
 
-def namespace(name):
+def namespace(name: _typing.Any) -> _typing.Any:
     return name.rpartition("}")[0][1:]
 
 
-def XHTML(name):
+def XHTML(name: _typing.Any) -> _typing.Any:
     return "{%s}%s" % (XHTML_NS, name)
 
 
-def xpath(elem, expr):
+def xpath(elem: _typing.Any, expr: _typing.Any) -> _typing.Any:
     return elem.xpath(expr, namespaces={"h": XHTML_NS})
 
 
-def XPath(expr):
+def XPath(expr: _typing.Any) -> _typing.Any:
     return etree.XPath(expr, namespaces={"h": XHTML_NS})
 
 
 META_XP = XPath('/h:html/h:head/h:meta[@http-equiv="Content-Type"]')
 
 
-def merge_multiple_html_heads_and_bodies(root, log=None):
+def merge_multiple_html_heads_and_bodies(root: _typing.Any, log: _typing.Any = None) -> _typing.Any:
     heads, bodies = xpath(root, "//h:head"), xpath(root, "//h:body")
     if not (len(heads) > 1 or len(bodies) > 1):
         return root
@@ -93,7 +96,7 @@ def merge_multiple_html_heads_and_bodies(root, log=None):
     return root
 
 
-def clone_element(elem, nsmap=None, in_context=True):
+def clone_element(elem: _typing.Any, nsmap: _typing.Any = None, in_context: bool = True) -> _typing.Any:
     if nsmap is None:
         nsmap = {}
     if in_context:
@@ -106,7 +109,7 @@ def clone_element(elem, nsmap=None, in_context=True):
     return nelem
 
 
-def node_depth(node):
+def node_depth(node: _typing.Any) -> _typing.Any:
     ans = 0
     p = node.getparent()
     while p is not None:
@@ -115,7 +118,7 @@ def node_depth(node):
     return ans
 
 
-def fix_self_closing_cdata_tags(data):
+def fix_self_closing_cdata_tags(data: _typing.Any) -> _typing.Any:
     from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import cdataElements, rcdataElements
 
     return re.sub(
@@ -126,7 +129,7 @@ def fix_self_closing_cdata_tags(data):
     )
 
 
-def html5_parse(data, max_nesting_depth=100):
+def html5_parse(data: _typing.Any, max_nesting_depth: int = 100) -> _typing.Any:
     import warnings
 
     # Seems to require a specific version of the library - embedding it for sanity
@@ -226,7 +229,7 @@ def html5_parse(data, max_nesting_depth=100):
     return clone_element(data, nsmap=fnsmap, in_context=False)
 
 
-def _html4_parse(data, prefer_soup=False):
+def _html4_parse(data: _typing.Any, prefer_soup: bool = False) -> _typing.Any:
     """
     Parse an html4 document into a tree
     :param data:
@@ -254,7 +257,7 @@ def _html4_parse(data, prefer_soup=False):
     return data
 
 
-def clean_word_doc(data, log):
+def clean_word_doc(data: _typing.Any, log: _typing.Any) -> _typing.Any:
     prefixes = []
     for match in re.finditer(r'xmlns:(\S+?)=".*?microsoft.*?"', data):
         prefixes.append(match.group(1))
@@ -273,20 +276,20 @@ class HTML5Doc(ValueError):
     pass
 
 
-def check_for_html5(prefix, root):
+def check_for_html5(prefix: _typing.Any, root: _typing.Any) -> None:
     if re.search(r"<!DOCTYPE\s+html\s*>", prefix, re.IGNORECASE) is not None:
         if root.xpath("//svg"):
             raise HTML5Doc("This document appears to be un-namespaced HTML 5, should be parsed by the HTML 5 parser")
 
 
 def parse_html(
-    data,
-    log=None,
-    decoder=None,
-    preprocessor=None,
-    filename="<string>",
-    non_html_file_tags=frozenset(),
-):
+    data: _typing.Any,
+    log: _typing.Any = None,
+    decoder: _typing.Any = None,
+    preprocessor: _typing.Any = None,
+    filename: str = "<string>",
+    non_html_file_tags: _typing.Any = frozenset(),
+) -> _typing.Any:
     """
     Parse an html document into a tree for later use
     :param data:
@@ -489,7 +492,7 @@ def parse_html(
         if key == "lang" or key.endswith("}lang"):
             body.attrib.pop(key)
 
-    def remove_elem(local_elem):
+    def remove_elem(local_elem: _typing.Any) -> None:
         p = local_elem.getparent()
         idx = p.index(local_elem) - 1
         p.remove(local_elem)

@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from math import sqrt
 from collections import namedtuple
@@ -28,12 +31,12 @@ __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def _require_qt():
+def _require_qt() -> None:
     if not _HAS_QT:
         raise RuntimeError("PyQt5 is required for PDF graphics rendering.")
 
 
-def convert_path(path):  # {{{
+def convert_path(path: _typing.Any) -> _typing.Any:  # {{{
     p = Path()
     i = 0
     while i < path.elementCount():
@@ -63,7 +66,7 @@ Brush = namedtuple("Brush", "origin brush color")
 
 
 class TilingPattern(Stream):
-    def __init__(self, cache_key, matrix, w=8, h=8, paint_type=2, compress=False):
+    def __init__(self: _typing.Self, cache_key: _typing.Any, matrix: _typing.Any, w: int = 8, h: int = 8, paint_type: int = 2, compress: bool = False) -> None:
         Stream.__init__(self, compress=compress)
         self.paint_type = paint_type
         self.w, self.h = w, h
@@ -78,7 +81,7 @@ class TilingPattern(Stream):
         self.resources = Dictionary()
         self.cache_key = (self.__class__.__name__, cache_key, self.matrix)
 
-    def add_extra_keys(self, d):
+    def add_extra_keys(self: _typing.Self, d: _typing.Any) -> None:
         d["Type"] = Name("Pattern")
         d["PatternType"] = 1
         d["PaintType"] = self.paint_type
@@ -196,13 +199,13 @@ class QtPattern(TilingPattern):
         "S\n",  # DiagCrossPattern
     )  # }}}
 
-    def __init__(self, pattern_num, matrix):
+    def __init__(self: _typing.Self, pattern_num: _typing.Any, matrix: _typing.Any) -> None:
         super(QtPattern, self).__init__(pattern_num, matrix)
         self.write(self.qt_patterns[pattern_num - 2])
 
 
 class TexturePattern(TilingPattern):
-    def __init__(self, pixmap, matrix, pdf, clone=None):
+    def __init__(self: _typing.Self, pixmap: _typing.Any, matrix: _typing.Any, pdf: _typing.Any, clone: _typing.Any = None) -> None:
         _require_qt()
         if clone is None:
             image = pixmap.toImage()
@@ -244,7 +247,7 @@ class GraphicsState(object):
         "do_stroke",
     )
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         _require_qt()
         self.fill = QBrush(Qt.white)
         self.stroke = QPen()
@@ -256,13 +259,13 @@ class GraphicsState(object):
         self.do_stroke = True
         self.qt_pattern_cache = {}
 
-    def __eq__(self, other):
+    def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
         for x in self.FIELDS:
             if getattr(other, x) != getattr(self, x):
                 return False
         return True
 
-    def copy(self):
+    def copy(self: _typing.Self) -> _typing.Any:
         ans = GraphicsState()
         ans.fill = QBrush(self.fill)
         ans.stroke = QPen(self.stroke)
@@ -275,17 +278,17 @@ class GraphicsState(object):
 
 
 class Graphics(object):
-    def __init__(self, page_width_px, page_height_px):
+    def __init__(self: _typing.Self, page_width_px: _typing.Any, page_height_px: _typing.Any) -> None:
         _require_qt()
         self.base_state = GraphicsState()
         self.current_state = GraphicsState()
         self.pending_state = None
         self.page_width_px, self.page_height_px = (page_width_px, page_height_px)
 
-    def begin(self, pdf):
+    def begin(self: _typing.Self, pdf: _typing.Any) -> None:
         self.pdf = pdf
 
-    def update_state(self, state, painter):
+    def update_state(self: _typing.Self, state: _typing.Any, painter: _typing.Any) -> None:
         flags = state.state()
         if self.pending_state is None:
             self.pending_state = self.current_state.copy()
@@ -310,11 +313,11 @@ class Graphics(object):
         if flags & QPaintEngine.DirtyClipPath or flags & QPaintEngine.DirtyClipRegion:
             s.clip_updated = True
 
-    def reset(self):
+    def reset(self: _typing.Self) -> None:
         self.current_state = GraphicsState()
         self.pending_state = None
 
-    def __call__(self, pdf_system, painter):
+    def __call__(self: _typing.Self, pdf_system: _typing.Any, painter: _typing.Any) -> None:
         # Apply the currently pending state to the PDF
         if self.pending_state is None:
             return
@@ -348,7 +351,7 @@ class Graphics(object):
         self.current_state = self.pending_state
         self.pending_state = None
 
-    def convert_brush(self, brush, brush_origin, global_opacity, pdf_system, qt_system):
+    def convert_brush(self: _typing.Self, brush: _typing.Any, brush_origin: _typing.Any, global_opacity: _typing.Any, pdf_system: _typing.Any, qt_system: _typing.Any) -> tuple[_typing.Any, ...]:
         # Convert a QBrush to PDF operators
         style = brush.style()
         pdf = self.pdf
@@ -387,7 +390,7 @@ class Graphics(object):
             pattern = pdf.add_pattern(pat)
         return color, opacity, pattern, do_fill
 
-    def apply_stroke(self, state, pdf_system, painter):
+    def apply_stroke(self: _typing.Self, state: _typing.Any, pdf_system: _typing.Any, painter: _typing.Any) -> None:
         # TODO: Support miter limit by using QPainterPathStroker
         pen = state.stroke
         self.pending_state.do_stroke = True
@@ -435,7 +438,7 @@ class Graphics(object):
         if pen.style() == Qt.NoPen:
             self.pending_state.do_stroke = False
 
-    def apply_fill(self, state, pdf_system, painter):
+    def apply_fill(self: _typing.Self, state: _typing.Any, pdf_system: _typing.Any, painter: _typing.Any) -> None:
         self.pending_state.do_fill = True
         color, opacity, pattern, self.pending_state.do_fill = self.convert_brush(
             state.fill,
@@ -447,13 +450,13 @@ class Graphics(object):
         self.pdf.apply_fill(color, pattern, opacity)
         self.last_fill = self.brushobj
 
-    def __enter__(self):
+    def __enter__(self: _typing.Self) -> None:
         self.pdf.save_stack()
 
-    def __exit__(self, *args):
+    def __exit__(self: _typing.Self, *args: _typing.Any) -> None:
         self.pdf.restore_stack()
 
-    def resolve_fill(self, rect, pdf_system, qt_system):
+    def resolve_fill(self: _typing.Self, rect: _typing.Any, pdf_system: _typing.Any, qt_system: _typing.Any) -> None:
         """
         Qt's paint system does not update brushOrigin when using
         TexturePatterns and it also uses TexturePatterns to emulate gradients,

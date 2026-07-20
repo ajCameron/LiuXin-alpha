@@ -6,6 +6,9 @@ Now (mostly) just conversion code - looking in metadata for the metadata read/wr
 
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 import traceback
 import os
@@ -26,7 +29,7 @@ class ConversionError(Exception):
     """
     Thrown when something goes wrong in the conversion process.
     """
-    def __init__(self, msg, only_msg=False):
+    def __init__(self: _typing.Self, msg: _typing.Any, only_msg: bool = False) -> None:
         Exception.__init__(self, msg)
         self.only_msg = only_msg
 
@@ -108,12 +111,12 @@ BOOK_EXTENSIONS = [
 
 
 class HTMLRenderer(object):
-    def __init__(self, page, loop):
+    def __init__(self: _typing.Self, page: _typing.Any, loop: _typing.Any) -> None:
         self.page, self.loop = page, loop
         self.data = ""
         self.exception = self.tb = None
 
-    def __call__(self, ok):
+    def __call__(self: _typing.Self, ok: _typing.Any) -> None:
         from PyQt5.Qt import QImage, QPainter, QByteArray, QBuffer
 
         try:
@@ -141,7 +144,7 @@ class HTMLRenderer(object):
             self.loop.exit(0)
 
 
-def return_raster_image(path):
+def return_raster_image(path: _typing.Any) -> _typing.Any:
     from LiuXin_alpha.utils.image_tools.imghdr import what
 
     if os.access(path, os.R_OK):
@@ -151,7 +154,7 @@ def return_raster_image(path):
             return raw
 
 
-def extract_cover_from_embedded_svg(html, base, log):
+def extract_cover_from_embedded_svg(html: _typing.Any, base: _typing.Any, log: _typing.Any) -> _typing.Any:
     from lxml import etree
     from LiuXin_alpha.file_formats.oeb.base import XPath, SVG, XLINK
 
@@ -166,7 +169,7 @@ def extract_cover_from_embedded_svg(html, base, log):
             return return_raster_image(path)
 
 
-def extract_calibre_cover(raw, base, log):
+def extract_calibre_cover(raw: _typing.Any, base: _typing.Any, log: _typing.Any) -> _typing.Any:
     """
     Extract a cover from a html tree.
     :param raw:
@@ -179,7 +182,7 @@ def extract_calibre_cover(raw, base, log):
     return _extract_calibre_cover(raw, base, log)
 
 
-def render_html_svg_workaround(path_to_html, log, width=590, height=750):
+def render_html_svg_workaround(path_to_html: _typing.Any, log: _typing.Any, width: int = 590, height: int = 750) -> _typing.Any:
     """
     Render html data (which might or might not include an svg file) as a image.
     This is what's used to generate a cover for a book when an actual image can't be extracted - the first page of the
@@ -241,12 +244,12 @@ def render_html_svg_workaround(path_to_html, log, width=590, height=750):
     return data
 
 
-def render_html_data(path_to_html, width, height):
+def render_html_data(path_to_html: _typing.Any, width: _typing.Any, height: _typing.Any) -> _typing.Any:
     renderer = render_html(path_to_html, width, height)
     return getattr(renderer, "data", None)
 
 
-def render_html(path_to_html, width=590, height=750, as_xhtml=True):
+def render_html(path_to_html: _typing.Any, width: int = 590, height: int = 750, as_xhtml: bool = True) -> _typing.Any:
     try:
         from PyQt5.QtWebKitWidgets import QWebPage
         from PyQt5.Qt import QEventLoop, QPalette, Qt, QUrl, QSize
@@ -288,7 +291,7 @@ def render_html(path_to_html, width=590, height=750, as_xhtml=True):
     return renderer
 
 
-def check_ebook_format(stream, current_guess):
+def check_ebook_format(stream: _typing.Any, current_guess: _typing.Any) -> _typing.Any:
     ans = current_guess
     if current_guess.lower() in ("prc", "mobi", "azw", "azw1", "azw3"):
         stream.seek(0)
@@ -298,7 +301,7 @@ def check_ebook_format(stream, current_guess):
     return ans
 
 
-def normalize(x):
+def normalize(x: _typing.Any) -> _typing.Any:
     """
     Brings a unicode string into normal form.
     There may be multiple different ways of representing a unicode string which are human readable as the same -
@@ -315,8 +318,8 @@ def normalize(x):
 
 
 def calibre_cover(
-    title, author_string, series_string=None, output_format="jpg", title_size=46, author_size=36, logo_path=None
-):
+    title: _typing.Any, author_string: _typing.Any, series_string: _typing.Any = None, output_format: str = "jpg", title_size: int = 46, author_size: int = 36, logo_path: _typing.Any = None
+) -> _typing.Any:
     """
     Generate a custom cover file for your books.
     :param title: Title for the book
@@ -377,7 +380,7 @@ def calibre_cover(
 UNIT_RE = re.compile(r"^(-*[0-9]*[.]?[0-9]*)\s*(%|em|ex|en|px|mm|cm|in|pt|pc|rem)$")
 
 
-def unit_convert(value, base, font, dpi, body_font_size=12):
+def unit_convert(value: _typing.Any, base: _typing.Any, font: _typing.Any, dpi: _typing.Any, body_font_size: int = 12) -> _typing.Any:
     "Return value in pts"
     if isinstance(value, (int, float)):
         return value
@@ -416,7 +419,7 @@ def unit_convert(value, base, font, dpi, body_font_size=12):
     return result
 
 
-def generate_masthead(title, output_path=None, width=600, height=60):
+def generate_masthead(title: _typing.Any, output_path: _typing.Any = None, width: int = 600, height: int = 60) -> _typing.Any:
     from LiuXin_alpha.file_formats.conversion.config import load_defaults
 
     recs = load_defaults("mobi_output")
@@ -428,7 +431,7 @@ def generate_masthead(title, output_path=None, width=600, height=60):
     )
 
 
-def escape_xpath_attr(value):
+def escape_xpath_attr(value: _typing.Any) -> _typing.Any:
     if '"' in value:
         if "'" in value:
             parts = re.split('("+)', value)
@@ -443,7 +446,7 @@ def escape_xpath_attr(value):
     return '"%s"' % value
 
 
-def parse_css_length(value):
+def parse_css_length(value: _typing.Any) -> tuple[_typing.Any, ...]:
     try:
         m = UNIT_RE.match(value)
     except TypeError:

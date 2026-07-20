@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 from io import BytesIO
@@ -19,7 +22,7 @@ BM_LEGACY_ESC = "esc-text-%&*#%(){}ads19-end-esc"
 
 
 class BookmarksMixin(object):
-    def parse_bookmarks(self, raw):
+    def parse_bookmarks(self: _typing.Self, raw: _typing.Any) -> None:
         for line in raw.splitlines():
             bm = None
             if line.count("^") > 0:
@@ -49,7 +52,7 @@ class BookmarksMixin(object):
             if bm:
                 self.bookmarks.append(bm)
 
-    def serialize_bookmarks(self, bookmarks):
+    def serialize_bookmarks(self: _typing.Self, bookmarks: _typing.Any) -> _typing.Any:
         dat = []
         for bm in bookmarks:
             if bm["type"] == "legacy":
@@ -64,7 +67,7 @@ class BookmarksMixin(object):
             dat.append(rec)
         return "\n".join(dat) + "\n"
 
-    def read_bookmarks(self):
+    def read_bookmarks(self: _typing.Self) -> None:
         self.bookmarks = []
         bmfile = os.path.join(self.base, "META-INF", "calibre_bookmarks.txt")
         raw = ""
@@ -79,7 +82,7 @@ class BookmarksMixin(object):
             raw = raw.decode("utf-8")
         self.parse_bookmarks(raw)
 
-    def save_bookmarks(self, bookmarks=None):
+    def save_bookmarks(self: _typing.Self, bookmarks: _typing.Any = None) -> None:
         if bookmarks is None:
             bookmarks = self.bookmarks
         dat = self.serialize_bookmarks(bookmarks)
@@ -97,10 +100,10 @@ class BookmarksMixin(object):
         else:
             self.config["bookmarks_" + self.pathtoebook] = dat
 
-    def add_bookmark(self, bm):
+    def add_bookmark(self: _typing.Self, bm: _typing.Any) -> None:
         self.bookmarks = [x for x in self.bookmarks if x["title"] != bm["title"]]
         self.bookmarks.append(bm)
         self.save_bookmarks()
 
-    def set_bookmarks(self, bookmarks):
+    def set_bookmarks(self: _typing.Self, bookmarks: _typing.Any) -> None:
         self.bookmarks = bookmarks

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import typing as _typing
 from LiuXin_alpha.utils.localization import _
 
 #
@@ -10,7 +13,7 @@ from LiuXin_alpha.utils.localization import _
 version_info = (2, 3, 1, "final", 0)
 
 
-def _get_version():
+def _get_version() -> _typing.Any:
     "Returns a PEP 386-compliant version number from version_info."
     assert len(version_info) == 5
     assert version_info[3] in ("alpha", "beta", "rc", "final")

@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 import builtins
@@ -20,19 +23,19 @@ except ModuleNotFoundError:
         pass
 
     class XPathExpr(object):
-        def __init__(self, element="*"):
+        def __init__(self: _typing.Self, element: str = "*") -> None:
             self.element = element
 
-        def add_name_test(self):
+        def add_name_test(self: _typing.Self) -> None:
             return None
 
-    def is_safe_name(name):
+    def is_safe_name(name: _typing.Any) -> bool:
         return True
 
     class SelectorSyntaxError(Exception):
         pass
 
-    def parse(text):
+    def parse(text: _typing.Any) -> tuple[_typing.Any, ...]:
         return ()
 
 try:
@@ -46,7 +49,7 @@ from LiuXin_alpha.file_formats.oeb.base import OEB_STYLES, OEB_DOCS, XPNSMAP, XH
 try:
     from LiuXin_alpha.file_formats.oeb.normalize_css import normalize_filter_css, normalizers
 except Exception:
-    def normalize_filter_css(props):
+    def normalize_filter_css(props: _typing.Any) -> _typing.Any:
         return props
 
     normalizers = {}
@@ -61,13 +64,13 @@ try:
 except Exception:
     MIN_SPACE_RE = re.compile(r"\s*([>+~])\s*")
 
-    def is_non_whitespace(text):
+    def is_non_whitespace(text: _typing.Any) -> _typing.Any:
         return bool(str(text).strip())
 
-    def xpath_lower_case(text):
+    def xpath_lower_case(text: _typing.Any) -> _typing.Any:
         return text
 
-    def fix_namespace(selector):
+    def fix_namespace(selector: _typing.Any) -> _typing.Any:
         return selector
 
 from LiuXin_alpha.utils.text import as_unicode as force_unicode
@@ -82,7 +85,7 @@ __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def _ngettext(singular, plural, n):
+def _ngettext(singular: _typing.Any, plural: _typing.Any, n: _typing.Any) -> _typing.Any:
     fn = getattr(builtins, "ngettext", None)
     if callable(fn):
         try:
@@ -93,7 +96,7 @@ def _ngettext(singular, plural, n):
 
 
 class NamespacedTranslator(HTMLTranslator):
-    def xpath_element(self, selector):
+    def xpath_element(self: _typing.Self, selector: _typing.Any) -> _typing.Any:
         element = selector.element
         if not element:
             element = "*"
@@ -114,7 +117,7 @@ class CaseInsensitiveAttributesTranslator(NamespacedTranslator):
     Treat class and id CSS selectors case-insensitively
     """
 
-    def xpath_class(self, class_selector):
+    def xpath_class(self: _typing.Self, class_selector: _typing.Any) -> _typing.Any:
         """
         Translate a class selector.
         :param class_selector:
@@ -134,7 +137,7 @@ class CaseInsensitiveAttributesTranslator(NamespacedTranslator):
             x.add_condition("0")
         return x
 
-    def xpath_hash(self, id_selector):
+    def xpath_hash(self: _typing.Self, id_selector: _typing.Any) -> _typing.Any:
         """
         Translate an ID selector.
         :param id_selector:
@@ -151,7 +154,7 @@ else:
     css_to_xpath = ci_css_to_xpath = None
 
 
-def build_selector(text, case_sensitive=True):
+def build_selector(text: _typing.Any, case_sensitive: bool = True) -> _typing.Any:
     if not _HAS_CSSSELECT:
         return None
     func = css_to_xpath if case_sensitive else ci_css_to_xpath
@@ -161,7 +164,7 @@ def build_selector(text, case_sensitive=True):
         return None
 
 
-def is_rule_used(root, selector, log, pseudo_pat, cache):
+def is_rule_used(root: _typing.Any, selector: _typing.Any, log: _typing.Any, pseudo_pat: _typing.Any, cache: _typing.Any) -> _typing.Any:
     selector = pseudo_pat.sub("", selector)
     selector = MIN_SPACE_RE.sub(r"\1", selector)
     try:
@@ -189,7 +192,7 @@ def is_rule_used(root, selector, log, pseudo_pat, cache):
         return True
 
 
-def filter_used_rules(root, rules, log, pseudo_pat, cache):
+def filter_used_rules(root: _typing.Any, rules: _typing.Any, log: _typing.Any, pseudo_pat: _typing.Any, cache: _typing.Any) -> _typing.Iterator[_typing.Any]:
     for rule in rules:
         used = False
         for selector in rule.selectorList:
@@ -201,7 +204,7 @@ def filter_used_rules(root, rules, log, pseudo_pat, cache):
             yield rule
 
 
-def process_namespaces(sheet):
+def process_namespaces(sheet: _typing.Any) -> _typing.Any:
     # Find the namespace prefix (if any) for the XHTML namespace, so that we
     # can preserve it after processing
     for prefix in sheet.namespaces:
@@ -209,7 +212,7 @@ def process_namespaces(sheet):
             return prefix
 
 
-def preserve_htmlns_prefix(sheet, prefix):
+def preserve_htmlns_prefix(sheet: _typing.Any, prefix: _typing.Any) -> None:
     if prefix is None:
         while "h" in sheet.namespaces:
             del sheet.namespaces["h"]
@@ -217,7 +220,7 @@ def preserve_htmlns_prefix(sheet, prefix):
         sheet.namespaces[prefix] = XHTML_NS
 
 
-def get_imported_sheets(name, container, sheets, recursion_level=10, sheet=None):
+def get_imported_sheets(name: _typing.Any, container: _typing.Any, sheets: _typing.Any, recursion_level: int = 10, sheet: _typing.Any = None) -> _typing.Any:
     ans = set()
     sheet = sheet or sheets[name]
     css_rules = getattr(sheet, "cssRules", None)
@@ -238,7 +241,7 @@ def get_imported_sheets(name, container, sheets, recursion_level=10, sheet=None)
     return ans
 
 
-def remove_unused_css(container, report=None, remove_unused_classes=False):
+def remove_unused_css(container: _typing.Any, report: _typing.Any = None, remove_unused_classes: bool = False) -> bool:
     """
     Remove all unused CSS rules from the book. An unused CSS rule is one that does not match any actual content.
 
@@ -253,7 +256,7 @@ def remove_unused_css(container, report=None, remove_unused_classes=False):
     """
     report = report or (lambda report_x: report_x)
 
-    def safe_parse(parse_name):
+    def safe_parse(parse_name: _typing.Any) -> _typing.Any:
         try:
             return container.parsed(parse_name)
         except Exception:
@@ -384,7 +387,7 @@ def remove_unused_css(container, report=None, remove_unused_classes=False):
     return num_of_removed_rules + num_of_removed_classes > 0
 
 
-def filter_declaration(style, properties):
+def filter_declaration(style: _typing.Any, properties: _typing.Any) -> _typing.Any:
     changed = False
     for prop in properties:
         if style.removeProperty(prop) != "":
@@ -403,7 +406,7 @@ def filter_declaration(style, properties):
     return changed
 
 
-def filter_sheet(sheet, properties):
+def filter_sheet(sheet: _typing.Any, properties: _typing.Any) -> _typing.Any:
     changed = False
     remove = []
     css_rules = getattr(sheet, "cssRules", None)
@@ -419,7 +422,7 @@ def filter_sheet(sheet, properties):
     return changed
 
 
-def filter_css(container, properties, names=()):
+def filter_css(container: _typing.Any, properties: _typing.Any, names: tuple[_typing.Any, ...] = ()) -> _typing.Any:
     """
     Remove the specified CSS properties from all CSS rules in the book.
 
@@ -495,7 +498,7 @@ def filter_css(container, properties, names=()):
     return doc_changed
 
 
-def _classes_in_selector(selector, classes):
+def _classes_in_selector(selector: _typing.Any, classes: _typing.Any) -> None:
     for attr in ("selector", "subselector", "parsed_tree"):
         s = getattr(selector, attr, None)
         if s is not None:
@@ -505,7 +508,7 @@ def _classes_in_selector(selector, classes):
         classes.add(cn)
 
 
-def classes_in_selector(text):
+def classes_in_selector(text: _typing.Any) -> _typing.Any:
     classes = set()
     try:
         for selector in parse(text):
@@ -515,7 +518,7 @@ def classes_in_selector(text):
     return classes
 
 
-def classes_in_rule_list(css_rules):
+def classes_in_rule_list(css_rules: _typing.Any) -> _typing.Any:
     classes = set()
     for rule in css_rules or ():
         if rule.type == rule.STYLE_RULE:

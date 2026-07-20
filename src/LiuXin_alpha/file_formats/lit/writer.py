@@ -1,4 +1,7 @@
 from __future__ import with_statement, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import copy
 import functools
@@ -67,7 +70,7 @@ class LitWriterError(RuntimeError):
     pass
 
 
-def _require_lzx_compressor():
+def _require_lzx_compressor() -> _typing.Any:
     if Compressor is None:
         raise LitWriterError("LIT output requires the LZX compressor backend, which is unavailable")
     return Compressor
@@ -85,7 +88,7 @@ ALL_MS_COVER_TYPES = [
 ]
 
 
-def invert_tag_map(tag_map):
+def invert_tag_map(tag_map: _typing.Any) -> tuple[_typing.Any, ...]:
     tags, dattrs, tattrs = tag_map
     tags = dict((tags[i], i) for i in memory_range(len(tags)))
     dattrs = dict((v, k) for k, v in dattrs.items())
@@ -109,7 +112,7 @@ DESENCRYPT_GUID = "{67F6E4A2-60BF-11D3-8540-00C04F58C3CF}"
 LZXCOMPRESS_GUID = "{0A9007C6-4076-11D3-8789-0000F8105754}"
 
 
-def packguid(guid):
+def packguid(guid: _typing.Any) -> _typing.Any:
     values = (
         guid[1:9],
         guid[10:14],
@@ -169,7 +172,7 @@ COLLAPSE = re.compile(r"[ \t\r\n\v]+")
 PAGE_BREAKS = {"always", "left", "right"}
 
 
-def _latin_bytes(value):
+def _latin_bytes(value: _typing.Any) -> _typing.Any:
     if isinstance(value, bytes):
         return value
     if isinstance(value, bytearray):
@@ -177,7 +180,7 @@ def _latin_bytes(value):
     return str(value).encode("latin-1")
 
 
-def _utf8_bytes(value):
+def _utf8_bytes(value: _typing.Any) -> _typing.Any:
     if isinstance(value, bytes):
         return value
     if isinstance(value, bytearray):
@@ -186,14 +189,14 @@ def _utf8_bytes(value):
 
 
 class _ByteStringIO(io.BytesIO):
-    def write(self, value):
+    def write(self: _typing.Self, value: _typing.Any) -> _typing.Any:
         return super().write(_latin_bytes(value))
 
 
 six_cStringIO = _ByteStringIO
 
 
-def decint(value):
+def decint(value: _typing.Any) -> _typing.Any:
     decint_bytes = []
     while True:
         b = value & 0x7F
@@ -206,18 +209,18 @@ def decint(value):
     return "".join(reversed(decint_bytes)).encode("latin-1")
 
 
-def randbytes(n):
+def randbytes(n: _typing.Any) -> _typing.Any:
     return bytes(random.randint(0, 255) for x in memory_range(n))
 
 
-def warn(x):
+def warn(x: _typing.Any) -> None:
     print(x)
 
 
 class ReBinary(object):
     NSRMAP = {"": None, XML_NS: "xml"}
 
-    def __init__(self, root, item, oeb, opts, map=HTML_MAP):
+    def __init__(self: _typing.Self, root: _typing.Any, item: _typing.Any, oeb: _typing.Any, opts: _typing.Any, map: _typing.Any = HTML_MAP) -> None:
         self.item = item
         self.logger = oeb.logger
         self.manifest = oeb.manifest
@@ -232,7 +235,7 @@ class ReBinary(object):
         self.ahc = self.build_ahc() if is_html else None
         self.aht = self.build_aht() if is_html else None
 
-    def write(self, *values):
+    def write(self: _typing.Self, *values: _typing.Any) -> None:
         for value in values:
             if isinstance(value, (int, long)):
                 try:
@@ -242,10 +245,10 @@ class ReBinary(object):
                     value = "?"
             self.buf.write(value.encode("utf-8"))
 
-    def is_block(self, style):
+    def is_block(self: _typing.Self, style: _typing.Any) -> bool:
         return style["display"] not in ("inline", "inline-block")
 
-    def tree_to_binary(self, elem, nsrmap=NSRMAP, parents=None, inhead=False, preserve=False):
+    def tree_to_binary(self: _typing.Self, elem: _typing.Any, nsrmap: _typing.Any = NSRMAP, parents: _typing.Any = None, inhead: bool = False, preserve: bool = False) -> None:
         if parents is None:
             parents = []
 
@@ -359,7 +362,7 @@ class ReBinary(object):
         if style and style["page-break-after"] not in ("avoid", "auto"):
             self.page_breaks.append((self.buf.tell(), list(parents)))
 
-    def build_ahc(self):
+    def build_ahc(self: _typing.Self) -> _typing.Any:
         if len(self.anchors) > 6:
             self.logger.warn("More than six anchors in file %r. " "Some links may not work properly." % self.item.href)
         data = six_cStringIO()
@@ -370,12 +373,12 @@ class ReBinary(object):
             data.write(pack("<I", offset))
         return data.getvalue()
 
-    def build_aht(self):
+    def build_aht(self: _typing.Self) -> _typing.Any:
         return pack("<I", 0)
 
 
-def preserve(function):
-    def wrapper(self, *args, **kwargs):
+def preserve(function: _typing.Any) -> _typing.Any:
+    def wrapper(self: _typing.Any, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         opos = self._stream.tell()
         try:
             return function(self, *args, **kwargs)
@@ -387,10 +390,10 @@ def preserve(function):
 
 
 class LitWriter(object):
-    def __init__(self, opts):
+    def __init__(self: _typing.Self, opts: _typing.Any) -> None:
         self.opts = opts
 
-    def _litize_oeb(self):
+    def _litize_oeb(self: _typing.Self) -> None:
         oeb = self._oeb
         oeb.metadata.add("calibre-version", getattr(LiuXin_alpha, "__version__", "0"))
         cover = None
@@ -403,14 +406,14 @@ class LitWriter(object):
         else:
             self._logger.warn("No suitable cover image found.")
 
-    def __call__(self, oeb, path):
+    def __call__(self: _typing.Self, oeb: _typing.Any, path: _typing.Any) -> _typing.Any:
         _require_lzx_compressor()
         if hasattr(path, "write"):
             return self._dump_stream(oeb, path)
         with open(path, "w+b") as stream:
             return self._dump_stream(oeb, stream)
 
-    def _dump_stream(self, oeb, stream):
+    def _dump_stream(self: _typing.Self, oeb: _typing.Any, stream: _typing.Any) -> None:
         self._oeb = oeb
         self._logger = oeb.logger
         self._stream = stream
@@ -420,19 +423,19 @@ class LitWriter(object):
         self._litize_oeb()
         self._write_content()
 
-    def _write(self, *data):
+    def _write(self: _typing.Self, *data: _typing.Any) -> None:
         for datum in data:
             self._stream.write(_latin_bytes(datum))
 
     @preserve
-    def _writeat(self, pos, *data):
+    def _writeat(self: _typing.Self, pos: _typing.Any, *data: _typing.Any) -> None:
         self._stream.seek(pos)
         self._write(*data)
 
-    def _tell(self):
+    def _tell(self: _typing.Self) -> _typing.Any:
         return self._stream.tell()
 
-    def _write_content(self):
+    def _write_content(self: _typing.Self) -> None:
         # Build content sections
         self._build_sections()
 
@@ -537,7 +540,7 @@ class LitWriter(object):
         self._write(self._sections[0].getvalue())
         self._writeat(filesz_offset, pack("<Q", self._tell()))
 
-    def _add_file(self, name, data, secnum=0):
+    def _add_file(self: _typing.Self, name: _typing.Any, data: _typing.Any, secnum: int = 0) -> None:
         data = _utf8_bytes(data)
         if len(data) > 0:
             section = self._sections[secnum]
@@ -547,15 +550,15 @@ class LitWriter(object):
             offset = 0
         self._directory.append(DirectoryEntry(name, secnum, offset, len(data)))
 
-    def _add_folder(self, name, offset=0, size=0):
+    def _add_folder(self: _typing.Self, name: _typing.Any, offset: int = 0, size: int = 0) -> None:
         if not name.endswith("/"):
             name += "/"
         self._directory.append(DirectoryEntry(name, 0, offset, size))
 
-    def _djoin(self, *names):
+    def _djoin(self: _typing.Self, *names: _typing.Any) -> _typing.Any:
         return "/".join(names)
 
-    def _build_sections(self):
+    def _build_sections(self: _typing.Self) -> None:
         self._add_folder("/", ROOT_OFFSET, ROOT_SIZE)
         self._build_data()
         self._build_manifest()
@@ -567,7 +570,7 @@ class LitWriter(object):
         self._build_storage()
         self._build_transforms()
 
-    def _build_data(self):
+    def _build_data(self: _typing.Self) -> None:
         self._add_folder("/data")
         for item in self._oeb.manifest.values():
             if item.media_type not in LIT_MIMES:
@@ -594,7 +597,7 @@ class LitWriter(object):
             self._add_file(name, data, secnum)
             item.size = len(data)
 
-    def _build_manifest(self):
+    def _build_manifest(self: _typing.Self) -> None:
         states = ["linear", "nonlinear", "css", "images"]
         manifest = dict((state, []) for state in states)
         for item in self._oeb.manifest.values():
@@ -636,7 +639,7 @@ class LitWriter(object):
                 offset += item.size
         self._add_file("/manifest", data.getvalue())
 
-    def _build_page_breaks(self):
+    def _build_page_breaks(self: _typing.Self) -> None:
         pb1 = six_cStringIO()
         pb2 = six_cStringIO()
         pb3 = six_cStringIO()
@@ -672,7 +675,7 @@ class LitWriter(object):
         self._add_file("/pb2", pb2.getvalue(), 0)
         self._add_file("/pb3", pb3.getvalue(), 0)
 
-    def _build_meta(self):
+    def _build_meta(self: _typing.Self) -> None:
         _, meta = self._oeb.to_opf1()[OPF_MIME]
         meta.attrib["ms--minimum_level"] = "0"
         meta.attrib["ms--attr5"] = "1"
@@ -682,7 +685,7 @@ class LitWriter(object):
         self._meta = meta
         self._add_file("/meta", meta)
 
-    def _build_drm_storage(self):
+    def _build_drm_storage(self: _typing.Self) -> None:
         drmsource = "Free as in freedom\0".encode("utf-16-le")
         self._add_file("/DRMStorage/DRMSource", drmsource)
         tempkey = self._calculate_deskey([self._meta, drmsource])
@@ -691,10 +694,10 @@ class LitWriter(object):
         self._bookkey = b"\0" * 8
         self._add_file("/DRMStorage/ValidationStream", "MSReader", 3)
 
-    def _build_version(self):
+    def _build_version(self: _typing.Self) -> None:
         self._add_file("/Version", pack("<HH", 8, 1))
 
-    def _build_namelist(self):
+    def _build_namelist(self: _typing.Self) -> None:
         data = six_cStringIO()
         data.write(pack("<HH", 0x3C, len(self._sections)))
         names = ["Uncompressed", "MSCompressed", "EbEncryptDS", "EbEncryptOnlyDS"]
@@ -704,7 +707,7 @@ class LitWriter(object):
             data.write("\0\0")
         self._add_file("::DataSpace/NameList", data.getvalue())
 
-    def _build_storage(self):
+    def _build_storage(self: _typing.Self) -> None:
         mapping = [
             (1, "MSCompressed", (LZXCOMPRESS_GUID,)),
             (2, "EbEncryptDS", (LZXCOMPRESS_GUID, DESENCRYPT_GUID)),
@@ -762,11 +765,11 @@ class LitWriter(object):
                     dname += "/ResetTable"
                     self._add_file(dname, rdata)
 
-    def _build_transforms(self):
+    def _build_transforms(self: _typing.Self) -> None:
         for guid in (LZXCOMPRESS_GUID, DESENCRYPT_GUID):
             self._add_folder("::Transform/" + guid)
 
-    def _calculate_deskey(self, hashdata):
+    def _calculate_deskey(self: _typing.Self, hashdata: _typing.Any) -> _typing.Any:
         prepad = 2
         local_hash = mssha1.new()
         for data in hashdata:
@@ -785,7 +788,7 @@ class LitWriter(object):
             key[i % 8] ^= d if isinstance(d, int) else ord(d)
         return bytes(key)
 
-    def _build_dchunks(self):
+    def _build_dchunks(self: _typing.Self) -> tuple[_typing.Any, ...]:
         ddata = []
         directory = list(self._directory)
         directory.sort(key=lambda x: (x.name or "").lower())

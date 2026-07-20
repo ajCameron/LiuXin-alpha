@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Directory output OEBBook writer.
@@ -28,13 +31,13 @@ class OEBWriter(object):
     # List of transforms to apply to content written with this Writer.
     TRANSFORMS = []
 
-    def __init__(self, version="2.0", page_map=False, pretty_print=False):
+    def __init__(self: _typing.Self, version: str = "2.0", page_map: bool = False, pretty_print: bool = False) -> None:
         self.version = version
         self.page_map = page_map
         self.pretty_print = pretty_print
 
     @classmethod
-    def config(cls, cfg):
+    def config(cls: type[_typing.Self], cfg: _typing.Any) -> _typing.Any:
         """
         Add any book-writing options to the :class:`Config` object
         :param cfg:
@@ -57,7 +60,7 @@ class OEBWriter(object):
         return cfg
 
     @classmethod
-    def generate(cls, opts):
+    def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
         """
         Generate a Writer instance from command-line options.
         :param opts: Input options to specify the type of writer created
@@ -68,7 +71,7 @@ class OEBWriter(object):
         pretty_print = opts.pretty_print
         return cls(version=version, page_map=page_map, pretty_print=pretty_print)
 
-    def __call__(self, oeb, path):
+    def __call__(self: _typing.Self, oeb: _typing.Any, path: _typing.Any) -> None:
         """
         Write the book in the :class:`OEBBook` object :param:`oeb` to a folder
         at :param:`path`.

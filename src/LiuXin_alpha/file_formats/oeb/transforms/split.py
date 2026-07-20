@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Splitting of the XHTML flows. Splitting can happen on page boundaries or can be
@@ -45,12 +48,12 @@ XPath = functools.partial(_XPath, namespaces=NAMESPACES)
 SPLIT_POINT_ATTR = "csp"
 
 
-def tostring(root):
+def tostring(root: _typing.Any) -> _typing.Any:
     return etree.tostring(root, encoding="utf-8")
 
 
 class SplitError(ValueError):
-    def __init__(self, path, root):
+    def __init__(self: _typing.Self, path: _typing.Any, root: _typing.Any) -> None:
         size = len(tostring(root)) / 1024.0
         ValueError.__init__(
             self,
@@ -61,12 +64,12 @@ class SplitError(ValueError):
 
 class Split(object):
     def __init__(
-        self,
-        split_on_page_breaks=True,
-        page_breaks_xpath=None,
-        max_flow_size=0,
-        remove_css_pagebreaks=True,
-    ):
+        self: _typing.Self,
+        split_on_page_breaks: bool = True,
+        page_breaks_xpath: _typing.Any = None,
+        max_flow_size: int = 0,
+        remove_css_pagebreaks: bool = True,
+    ) -> None:
         self.split_on_page_breaks = split_on_page_breaks
         self.page_breaks_xpath = page_breaks_xpath
         self.max_flow_size = max_flow_size
@@ -75,7 +78,7 @@ class Split(object):
         if self.page_breaks_xpath is not None:
             self.page_break_selectors = [(XPath(self.page_breaks_xpath), False)]
 
-    def __call__(self, oeb, opts):
+    def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any) -> None:
         self.oeb = oeb
         self.log = oeb.log
         self.log("Splitting markup on page breaks and flow limits, if any...")
@@ -87,7 +90,7 @@ class Split(object):
 
         self.fix_links()
 
-    def split_item(self, item):
+    def split_item(self: _typing.Self, item: _typing.Any) -> None:
         page_breaks, page_break_ids = [], []
         if self.split_on_page_breaks:
             page_breaks, page_break_ids = self.find_page_breaks(item)
@@ -98,7 +101,7 @@ class Split(object):
             am = splitter.anchor_map
             self.map[item.href] = collections.defaultdict(am.default_factory, **am)
 
-    def find_page_breaks(self, item):
+    def find_page_breaks(self: _typing.Self, item: _typing.Any) -> tuple[_typing.Any, ...]:
         if self.page_break_selectors is None:
             self.page_break_selectors = set()
             try:
@@ -201,7 +204,7 @@ class Split(object):
 
         return page_breaks_, page_break_ids
 
-    def fix_links(self):
+    def fix_links(self: _typing.Self) -> None:
         """
         Fix references to the split files in other content files.
         :return:
@@ -211,7 +214,7 @@ class Split(object):
                 self.current_item = item
                 rewrite_links(item.data, self.rewrite_links)
 
-    def rewrite_links(self, url):
+    def rewrite_links(self: _typing.Self, url: _typing.Any) -> _typing.Any:
         href, frag = urldefrag(url)
         try:
             href = self.current_item.abshref(href)
@@ -239,7 +242,7 @@ class FlowSplitter(object):
     The actual splitting logic
     """
 
-    def __init__(self, item, page_breaks, page_break_ids, max_flow_size, oeb, opts):
+    def __init__(self: _typing.Self, item: _typing.Any, page_breaks: _typing.Any, page_break_ids: _typing.Any, max_flow_size: _typing.Any, oeb: _typing.Any, opts: _typing.Any) -> None:
         self.item = item
         self.oeb = oeb
         self.opts = opts
@@ -283,7 +286,7 @@ class FlowSplitter(object):
             self.log("\tSplit into %d parts" % len(self.trees))
         self.commit()
 
-    def split_on_page_breaks(self, orig_tree):
+    def split_on_page_breaks(self: _typing.Self, orig_tree: _typing.Any) -> None:
         ordered_ids = OrderedDict()
         all_page_break_ids = frozenset(self.page_break_ids)
         for elem_id in orig_tree.xpath("//*/@id"):
@@ -325,13 +328,13 @@ class FlowSplitter(object):
                 trees.append(tree)
         self.trees = trees
 
-    def get_body(self, root):
+    def get_body(self: _typing.Self, root: _typing.Any) -> _typing.Any:
         body = root.xpath("//h:body", namespaces=NAMESPACES)
         if not body:
             return None
         return body[0]
 
-    def do_split(self, tree, split_point, before):
+    def do_split(self: _typing.Self, tree: _typing.Any, split_point: _typing.Any, before: _typing.Any) -> _typing.Any:
         """
         Split ``tree`` into a *before* and *after* tree at ``split_point``.
         :param tree:
@@ -341,7 +344,7 @@ class FlowSplitter(object):
         """
         return do_split(split_point, self.log, before=before)
 
-    def is_page_empty(self, root):
+    def is_page_empty(self: _typing.Self, root: _typing.Any) -> bool:
         body = self.get_body(root)
         if body is None:
             return False
@@ -367,7 +370,7 @@ class FlowSplitter(object):
             return False
         return True
 
-    def split_text(self, text, root, size):
+    def split_text(self: _typing.Self, text: _typing.Any, root: _typing.Any, size: _typing.Any) -> _typing.Any:
         self.log.debug("\t\t\tSplitting text of length: %d" % len(text))
         rest = text.replace("\r", "")
         parts = re.split("\n\n", rest)
@@ -387,7 +390,7 @@ class FlowSplitter(object):
                 buf = part
         return ans
 
-    def split_to_size(self, tree):
+    def split_to_size(self: _typing.Self, tree: _typing.Any) -> None:
         self.log.debug("\t\tSplitting...")
         root = tree.getroot()
         # Split large <pre> tags if they contain only text
@@ -431,7 +434,7 @@ class FlowSplitter(object):
                 self.log.debug("\t\t\tSplit tree still too large: %d KB" % (size / 1024.0))
                 self.split_to_size(t)
 
-    def find_split_point(self, root):
+    def find_split_point(self: _typing.Self, root: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Find the tag at which to split the tree rooted at `root`.
         Search order is:
@@ -448,7 +451,7 @@ class FlowSplitter(object):
         :return:
         """
 
-        def pick_elem(local_elems):
+        def pick_elem(local_elems: _typing.Any) -> _typing.Any:
             if local_elems:
                 local_elems = [i for i in local_elems if i.get(SPLIT_POINT_ATTR, "0") != "1"]
                 if local_elems:
@@ -477,7 +480,7 @@ class FlowSplitter(object):
 
         return None, True
 
-    def commit(self):
+    def commit(self: _typing.Self) -> None:
         """
         Commit all changes caused by the split. Calculates an *anchor_map* for
         all anchors in the original tree. Internal links are re-directed. The
@@ -524,7 +527,7 @@ class FlowSplitter(object):
                         nhref = "#".join((nhref, frag))
                     ref.href = nhref
 
-        def fix_toc_entry(toc):
+        def fix_toc_entry(toc: _typing.Any) -> None:
             if toc.href:
                 local_href, local_frag = urldefrag(toc.href)
                 if local_href == self.item.href:

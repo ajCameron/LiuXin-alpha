@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
@@ -20,7 +23,7 @@ class OEBOutput(OutputFormatPlugin):
 
     recommendations = {("pretty_print", True, OptionRecommendation.HIGH)}
 
-    def convert(self, oeb_book, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
 
         from urllib.parse import unquote
         from lxml import etree
@@ -88,10 +91,10 @@ class OEBOutput(OutputFormatPlugin):
                     f.write(payload)
                 item.unload_data_from_memory(memory=path)
 
-    def workaround_nook_cover_bug(self, root):  # {{{
+    def workaround_nook_cover_bug(self: _typing.Self, root: _typing.Any) -> None:  # {{{
         cov = root.xpath('//*[local-name() = "meta" and @name="cover" and @content != "cover"]')
 
-        def manifest_items_with_id(id_):
+        def manifest_items_with_id(id_: _typing.Any) -> _typing.Any:
             return root.xpath('//*[local-name() = "manifest"]/*[local-name() = "item"  and @id="%s"]' % id_)
 
         if len(cov) == 1:
@@ -119,7 +122,7 @@ class OEBOutput(OutputFormatPlugin):
 
     # }}}
 
-    def workaround_pocketbook_cover_bug(self, root):  # {{{
+    def workaround_pocketbook_cover_bug(self: _typing.Self, root: _typing.Any) -> None:  # {{{
         m = root.xpath('//*[local-name() = "manifest"]/*[local-name() = "item"  and @id="cover"]')
         if len(m) == 1:
             m = m[0]
@@ -129,7 +132,7 @@ class OEBOutput(OutputFormatPlugin):
 
     # }}}
 
-    def migrate_lang_code(self, root):  # {{{
+    def migrate_lang_code(self: _typing.Self, root: _typing.Any) -> None:  # {{{
         from LiuXin_alpha.utils.localization import lang_as_iso639_1
 
         for lang in root.xpath('//*[local-name() = "language"]'):

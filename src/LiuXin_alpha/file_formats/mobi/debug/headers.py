@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import struct
 import datetime
@@ -23,7 +26,7 @@ __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def _decint(raw, forward=True):
+def _decint(raw: _typing.Any, forward: bool = True) -> tuple[_typing.Any, ...]:
     val = 0
     byts = bytearray()
     src = bytearray(raw)
@@ -42,7 +45,7 @@ def _decint(raw, forward=True):
     return val, len(byts)
 
 
-def get_trailing_data(record, extra_data_flags):
+def get_trailing_data(record: _typing.Any, extra_data_flags: _typing.Any) -> tuple[_typing.Any, ...]:
     data = OrderedDict()
     flags = extra_data_flags >> 1
 
@@ -67,14 +70,14 @@ def get_trailing_data(record, extra_data_flags):
 # PalmDB {{{
 class PalmDOCAttributes(object):
     class Attr(object):
-        def __init__(self, name, field, val):
+        def __init__(self: _typing.Self, name: _typing.Any, field: _typing.Any, val: _typing.Any) -> None:
             self.name = name
             self.val = val & field
 
-        def __str__(self):
+        def __str__(self: _typing.Self) -> _typing.Any:
             return "%s: %s" % (self.name, bool(self.val))
 
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         self.val = struct.unpack(b"<H", raw)[0]
         self.attributes = []
         for name, field in [
@@ -87,13 +90,13 @@ class PalmDOCAttributes(object):
         ]:
             self.attributes.append(PalmDOCAttributes.Attr(name, field, self.val))
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         attrs = "\n\t".join([str(x) for x in self.attributes])
         return "PalmDOC Attributes: %s\n\t%s" % (bin(self.val), attrs)
 
 
 class PalmDB(object):
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         self.raw = raw
 
         if self.raw.startswith(b"TPZ"):
@@ -123,7 +126,7 @@ class PalmDB(object):
 
         (self.number_of_records,) = struct.unpack(b">H", self.raw[76:78])
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         ans = list(["*" * 20 + " PalmDB Header " + "*" * 20])
         ans.append("Name: %r" % self.name)
         ans.append(str(self.attributes))
@@ -147,11 +150,11 @@ class PalmDB(object):
 
 
 class Record(object):  # {{{
-    def __init__(self, raw, header):
+    def __init__(self: _typing.Self, raw: _typing.Any, header: _typing.Any) -> None:
         self.offset, self.flags, self.uid = header
         self.raw = raw
 
-    def header(self):
+    def header(self: _typing.Self) -> _typing.Any:
         return "Offset: %d Flags: %d UID: %d First 4 bytes: %r Size: %d" % (
             self.offset,
             self.flags,
@@ -166,7 +169,7 @@ class Record(object):  # {{{
 
 # EXTH {{{
 class EXTHRecord(object):
-    def __init__(self, type_, data, length):
+    def __init__(self: _typing.Self, type_: _typing.Any, data: _typing.Any, length: _typing.Any) -> None:
         self.type = type_
         self.data = data
         self.length = length
@@ -263,12 +266,12 @@ class EXTHRecord(object):
         elif self.type in {209, 300}:
             self.data = bytes(self.data.encode("hex"))
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return "%s (%d): %r" % (self.name, self.type, self.data)
 
 
 class EXTHHeader(object):
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         self.raw = raw
         if not self.raw.startswith(b"EXTH"):
             raise ValueError("EXTH header does not start with EXTH")
@@ -282,26 +285,26 @@ class EXTHHeader(object):
         self.records.sort(key=lambda x: x.type)
         self.rmap = {x.type: x for x in self.records}
 
-    def __getitem__(self, type_):
+    def __getitem__(self: _typing.Self, type_: _typing.Any) -> _typing.Any:
         return self.rmap.__getitem__(type_).data
 
-    def get(self, type_, default=None):
+    def get(self: _typing.Self, type_: _typing.Any, default: _typing.Any = None) -> _typing.Any:
         ans = self.rmap.get(type_, default)
         return getattr(ans, "data", default)
 
-    def read_record(self, pos):
+    def read_record(self: _typing.Self, pos: _typing.Any) -> _typing.Any:
         type_, length = struct.unpack(b">LL", self.raw[pos : pos + 8])
         data = self.raw[(pos + 8) : (pos + length)]
         self.records.append(EXTHRecord(type_, data, length))
         return pos + length
 
-    def kf8_header_index(self):
+    def kf8_header_index(self: _typing.Self) -> _typing.Any:
         ans = self.get(121, None)
         if ans == NULL_INDEX:
             ans = None
         return ans
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         ans = list(["*" * 20 + " EXTH Header " + "*" * 20])
         ans.append("EXTH header length: %d" % self.length)
         ans.append("Number of EXTH records: %d" % self.count)
@@ -315,7 +318,7 @@ class EXTHHeader(object):
 
 
 class MOBIHeader(object):  # {{{
-    def __init__(self, record0, offset):
+    def __init__(self: _typing.Self, record0: _typing.Any, offset: _typing.Any) -> None:
         self.raw = record0.raw
         self.header_offset = offset
 
@@ -482,16 +485,16 @@ class MOBIHeader(object):  # {{{
                 # MOBI 6 header in a joint file, adjust self.last_resource_record
                 self.last_resource_record = self.exth.kf8_header_index - 2
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         ans = ["*" * 20 + " MOBI %d Header " % self.file_version + "*" * 20]
 
         a = ans.append
 
-        def i(d, x):
+        def i(d: _typing.Any, x: _typing.Any) -> None:
             x = "NULL" if x == NULL_INDEX else x
             a("%s: %s" % (d, x))
 
-        def r(d, attr):
+        def r(d: _typing.Any, attr: _typing.Any) -> None:
             x = getattr(self, attr)
             if attr in self.relative_records and x != NULL_INDEX:
                 a("%s: Absolute: %d Relative: %d" % (d, x, x - self.header_offset))
@@ -593,7 +596,7 @@ class MOBIHeader(object):  # {{{
 
 
 class MOBIFile(object):
-    def __init__(self, stream):
+    def __init__(self: _typing.Self, stream: _typing.Any) -> None:
         self.raw = stream.read()
         self.palmdb = PalmDB(self.raw[:78])
 
@@ -605,7 +608,7 @@ class MOBIFile(object):
             flags, val = a1, a2 << 16 | a3 << 8 | a4
             self.record_headers.append((offset, flags, val))
 
-        def section(section_number):
+        def section(section_number: _typing.Any) -> _typing.Any:
             if section_number == self.palmdb.number_of_records - 1:
                 end_off = len(self.raw)
             else:
@@ -638,7 +641,7 @@ class MOBIFile(object):
         if "huff" in self.mobi_header.compression.lower():
             from LiuXin_alpha.file_formats.mobi.huffcdic import HuffReader
 
-            def huffit(off, cnt):
+            def huffit(off: _typing.Any, cnt: _typing.Any) -> tuple[_typing.Any, ...]:
                 huffman_record_nums = list(memory_range(off, off + cnt))
                 huffrecs = [self.records[r].raw for r in huffman_record_nums]
                 huffs = HuffReader(huffrecs)
@@ -662,7 +665,7 @@ class MOBIFile(object):
 
 
 class TextRecord(object):  # {{{
-    def __init__(self, idx, record, extra_data_flags, decompress):
+    def __init__(self: _typing.Self, idx: _typing.Any, record: _typing.Any, extra_data_flags: _typing.Any, decompress: _typing.Any) -> None:
         self.trailing_data, self.raw = get_trailing_data(record.raw, extra_data_flags)
         raw_trailing_bytes = record.raw[len(self.raw) :]
         self.raw = decompress(self.raw)
@@ -681,7 +684,7 @@ class TextRecord(object):  # {{{
 
         self.idx = idx
 
-    def dump(self, folder):
+    def dump(self: _typing.Self, folder: _typing.Any) -> None:
         name = "%06d" % self.idx
         with open(os.path.join(folder, name + ".txt"), "wb") as f:
             f.write(self.raw)
@@ -690,7 +693,7 @@ class TextRecord(object):  # {{{
                 raw = "%s : %r\n\n" % (k, v)
                 f.write(raw.encode("utf-8"))
 
-    def __len__(self):
+    def __len__(self: _typing.Self) -> _typing.Any:
         return len(self.raw)
 
 

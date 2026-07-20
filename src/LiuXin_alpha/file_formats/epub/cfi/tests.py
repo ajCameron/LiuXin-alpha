@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import unittest
 
@@ -18,7 +21,7 @@ __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class Tests(unittest.TestCase):
-    def test_sorting(self):
+    def test_sorting(self: _typing.Self) -> None:
         null_offsets = (0, (0, 0), 0)
         for path, key in [
             ("/1/2/3", ((1, 2, 3), null_offsets)),
@@ -28,24 +31,24 @@ class Tests(unittest.TestCase):
         ]:
             self.assertEqual(cfi_sort_key(path), key)
 
-    def test_parsing(self):
+    def test_parsing(self: _typing.Self) -> None:
         p = parser()
 
-        def step(x):
+        def step(x: _typing.Any) -> dict[_typing.Any, _typing.Any]:
             if isinstance(x, int):
                 return {"num": x}
             return {"num": x[0], "id": x[1]}
 
-        def s(*args):
+        def s(*args: _typing.Any) -> dict[_typing.Any, _typing.Any]:
             return {"steps": list(six_map(step, args))}
 
-        def r(*args):
+        def r(*args: _typing.Any) -> _typing.Any:
             idx = args.index("!")
             ans = s(*args[:idx])
             ans["redirect"] = s(*args[idx + 1 :])
             return ans
 
-        def o(*args):
+        def o(*args: _typing.Any) -> _typing.Any:
             ans = s(1)
             local_step = ans["steps"][-1]
             typ, val = args[:2]
@@ -55,7 +58,7 @@ class Tests(unittest.TestCase):
                 local_step[{"@": "spatial_offset", "~": "temporal_offset"}[typ]] = val
             return ans
 
-        def a(before=None, after=None, **params):
+        def a(before: _typing.Any = None, after: _typing.Any = None, **params: _typing.Any) -> _typing.Any:
             ans = o(":", 3)
             local_step = ans["steps"][-1]
             ta = {}

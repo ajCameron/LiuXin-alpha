@@ -2,13 +2,19 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+from typing import TypeAlias
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def base64_decode(raw):
+Base64Input: TypeAlias = str | bytes | bytearray | memoryview
+
+
+def base64_decode(raw: Base64Input) -> bytes:
     """
     Preform a base 64 decode of a raw string.
     :param raw:
@@ -17,16 +23,18 @@ def base64_decode(raw):
     from io import BytesIO
     from base64 import b64decode
 
+    encoded = raw.encode("ascii") if isinstance(raw, str) else raw
+
     # First try the python implementation as it is faster
     try:
-        return b64decode(raw)
+        return b64decode(encoded)
     except TypeError:
         pass
 
     # Try a more robust version (adapted from FBReader sources)
     # cap_a = A and cap_z = Z
     cap_a, cap_z, a, z, zero, nine, plus, slash, equal = bytearray(b"AZaz09+/=")
-    raw = bytearray(raw)
+    raw = bytearray(encoded)
     out = BytesIO()
     pos = 0
     while pos < len(raw):

@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 
@@ -24,7 +27,7 @@ __docformat__ = "restructuredtext en"
 
 
 class Destination(Array):
-    def __init__(self, start_page, pos, get_pageref):
+    def __init__(self: _typing.Self, start_page: _typing.Any, pos: _typing.Any, get_pageref: _typing.Any) -> None:
         pnum = start_page + pos["column"]
         try:
             pref = get_pageref(pnum)
@@ -34,14 +37,14 @@ class Destination(Array):
 
 
 class Links(object):
-    def __init__(self, pdf, mark_links, page_size):
+    def __init__(self: _typing.Self, pdf: _typing.Any, mark_links: _typing.Any, page_size: _typing.Any) -> None:
         self.anchors = {}
         self.links = []
         self.start = {"top": page_size[1], "column": 0, "left": 0}
         self.pdf = pdf
         self.mark_links = mark_links
 
-    def add(self, base_path, start_page, links, anchors):
+    def add(self: _typing.Self, base_path: _typing.Any, start_page: _typing.Any, links: _typing.Any, anchors: _typing.Any) -> None:
         path = os.path.normcase(os.path.abspath(base_path))
         self.anchors[path] = a = {}
         a[None] = Destination(start_page, self.start, self.pdf.get_pageref)
@@ -61,7 +64,7 @@ class Links(object):
                 self.pdf.debug("The link %s points to non-existent page, moving it one page back" % href)
             self.links.append(((path, p, frag or None), pref, Array(rect)))
 
-    def add_links(self):
+    def add_links(self: _typing.Self) -> None:
         for link in self.links:
             path, href, frag = link[0]
             page, rect = link[1:]
@@ -104,13 +107,13 @@ class Links(object):
             else:
                 self.pdf.debug("Could not find destination for link: %s in file %s" % (href, path))
 
-    def add_outline(self, toc):
+    def add_outline(self: _typing.Self, toc: _typing.Any) -> None:
         parent = Dictionary({"Type": Name("Outlines")})
         parentref = self.pdf.objects.add(parent)
         self.process_children(toc, parentref, parent_is_root=True)
         self.pdf.catalog.obj["Outlines"] = parentref
 
-    def process_children(self, toc, parentref, parent_is_root=False):
+    def process_children(self: _typing.Self, toc: _typing.Any, parentref: _typing.Any, parent_is_root: bool = False) -> None:
         childrefs = []
         for child in toc:
             childref = self.process_toc_item(child, parentref)
@@ -129,7 +132,7 @@ class Links(object):
             if not parent_is_root:
                 parentref.obj["Count"] = -len(childrefs)
 
-    def process_toc_item(self, toc, parentref):
+    def process_toc_item(self: _typing.Self, toc: _typing.Any, parentref: _typing.Any) -> _typing.Any:
         path = toc.abspath or None
         frag = toc.fragment or None
         if path is None:

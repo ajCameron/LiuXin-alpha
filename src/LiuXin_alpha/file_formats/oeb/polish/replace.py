@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import codecs
 import shutil
@@ -26,14 +29,14 @@ __docformat__ = "restructuredtext en"
 
 
 class LinkReplacer(object):
-    def __init__(self, base, container, link_map, frag_map):
+    def __init__(self: _typing.Self, base: _typing.Any, container: _typing.Any, link_map: _typing.Any, frag_map: _typing.Any) -> None:
         self.base = base
         self.frag_map = frag_map
         self.link_map = link_map
         self.container = container
         self.replaced = False
 
-    def __call__(self, url):
+    def __call__(self: _typing.Self, url: _typing.Any) -> _typing.Any:
         if url and url.startswith("#"):
             repl = self.frag_map(self.base, url[1:])
             if not repl or repl == url[1:]:
@@ -62,12 +65,12 @@ class LinkReplacer(object):
 
 
 class LinkRebaser(object):
-    def __init__(self, container, old_name, new_name):
+    def __init__(self: _typing.Self, container: _typing.Any, old_name: _typing.Any, new_name: _typing.Any) -> None:
         self.old_name, self.new_name = old_name, new_name
         self.container = container
         self.replaced = False
 
-    def __call__(self, url):
+    def __call__(self: _typing.Self, url: _typing.Any) -> _typing.Any:
         if url and url.startswith("#"):
             return url
         purl = urlparse(url)
@@ -89,7 +92,7 @@ class LinkRebaser(object):
         return href
 
 
-def replace_links(container, link_map, frag_map=lambda name, frag: frag, replace_in_opf=False):
+def replace_links(container: _typing.Any, link_map: _typing.Any, frag_map: _typing.Callable[..., _typing.Any] = lambda name, frag: frag, replace_in_opf: bool = False) -> None:
     """
     Replace links to files in the container. Will iterate over all files in the container and change the specified
     links in them.
@@ -110,7 +113,7 @@ def replace_links(container, link_map, frag_map=lambda name, frag: frag, replace
         container.replace_links(name, repl)
 
 
-def smarten_punctuation(container, report):
+def smarten_punctuation(container: _typing.Any, report: _typing.Any) -> _typing.Any:
     from LiuXin_alpha.file_formats.conversion.preprocess import smarten_punctuation
 
     smartened = False
@@ -140,7 +143,7 @@ def smarten_punctuation(container, report):
     return smartened
 
 
-def rename_files(container, file_map):
+def rename_files(container: _typing.Any, file_map: _typing.Any) -> None:
     """
     Rename files in the container, automatically updating all links to them.
 
@@ -170,7 +173,7 @@ def rename_files(container, file_map):
     replace_links(container, link_map, replace_in_opf=True)
 
 
-def replace_file(container, name, path, basename, force_mt=None):
+def replace_file(container: _typing.Any, name: _typing.Any, path: _typing.Any, basename: _typing.Any, force_mt: _typing.Any = None) -> None:
     dirname, base = name.rpartition("/")[0::2]
     nname = sanitize_file_name_unicode(basename)
     if dirname:
@@ -193,7 +196,7 @@ def replace_file(container, name, path, basename, force_mt=None):
             shutil.copyfileobj(src, dest)
 
 
-def mt_to_category(container, mt):
+def mt_to_category(container: _typing.Any, mt: _typing.Any) -> _typing.Any:
 
     from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
     from LiuXin_alpha.file_formats.oeb.polish.container import OEB_FONTS
@@ -214,7 +217,7 @@ def mt_to_category(container, mt):
     return category
 
 
-def get_recommended_folders(container, names):
+def get_recommended_folders(container: _typing.Any, names: _typing.Any) -> _typing.Any:
     """
     Return the folders that are recommended for the given filenames. The
     recommendation is based on where the majority of files of the same type are
@@ -243,7 +246,7 @@ def get_recommended_folders(container, names):
     }
 
 
-def rationalize_folders(container, folder_type_map):
+def rationalize_folders(container: _typing.Any, folder_type_map: _typing.Any) -> _typing.Any:
     all_names = set(container.mime_map)
     new_names = set()
     name_map = {}

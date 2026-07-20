@@ -1,4 +1,7 @@
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import logging
 import os
@@ -21,10 +24,10 @@ __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class BlockStyle(object):
-    def __init__(self, ba):
+    def __init__(self: _typing.Self, ba: _typing.Any) -> None:
         self.ba = ba
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         ans = "." + str(self.ba.id) + " {\n"
         if hasattr(self.ba, "sidemargin"):
             margin = str(self.ba.sidemargin) + "px"
@@ -47,7 +50,7 @@ class BlockStyle(object):
 
 
 class LRFConverter(object):
-    def __init__(self, document, opts, logger):
+    def __init__(self: _typing.Self, document: _typing.Any, opts: _typing.Any, logger: _typing.Any) -> None:
         self.lrf = document
         self.opts = opts
         self.output_dir = opts.out
@@ -58,12 +61,12 @@ class LRFConverter(object):
         self.create_metadata()
         self.create_styles()
 
-    def create_metadata(self):
+    def create_metadata(self: _typing.Self) -> None:
         self.logger.info("Reading metadata...")
         mi = get_metadata(self.lrf)
         self.opf = OPFCreator(self.output_dir, mi)
 
-    def create_page_styles(self):
+    def create_page_styles(self: _typing.Self) -> None:
         self.page_css = ""
         for obj in self.lrf.objects.values():
             if isinstance(obj, PageAttr):
@@ -72,26 +75,26 @@ class LRFConverter(object):
                 # TODO: Headers and footers
                 self.page_css += "}\n"
 
-    def create_block_styles(self):
+    def create_block_styles(self: _typing.Self) -> None:
         self.block_css = ""
         for obj in self.lrf.objects.values():
             if isinstance(obj, BlockAttr):
                 self.block_css += str(BlockStyle(obj))
 
-    def create_text_styles(self):
+    def create_text_styles(self: _typing.Self) -> None:
         self.text_css = ""
         for obj in self.lrf.objects.values():
             if isinstance(obj, TextAttr):
                 self.text_css += str(TextStyle(obj))
         print(self.text_css)
 
-    def create_styles(self):
+    def create_styles(self: _typing.Self) -> None:
         self.logger.info("Creating CSS stylesheet...")
         self.create_page_styles()
         self.create_block_styles()
 
 
-def option_parser():
+def option_parser() -> _typing.Any:
     parser = OptionParser(usage="%prog book.lrf")
     parser.add_option(
         "--output-dir",
@@ -105,7 +108,7 @@ def option_parser():
     return parser
 
 
-def process_file(lrfpath, opts, logger=None):
+def process_file(lrfpath: _typing.Any, opts: _typing.Any, logger: _typing.Any = None) -> None:
     if logger is None:
         level = logging.DEBUG if opts.verbose else logging.INFO
         logger = logging.getLogger("lrf2html")
@@ -123,7 +126,7 @@ def process_file(lrfpath, opts, logger=None):
     LRFConverter(document, opts, logger)
 
 
-def main(args=sys.argv):
+def main(args: _typing.Any = sys.argv) -> int:
     parser = option_parser()
     opts, args = parser.parse_args(args)
     if len(args) != 2:

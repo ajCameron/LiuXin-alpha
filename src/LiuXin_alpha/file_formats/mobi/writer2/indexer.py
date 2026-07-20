@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from collections import OrderedDict, defaultdict
 from io import BytesIO
@@ -33,7 +36,7 @@ __docformat__ = "restructuredtext en"
 
 
 class CNCX(CNCX_):  # {{{
-    def __init__(self, toc, is_periodical):
+    def __init__(self: _typing.Self, toc: _typing.Any, is_periodical: _typing.Any) -> None:
         strings = []
         for item in toc.iterdescendants(breadth_first=True):
             strings.append(item.title)
@@ -59,10 +62,10 @@ class TAGX(object):  # {{{
     NUM_VALUES[11] = 3
     NUM_VALUES[0] = 0
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.byts = bytearray()
 
-    def add_tag(self, tag):
+    def add_tag(self: _typing.Self, tag: _typing.Any) -> None:
         buf = self.byts
         buf.append(tag)
         buf.append(self.NUM_VALUES[tag])
@@ -71,14 +74,14 @@ class TAGX(object):  # {{{
         # eof
         buf.append(0 if tag else 1)
 
-    def header(self, control_byte_count):
+    def header(self: _typing.Self, control_byte_count: _typing.Any) -> _typing.Any:
         header = b"TAGX"
         # table length, control byte count
         header += pack(b">II", 12 + len(self.byts), control_byte_count)
         return header
 
     @property
-    def periodical(self):
+    def periodical(self: _typing.Self) -> _typing.Any:
         """
         TAGX block for the Primary index header of a periodical
         """
@@ -86,7 +89,7 @@ class TAGX(object):  # {{{
         return self.header(2) + bytes(self.byts)
 
     @property
-    def secondary(self):
+    def secondary(self: _typing.Self) -> _typing.Any:
         """
         TAGX block for the secondary index header of a periodical
         """
@@ -94,7 +97,7 @@ class TAGX(object):  # {{{
         return self.header(1) + bytes(self.byts)
 
     @property
-    def flat_book(self):
+    def flat_book(self: _typing.Self) -> _typing.Any:
         """
         TAGX block for the primary index header of a flat book
         """
@@ -125,7 +128,7 @@ class IndexEntry(object):
     }
     RTAG_MAP = {v: k for k, v in iteritems(TAG_VALUES)}  # noqa
 
-    def __init__(self, offset, label_offset):
+    def __init__(self: _typing.Self, offset: _typing.Any, label_offset: _typing.Any) -> None:
         self.offset, self.label_offset = offset, label_offset
         self.depth, self.class_offset = 0, None
         self.control_byte_count = 1
@@ -141,7 +144,7 @@ class IndexEntry(object):
         self.author_offset = None
         self.desc_offset = None
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "IndexEntry(offset=%r, depth=%r, length=%r, index=%r, parent_index=%r)" % (
             self.offset,
             self.depth,
@@ -151,19 +154,19 @@ class IndexEntry(object):
         )
 
     @property
-    def size(self):
+    def size(self: _typing.Self) -> _typing.Any:
         return self.length
 
     @size.setter
-    def size(self, val):
+    def size(self: _typing.Self, val: _typing.Any) -> None:
         self.length = val
 
     @property
-    def next_offset(self):
+    def next_offset(self: _typing.Self) -> _typing.Any:
         return self.offset + self.length
 
     @property
-    def tag_nums(self):
+    def tag_nums(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for i in range(1, 5):
             yield i
         for attr in (
@@ -176,17 +179,17 @@ class IndexEntry(object):
                 yield self.TAG_VALUES[attr]
 
     @property
-    def entry_type(self):
+    def entry_type(self: _typing.Self) -> _typing.Any:
         ans = 0
         for tag in self.tag_nums:
             ans |= TAGX.BITMASKS[tag]
         return ans
 
-    def attr_for_tag(self, tag):
+    def attr_for_tag(self: _typing.Self, tag: _typing.Any) -> _typing.Any:
         return self.RTAG_MAP[tag]
 
     @property
-    def bytestring(self):
+    def bytestring(self: _typing.Self) -> _typing.Any:
         buf = BytesIO()
         if isinstance(self.index, int):
             buf.write(encode_number_as_hex(self.index))
@@ -226,7 +229,7 @@ class IndexEntry(object):
 
 
 class PeriodicalIndexEntry(IndexEntry):
-    def __init__(self, offset, label_offset, class_offset, depth):
+    def __init__(self: _typing.Self, offset: _typing.Any, label_offset: _typing.Any, class_offset: _typing.Any, depth: _typing.Any) -> None:
         IndexEntry.__init__(self, offset, label_offset)
         self.depth = depth
         self.class_offset = class_offset
@@ -243,7 +246,7 @@ class SecondaryIndexEntry(IndexEntry):
         "mastheadImage": 69,
     }
 
-    def __init__(self, index):
+    def __init__(self: _typing.Self, index: _typing.Any) -> None:
         IndexEntry.__init__(self, 0, 0)
         self.index = index
 
@@ -253,14 +256,14 @@ class SecondaryIndexEntry(IndexEntry):
         # I don't know what the 5 means, it is not the number of entries
         self.secondary = [5 if tag == min(itervalues(self.INDEX_MAP)) else 0, 0, tag]
 
-    def tag_nums(self):
+    def tag_nums(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         yield 11
 
-    def entry_type(self):
+    def entry_type(self: _typing.Self) -> int:
         return 1
 
     @classmethod
-    def entries(cls):
+    def entries(cls: type[_typing.Self]) -> _typing.Iterator[_typing.Any]:
         rmap = {v: k for k, v in iteritems(cls.INDEX_MAP)}
         for tag in sorted(rmap, reverse=True):
             yield cls(rmap[tag])
@@ -276,7 +279,7 @@ class TBS(object):  # {{{
     trailing byte sequence for the record.
     """
 
-    def __init__(self, data, is_periodical, first=False, section_map=None, after_first=False):
+    def __init__(self: _typing.Self, data: _typing.Any, is_periodical: _typing.Any, first: bool = False, section_map: _typing.Any = None, after_first: bool = False) -> None:
         if section_map is None:
             section_map = {}
         self.section_map = section_map
@@ -314,7 +317,7 @@ class TBS(object):  # {{{
             else:
                 self.book_tbs(data, first)
 
-    def periodical_tbs(self, data, first, depth_map):
+    def periodical_tbs(self: _typing.Self, data: _typing.Any, first: _typing.Any, depth_map: _typing.Any) -> None:
         buf = BytesIO()
 
         has_section_start = depth_map[1] and set(depth_map[1]).intersection(set(data["starts"]))
@@ -424,7 +427,7 @@ class TBS(object):  # {{{
 
         self.bytestring = buf.getvalue()
 
-    def book_tbs(self, data, first):
+    def book_tbs(self: _typing.Self, data: _typing.Any, first: _typing.Any) -> None:
         spanner = data["spans"]
         if spanner is not None:
             self.bytestring = encode_tbs(spanner.index, {0b010: 0, 0b001: 0}, flag_size=3)
@@ -446,15 +449,15 @@ class TBS(object):  # {{{
 
 class Indexer(object):  # {{{
     def __init__(
-        self,
-        serializer,
-        number_of_text_records,
-        size_of_last_text_record,
-        masthead_offset,
-        is_periodical,
-        opts,
-        oeb,
-    ):
+        self: _typing.Self,
+        serializer: _typing.Any,
+        number_of_text_records: _typing.Any,
+        size_of_last_text_record: _typing.Any,
+        masthead_offset: _typing.Any,
+        is_periodical: _typing.Any,
+        opts: _typing.Any,
+        oeb: _typing.Any,
+    ) -> None:
         self.serializer = serializer
         self.number_of_text_records = number_of_text_records
         self.text_size = RECORD_SIZE * (self.number_of_text_records - 1) + size_of_last_text_record
@@ -511,7 +514,7 @@ class Indexer(object):  # {{{
 
         self.calculate_trailing_byte_sequences()
 
-    def create_index_record(self, secondary=False):  # {{{
+    def create_index_record(self: _typing.Self, secondary: bool = False) -> _typing.Any:  # {{{
         header_length = 192
         buf = BytesIO()
         indices = list(SecondaryIndexEntry.entries()) if secondary else self.indices
@@ -556,7 +559,7 @@ class Indexer(object):  # {{{
 
     # }}}
 
-    def create_header(self, secondary=False):  # {{{
+    def create_header(self: _typing.Self, secondary: bool = False) -> _typing.Any:  # {{{
         buf = BytesIO()
         if secondary:
             tagx_block = TAGX().secondary
@@ -647,7 +650,7 @@ class Indexer(object):  # {{{
 
     # }}}
 
-    def create_book_index(self):  # {{{
+    def create_book_index(self: _typing.Self) -> _typing.Any:  # {{{
         indices = []
         seen = set()
         id_offsets = self.serializer.id_offsets
@@ -697,7 +700,7 @@ class Indexer(object):  # {{{
 
     # }}}
 
-    def create_periodical_index(self):  # {{{
+    def create_periodical_index(self: _typing.Self) -> _typing.Any:  # {{{
         periodical_node = next(iter(self.oeb.toc))
         periodical_node_offset = self.serializer.body_start_offset
         periodical_node_size = self.serializer.body_end_offset - periodical_node_offset
@@ -858,7 +861,7 @@ class Indexer(object):  # {{{
     # }}}
 
     # TBS {{{
-    def calculate_trailing_byte_sequences(self):
+    def calculate_trailing_byte_sequences(self: _typing.Self) -> None:
         self.tbs_map = {}
         found_node = False
         sections = [i for i in self.indices if i.depth == 1]
@@ -921,7 +924,7 @@ class Indexer(object):  # {{{
                     section_map=section_map,
                 )
 
-    def get_trailing_byte_sequence(self, num):
+    def get_trailing_byte_sequence(self: _typing.Self, num: _typing.Any) -> _typing.Any:
         return self.tbs_map[num].bytestring
 
     # }}}

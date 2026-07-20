@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import typing as _typing
+
 import os
 import re
 from itertools import cycle
@@ -24,7 +26,7 @@ ADOBE_OBFUSCATION = "http://ns.adobe.com/pdf/enc#RC"
 IDPF_OBFUSCATION = "http://www.idpf.org/2008/embedding"
 
 
-def decrypt_font_data(key, data, algorithm):
+def decrypt_font_data(key: _typing.Any, data: _typing.Any, algorithm: _typing.Any) -> _typing.Any:
     is_adobe = algorithm == ADOBE_OBFUSCATION
     crypt_len = 1024 if is_adobe else 1040
     crypt = bytearray(data[:crypt_len])
@@ -33,13 +35,13 @@ def decrypt_font_data(key, data, algorithm):
     return decrypt + data[crypt_len:]
 
 
-def decrypt_font(key, path, algorithm):
+def decrypt_font(key: _typing.Any, path: _typing.Any, algorithm: _typing.Any) -> None:
     with open(path, "r+b") as f:
         data = decrypt_font_data(key, f.read(), algorithm)
         f.seek(0), f.truncate(), f.write(data)
 
 
-def _local_name(tag):
+def _local_name(tag: _typing.Any) -> _typing.Any:
     return str(tag).rsplit("}", 1)[-1]
 
 
@@ -62,19 +64,19 @@ class EPUBInput(InputFormatPlugin):
     max_compression_ratio = 1000
     min_compression_ratio_check_size = 1024 * 1024
 
-    def xml_attr(self, node, name):
+    def xml_attr(self: _typing.Self, node: _typing.Any, name: _typing.Any) -> _typing.Any:
         for key, value in node.attrib.items():
             if _local_name(key) == name:
                 return value
 
-    def normalized_archive_member_name(self, name):
+    def normalized_archive_member_name(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         return normalized_zip_member_name(
             name,
             member_label="EPUB archive",
             error_type=ValueError,
         )
 
-    def validate_container_members(self, stream):
+    def validate_container_members(self: _typing.Self, stream: _typing.Any) -> None:
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
         from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
@@ -162,7 +164,7 @@ class EPUBInput(InputFormatPlugin):
             zf.close()
             stream.seek(0)
 
-    def warn_preflight_rejection(self, stream, log, error):
+    def warn_preflight_rejection(self: _typing.Self, stream: _typing.Any, log: _typing.Any, error: _typing.Any) -> None:
         warn = getattr(log, "warning", None) or getattr(log, "warn", None)
         if warn is None:
             return
@@ -173,7 +175,7 @@ class EPUBInput(InputFormatPlugin):
         except Exception:
             default_log.warning("EPUB preflight rejected %s: %s", path, error)
 
-    def process_encryption(self, encfile, opf, log):
+    def process_encryption(self: _typing.Self, encfile: _typing.Any, opf: _typing.Any, log: _typing.Any) -> bool:
         from LiuXin_alpha.utils.libraries.liuxin_etree import etree
         import uuid
         import hashlib
@@ -217,7 +219,7 @@ class EPUBInput(InputFormatPlugin):
 
         return False
 
-    def rationalize_cover(self, opf, log):
+    def rationalize_cover(self: _typing.Self, opf: _typing.Any, log: _typing.Any) -> _typing.Any:
         """
         Ensure that the cover information in the guide is correct. That means, at most one entry with type="cover" that
         points to a raster cover and at most one entry with type="titlepage" that points to an HTML titlepage.
@@ -306,10 +308,10 @@ class EPUBInput(InputFormatPlugin):
         t.set("title", "Title Page")
         return removed
 
-    def find_opf(self):
+    def find_opf(self: _typing.Self) -> _typing.Any:
         from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
-        def attr(n, attr):
+        def attr(n: _typing.Any, attr: _typing.Any) -> _typing.Any:
             for k, v in n.attrib.items():
                 if k.endswith(attr):
                     return v
@@ -331,7 +333,7 @@ class EPUBInput(InputFormatPlugin):
             default_log.log_exception(err_str, e, "WARN")
 
     # Todo: Add ConversionError for when generic things go wrong with the conversion
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """
         Run
         :param stream:
@@ -432,7 +434,7 @@ class EPUBInput(InputFormatPlugin):
 
             return os.path.abspath("content.opf")
 
-    def postprocess_book(self, oeb, opts, log):
+    def postprocess_book(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         rc = getattr(self, "removed_cover", None)
         if rc:
             cover_toc_item = None

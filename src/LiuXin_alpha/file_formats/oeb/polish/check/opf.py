@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from lxml import etree
 
@@ -20,19 +23,19 @@ __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class MissingSection(BaseError):
-    def __init__(self, name, section_name):
+    def __init__(self: _typing.Self, name: _typing.Any, section_name: _typing.Any) -> None:
         BaseError.__init__(self, _("The <%s> section is missing from the OPF") % section_name, name)
         self.HELP = xml(_("The <%s> section is required in the OPF file. You have to create one.") % section_name)
 
 
 class IncorrectIdref(BaseError):
-    def __init__(self, name, idref, lnum):
+    def __init__(self: _typing.Self, name: _typing.Any, idref: _typing.Any, lnum: _typing.Any) -> None:
         BaseError.__init__(self, _('idref="%s" points to unknown id') % idref, name, lnum)
         self.HELP = xml(_('The idref="%s" points to an id that does not exist in the OPF') % idref)
 
 
 class IncorrectCover(BaseError):
-    def __init__(self, name, lnum, cover):
+    def __init__(self: _typing.Self, name: _typing.Any, lnum: _typing.Any, cover: _typing.Any) -> None:
         BaseError.__init__(self, _("The meta cover tag points to an non-existent item"), name, lnum)
         self.HELP = xml(
             _('The meta cover tag points to an item with id="%s" which does not exist in the manifest') % cover
@@ -48,10 +51,10 @@ class NookCover(BaseError):
     )
     INDIVIDUAL_FIX = _("Move the name attribute before the content attribute")
 
-    def __init__(self, name, lnum):
+    def __init__(self: _typing.Self, name: _typing.Any, lnum: _typing.Any) -> None:
         BaseError.__init__(self, _("The meta cover tag has content before name"), name, lnum)
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         for cover in container.opf_xpath('//opf:meta[@name="cover" and @content]'):
             cover.set("content", cover.attrib.pop("content"))
         container.dirty(container.opf_name)
@@ -59,7 +62,7 @@ class NookCover(BaseError):
 
 
 class IncorrectToc(BaseError):
-    def __init__(self, name, lnum, bad_idref=None, bad_mimetype=None):
+    def __init__(self: _typing.Self, name: _typing.Any, lnum: _typing.Any, bad_idref: _typing.Any = None, bad_mimetype: _typing.Any = None) -> None:
         if bad_idref is not None:
             msg = _("The item identified as the Table of Contents (%s) does not exist") % bad_idref
             self.HELP = _('There is no item with id="%s" in the manifest.') % bad_idref
@@ -74,11 +77,11 @@ class NoHref(BaseError):
     HELP = _("This manifest entry has no href attribute. Either add the href attribute or remove the entry.")
     INDIVIDUAL_FIX = _("Remove this manifest entry")
 
-    def __init__(self, name, item_id, lnum):
+    def __init__(self: _typing.Self, name: _typing.Any, item_id: _typing.Any, lnum: _typing.Any) -> None:
         BaseError.__init__(self, _("Item in manifest has no href attribute"), name, lnum)
         self.item_id = item_id
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> _typing.Any:
         changed = False
         for item in container.opf_xpath("/opf:package/opf:manifest/opf:item"):
             if item.get("id", None) == self.item_id:
@@ -95,12 +98,12 @@ class MissingHref(BaseError):
         " it from the manifest or add the missing file to the book."
     )
 
-    def __init__(self, name, href, lnum):
+    def __init__(self: _typing.Self, name: _typing.Any, href: _typing.Any, lnum: _typing.Any) -> None:
         BaseError.__init__(self, _("Item (%s) in manifest is missing") % href, name, lnum)
         self.bad_href = href
         self.INDIVIDUAL_FIX = _("Remove the entry for %s from the manifest") % href
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         [
             container.remove_from_xml(elem)
             for elem in container.opf_xpath("/opf:package/opf:manifest/opf:item[@href]")
@@ -128,11 +131,11 @@ class NonLinearItems(BaseError):
 
     INDIVIDUAL_FIX = _("Mark all non-linear items as linear")
 
-    def __init__(self, name, locs):
+    def __init__(self: _typing.Self, name: _typing.Any, locs: _typing.Any) -> None:
         BaseError.__init__(self, _("Non-linear items in the spine"), name)
         self.all_locations = [(name, x, None) for x in locs]
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         [elem.attrib.pop("linear") for elem in container.opf_xpath("//opf:spine/opf:itemref[@linear]")]
         container.dirty(container.opf_name)
         return True
@@ -144,7 +147,7 @@ class DuplicateHref(BaseError):
 
     INDIVIDUAL_FIX = _("Remove all but the first duplicate item")
 
-    def __init__(self, name, eid, locs, for_spine=False):
+    def __init__(self: _typing.Self, name: _typing.Any, eid: _typing.Any, locs: _typing.Any, for_spine: bool = False) -> None:
         loc = "spine" if for_spine else "manifest"
         BaseError.__init__(self, _("Duplicate item in {0}: {1}").format(loc, eid), name)
         self.HELP = _("The item {0} is present more than once in the {2} in {1}. This is" " not allowed.").format(
@@ -155,7 +158,7 @@ class DuplicateHref(BaseError):
         self.xpath = "/opf:package/opf:" + ("spine/opf:itemref[@idref]" if for_spine else "manifest/opf:item[@href]")
         self.attr = "idref" if for_spine else "href"
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         items = [e for e in container.opf_xpath(self.xpath) if e.get(self.attr) == self.duplicate_href]
         [container.remove_from_xml(e) for e in items[1:]]
         container.dirty(self.name)
@@ -168,11 +171,11 @@ class MultipleCovers(BaseError):
     HELP = xml(_('There is more than one <meta name="cover"> tag defined. There should be only one.'))
     INDIVIDUAL_FIX = _("Remove all but the first meta cover tag")
 
-    def __init__(self, name, locs):
+    def __init__(self: _typing.Self, name: _typing.Any, locs: _typing.Any) -> None:
         BaseError.__init__(self, _("There is more than one cover defined"), name)
         self.all_locations = [(name, lnum, None) for lnum in sorted(locs)]
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         items = [e for e in container.opf_xpath('/opf:package/opf:metadata/opf:meta[@name="cover"]')]
         [container.remove_from_xml(e) for e in items[1:]]
         container.dirty(self.name)
@@ -189,10 +192,10 @@ class NoUID(BaseError):
     )
     INDIVIDUAL_FIX = _("Auto-generate a unique identifier")
 
-    def __init__(self, name):
+    def __init__(self: _typing.Self, name: _typing.Any) -> None:
         BaseError.__init__(self, _("The OPF has no unique identifier"), name)
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         import uuid
 
         opf = container.opf
@@ -212,7 +215,7 @@ class NoUID(BaseError):
 
 
 class BadSpineMime(BaseError):
-    def __init__(self, name, iid, mt, lnum, opf_name):
+    def __init__(self: _typing.Self, name: _typing.Any, iid: _typing.Any, mt: _typing.Any, lnum: _typing.Any, opf_name: _typing.Any) -> None:
         BaseError.__init__(self, _("Incorrect media-type for spine item"), opf_name, lnum)
         self.HELP = _(
             "The item {0} present in the spine has the media-type {1}. "
@@ -225,14 +228,14 @@ class BadSpineMime(BaseError):
             self.INDIVIDUAL_FIX = _("Change the media-type to %s") % XHTML_MIME
             self.iid = iid
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         container.opf_xpath("/opf:package/opf:manifest/opf:item[@id=%r]" % self.iid)[0].set("media-type", XHTML_MIME)
         container.dirty(container.opf_name)
         container.refresh_mime_map()
         return True
 
 
-def check_opf(container):
+def check_opf(container: _typing.Any) -> _typing.Any:
     errors = []
 
     if container.opf.tag != OPF("package"):

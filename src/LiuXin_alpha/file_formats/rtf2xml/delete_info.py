@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys
 import os
 
@@ -22,12 +25,12 @@ class DeleteInfo:
     """Delete unnecessary destination groups"""
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -41,7 +44,7 @@ class DeleteInfo:
         self.__write_cb = False
         self.__found_delete = False
 
-    def __initiate_allow(self):
+    def __initiate_allow(self: _typing.Self) -> None:
         """
         Initiate a list of destination groups which should be printed out.
         """
@@ -75,7 +78,7 @@ class DeleteInfo:
             "list": self.__list_func,
         }
 
-    def __default_func(self, line):
+    def __default_func(self: _typing.Self, line: _typing.Any) -> bool:
         """Handle lines when in no special state. Look for an asterisk to
         begin a special state. Otherwise, print out line."""
         # cw<ml<asterisk__<nu<true
@@ -95,7 +98,7 @@ class DeleteInfo:
                 self.__ob = 0
             return True
 
-    def __delete_func(self, line):
+    def __delete_func(self: _typing.Self, line: _typing.Any) -> bool:
         """Handle lines when in delete state. Don't print out lines
         unless the state has ended."""
         if self.__delete_count == self.__cb_count:
@@ -105,7 +108,7 @@ class DeleteInfo:
                 return True
             return False
 
-    def __asterisk_func(self, line):
+    def __asterisk_func(self: _typing.Self, line: _typing.Any) -> bool:
         """
         Determine whether to delete info in group
         Note on self.__cb flag.
@@ -167,13 +170,13 @@ class DeleteInfo:
             self.__cb_count = 0
             return False
 
-    def __found_list_func(self, line):
+    def __found_list_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         print out control words in this group
         """
         self.__state = "list"
 
-    def __list_func(self, line):
+    def __list_func(self: _typing.Self, line: _typing.Any) -> bool:
         """
         Check to see if the group has ended.
         Return True for all control words.
@@ -190,7 +193,7 @@ class DeleteInfo:
         else:
             return False
 
-    def delete_info(self):
+    def delete_info(self: _typing.Self) -> _typing.Any:
         """Main method for handling other methods. Read one line at
         a time, and determine whether to print the line based on the state."""
         with open_for_read(self.__file) as read_obj:

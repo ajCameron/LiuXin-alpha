@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import typing as _typing
+
 import os
 import glob
 import re
@@ -68,7 +70,7 @@ class RTFInput(InputFormatPlugin):
         ),
     }
 
-    def generate_xml(self, stream):
+    def generate_xml(self: _typing.Self, stream: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.rtf2xml.ParseRtf import ParseRtf
 
         ofile = "dataxml.xml"
@@ -122,7 +124,7 @@ class RTFInput(InputFormatPlugin):
         with open(ofile, "rb") as f:
             return f.read()
 
-    def extract_images(self, picts):
+    def extract_images(self: _typing.Self, picts: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.utils.image_tools.imghdr import what
 
         self.log("Extracting images...")
@@ -151,7 +153,7 @@ class RTFInput(InputFormatPlugin):
             #      f.write(enc)
         return self.convert_images(imap)
 
-    def convert_images(self, imap):
+    def convert_images(self: _typing.Self, imap: _typing.Any) -> _typing.Any:
         self.default_img = None
         for count, val in iteritems(imap):
             try:
@@ -164,7 +166,7 @@ class RTFInput(InputFormatPlugin):
                 )
         return imap
 
-    def convert_image(self, name):
+    def convert_image(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         if not name.endswith(".wmf"):
             return name
         try:
@@ -173,7 +175,7 @@ class RTFInput(InputFormatPlugin):
             self.log.exception("Failed to convert WMF image %r" % name + " - exception message: {}".format(e))
         return self.replace_wmf(name)
 
-    def replace_wmf(self, name):
+    def replace_wmf(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         if self.opts.ignore_wmf:
             os.remove(name)
             return "__REMOVE_ME__"
@@ -191,7 +193,7 @@ class RTFInput(InputFormatPlugin):
             f.write(self.default_img)
         return name
 
-    def rasterize_wmf(self, name):
+    def rasterize_wmf(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.utils.wmf.parse import wmf_unwrap
 
         with open(name, "rb") as f:
@@ -202,7 +204,7 @@ class RTFInput(InputFormatPlugin):
             f.write(data)
         return name
 
-    def write_inline_css(self, ic, border_styles):
+    def write_inline_css(self: _typing.Self, ic: _typing.Any, border_styles: _typing.Any) -> None:
         font_size_classes = ["span.fs%d { font-size: %spt }" % (i, x) for i, x in enumerate(ic.font_sizes)]
         color_classes = ["span.col%d { color: %s }" % (i, x) for i, x in enumerate(ic.colors) if x != "false"]
         css = textwrap.dedent(
@@ -234,7 +236,7 @@ class RTFInput(InputFormatPlugin):
         with open("styles.css", "w", encoding="utf-8") as f:
             f.write(css)
 
-    def convert_borders(self, doc):
+    def convert_borders(self: _typing.Self, doc: _typing.Any) -> _typing.Any:
         border_styles = []
         style_map = {}
         for elem in doc.xpath(r'//*[local-name()="cell"]'):
@@ -259,7 +261,7 @@ class RTFInput(InputFormatPlugin):
             elem.set("class", cls)
         return style_map
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         from lxml import etree
         from LiuXin_alpha.metadata.file_sources import get_metadata
         from LiuXin_alpha.metadata.utils import calibreMetaInformation
@@ -346,7 +348,7 @@ class RTFInput(InputFormatPlugin):
                 opf.render(bin_opf_file)
             return os.path.abspath("metadata.opf")
 
-    def postprocess_book(self, oeb, opts, log):
+    def postprocess_book(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         for item in oeb.spine:
             for img in item.data.xpath('//*[local-name()="img" and @src="__REMOVE_ME__"]'):
                 p = img.getparent()

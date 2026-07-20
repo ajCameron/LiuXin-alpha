@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 # SVG are not supported by a number of the ebook standard that are supported - so need a way of rendering SVG images
 # which might be present in the input into something which can be used in the output. Thus this rasterizer.
@@ -53,7 +56,7 @@ class Unavailable(Exception):
 
 # Todo: Check safe to use qt by spinning it off into a different threas - see if it crashes
 class SVGRasterizer(object):
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         if _QT_IMPORT_ERROR is not None:
             raise Unavailable("PyQt5 is unavailable for SVG rasterization")
         from LiuXin_alpha.surfaces.gui2 import must_use_qt
@@ -61,14 +64,14 @@ class SVGRasterizer(object):
         must_use_qt()
 
     @classmethod
-    def config(cls, cfg):
+    def config(cls: type[_typing.Self], cfg: _typing.Any) -> _typing.Any:
         return cfg
 
     @classmethod
-    def generate(cls, opts):
+    def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
         return cls()
 
-    def __call__(self, oeb, context):
+    def __call__(self: _typing.Self, oeb: _typing.Any, context: _typing.Any) -> None:
         oeb.logger.info("Rasterizing SVG images...")
         self.temp_files = []
         self.stylizer_cache = {}
@@ -85,7 +88,7 @@ class SVGRasterizer(object):
             except:
                 pass
 
-    def rasterize_svg(self, elem, width=0, height=0, format="PNG"):
+    def rasterize_svg(self: _typing.Self, elem: _typing.Any, width: int = 0, height: int = 0, format: str = "PNG") -> _typing.Any:
         view_box = elem.get("viewBox", elem.get("viewbox", None))
         sizes = None
         logger = self.oeb.logger
@@ -129,12 +132,12 @@ class SVGRasterizer(object):
         image.save(qbuffer, format)
         return str(array)
 
-    def dataize_manifest(self):
+    def dataize_manifest(self: _typing.Self) -> None:
         for item in self.oeb.manifest.values():
             if item.media_type == SVG_MIME and item.data is not None:
                 self.dataize_svg(item)
 
-    def dataize_svg(self, item, svg=None):
+    def dataize_svg(self: _typing.Self, item: _typing.Any, svg: _typing.Any = None) -> _typing.Any:
         if svg is None:
             svg = item.data
         hrefs = self.oeb.manifest.hrefs
@@ -155,18 +158,18 @@ class SVGRasterizer(object):
             elem.attrib[XLINK("href")] = pt.name
         return svg
 
-    def stylizer(self, item):
+    def stylizer(self: _typing.Self, item: _typing.Any) -> _typing.Any:
         ans = self.stylizer_cache.get(item, None)
         if ans is None:
             ans = Stylizer(item.data, item.href, self.oeb, self.opts, self.profile)
             self.stylizer_cache[item] = ans
         return ans
 
-    def rasterize_spine(self):
+    def rasterize_spine(self: _typing.Self) -> None:
         for item in self.oeb.spine:
             self.rasterize_item(item)
 
-    def rasterize_item(self, item):
+    def rasterize_item(self: _typing.Self, item: _typing.Any) -> None:
         html = item.data
         hrefs = self.oeb.manifest.hrefs
         for elem in xpath(html, "//h:img[@src]"):
@@ -185,7 +188,7 @@ class SVGRasterizer(object):
             style = self.stylizer(item).style(elem)
             self.rasterize_inline(elem, style, item)
 
-    def rasterize_inline(self, elem, style, item):
+    def rasterize_inline(self: _typing.Self, elem: _typing.Any, style: _typing.Any, item: _typing.Any) -> None:
         width = style["width"]
         height = style["height"]
         width = (width / 72) * self.profile.dpi
@@ -202,7 +205,7 @@ class SVGRasterizer(object):
             if prop in elem.attrib:
                 img.attrib[prop] = elem.attrib[prop]
 
-    def rasterize_external(self, elem, style, item, svgitem):
+    def rasterize_external(self: _typing.Self, elem: _typing.Any, style: _typing.Any, item: _typing.Any, svgitem: _typing.Any) -> None:
         width = style["width"]
         height = style["height"]
         width = (width / 72) * self.profile.dpi
@@ -243,7 +246,7 @@ class SVGRasterizer(object):
         for child in elem:
             elem.remove(child)
 
-    def rasterize_cover(self):
+    def rasterize_cover(self: _typing.Self) -> None:
         covers = self.oeb.metadata.cover
         if not covers:
             return

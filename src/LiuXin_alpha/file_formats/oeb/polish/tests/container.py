@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import subprocess
@@ -30,13 +33,13 @@ __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def get_container(*args, **kwargs):
+def get_container(*args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     kwargs["tweak_mode"] = True
     return _gc(*args, **kwargs)
 
 
 class ContainerTests(BaseTest):
-    def test_clone(self):
+    def test_clone(self: _typing.Self) -> None:
         """
         Test cloning of containers
         :return:
@@ -91,7 +94,7 @@ class ContainerTests(BaseTest):
             for c in (c1, c2):
                 c.commit(outpath=x)
 
-    def test_file_removal(self):
+    def test_file_removal(self: _typing.Self) -> None:
         """
         Test removal of files from the container
         :return:
@@ -110,7 +113,7 @@ class ContainerTests(BaseTest):
         for x in files:
             self.assertNotIn(x, raw)
 
-    def run_external_tools(self, container, gvim=False, epubcheck=True):
+    def run_external_tools(self: _typing.Self, container: _typing.Any, gvim: bool = False, epubcheck: bool = True) -> None:
         with TemporaryFile(suffix=".epub", dir=self.tdir) as f:
             container.commit(outpath=f)
             if gvim:
@@ -118,7 +121,7 @@ class ContainerTests(BaseTest):
             if epubcheck:
                 subprocess.Popen(["epubcheck", f]).wait()
 
-    def test_file_rename(self):
+    def test_file_rename(self: _typing.Self) -> None:
         """
         Test renaming of files
         :return:
@@ -126,7 +129,7 @@ class ContainerTests(BaseTest):
         book = get_simple_book()
         count = [0]
 
-        def new_container():
+        def new_container() -> _typing.Any:
             count[0] += 1
             tdir = os.mkdir(os.path.join(self.tdir, str(count[0])))
             return get_container(book, tdir=tdir)
@@ -217,7 +220,7 @@ class ContainerTests(BaseTest):
 
         # self.run_external_tools(c, gvim=True)
 
-    def test_file_add(self):
+    def test_file_add(self: _typing.Self) -> None:
         """
         Test adding of files
         :return:
@@ -238,7 +241,7 @@ class ContainerTests(BaseTest):
 
         self.check_links(c)
 
-    def test_actual_case(self):
+    def test_actual_case(self: _typing.Self) -> None:
         """
         Test getting the actual case for files from names on case insensitive filesystems
         :return:
@@ -267,7 +270,7 @@ class ContainerTests(BaseTest):
                 self.assertEqual(name, corrected_case_for_name(c, n))
             self.assertIsNone(corrected_case_for_name(c, name + "/xx"))
 
-    def test_split_file(self):
+    def test_split_file(self: _typing.Self) -> None:
         """
         Test splitting of files
         :return:
@@ -282,7 +285,7 @@ class ContainerTests(BaseTest):
         self.assertEqual(0, len(troot.xpath('//*[@id="container"]')), "Split point was not adjusted")
         self.check_links(c)
 
-    def test_merge_file(self):
+    def test_merge_file(self: _typing.Self) -> None:
         """
         Test merging of files
         :return:

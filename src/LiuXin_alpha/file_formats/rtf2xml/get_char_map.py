@@ -12,6 +12,9 @@
 #########################################################################
 
 
+from __future__ import annotations
+
+import typing as _typing
 class GetCharMap:
     """
 
@@ -19,7 +22,7 @@ class GetCharMap:
 
     """
 
-    def __init__(self, bug_handler, char_file):
+    def __init__(self: _typing.Self, bug_handler: _typing.Any, char_file: _typing.Any) -> None:
         """
 
         Required:
@@ -34,7 +37,7 @@ class GetCharMap:
         self.__char_file = char_file
         self.__bug_handler = bug_handler
 
-    def get_char_map(self, map):
+    def get_char_map(self: _typing.Self, map: _typing.Any) -> _typing.Any:
         # if map == 'ansicpg10000':
         #   map = 'mac_roman'
         found_map = False

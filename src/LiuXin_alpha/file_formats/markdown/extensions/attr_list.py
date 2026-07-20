@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Attribute List Extension for Python-Markdown
@@ -35,21 +38,21 @@ except AttributeError:
     from sre import Scanner
 
 
-def _handle_double_quote(s, t):
+def _handle_double_quote(s: _typing.Any, t: _typing.Any) -> tuple[_typing.Any, ...]:
     k, v = t.split("=")
     return k, v.strip('"')
 
 
-def _handle_single_quote(s, t):
+def _handle_single_quote(s: _typing.Any, t: _typing.Any) -> tuple[_typing.Any, ...]:
     k, v = t.split("=")
     return k, v.strip("'")
 
 
-def _handle_key_value(s, t):
+def _handle_key_value(s: _typing.Any, t: _typing.Any) -> _typing.Any:
     return t.split("=")
 
 
-def _handle_word(s, t):
+def _handle_word(s: _typing.Any, t: _typing.Any) -> tuple[_typing.Any, ...]:
     if t.startswith("."):
         return ".", t[1:]
     if t.startswith("#"):
@@ -68,12 +71,12 @@ _scanner = Scanner(
 )
 
 
-def get_attrs(str):
+def get_attrs(str: _typing.Any) -> _typing.Any:
     """Parse attribute list and return a list of attribute tuples."""
     return _scanner.scan(str)[0]
 
 
-def isheader(elem):
+def isheader(elem: _typing.Any) -> bool:
     return elem.tag in ["h1", "h2", "h3", "h4", "h5", "h6"]
 
 
@@ -90,7 +93,7 @@ class AttrListTreeprocessor(Treeprocessor):
         r"\:\-\.0-9\u00b7\u0300-\u036f\u203f-\u2040]+"
     )
 
-    def run(self, doc):
+    def run(self: _typing.Self, doc: _typing.Any) -> None:
         for elem in doc.iter():
             if isBlockLevel(elem.tag):
                 # Block level: check for attrs on last line of text
@@ -124,7 +127,7 @@ class AttrListTreeprocessor(Treeprocessor):
                         self.assign_attrs(elem, m.group(1))
                         elem.tail = elem.tail[m.end() :]
 
-    def assign_attrs(self, elem, attrs):
+    def assign_attrs(self: _typing.Self, elem: _typing.Any, attrs: _typing.Any) -> None:
         """Assign attrs to element."""
         for k, v in get_attrs(attrs):
             if k == ".":
@@ -138,7 +141,7 @@ class AttrListTreeprocessor(Treeprocessor):
                 # assign attr k with v
                 elem.set(self.sanitize_name(k), v)
 
-    def sanitize_name(self, name):
+    def sanitize_name(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         Sanitize name as 'an XML Name, minus the ":"'.
         See http://www.w3.org/TR/REC-xml-names/#NT-NCName
@@ -147,9 +150,9 @@ class AttrListTreeprocessor(Treeprocessor):
 
 
 class AttrListExtension(Extension):
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         md.treeprocessors.add("attr_list", AttrListTreeprocessor(md), ">prettify")
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return AttrListExtension(configs=configs)

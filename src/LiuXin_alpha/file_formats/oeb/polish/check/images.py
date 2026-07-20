@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.file_formats.oeb.polish.check.base import BaseError, WARN
 from LiuXin_alpha.file_formats.oeb.polish.check.parsing import EmptyFile
@@ -19,18 +22,18 @@ except Exception:
 
     if _FallbackImage is not None:
         class Image(_FallbackImage):
-            def __init__(self):
+            def __init__(self: _typing.Self) -> None:
                 super(Image, self).__init__(b"")
                 self.colorspace = "RGBColorspace"
 
-            def load(self, data):
+            def load(self: _typing.Self, data: _typing.Any) -> _typing.Any:
                 self._src = data
                 return self
     else:
         class Image(object):
             colorspace = "RGBColorspace"
 
-            def load(self, data):
+            def load(self: _typing.Self, data: _typing.Any) -> _typing.Any:
                 return self
 
 __license__ = "GPL v3"
@@ -44,7 +47,7 @@ class InvalidImage(BaseError):
         " it is corrupted. You should replace it with a good image or remove it."
     )
 
-    def __init__(self, msg, *args, **kwargs):
+    def __init__(self: _typing.Self, msg: _typing.Any, *args: _typing.Any, **kwargs: _typing.Any) -> None:
         BaseError.__init__(self, "Invalid image: " + msg, *args, **kwargs)
 
 
@@ -58,7 +61,7 @@ class CMYKImage(BaseError):
     INDIVIDUAL_FIX = _("Convert image to RGB automatically")
     level = WARN
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         try:
             from PyQt5.Qt import QImage
             from LiuXin_alpha.surfaces.gui2 import pixmap_to_data
@@ -83,7 +86,7 @@ class CMYKImage(BaseError):
         return True
 
 
-def check_raster_images(name, mt, raw):
+def check_raster_images(name: _typing.Any, mt: _typing.Any, raw: _typing.Any) -> _typing.Any:
     if not raw:
         return [EmptyFile(name)]
     errors = []

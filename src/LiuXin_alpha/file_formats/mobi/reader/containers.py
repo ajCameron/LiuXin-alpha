@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.utils.image_tools.imghdr import what
 
@@ -15,7 +18,7 @@ except (ImportError, RuntimeError) as e:
     except Exception:
         _FallbackImage = None
 
-    def identify_data(data):
+    def identify_data(data: _typing.Any) -> tuple[_typing.Any, ...]:
         if _FallbackImage is None:
             raise RuntimeError("No image identify backend is available")
         meta = _FallbackImage(data).identify()
@@ -25,7 +28,7 @@ __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def find_imgtype(data):
+def find_imgtype(data: _typing.Any) -> _typing.Any:
     imgtype = what(None, data)
     if imgtype is None:
         try:
@@ -36,7 +39,7 @@ def find_imgtype(data):
 
 
 class Container(object):
-    def __init__(self, data):
+    def __init__(self: _typing.Self, data: _typing.Any) -> None:
         self.is_image_container = False
         self.resource_index = 0
 
@@ -57,7 +60,7 @@ class Container(object):
                     break
                 pos += size
 
-    def load_image(self, data):
+    def load_image(self: _typing.Self, data: _typing.Any) -> tuple[_typing.Any, ...]:
         self.resource_index += 1
         if self.is_image_container:
             data = data[12:]

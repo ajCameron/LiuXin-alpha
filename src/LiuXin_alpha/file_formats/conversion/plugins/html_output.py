@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
@@ -22,7 +25,7 @@ __copyright__ = "2010, Fabian Grassl <fg@jusmeum.de>"
 __docformat__ = "restructuredtext en"
 
 
-def relpath(*args):
+def relpath(*args: _typing.Any) -> _typing.Any:
     return _relpath(*args).replace(os.sep, "/")
 
 
@@ -59,7 +62,7 @@ class HTMLOutput(OutputFormatPlugin):
 
     recommendations = {("pretty_print", True, OptionRecommendation.HIGH)}
 
-    def generate_toc(self, oeb_book, ref_url, output_dir):
+    def generate_toc(self: _typing.Self, oeb_book: _typing.Any, ref_url: _typing.Any, output_dir: _typing.Any) -> _typing.Any:
         """
         Generate table of contents
         :param oeb_book:
@@ -71,7 +74,7 @@ class HTMLOutput(OutputFormatPlugin):
 
         with CurrentDir(output_dir):
 
-            def build_node(current_node, parent=None):
+            def build_node(current_node: _typing.Any, parent: _typing.Any = None) -> _typing.Any:
                 if parent is None:
                     parent = etree.Element("ul")
                 elif len(current_node.nodes):
@@ -91,12 +94,12 @@ class HTMLOutput(OutputFormatPlugin):
             wrap.append(build_node(oeb_book.toc))
             return wrap
 
-    def generate_html_toc(self, oeb_book, ref_url, output_dir):
+    def generate_html_toc(self: _typing.Self, oeb_book: _typing.Any, ref_url: _typing.Any, output_dir: _typing.Any) -> _typing.Any:
         root = self.generate_toc(oeb_book, ref_url, output_dir)
         data = etree.tostring(root, pretty_print=True, encoding="utf-8", xml_declaration=False)
         return data.decode("utf-8", "replace") if isinstance(data, bytes) else data
 
-    def convert(self, oeb_book, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         """
         Takes an OEB book and converts it to an HTML file.
         :param oeb_book:

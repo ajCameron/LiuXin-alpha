@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys
 
 
@@ -18,7 +21,7 @@ class BorderParse:
     Parse a border line and return a dictionary of attributes and values
     """
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         # cw<bd<bor-t-r-hi<nu<true
         self.__border_dict = {
             "bor-t-r-hi": "border-table-row-horizontal-inside",
@@ -74,7 +77,7 @@ class BorderParse:
             "bdr-frame_": "frame",
         }
 
-    def parse_border(self, line):
+    def parse_border(self: _typing.Self, line: _typing.Any) -> _typing.Any:
         """
         Requires:
             line -- line with border definition in it
@@ -129,7 +132,7 @@ class BorderParse:
         border_dict.update(new_border_dict)
         return border_dict
 
-    def __determine_styles(self, border_type, border_style_list):
+    def __determine_styles(self: _typing.Self, border_type: _typing.Any, border_style_list: _typing.Any) -> _typing.Any:
         new_border_dict = {}
         att = "%s-style" % border_type
         if "shadowed-border" in border_style_list:

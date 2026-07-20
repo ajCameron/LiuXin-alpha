@@ -3,6 +3,9 @@
 """
 Convert pml markup to and from html
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import io
@@ -156,14 +159,14 @@ class PML_HTMLizer(object):
         "h1": "h1c",
     }
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.state = {}
         # toc consists of a tuple
         # (level, (href, id, text))
         self.toc = []
         self.file_name = ""
 
-    def prepare_pml(self, pml):
+    def prepare_pml(self: _typing.Self, pml: _typing.Any) -> _typing.Any:
         # Give Chapters the form \\*='text'text\\*. This is used for generating
         # the TOC later.
         pml = re.sub(
@@ -230,7 +233,7 @@ class PML_HTMLizer(object):
 
         return pml
 
-    def strip_pml(self, pml):
+    def strip_pml(self: _typing.Self, pml: _typing.Any) -> _typing.Any:
         pml = re.sub(r'\\C\d=".*"', "", pml)
         pml = re.sub(r'\\Fn=".*"', "", pml)
         pml = re.sub(r'\\Sd=".*"', "", pml)
@@ -248,7 +251,7 @@ class PML_HTMLizer(object):
 
         return pml
 
-    def cleanup_html(self, html):
+    def cleanup_html(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         old = html
         html = self.cleanup_html_remove_redundant(html)
         while html != old:
@@ -257,7 +260,7 @@ class PML_HTMLizer(object):
         html = re.sub(r"(?imu)^\s*", "", html)
         return html
 
-    def cleanup_html_remove_redundant(self, html):
+    def cleanup_html_remove_redundant(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         for key in self.STATES_TAGS.keys():
             tag_open, tag_close = self.STATES_TAGS[key]
             if key in self.STATES_VALUE_REQ:
@@ -267,7 +270,7 @@ class PML_HTMLizer(object):
         html = re.sub(r"(?imu)<p>\s*</p>", "", html)
         return html
 
-    def start_line(self):
+    def start_line(self: _typing.Self) -> _typing.Any:
         start = ""
 
         state = deepcopy(self.state)
@@ -299,7 +302,7 @@ class PML_HTMLizer(object):
 
         return "<p>%s" % start
 
-    def end_line(self):
+    def end_line(self: _typing.Self) -> _typing.Any:
         end = ""
 
         div = []
@@ -322,7 +325,7 @@ class PML_HTMLizer(object):
 
         return "%s</p>" % end
 
-    def process_code(self, code, stream, pre=""):
+    def process_code(self: _typing.Self, code: _typing.Any, stream: _typing.Any, pre: str = "") -> _typing.Any:
         text = ""
 
         code = self.CODE_STATES.get(code, None)
@@ -347,7 +350,7 @@ class PML_HTMLizer(object):
 
         return text
 
-    def process_code_simple(self, code, stream):
+    def process_code_simple(self: _typing.Self, code: _typing.Any, stream: _typing.Any) -> _typing.Any:
 
         if self.state[code][0]:
             if code in self.STATES_CLOSE_VALUE_REQ:
@@ -367,7 +370,7 @@ class PML_HTMLizer(object):
 
         return text
 
-    def process_code_div(self, code, stream):
+    def process_code_div(self: _typing.Self, code: _typing.Any, stream: _typing.Any) -> _typing.Any:
         text = ""
 
         # Close code.
@@ -427,7 +430,7 @@ class PML_HTMLizer(object):
 
         return text
 
-    def process_code_span(self, code, stream):
+    def process_code_span(self: _typing.Self, code: _typing.Any, stream: _typing.Any) -> _typing.Any:
         text = ""
 
         # Close code.
@@ -468,7 +471,7 @@ class PML_HTMLizer(object):
 
         return text
 
-    def process_code_block(self, code, stream, pre=""):
+    def process_code_block(self: _typing.Self, code: _typing.Any, stream: _typing.Any, pre: str = "") -> _typing.Any:
         text = ""
 
         # Close all spans
@@ -516,7 +519,7 @@ class PML_HTMLizer(object):
 
         return text
 
-    def code_value(self, stream):
+    def code_value(self: _typing.Self, stream: _typing.Any) -> _typing.Any:
         value = ""
         # state 0 is before =
         # state 1 is before the first "
@@ -560,7 +563,7 @@ class PML_HTMLizer(object):
 
         return value.strip()
 
-    def parse_pml(self, pml, file_name=""):
+    def parse_pml(self: _typing.Self, pml: _typing.Any, file_name: str = "") -> _typing.Any:
         pml = self.prepare_pml(pml)
         output = []
 
@@ -732,7 +735,7 @@ class PML_HTMLizer(object):
 
         return output
 
-    def get_toc(self):
+    def get_toc(self: _typing.Self) -> _typing.Any:
         """
         Toc can have up to 5 levels, 0 - 4 inclusive.
 
@@ -806,12 +809,12 @@ class PML_HTMLizer(object):
         return n_toc
 
 
-def pml_to_html(pml):
+def pml_to_html(pml: _typing.Any) -> _typing.Any:
     hizer = PML_HTMLizer()
     return hizer.parse_pml(pml)
 
 
-def footnote_sidebar_to_html(pre_id, id, pml):
+def footnote_sidebar_to_html(pre_id: _typing.Any, id: _typing.Any, pml: _typing.Any) -> _typing.Any:
     id = id.strip("\x01")
     if id.strip():
         html = (
@@ -823,9 +826,9 @@ def footnote_sidebar_to_html(pre_id, id, pml):
     return html
 
 
-def footnote_to_html(id, pml):
+def footnote_to_html(id: _typing.Any, pml: _typing.Any) -> _typing.Any:
     return footnote_sidebar_to_html("fn", id, pml)
 
 
-def sidebar_to_html(id, pml):
+def sidebar_to_html(id: _typing.Any, pml: _typing.Any) -> _typing.Any:
     return footnote_sidebar_to_html("sb", id, pml)

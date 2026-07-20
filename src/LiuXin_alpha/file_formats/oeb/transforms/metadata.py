@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
@@ -18,7 +21,7 @@ __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def meta_info_to_oeb_metadata(mi, m, log, override_input_metadata=False):
+def meta_info_to_oeb_metadata(mi: _typing.Any, m: _typing.Any, log: _typing.Any, override_input_metadata: bool = False) -> None:
     """
     Prepare a section of oeb metadata for writing.
     :param mi:
@@ -32,7 +35,7 @@ def meta_info_to_oeb_metadata(mi, m, log, override_input_metadata=False):
     if not hasattr(mi, "is_null"):
         raise TypeError("meta_info_to_oeb_metadata requires a metadata-like object with is_null()")
 
-    def safe_attr(name, default=None):
+    def safe_attr(name: _typing.Any, default: _typing.Any = None) -> _typing.Any:
         try:
             return getattr(mi, name)
         except Exception:
@@ -151,17 +154,17 @@ class MergeMetadata(object):
     Merge in user metadata, including cover
     """
 
-    def __call__(self, oeb, mi, opts, override_input_metadata=False):
+    def __call__(self: _typing.Self, oeb: _typing.Any, mi: _typing.Any, opts: _typing.Any, override_input_metadata: bool = False) -> None:
         self.oeb, self.log = oeb, oeb.log
         m = self.oeb.metadata
 
-        def safe_attr(name, default=None):
+        def safe_attr(name: _typing.Any, default: _typing.Any = None) -> _typing.Any:
             try:
                 return getattr(mi, name)
             except Exception:
                 return default
 
-        def first_identifier_value(raw):
+        def first_identifier_value(raw: _typing.Any) -> _typing.Any:
             if raw is None:
                 return None
             if isinstance(raw, dict):
@@ -194,7 +197,7 @@ class MergeMetadata(object):
             m.filter("identifier", lambda local_x: local_x.scheme == "calibre")
             self.oeb.metadata.add("identifier", app_id, scheme="calibre")
 
-    def set_cover(self, mi, prefer_metadata_cover):
+    def set_cover(self: _typing.Self, mi: _typing.Any, prefer_metadata_cover: _typing.Any) -> _typing.Any:
         cdata, ext = "", "jpg"
         cover = getattr(mi, "cover", None)
         cover_data = getattr(mi, "cover_data", None)
@@ -238,7 +241,7 @@ class MergeMetadata(object):
             self.oeb.guide.add("cover", "Cover", href)
         return cover_id
 
-    def remove_old_cover(self, cover_item):
+    def remove_old_cover(self: _typing.Self, cover_item: _typing.Any) -> None:
 
         from lxml import etree
         from LiuXin_alpha.file_formats.oeb.base import XPath

@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, OEB_STYLES
 from LiuXin_alpha.file_formats.oeb.polish.cover import is_raster_image
@@ -38,14 +41,14 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 XML_TYPES = frozenset(six_map(guess_type, ("a.xml", "a.svg", "a.opf", "a.ncx"))) | {"application/oebps-page-map+xml"}
 
 
-def _safe_line_offset(elem):
+def _safe_line_offset(elem: _typing.Any) -> _typing.Any:
     line = getattr(elem, "sourceline", None)
     if isinstance(line, int) and line > 0:
         return line - 1
     return 0
 
 
-def run_checks(container):
+def run_checks(container: _typing.Any) -> _typing.Any:
 
     errors = []
 
@@ -104,7 +107,7 @@ def run_checks(container):
     return errors
 
 
-def fix_errors(container, errors):
+def fix_errors(container: _typing.Any, errors: _typing.Any) -> _typing.Any:
     # Fix parsing
     changed = False
     for name in {e.name for e in errors if getattr(e, "is_parsing_error", False)}:

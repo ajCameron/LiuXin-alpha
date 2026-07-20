@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import typing as _typing
+
 import os
 import struct
 import zlib
+from typing import BinaryIO, Protocol
 from urllib.parse import unquote as urlunquote
 
 from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
@@ -18,17 +21,35 @@ __copyright__ = "2009, John Schember <john@nachtimwald.com>"
 __docformat__ = "restructuredtext en"
 
 
-class RBToc(list):
-    class Item(object):
-        def __init__(self, name="", size=0, offset=0, flags=0):
-            self.name = name
-            self.size = size
-            self.offset = offset
-            self.flags = flags
+class _Logger(Protocol):
+    def debug(self: _typing.Self, message: object) -> object: ...
+
+
+class RBTocItem:
+    def __init__(
+        self: _typing.Self,
+        name: str = "",
+        size: int = 0,
+        offset: int = 0,
+        flags: int = 0,
+    ) -> None:
+        self.name = name
+        self.size = size
+        self.offset = offset
+        self.flags = flags
+
+
+class RBToc(list[RBTocItem]):
+    Item = RBTocItem
 
 
 class Reader(object):
-    def __init__(self, stream, log, encoding=None):
+    def __init__(
+        self: _typing.Self,
+        stream: BinaryIO,
+        log: _Logger,
+        encoding: str | None = None,
+    ) -> None:
         """
         Setup a reader to read from a file.
 
@@ -44,10 +65,10 @@ class Reader(object):
         self.mi = get_metadata(self.stream)
         self.toc = self.get_toc()
 
-    def read_i32(self):
+    def read_i32(self: _typing.Self) -> int:
         return struct.unpack("<I", self.stream.read(4))[0]
 
-    def verify_file(self):
+    def verify_file(self: _typing.Self) -> None:
         """
         Check that the size recorded in the file header matches the actual file size.
         """
@@ -67,7 +88,7 @@ class Reader(object):
                 "File is corrupt. The file size recorded in the header does not match the actual file size."
             )
 
-    def get_toc(self):
+    def get_toc(self: _typing.Self) -> RBToc:
         """
         Read and return the file's table of contents.
         """
@@ -85,7 +106,7 @@ class Reader(object):
 
         return toc
 
-    def _read_toc_name(self) -> str:
+    def _read_toc_name(self: _typing.Self) -> str:
         raw = self.stream.read(32).rstrip(b"\x00")
         try:
             decoded = raw.decode("utf-8")
@@ -93,10 +114,18 @@ class Reader(object):
             decoded = raw.decode("cp1252", "replace")
         return urlunquote(decoded)
 
-    def _item_output_path(self, output_dir: str, item_name: str) -> str:
+    def _item_output_path(
+        self: _typing.Self,
+        output_dir: str | os.PathLike[str],
+        item_name: str,
+    ) -> str:
         return os.path.join(output_dir, os.path.basename(item_name))
 
-    def get_text(self, toc_item, output_dir):
+    def get_text(
+        self: _typing.Self,
+        toc_item: RBTocItem,
+        output_dir: str | os.PathLike[str],
+    ) -> None:
         """
         Return the text content of a toc_item.
         """
@@ -123,7 +152,11 @@ class Reader(object):
         with open(self._item_output_path(output_dir, toc_item.name), "wb") as html:
             html.write(output.replace("<TITLE>", "<TITLE> ").encode("utf-8"))
 
-    def get_image(self, toc_item, output_dir):
+    def get_image(
+        self: _typing.Self,
+        toc_item: RBTocItem,
+        output_dir: str | os.PathLike[str],
+    ) -> None:
         if toc_item.flags != 0:
             return
 
@@ -133,7 +166,10 @@ class Reader(object):
         with open(self._item_output_path(output_dir, toc_item.name), "wb") as img:
             img.write(data)
 
-    def extract_content(self, output_dir):
+    def extract_content(
+        self: _typing.Self,
+        output_dir: str | os.PathLike[str],
+    ) -> str:
         self.log.debug("Extracting content from file...")
         os.makedirs(output_dir, exist_ok=True)
         html = []
@@ -152,7 +188,12 @@ class Reader(object):
 
         return self.create_opf(output_dir, html, images)
 
-    def create_opf(self, output_dir, pages, images):
+    def create_opf(
+        self: _typing.Self,
+        output_dir: str | os.PathLike[str],
+        pages: list[str],
+        images: list[str],
+    ) -> str:
         with CurrentDir(output_dir):
             opf = OPFCreator(output_dir, self.mi)
             manifest = []

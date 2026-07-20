@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from contextlib import closing
 from functools import partial
@@ -14,7 +17,7 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 DEBUG, INFO, WARN, ERROR, CRITICAL = range(5)
 
 
-def cpu_count():
+def cpu_count() -> bool:
     return os.cpu_count() or 1
 
 
@@ -25,13 +28,13 @@ class BaseError(object):
     level = ERROR
     has_multiple_locations = False
 
-    def __init__(self, msg, name, line=None, col=None):
+    def __init__(self: _typing.Self, msg: _typing.Any, name: _typing.Any, line: _typing.Any = None, col: _typing.Any = None) -> None:
         self.msg, self.line, self.col = msg, line, col
         self.name = name
         # A list with entries of the form: (name, lnum, col)
         self.all_locations = None
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return "%s:%s (%s, %s):%s" % (
             self.__class__.__name__,
             self.name,
@@ -43,7 +46,7 @@ class BaseError(object):
     __repr__ = __str__
 
 
-def worker(func, args):
+def worker(func: _typing.Any, args: _typing.Any) -> tuple[_typing.Any, ...]:
     try:
         result = func(*args)
         tb = None
@@ -55,7 +58,7 @@ def worker(func, args):
     return result, tb
 
 
-def run_checkers(func, args_list):
+def run_checkers(func: _typing.Any, args_list: _typing.Any) -> _typing.Any:
     num = cpu_count()
     pool = ThreadPool(num)
     ans = []

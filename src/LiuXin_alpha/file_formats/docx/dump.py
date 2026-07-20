@@ -1,6 +1,9 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import shutil
@@ -15,7 +18,7 @@ __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def pretty_all_xml_in_dir(path):
+def pretty_all_xml_in_dir(path: _typing.Any) -> None:
     for f in walk(path):
         if f.endswith(".xml") or f.endswith(".rels"):
             with open(f, "r+b") as stream:
@@ -34,7 +37,7 @@ def pretty_all_xml_in_dir(path):
                     )
 
 
-def do_dump(path, dest):
+def do_dump(path: _typing.Any, dest: _typing.Any) -> None:
     if os.path.exists(dest):
         shutil.rmtree(dest)
     with ZipFile(path) as zf:
@@ -42,7 +45,7 @@ def do_dump(path, dest):
     pretty_all_xml_in_dir(dest)
 
 
-def dump(path):
+def dump(path: _typing.Any) -> None:
 
     dest = os.path.splitext(os.path.basename(path))[0]
     dest += "-dumped"

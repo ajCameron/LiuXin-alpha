@@ -1,4 +1,7 @@
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import math
 import sys
@@ -24,11 +27,11 @@ __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def ceil(num):
+def ceil(num: _typing.Any) -> _typing.Any:
     return int(math.ceil(num))
 
 
-def print_xml(elem):
+def print_xml(elem: _typing.Any) -> None:
     from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import ElementWriter
 
     elem = elem.toElement("utf8")
@@ -37,13 +40,13 @@ def print_xml(elem):
     print()
 
 
-def cattrs(base, extra):
+def cattrs(base: _typing.Any, extra: _typing.Any) -> _typing.Any:
     new = base.copy()
     new.update(extra)
     return new
 
 
-def tokens(tb):
+def tokens(tb: _typing.Any) -> _typing.Iterator[_typing.Any]:
     """
     Return the next token. A token is :
     1. A string
@@ -52,7 +55,7 @@ def tokens(tb):
     :return:
     """
 
-    def process_element(x, attrs):
+    def process_element(x: _typing.Any, attrs: _typing.Any) -> _typing.Iterator[_typing.Any]:
         if isinstance(x, CR):
             yield 2, None
         elif isinstance(x, Text):
@@ -87,7 +90,7 @@ def tokens(tb):
 
 
 class Cell(object):
-    def __init__(self, conv, tag, css):
+    def __init__(self: _typing.Self, conv: _typing.Any, tag: _typing.Any, css: _typing.Any) -> None:
         self.conv = conv
         self.tag = tag
         self.css = css
@@ -140,14 +143,14 @@ class Cell(object):
                 if isinstance(tb.contents[-1], Paragraph):
                     tb.contents[-1].append(" ")
 
-    def pts_to_pixels(self, pts):
+    def pts_to_pixels(self: _typing.Self, pts: _typing.Any) -> _typing.Any:
         pts = int(pts)
         return ceil((float(self.conv.profile.dpi) / 72.0) * (pts / 10.0))
 
-    def minimum_width(self):
+    def minimum_width(self: _typing.Self) -> _typing.Any:
         return max([self.minimum_tb_width(tb) for tb in self.text_blocks])
 
-    def minimum_tb_width(self, tb):
+    def minimum_tb_width(self: _typing.Self, tb: _typing.Any) -> _typing.Any:
         ts = tb.textStyle.attrs
         default_font = get_font(ts["fontfacename"], self.pts_to_pixels(ts["fontsize"]))
         parindent = self.pts_to_pixels(ts["parindent"])
@@ -171,13 +174,13 @@ class Cell(object):
                 mwidth = width
         return parindent + mwidth + 2
 
-    def text_block_size(self, tb, maxwidth=sys.maxsize, debug=False):
+    def text_block_size(self: _typing.Self, tb: _typing.Any, maxwidth: _typing.Any = sys.maxsize, debug: bool = False) -> tuple[_typing.Any, ...]:
         ts = tb.textStyle.attrs
         default_font = get_font(ts["fontfacename"], self.pts_to_pixels(ts["fontsize"]))
         parindent = self.pts_to_pixels(ts["parindent"])
         top, bottom, left, right = 0, 0, parindent, parindent
 
-        def add_word(width, height, left, right, top, bottom, ls, ws):
+        def add_word(width: _typing.Any, height: _typing.Any, left: _typing.Any, right: _typing.Any, top: _typing.Any, bottom: _typing.Any, ls: _typing.Any, ws: _typing.Any) -> tuple[_typing.Any, ...]:
             if left + width > maxwidth:
                 left = width + ws
                 top += ls
@@ -217,18 +220,18 @@ class Cell(object):
                 left, right, top, bottom = add_word(width, height, left, right, top, bottom, ls, ws)
         return right + 3 + max(parindent, 10), bottom
 
-    def text_block_preferred_width(self, tb, debug=False):
+    def text_block_preferred_width(self: _typing.Self, tb: _typing.Any, debug: bool = False) -> _typing.Any:
         return self.text_block_size(tb, sys.maxsize, debug=debug)[0]
 
-    def preferred_width(self, debug=False):
+    def preferred_width(self: _typing.Self, debug: bool = False) -> _typing.Any:
         return ceil(max([self.text_block_preferred_width(i, debug=debug) for i in self.text_blocks]))
 
-    def height(self, width):
+    def height(self: _typing.Self, width: _typing.Any) -> _typing.Any:
         return sum([self.text_block_size(i, width)[1] for i in self.text_blocks])
 
 
 class Row(object):
-    def __init__(self, conv, row, css, colpad):
+    def __init__(self: _typing.Self, conv: _typing.Any, row: _typing.Any, css: _typing.Any, colpad: _typing.Any) -> None:
         self.cells = []
         self.colpad = colpad
         cells = row.findAll(re.compile("td|th", re.IGNORECASE))
@@ -241,7 +244,7 @@ class Row(object):
             if name is not None:
                 self.targets.append(name.replace("#", ""))
 
-    def number_of_cells(self):
+    def number_of_cells(self: _typing.Self) -> _typing.Any:
         """
         Number of cells in this row. Respects colspan
         :return:
@@ -251,7 +254,7 @@ class Row(object):
             ans += cell.colspan
         return ans
 
-    def height(self, widths):
+    def height(self: _typing.Self, widths: _typing.Any) -> _typing.Any:
         i, heights = 0, []
         for cell in self.cells:
             width = sum(widths[i : i + cell.colspan])
@@ -261,7 +264,7 @@ class Row(object):
             return 0
         return max(heights)
 
-    def cell_from_index(self, col):
+    def cell_from_index(self: _typing.Self, col: _typing.Any) -> _typing.Any:
         i = -1
         cell = None
         for cell in self.cells:
@@ -273,31 +276,31 @@ class Row(object):
                 break
         return cell
 
-    def minimum_width(self, col):
+    def minimum_width(self: _typing.Self, col: _typing.Any) -> _typing.Any:
         cell = self.cell_from_index(col)
         if not cell:
             return 0
         return cell.minimum_width()
 
-    def preferred_width(self, col):
+    def preferred_width(self: _typing.Self, col: _typing.Any) -> _typing.Any:
         cell = self.cell_from_index(col)
         if not cell:
             return 0
         return 0 if cell.colspan > 1 else cell.preferred_width()
 
-    def width_percent(self, col):
+    def width_percent(self: _typing.Self, col: _typing.Any) -> _typing.Any:
         cell = self.cell_from_index(col)
         if not cell:
             return -1
         return -1 if cell.colspan > 1 else cell.pwidth
 
-    def cell_iterator(self):
+    def cell_iterator(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for c in self.cells:
             yield c
 
 
 class Table(object):
-    def __init__(self, conv, table, css, rowpad=10, colpad=10):
+    def __init__(self: _typing.Self, conv: _typing.Any, table: _typing.Any, css: _typing.Any, rowpad: int = 10, colpad: int = 10) -> None:
         self.rows = []
         self.conv = conv
         self.rowpad = rowpad
@@ -309,16 +312,16 @@ class Table(object):
             self.rows.append(Row(conv, row, rcss, colpad))
         conv.in_table = False
 
-    def number_of_columns(self):
+    def number_of_columns(self: _typing.Self) -> _typing.Any:
         col_max = 0
         for row in self.rows:
             col_max = row.number_of_cells() if row.number_of_cells() > col_max else col_max
         return col_max
 
-    def number_or_rows(self):
+    def number_or_rows(self: _typing.Self) -> _typing.Any:
         return len(self.rows)
 
-    def height(self, maxwidth):
+    def height(self: _typing.Self, maxwidth: _typing.Any) -> _typing.Any:
         """
         Return row heights + self.rowpad
         :param maxwidth:
@@ -327,13 +330,13 @@ class Table(object):
         widths = self.get_widths(maxwidth)
         return sum([row.height(widths) + self.rowpad for row in self.rows]) - self.rowpad
 
-    def minimum_width(self, col):
+    def minimum_width(self: _typing.Self, col: _typing.Any) -> _typing.Any:
         return max([row.minimum_width(col) for row in self.rows])
 
-    def width_percent(self, col):
+    def width_percent(self: _typing.Self, col: _typing.Any) -> _typing.Any:
         return max([row.width_percent(col) for row in self.rows])
 
-    def get_widths(self, maxwidth):
+    def get_widths(self: _typing.Self, maxwidth: _typing.Any) -> _typing.Any:
         """
         Return widths of columns + self.colpad
         :param maxwidth:
@@ -370,7 +373,7 @@ class Table(object):
 
         return [i + self.colpad for i in widths]
 
-    def blocks(self, maxwidth, maxheight):
+    def blocks(self: _typing.Self, maxwidth: _typing.Any, maxheight: _typing.Any) -> _typing.Iterator[_typing.Any]:
         rows, cols = self.number_or_rows(), self.number_of_columns()
         cellmatrix = [[None for c in range(cols)] for r in range(rows)]
         rowpos = [0 for i in range(rows)]

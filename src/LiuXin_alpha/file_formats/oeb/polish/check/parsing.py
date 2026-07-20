@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 try:
@@ -46,10 +49,10 @@ class EmptyFile(BaseError):
     HELP = _("This file is empty, it contains nothing, you should probably remove it.")
     INDIVIDUAL_FIX = _("Remove this file")
 
-    def __init__(self, name):
+    def __init__(self: _typing.Self, name: _typing.Any) -> None:
         BaseError.__init__(self, _("The file %s is empty") % name, name)
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         container.remove_item(self.name)
         return True
 
@@ -66,7 +69,7 @@ class DecodeError(BaseError):
         " an incorrect media type in the OPF."
     )
 
-    def __init__(self, name):
+    def __init__(self: _typing.Self, name: _typing.Any) -> None:
         BaseError.__init__(self, _("Parsing of %s failed, could not decode") % name, name)
 
 
@@ -81,7 +84,7 @@ class XMLParseError(BaseError):
         ' "do the wrong thing".'
     )
 
-    def __init__(self, msg, *args, **kwargs):
+    def __init__(self: _typing.Self, msg: _typing.Any, *args: _typing.Any, **kwargs: _typing.Any) -> None:
         msg = msg or ""
         BaseError.__init__(self, "Parsing failed: " + msg, *args, **kwargs)
         m = mismatch_pat.search(msg)
@@ -113,10 +116,10 @@ class NamedEntities(BaseError):
         " represent. This can be done automatically."
     )
 
-    def __init__(self, name):
+    def __init__(self: _typing.Self, name: _typing.Any) -> None:
         BaseError.__init__(self, _("Named entities present"), name)
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> _typing.Any:
         changed = False
         from LiuXin_alpha.file_formats.oeb.polish.check.main import XML_TYPES
 
@@ -136,13 +139,13 @@ class EscapedName(BaseError):
 
     level = WARN
 
-    def __init__(self, name):
+    def __init__(self: _typing.Self, name: _typing.Any) -> None:
         from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
 
         BaseError.__init__(self, _("Filename contains unsafe characters"), name)
         qname = urlquote(name)
 
-        def esc(n):
+        def esc(n: _typing.Any) -> _typing.Any:
             return "".join(x if x in URL_SAFE else "_" for x in n)
 
         self.sname = "/".join(esc(ascii_filename(x)) for x in name.split("/"))
@@ -156,7 +159,7 @@ class EscapedName(BaseError):
 
         self.INDIVIDUAL_FIX = _("Rename the file {0} to {1}").format(name, self.sname)
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         from LiuXin_alpha.file_formats.oeb.polish.replace import rename_files
 
         all_names = set(container.name_path_map)
@@ -178,7 +181,7 @@ class TooLarge(BaseError):
         " on some ebook readers. Consider splitting this file into smaller sections."
     ) % human_readable(MAX_SIZE)
 
-    def __init__(self, name):
+    def __init__(self: _typing.Self, name: _typing.Any) -> None:
         BaseError.__init__(self, _("File too large"), name)
 
 
@@ -188,7 +191,7 @@ class BadEntity(BaseError):
         "This is an invalid (unrecognized) entity. Replace it with whatever" " text it is supposed to have represented."
     )
 
-    def __init__(self, ent, name, lnum, col):
+    def __init__(self: _typing.Self, ent: _typing.Any, name: _typing.Any, lnum: _typing.Any, col: _typing.Any) -> None:
         BaseError.__init__(self, _("Invalid entity: %s") % ent, name, lnum, col)
 
 
@@ -196,7 +199,7 @@ class BadNamespace(BaseError):
 
     INDIVIDUAL_FIX = _("Run fix HTML on this file, which will automatically insert the correct namespace")
 
-    def __init__(self, name, namespace):
+    def __init__(self: _typing.Self, name: _typing.Any, namespace: _typing.Any) -> None:
         BaseError.__init__(self, _("Invalid or missing namespace"), name)
         self.HELP = prepare_string_for_xml(
             _(
@@ -208,7 +211,7 @@ class BadNamespace(BaseError):
             )
         )
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         container.parsed(self.name)
         container.dirty(self.name)
         return True
@@ -219,7 +222,7 @@ class NonUTF8(BaseError):
     level = WARN
     INDIVIDUAL_FIX = _("Change this file's encoding to UTF-8")
 
-    def __init__(self, name, enc):
+    def __init__(self: _typing.Self, name: _typing.Any, enc: _typing.Any) -> None:
         BaseError.__init__(self, _("Non UTF-8 encoding declaration"), name)
         self.HELP = (
             _(
@@ -230,7 +233,7 @@ class NonUTF8(BaseError):
             % enc
         )
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         raw = container.raw_data(self.name)
         if isinstance(raw, type("")):
             raw, changed = replace_encoding_declarations(raw)
@@ -240,12 +243,12 @@ class NonUTF8(BaseError):
 
 
 class EntitityProcessor(object):
-    def __init__(self, mt):
+    def __init__(self: _typing.Self, mt: _typing.Any) -> None:
         self.entities = ALL_ENTITIES if mt in OEB_DOCS else XML_ENTITIES
         self.ok_named_entities = []
         self.bad_entities = []
 
-    def __call__(self, m):
+    def __call__(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         val = m.group(1).decode("ascii")
         if val in XML_ENTITIES:
             # Leave XML entities alone
@@ -272,7 +275,7 @@ class EntitityProcessor(object):
         return b" " * len(m.group())
 
 
-def check_html_size(name, mt, raw):
+def check_html_size(name: _typing.Any, mt: _typing.Any, raw: _typing.Any) -> _typing.Any:
     errors = []
     if len(raw) > TooLarge.MAX_SIZE:
         errors.append(TooLarge(name))
@@ -282,7 +285,7 @@ def check_html_size(name, mt, raw):
 entity_pat = re.compile(rb"&(#{0,1}[a-zA-Z0-9]{1,8});")
 
 
-def check_encoding_declarations(name, container):
+def check_encoding_declarations(name: _typing.Any, container: _typing.Any) -> _typing.Any:
     errors = []
     enc = find_declared_encoding(container.raw_data(name))
     if enc is not None and enc.lower() != "utf-8":
@@ -290,7 +293,7 @@ def check_encoding_declarations(name, container):
     return errors
 
 
-def check_xml_parsing(name, mt, raw):
+def check_xml_parsing(name: _typing.Any, mt: _typing.Any, raw: _typing.Any) -> _typing.Any:
     if not raw:
         return [EmptyFile(name)]
     raw = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
@@ -332,7 +335,7 @@ class CSSError(BaseError):
 
     is_parsing_error = True
 
-    def __init__(self, level, msg, name, line, col):
+    def __init__(self: _typing.Self, level: _typing.Any, msg: _typing.Any, name: _typing.Any, line: _typing.Any, col: _typing.Any) -> None:
         self.level = level
         prefix = "CSS: "
         BaseError.__init__(self, prefix + msg, name, line, col)
@@ -352,7 +355,7 @@ class CSSError(BaseError):
             )
             self.INDIVIDUAL_FIX = _("Try to fix parsing errors in this stylesheet automatically")
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         root = container.parsed(self.name)
         container.dirty(self.name)
         if container.mime_map[self.name] in OEB_DOCS:
@@ -381,7 +384,7 @@ class DuplicateId(BaseError):
 
     INDIVIDUAL_FIX = _("Remove the duplicate ids from all but the first element")
 
-    def __init__(self, name, eid, locs):
+    def __init__(self: _typing.Self, name: _typing.Any, eid: _typing.Any, locs: _typing.Any) -> None:
         BaseError.__init__(self, _("Duplicate id: %s") % eid, name)
         self.HELP = _(
             "The id {0} is present on more than one element in {1}. This is"
@@ -391,7 +394,7 @@ class DuplicateId(BaseError):
         self.all_locations = [(name, lnum, None) for lnum in norm_locs]
         self.duplicate_id = eid
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> bool:
         elems = [e for e in container.parsed(self.name).xpath("//*[@id]") if e.get("id") == self.duplicate_id]
         for e in elems[1:]:
             e.attrib.pop("id")
@@ -405,17 +408,17 @@ class ErrorHandler(object):
     Replacement logger to get useful error/warning info out of cssutils during parsing
     """
 
-    def __init__(self, name):
+    def __init__(self: _typing.Self, name: _typing.Any) -> None:
         # may be disabled during setting of known valid items
         self.name = name
         self.errors = []
 
-    def __noop(self, *args, **kwargs):
+    def __noop(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
         pass
 
     info = debug = setLevel = getEffectiveLevel = addHandler = removeHandler = __noop
 
-    def __handle(self, level, *args):
+    def __handle(self: _typing.Self, level: _typing.Any, *args: _typing.Any) -> None:
         msg = " ".join(map(six_unicode, args))
         line = col = None
         for pat in pos_pats:
@@ -429,16 +432,16 @@ class ErrorHandler(object):
                 return  # panose-1 is allowed in CSS 2.1 and is generated by calibre
             self.errors.append(CSSError(level, msg, self.name, line, col))
 
-    def error(self, *args):
+    def error(self: _typing.Self, *args: _typing.Any) -> None:
         self.__handle(ERROR, *args)
 
-    def warn(self, *args):
+    def warn(self: _typing.Self, *args: _typing.Any) -> None:
         self.__handle(WARN, *args)
 
     warning = warn
 
 
-def check_css_parsing(name, raw, line_offset=0, is_declaration=False):
+def check_css_parsing(name: _typing.Any, raw: _typing.Any, line_offset: int = 0, is_declaration: bool = False) -> _typing.Any:
     if cssutils is None:
         return []
     log = ErrorHandler(name)
@@ -455,7 +458,7 @@ def check_css_parsing(name, raw, line_offset=0, is_declaration=False):
     return log.errors
 
 
-def check_filenames(container):
+def check_filenames(container: _typing.Any) -> _typing.Any:
     errors = []
     all_names = set(container.name_path_map) - container.names_that_must_not_be_changed
     for name in all_names:
@@ -464,7 +467,7 @@ def check_filenames(container):
     return errors
 
 
-def check_ids(container):
+def check_ids(container: _typing.Any) -> _typing.Any:
     errors = []
     mts = set(OEB_DOCS) | {guess_type("a.opf"), guess_type("a.ncx")}
     for name, mt in iteritems(container.mime_map):

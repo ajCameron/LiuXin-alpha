@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys, os, re
 
 from LiuXin_alpha.file_formats.rtf2xml import copy
@@ -27,16 +30,16 @@ class MakeLists:
     """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        headings_to_sections,
-        list_of_lists,
-        copy=None,
-        run_level=1,
-        no_headings_as_list=1,
-        write_list_info=0,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        headings_to_sections: _typing.Any,
+        list_of_lists: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+        no_headings_as_list: int = 1,
+        write_list_info: int = 0,
+    ) -> None:
         """
         Required:
             'file'
@@ -57,7 +60,7 @@ class MakeLists:
         self.__list_of_lists = list_of_lists
         self.__write_list_info = write_list_info
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Required:
             Nothing
@@ -118,7 +121,7 @@ class MakeLists:
         self.__found_appt = 0
         self.__line_num = 0
 
-    def __in_pard_func(self, line):
+    def __in_pard_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- the line of current text.
@@ -132,7 +135,7 @@ class MakeLists:
             self.__state = "after_pard"
         self.__write_obj.write(line)
 
-    def __after_pard_func(self, line):
+    def __after_pard_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- the line of current text.
@@ -192,7 +195,7 @@ class MakeLists:
         else:
             self.__list_chunk += line
 
-    def __list_after_par_def_func(self, line, id):
+    def __list_after_par_def_func(self: _typing.Self, line: _typing.Any, id: _typing.Any) -> None:
         """
         Required:
             line -- the line of current text.
@@ -226,7 +229,7 @@ class MakeLists:
                 self.__write_start_item()
             self.__list_chunk = ""
 
-    def __close_lists(self):
+    def __close_lists(self: _typing.Self) -> None:
         """
         Required:
             Nothing
@@ -257,7 +260,7 @@ class MakeLists:
         self.__all_lists = self.__all_lists[num_levels_closed:]
         self.__all_lists.reverse()
 
-    def __write_end_list(self):
+    def __write_end_list(self: _typing.Self) -> None:
         """
         Required:
             Nothing
@@ -269,7 +272,7 @@ class MakeLists:
         self.__write_obj.write("mi<tg<close_____<list\n")
         self.__write_obj.write("mi<mk<list_close\n")
 
-    def __write_start_list(self, id):
+    def __write_start_list(self: _typing.Self, id: _typing.Any) -> None:
         """
         Required:
             id -- the id of the current list.
@@ -337,7 +340,7 @@ class MakeLists:
         self.__write_obj.write("mi<mk<liststart_\n")
         self.__write_start_item()
 
-    def __get_index_of_list(self, id):
+    def __get_index_of_list(self: _typing.Self, id: _typing.Any) -> _typing.Any:
         """
         Requires:
             id -- id of current paragraph-definition
@@ -373,17 +376,17 @@ class MakeLists:
     #            msg = 'level is "%s"\n' % self.__run_level
     #            self.__bug_handler
 
-    def __write_start_item(self):
+    def __write_start_item(self: _typing.Self) -> None:
         self.__write_obj.write("mi<mk<item_start\n")
         self.__write_obj.write("mi<tg<open______<item\n")
         self.__write_obj.write("mi<mk<itemstart_\n")
 
-    def __write_end_item(self):
+    def __write_end_item(self: _typing.Self) -> None:
         self.__write_obj.write("mi<tg<item_end__\n")
         self.__write_obj.write("mi<tg<close_____<item\n")
         self.__write_obj.write("mi<tg<item__end_\n")
 
-    def __default_func(self, line):
+    def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             self, line
@@ -407,7 +410,7 @@ class MakeLists:
                     self.__write_start_list(num)
         self.__write_obj.write(line)
 
-    def __is_a_heading(self):
+    def __is_a_heading(self: _typing.Self) -> int:
         if self.__style_name in self.__headings:
             if self.__headings_to_sections:
                 return 1
@@ -419,21 +422,21 @@ class MakeLists:
         else:
             return 0
 
-    def __get_indent(self, line):
+    def __get_indent(self: _typing.Self, line: _typing.Any) -> None:
         if self.__token_info == "mi<mk<left_inden":
             self.__left_indent = float(line[17:-1])
 
-    def __get_list_type(self, line):
+    def __get_list_type(self: _typing.Self, line: _typing.Any) -> None:
         if self.__token_info == "mi<mk<list-type_":  # <ordered
             self.__list_type = line[17:-1]
             if self.__list_type == "item":
                 self.__list_type = "unordered"
 
-    def __get_style_name(self, line):
+    def __get_style_name(self: _typing.Self, line: _typing.Any) -> None:
         if self.__token_info == "mi<mk<style-name":
             self.__style_name = line[17:-1]
 
-    def make_lists(self):
+    def make_lists(self: _typing.Self) -> None:
         """
         Required:
             nothing

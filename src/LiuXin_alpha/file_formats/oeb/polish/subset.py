@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import sys
@@ -32,7 +35,7 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def remove_font_face_rules(container, sheet, remove_names, base):
+def remove_font_face_rules(container: _typing.Any, sheet: _typing.Any, remove_names: _typing.Any, base: _typing.Any) -> _typing.Any:
     changed = False
     for rule in tuple(sheet.cssRules):
         if rule.type != rule.FONT_FACE_RULE:
@@ -48,7 +51,7 @@ def remove_font_face_rules(container, sheet, remove_names, base):
     return changed
 
 
-def subset_all_fonts(container, font_stats, report):
+def subset_all_fonts(container: _typing.Any, font_stats: _typing.Any, report: _typing.Any) -> _typing.Any:
     if not _HAS_FONT_UTILS:
         report("Font subsetting support is unavailable (LiuXin_alpha.utils.fonts not ported).")
         return False

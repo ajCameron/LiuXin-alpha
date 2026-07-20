@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 from collections import defaultdict
@@ -14,7 +17,7 @@ __docformat__ = "restructuredtext en"
 
 
 class Outline(object):
-    def __init__(self, toc, items):
+    def __init__(self: _typing.Self, toc: _typing.Any, items: _typing.Any) -> None:
         self.toc = toc
         self.items = items
         self.anchor_map = {}
@@ -31,10 +34,10 @@ class Outline(object):
                     if x.fragment:
                         anchors.add(x.fragment)
 
-    def set_pos(self, item, anchor, pagenum, ypos):
+    def set_pos(self: _typing.Self, item: _typing.Any, anchor: _typing.Any, pagenum: _typing.Any, ypos: _typing.Any) -> None:
         self.pos_map[item][anchor] = (pagenum, ypos)
 
-    def get_pos(self, toc):
+    def get_pos(self: _typing.Self, toc: _typing.Any) -> tuple[_typing.Any, ...]:
         page, ypos = 0, 0
         item = getattr(toc, "outline_item_", None)
         if item is not None:
@@ -46,7 +49,7 @@ class Outline(object):
                     page, ypos = amap.get(toc.fragment, (page, ypos))
         return page, ypos
 
-    def add_children(self, toc, parent):
+    def add_children(self: _typing.Self, toc: _typing.Any, parent: _typing.Any) -> None:
         for child in toc:
             page, ypos = self.get_pos(child)
             text = child.text or _("Page %d") % page
@@ -55,7 +58,7 @@ class Outline(object):
             cn = parent.create(text, page, True)
             self.add_children(child, cn)
 
-    def __call__(self, doc):
+    def __call__(self: _typing.Self, doc: _typing.Any) -> None:
         self.pos_map = dict(self.pos_map)
         self.page_count = doc.page_count()
         for child in self.toc:

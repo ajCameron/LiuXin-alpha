@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import sys
 import copy
@@ -32,7 +35,7 @@ Stop = namedtuple("Stop", "t color")
 
 
 class LinearGradientPattern(Dictionary):
-    def __init__(self, brush, matrix, pdf, pixel_page_width, pixel_page_height):
+    def __init__(self: _typing.Self, brush: _typing.Any, matrix: _typing.Any, pdf: _typing.Any, pixel_page_width: _typing.Any, pixel_page_height: _typing.Any) -> None:
         if sip is None or QLinearGradient is None or QPointF is None:
             raise RuntimeError("PyQt5/sip is required for PDF gradient rendering.")
         self.matrix = (
@@ -109,7 +112,7 @@ class LinearGradientPattern(Dictionary):
             stops,
         )
 
-    def spread_gradient(self, gradient, pixel_page_width, pixel_page_height, matrix):
+    def spread_gradient(self: _typing.Self, gradient: _typing.Any, pixel_page_width: _typing.Any, pixel_page_height: _typing.Any, matrix: _typing.Any) -> tuple[_typing.Any, ...]:
         start = gradient.start()
         stop = gradient.finalStop()
         stops = list(six_map(lambda x: [x[0], x[1].getRgbF()], gradient.stops()))
@@ -134,7 +137,7 @@ class LinearGradientPattern(Dictionary):
                 minx, maxx = min(minx, p.x()), max(maxx, p.x())
                 miny, maxy = min(miny, p.y()), max(maxy, p.y())
 
-            def in_page(point):
+            def in_page(point: _typing.Any) -> bool:
                 return minx <= point.x() <= maxx and miny <= point.y() <= maxy
 
             offset = stop - start

@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import textwrap
 
@@ -33,7 +36,7 @@ __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def isspace(x):
+def isspace(x: _typing.Any) -> _typing.Any:
     """
     Tests to see if the given character could possible be rendered as a space
     :param x: Param for testing
@@ -42,7 +45,7 @@ def isspace(x):
     return not x.strip("\u0009\u000a\u000c\u000d\u0020")
 
 
-def pretty_xml_tree(elem, level=0, indent="  "):
+def pretty_xml_tree(elem: _typing.Any, level: int = 0, indent: str = "  ") -> None:
     """
     XML beautifier, assumes that elements that have children do not have
     textual content.  Also assumes that there is no text immediately after
@@ -65,7 +68,7 @@ def pretty_xml_tree(elem, level=0, indent="  "):
             child.tail = "\n" + (indent * l)
 
 
-def pretty_opf_string(root):
+def pretty_opf_string(root: _typing.Any) -> _typing.Any:
     """
     Provides a prettified string representation of the opf document with the given root.
     :param root:
@@ -76,11 +79,11 @@ def pretty_opf_string(root):
     return etree.tostring(root, pretty_print=True)
 
 
-def pretty_opf(root):
+def pretty_opf(root: _typing.Any) -> None:
 
     # Put all dc: tags first starting with title and author. Preserve order for
     # the rest.
-    def dckey(local_x):
+    def dckey(local_x: _typing.Any) -> _typing.Any:
         return {"title": 0, "creator": 1}.get(barename(local_x.tag), 2)
 
     for metadata in root.xpath("//opf:metadata", namespaces=OPF_NAMESPACES):
@@ -93,7 +96,7 @@ def pretty_opf(root):
     spine_ids = root.xpath("//opf:spine/opf:itemref/@idref", namespaces=OPF_NAMESPACES)
     spine_ids = {x: i for i, x in enumerate(spine_ids)}
 
-    def manifest_key(local_x):
+    def manifest_key(local_x: _typing.Any) -> tuple[_typing.Any, ...]:
         mt = local_x.get("media-type", "")
         href = local_x.get("href", "")
         ext = href.rpartition(".")[-1].lower()
@@ -182,7 +185,7 @@ BLOCK_TAGS = frozenset(
 ) | {SVG_TAG}
 
 
-def isblock(x):
+def isblock(x: _typing.Any) -> bool:
     if callable(x.tag) or not x.tag:
         return True
     if x.tag in BLOCK_TAGS:
@@ -190,7 +193,7 @@ def isblock(x):
     return False
 
 
-def has_only_blocks(x):
+def has_only_blocks(x: _typing.Any) -> bool:
     if hasattr(x.tag, "split") and len(x) == 0:
         # Tag with no children,
         return False
@@ -202,7 +205,7 @@ def has_only_blocks(x):
     return True
 
 
-def indent_for_tag(x):
+def indent_for_tag(x: _typing.Any) -> _typing.Any:
     prev = x.getprevious()
     x = x.getparent().text if prev is None else prev.tail
     if not x:
@@ -211,7 +214,7 @@ def indent_for_tag(x):
     return s if isspace(s) else ""
 
 
-def set_indent(elem, attr, indent):
+def set_indent(elem: _typing.Any, attr: _typing.Any, indent: _typing.Any) -> None:
     x = getattr(elem, attr)
     if not x:
         x = indent
@@ -225,7 +228,7 @@ def set_indent(elem, attr, indent):
     setattr(elem, attr, x)
 
 
-def pretty_block(parent, level=1, indent="  "):
+def pretty_block(parent: _typing.Any, level: int = 1, indent: str = "  ") -> None:
     """
     Surround block tags with blank lines and recurse into child block tags that contain only other block tags.
     :param parent:
@@ -250,7 +253,7 @@ def pretty_block(parent, level=1, indent="  "):
         child.tail = child.tail + nn + (indent * l)
 
 
-def pretty_script_or_style(container, child):
+def pretty_script_or_style(container: _typing.Any, child: _typing.Any) -> None:
     if child.text:
         indent = indent_for_tag(child)
         if child.tag.endswith("style"):
@@ -260,7 +263,7 @@ def pretty_script_or_style(container, child):
         set_indent(child, "text", indent)
 
 
-def pretty_html_tree(container, root):
+def pretty_html_tree(container: _typing.Any, root: _typing.Any) -> None:
     root.text = "\n\n"
     for child in root:
         child.tail = "\n\n"
@@ -287,7 +290,7 @@ def pretty_html_tree(container, root):
             pretty_script_or_style(container, child)
 
 
-def fix_html(container, raw):
+def fix_html(container: _typing.Any, raw: _typing.Any) -> _typing.Any:
     """
     Fix any parsing errors in the HTML represented as a string in raw.
     Fixing is done using the HTML5 parsing algorithm.
@@ -299,7 +302,7 @@ def fix_html(container, raw):
     return serialize(root, "text/html")
 
 
-def pretty_html(container, name, raw):
+def pretty_html(container: _typing.Any, name: _typing.Any, raw: _typing.Any) -> _typing.Any:
     """
     Pretty print the HTML represented as a string in raw
     :param container:
@@ -312,7 +315,7 @@ def pretty_html(container, name, raw):
     return serialize(root, "text/html")
 
 
-def pretty_css(container, name, raw):
+def pretty_css(container: _typing.Any, name: _typing.Any, raw: _typing.Any) -> _typing.Any:
     """
     Pretty print the CSS represented as a string in raw
     :param container:
@@ -324,7 +327,7 @@ def pretty_css(container, name, raw):
     return serialize(sheet, "text/css")
 
 
-def pretty_xml(container, name, raw):
+def pretty_xml(container: _typing.Any, name: _typing.Any, raw: _typing.Any) -> _typing.Any:
     """
     Pretty print the XML represented as a string in raw. If ``name`` is the name of the OPF, extra OPF-specific
     prettying is performed.
@@ -340,7 +343,7 @@ def pretty_xml(container, name, raw):
     return serialize(root, "text/xml")
 
 
-def fix_all_html(container):
+def fix_all_html(container: _typing.Any) -> None:
     """
     Fix any parsing errors in all HTML files in the container. Fixing is done using the HTML5 parsing algorithm.
     :param container:
@@ -352,7 +355,7 @@ def fix_all_html(container):
             container.dirty(name)
 
 
-def pretty_all(container):
+def pretty_all(container: _typing.Any) -> None:
     """
     Pretty print all HTML/CSS/XML files in the container
     :param container:
