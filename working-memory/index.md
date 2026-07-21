@@ -1,10 +1,17 @@
 # Working Memory Index
 
-Updated: 2026-07-18
+Updated: 2026-07-21
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [catalog-link-update-pipeline-2026-07-21.md](catalog-link-update-pipeline-2026-07-21.md)
+  Active catalog/database write seam: legacy compact forms, metadata-aware id
+  matching, immutable relation-to-relation normalization, incremental
+  composition, atomic portable bulk replacement, per-link lazy destination
+  views, a typed `Catalog.write_link_update(...)` facade, and complete focused
+  statement/branch coverage across `Catalog` and `LinkUpdate`.
 
 - [postgresql-deployment-checkpoint-2026-07-18.md](postgresql-deployment-checkpoint-2026-07-18.md)
   Pre-direction-change checkpoint covering database/storage stabilization,

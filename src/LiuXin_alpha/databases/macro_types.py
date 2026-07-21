@@ -8,7 +8,7 @@ from typing import Any, Mapping
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 
 
-class _UnsetLinkType:
+class UnsetLinkType:
     """Sentinel used when a typed-link filter was not supplied."""
 
     __slots__ = ()
@@ -17,7 +17,7 @@ class _UnsetLinkType:
         return "LINK_TYPE_UNSET"
 
 
-LINK_TYPE_UNSET = _UnsetLinkType()
+LINK_TYPE_UNSET = UnsetLinkType()
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,4 +102,5 @@ __all__ = [
     "NormalizedIdentityCollision",
     "NormalizedIdentityMigrationReport",
     "UnreferencedRowsSpec",
+    "UnsetLinkType",
 ]

@@ -502,25 +502,21 @@ class ManyToManyWriter(BaseCatalogWriter):
             else:
                 raise NotImplementedError
 
-    @staticmethod
     def do_publisher_many_many_db_update(
-        db,
-        table,
-        field=None,
-        is_custom_series=False,
-        updated=None,
-        deleted=None,
-        is_authors=False,
-        link_type=None,
+        self,
+        updated: Optional[Union[dict[int, int], dict[int, str], dict[int, list[str]]]] = None,
+        deleted: Optional[set[int]] = None,
+        is_authors: bool = False,
+        link_type: Optional[str] = None,
     ):
         """
         Do an update to the publisher table.
-        :param db: The database to preform the update on
-        :param table:
-        :param field: The field to do the update on
-        :param is_custom_series:
+
         :param updated: The dictionary to preform the update with - keyed with the id of the book and valued with
         :param deleted:
+        :param is_authors:
+        :param link_type: Default link type for the update
+
         :return:
         """
         deleted = deleted if deleted is not None else {}
@@ -532,14 +528,14 @@ class ManyToManyWriter(BaseCatalogWriter):
         # Do the publisher update
         for book_id in updated:
             pub_val = updated[book_id]
-            pub_id, new_pub_val = library_set_publisher(db=db, title_id=book_id, publisher_id=pub_val)
+            pub_id, new_pub_val = library_set_publisher(db=self.catalog, title_id=book_id, publisher_id=pub_val)
 
             book_col_map[book_id] = pub_id
             id_map[pub_id] = new_pub_val
 
         # For every element in the deleted set, nullify each of the elements
         for book_id in deleted:
-            library_set_publisher(db=db, title_id=book_id, publisher=None, publisher_id=None)
+            library_set_publisher(db=self.catalog, title_id=book_id, publisher=None, publisher_id=None)
 
             book_col_map[book_id] = None
 
@@ -555,11 +551,12 @@ class ManyToManyWriter(BaseCatalogWriter):
     ):
         """
         Do update in the authors table.
-        :param db:
-        :param table:
+
         :param updated:
         :param deleted: Not currently used
         :param is_authors:
+        :param link_type: Default link type for the update:
+
         :return:
         """
         deleted = deleted if deleted is not None else {}
@@ -568,29 +565,35 @@ class ManyToManyWriter(BaseCatalogWriter):
         vals = ((book_id, val) for book_id, vals in iteritems(updated) for val in vals)
 
         # Todo: HAVE to standardize creator and other types - triggers in the database?
-        db.metadata_sql.break_creator_title_links(title_id=(k for k in updated))
-        db.metadata_sql.break_creator_title_links(title_id=(k for k in deleted))
+        self.catalog.metadata_sql.break_creator_title_links(title_id=(k for k in updated))
+        self.catalog.metadata_sql.break_creator_title_links(title_id=(k for k in deleted))
 
         # Todo: Fold into a library author set method
-        db.metadata_sql.make_creator_title_links(id_pairs=vals)
+        self.catalog.metadata_sql.make_creator_title_links(id_pairs=vals)
 
     # Todo: What about the nullified elements?
     # Todo: What about all the OTHER languages? Are they being handled correctly?
     # Todo: This should ALL be in the languages table!?
-    @staticmethod
-    def language_many_many_db_update(db, table, updated, is_authors, field=None, is_custom_series=False):
+    def language_many_many_db_update(
+        self,
+        updated: Optional[dict[int, int]] = None,
+        deleted: Optional[set[int]] = None,
+        is_authors: bool = False,
+        link_type: Optional[str] = None,
+    ):
         """
         Preform an update of the languages linked to a book.
 
-        :param db:
-        :param table:
         :param updated:
+        :param deleted:
         :param is_authors:
+        :param link_type: Default link type for the update:
+
         :return:
         """
         for book_id in updated:
             lang_id = updated[book_id][0]
-            db.metadata_sql.set_title_primary_language(book_id, lang_id)
+            self.catalog.metadata_sql.set_title_primary_language(book_id, lang_id)
 
     @staticmethod
     def do_series_many_many_db_update(
@@ -666,6 +669,7 @@ class ManyToManyWriter(BaseCatalogWriter):
     def language_many_many_db_clean_links(db, table, deleted):
         """
         Remove primary language links from the table.
+
         :param db:
         :param table:
         :param deleted:
@@ -687,6 +691,7 @@ class ManyToManyWriter(BaseCatalogWriter):
     def generic_many_many_db_remove_links(self, db, table, field, remove, is_authors):
         """
         Used for removing all links to the target table. Used when the entries are being removed.
+
         :param db:
         :param table:
         :param field:
@@ -695,7 +700,7 @@ class ManyToManyWriter(BaseCatalogWriter):
         :return:
         """
         if not is_authors:
-            db.metadata_sql.break_generic_link(
+            self.catalog.db.metadata_sql.break_generic_link(
                 table.lx_table_name,
                 table.table_id_col,
                 ((item_id,) for item_id in remove),
@@ -703,16 +708,13 @@ class ManyToManyWriter(BaseCatalogWriter):
         else:
             self.do_creators_many_many_clear_unused(db, table=table, field=field)
 
-    @staticmethod
-    def do_creators_many_many_clear_unused(db, table, field):
+    def do_creators_many_many_clear_unused(self):
         """
         Clear the unused entries from the creators table.
-        :param db:
-        :param table:
-        :param field:
+
         :return:
         """
-        db.metadata_sql.creator_clear_unused()
+        self.catalog.db.metadata_sql.creator_clear_unused()
 
     @staticmethod
     def get_language_id(
@@ -763,6 +765,7 @@ class ManyToManyWriter(BaseCatalogWriter):
     ):
         """
         Attempts to match the given val to a valid entry in the languages table.
+
         :param val:
         :param db:
         :param m:
@@ -782,38 +785,29 @@ class ManyToManyWriter(BaseCatalogWriter):
             val_map[val] = rid_map[val]
 
     # Todo: Merge into a single generic method with the creators version
-    @staticmethod
-    def do_publisher_many_one_clear_unused(db, table, field):
+
+    def do_publisher_many_one_clear_unused(self) -> None:
         """
         Clear the unused entries from the publisher's table.
-        :param db:
-        :param table:
-        :param field:
+
         :return:
         """
-        db.metadata_sql.publisher_clear_unused()
+        self.catalog.db.metadata_sql.publisher_clear_unused()
 
-    @staticmethod
-    def dummy_many_one_clear_unused(db, table, field):
+    def dummy_many_one_clear_unused(self) -> None:
         """
         Remove unused elements from the ratings table.
+
         Currently not used - as that table should be preserved.
-        :param db:
-        :param table:
-        :param field:
+
         :return:
         """
         pass
 
-    @staticmethod
-    def series_many_many_db_remove_links(db, table, field, remove, is_authors):
+    def series_many_many_db_remove_links(self) -> None:
         """
-        At the moment a dummy - as it's assumed series will actually be managed elesewhere.
-        :param db:
-        :param table:
-        :param field:
-        :param remove:
-        :param is_authors:
+        At the moment a dummy - as it's assumed series will actually be managed elsewhere.
+
         :return:
         """
         return

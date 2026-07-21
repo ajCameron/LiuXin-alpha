@@ -26,7 +26,11 @@ class DummyDatabase:
 def test_catalog_facade_imports_and_instantiates() -> None:
     catalog = Catalog(DummyDatabase())
     assert catalog.works is catalog.repositories.works
+    assert catalog.expressions is catalog.repositories.expressions
+    assert catalog.manifestations is catalog.repositories.manifestations
+    assert catalog.items is catalog.repositories.items
     assert catalog.agents is catalog.repositories.agents
+    assert catalog.identifiers is catalog.repositories.identifiers
     assert catalog.matching.works is not None
     assert catalog.retrieval.bundles is not None
     assert catalog.mutations.policy is not None
@@ -45,6 +49,7 @@ def test_catalog_matches_protocol_shape() -> None:
     catalog = Catalog(DummyDatabase())
     assert isinstance(catalog, CatalogAPI)
     assert isinstance(catalog.mutations, CatalogMutationsAPI)
+    assert callable(catalog.write_link_update)
 
 
 def test_metadata_tools_api_contracts_import() -> None:

@@ -4,7 +4,9 @@ Top-level catalog facade implementation scaffold.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from LiuXin_alpha.catalog.api.common import DatabaseHandle
 from LiuXin_alpha.catalog.matching import CatalogMatching
@@ -20,6 +22,11 @@ from LiuXin_alpha.catalog.repositories import (
 )
 from LiuXin_alpha.catalog.mutations import CatalogMutations
 from LiuXin_alpha.catalog.retrieval import CatalogRetrieval
+from LiuXin_alpha.catalog.write import LinkUpdate
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.db_types import SrcTableID
+    from LiuXin_alpha.databases.macro_types import LinkRow
 
 
 @dataclass(slots=True)
@@ -67,6 +74,21 @@ class Catalog:
         self.matching = CatalogMatching(db=db, repositories=self.repositories)
         self.retrieval = CatalogRetrieval(db=db, repositories=self.repositories)
         self.mutations = CatalogMutations(db=db, repositories=self.repositories)
+
+    def write_link_update(
+        self,
+        update: LinkUpdate,
+    ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
+        """Apply a normalized link update through the catalog database.
+
+        The update retains its replacement, incremental-composition, type-scope,
+        atomicity, and empty-update semantics. The returned mapping contains the
+        complete link rows written for each affected source id.
+        """
+
+        if not isinstance(update, LinkUpdate):
+            raise TypeError("update must be a LinkUpdate")
+        return update.write(self.db.macros)
 
     @property
     def works(self) -> WorkRepository:

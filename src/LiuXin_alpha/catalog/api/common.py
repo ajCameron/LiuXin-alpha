@@ -8,7 +8,19 @@ model stabilises.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, Mapping, MutableMapping, Protocol, Sequence, TypeAlias
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    Mapping,
+    MutableMapping,
+    Protocol,
+    Sequence,
+    TypeAlias,
+)
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api import PortableMacrosAPI
 
 EntityId: TypeAlias = int
 RowMapping: TypeAlias = Mapping[str, Any]
@@ -36,6 +48,12 @@ class DatabaseHandle(Protocol):
     database API through small helper methods rather than forcing the raw database
     package to import catalog concepts.
     """
+
+    @property
+    def macros(self) -> "PortableMacrosAPI":
+        """Return the portable database macro surface."""
+
+        ...
 
 
 @dataclass(frozen=True, slots=True)
