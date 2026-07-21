@@ -55,6 +55,7 @@ from LiuXin_alpha.databases.db_types import (
 )
 from LiuXin_alpha.databases.column_metadata import (
     COLUMN_METADATA_TABLE,
+    column_options_to_json,
     infer_column_metadata,
 )
 from LiuXin_alpha.databases.normalized_identities import (
@@ -630,6 +631,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                         metadata.empty_value_policy.value,
                         metadata.merge_policy.value,
                         metadata.validation_profile.value,
+                        column_options_to_json(metadata.formatting_options),
+                        column_options_to_json(metadata.display_options),
                     )
                 )
 
@@ -644,8 +647,10 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
               column_metadata_comparison_column,
               column_metadata_empty_value_policy,
               column_metadata_merge_policy,
-              column_metadata_validation_profile
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+              column_metadata_validation_profile,
+              column_metadata_formatting_options_json,
+              column_metadata_display_options_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """.strip(),
             rows,
         )

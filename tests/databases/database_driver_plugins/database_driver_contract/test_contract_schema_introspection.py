@@ -264,6 +264,8 @@ def test_column_metadata_policy_is_complete_and_persisted(driver) -> None:
     assert metadata.empty_value_policy is ColumnEmptyValuePolicy.NULL_OR_BLANK_IS_MISSING
     assert metadata.merge_policy is ColumnMergePolicy.SET_UNION
     assert metadata.validation_profile is ColumnValidationProfile.TAXONOMY_TERM
+    assert dict(metadata.formatting_options) == {}
+    assert dict(metadata.display_options) == {}
 
     identifier_metadata = driver.direct_get_column_metadata("works", "work_id")
     assert identifier_metadata.semantic_role is ColumnSemanticRole.IDENTIFIER
@@ -351,6 +353,8 @@ def test_column_metadata_field_accessors_are_typed_and_persisted(driver) -> None
         driver.direct_get_validation_profile(table, column)
         is original.validation_profile
     )
+    assert driver.direct_get_formatting_options(table, column) == {}
+    assert driver.direct_get_display_options(table, column) == {}
 
     expected = replace(
         original,
@@ -360,6 +364,16 @@ def test_column_metadata_field_accessors_are_typed_and_persisted(driver) -> None
         empty_value_policy=ColumnEmptyValuePolicy.PRESERVE,
         merge_policy=ColumnMergePolicy.PRESERVE_EXISTING,
         validation_profile=ColumnValidationProfile.VERBATIM_TEXT,
+        formatting_options={
+            "template": "{value}",
+            "empty_value": "—",
+            "fallbacks": ["plain", "compact"],
+        },
+        display_options={
+            "label": "Display title",
+            "visible": True,
+            "width": 42,
+        },
     )
     try:
         driver.direct_set_semantic_role(table, column, expected.semantic_role)
@@ -384,6 +398,16 @@ def test_column_metadata_field_accessors_are_typed_and_persisted(driver) -> None
             column,
             expected.validation_profile,
         )
+        driver.direct_set_formatting_options(
+            table,
+            column,
+            expected.formatting_options,
+        )
+        driver.direct_set_display_options(
+            table,
+            column,
+            expected.display_options,
+        )
 
         assert driver.direct_get_semantic_role(table, column) is expected.semantic_role
         assert (
@@ -403,12 +427,24 @@ def test_column_metadata_field_accessors_are_typed_and_persisted(driver) -> None
             driver.direct_get_validation_profile(table, column)
             is expected.validation_profile
         )
+        assert (
+            driver.direct_get_formatting_options(table, column)
+            == expected.formatting_options
+        )
+        assert (
+            driver.direct_get_display_options(table, column)
+            == expected.display_options
+        )
         assert driver.direct_get_column_metadata(table, column) == expected
     finally:
         driver.direct_set_column_metadata(original)
 
     with pytest.raises(InputIntegrityError, match="comparison column"):
         driver.direct_set_comparison_column(table, column, "__missing_column__")
+    with pytest.raises(InputIntegrityError, match="formatting_options"):
+        driver.direct_set_formatting_options(table, column, {"bad": {1, 2}})
+    with pytest.raises(InputIntegrityError, match="display_options"):
+        driver.direct_set_display_options(table, column, {"width": float("nan")})
 
 
 def test_column_naming_helpers_match_pluralizer(driver) -> None:

@@ -207,6 +207,8 @@ def test_postgresql_schema_catalog_satisfies_checker_contract() -> None:
         "column_metadata_empty_value_policy",
         "column_metadata_merge_policy",
         "column_metadata_validation_profile",
+        "column_metadata_formatting_options_json",
+        "column_metadata_display_options_json",
     } <= set(catalog["column_metadata"])
     assert "workflow_step_code" in catalog["workflow_steps"]
 
@@ -248,12 +250,12 @@ def test_postgresql_schema_builder_executes_core_and_storage_tables() -> None:
     assert (
         "values ('works', 'work_title', 0, 'title', "
         "'unicode_nfc_trim_casefold', null, 'null_or_blank_is_missing', "
-        "'replace', 'display_text') on conflict "
+        "'replace', 'display_text', '{}', '{}') on conflict "
         '("column_metadata_table_name", "column_metadata_column_name") do nothing'
     ) in ddl
     assert (
         "values ('works', 'work_id', 1, 'identifier', 'none', null, "
-        "'null_is_missing', 'preserve_existing', 'identifier') on conflict "
+        "'null_is_missing', 'preserve_existing', 'identifier', '{}', '{}') on conflict "
         '("column_metadata_table_name", "column_metadata_column_name") do nothing'
     ) in ddl
     assert ddl.count('insert into "column_metadata"') == sum(
@@ -495,6 +497,8 @@ class _RecordingDriverConnection:
                         "null_or_blank_is_missing",
                         "replace",
                         "display_text",
+                        "{}",
+                        "{}",
                     )
                 ]
             )
@@ -751,7 +755,17 @@ def test_postgresql_column_case_sensitivity_uses_schema_catalog(monkeypatch) -> 
     drv.conn = conn
     monkeypatch.setattr(drv, "_short_connection", lambda: conn)
     monkeypatch.setattr(drv, "direct_get_tables", lambda force_refresh=False: ["works", "column_metadata"])
-    monkeypatch.setattr(drv, "direct_get_column_headings", lambda table, normalize=False: ["work_title"])
+    metadata_columns = [
+        "column_metadata_formatting_options_json",
+        "column_metadata_display_options_json",
+    ]
+    monkeypatch.setattr(
+        drv,
+        "direct_get_column_headings",
+        lambda table, normalize=False: (
+            metadata_columns if table == "column_metadata" else ["work_title"]
+        ),
+    )
 
     metadata = drv.direct_get_column_metadata("works", "work_title")
     assert metadata.case_sensitive is True
@@ -783,6 +797,8 @@ def test_postgresql_column_case_sensitivity_uses_schema_catalog(monkeypatch) -> 
         drv.direct_get_validation_profile("works", "work_title")
         is ColumnValidationProfile.DISPLAY_TEXT
     )
+    assert drv.direct_get_formatting_options("works", "work_title") == {}
+    assert drv.direct_get_display_options("works", "work_title") == {}
     drv.direct_set_column_metadata(metadata)
     drv.direct_set_case_sensitivity("works", "work_title", False)
 
@@ -804,6 +820,8 @@ def test_postgresql_column_case_sensitivity_uses_schema_catalog(monkeypatch) -> 
             "null_or_blank_is_missing",
             "replace",
             "display_text",
+            "{}",
+            "{}",
         )
         for sql, values in conn.calls
     )
@@ -834,10 +852,16 @@ def test_postgresql_individual_column_metadata_setters_use_full_record_upsert(
         "direct_get_tables",
         lambda force_refresh=False: ["works", "column_metadata"],
     )
+    metadata_columns = [
+        "column_metadata_formatting_options_json",
+        "column_metadata_display_options_json",
+    ]
     monkeypatch.setattr(
         drv,
         "direct_get_column_headings",
-        lambda table, normalize=False: ["work_title"],
+        lambda table, normalize=False: (
+            metadata_columns if table == "column_metadata" else ["work_title"]
+        ),
     )
 
     base_values = [
@@ -850,6 +874,8 @@ def test_postgresql_individual_column_metadata_setters_use_full_record_upsert(
         "null_or_blank_is_missing",
         "replace",
         "display_text",
+        "{}",
+        "{}",
     ]
     cases = (
         ("direct_set_semantic_role", ColumnSemanticRole.LABEL, 3, "label"),
@@ -877,6 +903,18 @@ def test_postgresql_individual_column_metadata_setters_use_full_record_upsert(
             ColumnValidationProfile.VERBATIM_TEXT,
             8,
             "verbatim_text",
+        ),
+        (
+            "direct_set_formatting_options",
+            {"number_format": "0.00", "empty_value": "—"},
+            9,
+            '{"empty_value":"—","number_format":"0.00"}',
+        ),
+        (
+            "direct_set_display_options",
+            {"label": "Title", "visible": True},
+            10,
+            '{"label":"Title","visible":true}',
         ),
     )
 

@@ -176,6 +176,8 @@ def test_column_metadata_field_accessors_propagate_through_database_layers(open_
         ("get_empty_value_policy", original.empty_value_policy),
         ("get_merge_policy", original.merge_policy),
         ("get_validation_profile", original.validation_profile),
+        ("get_formatting_options", original.formatting_options),
+        ("get_display_options", original.display_options),
     )
     for method_name, expected_value in getters:
         assert getattr(open_db.driver, f"direct_{method_name}")(table, column) == expected_value
@@ -190,6 +192,8 @@ def test_column_metadata_field_accessors_propagate_through_database_layers(open_
         empty_value_policy=ColumnEmptyValuePolicy.PRESERVE,
         merge_policy=ColumnMergePolicy.PRESERVE_EXISTING,
         validation_profile=ColumnValidationProfile.VERBATIM_TEXT,
+        formatting_options={"template": "{value}", "empty_value": "—"},
+        display_options={"label": "Title", "visible": True, "width": 42},
     )
     try:
         open_db.set_semantic_role(table, column, expected.semantic_role)
@@ -209,6 +213,16 @@ def test_column_metadata_field_accessors_propagate_through_database_layers(open_
             table,
             column,
             expected.validation_profile,
+        )
+        open_db.set_formatting_options(
+            table,
+            column,
+            expected.formatting_options,
+        )
+        open_db.set_display_options(
+            table,
+            column,
+            expected.display_options,
         )
 
         assert open_db.get_column_metadata(table, column) == expected
@@ -280,6 +294,42 @@ def test_legacy_database_without_column_metadata_uses_inferred_read_policy(
 
         with pytest.raises(DatabaseIntegrityError, match="no column_metadata table"):
             db.set_column_metadata(metadata)
+
+
+def test_legacy_column_metadata_without_presentation_options_reads_neutral_defaults(
+    db_path: Path,
+    db_metadata: dict,
+    driver_spec,
+):
+    with sqlite3.connect(str(db_path)) as conn:
+        conn.execute(
+            "ALTER TABLE column_metadata "
+            "DROP COLUMN column_metadata_formatting_options_json"
+        )
+        conn.execute(
+            "ALTER TABLE column_metadata "
+            "DROP COLUMN column_metadata_display_options_json"
+        )
+
+    from LiuXin_alpha.databases.database import Database
+
+    with Database(
+        metadata=db_metadata,
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        enable_maintenance=False,
+    ) as db:
+        metadata = db.get_column_metadata("works", "work_title")
+        assert metadata.formatting_options == {}
+        assert metadata.display_options == {}
+
+        with pytest.raises(DatabaseIntegrityError, match="schema is outdated"):
+            db.set_formatting_options(
+                "works",
+                "work_title",
+                {"template": "{value}"},
+            )
 
 
 def test_dirty_records_queue_is_shared(open_db):

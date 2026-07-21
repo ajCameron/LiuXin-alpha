@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import replace
 import re
 
+from collections.abc import Mapping
 from typing import Any, Dict, Iterator, Optional, Sequence, Union
 
 from LiuXin_alpha.databases.column_metadata import (
@@ -25,9 +26,13 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnMergePolicy,
     ColumnMetadata,
     ColumnNormalizationProfile,
+    ColumnOptions,
     ColumnSemanticRole,
     ColumnValidationProfile,
+    column_options_from_json,
+    column_options_to_json,
     default_column_metadata,
+    freeze_column_options,
     infer_column_metadata,
 )
 from LiuXin_alpha.databases.normalized_identities import (
@@ -201,11 +206,21 @@ class ValueCastingMixin:
             "column_metadata_merge_policy",
             "column_metadata_validation_profile",
         }
+        option_columns = {
+            "column_metadata_formatting_options_json",
+            "column_metadata_display_options_json",
+        }
         conn = self.get_connection()
         try:
             if expanded_columns <= catalog_columns:
+                option_selection = (
+                    ",\n                      column_metadata_formatting_options_json,"
+                    "\n                      column_metadata_display_options_json"
+                    if option_columns <= catalog_columns
+                    else ""
+                )
                 row = conn.execute(
-                    """
+                    f"""
                     SELECT
                       column_metadata_case_sensitive,
                       column_metadata_semantic_role,
@@ -214,6 +229,7 @@ class ValueCastingMixin:
                       column_metadata_empty_value_policy,
                       column_metadata_merge_policy,
                       column_metadata_validation_profile
+                      {option_selection}
                     FROM column_metadata
                     WHERE column_metadata_table_name = ?
                       AND column_metadata_column_name = ?
@@ -251,6 +267,8 @@ class ValueCastingMixin:
                 empty_value_policy=fallback.empty_value_policy,
                 merge_policy=fallback.merge_policy,
                 validation_profile=fallback.validation_profile,
+                formatting_options=fallback.formatting_options,
+                display_options=fallback.display_options,
             )
         return self._column_metadata_from_values(
             table_name,
@@ -274,6 +292,8 @@ class ValueCastingMixin:
             "column_metadata_empty_value_policy",
             "column_metadata_merge_policy",
             "column_metadata_validation_profile",
+            "column_metadata_formatting_options_json",
+            "column_metadata_display_options_json",
         }
         if not required_columns <= set(self.direct_get_column_headings(COLUMN_METADATA_TABLE)):
             raise DatabaseIntegrityError(
@@ -293,8 +313,10 @@ class ValueCastingMixin:
                   column_metadata_comparison_column,
                   column_metadata_empty_value_policy,
                   column_metadata_merge_policy,
-                  column_metadata_validation_profile
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  column_metadata_validation_profile,
+                  column_metadata_formatting_options_json,
+                  column_metadata_display_options_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (
                   column_metadata_table_name,
                   column_metadata_column_name
@@ -305,7 +327,9 @@ class ValueCastingMixin:
                   column_metadata_comparison_column = excluded.column_metadata_comparison_column,
                   column_metadata_empty_value_policy = excluded.column_metadata_empty_value_policy,
                   column_metadata_merge_policy = excluded.column_metadata_merge_policy,
-                  column_metadata_validation_profile = excluded.column_metadata_validation_profile;
+                  column_metadata_validation_profile = excluded.column_metadata_validation_profile,
+                  column_metadata_formatting_options_json = excluded.column_metadata_formatting_options_json,
+                  column_metadata_display_options_json = excluded.column_metadata_display_options_json;
                 """,
                 self._column_metadata_db_values(metadata),
             )
@@ -606,6 +630,66 @@ class ValueCastingMixin:
             validation_profile=validation_profile,
         )
 
+    def direct_get_formatting_options(
+        self,
+        table: str,
+        column: str,
+    ) -> ColumnOptions:
+        """Return immutable value-formatting hints for one physical column."""
+
+        return self.direct_get_column_metadata(table, column).formatting_options
+
+    def direct_set_formatting_options(
+        self,
+        table: str,
+        column: str,
+        formatting_options: Mapping[str, object],
+    ) -> None:
+        """Persist only the value-formatting hints for one physical column."""
+
+        try:
+            validated = freeze_column_options(
+                formatting_options,
+                field_name="formatting_options",
+            )
+        except (TypeError, ValueError) as exc:
+            raise InputIntegrityError(str(exc)) from exc
+        self._direct_replace_column_metadata(
+            table,
+            column,
+            formatting_options=validated,
+        )
+
+    def direct_get_display_options(
+        self,
+        table: str,
+        column: str,
+    ) -> ColumnOptions:
+        """Return immutable surface-display hints for one physical column."""
+
+        return self.direct_get_column_metadata(table, column).display_options
+
+    def direct_set_display_options(
+        self,
+        table: str,
+        column: str,
+        display_options: Mapping[str, object],
+    ) -> None:
+        """Persist only the surface-display hints for one physical column."""
+
+        try:
+            validated = freeze_column_options(
+                display_options,
+                field_name="display_options",
+            )
+        except (TypeError, ValueError) as exc:
+            raise InputIntegrityError(str(exc)) from exc
+        self._direct_replace_column_metadata(
+            table,
+            column,
+            display_options=validated,
+        )
+
     def _direct_replace_column_metadata(
         self,
         table: str,
@@ -720,8 +804,10 @@ class ValueCastingMixin:
                 validation_profile=ColumnValidationProfile(
                     metadata.validation_profile
                 ),
+                formatting_options=metadata.formatting_options,
+                display_options=metadata.display_options,
             )
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             raise InputIntegrityError(f"invalid column metadata policy: {exc}") from exc
 
     def _column_metadata_from_values(
@@ -735,6 +821,8 @@ class ValueCastingMixin:
         empty_value_policy: Any,
         merge_policy: Any,
         validation_profile: Any,
+        formatting_options_json: Any = None,
+        display_options_json: Any = None,
     ) -> ColumnMetadata:
         try:
             metadata = ColumnMetadata(
@@ -759,8 +847,16 @@ class ValueCastingMixin:
                     if validation_profile is not None
                     else default_column_metadata(table, column).validation_profile
                 ),
+                formatting_options=column_options_from_json(
+                    formatting_options_json,
+                    field_name="formatting_options",
+                ),
+                display_options=column_options_from_json(
+                    display_options_json,
+                    field_name="display_options",
+                ),
             )
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             raise DatabaseIntegrityError(
                 f"invalid column metadata for {table}.{column}: {exc}"
             ) from exc
@@ -778,6 +874,8 @@ class ValueCastingMixin:
             metadata.empty_value_policy.value,
             metadata.merge_policy.value,
             metadata.validation_profile.value,
+            column_options_to_json(metadata.formatting_options),
+            column_options_to_json(metadata.display_options),
         )
 
     @staticmethod

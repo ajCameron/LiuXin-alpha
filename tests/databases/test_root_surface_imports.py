@@ -16,6 +16,7 @@ def test_databases_root_lazy_exports_concrete_types() -> None:
         ColumnMergePolicy,
         ColumnMetadata,
         ColumnNormalizationProfile,
+        ColumnOptions,
         ColumnSemanticRole,
         Database,
         LinkCapabilities,
@@ -32,6 +33,7 @@ def test_databases_root_lazy_exports_concrete_types() -> None:
     assert ColumnMetadata is not None
     assert ColumnSemanticRole.TITLE.value == "title"
     assert ColumnNormalizationProfile.TAG_SEARCH_TERM.value == "tag_search_term"
+    assert ColumnOptions is not None
     assert ColumnMergePolicy.SET_UNION.value == "set_union"
 
 

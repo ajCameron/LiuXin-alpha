@@ -12,6 +12,7 @@ from typing import Any
 from LiuXin_alpha.databases.database.constants import HELPER_TABLES
 from LiuXin_alpha.databases.column_metadata import (
     ColumnMetadata,
+    column_options_to_json,
     infer_column_metadata,
 )
 from LiuXin_alpha.databases.normalized_identities import (
@@ -156,7 +157,9 @@ def _column_metadata_seed_statements() -> tuple[str, ...]:
             '"column_metadata_comparison_column", '
             '"column_metadata_empty_value_policy", '
             '"column_metadata_merge_policy", '
-            '"column_metadata_validation_profile"'
+            '"column_metadata_validation_profile", '
+            '"column_metadata_formatting_options_json", '
+            '"column_metadata_display_options_json"'
             f") values ("
             f"{_sql_literal(metadata.table)}, "
             f"{_sql_literal(metadata.column)}, "
@@ -166,7 +169,9 @@ def _column_metadata_seed_statements() -> tuple[str, ...]:
             f"{_sql_nullable_literal(metadata.comparison_column)}, "
             f"{_sql_literal(metadata.empty_value_policy.value)}, "
             f"{_sql_literal(metadata.merge_policy.value)}, "
-            f"{_sql_literal(metadata.validation_profile.value)}"
+            f"{_sql_literal(metadata.validation_profile.value)}, "
+            f"{_sql_literal(column_options_to_json(metadata.formatting_options))}, "
+            f"{_sql_literal(column_options_to_json(metadata.display_options))}"
             ") "
             'on conflict ("column_metadata_table_name", "column_metadata_column_name") do nothing'
         )

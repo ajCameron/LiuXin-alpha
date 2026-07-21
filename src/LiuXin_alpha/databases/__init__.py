@@ -23,6 +23,8 @@ if TYPE_CHECKING:  # pragma: no cover
         ColumnMergePolicy,
         ColumnMetadata,
         ColumnNormalizationProfile,
+        ColumnOptions,
+        ColumnOptionValue,
         ColumnSemanticRole,
         ColumnValidationProfile,
     )
@@ -53,6 +55,8 @@ __all__ = [
     "ColumnMergePolicy",
     "ColumnMetadata",
     "ColumnNormalizationProfile",
+    "ColumnOptions",
+    "ColumnOptionValue",
     "ColumnSemanticRole",
     "ColumnValidationProfile",
     "Database",
@@ -124,6 +128,8 @@ def __getattr__(name: str):
         "ColumnMergePolicy",
         "ColumnMetadata",
         "ColumnNormalizationProfile",
+        "ColumnOptions",
+        "ColumnOptionValue",
         "ColumnSemanticRole",
         "ColumnValidationProfile",
     }:

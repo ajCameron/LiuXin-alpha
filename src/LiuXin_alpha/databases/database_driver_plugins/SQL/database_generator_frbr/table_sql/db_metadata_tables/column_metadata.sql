@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS `column_metadata` (
   `column_metadata_empty_value_policy` TEXT NOT NULL DEFAULT 'null_is_missing',
   `column_metadata_merge_policy` TEXT NOT NULL DEFAULT 'replace',
   `column_metadata_validation_profile` TEXT NOT NULL DEFAULT 'none',
+  `column_metadata_formatting_options_json` TEXT NOT NULL DEFAULT '{}',
+  `column_metadata_display_options_json` TEXT NOT NULL DEFAULT '{}',
 
   `column_metadata_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `column_metadata_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),

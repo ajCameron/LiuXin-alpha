@@ -8,6 +8,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnMergePolicy,
     ColumnMetadata,
     ColumnNormalizationProfile,
+    ColumnOptions,
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
@@ -321,6 +322,40 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         validation_profile: ColumnValidationProfile,
     ) -> None:
         """Persist the validation profile for one column."""
+
+    @abc.abstractmethod
+    def get_formatting_options(
+        self,
+        table: str,
+        column: str,
+    ) -> ColumnOptions:
+        """Return immutable value-formatting hints for one column."""
+
+    @abc.abstractmethod
+    def set_formatting_options(
+        self,
+        table: str,
+        column: str,
+        formatting_options: Mapping[str, object],
+    ) -> None:
+        """Persist value-formatting hints for one column."""
+
+    @abc.abstractmethod
+    def get_display_options(
+        self,
+        table: str,
+        column: str,
+    ) -> ColumnOptions:
+        """Return immutable surface-display hints for one column."""
+
+    @abc.abstractmethod
+    def set_display_options(
+        self,
+        table: str,
+        column: str,
+        display_options: Mapping[str, object],
+    ) -> None:
+        """Persist surface-display hints for one column."""
 
     @abc.abstractmethod
     def set_case_sensitivity(
