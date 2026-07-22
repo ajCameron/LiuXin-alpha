@@ -50,14 +50,20 @@ state:
   with no effective work;
 - each entry exposes ordered `operations`, `operation_names`, and explicit
   `has_replacement`, `clears_scope`, and `is_incremental` predicates;
+- `iter_links()` streams immutable per-link views without changing the
+  update's established source-ID iteration contract, while `links()` returns
+  the same views as a tuple;
 - `to_dict()`, `pformat()`, and `str(...)` provide deterministic plain-data
   inspection of the route, type scope, ids, operations, and rich link values.
 
 `LinkUpdateLink` is the frozen/slotted per-link inspection dataclass. It
 records `src_id`, `dst_id`, operation, type, priority, and a read-only snapshot
-of extras. `LinkUpdateEntry.links()`, `LinkUpdate.links_for_primary_id()`, and
-`LinkUpdate.links()` return these views in primary-id and database-operation
-order.
+of extras. It implements `Mapping[str, Any]` over those extras, so indexing,
+`get`, membership, `keys`, `values`, `items`, length, and `dict(link)` work as
+expected without mixing endpoint fields into the extra namespace.
+`LinkUpdateEntry.iter_links()` and `LinkUpdate.iter_links()` stream views in
+primary-id and database-operation order. Their `links()` counterparts and
+`LinkUpdate.links_for_primary_id()` return materialized tuples.
 
 A destination-value resolver can be bound through `links(dst_value_for=...)`
 or supplied on the first `link.get_dst_value(resolver)` call. Construction,
@@ -73,6 +79,11 @@ The resolver is intentionally injected. Existing catalog matching/create
 helpers can be passed directly; portable callers can use
 `db.macros.ensure_table_value(...)` so database-owned comparison and
 normalization policies remain authoritative.
+
+The concrete shared-value catalog writer is operation-aware: replacements and
+additions ensure values, while deletions use `find_table_value(...)`. The latter
+shares normalization, comparison-column, case, and identity-scope policy but
+never inserts a row; deleting an unknown value is therefore a no-op.
 
 ### Catalog write entry point
 
@@ -98,6 +109,14 @@ own because it does not carry the complete link specification or update scope.
 - Incremental additions use portable upsert behavior: omitted priority and
   extra columns are preserved from an existing link.
 - Existing authoritative replacements do not require a database read.
+- Explicit link types are rejected before destination resolution when the
+  link is untyped, the value is not a non-blank string (apart from the valid
+  SQL-null `None` type), or it is absent from a declared allowed set.
+- `StorageLinkSpec.allowed_types` is the static restriction. An optional
+  `allowed_types_table` is read live through the driver wrapper for each named
+  typed write; both restrictions apply when both exist.
+- The portable macro layer repeats type validation before persistence so a
+  directly submitted `LinkUpdate` cannot bypass the catalog-writer guard.
 
 ## Verification
 
@@ -110,6 +129,9 @@ Focused command:
 
 Latest result on 2026-07-21 after adding the catalog entry point:
 `237 passed in 31.99s` under branch instrumentation.
+
+Latest focused result after adding per-link iteration and the read-only extra
+mapping interface on 2026-07-22: `241 passed in 32.68s`.
 
 Focused coverage was measured with Coverage.py 7.15.2 installed only under
 `/tmp` (the project environment and dependency files were not changed):
@@ -140,8 +162,16 @@ Broader catalog plus portable-macro regression command:
 .venv/bin/python -m pytest -q tests/catalog tests/databases/api/test_portable_macros.py tests/databases/api/test_portable_macros_real_db.py
 ```
 
-Latest result: `256 passed, 1 skipped in 25.73s`; the skip is the existing
-PostgreSQL-shaped SQLite harness case which has no `pg_temp` schema.
+Latest result on 2026-07-22: `314 passed, 1 skipped in 334.89s`; the skip is
+the existing PostgreSQL-shaped SQLite harness case which has no `pg_temp`
+schema.
+
+After adding static and live link-type guards, the focused catalog writer,
+link update, factory, and portable-macro lane completed with
+`315 passed, 1 skipped in 312.37s`. Coverage includes rich `LinkValue` types,
+nested typed maps, update scopes, untyped links, blank/non-string types,
+SQL-null types, one-shot iterables, fail-before-resolution behavior, direct
+macro writes, and live registry extension on a real schema-discovered writer.
 
 `py_compile` over the catalog implementation/API/common contract and focused
 test modules also passed, as did targeted `git diff --check`.
@@ -153,8 +183,48 @@ ids, then applies replacement and incremental deletion/addition data through
 
 ## Follow-up boundary
 
-The normalized seam is now available without forcing an immediate rewrite of
-all legacy writers. A later writer-migration slice can replace their local
-duplicate elimination, id-map conversion, and specialized link SQL one field
-family at a time, while retaining metadata-specific preflight and matching
-policy in the resolver passed to `from_legacy(...)`.
+The incomplete catalog-only base/cardinality writer hierarchy has been retired;
+the live cache writers remain untouched. The accepted replacement boundary and
+rebuild sequence are documented in
+`docs/development/catalog-link-writer-architecture.md` and the active handoff
+is `working-memory/catalog-writer-reset-2026-07-21.md`.
+
+An abstract `CatalogLinkWriter` now exists over this normalized seam with
+separate build and apply phases inherited from a storage-neutral
+`BaseCatalogWriter`. Concrete field writers override adaptation, validation,
+and destination resolution. The link specialization accepts every declared
+link cardinality and enforces the source-side multiplicity visible within a
+request. Later migration can replace live cache-writer duplicate elimination,
+id-map conversion, and specialized link SQL one field family at a time while
+keeping metadata-specific matching in dedicated resolver strategies.
+
+`create_catalog_writer(catalog, src_table, dst_column)` now resolves this link
+specialization from schema metadata, or selects `CatalogColumnWriter` when the
+destination column is stored directly on the source row. The factory-created
+link writer resolves raw destination-column values with `ensure_table_value`;
+already-resolved IDs are explicit `LinkValue` instances.
+
+The factory now selects `CatalogOwnedRowOneToOneWriter` for exact one-to-one
+routes. That path deliberately does not construct a `LinkUpdate`: its atomic
+unit includes both the destination-row mutation and the link mutation, so it
+uses `CatalogOwnedRowUpdate` and
+`replace_owned_one_to_one_values_bulk(...)`. Existing destination IDs are
+retained across value changes; `None` unlinks without deleting the row.
+
+`StorageCacheAPI` now exposes `create_writer`, `write`, and `write_one` over
+the same factory and catalog application seam. A cache-created writer keeps
+all normalized update inspection and typed-link behavior while a private
+catalog facade reconciles the cache after a successful application. Snapshot
+backends reload only the affected main/destination and directed link tables;
+the live database-backed cache requires no explicit refresh. Invalid or empty
+writes leave cache state alone, and a writer rejects use after its cache is
+detached or reattached. The public `cache.catalog` property aliases the
+attached `cache.db` handle required by the established lifecycle contract.
+
+Cache-writer coverage runs the same scalar, owned one-to-one, shared
+many-to-many, typed-link, live-registry, build/apply, bulk/single, refresh, and
+detach-safety contracts against the schema-backed, database-backed, and NumPy
+backends. The focused writer slice passes `15` cases; the broader cache
+import/plugin/schema/real-database/field regression lane passes `90` cases in
+`86.80s`. Its real-database case covers schema discovery, scalar and typed-link
+writes, fail-before-creation type validation, and refreshed cache reads.

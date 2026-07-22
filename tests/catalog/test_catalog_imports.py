@@ -1,6 +1,16 @@
 """Smoke tests for the catalog API skeleton."""
 
 from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.write import (
+    BaseCatalogWriter,
+    CatalogColumnWriter,
+    CatalogLinkWriter,
+    CatalogOwnedRowOneToOneWriter,
+    CatalogOwnedRowUpdate,
+    CatalogTableValueLinkWriter,
+    CatalogValueWriter,
+    create_catalog_writer,
+)
 from LiuXin_alpha.catalog.field_metadata import CalibreFieldMetadata, FieldMetadata
 from LiuXin_alpha.catalog.api import (
     AddAPI,
@@ -49,7 +59,9 @@ def test_catalog_matches_protocol_shape() -> None:
     catalog = Catalog(DummyDatabase())
     assert isinstance(catalog, CatalogAPI)
     assert isinstance(catalog.mutations, CatalogMutationsAPI)
+    assert callable(catalog.write_column_update)
     assert callable(catalog.write_link_update)
+    assert callable(catalog.write_owned_row_update)
 
 
 def test_metadata_tools_api_contracts_import() -> None:
@@ -60,6 +72,17 @@ def test_metadata_tools_api_contracts_import() -> None:
     assert EnsureAPI is not None
     assert FingerprintToolsAPI is not None
     assert IntralinkerAPI is not None
+
+
+def test_catalog_link_writer_contract_imports() -> None:
+    assert BaseCatalogWriter is not None
+    assert CatalogColumnWriter is not None
+    assert CatalogLinkWriter is not None
+    assert CatalogOwnedRowOneToOneWriter is not None
+    assert CatalogOwnedRowUpdate is not None
+    assert CatalogTableValueLinkWriter is not None
+    assert CatalogValueWriter is not None
+    assert create_catalog_writer is not None
 
 
 def test_field_metadata_api_contracts_import_and_match() -> None:

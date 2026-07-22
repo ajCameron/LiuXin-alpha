@@ -14,7 +14,11 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import (
     SQLiteDatabaseMacros,
 )
 from LiuXin_alpha.databases.macro_types import LinkValue, UnreferencedRowsSpec
-from LiuXin_alpha.databases.schema_specs import StorageColumnSpec, StorageLinkSpec
+from LiuXin_alpha.databases.schema_specs import (
+    LinkCardinality,
+    StorageColumnSpec,
+    StorageLinkSpec,
+)
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 
 
@@ -74,6 +78,20 @@ class _Wrapper:
 
     def get_record_count(self, table: str) -> int:
         return int(self.driver.conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0])
+
+    def get_allowed_link_types(
+        self,
+        link_spec: StorageLinkSpec,
+    ) -> tuple[str, ...] | None:
+        if link_spec.allowed_types_table is None:
+            return None
+        return tuple(
+            row[0]
+            for row in self.driver.conn.execute(
+                f'SELECT type FROM "{link_spec.allowed_types_table}" '
+                "ORDER BY type"
+            )
+        )
 
     def get_column_metadata(self, table: str, column: str):
         declaration = next(
@@ -135,6 +153,19 @@ def _role_link_spec() -> StorageLinkSpec:
     )
 
 
+def _owned_link_spec() -> StorageLinkSpec:
+    return StorageLinkSpec(
+        primary_table="owned_sources",
+        secondary_table="owned_values",
+        link_table="owned_links",
+        cardinality=LinkCardinality.ONE_TO_ONE,
+        primary_id_col="owned_source_id",
+        secondary_id_col="owned_value_id",
+        primary_link_col="owned_source_id",
+        secondary_link_col="owned_value_id",
+    )
+
+
 def _create_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(
         """
@@ -186,6 +217,20 @@ def _create_schema(conn: sqlite3.Connection) -> None:
         CREATE UNIQUE INDEX genres_scoped_identity
           ON genres(genre_parent_id, genre_phash)
           WHERE genre_parent_id IS NOT NULL AND genre_phash IS NOT NULL;
+        CREATE TABLE owned_sources (
+            owned_source_id INTEGER PRIMARY KEY
+        );
+        CREATE TABLE owned_values (
+            owned_value_id INTEGER PRIMARY KEY,
+            owned_value TEXT NOT NULL
+        );
+        CREATE TABLE owned_links (
+            owned_source_id INTEGER NOT NULL UNIQUE
+                REFERENCES owned_sources(owned_source_id),
+            owned_value_id INTEGER NOT NULL UNIQUE
+                REFERENCES owned_values(owned_value_id),
+            UNIQUE(owned_source_id, owned_value_id)
+        );
         CREATE TABLE demo_links (
             demo_link_id INTEGER PRIMARY KEY,
             demo_link_left_id INTEGER,
@@ -204,6 +249,7 @@ def _create_schema(conn: sqlite3.Connection) -> None:
         );
         INSERT INTO left_rows(left_id, name) VALUES (1, 'left one'), (2, 'left two'), (3, 'protected');
         INSERT INTO right_rows(right_id, name) VALUES (10, 'ten'), (11, 'eleven'), (12, 'twelve');
+        INSERT INTO owned_sources(owned_source_id) VALUES (1), (2);
         INSERT INTO database_version(database_version_id, database_version_version) VALUES (1, 'old');
         """
     )
@@ -286,6 +332,104 @@ def test_link_upsert_bulk_read_and_atomic_replace(macro_db):
             },
         )
     assert macros.get_link_rows_bulk(spec, (1, 2)) == before
+
+
+def test_link_writes_enforce_static_and_live_allowed_types(macro_db):
+    macros, db = macro_db
+    db.driver.conn.executescript(
+        """
+        CREATE TABLE strict_links__types (type TEXT PRIMARY KEY);
+        INSERT INTO strict_links__types VALUES ('author');
+        """
+    )
+    spec = replace(
+        _strict_link_spec(),
+        allowed_types=("author", "reviewer"),
+        allowed_types_table="strict_links__types",
+    )
+
+    with pytest.raises(InputIntegrityError, match="does not exist"):
+        macros.upsert_link(
+            spec,
+            1,
+            LinkValue(10, link_type="reviewer", priority=1),
+        )
+    with pytest.raises(InputIntegrityError, match="not allowed by the link spec"):
+        macros.upsert_link(
+            spec,
+            1,
+            LinkValue(10, link_type="editor", priority=1),
+        )
+    assert db.driver.conn.execute(
+        "SELECT COUNT(*) FROM strict_links"
+    ).fetchone()[0] == 0
+
+    db.driver.conn.execute(
+        "INSERT INTO strict_links__types VALUES ('reviewer')"
+    )
+    written = macros.upsert_link(
+        spec,
+        1,
+        LinkValue(10, link_type="reviewer", priority=1),
+    )
+    null_type = macros.upsert_link(
+        spec,
+        1,
+        LinkValue(11, link_type=None, priority=2),
+    )
+
+    assert written.link_type == "reviewer"
+    assert null_type.link_type is None
+
+
+def test_owned_one_to_one_values_update_create_unlink_and_rollback(macro_db):
+    macros, db = macro_db
+    spec = _owned_link_spec()
+
+    with pytest.raises(InputIntegrityError, match="destination id"):
+        macros.replace_owned_one_to_one_values_bulk(
+            spec,
+            "owned_value_id",
+            {1: "invalid"},
+        )
+
+    created = macros.replace_owned_one_to_one_values_bulk(
+        spec,
+        "owned_value",
+        {1: "first", 2: "second"},
+    )
+    first_id = created[1][0].secondary_id
+    second_id = created[2][0].secondary_id
+
+    changed = macros.replace_owned_one_to_one_values_bulk(
+        spec,
+        "owned_value",
+        {1: "changed", 2: None},
+    )
+
+    assert changed[1][0].secondary_id == first_id
+    assert changed[2] == ()
+    assert db.driver.conn.execute(
+        "SELECT owned_value FROM owned_values WHERE owned_value_id=?",
+        (first_id,),
+    ).fetchone()[0] == "changed"
+    assert db.driver.conn.execute(
+        "SELECT owned_value FROM owned_values WHERE owned_value_id=?",
+        (second_id,),
+    ).fetchone()[0] == "second"
+    assert db.driver_wrapper.get_record_count("owned_values") == 2
+
+    with pytest.raises(sqlite3.IntegrityError):
+        macros.replace_owned_one_to_one_values_bulk(
+            spec,
+            "owned_value",
+            {1: "rolled back", 999: "invalid source"},
+        )
+    assert db.driver.conn.execute(
+        "SELECT owned_value FROM owned_values WHERE owned_value_id=?",
+        (first_id,),
+    ).fetchone()[0] == "changed"
+    assert db.driver_wrapper.get_record_count("owned_values") == 2
 
 
 def test_typed_link_replacement_can_be_scoped(macro_db):
@@ -377,6 +521,20 @@ def test_policy_aware_ensure_uses_comparison_column_and_preserves_display_text(m
     ) == "Science Fiction"
 
 
+def test_policy_aware_find_uses_ensure_matching_without_creating_rows(macro_db):
+    macros, db = macro_db
+    tag_id = macros.ensure_table_value("tags", "tag", "Science Fiction")
+    before = db.driver_wrapper.get_record_count("tags")
+
+    assert macros.find_table_value(
+        "tags",
+        "tag",
+        " sciencefiction ",
+    ) == tag_id
+    assert macros.find_table_value("tags", "tag", "Missing") is None
+    assert db.driver_wrapper.get_record_count("tags") == before
+
+
 def test_scoped_identity_lookup_and_ensure(macro_db):
     macros, db = macro_db
     db.driver.conn.executemany(
@@ -403,6 +561,24 @@ def test_scoped_identity_lookup_and_ensure(macro_db):
         additional_values={"genre_parent_id": 2},
     )
     assert second != first
+    assert macros.find_table_value(
+        "genres",
+        "genre",
+        " SCIENCE FICTION ",
+        additional_values={"genre_parent_id": 1},
+    ) == first
+    assert macros.find_table_value(
+        "genres",
+        "genre",
+        "Missing",
+        additional_values={"genre_parent_id": 1},
+    ) is None
+    with pytest.raises(InputIntegrityError, match="scope"):
+        macros.find_table_value(
+            "genres",
+            "genre",
+            "Science Fiction",
+        )
 
     key = macros.derive_identity_value("genres", "genre", "SCIENCE FICTION")
     assert macros.get_canonical_value_by_identity(

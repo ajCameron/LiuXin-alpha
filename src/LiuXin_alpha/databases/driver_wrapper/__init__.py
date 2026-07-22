@@ -402,6 +402,76 @@ class DriverWrapper(
         self._cached_link_specs[(table1, table2)] = spec
         return spec
 
+    def get_allowed_link_types(
+        self,
+        link_spec: StorageLinkSpec,
+        *,
+        force_refresh: bool = False,
+    ) -> Optional[tuple[str, ...]]:
+        """
+        Return the live values in a link's optional type registry.
+
+        The canonical registry column is ``type``. Legacy registries use a
+        non-ID column ending in ``_type``; a sole remaining non-ID column is
+        accepted as a final compatibility fallback.
+
+        :param link_spec: Link whose optional registry should be read.
+        :param force_refresh: Refresh schema discovery before reading.
+        :return: Allowed values, an empty tuple for an empty registry, or
+            ``None`` when no registry table is declared.
+        :raises TypeError: If ``link_spec`` has the wrong type.
+        :raises DatabaseIntegrityError: If a declared registry is missing,
+            malformed, or contains an invalid type value.
+        """
+
+        if not isinstance(link_spec, StorageLinkSpec):
+            raise TypeError("link_spec must be a StorageLinkSpec")
+        table = link_spec.allowed_types_table
+        if table is None:
+            return None
+        if table not in set(self.get_tables(force_refresh=force_refresh)):
+            raise DatabaseIntegrityError(
+                f"Allowed-types table {table!r} does not exist."
+            )
+
+        headings = tuple(
+            str(column)
+            for column in self.get_column_headings(table)
+        )
+        if "type" in headings:
+            type_column = "type"
+        else:
+            typed = tuple(
+                column
+                for column in headings
+                if column.endswith("_type") and not column.endswith("_id")
+            )
+            non_id = tuple(
+                column
+                for column in headings
+                if column != "id" and not column.endswith("_id")
+            )
+            candidates = typed or non_id
+            if len(candidates) != 1:
+                raise DatabaseIntegrityError(
+                    f"Allowed-types table {table!r} has no unambiguous type "
+                    "column."
+                )
+            type_column = candidates[0]
+
+        values: list[str] = []
+        for row in self.get_all_rows(table, sort_column=type_column):
+            value = row[type_column]
+            if value is None:
+                continue
+            if not isinstance(value, str) or not value.strip():
+                raise DatabaseIntegrityError(
+                    f"Allowed-types table {table!r} contains an invalid type value."
+                )
+            if value not in values:
+                values.append(value)
+        return tuple(values)
+
     def _link_constraint_shape(
         self,
         link_table: str,

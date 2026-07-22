@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import UserDict, defaultdict, deque
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 from types import MappingProxyType
 
 import pytest
@@ -190,6 +190,53 @@ def test_link_update_scope_is_inherited_by_all_operations() -> None:
             link_type="editor",
             additions={10: [LinkValue(secondary_id=20, link_type="author")]},
         )
+
+
+def test_link_update_rejects_types_outside_the_declared_allowed_set() -> None:
+    spec = replace(_link_spec(), allowed_types=("author", "editor"))
+
+    with pytest.raises(ValueError, match="not allowed by the link spec"):
+        LinkUpdate(
+            link_spec=spec,
+            replacements={10: (LinkValue(20, link_type="reviewer"),)},
+        )
+    with pytest.raises(ValueError, match="not allowed by the link spec"):
+        LinkUpdate(
+            link_spec=spec,
+            replacements={10: ()},
+            link_type="reviewer",
+        )
+
+
+@pytest.mark.parametrize(
+    ("link_type", "error", "message"),
+    (
+        ("", ValueError, "cannot be blank"),
+        (object(), TypeError, "must be a string or None"),
+    ),
+)
+def test_link_update_rejects_invalid_named_type_values(
+    link_type: object,
+    error: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(error, match=message):
+        LinkUpdate(
+            link_spec=_link_spec(),
+            replacements={10: (LinkValue(20, link_type=link_type),)},  # type: ignore[arg-type]
+        )
+
+
+def test_link_update_allows_null_type_with_declared_allowed_types() -> None:
+    spec = replace(_link_spec(), allowed_types=("author", "editor"))
+
+    update = LinkUpdate(
+        link_spec=spec,
+        replacements={10: (LinkValue(20),)},
+        link_type=None,
+    )
+
+    assert update.replacements == {10: (LinkValue(20),)}
 
 
 def test_link_update_rejects_ambiguous_or_untyped_payloads() -> None:
@@ -696,8 +743,10 @@ def test_link_update_returns_one_dataclass_per_link_in_operation_order() -> None
     )
 
     links = update.links()
+    iterated_links = tuple(update.iter_links())
 
     assert all(isinstance(link, LinkUpdateLink) for link in links)
+    assert iterated_links == links
     assert [
         (link.src_id, link.dst_id, link.operation)
         for link in links
@@ -711,10 +760,70 @@ def test_link_update_returns_one_dataclass_per_link_in_operation_order() -> None
     assert links[0].priority == 2
     assert links[0].extra == {"credited_as": "A. Writer"}
     assert update[10].links() == links[:3]
+    assert tuple(update[10].iter_links()) == links[:3]
     assert update.links_for_primary_id(10) == links[:3]
     assert update.links_for_primary_id(99) == ()
     with pytest.raises(TypeError):
         links[0].extra["credited_as"] = "Changed"  # type: ignore[index]
+
+
+def test_link_dataclass_is_a_read_only_mapping_over_its_extras() -> None:
+    link = LinkUpdateLink(
+        src_id=10,
+        dst_id=20,
+        operation="additions",
+        link_type="author",
+        priority=2,
+        extra={
+            "credited_as": "A. Writer",
+            "confidence": 0.9,
+            "verified": True,
+        },
+    )
+
+    assert isinstance(link, Mapping)
+    assert link["credited_as"] == "A. Writer"
+    assert link.get("confidence") == 0.9
+    assert link.get("missing", "fallback") == "fallback"
+    assert tuple(link) == ("credited_as", "confidence", "verified")
+    assert tuple(link.keys()) == ("credited_as", "confidence", "verified")
+    assert tuple(link.values()) == ("A. Writer", 0.9, True)
+    assert tuple(link.items()) == (
+        ("credited_as", "A. Writer"),
+        ("confidence", 0.9),
+        ("verified", True),
+    )
+    assert dict(link) == {
+        "credited_as": "A. Writer",
+        "confidence": 0.9,
+        "verified": True,
+    }
+    assert len(link) == 3
+    assert "credited_as" in link
+    assert "src_id" not in link
+    with pytest.raises(KeyError):
+        _ = link["missing"]
+    with pytest.raises(TypeError):
+        link["credited_as"] = "Changed"  # type: ignore[index]
+
+
+def test_iter_links_is_lazy_and_does_not_load_destination_values() -> None:
+    calls: list[int] = []
+    update = LinkUpdate.from_ids(
+        _link_spec(),
+        additions={10: {"author": (20, 21)}},
+    )
+
+    links = update.iter_links(
+        dst_value_for=lambda dst_id: calls.append(dst_id),
+    )
+
+    assert isinstance(links, Iterable)
+    first = next(links)
+    assert first.dst_id == 20
+    assert calls == []
+    assert tuple(link.dst_id for link in links) == (21,)
+    assert calls == []
 
 
 def test_link_dataclass_resolves_and_caches_its_destination_value_lazily() -> None:

@@ -58,7 +58,7 @@ def _link_value_to_dict(link: LinkValue) -> dict[str, Any]:
 
 
 @dataclass(frozen=True, slots=True)
-class LinkUpdateLink:
+class LinkUpdateLink(Mapping[str, Any]):
     """Read-only, display-friendly view of one link instruction.
 
     ``src_id`` and ``dst_id`` are the relation endpoints and ``operation`` is
@@ -67,6 +67,11 @@ class LinkUpdateLink:
     It may instead be passed on the first :meth:`get_dst_value` call. The
     method caches its result for this view; :attr:`dst_value` is the equivalent
     lazy property when a callback was bound during construction.
+
+    The link is also a read-only mapping over its extra link-table columns.
+    Thus ``link["credited_as"]``, ``link.get(...)``, ``link.keys()``, and
+    ``dict(link)`` operate on :attr:`extra`; endpoint and operation fields
+    remain explicit attributes.
 
     The dataclass is frozen, but its private destination-value cache is an
     implementation detail and does not participate in equality or repr.
@@ -102,6 +107,35 @@ class LinkUpdateLink:
         if self.dst_value_for is not None and not callable(self.dst_value_for):
             raise TypeError("dst_value_for must be callable")
         object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Return one extra link-column value.
+
+        :param key: Extra link-column name.
+        :return: Stored value for the named extra column.
+        :raises KeyError: If the link carries no extra with that name.
+        """
+
+        return self.extra[key]
+
+    def __iter__(self) -> Iterator[str]:
+        """
+        Iterate over extra link-column names in their supplied order.
+
+        :return: Iterator over extra column names.
+        """
+
+        return iter(self.extra)
+
+    def __len__(self) -> int:
+        """
+        Return the number of extra link columns.
+
+        :return: Number of stored extra column values.
+        """
+
+        return len(self.extra)
 
     @property
     def dst_value_loaded(self) -> bool:
@@ -232,14 +266,23 @@ class LinkUpdateEntry:
 
         return bool(self.operations)
 
-    def links(
+    def iter_links(
         self,
         *,
         dst_value_for: Callable[[DstTableID], Any] | None = None,
-    ) -> tuple[LinkUpdateLink, ...]:
-        """Return one dataclass per link instruction for this primary id."""
+    ) -> Iterator[LinkUpdateLink]:
+        """
+        Iterate over link instructions for this primary ID.
 
-        return tuple(
+        Links are yielded in database application order: replacements,
+        deletions, then additions. Destination-value loading remains lazy.
+
+        :param dst_value_for: Optional lazy destination-value loader attached
+            to each yielded link.
+        :return: Iterator over immutable per-link views.
+        """
+
+        return (
             LinkUpdateLink(
                 src_id=self.primary_id,
                 dst_id=cast(DstTableID, link.secondary_id),
@@ -252,6 +295,21 @@ class LinkUpdateEntry:
             for operation, links in self.operations.items()
             for link in links
         )
+
+    def links(
+        self,
+        *,
+        dst_value_for: Callable[[DstTableID], Any] | None = None,
+    ) -> tuple[LinkUpdateLink, ...]:
+        """
+        Return all link instructions for this primary ID.
+
+        :param dst_value_for: Optional lazy destination-value loader attached
+            to each returned link.
+        :return: Immutable tuple of per-link views.
+        """
+
+        return tuple(self.iter_links(dst_value_for=dst_value_for))
 
     def to_dict(self) -> dict[str, Any]:
         """Return a plain, inspection-friendly representation of this view."""
@@ -316,7 +374,8 @@ class LinkUpdate:
     The object also behaves like a small ordered collection of effective
     primary-id updates. Iterate over :attr:`primary_ids`, use ``update[id]``
     or :meth:`for_primary_id` for a :class:`LinkUpdateEntry`, and use
-    :meth:`links` for one :class:`LinkUpdateLink` dataclass per instruction.
+    :meth:`iter_links` to stream one :class:`LinkUpdateLink` dataclass per
+    instruction. :meth:`links` materializes the same views as a tuple.
     :meth:`pformat`/``str(update)`` provide deterministic diagnostic display.
     """
 
@@ -346,6 +405,11 @@ class LinkUpdate:
                 "a link-type scope requires a typed link spec whose type is "
                 "part of its identity"
             )
+        if self.link_type is not LINK_TYPE_UNSET:
+            self._validate_declared_link_type(
+                self.link_type,
+                origin="link_type scope",
+            )
 
         object.__setattr__(
             self,
@@ -362,6 +426,47 @@ class LinkUpdate:
             "deletions",
             self._materialise_operation("deletions", self.deletions),
         )
+
+    def _validate_declared_link_type(
+        self,
+        link_type: Any,
+        *,
+        origin: str,
+    ) -> None:
+        """
+        Validate a type against capabilities recorded in the link spec.
+
+        :param link_type: Explicit type value to validate.
+        :param origin: Input location used in validation messages.
+        :return: None.
+        :raises TypeError: If a named type is not a string.
+        :raises ValueError: If the link is untyped, the type is blank, or the
+            value is not in the declared allowed set.
+        """
+
+        if not self.link_spec.typed:
+            if link_type is not None:
+                raise ValueError(
+                    f"{origin} cannot carry a type on an untyped link spec"
+                )
+            return
+        if link_type is None:
+            return
+        if not isinstance(link_type, str):
+            raise TypeError(f"{origin} must be a string or None")
+        if not link_type.strip():
+            raise ValueError(f"{origin} cannot be blank")
+        if (
+            self.link_spec.allowed_types
+            and link_type not in self.link_spec.allowed_types
+        ):
+            allowed = ", ".join(
+                repr(value) for value in self.link_spec.allowed_types
+            )
+            raise ValueError(
+                f"{origin} {link_type!r} is not allowed by the link spec; "
+                f"allowed types: {allowed}"
+            )
 
     def _materialise_operation(
         self,
@@ -409,6 +514,10 @@ class LinkUpdate:
             raise ValueError(
                 f"{operation} link cannot carry a type on an untyped link spec"
             )
+        self._validate_declared_link_type(
+            supplied_type,
+            origin=f"{operation} link type",
+        )
         if not self.link_spec.ordered and link.priority is not None:
             raise ValueError(
                 f"{operation} link cannot carry a priority on an unordered link spec"
@@ -545,6 +654,29 @@ class LinkUpdate:
             dst_value_for=dst_value_for,
         )
 
+    def iter_links(
+        self,
+        *,
+        dst_value_for: Callable[[DstTableID], Any] | None = None,
+    ) -> Iterator[LinkUpdateLink]:
+        """
+        Iterate over every effective link instruction in this update.
+
+        Links follow primary-ID order and, within each ID, database operation
+        order. Iteration creates views on demand. The optional destination
+        resolver is attached to each view but is not invoked during iteration.
+
+        :param dst_value_for: Optional lazy destination-value loader attached
+            to each yielded link.
+        :return: Iterator over immutable per-link views.
+        """
+
+        return (
+            link
+            for entry in self.values()
+            for link in entry.iter_links(dst_value_for=dst_value_for)
+        )
+
     def links(
         self,
         *,
@@ -557,11 +689,7 @@ class LinkUpdate:
         remains lazy until that view's destination value is requested.
         """
 
-        return tuple(
-            link
-            for entry in self.values()
-            for link in entry.links(dst_value_for=dst_value_for)
-        )
+        return tuple(self.iter_links(dst_value_for=dst_value_for))
 
     def to_dict(self) -> dict[str, Any]:
         """Return a plain, deterministic representation for inspection."""

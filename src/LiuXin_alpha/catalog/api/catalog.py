@@ -13,7 +13,11 @@ if TYPE_CHECKING:
     from LiuXin_alpha.catalog.api.mutations_api import CatalogMutationsAPI
     from LiuXin_alpha.catalog.api.repositories import CatalogRepositoriesAPI
     from LiuXin_alpha.catalog.api.retrieval import CatalogRetrievalAPI
-    from LiuXin_alpha.catalog.write import LinkUpdate
+    from LiuXin_alpha.catalog.write import (
+        CatalogColumnUpdate,
+        CatalogOwnedRowUpdate,
+        LinkUpdate,
+    )
 
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.db_types import SrcTableID
@@ -47,5 +51,21 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         update: "LinkUpdate",
     ) -> "Mapping[SrcTableID, tuple[LinkRow, ...]]":
         """Apply a normalized link update through this catalog's database."""
+
+        ...
+
+    def write_column_update(
+        self,
+        update: "CatalogColumnUpdate[object]",
+    ) -> "Mapping[SrcTableID, object]":
+        """Apply a normalized same-table column update."""
+
+        ...
+
+    def write_owned_row_update(
+        self,
+        update: "CatalogOwnedRowUpdate[object]",
+    ) -> "Mapping[SrcTableID, tuple[LinkRow, ...]]":
+        """Apply a normalized owned one-to-one destination-row update."""
 
         ...

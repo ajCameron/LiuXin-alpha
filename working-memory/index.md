@@ -1,17 +1,24 @@
 # Working Memory Index
 
-Updated: 2026-07-21
+Updated: 2026-07-22
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [catalog-writer-reset-2026-07-21.md](catalog-writer-reset-2026-07-21.md)
+  Active catalog-writer rebuild: replaces the incomplete legacy hierarchy with
+  storage-neutral lifecycle/value bases, same-table, shared-value, and owned
+  one-to-one leaves, plus a minimal-string factory and bulk/single-pair write
+  lifecycles. Shared deletions are find-only; owned row
+  update/create/link/unlink is atomic.
+
 - [catalog-link-update-pipeline-2026-07-21.md](catalog-link-update-pipeline-2026-07-21.md)
   Active catalog/database write seam: legacy compact forms, metadata-aware id
   matching, immutable relation-to-relation normalization, incremental
-  composition, atomic portable bulk replacement, per-link lazy destination
-  views, a typed `Catalog.write_link_update(...)` facade, and complete focused
-  statement/branch coverage across `Catalog` and `LinkUpdate`.
+  composition, atomic portable bulk replacement, streaming per-link views,
+  read-only mapping access to link extras, lazy destination values, a typed
+  `Catalog.write_link_update(...)` facade, and complete focused coverage.
 
 - [postgresql-deployment-checkpoint-2026-07-18.md](postgresql-deployment-checkpoint-2026-07-18.md)
   Pre-direction-change checkpoint covering database/storage stabilization,

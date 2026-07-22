@@ -4,12 +4,22 @@ import unicodedata
 
 import pytest
 
+from LiuXin_alpha.catalog.write import (
+    CatalogColumnWriter,
+    CatalogOwnedRowOneToOneWriter,
+    CatalogTableValueLinkWriter,
+    LinkUpdate,
+)
 from LiuXin_alpha.caches.api.storage_cache_api.storage_view_api import CacheViewSpec
 from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_view import SchemaBackedCacheView
+from LiuXin_alpha.databases.macro_types import LinkValue
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
+    RelationKind,
+    StorageColumnSpec,
     StorageLinkSpec,
     StorageSchemaSpec,
+    StorageTableSpec,
 )
 from tests.support.storage_cache_test_harness import (
     CACHE_PLUGIN_KWARGS,
@@ -153,6 +163,217 @@ def test_cache_plugin_unicode_contract_reads_scalar_and_relation_values(contract
         _TAG_2,
     )
     assert tuple(tags_field.get_values_from_src_id(2, require_ordering=True)) == (_TAG_3,)
+
+
+def test_cache_api_creates_writers_and_reconciles_scalar_writes(
+    contract_cache,
+) -> None:
+    cache = contract_cache
+    writer = cache.create_writer("books", "title")
+
+    assert isinstance(writer, CatalogColumnWriter)
+    planned = writer.build_one_update(1, "planned")
+    assert planned.values == {1: "planned"}
+    assert writer.apply_update(planned) == {1: "planned"}
+    assert cache.get_cached_value(1, "title") == "planned"
+    assert cache.write_one("books", "title", 1, _UPDATED_TITLE) == {
+        1: _UPDATED_TITLE
+    }
+    assert cache.get_cached_value(1, "title") == _UPDATED_TITLE
+
+    writer.write_one(2, "writer-bound update")
+    assert cache.get_cached_value(2, "title") == "writer-bound update"
+
+    cache.write("books", "title", {1: "bulk update"})
+    assert cache.get_cached_value(1, "title") == "bulk update"
+
+
+def test_cache_bound_writer_rejects_use_after_cache_detach(
+    contract_cache,
+    unicode_contract_db: FakeDB,
+) -> None:
+    writer = contract_cache.create_writer("books", "title")
+    before = unicode_contract_db._rows_by_table["books"][0]["title"]
+
+    assert contract_cache.detach_db() is unicode_contract_db
+    with pytest.raises(RuntimeError, match="cache is detached"):
+        writer.write_one(1, "must not be written")
+
+    assert unicode_contract_db._rows_by_table["books"][0]["title"] == before
+
+
+def test_cache_api_reconciles_owned_one_to_one_writes(contract_cache) -> None:
+    cache = contract_cache
+    writer = cache.create_writer("books", "path")
+
+    assert isinstance(writer, CatalogOwnedRowOneToOneWriter)
+    result = cache.write_one(
+        "books",
+        "path",
+        1,
+        "/covers/cache-api-updated.jpg",
+    )
+
+    assert result[1][0].secondary_id == 10
+    assert cache.get_field("books.covers.path").get_value_from_src_id(1) == (
+        "/covers/cache-api-updated.jpg"
+    )
+
+    assert writer.write_one(1, None) == {1: ()}
+    assert cache.get_field("books.covers.path").get_value_from_src_id(1) is None
+
+
+def test_cache_api_reconciles_shared_link_bulk_and_single_writes(
+    contract_cache,
+    unicode_contract_db: FakeDB,
+) -> None:
+    cache = contract_cache
+    writer = cache.create_writer("books", "tag_name")
+
+    assert isinstance(writer, CatalogTableValueLinkWriter)
+    planned = writer.build_one_update(1, LinkValue(40))
+    assert isinstance(planned, LinkUpdate)
+    assert planned.replacements == {1: (LinkValue(40),)}
+
+    before = len(unicode_contract_db._rows_by_table["tags"])
+    with pytest.raises(ValueError, match="requires a typed link spec"):
+        cache.write_one(
+            "books",
+            "tag_name",
+            1,
+            "invalid typed value",
+            link_type="author",
+        )
+    assert len(unicode_contract_db._rows_by_table["tags"]) == before
+
+    cache.write_one("books", "tag_name", 1, "new cache API tag")
+    field = cache.get_field("books.tags.tag_name")
+    assert tuple(field.get_values_from_src_id(1)) == ("new cache API tag",)
+
+    cache.write(
+        "books",
+        "tag_name",
+        additions={1: _TAG_1},
+    )
+    assert set(cache.get_field("books.tags.tag_name").get_values_from_src_id(1)) == {
+        "new cache API tag",
+        _TAG_1,
+    }
+
+    before = len(unicode_contract_db._rows_by_table["tags"])
+    cache.write(
+        "books",
+        "tag_name",
+        deletions={1: "missing cache API tag"},
+    )
+    assert len(unicode_contract_db._rows_by_table["tags"]) == before
+
+
+@pytest.fixture()
+def typed_writer_cache(cache_plugin_name: str):
+    books = make_table(
+        "typed_books",
+        ("id", "title"),
+        is_main_table=True,
+        linked_tables=("typed_tags",),
+    )
+    tags = make_table(
+        "typed_tags",
+        ("id", "tag_name"),
+        is_main_table=True,
+        linked_tables=("typed_books",),
+    )
+    links = make_table(
+        "typed_book_tag_links",
+        ("id", "book_id", "tag_id", "link_type"),
+        is_link_table=True,
+        linked_tables=("typed_books", "typed_tags"),
+    )
+    allowed_types = StorageTableSpec(
+        name="typed_book_tag_links__types",
+        relation_kind=RelationKind.TABLE,
+        columns=(
+            StorageColumnSpec(
+                name="type",
+                ordinal=0,
+                declared_type="TEXT",
+                affinity="TEXT",
+                is_primary_key=True,
+            ),
+        ),
+        id_column="type",
+    )
+    link_spec = StorageLinkSpec(
+        primary_table="typed_books",
+        secondary_table="typed_tags",
+        link_table="typed_book_tag_links",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+        primary_link_col="book_id",
+        secondary_link_col="tag_id",
+        type_link_col="link_type",
+        typed=True,
+        type_part_of_identity=True,
+        allowed_types_table="typed_book_tag_links__types",
+    )
+    database = make_fake_db(
+        schema=StorageSchemaSpec(
+            tables={
+                "typed_books": books,
+                "typed_tags": tags,
+                "typed_book_tag_links": links,
+                "typed_book_tag_links__types": allowed_types,
+            },
+            interlinks=(link_spec,),
+            intralinks=(),
+        ),
+        rows_by_table={
+            "typed_books": [{"id": 1, "title": "Typed Book"}],
+            "typed_tags": [],
+            "typed_book_tag_links": [],
+            "typed_book_tag_links__types": [{"type": "author"}],
+        },
+    )
+    return create_loaded_test_cache(database, cache_plugin_name), database
+
+
+def test_cache_api_preserves_live_link_type_guards(typed_writer_cache) -> None:
+    cache, database = typed_writer_cache
+    writer = cache.create_writer("typed_books", "tag_name")
+
+    with pytest.raises(ValueError, match="does not exist in allowed-types"):
+        cache.write_one(
+            "typed_books",
+            "tag_name",
+            1,
+            "Ada",
+            link_type="reviewer",
+        )
+    assert database._rows_by_table["typed_tags"] == []
+    assert database._rows_by_table["typed_book_tag_links"] == []
+
+    database._rows_by_table["typed_book_tag_links__types"].append(
+        {"type": "reviewer"}
+    )
+    result = writer.write_one(1, "Ada", link_type="reviewer")
+
+    assert result[1][0].link_type == "reviewer"
+    assert tuple(
+        cache.get_field(
+            "typed_books.typed_tags.tag_name"
+        ).get_values_from_src_id(1)
+    ) == ("Ada",)
+
+    typed_result = cache.write(
+        "typed_books",
+        "tag_name",
+        {1: {"reviewer": "Grace"}},
+    )
+    assert typed_result[1][0].link_type == "reviewer"
+    assert tuple(
+        cache.get_field(
+            "typed_books.typed_tags.tag_name"
+        ).get_values_from_src_id(1)
+    ) == ("Grace",)
 
 
 def test_cache_plugin_preserves_distinct_unicode_normalization_forms(contract_cache) -> None:

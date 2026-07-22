@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.api.macros_api import MacrosAPI
     from LiuXin_alpha.databases.api.row_api import RowAPI
+    from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 
 
 class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
@@ -406,6 +407,22 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
         :param table:
         :return:
+        """
+
+    @abc.abstractmethod
+    def get_allowed_link_types(
+        self,
+        link_spec: "StorageLinkSpec",
+        *,
+        force_refresh: bool = False,
+    ) -> Optional[tuple[str, ...]]:
+        """
+        Return the live allowed-type registry for one link specification.
+
+        :param link_spec: Link whose optional registry should be read.
+        :param force_refresh: Refresh schema discovery before reading.
+        :return: Allowed values, an empty tuple for an empty registry, or
+            ``None`` when no registry table is declared.
         """
 
     # Todo: This needs to go. No direct connections if we can help it.

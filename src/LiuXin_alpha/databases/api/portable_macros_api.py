@@ -88,6 +88,36 @@ class PortableMacrosAPI(abc.ABC):
         """Synchronise several desired link sets in one all-or-nothing change."""
 
     @abc.abstractmethod
+    def replace_owned_one_to_one_values_bulk(
+        self,
+        link_spec: StorageLinkSpec,
+        value_column: str,
+        replacements: Mapping[Any, Any | None],
+    ) -> dict[Any, tuple[LinkRow, ...]]:
+        """Replace values stored in rows owned by one-to-one links.
+
+        Existing linked rows are updated in place. A missing link causes a
+        destination row to be created and linked atomically. ``None`` removes
+        the link without deleting the destination row.
+        """
+
+    @abc.abstractmethod
+    def find_table_value(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        id_column: str | None = None,
+        additional_values: Mapping[str, Any] | None = None,
+    ) -> Any | None:
+        """Return an existing logical value's id without creating a row.
+
+        Matching follows the same column metadata, normalization, comparison,
+        and identity-scope policy as :meth:`ensure_table_value`.
+        """
+
+    @abc.abstractmethod
     def ensure_table_value(
         self,
         table: str,

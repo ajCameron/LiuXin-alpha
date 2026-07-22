@@ -36,6 +36,9 @@ class TestCacheImportAPIs:
 
         assert StorageCache is SchemaBackedStorageCache
         assert StorageCacheAPI is not None
+        assert callable(StorageCacheAPI.create_writer)
+        assert callable(StorageCacheAPI.write)
+        assert callable(StorageCacheAPI.write_one)
         assert StorageCacheBaseTableAPI is not None
         assert StorageCacheSingleTableAPI is not None
         assert FieldBasicInterfaceAPI is not None

@@ -22,7 +22,11 @@ from LiuXin_alpha.catalog.repositories import (
 )
 from LiuXin_alpha.catalog.mutations import CatalogMutations
 from LiuXin_alpha.catalog.retrieval import CatalogRetrieval
-from LiuXin_alpha.catalog.write import LinkUpdate
+from LiuXin_alpha.catalog.write import (
+    CatalogColumnUpdate,
+    CatalogOwnedRowUpdate,
+    LinkUpdate,
+)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.db_types import SrcTableID
@@ -88,6 +92,36 @@ class Catalog:
 
         if not isinstance(update, LinkUpdate):
             raise TypeError("update must be a LinkUpdate")
+        return update.write(self.db.macros)
+
+    def write_column_update(
+        self,
+        update: CatalogColumnUpdate[object],
+    ) -> Mapping[SrcTableID, object]:
+        """
+        Apply a normalized same-table column update.
+
+        :param update: Immutable normalized column update.
+        :return: Stable written values keyed by source-table ID.
+        """
+
+        if not isinstance(update, CatalogColumnUpdate):
+            raise TypeError("update must be a CatalogColumnUpdate")
+        return update.write(self.db)
+
+    def write_owned_row_update(
+        self,
+        update: CatalogOwnedRowUpdate[object],
+    ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
+        """
+        Apply a normalized owned one-to-one destination-row update.
+
+        :param update: Immutable normalized owned-row update.
+        :return: Complete link rows keyed by affected source-table ID.
+        """
+
+        if not isinstance(update, CatalogOwnedRowUpdate):
+            raise TypeError("update must be a CatalogOwnedRowUpdate")
         return update.write(self.db.macros)
 
     @property

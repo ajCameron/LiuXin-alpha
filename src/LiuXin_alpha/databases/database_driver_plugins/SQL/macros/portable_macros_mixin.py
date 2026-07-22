@@ -38,12 +38,13 @@ from LiuXin_alpha.databases.normalized_identities import (
     normalize_identity_value,
     normalized_identity_db_values,
 )
-from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
+from LiuXin_alpha.databases.schema_specs import LinkCardinality, StorageLinkSpec
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _TEMP_TYPES = frozenset({"BLOB", "INTEGER", "NUMERIC", "REAL", "TEXT"})
+_LIVE_ALLOWED_TYPES_UNSET = object()
 
 
 def _identifier(value: str, *, kind: str = "identifier") -> str:
@@ -342,12 +343,97 @@ class SQLPortableMacrosMixin:
             grouped.setdefault(row.primary_id, []).append(row)
         return {primary_id: tuple(items) for primary_id, items in grouped.items()}
 
+    def _live_allowed_link_types(
+        self,
+        link_spec: StorageLinkSpec,
+    ) -> tuple[str, ...] | None:
+        """
+        Read the optional allowed-type registry through the database wrapper.
+
+        :param link_spec: Link whose optional registry should be read.
+        :return: Live allowed types, or ``None`` when no registry is declared.
+        :raises InputIntegrityError: If the wrapper cannot read a declared
+            registry.
+        :raises DatabaseIntegrityError: If the registry is malformed.
+        """
+
+        if link_spec.allowed_types_table is None:
+            return None
+        get_allowed_types = getattr(
+            self.db.driver_wrapper,
+            "get_allowed_link_types",
+            None,
+        )
+        if not callable(get_allowed_types):
+            raise InputIntegrityError(
+                "Database driver wrapper cannot read the allowed-types table "
+                f"{link_spec.allowed_types_table!r}."
+            )
+        allowed_types = get_allowed_types(link_spec)
+        if allowed_types is None:
+            raise DatabaseIntegrityError(
+                "Driver wrapper returned no values for declared allowed-types "
+                f"table {link_spec.allowed_types_table!r}."
+            )
+        values = tuple(allowed_types)
+        if any(
+            not isinstance(value, str) or not value.strip()
+            for value in values
+        ):
+            raise DatabaseIntegrityError(
+                f"Allowed-types table {link_spec.allowed_types_table!r} "
+                "contains an invalid type value."
+            )
+        return values
+
+    def _validate_link_type_value(
+        self,
+        link_spec: StorageLinkSpec,
+        link_type: Any,
+        *,
+        live_allowed_types: tuple[str, ...] | None,
+    ) -> None:
+        """
+        Validate one type against storage capability and allowed values.
+
+        :param link_spec: Declared link storage capabilities and policy.
+        :param link_type: Explicit type value to validate.
+        :param live_allowed_types: Values read from the optional registry.
+        :return: None.
+        :raises InputIntegrityError: If the type is structurally invalid or
+            outside an allowed set.
+        """
+
+        if not link_spec.typed:
+            raise InputIntegrityError("An untyped link cannot carry a link type.")
+        if link_type is None:
+            return
+        if not isinstance(link_type, str):
+            raise InputIntegrityError("Link types must be strings or None.")
+        if not link_type.strip():
+            raise InputIntegrityError("Link types cannot be blank.")
+        if link_spec.allowed_types and link_type not in link_spec.allowed_types:
+            raise InputIntegrityError(
+                f"Link type is not allowed by the link spec: {link_type!r}"
+            )
+        if (
+            live_allowed_types is not None
+            and link_type not in live_allowed_types
+        ):
+            raise InputIntegrityError(
+                f"Link type {link_type!r} does not exist in allowed-types "
+                f"table {link_spec.allowed_types_table!r}."
+            )
+
     def _prepare_link_value(
         self,
         link_spec: StorageLinkSpec,
         link: LinkValue,
         *,
         scoped_type: Any = LINK_TYPE_UNSET,
+        live_allowed_types: tuple[str, ...] | None | object = (
+            _LIVE_ALLOWED_TYPES_UNSET
+        ),
     ) -> LinkValue:
         if not isinstance(link, LinkValue):
             raise InputIntegrityError("Links must be supplied as LinkValue instances.")
@@ -360,8 +446,20 @@ class SQLPortableMacrosMixin:
                     raise InputIntegrityError(
                         f"Link type {link_type!r} does not match replacement scope {scoped_type!r}."
                     )
-            if link_spec.allowed_types and link_type not in link_spec.allowed_types:
-                raise InputIntegrityError(f"Link type is not allowed by the link spec: {link_type!r}")
+            if (
+                live_allowed_types is _LIVE_ALLOWED_TYPES_UNSET
+                and link_type is not None
+            ):
+                live_allowed_types = self._live_allowed_link_types(link_spec)
+            self._validate_link_type_value(
+                link_spec,
+                link_type,
+                live_allowed_types=(
+                    None
+                    if live_allowed_types is _LIVE_ALLOWED_TYPES_UNSET
+                    else live_allowed_types
+                ),
+            )
         else:
             if link.link_type is not None or scoped_type is not LINK_TYPE_UNSET:
                 raise InputIntegrityError("An untyped link cannot carry a link type.")
@@ -491,7 +589,16 @@ class SQLPortableMacrosMixin:
         link: LinkValue,
     ) -> LinkRow:
         link_spec = self._validate_link_spec(link_spec)
-        link = self._prepare_link_value(link_spec, link)
+        live_allowed_types = (
+            self._live_allowed_link_types(link_spec)
+            if isinstance(link, LinkValue) and link.link_type is not None
+            else None
+        )
+        link = self._prepare_link_value(
+            link_spec,
+            link,
+            live_allowed_types=live_allowed_types,
+        )
         with self._macro_transaction() as conn:
             return self._upsert_link(conn, link_spec, primary_id, link)
 
@@ -502,7 +609,23 @@ class SQLPortableMacrosMixin:
         links: Iterable[LinkValue],
     ) -> tuple[LinkRow, ...]:
         link_spec = self._validate_link_spec(link_spec)
-        prepared = tuple(self._prepare_link_value(link_spec, link) for link in links)
+        materialized = tuple(links)
+        live_allowed_types = (
+            self._live_allowed_link_types(link_spec)
+            if any(
+                isinstance(link, LinkValue) and link.link_type is not None
+                for link in materialized
+            )
+            else None
+        )
+        prepared = tuple(
+            self._prepare_link_value(
+                link_spec,
+                link,
+                live_allowed_types=live_allowed_types,
+            )
+            for link in materialized
+        )
         identities = [self._link_identity(link_spec, link) for link in prepared]
         if len(set(identities)) != len(identities):
             raise InputIntegrityError("upsert_links received duplicate logical link identities.")
@@ -605,14 +728,44 @@ class SQLPortableMacrosMixin:
         links: tuple[LinkValue, ...],
         *,
         link_type: Any,
+        live_allowed_types: tuple[str, ...] | None | object = (
+            _LIVE_ALLOWED_TYPES_UNSET
+        ),
     ) -> tuple[LinkRow, ...]:
         if link_type is not LINK_TYPE_UNSET and not link_spec.type_part_of_identity:
             raise InputIntegrityError(
                 "Type-scoped replacement requires the type column to be part "
                 "of the link identity."
             )
+        has_named_type = (
+            link_type is not LINK_TYPE_UNSET and link_type is not None
+        ) or any(
+            isinstance(link, LinkValue) and link.link_type is not None
+            for link in links
+        )
+        if (
+            live_allowed_types is _LIVE_ALLOWED_TYPES_UNSET
+            and has_named_type
+        ):
+            live_allowed_types = self._live_allowed_link_types(link_spec)
+        stable_allowed_types = (
+            None
+            if live_allowed_types is _LIVE_ALLOWED_TYPES_UNSET
+            else live_allowed_types
+        )
+        if link_type is not LINK_TYPE_UNSET:
+            self._validate_link_type_value(
+                link_spec,
+                link_type,
+                live_allowed_types=stable_allowed_types,
+            )
         prepared = tuple(
-            self._prepare_link_value(link_spec, link, scoped_type=link_type)
+            self._prepare_link_value(
+                link_spec,
+                link,
+                scoped_type=link_type,
+                live_allowed_types=stable_allowed_types,
+            )
             for link in links
         )
         identities = [self._link_identity(link_spec, link) for link in prepared]
@@ -686,6 +839,17 @@ class SQLPortableMacrosMixin:
     ) -> tuple[LinkRow, ...]:
         link_spec = self._validate_link_spec(link_spec)
         materialized = tuple(links)
+        live_allowed_types = (
+            self._live_allowed_link_types(link_spec)
+            if (
+                (link_type is not LINK_TYPE_UNSET and link_type is not None)
+                or any(
+                    isinstance(link, LinkValue) and link.link_type is not None
+                    for link in materialized
+                )
+            )
+            else None
+        )
         with self._macro_transaction() as conn:
             return self._replace_links(
                 conn,
@@ -693,6 +857,7 @@ class SQLPortableMacrosMixin:
                 primary_id,
                 materialized,
                 link_type=link_type,
+                live_allowed_types=live_allowed_types,
             )
 
     def replace_links_bulk(
@@ -707,6 +872,18 @@ class SQLPortableMacrosMixin:
             primary_id: tuple(links)
             for primary_id, links in replacements.items()
         }
+        live_allowed_types = (
+            self._live_allowed_link_types(link_spec)
+            if (
+                (link_type is not LINK_TYPE_UNSET and link_type is not None)
+                or any(
+                    isinstance(link, LinkValue) and link.link_type is not None
+                    for links in materialized.values()
+                    for link in links
+                )
+            )
+            else None
+        )
         with self._macro_transaction() as conn:
             return {
                 primary_id: self._replace_links(
@@ -715,9 +892,109 @@ class SQLPortableMacrosMixin:
                     primary_id,
                     links,
                     link_type=link_type,
+                    live_allowed_types=live_allowed_types,
                 )
                 for primary_id, links in materialized.items()
             }
+
+    def replace_owned_one_to_one_values_bulk(
+        self,
+        link_spec: StorageLinkSpec,
+        value_column: str,
+        replacements: Mapping[Any, Any | None],
+    ) -> dict[Any, tuple[LinkRow, ...]]:
+        """Replace values stored in destination rows owned by source rows."""
+
+        link_spec = self._validate_link_spec(link_spec)
+        if link_spec.cardinality is not LinkCardinality.ONE_TO_ONE:
+            raise InputIntegrityError(
+                "Owned-row replacement requires a one-to-one link spec."
+            )
+        value_column = _identifier(value_column, kind="value column")
+        if value_column == link_spec.secondary_id_col:
+            raise InputIntegrityError(
+                "Owned-row replacement cannot target the destination id column."
+            )
+        self._validate_columns(
+            link_spec.secondary_table,
+            (link_spec.secondary_id_col, value_column),
+        )
+        if not isinstance(replacements, Mapping):
+            raise InputIntegrityError("replacements must be a mapping.")
+        materialized = dict(replacements)
+        if not materialized:
+            return {}
+
+        with self._macro_transaction() as conn:
+            existing_rows = self._read_link_rows(
+                conn,
+                link_spec,
+                tuple(materialized),
+            )
+            grouped: dict[Any, list[LinkRow]] = {
+                primary_id: []
+                for primary_id in materialized
+            }
+            for row in existing_rows:
+                grouped.setdefault(row.primary_id, []).append(row)
+
+            result: dict[Any, tuple[LinkRow, ...]] = {}
+            for primary_id, value in materialized.items():
+                current = grouped[primary_id]
+                if len(current) > 1:
+                    raise DatabaseIntegrityError(
+                        "One-to-one source id "
+                        f"{primary_id!r} has multiple rows in "
+                        f"{link_spec.link_table!r}."
+                    )
+                if value is None:
+                    result[primary_id] = self._replace_links(
+                        conn,
+                        link_spec,
+                        primary_id,
+                        (),
+                        link_type=LINK_TYPE_UNSET,
+                        live_allowed_types=None,
+                    )
+                    continue
+
+                if current:
+                    destination_id = current[0].secondary_id
+                    conn.execute(
+                        f"UPDATE {self._macro_table_sql(link_spec.secondary_table)} "
+                        f"SET {_quoted(value_column)} = ? "
+                        f"WHERE {_quoted(link_spec.secondary_id_col)} = ?",
+                        (value, destination_id),
+                    )
+                    result[primary_id] = tuple(current)
+                    continue
+
+                cursor = conn.execute(
+                    f"INSERT INTO {self._macro_table_sql(link_spec.secondary_table)} "
+                    f"({_quoted(value_column)}) VALUES (?) "
+                    f"RETURNING {_quoted(link_spec.secondary_id_col)}",
+                    (value,),
+                )
+                inserted = cursor.fetchone()
+                if inserted is None:
+                    raise DatabaseIntegrityError(
+                        "Could not create an owned destination row in "
+                        f"{link_spec.secondary_table!r}."
+                    )
+                destination_id = _row_value(
+                    inserted,
+                    0,
+                    link_spec.secondary_id_col,
+                )
+                result[primary_id] = self._replace_links(
+                    conn,
+                    link_spec,
+                    primary_id,
+                    (LinkValue(destination_id),),
+                    link_type=LINK_TYPE_UNSET,
+                    live_allowed_types=None,
+                )
+            return result
 
     # ------------------------------------------------------------------------------------------------------------------
     # Policy-aware lookup values
@@ -914,6 +1191,70 @@ class SQLPortableMacrosMixin:
                 "another uniqueness or required-column rule rejected it."
             )
         return ensured_id
+
+    def find_table_value(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        id_column: str | None = None,
+        additional_values: Mapping[str, Any] | None = None,
+    ) -> Any | None:
+        """Return a matching logical value id without inserting a row."""
+
+        table = _identifier(table, kind="table name")
+        value_column = _identifier(value_column, kind="column name")
+        id_column = (
+            _identifier(id_column, kind="id column")
+            if id_column is not None
+            else self.db.driver_wrapper.get_id_column(table)
+        )
+        additional_values = dict(additional_values or {})
+        self._validate_columns(
+            table,
+            (id_column, value_column, *additional_values),
+        )
+        metadata = self._column_metadata(table, value_column)
+        self._validate_ensure_value(value, metadata)
+        if metadata.comparison_column is not None:
+            self._validate_columns(table, (metadata.comparison_column,))
+
+        identity_spec = self._optional_normalized_identity_spec(
+            table,
+            value_column,
+        )
+        scope_values: dict[str, Any] = {}
+        if identity_spec is not None and identity_spec.scope_columns:
+            missing_scope = [
+                column
+                for column in identity_spec.scope_columns
+                if column not in additional_values
+            ]
+            if missing_scope:
+                raise InputIntegrityError(
+                    f"Finding {table}.{value_column} requires identity scope "
+                    f"column(s): {', '.join(missing_scope)}"
+                )
+            scope_values = {
+                column: additional_values[column]
+                for column in identity_spec.scope_columns
+            }
+
+        comparison_value = self._normalise_value(
+            value,
+            metadata.normalization_profile,
+        )
+        return self._find_ensured_id(
+            self._macro_connection(),
+            table=table,
+            id_column=id_column,
+            value_column=value_column,
+            value=value,
+            metadata=metadata,
+            comparison_value=comparison_value,
+            scope_values=scope_values,
+        )
 
     def ensure_table_value(
         self,
