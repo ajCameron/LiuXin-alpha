@@ -305,10 +305,34 @@ An unknown table or column, an ambiguous destination column, a non-writable
 source, or a missing link fails during factory construction. `force_refresh`
 is available for callers which have changed the schema out of band.
 
+## Catalog API
+
+`Catalog` and `CatalogAPI` expose the schema-driven workflow directly:
+
+```python
+writer = catalog.create_writer("titles", "title_title")
+update = writer.build_one_update(title_id, "Example value")
+result = writer.apply_update(update)
+
+catalog.write("titles", "title_title", {title_id: "Bulk value"})
+catalog.write_one("titles", "title_title", title_id, "Single value")
+```
+
+`create_writer(...)` delegates to `create_catalog_writer(...)`. The `write(...)`
+and `write_one(...)` conveniences construct that writer and forward the concrete
+writer's arguments unchanged, so replacement, incremental, typed-map,
+rich-link, extra-column, type-scope, and clear forms retain their normal
+semantics and return mappings.
+
+The normalized `write_column_update(...)`, `write_link_update(...)`, and
+`write_owned_row_update(...)` methods remain the persistence seam used by
+writers. The conveniences select and drive writers; they do not duplicate
+validation, resolution, transaction, or database-write logic.
+
 ## Storage-cache API
 
-`StorageCacheAPI` exposes the same schema-driven workflow without introducing
-a second persistence implementation:
+`StorageCacheAPI` mirrors the catalog workflow without introducing a second
+persistence implementation:
 
 ```python
 writer = cache.create_writer("titles", "title_title")

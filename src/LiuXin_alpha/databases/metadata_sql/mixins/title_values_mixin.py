@@ -1,61 +1,109 @@
+from LiuXin_alpha.errors import DatabaseIntegrityError
 
 
 class TileMacrosMixin:
 
-
     def set_title_identifier(self, title_id, id_type, id_val):
-        """
-        Set an identifier linked to a title - the identifier will be set as the primary of that type linked to the
-        title.
-        :param db: The database to write the changes into
-        :param title_id: The id of the title to link the identifier to
-        :param id_type: The identifier type (e.g. isbn, e.t.c)
-        :param id_val: The identifier will be set to this.
-                       No normalization is done - this is supposed to be the name of a valid identifier type which is
-                       known to the database.
-        :return:
-        """
-        if id_val:
-            # The database has to be updated
-            # Todo: Should be using the ensure.identifier method instead of add
-            try:
-                ident_row = self.db.add.identifier(identifier=id_val, identifier_type=id_type)
-            except DatabaseIntegrityError:
-                # Identifier already exists - retrieve the row and promote it to the highest priority
-                ident_row = self.db.ensure.identifier(identifier=id_val, identifier_type=id_type, error=False)
-                ident_id = ident_row["identifier_id"]
+        """Set the primary identifier of one scheme for a title.
 
-                # Check to see if there is already a link between the identifier and the title
-                stmt = (
-                    "SELECT identifier_title_link_id "
-                    "FROM identifier_title_links "
-                    "WHERE identifier_title_link_title_id = ? AND identifier_title_link_identifier_id = ?;"
+        This compatibility operation writes the normalized FRBR ownership
+        table through the portable database macro contract. It deliberately
+        performs no value normalization; catalog-facing callers should use
+        :class:`IdentifierRepository` for policy-aware writes. The legacy
+        umbrella scheme ``isbn`` is translated to the concrete ISBN-10 or
+        ISBN-13 storage scheme.
+
+        :param title_id: Work ID exposed by the compatibility ``titles`` view.
+        :param id_type: Non-empty identifier scheme, such as ``isbn``.
+        :param id_val: Identifier value, or a false value to clear the scheme.
+        :raises DatabaseIntegrityError: If ``title_id`` does not identify a
+            Work.
+        """
+
+        if not isinstance(id_type, str) or not id_type.strip():
+            raise TypeError("id_type must be a non-empty string")
+        if id_val and not isinstance(id_val, str):
+            raise TypeError("id_val must be a string or a false value")
+
+        compact_scheme = id_type.casefold().replace("-", "").replace("_", "")
+        if compact_scheme == "isbn":
+            if id_val:
+                compact_value = "".join(
+                    character
+                    for character in id_val
+                    if character.isdigit() or character in "Xx"
                 )
-                it_status = self.db.driver.conn.get(stmt, (title_id, ident_id), all=False)
-
-                # The link exists - it just needs to be promoted to the top of the stack
-                if it_status:
-                    # Retrieve the row
-                    it_link = self.db.get_row_from_id("identifier_title_links", it_status)
-                    # Maximize the priority
-                    it_link["identifier_title_link_priority"] = self.db.get_max("identifier_title_link_priority") + 1
-                    it_link.sync()
-                else:
-                    raise DatabaseIntegrityError("Cannot link to this identifier - it's linked to another title")
-
+                if len(compact_value) not in (10, 13):
+                    raise ValueError("isbn value must contain 10 or 13 digits")
+                schemes = ("isbn{}".format(len(compact_value)),)
             else:
-                title_row = self.db.get_row_from_id(table="titles", row_id=title_id)
-                self.db.apply.identifier(resource_row=title_row, identifier=ident_row, identifier_type="isbn")
-
+                schemes = ("isbn10", "isbn13", "isbn_10", "isbn_13")
         else:
-            # isbn has been passed in as none - wipe all the identifiers of that type linked to the title
-            # Foreign keys should also take out the entries on the identifiers table itself
-            stmt = (
-                "DELETE FROM identifier_title_links "
-                "WHERE identifier_title_link_title_id = ? AND identifier_title_link_type = ?;"
+            schemes = (id_type,)
+
+        macros = self.db.macros
+        with macros.transaction():
+            if macros.get_row("works", title_id, id_column="work_id") is None:
+                raise DatabaseIntegrityError(
+                    "Cannot set an identifier for missing Work {!r}".format(title_id)
+                )
+
+            rows = tuple(
+                row
+                for scheme in schemes
+                for row in macros.get_rows(
+                    "entity_identifiers",
+                    where={
+                        "entity_identifier_entity_type": "work",
+                        "entity_identifier_entity_id": title_id,
+                        "entity_identifier_scheme": scheme,
+                    },
+                    order_by=("entity_identifier_id",),
+                )
             )
-            self.db.driver.conn.execute(stmt, (title_id, id_type))
-            self.db.driver.conn.commit()
+            if not id_val:
+                for row in rows:
+                    macros.delete_row(
+                        "entity_identifiers",
+                        row["entity_identifier_id"],
+                        id_column="entity_identifier_id",
+                    )
+                return
+
+            selected_id = None
+            for row in rows:
+                identifier_id = row["entity_identifier_id"]
+                if (
+                    selected_id is None
+                    and row["entity_identifier_value"] == id_val
+                ):
+                    selected_id = identifier_id
+                macros.update_row(
+                    "entity_identifiers",
+                    identifier_id,
+                    {"entity_identifier_is_primary": 0},
+                    id_column="entity_identifier_id",
+                )
+
+            if selected_id is None:
+                macros.insert_row(
+                    "entity_identifiers",
+                    {
+                        "entity_identifier_entity_type": "work",
+                        "entity_identifier_entity_id": title_id,
+                        "entity_identifier_scheme": schemes[0],
+                        "entity_identifier_value": id_val,
+                        "entity_identifier_is_primary": 1,
+                    },
+                    id_column="entity_identifier_id",
+                )
+            else:
+                macros.update_row(
+                    "entity_identifiers",
+                    selected_id,
+                    {"entity_identifier_is_primary": 1},
+                    id_column="entity_identifier_id",
+                )
 
     def set_title_isbn(self, title_id, isbn):
         """

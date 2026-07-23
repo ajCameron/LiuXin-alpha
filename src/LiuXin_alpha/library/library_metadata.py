@@ -3,21 +3,92 @@
 
 from __future__ import with_statement, unicode_literals
 
-import queue as Queue
+import datetime
+import os
 from collections import OrderedDict
 from collections import defaultdict
 
-from LiuXin_alpha.catalog.metadata_tools import Add
-from LiuXin_alpha.catalog.metadata_tools.apply import Apply
-from LiuXin_alpha.catalog.metadata_tools import Ensure
+from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.api.common import IdentifierCandidate, MetadataCandidate
 from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.databases.macro_types import LinkValue
 from LiuXin_alpha.errors import DatabaseIntegrityError
 
-from LiuXin_alpha.metadata.constants import EXTERNAL_EBOOK_ID_SCHEMA, INTERNAL_EBOOK_ID_SCHEMA, METADATA_NULL_VALUES
-from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import CalibreMetadataLike as LiuXinMetaData
+from LiuXin_alpha.metadata.constants import (
+    EXTERNAL_EBOOK_ID_SCHEMA,
+    INTERNAL_EBOOK_ID_SCHEMA,
+    METADATA_NULL_VALUES,
+    creator_to_marc,
+)
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as LiuXinMetaData,
+)
+from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort, to_epoch_ms
 from LiuXin_alpha.utils.logging import default_log
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+
+
+def _epoch_ms(value):
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    try:
+        return int(to_epoch_ms(value))
+    except Exception:
+        return None
+
+
+def _iso_date(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        return value.date().isoformat()
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    return str(value)
+
+
+def _year(value):
+    if isinstance(value, (datetime.date, datetime.datetime)):
+        return value.year
+    if value is not None:
+        text = str(value).strip()
+        if len(text) >= 4 and text[:4].isdigit():
+            return int(text[:4])
+    return None
+
+
+def _split_break_joined(value):
+    if value is None:
+        return ()
+    if isinstance(value, (list, tuple)):
+        return tuple(str(item) for item in value if item)
+    return tuple(part for part in str(value).split("(#BREAK#)") if part)
+
+
+def _guess_format_detail(*values):
+    extensions = {
+        extension.lstrip(".").lower()
+        for value in values
+        for _, extension in (os.path.splitext(str(value).strip()),)
+        if extension
+    }
+    return next(iter(extensions)).upper() if len(extensions) == 1 else None
+
+
+def _guess_carrier_type(format_detail):
+    if format_detail is None:
+        return None
+    value = format_detail.lower()
+    if value in {"epub", "pdf", "mobi", "azw3", "cbz", "cbr", "djvu", "fb2", "txt", "rtf", "docx"}:
+        return "ebook"
+    if value in {"mp3", "m4b", "flac", "ogg", "aac", "wav"}:
+        return "audiobook"
+    if value in {"mp4", "mkv", "avi"}:
+        return "video"
+    return None
 
 
 # The metadata class - which adds metadata handling capability to the library class
@@ -45,12 +116,8 @@ class Metadata:
             pass
         if override_fsm is not None:
             self.fsm = override_fsm
-        self.add = Add(self.db)
-        self.ensure = Ensure(self.db)
-        self.apply = Apply(self.db)
-
-        # Has to be done here to prevent an import loop
-        self.add.ensure = self.ensure
+        self.semantic_catalog = Catalog(self.db)
+        self._semantic_work_link_writers = None
 
     # ----------------------------------------------------------------------------------------------------------------------
     #
@@ -500,10 +567,27 @@ class MeatdataToBookRow(object):
         """
         self.md = md
         self.library = library
-        self.db = self.library.catalog
+        self.db = self.library.db
 
-        self.add = library.add
-        self.ensure = library.ensure
+        self.catalog = self.library.semantic_catalog
+        writers = self.library._semantic_work_link_writers
+        if writers is None:
+            writers = {
+                column: self.catalog.create_writer("works", column)
+                for column in (
+                    "agent_canonical_name",
+                    "genre",
+                    "language",
+                    "note",
+                    "rating",
+                    "series",
+                    "subject",
+                    "synopsis",
+                    "tag",
+                )
+            }
+            self.library._semantic_work_link_writers = writers
+        self._work_link_writers = writers
         self.fsm = library.fsm
 
         self.app_id_match = False
@@ -517,19 +601,34 @@ class MeatdataToBookRow(object):
         """
         # Add the title - this needs to be done first as the majority of things will link to it
         title_row = self.make_title_row(self.md, force_book_id=force_book_id)
-        if force_book_id:
+        if force_book_id is not None:
             self.__break_connections(title_row)
 
         # Check to see if the book row already exists - if it doesn't then create it
-        # Todo: Move over into ensure
         cand_book_row = self.db.get_row_from_id("books", title_row["title_id"])
         if cand_book_row is None:
-            book_row = self.add.book(title_row=title_row)
+            projected = self.db.search(
+                table="books",
+                column="book_work_id",
+                search_term=title_row["title_id"],
+            )
+            if not projected:
+                raise DatabaseIntegrityError(
+                    "Unable to project a book row from the created WEMI stack"
+                )
+            book_row = projected[0]
         else:
-            book_row = self.db.get_row_from_id("books", title_row["title_id"])
+            book_row = cand_book_row
         if preserve_uuid:
-            book_row["book_uuid"] = preserve_uuid
-            book_row.sync()
+            identifier_id = self.catalog.identifiers.match_or_create(
+                IdentifierCandidate("calibre_uuid", str(preserve_uuid))
+            )
+            self.catalog.identifiers.link_to_wemi(
+                identifier_id=identifier_id,
+                level="work",
+                entity_id=int(title_row["title_id"]),
+                priority=0,
+            )
 
         self.add_creators(title_row)
         self.add_identifiers(title_row)
@@ -551,27 +650,31 @@ class MeatdataToBookRow(object):
         return title_row, book_row
 
     def __break_connections(self, title_row):
+        """Clear replaceable Work metadata through normalized contracts.
+
+        The newly created WEMI path remains attached. Reusable linked values
+        are retained as historical rows, while their relationships and owned
+        identifiers are removed from the Work before replacement metadata is
+        applied.
+
+        :param title_row: Compatibility title projection for the Work.
+        :return: None.
         """
-        Used when replacing all the metadata for a title row with that read from another metadata object.
-        All metadata links to the old title are broken - setting them up to be replaced.
-        :param title_row:
-        :return:
-        """
-        for table in self.db.main_tables:
 
-            # Want to leave intralinks intact
-            if table == "titles":
-                continue
-
-            cand_link_table = self.db.driver_wrapper.get_link_table_name(table1=table, table2="titles")
-            if not cand_link_table:
-                continue
-
-            link_table_title_col = self.db.driver_wrapper.get_interlink_column(
-                table1=table, table2="titles", column_type="title_id"
+        work_id = self._work_id(title_row)
+        with self.db.macros.transaction():
+            for writer in self._work_link_writers.values():
+                writer.write({work_id: ()})
+            self.catalog.identifiers.replace_for_wemi(
+                level="work",
+                entity_id=work_id,
+                identifiers={},
             )
-            del_stmt = "DELETE FROM {0} WHERE {1} = ?".format(cand_link_table, link_table_title_col)
-            self.db.driver_wrapper.execute(del_stmt, title_row["title_id"])
+            self.catalog.comments.replace_for_wemi(
+                level="work",
+                entity_id=work_id,
+                data=None,
+            )
 
     def make_title_row(self, md, force_book_id=None):
         """
@@ -619,13 +722,6 @@ class MeatdataToBookRow(object):
         if title_fiction_length_category is None and not md.is_null("length"):
             title_fiction_length_category = md.length
 
-        if not md.is_null("title_age_range"):
-            title_age_range = md.title_age_range
-        else:
-            title_age_range = None
-        if title_age_range is None and not md.is_null("age_range"):
-            title_age_range = md.age_range
-
         if not md.is_null("title_type"):
             title_type = md.title_type
         else:
@@ -634,20 +730,6 @@ class MeatdataToBookRow(object):
             title_type = md.type
         if title_type is None and not md.is_null("doc_type"):
             title_type = md.doc_type
-
-        if not md.is_null("title_journal"):
-            title_journal = md.title_journal
-        else:
-            title_journal = None
-        if title_journal is None and not md.is_null("journal"):
-            title_journal = md.journal
-
-        if not md.is_null("title_issue"):
-            title_issue = md.title_issue
-        else:
-            title_issue = None
-        if title_issue is None and not md.is_null("issue"):
-            title_issue = md.issue
 
         if not md.is_null("title_source"):
             title_source = md.title_source
@@ -674,13 +756,6 @@ class MeatdataToBookRow(object):
             file_name_str = "(#BREAK#)".join(n for n in file_names)
             title_source_name = file_name_str
 
-        if not md.is_null("title_parent"):
-            title_parent = md.title_parent
-        else:
-            title_parent = None
-        if title_parent is None and not md.is_null("parent"):
-            title_parent = md.parent
-
         if not md.is_null("title_wordcount"):
             title_wordcount = md.title_wordcount
         else:
@@ -688,51 +763,64 @@ class MeatdataToBookRow(object):
         if title_wordcount is None and not md.is_null("wordcount"):
             title_wordcount = md.wordcount
 
-        if not md.is_null("title_timestamp"):
-            title_timestamp = md.timestamp
-        else:
-            title_timestamp = None
+        source_paths = _split_break_joined(title_source_path)
+        source_names = _split_break_joined(title_source_name)
+        format_detail = _guess_format_detail(*source_names, *source_paths)
+        item_count = max(len(source_paths), len(source_names))
+        if item_count == 0:
+            item_count = 1
+        items = []
+        for index in range(item_count):
+            source_path = source_paths[index] if index < len(source_paths) else None
+            source_name = source_names[index] if index < len(source_names) else None
+            if source_name is None and source_path is not None:
+                source_name = os.path.basename(source_path)
+            items.append(
+                {
+                    "item_type": "digital" if source_name or source_path else None,
+                    "item_source": title_source,
+                    "item_source_path": source_path,
+                    "item_source_name": source_name,
+                }
+            )
 
-        if force_book_id is not None:
-            forced_row = self.__force_title_row_from_book_id(force_book_id)
-        else:
-            forced_row = None
-
-        # Todo: Standardize everywhere to timestamp - because that's what it is rather than a datestamp
-        title_row = self.add.title(
-            title=title,
-            title_sort=title_sort_string,
-            title_creator_sort=title_creator_sort,
-            title_pub_date=title_pubdate,
-            title_copyright_date=title_copyright_date,
-            title_wikipedia=title_wikipedia,
-            title_fiction_length_category=title_fiction_length_category,
-            title_type=title_type,
-            title_source=title_source,
-            title_source_path=title_source_path,
-            title_source_name=title_source_name,
-            title_wordcount=title_wordcount,
-            title_datestamp=title_timestamp,
-            override_title_row=forced_row,
+        publication_year = _year(title_pubdate)
+        copyright_date = _iso_date(title_copyright_date or title_pubdate)
+        created = self.catalog.mutations.writer.create_wemi_stack(
+            work={
+                "work_title": title,
+                "work_canonical_title": title,
+                "work_sort_title": title_sort_string or title_sort(title),
+                "work_creator_sort": title_creator_sort,
+                "work_type": title_type,
+                "work_original_date": _epoch_ms(title_pubdate),
+                "work_original_year": publication_year or _year(title_copyright_date),
+                "work_original_copyright_date": copyright_date,
+                "work_wikipedia_link": title_wikipedia,
+                "work_discovery_note": title_source,
+            },
+            expression={
+                "expression_year": publication_year,
+                "expression_is_preferred": 1,
+                "expression_original_date": _epoch_ms(title_pubdate),
+                "expression_original_copyright_date": copyright_date,
+                "expression_wordcount": title_wordcount,
+                "expression_fiction_length_category": title_fiction_length_category,
+            },
+            manifestation={
+                "manifestation_carrier_type": _guess_carrier_type(format_detail),
+                "manifestation_format_detail": format_detail,
+                "manifestation_pub_year": publication_year,
+                "manifestation_pub_date": _iso_date(title_pubdate),
+            },
+            items=items,
+            origin=title_source,
+            work_id=force_book_id,
         )
-
+        title_row = self.db.get_row_from_id("titles", created.work_id)
+        if title_row is None:
+            raise DatabaseIntegrityError("Created Work has no title projection")
         return title_row
-
-    def __force_title_row_from_book_id(self, forced_id):
-        """
-        Takes a book id - either retrieves it or creates it and returns.
-        :param forced_id:
-        :return:
-        """
-        # Try and retrieve the row with the given id - if it fails then create the row and return it
-        cand_title_row = self.db.get_row_from_id("titles", forced_id)
-        if cand_title_row is not None:
-            return cand_title_row
-
-        # The row needs to be created
-        title_row_dict = {"title_id", forced_id}
-        self.db.driver_wrapper.add_row(title_row_dict)
-        return self.db.get_row_from_id("titles", forced_id)
 
     def add_creators(self, title_row):
         """
@@ -775,12 +863,14 @@ class MeatdataToBookRow(object):
         for int_id_type in internal_ids_dict:
             int_id_set = internal_ids_dict[int_id_type]
             for int_id_val in int_id_set:
-                int_id_row = self.add.identifier(identifier=int_id_val, identifier_type=int_id_type)
-                self.db.interlink_rows(
-                    primary_row=title_row,
-                    secondary_row=int_id_row,
+                identifier_id = self.catalog.identifiers.match_or_create(
+                    IdentifierCandidate(int_id_type, int_id_val)
+                )
+                self.catalog.identifiers.link_to_wemi(
+                    identifier_id=identifier_id,
+                    level="work",
+                    entity_id=self._work_id(title_row),
                     priority=0,
-                    type=int_id_type,
                 )
 
     def add_comments(self, title_row):
@@ -792,8 +882,11 @@ class MeatdataToBookRow(object):
         comments = self.md.comments
         comments = [c for c in comments if c is not None and c.strip()]
         for comment in comments:
-            note_row = self.add.comment(comment=comment)
-            self.db.interlink_rows(primary_row=title_row, secondary_row=note_row)
+            self.catalog.comments.add_for_wemi(
+                level="work",
+                entity_id=self._work_id(title_row),
+                data={"text": comment},
+            )
 
     def add_notes(self, title_row):
         """
@@ -805,8 +898,11 @@ class MeatdataToBookRow(object):
         notes = [n for n in notes if n is not None and n.strip()]
         notes.reverse()
         for note in notes:
-            note_row = self.add.note(note=note)
-            self.db.interlink_rows(primary_row=title_row, secondary_row=note_row, type=None)
+            self.catalog.notes.add_for_wemi(
+                level="work",
+                entity_id=self._work_id(title_row),
+                data={"note": note},
+            )
 
     def add_covers(self, book_row):
         """
@@ -880,14 +976,16 @@ class MeatdataToBookRow(object):
         :return:
         """
         ratings = self.md.ratings
+        links = []
         for rating_type in ratings:
-            rating_row = self.ensure.rating(rating=ratings[rating_type])
-            try:
-                self.db.interlink_rows(primary_row=title_row, secondary_row=rating_row, type=rating_type)
-            except AttributeError:
-                # Probably the ratings table is malformed
-                # Todo: Fix this
-                pass
+            rating_id = self.catalog.ratings.match_or_create(
+                MetadataCandidate({"value": ratings[rating_type]})
+            )
+            links.append(LinkValue(rating_id, link_type=rating_type))
+        if links:
+            self._work_link_writers["rating"].write(
+                {self._work_id(title_row): tuple(links)}
+            )
 
     def add_series(self, title_row):
         """
@@ -897,7 +995,12 @@ class MeatdataToBookRow(object):
         """
         series = self.md.series
         series_index = self.md.series_index
-        self.__link_series_to_title(title_row, series.keys(), series, series_index)
+        self.__link_series_to_title(
+            title_row,
+            list(series.keys()),
+            series,
+            series_index,
+        )
 
     def add_synopsis(self, title_row):
         """
@@ -916,23 +1019,35 @@ class MeatdataToBookRow(object):
         :return:
         """
         if self.app_id_match:
-            tags_vals = [(t, v) for t, v in self.md.tags.iteritems()]
+            tags_vals = [(t, v) for t, v in self.md.tags.items()]
+            tag_ids = []
             for tag_str, tag_val in tags_vals:
                 # Check to see if the tag already has an id on the database and add it if it doesn't
                 tag_row = self.get_row_from_value(tag_val, table="tags")
                 if tag_row is None:
-                    tag_row = self.ensure.tag(tag_text=tag_str)
-                self.db.interlink_rows(
-                    primary_row=title_row,
-                    secondary_row=tag_row,
-                )
+                    tag_id = self.catalog.tags.match_or_create(
+                        MetadataCandidate({"text": tag_str})
+                    )
+                else:
+                    tag_id = int(tag_row["tag_id"])
+                tag_ids.append(tag_id)
 
         else:
             tags = self.md.tags
+            tag_ids = []
             for tag_string in tags.keys():
-                tag_row = self.ensure.tag(tag_text=tag_string)
-                # Todo: Might be nice to record the SOURCE of the tags - current does not
-                self.db.interlink_rows(primary_row=title_row, secondary_row=tag_row)
+                tag_id = self.catalog.tags.match_or_create(
+                    MetadataCandidate({"text": tag_string})
+                )
+                tag_ids.append(tag_id)
+        if tag_ids:
+            self._work_link_writers["tag"].write(
+                {
+                    self._work_id(title_row): tuple(
+                        LinkValue(tag_id) for tag_id in tag_ids
+                    )
+                }
+            )
 
     def add_publishers(self, title_row):
         """
@@ -941,12 +1056,11 @@ class MeatdataToBookRow(object):
         :return:
         """
         # Handle the publishers themselves
-        publishers = self.md.publisher
+        publishers = OrderedDict()
+        publishers.update(self.md.publisher)
+        # Imprints should always be a lower priority than publishers.
+        publishers.update(self.md.imprint)
         self.__ensure_title_publishers(publishers=publishers, title_row=title_row)
-
-        # Imprints should always be a lower priority than publishers
-        imprints = self.md.imprint
-        self.__ensure_title_publishers(imprints, title_row)
 
     def add_subjects(self, title_row):
         """
@@ -1002,6 +1116,17 @@ class MeatdataToBookRow(object):
                 default_log.log_exception(err_str, e, "ERROR", ("row_id", row_id))
                 raise
             return self.db.get_row_from_id(table=table, row_id=int_id)
+
+    @staticmethod
+    def _work_id(title_row):
+        for key in ("work_id", "title_id"):
+            try:
+                value = title_row[key]
+            except Exception:
+                continue
+            if value is not None:
+                return int(value)
+        raise DatabaseIntegrityError("Could not resolve Work ID from title row")
 
     def __add_one_creator_role(self, creators_dict, creator_role, creator_rows_dict, title_row):
         """
@@ -1068,13 +1193,18 @@ class MeatdataToBookRow(object):
             # Check to see if the row is already specified by the metadata object - if it is then use that one instead
             creator_row = self.get_row_from_value(row_id=role_ordered_dict[creator_name], table="creators")
             if creator_row is None:
-                creator_row = self.ensure.creator_blind(
-                    creator_name=creator_name,
-                    seminal_work=title_row["title"],
-                    standardize=standardize,
+                agent_id = self.catalog.agents.match_or_create_person(
+                    MetadataCandidate(
+                        {
+                            "name": creator_name,
+                            "type": "person",
+                            "note": "creator_seminal_work={}".format(title_row["title"]),
+                        }
+                    )
                 )
+                creator_row = self.db.get_row_from_id("agents", agent_id)
 
-            unique_creator_ids.add(creator_row["creator_id"])
+            unique_creator_ids.add(self._agent_id(creator_row))
             creator_rows_dict[creator_role].append(creator_row)
             creator_priority_rows.append(creator_row)
 
@@ -1090,15 +1220,16 @@ class MeatdataToBookRow(object):
         :param creator_role: The link will be created with this role
         :return:
         """
-        for creator_row in creator_priority_rows:
+        for priority, creator_row in enumerate(creator_priority_rows):
 
             # Todo: Make it so that the interlink_rows method can also take priority = "max"
             try:
-                self.db.interlink_rows(
-                    primary_row=title_row,
-                    secondary_row=creator_row,
-                    priority="highest",
-                    type=creator_role,
+                self.catalog.agents.link_to_wemi(
+                    agent_id=self._agent_id(creator_row),
+                    level="work",
+                    entity_id=self._work_id(title_row),
+                    role=creator_to_marc(creator_role),
+                    priority=priority,
                 )
             except Exception as e:
                 err_str = "Error while trying to associate the creator row with a title"
@@ -1114,6 +1245,17 @@ class MeatdataToBookRow(object):
                 )
                 raise NotImplementedError(err_str)
 
+    @staticmethod
+    def _agent_id(agent_row):
+        for key in ("agent_id", "creator_id", "publisher_id"):
+            try:
+                value = agent_row[key]
+            except Exception:
+                continue
+            if value is not None:
+                return int(value)
+        raise DatabaseIntegrityError("Could not resolve Agent ID from row")
+
     # Todo: Why do identifiers have priority again?
     def __apply_identifiers_set(self, title_row, id_type, id_set):
         """
@@ -1125,16 +1267,18 @@ class MeatdataToBookRow(object):
         """
         for id_val in id_set:
             try:
-                id_row = self.add.identifier(identifier=id_val, identifier_type=id_type)
+                identifier_id = self.catalog.identifiers.match_or_create(
+                    IdentifierCandidate(id_type, id_val)
+                )
             except Exception as e:
                 err_str = "Unable to add identifier - something went wrong - ignoring"
                 default_log.log_exception(err_str, e, "INFO", ("id_val", id_val))
                 continue
-            self.db.interlink_rows(
-                primary_row=title_row,
-                secondary_row=id_row,
-                priority="highest",
-                type=id_type,
+            self.catalog.identifiers.link_to_wemi(
+                identifier_id=identifier_id,
+                level="work",
+                entity_id=self._work_id(title_row),
+                priority=0,
             )
 
     def __ensure_title_covers(self, covers_data, book_row, cache_first=True):
@@ -1255,10 +1399,15 @@ class MeatdataToBookRow(object):
             # the series rows without an attempt to standardize the series name before searching for it
             genre_rows = self.__ensure_genres_rows(genre_names, genres, standardize=False)
 
-        # Preform linking of the genres to the title
-        for genre_row in genre_rows:
-
-            self.db.interlink_rows(primary_row=title_row, secondary_row=genre_row)
+        if genre_rows:
+            self._work_link_writers["genre"].write(
+                {
+                    self._work_id(title_row): tuple(
+                        LinkValue(int(genre_row["genre_id"]))
+                        for genre_row in genre_rows
+                    )
+                }
+            )
 
     def __ensure_genres_rows(self, genre_names, genres, standardize=True):
         """
@@ -1276,7 +1425,10 @@ class MeatdataToBookRow(object):
             # Check to see if the genre is already specified and generate it if it isn't
             genre_row = self.get_row_from_value(genres[genre_name], "genres")
             if genre_row is None:
-                genre_row = self.ensure.genre(genre_name, standardize=standardize)
+                genre_id = self.catalog.genres.match_or_create(
+                    MetadataCandidate({"name": genre_name})
+                )
+                genre_row = self.db.get_row_from_id("genres", genre_id)
 
             genre_rows.append(genre_row)
             genre_ids.add(six_unicode(genre_row["genre_id"]))
@@ -1295,8 +1447,13 @@ class MeatdataToBookRow(object):
         :return:
         """
         # Retrieve the language row and link it to the title row
-        lang_row = self.ensure.language(lang_str)
-        self.db.interlink_rows(primary_row=title_row, secondary_row=lang_row, type="primary")
+        language_match = self.catalog.languages.exact(lang_str)
+        if not language_match.is_match or language_match.entity_id is None:
+            raise DatabaseIntegrityError("Language could not be resolved: {!r}".format(lang_str))
+        self._work_link_writers["language"].write(
+            {self._work_id(title_row): LinkValue(language_match.entity_id)},
+            link_type="primary",
+        )
 
     def __ensure_languages(self, title_row, lang_strs, lang_type="contained_in"):
         """
@@ -1305,16 +1462,22 @@ class MeatdataToBookRow(object):
         :param lang_strs:
         :return:
         """
+        lang_strs = list(lang_strs)
         lang_strs.reverse()
+        language_ids = []
         for lang_str in lang_strs:
-            lang_row = self.ensure.language(lang_str)
-            try:
-                self.db.interlink_rows(primary_row=title_row, secondary_row=lang_row, type=lang_type)
-            except DatabaseIntegrityError:
-                # Todo: Really need a way of setting it up so different constraints throw different exceptions
-                # Todo: And ban deleting main tables
-                # Probably language and title are already linked
-                pass
+            language_match = self.catalog.languages.exact(lang_str)
+            if not language_match.is_match or language_match.entity_id is None:
+                raise DatabaseIntegrityError("Language could not be resolved: {!r}".format(lang_str))
+            language_ids.append(language_match.entity_id)
+        self._work_link_writers["language"].write(
+            {
+                self._work_id(title_row): tuple(
+                    LinkValue(language_id) for language_id in language_ids
+                )
+            },
+            link_type=lang_type,
+        )
 
     def __link_series_to_title(self, title_row, series_names, series, series_index):
         """
@@ -1332,6 +1495,7 @@ class MeatdataToBookRow(object):
         :type series_index: OrderedDict
         :return:
         """
+        series_names = list(series_names)
         series_names.reverse()
         try:
             series_rows = self.__ensure_series_rows(title_row, series_names, series)
@@ -1341,6 +1505,16 @@ class MeatdataToBookRow(object):
             series_rows = self.__ensure_series_rows(title_row, series_names, series, standardize=False)
 
         series = zip(series_names, series_rows)
+        writer = self._work_link_writers["series"]
+        index_column = next(
+            (
+                column.name
+                for column in writer.link_spec.extra_link_columns
+                if column.name.endswith("_index")
+            ),
+            None,
+        )
+        links = []
 
         for series_name, series_row in series:
             # Determine the series index - if present
@@ -1348,7 +1522,16 @@ class MeatdataToBookRow(object):
             if series_name in series_index:
                 link_series_index = series_index[series_name]
 
-            self.db.interlink_rows(primary_row=title_row, secondary_row=series_row, index=link_series_index)
+            extra = (
+                {index_column: link_series_index}
+                if index_column is not None and link_series_index is not None
+                else {}
+            )
+            links.append(
+                LinkValue(int(series_row["series_id"]), extra=extra)
+            )
+        if links:
+            writer.write({self._work_id(title_row): tuple(links)})
 
     def __ensure_series_rows(self, title_row, series_names, series, standardize=True):
         """
@@ -1368,35 +1551,10 @@ class MeatdataToBookRow(object):
             # If the series is provided with an id, then use that, otherwise just use a series which matches on name
             series_row = self.get_row_from_value(row_id=series[series_name], table="series")
             if series_row is None:
-
-                # Series doesn't seem to exist on the database - ensure it does and then link to it
-                # Todo: Add back in creator rows - just accumulate them above
-                if standardize:
-                    series_queue = Queue.Queue()
-                    self.ensure.series(
-                        creator_rows=None,
-                        series_name=series_name,
-                        series_queue=series_queue,
-                        confidence=False,
-                        stand=standardize,
-                    )
-
-                    try:
-                        series_row = series_queue.get_nowait()
-                    except Queue.Empty:
-                        err_str = (
-                            "library.ensure.series was called and returned an empty Queue - " "this should not happen"
-                        )
-                        default_log.error(err_str)
-                        raise NotImplementedError(err_str)
-
-                else:
-
-                    try:
-                        series_row = self.add.series(series=series_name)
-                    except DatabaseIntegrityError:
-                        # Row already exists - retrieve it and return
-                        series_row = self.db.search(table="series", column="series", search_term=series_name)[0]
+                series_id = self.catalog.series.match_or_create(
+                    MetadataCandidate({"name": series_name})
+                )
+                series_row = self.db.get_row_from_id("series", series_id)
 
             series_rows.append(series_row)
             series_ids.add(six_unicode(series_row["series_id"]))
@@ -1418,23 +1576,23 @@ class MeatdataToBookRow(object):
         :param note_type:
         :return:
         """
-        note_strings = notes.keys()
+        note_strings = list(notes.keys())
         note_strings.reverse()
 
         for note in note_strings:
 
-            note_row = self.get_row_from_value(notes[note], "notes")
-            if note_row is None:
-                note_row = self.add.note(note=note)
-
-            # Todo: What about notes which, at this stage, are linked to more than one title?
-            # No additional checking should be required - so just do the interlink
-            self.db.interlink_rows(
-                primary_row=title_row,
-                secondary_row=note_row,
-                priority="highest",
-                type=note_type,
-            )
+            if note_type == "synopsis":
+                self.catalog.synopses.add_for_wemi(
+                    level="work",
+                    entity_id=self._work_id(title_row),
+                    data={"synopsis": note},
+                )
+            else:
+                self.catalog.notes.add_for_wemi(
+                    level="work",
+                    entity_id=self._work_id(title_row),
+                    data={"note": note},
+                )
 
     def __ensure_title_publishers(self, publishers, title_row):
         """
@@ -1444,19 +1602,23 @@ class MeatdataToBookRow(object):
         :param publisher_type: The type of publisher (options are "imprint" or "publisher")
         :return:
         """
-        max_pt_link_priority = title_row.catalog.get_max("publisher_title_link_priority")
-        max_pt_link_priority = 0 if max_pt_link_priority is None else max_pt_link_priority
-
-        priority = max_pt_link_priority + len(publishers) + 1
-        for pub_name in publishers:
+        for priority, pub_name in enumerate(publishers):
 
             pub_row = self.get_row_from_value(publishers[pub_name], "publishers")
             # Is the creator already on the system, or does it have to be created?
             if pub_row is None:
-                pub_row = self.ensure.publisher(publisher=pub_name)
+                publisher_id = self.catalog.agents.match_or_create_organisation(
+                    MetadataCandidate({"name": pub_name, "type": "organisation"})
+                )
+                pub_row = self.db.get_row_from_id("agents", publisher_id)
 
-            self.db.interlink_rows(primary_row=title_row, secondary_row=pub_row, priority=priority)
-            priority -= 1
+            self.catalog.agents.link_to_wemi(
+                agent_id=self._agent_id(pub_row),
+                level="work",
+                entity_id=self._work_id(title_row),
+                role="pbl",
+                priority=priority,
+            )
 
     def __ensure_subject_rows(self, subjects, standardize=True):
         """
@@ -1475,7 +1637,10 @@ class MeatdataToBookRow(object):
             subject_row = self.get_row_from_value(subjects[subject_name], "subject")
             # If the subject is not already in the system then it has to be created
             if subject_row is None:
-                subject_row = self.ensure.subject(subject=subject_name, standardize=standardize)
+                subject_id = self.catalog.subjects.match_or_create(
+                    MetadataCandidate({"name": subject_name})
+                )
+                subject_row = self.db.get_row_from_id("subjects", subject_id)
 
             unique_subject_ids.add(subject_row["subject_id"])
             subject_rows.append(subject_row)
@@ -1491,5 +1656,12 @@ class MeatdataToBookRow(object):
         :param subject_rows: The rows to link to the title row.
         :return:
         """
-        for subject_row in subject_rows:
-            self.db.interlink_rows(primary_row=title_row, secondary_row=subject_row, priority="highest")
+        if subject_rows:
+            self._work_link_writers["subject"].write(
+                {
+                    self._work_id(title_row): tuple(
+                        LinkValue(int(subject_row["subject_id"]))
+                        for subject_row in subject_rows
+                    )
+                }
+            )

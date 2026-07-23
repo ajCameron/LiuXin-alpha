@@ -173,7 +173,7 @@ class KeyPairSearch: # {{{
             return found if valq == "true" else candidates - found
 
         for m, book_ids in field_iter():
-            for key, val in m.iteritems():
+            for key, val in m.items():
                 if keyq and not _match(
                     keyq,
                     (key,),
@@ -420,14 +420,11 @@ class Parser(SearchQueryParser):  # {{{
             if terms:
                 c = candidates.copy()
                 for l in terms:
-                    try:
-                        m = self.get_matches(l, query, candidates=c, allow_recursion=allow_recursion)
-                        matches |= m
-                        c -= m
-                        if len(c) == 0:
-                            break
-                    except:
-                        pass
+                    m = self.get_matches(l, query, candidates=c, allow_recursion=allow_recursion)
+                    matches |= m
+                    c -= m
+                    if len(c) == 0:
+                        break
                 return matches
 
         upf = prefs["use_primary_find_in_search"]
@@ -497,7 +494,7 @@ class Parser(SearchQueryParser):  # {{{
         text_fields = set()
         field_metadata = {}
 
-        for x, fm in self.field_metadata.iteritems():
+        for x, fm in self.field_metadata.items():
             if x.startswith("@"):
                 continue
             if fm["search_terms"] and x not in {"series_sort", "id"}:
@@ -521,17 +518,17 @@ class Parser(SearchQueryParser):  # {{{
 
         try:
             rating_query = int(float(query)) * 2
-        except:
+        except (TypeError, ValueError, OverflowError):
             rating_query = None
 
         try:
             int_query = int(float(query))
-        except:
+        except (TypeError, ValueError, OverflowError):
             int_query = None
 
         try:
             float_query = float(query)
-        except:
+        except (TypeError, ValueError, OverflowError):
             float_query = None
 
         for location in locations:
@@ -541,7 +538,7 @@ class Parser(SearchQueryParser):  # {{{
                 q = canonicalize_lang(query)
                 if q is None:
                     lm = lang_map()
-                    rm = {v.lower(): k for k, v in lm.iteritems()}
+                    rm = {v.lower(): k for k, v in lm.items()}
                     q = rm.get(query, query)
 
             if matchkind == CONTAINS_MATCH and q in {"true", "false"}:
@@ -671,7 +668,7 @@ class LRUCache(object):  # {{{
         return self.get(key)
 
     def __iter__(self):
-        return self.item_map.iteritems()
+        return iter(self.item_map.items())
 
 
 # }}}
@@ -836,17 +833,13 @@ class Search(object):
         all_columns_set = set()
         for location in locations_dict:
             columns = locations_dict[location]
-            if hasattr(columns, '__iter__'):
+            if isinstance(columns, str):
+                all_columns_set.add(columns)
+            elif hasattr(columns, '__iter__'):
                 for column in columns:
                     all_columns_set.add(column)
             else:
-                if VERBOSE_DEBUG:
-                    wrn_str = "Location dictionary has value without an __iter__ method.\n"
-                    wrn_str += "This is assumed to be a string.\n"
-                    LiuXin_debug_print(wrn_str)
-                    all_columns_set.add(columns)
-                else:
-                    all_columns_set.add(columns)
+                all_columns_set.add(columns)
 
-        locations_dict[u'all'] = tuple(all_columns_set)
+        locations_dict[u'all'] = tuple(sorted(all_columns_set))
         return locations_dict

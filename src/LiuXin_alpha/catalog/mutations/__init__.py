@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..api.common import DatabaseHandle
-from .metadata_writer import MetadataWriter
+from .metadata_writer import CreatedWemiStack, MetadataWriter
 from .mutation_policy import MutationPolicy
 
 
@@ -33,4 +33,9 @@ class CatalogMutations:
         self.writer = MetadataWriter(self.db, self.repositories, self.policy)
 
 
-__all__ = ["CatalogMutations", "MetadataWriter", "MutationPolicy"]
+__all__ = [
+    "CatalogMutations",
+    "CreatedWemiStack",
+    "MetadataWriter",
+    "MutationPolicy",
+]

@@ -15,6 +15,9 @@ class ManifestationRepositoryAPI(BaseRepositoryAPI, Protocol):
     def list_for_expression(self, expression_id: EntityId) -> Sequence[RowMapping]:
         """Return manifestations belonging to an expression."""
 
+    def list_expressions(self, manifestation_id: EntityId) -> Sequence[RowMapping]:
+        """Return Expressions linked to a Manifestation."""
+
     def match(self, expression_id: EntityId, candidate: MetadataCandidate) -> MatchResult:
         """Match a candidate manifestation inside an expression context."""
 

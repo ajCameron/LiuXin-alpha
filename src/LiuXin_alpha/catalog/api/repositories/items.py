@@ -15,6 +15,9 @@ class ItemRepositoryAPI(BaseRepositoryAPI, Protocol):
     def list_for_manifestation(self, manifestation_id: EntityId) -> Sequence[RowMapping]:
         """Return items belonging to a manifestation."""
 
+    def manifestation_for_item(self, item_id: EntityId) -> RowMapping | None:
+        """Return the Manifestation owning an Item, if assigned."""
+
     def get_metadata_bundle(self, item_id: EntityId) -> WemiBundle:
         """Return a coherent WEMI bundle rooted at an item."""
 

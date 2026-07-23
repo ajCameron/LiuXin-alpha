@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from LiuXin_alpha.databases.db_types import SrcTableID
 from LiuXin_alpha.databases.macro_types import LinkRow
@@ -99,10 +99,13 @@ class CatalogOwnedRowUpdate[ValueT]:
 
         if not self.values:
             return {}
-        return macros.replace_owned_one_to_one_values_bulk(
-            self.link_spec,
-            self.destination_column.name,
-            self.values,
+        return cast(
+            Mapping[SrcTableID, tuple[LinkRow, ...]],
+            macros.replace_owned_one_to_one_values_bulk(
+                self.link_spec,
+                self.destination_column.name,
+                self.values,
+            ),
         )
 
 

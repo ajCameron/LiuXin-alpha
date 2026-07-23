@@ -18,6 +18,8 @@ from copy import deepcopy
 
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Iterable, Union
 
+from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.api.common import MetadataCandidate
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
 from LiuXin_alpha.databases.adaptors import get_adapter
@@ -184,9 +186,16 @@ class BaseWriter:
                 aus = author_to_author_sort(val)
 
                 # Todo: Why does this happen? Make sure that it happens everywhere it should. Should add to add.creator
-                val_row = db.add.creator(creator=val.replace(",", "|"), creator_sort=aus).row_dict
-
-                item_id = val_row["creator_id"]
+                catalog = Catalog(db)
+                item_id = catalog.agents.match_or_create_person(
+                    MetadataCandidate(
+                        {
+                            "name": val.replace(",", "|"),
+                            "sort_name": aus,
+                            "type": "person",
+                        }
+                    )
+                )
                 try:
                     table.seen_item_ids.add(item_id)
                 except:

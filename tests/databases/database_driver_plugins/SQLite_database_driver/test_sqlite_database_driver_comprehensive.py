@@ -647,10 +647,6 @@ class TestSQLiteDriverKnownIssues:
         _insert_minimal_title_row(drv, title="B")
         assert drv.direct_get_min("title_id") is not None
 
-    @pytest.mark.xfail(
-        reason="direct_update_columns contains Py2 iterator usage and needs porting",
-        raises=AttributeError,
-    )
     def test_direct_update_columns_simple_mode(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
         c = _title_contract(drv)
@@ -658,7 +654,11 @@ class TestSQLiteDriverKnownIssues:
         id1 = _insert_minimal_title_row(drv, title="Old1")
         id2 = _insert_minimal_title_row(drv, title="Old2")
 
-        drv.direct_update_columns({id1: "New1", id2: "New2"}, field=c.read_title_col, table=c.write_table)
+        drv.direct_update_columns(
+            {id1: "New1", id2: "New2"},
+            field=c.write_title_col,
+            table=c.write_table,
+        )
 
         r1 = drv.direct_get_row_dict_from_id(c.read_table, id1)
         r2 = drv.direct_get_row_dict_from_id(c.read_table, id2)

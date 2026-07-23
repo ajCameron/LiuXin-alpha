@@ -98,6 +98,9 @@ def _pick_text_like_column(cols: Iterable[str], *, base: str, exclude: set[str])
 
     candidates = [c for c in cols_list if not is_id_like(c) and not is_time_like(c)]
 
+    if base in candidates:
+        return base
+
     for kw in keywords:
         for c in candidates:
             if kw in c.lower():

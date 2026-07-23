@@ -234,17 +234,17 @@ def _store_name(row) -> str:
 
 
 def _resolve_store_row(browser, store_ref: str):
-    if "stores" not in set(browser.catalog.get_tables()):
+    if "stores" not in set(browser.db.get_tables()):
         raise ValueError("Database schema does not contain `stores` table.")
 
     store_id = _safe_int(store_ref)
     if store_id is not None:
-        row = browser.catalog.get_row_from_id("stores", store_id)
+        row = browser.db.get_row_from_id("stores", store_id)
         if row is None:
             raise ValueError("No store found for id {}.".format(store_id))
         return row
 
-    rows = browser.catalog.search("stores", "store_name", str(store_ref))
+    rows = browser.db.search("stores", "store_name", str(store_ref))
     if not rows:
         raise ValueError("No store found for name {!r}.".format(store_ref))
     if len(rows) > 1:
@@ -253,11 +253,11 @@ def _resolve_store_row(browser, store_ref: str):
 
 
 def _collect_store_file_counts(browser) -> dict[int, int]:
-    tables = set(browser.catalog.get_tables())
+    tables = set(browser.db.get_tables())
     if "files" not in tables:
         return {}
     counts: dict[int, int] = {}
-    for row in browser.catalog.get_all_rows("files", iterator_return=True):
+    for row in browser.db.get_all_rows("files", iterator_return=True):
         store_id = _row_value(row, "file_store_id", None)
         if store_id is None:
             continue
@@ -270,10 +270,10 @@ def _collect_store_file_counts(browser) -> dict[int, int]:
 
 
 def _store_file_rows(browser, store_id: int):
-    tables = set(browser.catalog.get_tables())
+    tables = set(browser.db.get_tables())
     if "files" not in tables:
         return []
-    rows = list(browser.catalog.search("files", "file_store_id", int(store_id)))
+    rows = list(browser.db.search("files", "file_store_id", int(store_id)))
     rows.sort(
         key=lambda row: (
             int(_row_value(row, "file_id", 0) or 0),

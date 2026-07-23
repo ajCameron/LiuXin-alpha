@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.metadata.standardization import make_title_search_term
 from LiuXin_alpha.utils.logging import default_log
 
@@ -31,7 +32,7 @@ class SubjectAdderMixin:
                 ("subject_parent", subject_parent),
                 ("subject_parent_type", type(subject_parent)),
             )
-            raise NotImplementedError(err_str)
+            raise InputIntegrityError(err_str)
 
         subject_row.sync()
         return subject_row

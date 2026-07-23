@@ -4,7 +4,7 @@ Facade API for the catalog layer.
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -17,11 +17,13 @@ if TYPE_CHECKING:
         CatalogColumnUpdate,
         CatalogOwnedRowUpdate,
         LinkUpdate,
+        SchemaCatalogWriter,
     )
 
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.db_types import SrcTableID
     from LiuXin_alpha.databases.macro_types import LinkRow
+
 
 @runtime_checkable
 class CatalogAddinsAPI(Protocol):
@@ -45,6 +47,46 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
     """
 
     db: "DatabaseAPI"
+
+    def create_writer(
+        self,
+        src_table: str,
+        dst_column: str,
+        *,
+        force_refresh: bool = False,
+        destination_owned: bool | None = None,
+    ) -> "SchemaCatalogWriter":
+        """Create a schema-backed writer for one catalog field."""
+
+        ...
+
+    def write(
+        self,
+        src_table: str,
+        dst_column: str,
+        *args: Any,
+        force_refresh: bool = False,
+        destination_owned: bool | None = None,
+        **kwargs: Any,
+    ) -> "Mapping[SrcTableID, object]":
+        """Create a writer and apply one bulk catalog update."""
+
+        ...
+
+    def write_one(
+        self,
+        src_table: str,
+        dst_column: str,
+        src_id: "SrcTableID",
+        dst_value: object,
+        *,
+        force_refresh: bool = False,
+        destination_owned: bool | None = None,
+        **kwargs: Any,
+    ) -> "Mapping[SrcTableID, object]":
+        """Create a writer and apply one source/value instruction."""
+
+        ...
 
     def write_link_update(
         self,

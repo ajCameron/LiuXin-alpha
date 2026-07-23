@@ -2,41 +2,40 @@
 
 from __future__ import annotations
 
-from typing import Protocol, Sequence, runtime_checkable
-
-from typing import Optional, TYPE_CHECKING
+from collections.abc import Sequence
+from typing import Protocol, runtime_checkable
 
 from ..common import MetadataCandidate, MatchResult
 
 
 @runtime_checkable
 class AgentMatcherAPI(Protocol):
-    """
-    Policy object for matching incoming metadata to agents.
-    """
+    """Match incoming metadata candidates to Agents without mutation."""
 
     def candidates(self, candidate: MetadataCandidate, *, limit: int = 20) -> Sequence[MatchResult]:
-        """
-        Return possible agent matches ordered by confidence.
+        """Return exact policy-qualified Agent candidates.
 
-        :param candidate:
-        :param limit:
-        :return:
+        :param candidate: Candidate Agent metadata and structured hints.
+        :param limit: Maximum candidates to return.
+        :return: Qualified candidates ordered by evidence and confidence.
         """
+
+        ...
 
     def best(self, candidate: MetadataCandidate) -> MatchResult:
-        """
-        Return the best agent match, or a non-match result.
+        """Return the final Agent identity decision.
 
-        :param candidate:
-        :return:
+        :param candidate: Candidate Agent metadata and structured hints.
+        :return: Explained match, no-match, ambiguity, or conflict.
         """
 
-    def exact(self, candidate_str: str) -> Optional["MatchResult"]:
-        """
-        Exact match to an agent based on its text.
+        ...
 
-        Either matches, or does not. If it doesn't, then you get back a None.
-        :param candidate_str:
-        :return:
+    def exact(self, candidate_str: str) -> "MatchResult":
+        """Apply the final policy to an Agent name string.
+
+        :param candidate_str: Agent name to normalize and match.
+        :return: Exact match, no-match, or ambiguity result.
         """
+
+        ...

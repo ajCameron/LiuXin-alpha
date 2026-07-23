@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog.metadata_tools import Add
+from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 
@@ -117,21 +117,24 @@ class NewManifestationWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Manifestation wizard canceled.")
 
-        add = Add(browser.db)
-        manifestation_row = add.manifestation(
-            manifestation_subtitle=manifestation_subtitle,
-            manifestation_carrier_type=manifestation_carrier_type,
-            manifestation_format_detail=manifestation_format_detail,
-            manifestation_edition_statement=manifestation_edition_statement,
-            manifestation_pub_year=manifestation_pub_year,
-            manifestation_pub_date=manifestation_pub_date,
-            manifestation_flags=manifestation_flags,
-            manifestation_page_count=manifestation_page_count,
-            manifestation_runtime_minutes=manifestation_runtime_minutes,
-            manifestation_region_code=manifestation_region_code,
-            manifestation_status=manifestation_status,
-            manifestation_note=manifestation_note,
+        catalog = Catalog(browser.db)
+        manifestation_id = catalog.manifestations.create(
+            {
+                "manifestation_subtitle": manifestation_subtitle,
+                "manifestation_carrier_type": manifestation_carrier_type,
+                "manifestation_format_detail": manifestation_format_detail,
+                "manifestation_edition_statement": manifestation_edition_statement,
+                "manifestation_pub_year": manifestation_pub_year,
+                "manifestation_pub_date": manifestation_pub_date,
+                "manifestation_flags": manifestation_flags,
+                "manifestation_page_count": manifestation_page_count,
+                "manifestation_runtime_minutes": manifestation_runtime_minutes,
+                "manifestation_region_code": manifestation_region_code,
+                "manifestation_status": manifestation_status,
+                "manifestation_note": manifestation_note,
+            }
         )
+        manifestation_row = catalog.manifestations.require(manifestation_id)
 
         browser.emit(
             "Manifestation created: manifestation_id={} format={!r}".format(

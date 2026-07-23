@@ -161,6 +161,10 @@ class StorageLinkSpec:
     nullable_fks: bool = False
     symmetric: bool = False
 
+    # Cardinality describes endpoint uniqueness; it does not imply lifecycle
+    # ownership. Owned destinations may be updated in place by catalog writers.
+    destination_owned: bool = False
+
     allowed_types_table: Optional[str] = None
     allowed_types: tuple[str, ...] = ()
     extra_link_columns: tuple[StorageColumnSpec, ...] = ()

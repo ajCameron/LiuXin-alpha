@@ -304,7 +304,10 @@ class StorageCacheAPI(abc.ABC):
 
         Live database-backed caches need no explicit refresh. Snapshot-backed
         caches refresh only the changed main table or the destination and link
-        tables for a relation write. An empty write leaves cache state alone.
+        tables for a relation write. If the catalog writer still owns an outer
+        portable-macro transaction, affected objects are invalidated instead;
+        their next cache access reloads them after that transaction commits.
+        An empty write leaves cache state alone.
 
         :param update: Normalized catalog update which was applied.
         :param result: Successful catalog write result.
@@ -325,24 +328,52 @@ class StorageCacheAPI(abc.ABC):
             LinkUpdate,
         )
 
+        macros = getattr(self.db, "macros", None)
+        transaction_state = (
+            vars(macros).get("_macro_transaction_state")
+            if macros is not None
+            else None
+        )
+        transaction_is_open = bool(
+            transaction_state is not None
+            and getattr(transaction_state, "depth", 0)
+        )
+
         if isinstance(update, CatalogColumnUpdate):
             if self.has_main_table(update.table_spec.name):
-                self.reload_main_table(update.table_spec.name)
+                if transaction_is_open:
+                    self.invalidate_table(update.table_spec.name)
+                else:
+                    self.reload_main_table(update.table_spec.name)
             return
 
         if isinstance(update, (CatalogOwnedRowUpdate, LinkUpdate)):
             link_spec = update.link_spec
-            if self.has_main_table(link_spec.secondary_table):
-                self.reload_main_table(link_spec.secondary_table)
-
             routes = [(link_spec.primary_table, link_spec.secondary_table)]
             if link_spec.primary_table != link_spec.secondary_table:
                 routes.append(
                     (link_spec.secondary_table, link_spec.primary_table)
                 )
+
+            if transaction_is_open:
+                for source_table, destination_table in routes:
+                    if self.has_link_table(source_table, destination_table):
+                        self.invalidate_link_table(
+                            source_table,
+                            destination_table,
+                        )
+                if self.has_main_table(link_spec.secondary_table):
+                    self.invalidate_table(link_spec.secondary_table)
+                return
+
+            if self.has_main_table(link_spec.secondary_table):
+                self.reload_main_table(link_spec.secondary_table)
             for source_table, destination_table in routes:
                 if self.has_link_table(source_table, destination_table):
-                    self.reload_link_table(source_table, destination_table)
+                    self.reload_link_table(
+                        source_table,
+                        destination_table,
+                    )
             return
 
         raise TypeError(
@@ -355,6 +386,7 @@ class StorageCacheAPI(abc.ABC):
         dst_column: str,
         *,
         force_refresh: bool = False,
+        destination_owned: bool | None = None,
     ) -> "SchemaCatalogWriter":
         """
         Create a cache-aware schema-backed catalog writer.
@@ -367,6 +399,7 @@ class StorageCacheAPI(abc.ABC):
         :param src_table: Table whose row IDs key writer updates.
         :param dst_column: Same-table or linked destination value column.
         :param force_refresh: Refresh schema discovery before construction.
+        :param destination_owned: Optional one-to-one ownership override.
         :return: Cache-aware concrete catalog writer.
         """
 
@@ -379,6 +412,7 @@ class StorageCacheAPI(abc.ABC):
             src_table,
             dst_column,
             force_refresh=force_refresh,
+            destination_owned=destination_owned,
         )
 
     def write(
@@ -387,6 +421,7 @@ class StorageCacheAPI(abc.ABC):
         dst_column: str,
         *args: Any,
         force_refresh: bool = False,
+        destination_owned: bool | None = None,
         **kwargs: Any,
     ) -> Mapping[Any, Any]:
         """
@@ -400,6 +435,7 @@ class StorageCacheAPI(abc.ABC):
         :param dst_column: Same-table or linked destination value column.
         :param args: Positional arguments for the concrete writer.
         :param force_refresh: Refresh schema discovery before construction.
+        :param destination_owned: Optional one-to-one ownership override.
         :param kwargs: Keyword arguments for the concrete writer.
         :return: Concrete writer result mapping.
         """
@@ -408,6 +444,7 @@ class StorageCacheAPI(abc.ABC):
             src_table,
             dst_column,
             force_refresh=force_refresh,
+            destination_owned=destination_owned,
         )
         return writer.write(*args, **kwargs)
 
@@ -419,6 +456,7 @@ class StorageCacheAPI(abc.ABC):
         dst_value: Any,
         *,
         force_refresh: bool = False,
+        destination_owned: bool | None = None,
         **kwargs: Any,
     ) -> Mapping[Any, Any]:
         """
@@ -429,6 +467,7 @@ class StorageCacheAPI(abc.ABC):
         :param src_id: Source-table ID whose value or links should change.
         :param dst_value: Raw, resolved, rich, or clear destination value.
         :param force_refresh: Refresh schema discovery before construction.
+        :param destination_owned: Optional one-to-one ownership override.
         :param kwargs: Options for the concrete writer, including link type.
         :return: Concrete writer result mapping without unwrapping it.
         """
@@ -437,6 +476,7 @@ class StorageCacheAPI(abc.ABC):
             src_table,
             dst_column,
             force_refresh=force_refresh,
+            destination_owned=destination_owned,
         )
         return writer.write_one(src_id, dst_value, **kwargs)
 

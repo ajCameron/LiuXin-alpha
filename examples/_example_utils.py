@@ -5,6 +5,7 @@ import datetime as _dt
 import json
 import sys
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +26,7 @@ def json_sanitize(
     max_text: int = 800,
     max_items: int = 80,
     _depth: int = 0,
-    _max_depth: int = 4,
+    _max_depth: int = 6,
 ) -> Any:
     if obj is None or isinstance(obj, (bool, int, float)):
         return obj
@@ -46,10 +47,19 @@ def json_sanitize(
             "preview_hex": raw[:32].hex(),
         }
     if dataclasses.is_dataclass(obj):
-        return json_sanitize(dataclasses.asdict(obj), max_text=max_text, max_items=max_items, _depth=_depth + 1)
+        return {
+            field.name: json_sanitize(
+                getattr(obj, field.name),
+                max_text=max_text,
+                max_items=max_items,
+                _depth=_depth + 1,
+            )
+            for field in dataclasses.fields(obj)
+            if not field.name.startswith("_")
+        }
     if _depth >= _max_depth:
         return repr(obj)
-    if isinstance(obj, dict):
+    if isinstance(obj, Mapping):
         out = {}
         for idx, (k, v) in enumerate(obj.items()):
             if idx >= max_items:

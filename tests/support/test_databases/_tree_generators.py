@@ -53,7 +53,7 @@ def generate_test_tree(
     lx_random = LiuXinBadPseudoRandomGenerator(seed)
 
     table = root_row.table
-    db = root_row.catalog
+    db = root_row.db
     table_col_base, parent_col, parent_pos = _resolve_tree_columns(db, table)
     parent_positions = {1, 2, 3, 4, 5, 6, 7, 8, 9}
     layers = lx_random.randint(1, max_layers)
@@ -99,7 +99,7 @@ def generate_test_tree_with_datestamps(
     lx_random = LiuXinBadPseudoRandomGenerator(seed)
 
     table = root_row.table
-    db = root_row.catalog
+    db = root_row.db
     table_col_base, parent_col, parent_pos = _resolve_tree_columns(db, table)
     parent_positions = {1, 2, 3, 4, 5, 6, 7, 8, 9}
     layers = lx_random.randint(1, max_layers)

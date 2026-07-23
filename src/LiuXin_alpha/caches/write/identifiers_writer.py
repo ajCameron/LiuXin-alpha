@@ -8,6 +8,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 from typing import TYPE_CHECKING
 
 from LiuXin_alpha.caches.write import BaseWriter
+from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 if TYPE_CHECKING:
@@ -51,7 +52,6 @@ class IdentifiersWrite(BaseWriter):
         :return:
         """
         table = field.table
-        updates = set()
         for book_id, ids in iteritems(book_id_val_map):
 
             # If the book does not currently have an entry in the ids cache, add it
@@ -70,10 +70,10 @@ class IdentifiersWrite(BaseWriter):
                 if key not in table.col_book_map:
                     table.col_book_map[key] = set()
                 table.col_book_map[key].add(book_id)
-                updates.add((book_id, key, val))
-
-        # Write the updated identifiers out to the database
-        for book_id, id_type, id_val in updates:
-            db.metadata_sql.set_title_identifier(title_id=book_id, id_type=id_type, id_val=id_val)
+            Catalog(db).identifiers.replace_for_wemi(
+                level="work",
+                entity_id=book_id,
+                identifiers=ids,
+            )
 
         return set(book_id_val_map)

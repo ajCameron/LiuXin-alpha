@@ -17,9 +17,7 @@ def get_SQLite_driver_master_version() -> str:
 
     database_version = lx_database.__object_version__
 
-    import LiuXin_alpha.catalog.metadata_tools as lx_md_tools
-
-    md_tools_version = lx_md_tools.__md_tools_version__
+    from LiuXin_alpha.catalog.legacy_versions import LEGACY_METADATA_TOOLS_VERSION
 
     import LiuXin_alpha.metadata.constants as md_constants
 
@@ -32,7 +30,7 @@ def get_SQLite_driver_master_version() -> str:
     version_str = "driver_version_SQLite-inbuilt-{}_database_version_{}_md_tools_version_{}_md_constants_{})_lx_constants".format(
         database_version,
         __driver_version__,
-        md_tools_version,
+        LEGACY_METADATA_TOOLS_VERSION,
         md_constants_version,
         lx_constants_version,
     )

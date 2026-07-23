@@ -775,6 +775,15 @@ class FieldMetadata(dict):
     def __contains__(self, key):
         return key in self._tb_cats or key == "title_sort"
 
+    def __len__(self):
+        return len(self._tb_cats)
+
+    def __bool__(self):
+        return bool(self._tb_cats)
+
+    def copy(self):
+        return dict(self._tb_cats)
+
     def has_key(self, key):
         return key in self
 
@@ -833,7 +842,7 @@ class FieldMetadata(dict):
             yield (key, meta)
 
     def items(self):
-        return list(iteritems(self))
+        return list(self._tb_cats.items())
 
     def is_custom_field(self, key):
         return key.startswith(self.custom_field_prefix)
@@ -865,8 +874,11 @@ class FieldMetadata(dict):
         if prefer_custom:
             if label in self.custom_label_to_key_map:
                 return self.custom_label_to_key_map[label]
-        if "label" in self._tb_cats:
+        if label in self._tb_cats:
             return label
+        for key, metadata in self._tb_cats.items():
+            if metadata.get("label") == label and not self.is_custom_field(key):
+                return key
         if not prefer_custom:
             if label in self.custom_label_to_key_map:
                 return self.custom_label_to_key_map[label]
@@ -1694,6 +1706,15 @@ class CalibreFieldMetadata(dict):
     def __contains__(self, key):
         return key in self._tb_cats or key == "title_sort"
 
+    def __len__(self):
+        return len(self._tb_cats)
+
+    def __bool__(self):
+        return bool(self._tb_cats)
+
+    def copy(self):
+        return dict(self._tb_cats)
+
     def has_key(self, key):
         return key in self
 
@@ -1738,7 +1759,7 @@ class CalibreFieldMetadata(dict):
             yield key
 
     def itervalues(self):
-        return self._tb_cats.itervalues()
+        return iter(self._tb_cats.values())
 
     def values(self):
         return self._tb_cats.values()
@@ -1748,11 +1769,11 @@ class CalibreFieldMetadata(dict):
             yield (key, self._tb_cats[key])
 
     def custom_iteritems(self):
-        for key, meta in self._tb_custom_fields.iteritems():
+        for key, meta in self._tb_custom_fields.items():
             yield (key, meta)
 
     def items(self):
-        return list(self.iteritems())
+        return list(self._tb_cats.items())
 
     def is_custom_field(self, key):
         return key.startswith(self.custom_field_prefix)
@@ -1762,7 +1783,7 @@ class CalibreFieldMetadata(dict):
         return self.is_custom_field(key) or key.startswith("@")
 
     def ignorable_field_keys(self):
-        return [k for k in self._tb_cats.iterkeys() if self.is_ignorable_field(k)]
+        return [k for k in self._tb_cats if self.is_ignorable_field(k)]
 
     def is_series_index(self, key):
         try:
@@ -1780,8 +1801,11 @@ class CalibreFieldMetadata(dict):
         if prefer_custom:
             if label in self.custom_label_to_key_map:
                 return self.custom_label_to_key_map[label]
-        if "label" in self._tb_cats:
+        if label in self._tb_cats:
             return label
+        for key, metadata in self._tb_cats.items():
+            if metadata.get("label") == label and not self.is_custom_field(key):
+                return key
         if not prefer_custom:
             if label in self.custom_label_to_key_map:
                 return self.custom_label_to_key_map[label]
@@ -2016,7 +2040,7 @@ class CalibreFieldMetadata(dict):
         for (
             k,
             v,
-        ) in field_map.iteritems():
+        ) in field_map.items():
             self.set_field_record_index(k, v, prefer_custom=False)
 
     def set_field_record_index(self, label, index, prefer_custom=False):
@@ -2074,6 +2098,6 @@ def fm_from_dict(src):
     ans._search_term_map = src["search_term_map"]
     ans.custom_label_to_key_map = src["custom_label_to_key_map"]
     for q in ("custom_fields", "user_categories", "search_categories"):
-        for k, v in src[q].iteritems():
+        for k, v in src[q].items():
             ans._tb_cats[k] = v
     return ans

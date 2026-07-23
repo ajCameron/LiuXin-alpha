@@ -3,9 +3,10 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 from copy import deepcopy
 
 from LiuXin_alpha.caches.write.base_writer import BaseWriter
-from LiuXin_alpha.catalog.catalog_macros import library_set_publisher, library_unset_series, \
-    library_set_series
+from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.catalog.api.common import MetadataCandidate
 from LiuXin_alpha.caches.write.utils import UpdateDict
+from LiuXin_alpha.databases.macro_types import LinkValue
 from LiuXin_alpha.errors import InvalidUpdate, NotInCache
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, dict_itervalues as itervalues, \
     basestring
@@ -381,17 +382,32 @@ class ManyToManyWriter(BaseWriter):
         id_map = dict()
         book_col_map = dict()
 
-        # Do the publisher update
+        catalog = Catalog(db)
+
+        # Calibre exposes one display publisher while Catalog retains an
+        # ordered publisher-role credit set on the Work.
         for book_id in updated:
             pub_val = updated[book_id]
-            pub_id, new_pub_val = library_set_publisher(db=db, title_id=book_id, publisher_id=pub_val)
-
-            book_col_map[book_id] = pub_id
-            id_map[pub_id] = new_pub_val
+            publisher_ids = tuple(pub_val) if isinstance(pub_val, list) else (pub_val,)
+            catalog.agents.replace_for_wemi(
+                level="work",
+                entity_id=book_id,
+                role="pbl",
+                agent_ids=publisher_ids,
+            )
+            primary_id = publisher_ids[0]
+            primary_row = catalog.agents.require(primary_id)
+            book_col_map[book_id] = primary_id
+            id_map[primary_id] = primary_row["agent_canonical_name"]
 
         # For every element in the deleted set, nullify each of the elements
         for book_id in deleted:
-            library_set_publisher(db=db, title_id=book_id, publisher=None, publisher_id=None)
+            catalog.agents.replace_for_wemi(
+                level="work",
+                entity_id=book_id,
+                role="pbl",
+                agent_ids=(),
+            )
 
             book_col_map[book_id] = None
 
@@ -421,20 +437,36 @@ class ManyToManyWriter(BaseWriter):
         deleted = deleted if deleted is not None else {}
         updated = updated if updated is not None else {}
 
-        vals = ((book_id, val) for book_id, vals in iteritems(updated) for val in vals)
-
-        # Todo: HAVE to standardize creator and other types - triggers in the database?
-        db.metadata_sql.break_creator_title_links(title_id=(k for k in updated))
-        db.metadata_sql.break_creator_title_links(title_id=(k for k in deleted))
-
-        # Todo: Fold into a library author set method
-        db.metadata_sql.make_creator_title_links(id_pairs=vals)
+        catalog = Catalog(db)
+        for book_id, agent_ids in iteritems(updated):
+            catalog.agents.replace_for_wemi(
+                level="work",
+                entity_id=book_id,
+                role="aut",
+                agent_ids=tuple(agent_ids),
+            )
+        for book_id in deleted:
+            catalog.agents.replace_for_wemi(
+                level="work",
+                entity_id=book_id,
+                role="aut",
+                agent_ids=(),
+            )
 
     # Todo: What about the nullified elements?
     # Todo: What about all the OTHER languages? Are they being handled correctly?
     # Todo: This should ALL be in the languages table!?
     @staticmethod
-    def language_many_many_db_update(db, table, updated, is_authors, field=None, is_custom_series=False):
+    def language_many_many_db_update(
+        db,
+        table,
+        updated,
+        is_authors,
+        field=None,
+        is_custom_series=False,
+        deleted=None,
+        link_type=None,
+    ):
         """
         Preform an update of the languages linked to a book.
         :param db:
@@ -443,9 +475,17 @@ class ManyToManyWriter(BaseWriter):
         :param is_authors:
         :return:
         """
+        catalog = Catalog(db)
+        writer = catalog.create_writer("works", "language")
         for book_id in updated:
             lang_id = updated[book_id][0]
-            db.metadata_sql.set_title_primary_language(book_id, lang_id)
+            catalog.languages.require(lang_id)
+            writer.write(
+                {book_id: LinkValue(lang_id)},
+                link_type="primary",
+            )
+        for book_id in deleted or ():
+            writer.write({book_id: ()}, link_type="primary")
 
     @staticmethod
     def do_series_many_many_db_update(
@@ -468,29 +508,33 @@ class ManyToManyWriter(BaseWriter):
         :param deleted:
         :return:
         """
-        # Do the series update
-        for book_id in updated:
-            series_id = updated[book_id]
-            if isinstance(series_id, list):
-                # Any entries in both the old and the new list will be reordered - but we need to eliminate entries from
-                # the new list which do no appear in the old
-                # Have to go for the database as the cache has already been updated at this point
-                non_overlap_set = db.metadata_sql.get_title_series_ids_set(book_id) - set(series_id)
-                for remove_series_id in non_overlap_set:
-                    library_unset_series(db=db, title_id=book_id, series_id=remove_series_id)
-
-                # Write the series back to the database - reordering the surviving series as required
-                series_id = deepcopy(series_id)
-                series_id.reverse()
-                for true_series_id in series_id:
-                    library_set_series(db=db, title_id=book_id, series=None, series_id=true_series_id)
-            else:
-                library_set_series(db=db, title_id=book_id, series=None, series_id=series_id)
-
-        # For every element in the deleted set, nullify each of the title series
-        if deleted is not None:
-            for book_id in deleted:
-                library_set_series(db=db, title_id=book_id, series=None, series_id=None)
+        catalog = Catalog(db)
+        writer = catalog.create_writer("works", "series")
+        index_column = next(
+            (
+                column.name
+                for column in writer.link_spec.extra_link_columns
+                if column.name.endswith("_index")
+            ),
+            None,
+        )
+        replacements = {}
+        for book_id, raw_ids in iteritems(updated):
+            series_ids = tuple(raw_ids) if isinstance(raw_ids, list) else (raw_ids,)
+            series_index = db.metadata_sql.get_primary_series_index(book_id)
+            extra = (
+                {index_column: series_index}
+                if index_column is not None and series_index is not None
+                else {}
+            )
+            replacements[book_id] = tuple(
+                LinkValue(series_id, extra=extra)
+                for series_id in series_ids
+            )
+        for book_id in deleted or ():
+            replacements[book_id] = ()
+        if replacements:
+            writer.write(replacements)
 
         return None, None
 
@@ -597,8 +641,10 @@ class ManyToManyWriter(BaseWriter):
         :return:
         """
         if val not in rid_map.keys():
-            lang_row = db.ensure.language(val, lang_code="either")
-            val_map[val] = lang_row["language_id"]
+            language_match = Catalog(db).languages.exact(val)
+            if not language_match.is_match or language_match.entity_id is None:
+                raise InvalidUpdate("Language could not be resolved: {!r}".format(val))
+            val_map[val] = language_match.entity_id
         else:
             val_map[val] = rid_map[val]
 
@@ -630,8 +676,9 @@ class ManyToManyWriter(BaseWriter):
         :return:
         """
         if val not in rid_map.keys():
-            series_row = db.ensure.series_blind(creator_rows=[], series_name=val, use_phash=False)
-            val_map[val] = series_row["series_id"]
+            val_map[val] = Catalog(db).series.match_or_create(
+                MetadataCandidate({"name": val})
+            )
         else:
             val_map[val] = rid_map[val]
 

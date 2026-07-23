@@ -23,10 +23,6 @@ from LiuXin_alpha.utils.which_os import iswindows
 from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
 
 from LiuXin_alpha.databases.dbprefs import DBPrefs
-from LiuXin_alpha.catalog.metadata_tools import Add
-from LiuXin_alpha.catalog.metadata_tools import Ensure
-from LiuXin_alpha.catalog.metadata_tools.apply import Apply
-from LiuXin_alpha.catalog.metadata_tools.intralinker import Intralinker
 
 from LiuXin_alpha.databases.database import Database
 
@@ -242,17 +238,6 @@ class DB(Database):
         # CustomColumns resolves its live connection from the driver via a property; avoid passing a connection
         # reference (which can become stale if the driver rotates/aliases connections).
         self.custom_columns = CustomColumns(db=self.db, field_metadata=self.field_metadata)
-
-        # Additional utility methods
-        self.add = Add(database=self)
-        self.ensure = Ensure(database=self)
-        self.apply = Apply(database=self)
-        self.intralink = Intralinker(database=self)
-
-        self.add.ensure = self.ensure
-        self.add.apply = self.apply
-        self.apply.add = self.add
-        self.apply.ensure = self.ensure
 
         self.cache = None
         if with_cache:

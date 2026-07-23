@@ -49,7 +49,7 @@ def test_generate_test_tree_accepts_python3_iterators_for_generated_names(
 
         generate_test_tree(
             root_row=subject_row,
-            row_name_str="ROW ID - {} TEST TREE - {}",
+            row_name_str="ROW ID {} TEST TREE {}",
             uuid_stream=cycle(["1aa", "2bb", "3cc", "4dd", "5ee"]),
             parent_position=True,
             seed=95340,
@@ -64,7 +64,7 @@ def test_generate_test_tree_accepts_python3_iterators_for_generated_names(
         ]
         assert generated_names
         assert any("2bb" in str(name) for name in generated_names)
-        assert all(str(name).startswith("ROW ID - ") for name in generated_names)
+        assert all(str(name).startswith("ROW ID ") for name in generated_names)
 
 
 def test_generate_test_tree_with_datestamps_assigns_monotonic_values(

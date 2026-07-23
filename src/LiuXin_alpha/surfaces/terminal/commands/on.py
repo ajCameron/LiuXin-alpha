@@ -124,7 +124,7 @@ def _parse_target_rows(browser, args: list[str], *, usage: str):
     target_rows: list[tuple[int, Row]] = []
     missing_ids: list[int] = []
     for target_id in target_ids:
-        target_row = browser.catalog.get_row_from_id(target_table, target_id)
+        target_row = browser.db.get_row_from_id(target_table, target_id)
         if target_row is None:
             missing_ids.append(target_id)
         else:
@@ -140,16 +140,16 @@ def _parse_target_rows(browser, args: list[str], *, usage: str):
 
 
 def _resolve_or_create_note_row(browser, note_text: str, *, create: bool):
-    tables = set(browser.catalog.get_tables())
+    tables = set(browser.db.get_tables())
     if "notes" not in tables:
         raise ValueError("Database schema does not contain `notes` table.")
-    rows = browser.catalog.search("notes", "note", note_text)
+    rows = browser.db.search("notes", "note", note_text)
     if rows:
         return "notes", rows[0]
     if not create:
         return None
     row = Row.from_idless_row_dict(
-        browser.catalog,
+        browser.db,
         row_dict={"note": note_text},
         table="notes",
     )
@@ -157,27 +157,27 @@ def _resolve_or_create_note_row(browser, note_text: str, *, create: bool):
 
 
 def _resolve_or_create_tag_row(browser, tag_text: str, *, create: bool):
-    table = preferred_tag_table(browser.catalog)
+    table = preferred_tag_table(browser.db)
     if table is None:
         raise ValueError("Database schema has neither `labels` nor `tags` table.")
 
-    rows = search_tag_rows(browser.catalog, table, tag_text)
+    rows = search_tag_rows(browser.db, table, tag_text)
     if rows:
         return table, rows[0]
     if not create:
         return None
 
-    columns = set(browser.catalog.get_column_headings(table))
+    columns = set(browser.db.get_column_headings(table))
     row_dict = build_tag_row_payload(table, columns, tag_text)
-    row = Row.from_idless_row_dict(browser.catalog, row_dict=row_dict, table=table)
+    row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table=table)
     return table, row
 
 
 def _resolve_or_create_genre_row(browser, genre_text: str, *, create: bool):
-    tables = set(browser.catalog.get_tables())
+    tables = set(browser.db.get_tables())
     if "genres" not in tables:
         raise ValueError("Database schema does not contain `genres` table.")
-    columns = set(browser.catalog.get_column_headings("genres"))
+    columns = set(browser.db.get_column_headings("genres"))
 
     genre_sort = standardize_genre(genre_text)
     genre_phash = make_title_search_term(genre_sort)
@@ -191,7 +191,7 @@ def _resolve_or_create_genre_row(browser, genre_text: str, *, create: bool):
         search_column = "genre"
         search_value = genre_text
 
-    rows = browser.catalog.search("genres", search_column, search_value)
+    rows = browser.db.search("genres", search_column, search_value)
     if rows:
         return "genres", rows[0]
     if not create:
@@ -202,15 +202,15 @@ def _resolve_or_create_genre_row(browser, genre_text: str, *, create: bool):
         row_dict["genre_sort"] = genre_sort
     if "genre_phash" in columns:
         row_dict["genre_phash"] = genre_phash
-    row = Row.from_idless_row_dict(browser.catalog, row_dict=row_dict, table="genres")
+    row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="genres")
     return "genres", row
 
 
 def _resolve_or_create_subject_row(browser, subject_text: str, *, create: bool):
-    tables = set(browser.catalog.get_tables())
+    tables = set(browser.db.get_tables())
     if "subjects" not in tables:
         raise ValueError("Database schema does not contain `subjects` table.")
-    columns = set(browser.catalog.get_column_headings("subjects"))
+    columns = set(browser.db.get_column_headings("subjects"))
 
     subject_sort = make_title_search_term(subject_text)
     subject_phash = subject_sort
@@ -224,7 +224,7 @@ def _resolve_or_create_subject_row(browser, subject_text: str, *, create: bool):
         search_column = "subject"
         search_value = subject_text
 
-    rows = browser.catalog.search("subjects", search_column, search_value)
+    rows = browser.db.search("subjects", search_column, search_value)
     if rows:
         return "subjects", rows[0]
     if not create:
@@ -235,12 +235,12 @@ def _resolve_or_create_subject_row(browser, subject_text: str, *, create: bool):
         row_dict["subject_sort"] = subject_sort
     if "subject_phash" in columns:
         row_dict["subject_phash"] = subject_phash
-    row = Row.from_idless_row_dict(browser.catalog, row_dict=row_dict, table="subjects")
+    row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="subjects")
     return "subjects", row
 
 
 def _resolve_language_row(browser, language_text: str, *, create: bool):
-    tables = set(browser.catalog.get_tables())
+    tables = set(browser.db.get_tables())
     if "languages" not in tables:
         raise ValueError("Database schema does not contain `languages` table.")
 
@@ -273,7 +273,7 @@ def _resolve_language_row(browser, language_text: str, *, create: bool):
     for candidate in candidates:
         for column in search_columns:
             try:
-                rows = browser.catalog.search("languages", column, candidate)
+                rows = browser.db.search("languages", column, candidate)
             except Exception:
                 rows = []
             if rows:
@@ -289,11 +289,11 @@ def _resolve_language_row(browser, language_text: str, *, create: bool):
 
 
 def _resolve_or_create_series_row(browser, series_text: str, *, create: bool):
-    tables = set(browser.catalog.get_tables())
+    tables = set(browser.db.get_tables())
     if "series" not in tables:
         raise ValueError("Database schema does not contain `series` table.")
 
-    columns = set(browser.catalog.get_column_headings("series"))
+    columns = set(browser.db.get_column_headings("series"))
     series_name = standardize_series(series_text)
     series_sort = generate_title_sort(series_name)
     series_name_norm = make_title_search_term(series_name)
@@ -310,7 +310,7 @@ def _resolve_or_create_series_row(browser, series_text: str, *, create: bool):
 
     for column, value in search_order:
         try:
-            rows = browser.catalog.search("series", column, value)
+            rows = browser.db.search("series", column, value)
         except Exception:
             rows = []
         if rows:
@@ -325,7 +325,7 @@ def _resolve_or_create_series_row(browser, series_text: str, *, create: bool):
         row_dict["series_name_norm"] = series_name_norm
     if "series_phash" in columns:
         row_dict["series_phash"] = series_phash
-    row = Row.from_idless_row_dict(browser.catalog, row_dict=row_dict, table="series")
+    row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="series")
     return "series", row
 
 
@@ -405,17 +405,17 @@ def _rollback_on_bulk_changes(
 
     for link_row in reversed(created_link_rows):
         try:
-            browser.catalog.delete(link_row)
+            browser.db.delete(link_row)
         except Exception as exc:
             errors.append("link rollback failed for {}:{} ({})".format(link_row.table, link_row.row_id, exc))
 
     for source_row in reversed(created_source_rows):
         has_links = False
-        for table in browser.catalog.driver_wrapper.get_interlinked_tables(source_row.table):
+        for table in browser.db.driver_wrapper.get_interlinked_tables(source_row.table):
             if table == source_row.table:
                 continue
             try:
-                linked_rows = browser.catalog.get_interlinked_rows(primary_row=source_row, secondary_table=table)
+                linked_rows = browser.db.get_interlinked_rows(primary_row=source_row, secondary_table=table)
             except Exception:
                 linked_rows = []
             if linked_rows:
@@ -424,7 +424,7 @@ def _rollback_on_bulk_changes(
         if has_links:
             continue
         try:
-            browser.catalog.delete(source_row)
+            browser.db.delete(source_row)
         except Exception as exc:
             errors.append("source rollback failed for {}:{} ({})".format(source_row.table, source_row.row_id, exc))
 
@@ -441,10 +441,10 @@ def _link_one_value(
     source_row,
     kind_label: str,
 ) -> tuple[bool, Optional[Row]]:
-    source_id_column = browser.catalog.driver_wrapper.get_id_column(source_table)
+    source_id_column = browser.db.driver_wrapper.get_id_column(source_table)
     source_id = source_row[source_id_column]
 
-    link_table = browser.catalog.driver_wrapper.get_link_table_name(source_table, target_table)
+    link_table = browser.db.driver_wrapper.get_link_table_name(source_table, target_table)
     if not link_table:
         raise ValueError(
             "No link table exists between {} and {} for `{}`.".format(
@@ -454,7 +454,7 @@ def _link_one_value(
             )
         )
 
-    existing_link = browser.catalog.get_interlink_row(primary_row=source_row, secondary_row=target_row, onelink=False)
+    existing_link = browser.db.get_interlink_row(primary_row=source_row, secondary_row=target_row, onelink=False)
     if existing_link:
         browser.emit(
             "{} already linked: {}={} -> {}:{}".format(
@@ -468,7 +468,7 @@ def _link_one_value(
         return False, None
 
     report = write_wemi_metadata_relation_link(
-        browser.catalog,
+        browser.db,
         target_row=target_row,
         relation_table=source_table,
         relation_row=source_row,
@@ -503,7 +503,7 @@ def _link_one_value(
         )
         return True, link_row
 
-    link_row = browser.catalog.interlink_rows(primary_row=source_row, secondary_row=target_row)
+    link_row = browser.db.interlink_rows(primary_row=source_row, secondary_row=target_row)
     browser.emit(
         "{} linked: {}={} -> {}:{}".format(
             kind_label.capitalize(),
@@ -519,7 +519,7 @@ def _link_one_value(
 def _find_interlink_row(browser, *, source_row, target_row) -> Optional[Row]:
     for primary_row, secondary_row in ((source_row, target_row), (target_row, source_row)):
         try:
-            link_row = browser.catalog.get_interlink_row(
+            link_row = browser.db.get_interlink_row(
                 primary_row=primary_row,
                 secondary_row=secondary_row,
                 onelink=False,

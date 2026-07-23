@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog.metadata_tools import Add
+from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.metadata.ebook_metadata_tools import to_epoch_ms
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 
@@ -29,6 +30,15 @@ def _safe_float(value: str) -> Optional[float]:
         return None
     try:
         return float(text)
+    except Exception:
+        return None
+
+
+def _epoch_ms(value: Optional[str]) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        return int(to_epoch_ms(value))
     except Exception:
         return None
 
@@ -128,24 +138,27 @@ class NewItemWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Item wizard canceled.")
 
-        add = Add(browser.db)
-        item_row = add.item(
-            item_manifestation_id=item_manifestation_id,
-            item_flags=item_flags,
-            item_type=item_type,
-            item_location=item_location,
-            item_inventory_code=item_inventory_code,
-            item_original_date=item_original_date,
-            item_original_copyright_date=item_original_copyright_date,
-            item_source=item_source,
-            item_source_detail=item_source_detail,
-            item_source_path=item_source_path,
-            item_source_name=item_source_name,
-            item_acquired_date=item_acquired_date,
-            item_acquired_price_minor=item_acquired_price_minor,
-            item_lifecycle_status=item_lifecycle_status,
-            item_condition=item_condition,
+        catalog = Catalog(browser.db)
+        item_id = catalog.items.create(
+            {
+                "item_manifestation_id": item_manifestation_id,
+                "item_flags": item_flags,
+                "item_type": item_type,
+                "item_location": item_location,
+                "item_inventory_code": item_inventory_code,
+                "item_original_date": _epoch_ms(item_original_date),
+                "item_original_copyright_date": item_original_copyright_date,
+                "item_source": item_source,
+                "item_source_detail": item_source_detail,
+                "item_source_path": item_source_path,
+                "item_source_name": item_source_name,
+                "item_acquired_date": item_acquired_date,
+                "item_acquired_price_minor": item_acquired_price_minor,
+                "item_lifecycle_status": item_lifecycle_status,
+                "item_condition": item_condition,
+            }
         )
+        item_row = catalog.items.require(item_id)
 
         browser.emit(
             "Item created: item_id={} inventory_code={!r}".format(

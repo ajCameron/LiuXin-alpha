@@ -1,8 +1,14 @@
 
-"""
-Simplified front ends for the write system which should be (mostly) used instead of actual writers.
+"""Frozen reference helpers for the pre-facade catalog write path.
 
-These helpers express catalog-level metadata intent and delegate SQL execution to ``db.metadata_sql``.
+Existing Calibre-cache callers still import these functions. New catalog code
+must use :class:`Catalog` repositories, coordinated mutations, or normalized
+writers. The module is retained after callers migrate because its direct-SQL
+operations are useful reference material for future measured fast paths. It
+must not gain new callers or features while it remains a compatibility path.
+
+The helpers do not own transaction commits; transaction policy belongs to
+their caller or the database operation they invoke.
 """
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
 
@@ -336,7 +342,6 @@ def library_unapply_tags(db: "CatalogAPI", book_id: int, tags: Iterable[str]) ->
         if tag_id:
             db.metadata_sql.break_tag_title_link(tag_id=tag_id, title_id=book_id)
         tag_ids.add(tag_id)
-    db.driver.conn.commit()
     return tag_ids
 
 
@@ -356,7 +361,6 @@ def library_unapply_creator_tags(db: "CatalogAPI", creator_id: int, tags: Iterab
         if tag_id:
             db.metadata_sql.break_creator_tag_link(tag_id, creator_id)
         tag_ids.add(tag_id)
-    db.driver.conn.commit()
 
 
 def library_unapply_title_tags(db: "CatalogAPI", book_id: int, tags: Iterable[str]) -> set[int]:
@@ -408,8 +412,6 @@ def library_set_tags(db: "CatalogAPI", title_id: int, tags: Iterable[str], appen
             db.metadata_sql.add_tag_title_link(title_id, tid)
 
         tag_ids.add(tid)
-    db.driver.conn.commit()
-
     return tag_ids
 
 
@@ -440,7 +442,6 @@ def library_set_creator_tags(db: "CatalogAPI", creator_id: int, tags: Iterable[s
         if not db.metadata_sql.check_for_creator_tag_link(creator_id, tid):
             db.metadata_sql.add_creator_tag_link(creator_id=creator_id, tag_id=tid)
 
-    db.driver.conn.commit()
 
 
 def library_set_series_tags(db: "CatalogAPI", series_id: int, tags: Iterable[str], append: bool = False) -> None:
@@ -470,7 +471,6 @@ def library_set_series_tags(db: "CatalogAPI", series_id: int, tags: Iterable[str
         if not db.metadata_sql.check_for_series_tag_link(series_id=series_id, tag_id=tid):
             db.metadata_sql.add_series_tag_link(series_id, tid)
 
-    db.driver.conn.commit()
 
 
 def library_set_title_tags(db: "CatalogAPI", title_id: int, tags: Iterable[str], append: bool = False) -> set[int]:
@@ -502,7 +502,14 @@ def library_unset_series(
     :return:
     """
     if series is not None:
-        raise NotImplementedError
+        resolved_id = (
+            series
+            if isinstance(series, int)
+            else db.metadata_sql.get_series_id_from_value(series)
+        )
+        if series_id is not None and resolved_id != series_id:
+            raise ValueError("series and series_id identify different rows")
+        series_id = resolved_id
     db.metadata_sql.library_unset_series(title_id=title_id, series_id=series_id)
 
 
@@ -633,15 +640,11 @@ def library_set_series(
     return None, None
 
 
-def dummy_series_id(*args, **kwargs):
-    raise NotImplementedError("{} - {}".format(args, kwargs))
-
-
 def library_set_series_index(
         db: "CatalogAPI",
         title_id: int,
         idx: Optional[Union[float, int]],
-        series_id = dummy_series_id,
+        series_id = None,
         update_cache_series_idx = None) -> None:
     """
     Sets the series index for the primary series.
@@ -657,9 +660,9 @@ def library_set_series_index(
     :return:
     """
     # Get the id of the series currently linked to the given book
-    try:
+    if callable(series_id):
         series_id = series_id(title_id, index_is_id=True)
-    except NotImplementedError:
+    elif series_id is None:
         series_id = db.metadata_sql.read_primary_title_series_id_from_meta(title_id)
 
     if series_id is not None:

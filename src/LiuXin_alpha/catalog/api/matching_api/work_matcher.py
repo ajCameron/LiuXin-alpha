@@ -2,41 +2,42 @@
 
 from __future__ import annotations
 
-from typing import Protocol, Sequence, runtime_checkable, TYPE_CHECKING, Optional
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
 
     from LiuXin_alpha.catalog.api.common import MetadataCandidate, MatchResult
 
 
-# Todo: Might be worth an entire subclass for each, so you can do catalog.matching.work.by_string("some string")
 @runtime_checkable
 class WorkMatcherAPI(Protocol):
-    """
-    Policy object for matching incoming metadata to works.
-    """
+    """Match incoming metadata candidates to Works without mutation."""
 
     def candidates(self, candidate: MetadataCandidate, *, limit: int = 20) -> Sequence[MatchResult]:
-        """
-        Return possible work matches ordered by confidence.
+        """Return policy-qualified Work candidates in deterministic order.
 
-        :param candidate:
-        :param limit:
-        :return:
+        :param candidate: Candidate Work metadata and structured hints.
+        :param limit: Maximum candidates to return.
+        :return: Qualified candidates ordered by evidence and confidence.
         """
+
+        ...
 
     def best(self, candidate: MetadataCandidate) -> MatchResult:
-        """
-        Return the best work match, or a non-match result.
+        """Return the final Work identity decision.
 
-        :param candidate:
-        :return:
+        :param candidate: Candidate Work metadata and structured hints.
+        :return: Explained match, no-match, ambiguity, or conflict.
         """
 
-    def exact(self, cand_str: str) -> Optional[MatchResult]:
-        """
-        Return an exact match, string based, on the works.
+        ...
 
-        :param cand_str:
-        :return:
+    def exact(self, cand_str: str) -> MatchResult:
+        """Apply the final policy to a Work title string.
+
+        :param cand_str: Work title to normalize and match.
+        :return: Exact match, no-match, or ambiguity result.
         """
+
+        ...

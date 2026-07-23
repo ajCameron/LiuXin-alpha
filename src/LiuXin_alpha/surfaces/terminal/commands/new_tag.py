@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog.metadata_tools import Add
-from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.surfaces.metadata_facets import (
-    build_tag_row_payload,
     preferred_tag_table,
     search_tag_rows,
     tag_row_identity_column,
@@ -87,12 +85,13 @@ class NewTagWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Tag wizard canceled.")
 
+        catalog = Catalog(browser.db)
         if tag_table == "tags":
-            add = Add(browser.db)
-            tag_row = add.tag(tag=tag_text, tag_phash=tag_norm)
+            tag_data = {"text": tag_text, "phash": tag_norm}
             if description is not None and "tag_description" in set(browser.db.get_column_headings("tags")):
-                tag_row["tag_description"] = description
-                tag_row.sync()
+                tag_data["description"] = description
+            tag_id = catalog.tags.create(tag_data)
+            tag_row = catalog.tags.require(tag_id)
             browser.emit(
                 "Tag created: tag_id={} tag={!r}".format(
                     tag_row["tag_id"],
@@ -103,10 +102,11 @@ class NewTagWizardCommand(TerminalCommandAPI):
 
         if tag_table == "labels":
             columns = set(browser.db.get_column_headings("labels"))
-            row_dict = build_tag_row_payload("labels", columns, tag_text)
-            if description is not None:
-                row_dict["label_description"] = description
-            tag_row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="labels")
+            label_data = {"text": tag_text, "normalized": tag_norm}
+            if description is not None and "label_description" in columns:
+                label_data["description"] = description
+            label_id = catalog.labels.create(label_data)
+            tag_row = catalog.labels.require(label_id)
             browser.emit(
                 "Tag created: label_id={} label_text={!r}".format(
                     tag_row["label_id"],

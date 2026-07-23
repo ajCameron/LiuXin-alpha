@@ -4,7 +4,7 @@ Agent repository API.
 
 from __future__ import annotations
 
-from typing import Protocol, Sequence, runtime_checkable, Optional
+from typing import Protocol, Sequence, runtime_checkable
 
 from LiuXin_alpha.catalog.api.common import EntityId, MetadataCandidate, MatchResult, RowMapping, WemiLevel
 from LiuXin_alpha.catalog.api.repositories.base import BaseRepositoryAPI
@@ -61,12 +61,11 @@ class AgentRepositoryAPI(BaseRepositoryAPI, Protocol):
         :return:
         """
 
-    def list_for_wemi(self, *, level: WemiLevel, entity_id: EntityId, entity_type: Optional[str]) -> Sequence[RowMapping]:
+    def list_for_wemi(self, *, level: WemiLevel, entity_id: EntityId) -> Sequence[RowMapping]:
         """
         Return agents linked to a WEMI entity.
 
         :param level:
         :param entity_id:
-        :param entity_type:
         :return:
         """

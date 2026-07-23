@@ -12,6 +12,8 @@ from copy import deepcopy
 from threading import Lock
 
 from LiuXin_alpha.utils.libraries.liuxin_six import iterkeys
+from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.databases.macro_types import LinkValue
 
 # Todo: These should be stored in base.tables
 from LiuXin_alpha.customize.cache.base_tables import (
@@ -2498,8 +2500,14 @@ class CalibreLanguagesField(CalibreManyToManyField):
             # id, val is processed and dropped
             if isinstance(book_val, basestring):
                 # Todo: Need a search method for the language code and name
-                lang_row = db.ensure.language(language_string=book_val, lang_code="either")
-                db.metadata_sql.set_title_primary_language(title_id=book_id, lang_id=lang_row["language_id"])
+                catalog = Catalog(db)
+                language_match = catalog.languages.exact(book_val)
+                if not language_match.is_match or language_match.entity_id is None:
+                    raise InvalidDBUpdate("Language could not be resolved: {!r}".format(book_val))
+                catalog.create_writer("works", "language").write(
+                    {book_id: LinkValue(language_match.entity_id)},
+                    link_type="primary",
+                )
             # id and val are retained for conventional update
             else:
                 new_book_id_to_val_map[book_id] = book_val

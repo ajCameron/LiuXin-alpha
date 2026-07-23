@@ -21,6 +21,61 @@ class PortableMacrosAPI(abc.ABC):
     """Backend-optimised compound operations with portable semantics."""
 
     @abc.abstractmethod
+    def transaction(self) -> AbstractContextManager[Any]:
+        """Compose nested portable macro calls into one transaction."""
+
+    @abc.abstractmethod
+    def get_row(
+        self,
+        table: str,
+        row_id: Any,
+        *,
+        id_column: str | None = None,
+    ) -> Mapping[str, Any] | None:
+        """Return one row by ID through the portable transaction connection."""
+
+    @abc.abstractmethod
+    def get_rows(
+        self,
+        table: str,
+        *,
+        where: Mapping[str, Any] | None = None,
+        order_by: Iterable[str] = (),
+    ) -> tuple[Mapping[str, Any], ...]:
+        """Return rows matching equality predicates in deterministic order."""
+
+    @abc.abstractmethod
+    def insert_row(
+        self,
+        table: str,
+        values: Mapping[str, Any],
+        *,
+        id_column: str | None = None,
+    ) -> Any:
+        """Insert one row and return its database-assigned ID."""
+
+    @abc.abstractmethod
+    def update_row(
+        self,
+        table: str,
+        row_id: Any,
+        values: Mapping[str, Any],
+        *,
+        id_column: str | None = None,
+    ) -> None:
+        """Update selected columns on one row."""
+
+    @abc.abstractmethod
+    def delete_row(
+        self,
+        table: str,
+        row_id: Any,
+        *,
+        id_column: str | None = None,
+    ) -> None:
+        """Delete one row by ID."""
+
+    @abc.abstractmethod
     def get_link_rows(
         self,
         link_spec: StorageLinkSpec,

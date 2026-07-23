@@ -60,7 +60,7 @@ class IdentifierRepositoryAPI(BaseRepositoryAPI, Protocol):
         level: WemiLevel,
         entity_id: EntityId,
         priority: int | None = None,
-    ) -> None:
+    ) -> EntityId:
         """
         Link an identifier to a WEMI entity.
 
@@ -68,7 +68,7 @@ class IdentifierRepositoryAPI(BaseRepositoryAPI, Protocol):
         :param level:
         :param entity_id:
         :param priority:
-        :return:
+        :return: Assigned identifier row ID.
         """
 
     def list_for_wemi(self, *, level: WemiLevel, entity_id: EntityId) -> Sequence[RowMapping]:

@@ -204,6 +204,12 @@ destination column is stored directly on the source row. The factory-created
 link writer resolves raw destination-column values with `ensure_table_value`;
 already-resolved IDs are explicit `LinkValue` instances.
 
+`Catalog` and `CatalogAPI` expose that factory as `create_writer`, plus
+construction-and-apply conveniences `write` and `write_one`. Arguments and
+result mappings pass through to the selected concrete writer unchanged. The
+existing normalized `write_column_update`, `write_link_update`, and
+`write_owned_row_update` methods remain the writer-to-persistence seam.
+
 The factory now selects `CatalogOwnedRowOneToOneWriter` for exact one-to-one
 routes. That path deliberately does not construct a `LinkUpdate`: its atomic
 unit includes both the destination-row mutation and the link mutation, so it
@@ -228,3 +234,20 @@ backends. The focused writer slice passes `15` cases; the broader cache
 import/plugin/schema/real-database/field regression lane passes `90` cases in
 `86.80s`. Its real-database case covers schema discovery, scalar and typed-link
 writes, fail-before-creation type validation, and refreshed cache reads.
+
+The catalog convenience surface passes its API contract checks and eight
+real-database scalar, owned-row, typed-registry, and shared-link cases across
+the SQLite and APSW fixtures. Both invalid-type forms fail before destination
+creation when entered through `Catalog.write_one`.
+
+## Full-pass correction, 2026-07-22
+
+The replacement-only `LinkUpdate.write()` operation remains one atomic bulk
+link transaction. That guarantee does not currently cover raw destination
+resolution performed by `CatalogTableValueLinkWriter`: replacements and
+additions call separately committed `ensure_table_value()` operations during
+`build_update()`. Cardinality is checked only afterwards. The complete
+raw-value writer call can therefore commit destination rows before rejecting
+or failing the link update. See
+`docs/development/catalog-fitness-review.md` for the package-wide review and
+the required combined transaction boundary.

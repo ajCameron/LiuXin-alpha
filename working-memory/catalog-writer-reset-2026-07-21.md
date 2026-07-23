@@ -89,6 +89,11 @@ selects owned-row policy for `ONE_TO_ONE` and shared-value policy for the other
 cardinalities. It rejects ambiguous columns and missing links rather than
 depending on iteration order.
 
+The concrete `Catalog` facade and `CatalogAPI` protocol expose the factory as
+`create_writer`, with `write` and `write_one` conveniences which forward to the
+selected writer. Normalized update application remains on the existing
+`write_column_update`, `write_link_update`, and `write_owned_row_update` seam.
+
 The abstract link writer's `build_update(...)` constructs an inspectable
 `LinkUpdate.from_legacy(...)` without writing. The shared-value leaf tightens
 that boundary with `LinkUpdate.from_values(...)`; the owned-row leaf constructs
@@ -139,6 +144,18 @@ schema-discovered scalar and typed-link round trip.
 The next build slices are metadata-specific adapters, validators, and resolver
 policies where the two generic separate-table policies are insufficient,
 followed by deliberate field-family migration and class update/change work.
+
+## Full-pass correction, 2026-07-22
+
+The owned-row operation and the final normalized link replacement are atomic.
+The complete shared raw-value workflow is not: `build_update()` calls
+`ensure_table_value()` in separately committed transactions before the later
+link replacement. It also performs cardinality validation after those ensures.
+An invalid or later-failing request can therefore leave newly created,
+unlinked destination rows. Statements above that describe shared-value update
+construction as non-writing or the complete workflow as all-or-nothing are
+superseded by this correction. The durable finding and acceptance criterion
+are recorded in `docs/development/catalog-fitness-review.md`.
 
 ## Verification
 

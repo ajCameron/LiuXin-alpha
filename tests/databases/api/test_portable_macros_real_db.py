@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import uuid
 
+import pytest
+
 from LiuXin_alpha.databases.macro_types import LinkValue
 from LiuXin_alpha.databases.schema_specs import StorageColumnSpec, StorageLinkSpec
 
@@ -119,6 +121,72 @@ def test_portable_macros_through_real_database_wiring(db):
         "tag",
         tag_text.swapcase(),
     ) == tag_id
+
+
+def test_portable_row_crud_and_nested_transaction_rollback(db):
+    db.driver_wrapper.executescript(
+        """
+        CREATE TABLE macro_row_crud (
+            macro_row_crud_id INTEGER PRIMARY KEY,
+            macro_row_crud_name TEXT NOT NULL,
+            macro_row_crud_group TEXT
+        );
+        """
+    )
+
+    with db.macros.transaction():
+        first_id = db.macros.insert_row(
+            "macro_row_crud",
+            {
+                "macro_row_crud_name": "first",
+                "macro_row_crud_group": "kept",
+            },
+        )
+        with db.macros.transaction():
+            second_id = db.macros.insert_row(
+                "macro_row_crud",
+                {
+                    "macro_row_crud_name": "second",
+                    "macro_row_crud_group": "kept",
+                },
+            )
+            db.macros.update_row(
+                "macro_row_crud",
+                first_id,
+                {"macro_row_crud_name": "first updated"},
+            )
+
+    assert db.macros.get_row("macro_row_crud", first_id) == {
+        "macro_row_crud_id": first_id,
+        "macro_row_crud_name": "first updated",
+        "macro_row_crud_group": "kept",
+    }
+    assert [
+        row["macro_row_crud_id"]
+        for row in db.macros.get_rows(
+            "macro_row_crud",
+            where={"macro_row_crud_group": "kept"},
+            order_by=("macro_row_crud_id",),
+        )
+    ] == [first_id, second_id]
+
+    with pytest.raises(RuntimeError, match="force rollback"):
+        with db.macros.transaction():
+            db.macros.update_row(
+                "macro_row_crud",
+                first_id,
+                {"macro_row_crud_name": "must roll back"},
+            )
+            db.macros.delete_row("macro_row_crud", second_id)
+            raise RuntimeError("force rollback")
+
+    assert db.macros.get_row("macro_row_crud", first_id)[
+        "macro_row_crud_name"
+    ] == "first updated"
+    assert db.macros.get_row("macro_row_crud", second_id) is not None
+
+    db.macros.delete_row("macro_row_crud", second_id)
+    assert db.macros.get_row("macro_row_crud", second_id) is None
 
 
 def test_real_link_spec_detects_type_as_part_of_nonexclusive_identity(db):

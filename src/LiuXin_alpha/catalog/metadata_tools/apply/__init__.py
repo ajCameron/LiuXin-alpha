@@ -46,7 +46,7 @@ class Apply(LabelApplyMixin):
         else:
             err_str = "Unable to add comment - type not recognized"
             err_str = default_log.log_variables(err_str, "ERROR", ("comment", comment), ("comment_type", type(comment)))
-            raise NotImplementedError(err_str)
+            raise InputIntegrityError(err_str)
 
         resource_table = resource_row.table
         interlink_table = self.db.driver_wrapper.get_link_table_name("comments", resource_table)
@@ -78,7 +78,7 @@ class Apply(LabelApplyMixin):
         else:
             err_str = "Unable to add cover - type not recognized"
             err_str = default_log.log_variables(err_str, "ERROR", ("cover", cover), ("type(cover)", type(cover)))
-            raise NotImplementedError(err_str)
+            raise InputIntegrityError(err_str)
 
         resource_table = resource_row.table
         interlink_table = self.db.driver_wrapper.get_link_table_name("covers", resource_table)
@@ -162,7 +162,7 @@ class Apply(LabelApplyMixin):
         else:
             err_str = "Genre cannot be parsed - type not recognized"
             err_str = default_log.log_variables(err_str, "ERROR", ("resource_table", resource_table), ("genre", genre))
-            raise NotImplementedError(err_str)
+            raise InputIntegrityError(err_str)
 
         link_row = self.db.interlink_rows(primary_row=resource_row, secondary_row=genre_row, priority=genre_priority)
         return link_row
@@ -229,7 +229,7 @@ class Apply(LabelApplyMixin):
                 ("identifier", identifier),
                 ("identifier_type", identifier_type),
             )
-            raise NotImplementedError(err_str)
+            raise InputIntegrityError(err_str)
 
         link_row = self.db.interlink_rows(
             primary_row=resource_row,
@@ -264,7 +264,7 @@ class Apply(LabelApplyMixin):
                 ("language", language),
                 ("language_type", type(language)),
             )
-            raise NotImplementedError(err_str)
+            raise InputIntegrityError(err_str)
 
         try:
             link_row = self.db.interlink_rows(primary_row=resource_row, secondary_row=language_row, type=link_type)
@@ -376,7 +376,7 @@ class Apply(LabelApplyMixin):
         elif isinstance(publisher, string_types):
             publisher_row = self.ensure.publisher(publisher=publisher, standardize=False)
         else:
-            raise NotImplementedError("publisher type not recognized")
+            raise InputIntegrityError("publisher type not recognized")
 
         try:
             link_row = self.db.interlink_rows(primary_row=publisher_row, secondary_row=title_row)
@@ -411,7 +411,7 @@ class Apply(LabelApplyMixin):
                 ("rating_type", rating_type),
                 ("resource_row", resource_row),
             )
-            raise NotImplementedError(err_str)
+            raise InputIntegrityError(err_str)
 
         # Todo: This check should be superfluous - the interlink rows method should throw an error - catch and handle it
         resource_table = resource_row.table
@@ -475,7 +475,7 @@ class Apply(LabelApplyMixin):
                 ("series_index", series_index),
                 ("resource_row", resource_row),
             )
-            raise NotImplementedError(err_str)
+            raise InputIntegrityError(err_str)
 
         # Link the series to the resource with the given index
         link_row = self.db.interlink_rows(primary_row=resource_row, secondary_row=series_row, index=series_index)
@@ -500,7 +500,7 @@ class Apply(LabelApplyMixin):
         else:
             err_str = "Unable to add subject - type not recognized"
             err_str = default_log.log_variables(err_str, "ERROR", ("subject", subject), ("resource_row", resource_row))
-            raise NotImplementedError(err_str)
+            raise InputIntegrityError(err_str)
 
         # Link the subject to the resource
         self.db.interlink_rows(primary_row=resource_row, secondary_row=subject_row)
@@ -525,7 +525,7 @@ class Apply(LabelApplyMixin):
                 ("synopsis", synopsis),
                 ("synopsis_type", type(synopsis)),
             )
-            raise NotImplementedError(err_str)
+            raise InputIntegrityError(err_str)
 
         resource_table = resource.table
         interlink_table = self.db.driver_wrapper.get_link_table_name("synopses", resource_table)

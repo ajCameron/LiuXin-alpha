@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog.metadata_tools import Add
+from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 
@@ -63,10 +63,8 @@ class NewPublisherWizardCommand(TerminalCommandAPI):
         parent_id = _safe_int(parent_id_text)
         if parent_id_text.strip() and parent_id is None:
             raise ValueError("Parent publisher agent id must be an integer.")
-        publisher_parent = None
         if parent_id is not None:
-            publisher_parent = browser.db.get_row_from_id("agents", parent_id)
-            if publisher_parent is None:
+            if browser.db.get_row_from_id("agents", parent_id) is None:
                 raise ValueError("No agent exists with agent_id={}.".format(parent_id))
 
         publishr_position_text = browser.prompt_text("Publisher position (optional)", default="")
@@ -116,18 +114,39 @@ class NewPublisherWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Publisher wizard canceled.")
 
-        add = Add(browser.db)
-        row = add.publisher(
-            publisher=publisher,
-            publisher_sort=publisher_sort,
-            publisher_phash=publisher_phash,
-            publisher_description=publisher_description,
-            publisher_wikipedia=publisher_wikipedia,
-            publisher_website=publisher_website,
-            publisher_parent=publisher_parent,
-            publishr_position=publishr_position,
-            publisher_full=publisher_full,
+        aliases = []
+        if publisher_phash:
+            aliases.append("publisher_phash:{}".format(publisher_phash))
+        if publishr_position is not None:
+            aliases.append("publisher_position:{}".format(publishr_position))
+        if publisher_full:
+            aliases.append("publisher_full:{}".format(publisher_full))
+        identifiers = [
+            {"scheme": scheme, "value": value, "is_primary": is_primary}
+            for scheme, value, is_primary in (
+                ("url", publisher_website, True),
+                ("wikipedia_url", publisher_wikipedia, True),
+                ("publisher_phash", publisher_phash, False),
+            )
+            if value is not None
+        ]
+
+        catalog = Catalog(browser.db)
+        agent_id = catalog.agents.create_organisation(
+            {
+                "name": publisher,
+                "sort_name": publisher_sort,
+                "aliases": aliases,
+            },
+            details={
+                "org_agent_website": publisher_website,
+                "org_agent_description": publisher_description,
+            },
+            parent_id=parent_id,
+            relation_type="imprint_of",
+            identifiers=identifiers,
         )
+        row = catalog.agents.require(agent_id)
 
         browser.emit(
             "Publisher created: agent_id={} canonical_name={!r}".format(

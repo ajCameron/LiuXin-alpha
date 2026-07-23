@@ -443,9 +443,10 @@ class CatalogLinkWriter[RawValueT, ValueT](
     def build_one_update(
         self,
         src_id: SrcTableID,
-        dst_value: CatalogLinkValues[RawValueT],
+        dst_value: Any,
         *,
         link_type: CatalogLinkTypeScope = LINK_TYPE_UNSET,
+        **kwargs: Any,
     ) -> LinkUpdate:
         """
         Build one authoritative source-to-destination link update.
@@ -458,9 +459,16 @@ class CatalogLinkWriter[RawValueT, ValueT](
         :param src_id: Source-table ID whose link set should change.
         :param dst_value: One raw, resolved, rich, or clear link value.
         :param link_type: Optional link-type scope.
+        :param kwargs: Unsupported additional update options.
         :return: Immutable normalized link update.
+        :raises TypeError: If additional update options are supplied.
         """
 
+        if kwargs:
+            names = ", ".join(sorted(kwargs))
+            raise TypeError(
+                f"link write_one received unexpected option(s): {names}"
+            )
         return self.build_update(
             {src_id: dst_value},
             link_type=link_type,

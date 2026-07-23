@@ -8,7 +8,6 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 from typing import TYPE_CHECKING
 
 from LiuXin_alpha.caches.write.base_writer import BaseWriter
-from LiuXin_alpha.catalog.catalog_macros import library_set_cover
 
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
@@ -48,6 +47,9 @@ class CoversWrite(BaseWriter):
         :return:
         """
         for book_id, cover_status in iteritems(book_id_val_map):
-            library_set_cover(db, book_id, cover_status)
+            # ``book_has_cover`` is a Calibre compatibility projection. Its
+            # storage semantics remain owned by the cache/database adapter,
+            # not by the metadata-aware Catalog.
+            db.metadata_sql.set_has_cover(book_id, cover_status)
 
         return set(book_id_val_map)

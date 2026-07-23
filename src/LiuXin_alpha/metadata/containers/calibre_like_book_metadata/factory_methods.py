@@ -65,7 +65,7 @@ class FactoryMethodsMixin:
         """
         _data = object.__getattribute__(self, "_data")
 
-        db = title_row.catalog
+        db = title_row.db
 
         # Loading the title sections
         title_row_dict = db.get_linked_rows(title_row, "titles")[0]
@@ -191,4 +191,3 @@ class FactoryMethodsMixin:
         if len(series_rows) > 0:
             main_series_row = series_rows[0]
             _data["series_index"] = main_series_row["series_title_link_priority"]
-

@@ -6,6 +6,17 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [catalog-matching-policy-2026-07-22.md](catalog-matching-policy-2026-07-22.md)
+  Completed evidence-based matching policy for WEMI, Agents, curated and raw
+  Item identifiers, and exact-default metadata value entities. Approximate
+  value reuse is explicit opt-in; ambiguity and conflict block creation.
+
+- [catalog-full-pass-2026-07-22.md](catalog-full-pass-2026-07-22.md)
+  Completed package-wide catalog fitness pass: concrete semantic facade,
+  schema-accurate repositories, matching/retrieval/mutation behavior,
+  search/field-metadata repair, protocol alignment, shared-writer atomicity,
+  explicit ownership, legacy boundaries, and final verification evidence.
+
 - [catalog-writer-reset-2026-07-21.md](catalog-writer-reset-2026-07-21.md)
   Active catalog-writer rebuild: replaces the incomplete legacy hierarchy with
   storage-neutral lifecycle/value bases, same-table, shared-value, and owned

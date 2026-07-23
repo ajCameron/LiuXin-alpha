@@ -96,6 +96,7 @@ def unicode_contract_db() -> FakeDB:
                 cardinality=LinkCardinality.ONE_TO_ONE,
                 primary_link_col="book_id",
                 secondary_link_col="cover_id",
+                destination_owned=True,
             ),
             StorageLinkSpec(
                 primary_table="books",
@@ -642,6 +643,28 @@ def test_cache_plugin_reload_main_table_refreshes_relation_projection(
     field = cache.get_field("books.covers.path")
     assert field.get_value_from_src_id(1) is None
     assert field.get_value_from_src_id(2) == _COVER_PATH_2
+
+
+def test_cache_plugin_invalidations_reload_relation_dependencies(
+    contract_cache,
+    unicode_contract_db: FakeDB,
+) -> None:
+    cache = contract_cache
+
+    unicode_contract_db.driver_wrapper.delete_by_id("covers", {10})
+    cache.invalidate_table("covers")
+
+    assert cache.get_field("books.covers.path").get_value_from_src_id(1) is None
+
+    unicode_contract_db.driver_wrapper.delete_by_id("book_tags", {200})
+    cache.invalidate_link_table("books", "tags")
+
+    assert tuple(
+        cache.get_field("books.tags.tag_name").get_values_from_src_id(
+            1,
+            require_ordering=True,
+        )
+    ) == (_TAG_2,)
 
 
 def test_cache_plugin_lifecycle_contract(

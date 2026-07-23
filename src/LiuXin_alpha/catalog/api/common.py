@@ -26,6 +26,14 @@ EntityId: TypeAlias = int
 RowMapping: TypeAlias = Mapping[str, Any]
 RowInput: TypeAlias = MutableMapping[str, Any] | Mapping[str, Any]
 WemiLevel: TypeAlias = Literal["work", "expression", "manifestation", "item"]
+MatchDecision: TypeAlias = Literal["match", "no_match", "ambiguous", "conflict"]
+MatchEvidenceKind: TypeAlias = Literal[
+    "identifier",
+    "exact",
+    "approximate",
+    "corroborating",
+    "conflict",
+]
 
 
 class CatalogError(RuntimeError):
@@ -38,6 +46,29 @@ class CatalogNotFoundError(CatalogError, KeyError):
 
 class CatalogMutationError(CatalogError):
     """Raised when a catalog mutation is rejected by policy or validation."""
+
+
+class CatalogMatchError(CatalogError):
+    """Base error for catalog identity decisions which require intervention."""
+
+    def __init__(self, message: str, result: "MatchResult") -> None:
+        """Store the unresolved match result with the error.
+
+        :param message: Human-readable explanation of the failed automation.
+        :param result: Match decision which requires caller intervention.
+        :return: None.
+        """
+
+        super().__init__(message)
+        self.result: MatchResult = result
+
+
+class CatalogAmbiguousMatchError(CatalogMatchError):
+    """Raised when several entities remain plausible matches."""
+
+
+class CatalogMatchConflictError(CatalogMatchError):
+    """Raised when decisive matching evidence contradicts itself."""
 
 
 class DatabaseHandle(Protocol):
@@ -77,18 +108,97 @@ class IdentifierCandidate:
 
 
 @dataclass(frozen=True, slots=True)
+class MatchEvidence:
+    """One normalized observation used to make a match decision."""
+
+    field: str
+    kind: MatchEvidenceKind
+    score: float
+    weight: float
+    reason: str
+    candidate_value: Any = None
+    existing_value: Any = None
+    decisive: bool = False
+
+    def __post_init__(self) -> None:
+        """Validate normalized evidence boundaries."""
+
+        if not isinstance(self.field, str) or not self.field:
+            raise ValueError("evidence field must be a non-empty string")
+        if self.kind not in {
+            "identifier",
+            "exact",
+            "approximate",
+            "corroborating",
+            "conflict",
+        }:
+            raise ValueError(f"unknown evidence kind: {self.kind!r}")
+        if not isinstance(self.score, (int, float)) or isinstance(self.score, bool):
+            raise TypeError("evidence score must be numeric")
+        if not isinstance(self.weight, (int, float)) or isinstance(self.weight, bool):
+            raise TypeError("evidence weight must be numeric")
+        if not 0.0 <= float(self.score) <= 1.0:
+            raise ValueError("evidence score must be between zero and one")
+        if float(self.weight) < 0.0:
+            raise ValueError("evidence weight cannot be negative")
+        if not isinstance(self.decisive, bool):
+            raise TypeError("decisive must be a boolean")
+        object.__setattr__(self, "score", float(self.score))
+        object.__setattr__(self, "weight", float(self.weight))
+
+
+@dataclass(frozen=True, slots=True)
 class MatchResult:
-    """Result returned by catalog matchers."""
+    """Explained identity decision returned by catalog matchers."""
 
     entity_id: EntityId | None
     confidence: float
     reason: str
     matched_on: tuple[str, ...] = ()
     candidate: RowMapping | None = None
+    decision: MatchDecision | None = None
+    evidence: tuple[MatchEvidence, ...] = ()
+    alternatives: tuple[EntityId, ...] = ()
+
+    def __post_init__(self) -> None:
+        """Derive the legacy-compatible default decision and validate shape."""
+
+        if not isinstance(self.confidence, (int, float)) or isinstance(
+            self.confidence,
+            bool,
+        ):
+            raise TypeError("confidence must be numeric")
+        if not 0.0 <= float(self.confidence) <= 1.0:
+            raise ValueError("confidence must be between zero and one")
+        object.__setattr__(self, "confidence", float(self.confidence))
+
+        decision = self.decision
+        if decision is None:
+            decision = "match" if self.entity_id is not None else "no_match"
+            object.__setattr__(self, "decision", decision)
+        if decision not in {"match", "no_match", "ambiguous", "conflict"}:
+            raise ValueError(f"unknown match decision: {decision!r}")
+        if decision == "match" and self.entity_id is None:
+            raise ValueError("a match decision requires an entity_id")
+        if decision != "match" and self.entity_id is not None:
+            raise ValueError("only a match decision can select an entity_id")
+        if any(
+            not isinstance(entity_id, int) or isinstance(entity_id, bool)
+            for entity_id in self.alternatives
+        ):
+            raise TypeError("alternatives must contain integer entity IDs")
 
     @property
     def is_match(self) -> bool:
-        return self.entity_id is not None
+        """Return whether one entity was safely selected."""
+
+        return self.decision == "match" and self.entity_id is not None
+
+    @property
+    def requires_resolution(self) -> bool:
+        """Return whether automation must stop for caller intervention."""
+
+        return self.decision in {"ambiguous", "conflict"}
 
 
 @dataclass(frozen=True, slots=True)

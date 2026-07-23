@@ -76,7 +76,7 @@ def make_folder_name(folder_row):
         return original_name + " - LX_0_" + alpha_string + "_" + six_unicode(folder_id)
 
     folder_row_id = folder_row.get_row_id("folders")
-    db = folder_row.catalog
+    db = folder_row.db
 
     creator_rows = db.get_linked_rows(folder_row, "creators")
     if creator_rows:
@@ -145,7 +145,7 @@ def make_file_name(file_row):
         extension = file_row["file_extension"]
         return sanitize_object_names(original_name + " - LX_0_" + alpha_string + "_" + six_unicode(file_id) + extension)
 
-    database = file_row.catalog
+    database = file_row.db
 
     series_row = database.get_first_linked_row(file_row, "series")
     creator_row = database.get_first_linked_row(file_row, "creators")

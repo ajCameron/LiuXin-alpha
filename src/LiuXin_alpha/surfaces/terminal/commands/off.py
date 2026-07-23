@@ -22,10 +22,10 @@ def _unlink_one_value(
     source_row,
     kind_label: str,
 ) -> list[dict[str, object]]:
-    source_id_column = browser.catalog.driver_wrapper.get_id_column(source_table)
+    source_id_column = browser.db.driver_wrapper.get_id_column(source_table)
     source_id = source_row[source_id_column]
 
-    link_table = browser.catalog.driver_wrapper.get_link_table_name(source_table, target_table)
+    link_table = browser.db.driver_wrapper.get_link_table_name(source_table, target_table)
     if not link_table:
         raise ValueError(
             "No link table exists between {} and {} for `{}`.".format(
@@ -35,7 +35,7 @@ def _unlink_one_value(
             )
         )
 
-    existing_links = browser.catalog.get_interlink_row(primary_row=source_row, secondary_row=target_row, onelink=False)
+    existing_links = browser.db.get_interlink_row(primary_row=source_row, secondary_row=target_row, onelink=False)
     if not existing_links:
         browser.emit(
             "{} not linked: {}={} -> {}:{}".format(
@@ -52,7 +52,7 @@ def _unlink_one_value(
     deleted_snapshots: list[dict[str, object]] = []
     for link_row in rows:
         deleted_snapshots.append(dict(link_row.row_dict))
-        browser.catalog.delete(link_row)
+        browser.db.delete(link_row)
 
     browser.emit(
         "{} unlinked: {}={} -> {}:{} ({} row{})".format(
@@ -74,14 +74,14 @@ def _restore_deleted_link_snapshots(browser, snapshots: list[dict[str, object]])
         row_dict = dict(snapshot)
         row_dict.pop("table", None)
         try:
-            table = browser.catalog.driver_wrapper.identify_table_from_row_dict(row_dict)
+            table = browser.db.driver_wrapper.identify_table_from_row_dict(row_dict)
         except Exception as exc:
             errors.append("restore failed: could not identify table ({})".format(exc))
             continue
-        id_column = browser.catalog.driver_wrapper.get_id_column(table)
+        id_column = browser.db.driver_wrapper.get_id_column(table)
         row_dict.pop(id_column, None)
         try:
-            Row.from_idless_row_dict(browser.catalog, row_dict=row_dict, table=table)
+            Row.from_idless_row_dict(browser.db, row_dict=row_dict, table=table)
         except Exception as exc:
             errors.append("restore failed for table {} ({})".format(table, exc))
     return errors

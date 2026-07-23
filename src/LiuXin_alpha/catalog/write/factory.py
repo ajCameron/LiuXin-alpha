@@ -66,6 +66,7 @@ def create_catalog_writer(
     dst_column: str,
     *,
     force_refresh: bool = False,
+    destination_owned: bool | None = None,
 ) -> SchemaCatalogWriter:
     """
     Create a schema-backed writer from source table and destination column.
@@ -73,14 +74,17 @@ def create_catalog_writer(
     If ``dst_column`` belongs to ``src_table``, the factory returns a
     :class:`CatalogColumnWriter`. Otherwise it resolves the unique destination
     table containing the column, obtains the directed link specification, and
-    returns a policy-specific separate-table writer. One-to-one destinations
-    use :class:`CatalogOwnedRowOneToOneWriter`; other cardinalities use
-    :class:`CatalogTableValueLinkWriter` and shared ensured values.
+    returns a policy-specific separate-table writer. A one-to-one destination
+    uses :class:`CatalogOwnedRowOneToOneWriter` only when ownership is declared
+    by the link specification or explicit override. Cardinality alone never
+    implies ownership.
 
     :param catalog: Catalog facade whose database owns the schema.
     :param src_table: Table whose row IDs key writer updates.
     :param dst_column: Column containing the values to write.
     :param force_refresh: Refresh schema discovery before resolving the target.
+    :param destination_owned: Optional explicit ownership override for a
+        one-to-one destination.
     :return: Schema-backed writer for the resolved storage shape.
     :raises TypeError: If arguments or schema-discovery dependencies are invalid.
     :raises KeyError: If the source table or destination column is unknown.
@@ -92,6 +96,8 @@ def create_catalog_writer(
         raise TypeError("src_table must be a non-empty string")
     if not isinstance(dst_column, str) or not dst_column:
         raise TypeError("dst_column must be a non-empty string")
+    if destination_owned is not None and not isinstance(destination_owned, bool):
+        raise TypeError("destination_owned must be a bool or None")
 
     database = getattr(catalog, "db", None)
     wrapper = getattr(database, "driver_wrapper", None)
@@ -144,9 +150,16 @@ def create_catalog_writer(
             f"no link exists from {source_spec.name!r} to "
             f"{destination_spec.name!r}"
         )
+    owned = (
+        link_spec.destination_owned
+        if destination_owned is None
+        else destination_owned
+    )
+    if owned and link_spec.cardinality is not LinkCardinality.ONE_TO_ONE:
+        raise ValueError("only a one-to-one destination can be source-owned")
     writer_type = (
         CatalogOwnedRowOneToOneWriter
-        if link_spec.cardinality is LinkCardinality.ONE_TO_ONE
+        if owned
         else CatalogTableValueLinkWriter
     )
     return writer_type(

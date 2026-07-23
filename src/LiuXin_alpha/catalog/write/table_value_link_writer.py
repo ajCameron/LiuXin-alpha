@@ -4,6 +4,9 @@ Schema-backed link writer for values stored in a destination-table column.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from contextlib import nullcontext
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.catalog.write.link_update import LinkUpdate
@@ -12,8 +15,8 @@ from LiuXin_alpha.catalog.write.link_writer import (
     CatalogLinkTypeScope,
     CatalogLinkWriter,
 )
-from LiuXin_alpha.databases.db_types import DstTableID
-from LiuXin_alpha.databases.macro_types import LINK_TYPE_UNSET
+from LiuXin_alpha.databases.db_types import DstTableID, SrcTableID
+from LiuXin_alpha.databases.macro_types import LINK_TYPE_UNSET, LinkRow
 from LiuXin_alpha.databases.schema_specs import (
     StorageColumnSpec,
     StorageLinkSpec,
@@ -22,6 +25,26 @@ from LiuXin_alpha.databases.schema_specs import (
 
 if TYPE_CHECKING:
     from LiuXin_alpha.catalog.api import CatalogAPI
+
+
+@dataclass(frozen=True, slots=True)
+class _TableValueReference:
+    """Hashable, non-persistent reference to one raw destination value."""
+
+    identity: tuple[str, str, str]
+    value: Any = field(compare=False, hash=False, repr=False)
+
+    @classmethod
+    def from_value(cls, value: Any) -> "_TableValueReference":
+        value_type = type(value)
+        return cls(
+            (
+                value_type.__module__,
+                value_type.__qualname__,
+                repr(value),
+            ),
+            value,
+        )
 
 
 class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
@@ -151,6 +174,11 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
             self.find_destination(self.prepare_value(raw_value)),
         )
 
+    def _reference_for(self, raw_value: Any) -> _TableValueReference:
+        """Adapt a value into a pure, lazily resolved reference."""
+
+        return _TableValueReference.from_value(self.prepare_value(raw_value))
+
     def build_update(
         self,
         replacements: CatalogLinkMap[Any] | None = None,
@@ -182,36 +210,77 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
             deletions=deletions,
             link_type=link_type,
         )
-        ensured_update = LinkUpdate.from_values(
+        update = LinkUpdate.from_values(
             self.link_spec,
             replacements,
             additions=additions,
-            secondary_id_for=self._destination_id_for,
-            link_type=link_type,
-        )
-        deletion_update = LinkUpdate.from_values(
-            self.link_spec,
             deletions=deletions,
-            secondary_id_for=self._existing_destination_id_for,
-            link_type=link_type,
-        )
-        existing_deletions = {
-            source_id: tuple(
-                link
-                for link in links
-                if link.secondary_id is not None
-            )
-            for source_id, links in deletion_update.deletions.items()
-        }
-        update = LinkUpdate(
-            link_spec=self.link_spec,
-            replacements=ensured_update.replacements,
-            additions=ensured_update.additions,
-            deletions=existing_deletions,
+            secondary_id_for=self._reference_for,
             link_type=link_type,
         )
         self._validate_cardinality(update)
         return update
+
+    def _resolve_update(self, update: LinkUpdate) -> LinkUpdate:
+        """Resolve raw value references inside the active write transaction."""
+
+        resolved: dict[_TableValueReference, DstTableID] = {}
+
+        def operation(
+            links_by_source: Any,
+            *,
+            create: bool,
+        ) -> dict[Any, tuple[Any, ...]]:
+            result: dict[Any, tuple[Any, ...]] = {}
+            for source_id, links in links_by_source.items():
+                resolved_links = []
+                for link in links:
+                    reference = link.secondary_id
+                    if not isinstance(reference, _TableValueReference):
+                        resolved_links.append(link)
+                        continue
+                    destination_id = resolved.get(reference)
+                    if destination_id is None:
+                        destination_id = (
+                            self.resolve_destination(reference.value)
+                            if create
+                            else self.find_destination(reference.value)
+                        )
+                        if destination_id is not None:
+                            resolved[reference] = destination_id
+                    if destination_id is not None:
+                        resolved_links.append(
+                            replace(link, secondary_id=destination_id)
+                        )
+                result[source_id] = tuple(resolved_links)
+            return result
+
+        return LinkUpdate(
+            link_spec=self.link_spec,
+            replacements=operation(update.replacements, create=True),
+            additions=operation(update.additions, create=True),
+            deletions=operation(update.deletions, create=False),
+            link_type=update.link_type,
+        )
+
+    def apply_update(
+        self,
+        update: LinkUpdate,
+    ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
+        """Resolve values and apply links in one portable transaction."""
+
+        if not isinstance(update, LinkUpdate):
+            raise TypeError("update must be a LinkUpdate")
+        if update.link_spec != self.link_spec:
+            raise ValueError("update link_spec does not match writer link_spec")
+        macros = self.catalog.db.macros
+        transaction = getattr(macros, "transaction", None)
+        context = transaction() if callable(transaction) else nullcontext()
+        with context:
+            resolved = self._resolve_update(update)
+            replacement = resolved.as_replacement_update(macros)
+            self._validate_cardinality(replacement)
+            return self.catalog.write_link_update(replacement)
 
 
 __all__ = ["CatalogTableValueLinkWriter"]

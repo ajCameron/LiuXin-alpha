@@ -76,7 +76,7 @@ class Ensure:
         if "&" in creator_name:
             err_str = "ensure_creator was passed a string which appeared to be composed of multiple names"
             err_str = default_log.log_variables(err_str, "ERROR", ("creator_name", creator_name))
-            raise NotImplementedError(err_str)
+            raise InputIntegrityError(err_str)
 
         # Working through the various types of creator row, looking for a good match
         creator_name = standardize_creator_name(creator_name)
@@ -263,7 +263,7 @@ class Ensure:
                         ("identifier_type", identifier_type),
                         ("id_row", id_row),
                     )
-                    raise NotImplementedError(err_str)
+                    raise DatabaseIntegrityError(err_str)
                 elif len(id_rows) == 1:
                     return id_rows[0]
                 else:
@@ -436,7 +436,7 @@ class Ensure:
 
         else:
 
-            raise NotImplementedError("Couldn't parse lang_code")
+            raise InputIntegrityError("lang_code must be True, False, or 'either'")
 
         # If this point is reached, then the language row has to be created
         # Almost certainly something has gone wrong

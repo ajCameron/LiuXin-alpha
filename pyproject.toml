@@ -34,11 +34,25 @@ typing = [
 
 [tool.basedpyright]
 include = [
+  "src/LiuXin_alpha/catalog/api",
+  "src/LiuXin_alpha/catalog/catalog.py",
+  "src/LiuXin_alpha/catalog/matching",
+  "src/LiuXin_alpha/catalog/mutations",
+  "src/LiuXin_alpha/catalog/repositories",
+  "src/LiuXin_alpha/catalog/retrieval",
+  "src/LiuXin_alpha/catalog/write",
   "src/LiuXin_alpha/metadata/api",
   "src/LiuXin_alpha/metadata/containers/metadata_containers",
   "src/LiuXin_alpha/surfaces/renderers",
 ]
 strict = [
+  "src/LiuXin_alpha/catalog/api",
+  "src/LiuXin_alpha/catalog/catalog.py",
+  "src/LiuXin_alpha/catalog/matching",
+  "src/LiuXin_alpha/catalog/mutations",
+  "src/LiuXin_alpha/catalog/repositories",
+  "src/LiuXin_alpha/catalog/retrieval",
+  "src/LiuXin_alpha/catalog/write",
   "src/LiuXin_alpha/metadata/api",
   "src/LiuXin_alpha/metadata/containers/metadata_containers",
   "src/LiuXin_alpha/surfaces/renderers",
@@ -55,6 +69,13 @@ pythonVersion = "3.12"
 [tool.mypy]
 python_version = "3.12"
 files = [
+  "src/LiuXin_alpha/catalog/api",
+  "src/LiuXin_alpha/catalog/catalog.py",
+  "src/LiuXin_alpha/catalog/matching",
+  "src/LiuXin_alpha/catalog/mutations",
+  "src/LiuXin_alpha/catalog/repositories",
+  "src/LiuXin_alpha/catalog/retrieval",
+  "src/LiuXin_alpha/catalog/write",
   "src/LiuXin_alpha/metadata/api",
   "src/LiuXin_alpha/metadata/containers/metadata_containers",
   "src/LiuXin_alpha/surfaces/renderers",

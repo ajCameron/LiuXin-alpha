@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog.metadata_tools import Add
+from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.metadata.ebook_metadata_tools import to_epoch_ms
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.utils.language_tools import best_effort_language_id
 
 
 def _clean_optional(value: str) -> Optional[str]:
@@ -24,6 +26,15 @@ def _safe_int(value: str) -> Optional[int]:
         return None
     try:
         return int(text)
+    except Exception:
+        return None
+
+
+def _epoch_ms(value: Optional[str]) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        return int(to_epoch_ms(value))
     except Exception:
         return None
 
@@ -135,26 +146,33 @@ class NewExpressionWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Expression wizard canceled.")
 
-        add = Add(browser.db)
-        expression_row = add.expression(
-            expression_subtitle=expression_subtitle,
-            expression_title_override=expression_title_override,
-            expression_type=expression_type,
-            expression_label=expression_label,
-            expression_year=expression_year,
-            expression_is_preferred=expression_is_preferred,
-            expression_original_date=expression_original_date,
-            expression_original_copyright_date=expression_original_copyright_date,
-            expression_flags=expression_flags,
-            expression_language=expression_language,
-            expression_mode=expression_mode,
-            expression_wordcount=expression_wordcount,
-            expression_fiction_length_category=expression_fiction_length_category,
-            expression_cut_type=expression_cut_type,
-            expression_nominal_duration_seconds=expression_nominal_duration_seconds,
-            expression_status=expression_status,
-            expression_origin_note=expression_origin_note,
+        catalog = Catalog(browser.db)
+        expression_id = catalog.expressions.create(
+            {
+                "expression_subtitle": expression_subtitle,
+                "expression_title_override": expression_title_override,
+                "expression_type": expression_type,
+                "expression_label": expression_label,
+                "expression_year": expression_year,
+                "expression_is_preferred": expression_is_preferred,
+                "expression_original_date": _epoch_ms(expression_original_date),
+                "expression_original_copyright_date": expression_original_copyright_date,
+                "expression_flags": ",".join(expression_flags) or None,
+                "expression_language_id": (
+                    best_effort_language_id(browser.db, expression_language)
+                    if expression_language is not None
+                    else None
+                ),
+                "expression_mode": expression_mode,
+                "expression_wordcount": expression_wordcount,
+                "expression_fiction_length_category": expression_fiction_length_category,
+                "expression_cut_type": expression_cut_type,
+                "expression_nominal_duration_seconds": expression_nominal_duration_seconds,
+                "expression_status": expression_status,
+                "expression_origin_note": expression_origin_note,
+            }
         )
+        expression_row = catalog.expressions.require(expression_id)
 
         browser.emit(
             "Expression created: expression_id={} label={!r}".format(

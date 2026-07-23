@@ -588,15 +588,15 @@ class LinkUpdate:
         """
 
         replacements = (
-            self.replacements[primary_id]
+            tuple(self.replacements[primary_id])
             if primary_id in self.replacements
             else None
         )
         return LinkUpdateEntry(
             primary_id=primary_id,
             replacements=replacements,
-            deletions=self.deletions.get(primary_id, ()),
-            additions=self.additions.get(primary_id, ()),
+            deletions=tuple(self.deletions.get(primary_id, ())),
+            additions=tuple(self.additions.get(primary_id, ())),
         )
 
     def __getitem__(self, primary_id: SrcTableID) -> LinkUpdateEntry:
@@ -1129,10 +1129,13 @@ class LinkUpdate:
         replacement_update = self.as_replacement_update(macros)
         if not replacement_update.replacements:
             return MappingProxyType({})
-        return macros.replace_links_bulk(
-            self.link_spec,
-            replacement_update.replacements,
-            link_type=self.link_type,
+        return cast(
+            Mapping[SrcTableID, tuple[LinkRow, ...]],
+            macros.replace_links_bulk(
+                self.link_spec,
+                replacement_update.replacements,
+                link_type=self.link_type,
+            ),
         )
 
 

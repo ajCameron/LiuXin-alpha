@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog.metadata_tools import Add
+from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
-from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort
+from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort, to_epoch_ms
+from LiuXin_alpha.utils.language_tools import best_effort_language_id
 
 
 def _clean_optional(value: str) -> Optional[str]:
@@ -20,6 +21,15 @@ def _safe_int(value: str) -> Optional[int]:
         return None
     try:
         return int(text)
+    except Exception:
+        return None
+
+
+def _epoch_ms(value: Optional[str]) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        return int(to_epoch_ms(value))
     except Exception:
         return None
 
@@ -104,23 +114,30 @@ class NewWorkWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Work wizard canceled.")
 
-        add = Add(browser.db)
-        work_row = add.work(
-            work_title=work_title,
-            work_canonical_title=work_canonical_title,
-            work_sort_title=work_sort_title,
-            work_creator_sort=work_creator_sort,
-            work_type=work_type,
-            work_medium=work_medium,
-            work_original_language=work_original_language,
-            work_original_date=work_original_date,
-            work_original_year=work_original_year,
-            work_wikipedia_link=work_wikipedia_link,
-            work_is_fiction=work_is_fiction,
-            work_audience=work_audience,
-            work_completion_status=work_completion_status,
-            work_discovery_note=work_discovery_note,
+        catalog = Catalog(browser.db)
+        work_id = catalog.works.create(
+            {
+                "work_title": work_title,
+                "work_canonical_title": work_canonical_title,
+                "work_sort_title": work_sort_title,
+                "work_creator_sort": work_creator_sort,
+                "work_type": work_type,
+                "work_medium": work_medium,
+                "work_original_language_id": (
+                    best_effort_language_id(browser.db, work_original_language)
+                    if work_original_language is not None
+                    else None
+                ),
+                "work_original_date": _epoch_ms(work_original_date),
+                "work_original_year": work_original_year,
+                "work_wikipedia_link": work_wikipedia_link,
+                "work_is_fiction": work_is_fiction,
+                "work_audience": work_audience,
+                "work_completion_status": work_completion_status,
+                "work_discovery_note": work_discovery_note,
+            }
         )
+        work_row = catalog.works.require(work_id)
 
         browser.emit(
             "Work created: work_id={} title={!r}".format(

@@ -8,8 +8,9 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 from typing import TYPE_CHECKING
 
 from LiuXin_alpha.caches.write import BaseWriter
+from LiuXin_alpha.catalog import Catalog
+from LiuXin_alpha.databases.macro_types import LinkValue
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, six_string_types
-from LiuXin_alpha.utils.logging import default_log
 
 if TYPE_CHECKING:
 
@@ -52,36 +53,29 @@ class LanguagesWriter(BaseWriter):
         :param args:
         :return:
         """
+        catalog = Catalog(db)
+        writer = catalog.create_writer("works", "language")
         for book_id, lang_code in iteritems(book_id_val_map):
 
             if isinstance(lang_code, six_string_types):
-
-                # Scrub any primary languages from the languages table - if they exist
-                db.metadata_sql.break_lang_title_links(book_id, link_type="primary")
-
-                title_row = db.get_row_from_id("titles", row_id=book_id)
-
-                # Todo: ensure.language is being called at least three times in this module - does it need to be?
-                # Todo: We need to find ensure and us it.
-                lang_row = db.ensure.language(lang_code, lang_code="either")
-                db.interlink_rows(primary_row=title_row, secondary_row=lang_row, type="primary")
+                language_match = catalog.languages.exact(lang_code)
+                if not language_match.is_match or language_match.entity_id is None:
+                    raise ValueError("Language could not be resolved: {!r}".format(lang_code))
+                writer.write(
+                    {book_id: LinkValue(language_match.entity_id)},
+                    link_type="primary",
+                )
 
                 continue
 
             elif isinstance(lang_code, dict):
-
-                # Scrub all language_title links for the given id from the database - the ones in use will be recreated
-                db.metadata_sql.break_lang_title_links(book_id)
-
-                # Going to need the title row to link language rows to it
-                title_row = db.get_row_from_id("titles", row_id=book_id)
-
                 # Todo: Spin primary language off into a different table
                 # Check that we're not trying to try and set multiple primary languages
                 if "primary" in lang_code and len(lang_code["primary"]) not in [0, 1]:
                     raise AssertionError("Trying to set multiple languages primary - stop it!")
 
                 # Todo: Now should be done in the languages table
+                links = []
                 for link_type, language_ids in iteritems(lang_code):
                     # Check the status of the link dict before trying to write it out onto the database
                     assert isinstance(
@@ -92,28 +86,19 @@ class LanguagesWriter(BaseWriter):
                     for language_id in language_ids:
 
                         if isinstance(language_id, int):
-                            lang_row = db.get_row_from_id("languages", row_id=language_id)
+                            catalog.languages.require(language_id)
+                            resolved_id = language_id
                         elif isinstance(language_id, six_string_types):
-                            lang_row = db.ensure.language(language_id, lang_code="either")
+                            language_match = catalog.languages.exact(language_id)
+                            if not language_match.is_match or language_match.entity_id is None:
+                                raise ValueError(
+                                    "Language could not be resolved: {!r}".format(language_id)
+                                )
+                            resolved_id = language_match.entity_id
                         else:
                             raise NotImplementedError
-
-                        try:
-                            db.interlink_rows(
-                                primary_row=title_row,
-                                secondary_row=lang_row,
-                                type=link_type,
-                                priority="lowest",
-                            )
-                        except AttributeError:
-                            err_str = "AttributeError while trying to link rows"
-                            err_str = default_log.log_variables(
-                                err_str,
-                                "ERROR",
-                                ("language_id", language_id),
-                                ("lang_row", lang_row),
-                            )
-                            raise NotImplementedError(err_str)
+                        links.append(LinkValue(resolved_id, link_type=link_type))
+                writer.write({book_id: tuple(links)})
 
                 continue
 

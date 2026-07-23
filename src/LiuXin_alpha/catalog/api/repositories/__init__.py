@@ -4,33 +4,51 @@ Repository API contracts for catalog entities.
 
 from __future__ import annotations
 
+from typing import Protocol, runtime_checkable
+
 from LiuXin_alpha.catalog.api.repositories.agents import AgentRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.base import BaseRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.expressions import ExpressionRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.exact_entity import ExactEntityRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.identifiers import IdentifierRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.items import ItemRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.item_identifiers import (
+    ItemIdentifierRepositoryAPI,
+)
 from LiuXin_alpha.catalog.api.repositories.manifestations import ManifestationRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.notes import NoteRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.titles import TitleRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.works import WorkRepositoryAPI
 
 
-class CatalogRepositoriesAPI(
-    WorkRepositoryAPI,
-    ExpressionRepositoryAPI,
-    ManifestationRepositoryAPI,
-    ItemRepositoryAPI,
-    AgentRepositoryAPI,
-    IdentifierRepositoryAPI,
-    TitleRepositoryAPI,
-    NoteRepositoryAPI,
-):
+@runtime_checkable
+class CatalogRepositoriesAPI(Protocol):
     """
-    Marker protocol group for repository API imports.
+    Grouped repository surface exposed by the catalog facade.
 
-    The implementation facade does not need to inherit from this directly; it just
-    needs to expose matching attributes.
+    The attributes deliberately compose repository protocols instead of
+    inheriting them: the group is not itself a Work, Agent, or Note repository.
     """
+
+    works: WorkRepositoryAPI
+    expressions: ExpressionRepositoryAPI
+    manifestations: ManifestationRepositoryAPI
+    items: ItemRepositoryAPI
+    agents: AgentRepositoryAPI
+    identifiers: IdentifierRepositoryAPI
+    item_identifiers: ItemIdentifierRepositoryAPI
+    titles: TitleRepositoryAPI
+    notes: NoteRepositoryAPI
+    tags: ExactEntityRepositoryAPI
+    labels: ExactEntityRepositoryAPI
+    genres: ExactEntityRepositoryAPI
+    subjects: ExactEntityRepositoryAPI
+    series: ExactEntityRepositoryAPI
+    languages: ExactEntityRepositoryAPI
+    ratings: ExactEntityRepositoryAPI
+    comments: ExactEntityRepositoryAPI
+    synopses: ExactEntityRepositoryAPI
+    annotations: ExactEntityRepositoryAPI
 
 
 __all__ = [
@@ -38,8 +56,10 @@ __all__ = [
     "BaseRepositoryAPI",
     "CatalogRepositoriesAPI",
     "ExpressionRepositoryAPI",
+    "ExactEntityRepositoryAPI",
     "IdentifierRepositoryAPI",
     "ItemRepositoryAPI",
+    "ItemIdentifierRepositoryAPI",
     "ManifestationRepositoryAPI",
     "NoteRepositoryAPI",
     "TitleRepositoryAPI",

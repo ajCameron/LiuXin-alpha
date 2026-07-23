@@ -9,7 +9,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 
 from LiuXin_alpha.databases.adaptors import sqlite_datetime
 from LiuXin_alpha.caches.write.base_writer import BaseWriter
-from LiuXin_alpha.catalog.catalog_macros import library_set_last_modified, library_set_comment
+from LiuXin_alpha.catalog import Catalog
 
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.logging import default_log
@@ -212,7 +212,12 @@ class OneToOneWriter(BaseWriter):
         :return:
         """
         for book_id in values_map:
-            library_set_last_modified(db, book_id, values_map[book_id])
+            # Last-modified is a legacy ``books`` projection field, so the
+            # Calibre compatibility adapter remains its storage owner.
+            db.metadata_sql.update_book_last_modified(
+                book_id=book_id,
+                last_modified=values_map[book_id],
+            )
 
     @staticmethod
     def comments_one_one_in_other_updater(db, field, updated):
@@ -228,7 +233,11 @@ class OneToOneWriter(BaseWriter):
 
         for book_id in updated:
             comment_val = updated[book_id]
-            book_comment_id = library_set_comment(db, book_id, comment_val)
+            book_comment_id = Catalog(db).comments.replace_for_wemi(
+                level="work",
+                entity_id=book_id,
+                data={"text": comment_val},
+            )
 
             id_map[book_comment_id] = comment_val
             book_col_map[book_id] = book_comment_id

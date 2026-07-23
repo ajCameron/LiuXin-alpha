@@ -177,13 +177,13 @@ class DateSearch:
                 num = query[: -len(m.group(1))]
                 try:
                     qd = now() - timedelta(int(num))
-                except:
+                except (TypeError, ValueError, OverflowError):
                     raise ParseException(_("Number conversion error: {0}").format(num))
                 field_count = 3
             else:
                 try:
                     qd = parse_date(query, as_utc=False)
-                except:
+                except (TypeError, ValueError, OverflowError):
                     raise ParseException(_("Date conversion error: {0}").format(query))
                 if "-" in query:
                     field_count = query.count("-") + 1

@@ -11,6 +11,7 @@ import hashlib
 import json
 import math
 import re
+import threading
 import uuid
 from typing import Any, Iterator
 
@@ -124,6 +125,14 @@ class SQLPortableMacrosMixin:
         return driver
 
     def _macro_connection(self) -> Any:
+        # Read instance state directly. Some compatibility macro classes use
+        # ``__getattr__`` to report unsupported public macros, so probing a
+        # private implementation attribute through ``getattr`` is observable.
+        state = vars(self).get("_macro_transaction_state")
+        if state is not None and getattr(state, "depth", 0):
+            conn = getattr(state, "connection", None)
+            if conn is not None:
+                return conn
         driver = self._macro_driver()
         conn = getattr(driver, "conn", None)
         if conn is None:
@@ -161,13 +170,230 @@ class SQLPortableMacrosMixin:
 
     @contextmanager
     def _macro_transaction(self) -> Iterator[Any]:
-        conn = self._macro_connection()
+        state = vars(self).get("_macro_transaction_state")
+        if state is None:
+            state = threading.local()
+            self._macro_transaction_state = state
+        depth = getattr(state, "depth", 0)
+        if depth:
+            conn = state.connection
+            state.depth = depth + 1
+            try:
+                yield conn
+            finally:
+                state.depth -= 1
+            return
+        driver = self._macro_driver()
+        get_connection = getattr(driver, "get_connection", None)
+        owns_connection = callable(get_connection)
+        if owns_connection:
+            conn = get_connection()
+        else:
+            # Lightweight driver adapters and test harnesses historically
+            # expose only one persistent connection. Preserve that supported
+            # shape while using a dedicated connection whenever the real
+            # driver can provide one.
+            conn = getattr(driver, "conn", None)
+            if conn is None:
+                raise DatabaseIntegrityError(
+                    "Database driver has no connection for portable macros."
+                )
         lock = getattr(self.db, "lock", None)
         lock_context = lock if hasattr(lock, "__enter__") else nullcontext()
         with lock_context:
-            with conn:
-                yield conn
+            state.depth = 1
+            state.connection = conn
+            try:
+                conn.execute("SAVEPOINT liuxin_portable_macro_transaction")
+                try:
+                    yield conn
+                except BaseException:
+                    conn.execute(
+                        "ROLLBACK TO SAVEPOINT liuxin_portable_macro_transaction"
+                    )
+                    conn.execute(
+                        "RELEASE SAVEPOINT liuxin_portable_macro_transaction"
+                    )
+                    conn.rollback()
+                    raise
+                else:
+                    conn.execute(
+                        "RELEASE SAVEPOINT liuxin_portable_macro_transaction"
+                    )
+                    conn.commit()
+            finally:
+                state.depth = 0
+                state.connection = None
+                if owns_connection:
+                    conn.close()
         self._macro_invalidate()
+
+    def transaction(self) -> AbstractContextManager[Any]:
+        """Compose nested portable macro calls into one atomic transaction."""
+
+        return self._macro_transaction()
+
+    def _row_id_column(self, table: str, id_column: str | None) -> str:
+        if id_column is None:
+            id_column = self.db.driver_wrapper.get_id_column(table)
+        return self._validate_columns(table, (id_column,))[0]
+
+    @staticmethod
+    def _mapping_rows(
+        columns: tuple[str, ...],
+        rows: Iterable[Any],
+    ) -> tuple[Mapping[str, Any], ...]:
+        return tuple(
+            {
+                column: _row_value(row, index, column)
+                for index, column in enumerate(columns)
+            }
+            for row in rows
+        )
+
+    def get_row(
+        self,
+        table: str,
+        row_id: Any,
+        *,
+        id_column: str | None = None,
+    ) -> Mapping[str, Any] | None:
+        """Return one row by ID through the transaction connection."""
+
+        id_column = self._row_id_column(table, id_column)
+        columns = self._column_names(table)
+        conn = self._macro_connection()
+        rows = self._mapping_rows(
+            columns,
+            conn.execute(
+                f"SELECT {', '.join(_quoted(column) for column in columns)} "
+                f"FROM {self._macro_table_sql(table)} "
+                f"WHERE {_quoted(id_column)} = ?",
+                (row_id,),
+            ),
+        )
+        if len(rows) > 1:
+            raise DatabaseIntegrityError(
+                f"ID {row_id!r} matched multiple rows in {table!r}."
+            )
+        return rows[0] if rows else None
+
+    def get_rows(
+        self,
+        table: str,
+        *,
+        where: Mapping[str, Any] | None = None,
+        order_by: Iterable[str] = (),
+    ) -> tuple[Mapping[str, Any], ...]:
+        """Return rows matching portable equality predicates."""
+
+        columns = self._column_names(table)
+        predicates = dict(where or {})
+        predicate_columns = self._validate_columns(table, predicates)
+        order_columns = self._validate_columns(table, tuple(order_by))
+        sql = (
+            f"SELECT {', '.join(_quoted(column) for column in columns)} "
+            f"FROM {self._macro_table_sql(table)}"
+        )
+        conditions: list[str] = []
+        values: list[Any] = []
+        for column in predicate_columns:
+            value = predicates[column]
+            if value is None:
+                conditions.append(f"{_quoted(column)} IS NULL")
+            else:
+                conditions.append(f"{_quoted(column)} = ?")
+                values.append(value)
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        if order_columns:
+            sql += " ORDER BY " + ", ".join(
+                _quoted(column) for column in order_columns
+            )
+        return self._mapping_rows(
+            columns,
+            self._macro_connection().execute(sql, tuple(values)),
+        )
+
+    def insert_row(
+        self,
+        table: str,
+        values: Mapping[str, Any],
+        *,
+        id_column: str | None = None,
+    ) -> Any:
+        """Insert one row and return its assigned ID atomically."""
+
+        payload = dict(values)
+        if not payload:
+            raise InputIntegrityError("insert_row values cannot be empty")
+        columns = self._validate_columns(table, payload)
+        id_column = self._row_id_column(table, id_column)
+        sql = (
+            f"INSERT INTO {self._macro_table_sql(table)} "
+            f"({', '.join(_quoted(column) for column in columns)}) VALUES "
+            f"({', '.join('?' for _ in columns)})"
+        )
+        driver = self._macro_driver()
+        with self._macro_transaction() as conn:
+            if hasattr(driver, "schema"):
+                cursor = conn.execute(
+                    sql + f" RETURNING {_quoted(id_column)}",
+                    tuple(payload[column] for column in columns),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    raise DatabaseIntegrityError(
+                        f"Insert into {table!r} did not return an ID."
+                    )
+                return _row_value(row, 0, id_column)
+            cursor = conn.execute(
+                sql,
+                tuple(payload[column] for column in columns),
+            )
+            return cursor.lastrowid
+
+    def update_row(
+        self,
+        table: str,
+        row_id: Any,
+        values: Mapping[str, Any],
+        *,
+        id_column: str | None = None,
+    ) -> None:
+        """Update selected columns on one row atomically."""
+
+        payload = dict(values)
+        if not payload:
+            return
+        columns = self._validate_columns(table, payload)
+        id_column = self._row_id_column(table, id_column)
+        if id_column in columns:
+            raise InputIntegrityError("update_row cannot change the ID column")
+        with self._macro_transaction() as conn:
+            conn.execute(
+                f"UPDATE {self._macro_table_sql(table)} SET "
+                + ", ".join(f"{_quoted(column)} = ?" for column in columns)
+                + f" WHERE {_quoted(id_column)} = ?",
+                tuple(payload[column] for column in columns) + (row_id,),
+            )
+
+    def delete_row(
+        self,
+        table: str,
+        row_id: Any,
+        *,
+        id_column: str | None = None,
+    ) -> None:
+        """Delete one row by ID atomically."""
+
+        id_column = self._row_id_column(table, id_column)
+        with self._macro_transaction() as conn:
+            conn.execute(
+                f"DELETE FROM {self._macro_table_sql(table)} "
+                f"WHERE {_quoted(id_column)} = ?",
+                (row_id,),
+            )
 
     def _column_names(self, table: str) -> tuple[str, ...]:
         headings = self.db.driver_wrapper.get_column_headings(table)

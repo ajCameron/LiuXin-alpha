@@ -20,6 +20,34 @@ Run a local non-network smoke tour:
 bash examples/quickstart.sh
 ```
 
+Run every catalog example against a fresh temporary FRBR database:
+
+```bash
+bash examples/catalog_quickstart.sh
+```
+
+## Catalog
+
+The catalog examples are safe by default: each creates a temporary SQLite
+database and removes it on exit. Pass `--database /path/to/new.sqlite` to any
+script to retain its populated example database. The requested path must not
+already exist.
+
+- `catalog_crud_example.py`
+  - Create, read, update, traverse, match-or-create, list, and delete Work / Expression / Manifestation / Item records.
+- `catalog_metadata_bundle_example.py`
+  - Attach an Agent, identifier, and note, then retrieve a coherent WEMI bundle and catalog projections.
+- `catalog_matching_example.py`
+  - Inspect match/no-match/ambiguity decisions and evidence; run exact,
+    identifier-backed, scoped, guarded match-or-create, exact-default Tag, and
+    Item identifier flows, including explicit approximate-policy opt-in.
+- `catalog_mutations_example.py`
+  - Apply coordinated metadata, prove an invalid role rolls back atomically, and merge duplicate entities.
+- `catalog_writers_example.py`
+  - Create schema-selected writers from two strings, write columns and relationships, inspect one link dataclass at a time, use link extras as a mapping, lazily load destination values, and exercise allowed-link-type guards.
+- `catalog_quickstart.sh`
+  - Execute all five catalog examples as a non-network smoke tour.
+
 ## Library + Storage
 
 - `library_facade_example.py`

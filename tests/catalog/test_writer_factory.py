@@ -71,6 +71,7 @@ def _link_spec(
         secondary_id_col="tag_id",
         primary_link_col="book_id",
         secondary_link_col="tag_id",
+        destination_owned=cardinality is LinkCardinality.ONE_TO_ONE,
     )
 
 
@@ -142,6 +143,15 @@ class _Macros:
     ) -> int | None:
         self.found.append((table, column, value, id_column))
         return {"Science Fiction": 20, "Classic": 21, 5: 22}.get(value)
+
+    def get_link_rows_bulk(
+        self,
+        _link_spec: StorageLinkSpec,
+        primary_ids: object,
+        *,
+        link_type: object,
+    ) -> dict[int, tuple[LinkRow, ...]]:
+        return {source_id: () for source_id in primary_ids}  # type: ignore[union-attr]
 
     def replace_owned_one_to_one_values_bulk(
         self,
@@ -349,6 +359,65 @@ def test_factory_rejects_ambiguous_destination_columns() -> None:
         )
 
 
+def test_factory_does_not_infer_ownership_from_one_to_one_cardinality() -> None:
+    books = _table("books", _column("book_id", 0, primary_key=True))
+    tags = _table(
+        "tags",
+        _column("tag_id", 0, primary_key=True),
+        _column("tag_name", 1),
+    )
+    links = _table(
+        "book_tag_links",
+        _column("book_id", 0),
+        _column("tag_id", 1),
+        is_link_table=True,
+    )
+    link_spec = replace(
+        _link_spec(LinkCardinality.ONE_TO_ONE),
+        destination_owned=False,
+    )
+    catalog = _Catalog(
+        _schema(books, tags, links, link_spec=link_spec),
+        link_spec,
+    )
+
+    writer = create_catalog_writer(
+        catalog,  # type: ignore[arg-type]
+        "books",
+        "tag_name",
+    )
+
+    assert isinstance(writer, CatalogTableValueLinkWriter)
+
+
+def test_factory_rejects_owned_plural_links() -> None:
+    books = _table("books", _column("book_id", 0, primary_key=True))
+    tags = _table(
+        "tags",
+        _column("tag_id", 0, primary_key=True),
+        _column("tag_name", 1),
+    )
+    links = _table(
+        "book_tag_links",
+        _column("book_id", 0),
+        _column("tag_id", 1),
+        is_link_table=True,
+    )
+    link_spec = _link_spec(LinkCardinality.MANY_TO_MANY)
+    catalog = _Catalog(
+        _schema(books, tags, links, link_spec=link_spec),
+        link_spec,
+    )
+
+    with pytest.raises(ValueError, match="only a one-to-one"):
+        create_catalog_writer(
+            catalog,  # type: ignore[arg-type]
+            "books",
+            "tag_name",
+            destination_owned=True,
+        )
+
+
 def test_factory_link_writer_treats_integer_scalars_as_column_values() -> None:
     books = _table("books", _column("book_id", 0, primary_key=True))
     tags = _table(
@@ -376,9 +445,13 @@ def test_factory_link_writer_treats_integer_scalars_as_column_values() -> None:
     update = writer.build_update({1: 5})
     id_update = writer.build_update({1: LinkValue(30)})
 
-    assert catalog.db.macros.ensured == [("tags", "tag_name", 5, "tag_id")]
-    assert update.replacements == {1: (LinkValue(22),)}
+    assert catalog.db.macros.ensured == []
     assert id_update.replacements == {1: (LinkValue(30),)}
+
+    writer.apply_update(update)
+
+    assert catalog.db.macros.ensured == [("tags", "tag_name", 5, "tag_id")]
+    assert catalog.link_updates[-1].replacements == {1: (LinkValue(22),)}
 
 
 def test_shared_value_link_deletions_find_without_ensuring() -> None:
@@ -412,11 +485,16 @@ def test_shared_value_link_deletions_find_without_ensuring() -> None:
     )
 
     assert catalog.db.macros.ensured == []
+    assert catalog.db.macros.found == []
+
+    writer.apply_update(update)
+
     assert catalog.db.macros.found == [
         ("tags", "tag_name", "Science Fiction", "tag_id"),
         ("tags", "tag_name", "Missing", "tag_id"),
     ]
-    assert update.deletions == {1: (LinkValue(20), LinkValue(30))}
+    assert catalog.link_updates[-1].deletions == {}
+    assert catalog.link_updates[-1].replacements == {1: ()}
 
 
 def test_factory_rejects_an_unlinked_destination_table() -> None:
@@ -474,16 +552,29 @@ def test_factory_same_table_writer_round_trips_through_real_database(db) -> None
         INSERT INTO catalog_factory_sources VALUES (1, 'before');
         """
     )
-    writer = create_catalog_writer(
-        Catalog(db),
+    catalog = Catalog(db)
+    writer = catalog.create_writer(
         "catalog_factory_sources",
         "catalog_factory_source_value",
         force_refresh=True,
     )
 
-    result = writer.write({1: "after"})
+    result = catalog.write(
+        "catalog_factory_sources",
+        "catalog_factory_source_value",
+        {1: "after"},
+        force_refresh=True,
+    )
+    single_result = catalog.write_one(
+        "catalog_factory_sources",
+        "catalog_factory_source_value",
+        1,
+        "final",
+    )
 
+    assert isinstance(writer, CatalogColumnWriter)
     assert result == {1: "after"}
+    assert single_result == {1: "final"}
     assert next(
         row[0]
         for row in db.driver_wrapper.execute(
@@ -491,7 +582,7 @@ def test_factory_same_table_writer_round_trips_through_real_database(db) -> None
             "FROM catalog_factory_sources "
             "WHERE catalog_factory_source_id = 1"
         )
-    ) == "after"
+    ) == "final"
 
 
 def test_factory_link_writer_round_trips_through_real_database(db) -> None:
@@ -529,14 +620,21 @@ def test_factory_link_writer_round_trips_through_real_database(db) -> None:
         INSERT INTO factory_sources VALUES (1);
         """
     )
-    writer = create_catalog_writer(
-        Catalog(db),
+    catalog = Catalog(db)
+    writer = catalog.create_writer(
         "factory_sources",
         "factory_value_name",
         force_refresh=True,
+        destination_owned=True,
     )
 
-    result = writer.write({1: "created by factory"})
+    result = catalog.write_one(
+        "factory_sources",
+        "factory_value_name",
+        1,
+        "created by factory",
+        destination_owned=True,
+    )
 
     assert isinstance(writer, CatalogOwnedRowOneToOneWriter)
     assert writer.link_spec.cardinality is LinkCardinality.ONE_TO_ONE
@@ -556,7 +654,12 @@ def test_factory_link_writer_round_trips_through_real_database(db) -> None:
         )
     ) == "created by factory"
 
-    changed = writer.write({1: "updated in place"})
+    changed = catalog.write(
+        "factory_sources",
+        "factory_value_name",
+        {1: "updated in place"},
+        destination_owned=True,
+    )
     assert changed[1][0].secondary_id == destination_id
     assert next(
         row[0]
@@ -619,8 +722,8 @@ def test_factory_link_writer_enforces_the_live_allowed_type_registry(db) -> None
         INSERT INTO typed_source_typed_value_links__types VALUES ('author');
         """
     )
-    writer = create_catalog_writer(
-        Catalog(db),
+    catalog = Catalog(db)
+    writer = catalog.create_writer(
         "typed_sources",
         "typed_value_name",
         force_refresh=True,
@@ -635,7 +738,13 @@ def test_factory_link_writer_enforces_the_live_allowed_type_registry(db) -> None
     )
 
     with pytest.raises(ValueError, match="does not exist in allowed-types"):
-        writer.write_one(1, "Ada", link_type="reviewer")
+        catalog.write_one(
+            "typed_sources",
+            "typed_value_name",
+            1,
+            "Ada",
+            link_type="reviewer",
+        )
     assert next(
         row[0]
         for row in db.driver_wrapper.execute(
@@ -647,7 +756,11 @@ def test_factory_link_writer_enforces_the_live_allowed_type_registry(db) -> None
         "INSERT INTO typed_source_typed_value_links__types VALUES (?)",
         ("reviewer",),
     )
-    result = writer.write_one(1, "Ada", link_type="reviewer")
+    result = catalog.write(
+        "typed_sources",
+        "typed_value_name",
+        {1: {"reviewer": "Ada"}},
+    )
 
     assert result[1][0].link_type == "reviewer"
     assert db.driver_wrapper.get_allowed_link_types(writer.link_spec) == (
@@ -728,21 +841,49 @@ def test_factory_shared_link_writer_deletes_without_creating_values(db) -> None:
         INSERT INTO shared_values VALUES (10, 'existing');
         """
     )
-    writer = create_catalog_writer(
-        Catalog(db),
+    catalog = Catalog(db)
+    writer = catalog.create_writer(
         "shared_sources",
         "shared_value_name",
         force_refresh=True,
     )
 
-    initial = writer.write({1: ("existing", "created")})
+    before_invalid = next(
+        row[0]
+        for row in db.driver_wrapper.execute(
+            "SELECT COUNT(*) FROM shared_values"
+        )
+    )
+    with pytest.raises(ValueError, match="requires a typed link spec"):
+        catalog.write_one(
+            "shared_sources",
+            "shared_value_name",
+            1,
+            "must not be created",
+            link_type="author",
+        )
+    assert next(
+        row[0]
+        for row in db.driver_wrapper.execute(
+            "SELECT COUNT(*) FROM shared_values"
+        )
+    ) == before_invalid
+    initial = catalog.write(
+        "shared_sources",
+        "shared_value_name",
+        {1: ("existing", "created")},
+    )
     before = next(
         row[0]
         for row in db.driver_wrapper.execute(
             "SELECT COUNT(*) FROM shared_values"
         )
     )
-    final = writer.write(deletions={1: ("existing", "missing")})
+    final = catalog.write(
+        "shared_sources",
+        "shared_value_name",
+        deletions={1: ("existing", "missing")},
+    )
 
     assert isinstance(writer, CatalogTableValueLinkWriter)
     assert writer.link_spec.cardinality is LinkCardinality.MANY_TO_MANY

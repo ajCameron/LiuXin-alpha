@@ -2071,12 +2071,14 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
 
     def _ensure_field_fresh(self, field_name: str) -> None:
         field = self.fields[field_name]
-        link_key = self._field_link_key(field)
-        if (
-            field_name in self._stale_fields
-            or bool(self._field_tables(field) & self._stale_main_tables)
-            or (link_key is not None and link_key in self._stale_link_tables)
+        for table_name in sorted(
+            self._field_tables(field) & self._stale_main_tables
         ):
+            self.reload_main_table(table_name)
+        link_key = self._field_link_key(field)
+        if link_key is not None and link_key in self._stale_link_tables:
+            self.reload_link_table(*link_key)
+        if field_name in self._stale_fields:
             self.reload_field(field_name)
 
     def has_main_table(self, name: str) -> bool:
@@ -2210,7 +2212,12 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         name: Union[str, StorageCacheSingleTableAPI],
         db: Any = None,
     ) -> None:
-        table = self.get_main_table(name if not isinstance(name, StorageCacheSingleTableAPI) else name.table)
+        table_name = (
+            name.table
+            if isinstance(name, StorageCacheSingleTableAPI)
+            else str(name)
+        )
+        table = self.main_tables[table_name]
         table.reload(self._require_db(db))
         skipped_link_keys: set[tuple[str, str]] = set()
         for key, link_table in self.link_tables.items():
@@ -2238,7 +2245,22 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         db: Any = None,
         table_type: Optional[TableTypes] = None,
     ) -> None:
-        table = self.get_link_table(src_table, dst_table, table_type=table_type)
+        src_name = (
+            src_table.table
+            if isinstance(src_table, StorageCacheSingleTableAPI)
+            else str(src_table)
+        )
+        dst_name = (
+            dst_table.table
+            if isinstance(dst_table, StorageCacheSingleTableAPI)
+            else str(dst_table)
+        )
+        table = self.link_tables[(src_name, dst_name)]
+        if table_type is not None and table.table_type != table_type:
+            raise KeyError(
+                f"Link table {src_name!r}->{dst_name!r} is "
+                f"{table.table_type}, not {table_type}"
+            )
         table.reload(self._require_db(db))
         key = (table.primary_table, table.secondary_table)
         self._stale_link_tables.discard(key)

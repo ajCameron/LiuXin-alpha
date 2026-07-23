@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog.metadata_tools import Add
+from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.metadata.constants import CREATOR_TYPES
 from LiuXin_alpha.metadata.utils import author_to_author_sort
+from LiuXin_alpha.utils.language_tools import best_effort_language_id
 
 
 def _clean_optional(value: str) -> Optional[str]:
@@ -95,23 +96,59 @@ class NewCreatorWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Creator wizard canceled.")
 
-        add = Add(browser.db)
-        creator_row = add.creator(
-            creator=creator_name,
-            creator_sort=creator_sort,
-            creator_short_name=creator_short_name,
-            creator_legal_name=creator_legal_name,
-            creator_birth_date=creator_birth_date,
-            creator_death_date=creator_death_date,
-            creator_type=creator_type,
-            creator_seminal_work=creator_seminal_work,
-            creator_one_person=bool(creator_one_person),
-            creator_wikipedia=creator_wikipedia,
-            creator_imdb=creator_imdb,
-            creator_link=creator_link,
-            creator_language=creator_language,
-            creator_bio=creator_bio,
+        aliases = [value for value in (creator_short_name, creator_legal_name) if value and value != creator_name]
+        note_lines = [
+            "creator_type={}".format(creator_type),
+            "creator_one_person={}".format(int(bool(creator_one_person))),
+        ]
+        if creator_seminal_work:
+            note_lines.append("creator_seminal_work={}".format(creator_seminal_work))
+        name_parts = [part for part in creator_name.replace(",", " ").split(" ") if part]
+        identifiers = [
+            {"scheme": scheme, "value": value, "is_primary": is_primary}
+            for scheme, value, is_primary in (
+                ("wikipedia_url", creator_wikipedia, True),
+                ("imdb_id", creator_imdb, False),
+                ("url", creator_link, False),
+            )
+            if value is not None
+        ]
+        language_ids = []
+        if creator_language is not None:
+            language_id = best_effort_language_id(
+                browser.db,
+                creator_language,
+                default=None,
+                strict=False,
+            )
+            if language_id is None:
+                raise ValueError("Creator language could not be resolved.")
+            language_ids.append(int(language_id))
+
+        catalog = Catalog(browser.db)
+        creator_id = catalog.agents.create_person(
+            {
+                "name": creator_name,
+                "sort_name": creator_sort,
+                "aliases": aliases,
+                "note": "\n".join(note_lines),
+            },
+            details={
+                "human_agent_given_name": name_parts[0] if name_parts else None,
+                "human_agent_middle_name": (
+                    " ".join(name_parts[1:-1]) if len(name_parts) > 2 else None
+                ),
+                "human_agent_family_name": name_parts[-1] if name_parts else None,
+                "human_agent_preferred_name": creator_short_name,
+                "human_agent_birth_date": creator_birth_date,
+                "human_agent_death_date": creator_death_date,
+                "human_agent_biography": creator_bio,
+            },
+            identifiers=identifiers,
+            language_ids=language_ids,
+            notes=[creator_bio] if creator_bio is not None else (),
         )
+        creator_row = catalog.agents.require(creator_id)
 
         browser.emit(
             "Creator created: agent_id={} canonical_name={!r}".format(
@@ -122,7 +159,7 @@ class NewCreatorWizardCommand(TerminalCommandAPI):
         return True
 
     def _find_existing_person_agent(self, browser, creator_name: str):
-        rows = browser.catalog.search("agents", "agent_canonical_name", creator_name)
+        rows = browser.db.search("agents", "agent_canonical_name", creator_name)
         for row in rows:
             try:
                 if str(row["agent_type"]).lower() == "person":

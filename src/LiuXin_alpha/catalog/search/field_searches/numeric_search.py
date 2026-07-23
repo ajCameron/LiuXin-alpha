@@ -95,7 +95,7 @@ class NumericSearch:  # {{{
 
             try:
                 q = cast(query) * mult
-            except:
+            except (TypeError, ValueError, OverflowError):
                 raise ParseException(_("Non-numeric value in query: {0}").format(query))
 
         qfalse = query == "false"
@@ -106,7 +106,7 @@ class NumericSearch:  # {{{
                 continue
             try:
                 v = cast(val)
-            except:
+            except (TypeError, ValueError, OverflowError):
                 v = None
             if v:
                 v = adjust(v)
