@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 HTML-TOC-adding transform.
@@ -50,13 +53,13 @@ body > .calibre_toc_block {
 
 
 class HTMLTOCAdder(object):
-    def __init__(self, title=None, style="nested", position="end"):
+    def __init__(self: _typing.Self, title: _typing.Any = None, style: str = "nested", position: str = "end") -> None:
         self.title = title
         self.style = style
         self.position = position
 
     @classmethod
-    def config(cls, cfg):
+    def config(cls: type[_typing.Self], cfg: _typing.Any) -> _typing.Any:
         group = cfg.add_group("htmltoc", _("HTML TOC generation options."))
         group(
             "toc_title",
@@ -67,10 +70,10 @@ class HTMLTOCAdder(object):
         return cfg
 
     @classmethod
-    def generate(cls, opts):
+    def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
         return cls(title=opts.toc_title)
 
-    def __call__(self, oeb, context):
+    def __call__(self: _typing.Self, oeb: _typing.Any, context: _typing.Any) -> None:
         has_toc = getattr(getattr(oeb, "toc", False), "nodes", False)
 
         if "toc" in oeb.guide:
@@ -119,7 +122,7 @@ class HTMLTOCAdder(object):
             oeb.spine.insert(0, item, linear=True)
         oeb.guide.add("toc", "Table of Contents", href)
 
-    def add_toc_level(self, elem, toc):
+    def add_toc_level(self: _typing.Self, elem: _typing.Any, toc: _typing.Any) -> None:
         for node in toc:
             block = element(elem, XHTML("div"), attrib={"class": "calibre_toc_block"})
             line = element(

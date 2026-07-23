@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import textwrap
 from collections import OrderedDict, Counter
@@ -25,11 +28,11 @@ class PageProperties(object):
     sectPr elements.
     """
 
-    def __init__(self, namespace, elems=()):
+    def __init__(self: _typing.Self, namespace: _typing.Any, elems: tuple[_typing.Any, ...] = ()) -> None:
         self.width, self.height = 595.28, 841.89  # pts, A4
         self.margin_left = self.margin_right = 72  # pts
 
-        def setval(attr, val):
+        def setval(attr: _typing.Any, val: _typing.Any) -> None:
             val = twips(val)
             if val is not None:
                 setattr(self, attr, val)
@@ -48,7 +51,7 @@ class Style(object):
     Class representing a <w:style> element. Can contain block, character, etc. styles.
     """
 
-    def __init__(self, namespace, elem):
+    def __init__(self: _typing.Self, namespace: _typing.Any, elem: _typing.Any) -> None:
         self.namespace = namespace
         self.name_path = namespace.XPath("./w:name[@w:val]")
         self.based_on_path = namespace.XPath("./w:basedOn[@w:val]")
@@ -93,7 +96,7 @@ class Style(object):
             for x in namespace.XPath("./w:pPr/w:numPr/w:numId[@w:val]")(elem):
                 self.numbering_style_link = namespace.get(x, "w:val")
 
-    def resolve_based_on(self, parent):
+    def resolve_based_on(self: _typing.Self, parent: _typing.Any) -> None:
         if parent.table_style is not None:
             if self.table_style is None:
                 self.table_style = TableStyle(self.namespace)
@@ -109,15 +112,15 @@ class Style(object):
 
 
 class _NullFonts(object):
-    def family_for(self, name, bold=False, italic=False):
+    def family_for(self: _typing.Self, name: _typing.Any, bold: bool = False, italic: bool = False) -> str:
         return "serif"
 
-    def embed_fonts(self, dest_dir, docx):
+    def embed_fonts(self: _typing.Self, dest_dir: _typing.Any, docx: _typing.Any) -> str:
         return ""
 
 
 class _NullTheme(object):
-    def resolve_font_family(self, family):
+    def resolve_font_family(self: _typing.Self, family: _typing.Any) -> _typing.Any:
         return family
 
 
@@ -128,7 +131,7 @@ class Styles(object):
     document markup.
     """
 
-    def __init__(self, namespace, tables):
+    def __init__(self: _typing.Self, namespace: _typing.Any, tables: _typing.Any) -> None:
         self.namespace = namespace
         self.id_map = OrderedDict()
         self.para_cache = {}
@@ -145,20 +148,20 @@ class Styles(object):
         self.fonts = _NullFonts()
         self.theme = _NullTheme()
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for s in itervalues(self.id_map):
             yield s
 
-    def __getitem__(self, key):
+    def __getitem__(self: _typing.Self, key: _typing.Any) -> _typing.Any:
         return self.id_map[key]
 
-    def __len__(self):
+    def __len__(self: _typing.Self) -> _typing.Any:
         return len(self.id_map)
 
-    def get(self, key, default=None):
+    def get(self: _typing.Self, key: _typing.Any, default: _typing.Any = None) -> _typing.Any:
         return self.id_map.get(key, default)
 
-    def __call__(self, root, fonts, theme):
+    def __call__(self: _typing.Self, root: _typing.Any, fonts: _typing.Any, theme: _typing.Any) -> None:
         self.fonts, self.theme = fonts, theme
         for s in self.namespace.XPath("//w:style")(root):
             s = Style(self.namespace, s)
@@ -187,7 +190,7 @@ class Styles(object):
                     else:
                         self.default_character_style.update(ps)
 
-        def resolve(local_s, local_p):
+        def resolve(local_s: _typing.Any, local_p: _typing.Any) -> None:
             if local_p is not None:
                 if not local_p.resolved:
                     resolve(local_p, self.get(local_p.based_on))
@@ -198,7 +201,7 @@ class Styles(object):
             if not s.resolved:
                 resolve(s, self.get(s.based_on))
 
-    def para_val(self, parent_styles, direct_formatting, attr):
+    def para_val(self: _typing.Self, parent_styles: _typing.Any, direct_formatting: _typing.Any, attr: _typing.Any) -> _typing.Any:
         val = getattr(direct_formatting, attr)
         if val is inherit:
             for ps in reversed(parent_styles):
@@ -208,7 +211,7 @@ class Styles(object):
                     break
         return val
 
-    def run_val(self, parent_styles, direct_formatting, attr):
+    def run_val(self: _typing.Self, parent_styles: _typing.Any, direct_formatting: _typing.Any, attr: _typing.Any) -> _typing.Any:
         val = getattr(direct_formatting, attr)
         if val is not inherit:
             return val
@@ -232,7 +235,7 @@ class Styles(object):
                 return rval
         return val
 
-    def resolve_paragraph(self, p):
+    def resolve_paragraph(self: _typing.Self, p: _typing.Any) -> _typing.Any:
         ans = self.para_cache.get(p, None)
         if ans is None:
             linked_style = None
@@ -301,7 +304,7 @@ class Styles(object):
             ans.linked_style = direct_formatting.linked_style
         return ans
 
-    def resolve_run(self, r):
+    def resolve_run(self: _typing.Self, r: _typing.Any) -> _typing.Any:
         ans = self.run_cache.get(r, None)
         if ans is None:
             p = self.namespace.XPath("ancestor::w:p[1]")(r)
@@ -348,18 +351,18 @@ class Styles(object):
 
         return ans
 
-    def resolve(self, obj):
+    def resolve(self: _typing.Self, obj: _typing.Any) -> _typing.Any:
         if obj.tag.endswith("}p"):
             return self.resolve_paragraph(obj)
         if obj.tag.endswith("}r"):
             return self.resolve_run(obj)
 
-    def cascade(self, layers):
+    def cascade(self: _typing.Self, layers: _typing.Any) -> None:
         self.body_font_family = "serif"
         self.body_font_size = "10pt"
         self.body_color = "black"
 
-        def promote_property(char_styles, block_style, prop):
+        def promote_property(char_styles: _typing.Any, block_style: _typing.Any, prop: _typing.Any) -> None:
             vals = {getattr(s, prop) for s in char_styles}
             if len(vals) == 1:
                 # All the character styles have the same value
@@ -382,7 +385,7 @@ class Styles(object):
                     # The default text decoration is 'none'
                     s.text_decoration = inherit
 
-        def promote_most_common(block_styles, prop, default):
+        def promote_most_common(block_styles: _typing.Any, prop: _typing.Any, default: _typing.Any) -> _typing.Any:
             c = Counter()
             for s in block_styles:
                 val = getattr(s, prop)
@@ -414,7 +417,7 @@ class Styles(object):
         if color is not None:
             self.body_color = color
 
-    def resolve_numbering(self, numbering):
+    def resolve_numbering(self: _typing.Self, numbering: _typing.Any) -> None:
         # When a numPr element appears inside a paragraph style, the lvl info
         # must be discarded and pStyle used instead.
         self.numbering = numbering
@@ -427,7 +430,7 @@ class Styles(object):
                 else:
                     ps.numbering = (ps.numbering[0], lvl)
 
-    def apply_contextual_spacing(self, paras):
+    def apply_contextual_spacing(self: _typing.Self, paras: _typing.Any) -> None:
         last_para = None
         for p in paras:
             if last_para is not None:
@@ -440,12 +443,12 @@ class Styles(object):
                         ps.margin_top = 0
             last_para = p
 
-    def apply_section_page_breaks(self, paras):
+    def apply_section_page_breaks(self: _typing.Self, paras: _typing.Any) -> None:
         for p in paras:
             ps = self.resolve_paragraph(p)
             ps.pageBreakBefore = True
 
-    def register(self, css, prefix):
+    def register(self: _typing.Self, css: _typing.Any, prefix: _typing.Any) -> _typing.Any:
         h = hash(frozenset(iteritems(css)))
         ans, _ = self.classes.get(h, (None, None))
         if ans is None:
@@ -454,7 +457,7 @@ class Styles(object):
             self.classes[h] = (ans, css)
         return ans
 
-    def generate_classes(self):
+    def generate_classes(self: _typing.Self) -> None:
         for bs in itervalues(self.para_cache):
             css = bs.css
             if css:
@@ -464,11 +467,11 @@ class Styles(object):
             if css:
                 self.register(css, "text")
 
-    def class_name(self, css):
+    def class_name(self: _typing.Self, css: _typing.Any) -> _typing.Any:
         h = hash(frozenset(iteritems(css)))
         return self.classes.get(h, (None, None))[0]
 
-    def generate_css(self, dest_dir, docx, notes_nopb, nosupsub):
+    def generate_css(self: _typing.Self, dest_dir: _typing.Any, docx: _typing.Any, notes_nopb: _typing.Any, nosupsub: _typing.Any) -> _typing.Any:
         ef = self.fonts.embed_fonts(dest_dir, docx)
 
         s = """\

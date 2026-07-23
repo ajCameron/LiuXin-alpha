@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 '''
 Abbreviation Extension for Python-Markdown
@@ -39,7 +42,7 @@ ABBR_REF_RE = re.compile(r"[*]\[(?P<abbr>[^\]]*)\][ ]?:\s*(?P<title>.*)")
 class AbbrExtension(Extension):
     """Abbreviation Extension for Python-Markdown."""
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         """Insert AbbrPreprocessor before ReferencePreprocessor."""
         md.preprocessors.add("abbr", AbbrPreprocessor(md), "<reference")
 
@@ -47,7 +50,7 @@ class AbbrExtension(Extension):
 class AbbrPreprocessor(Preprocessor):
     """Abbreviation Preprocessor - parse text for abbr references."""
 
-    def run(self, lines):
+    def run(self: _typing.Self, lines: _typing.Any) -> _typing.Any:
         """
         Find and remove all Abbreviation references from the text.
         Each reference is set as a new AbbrPattern in the markdown instance.
@@ -64,7 +67,7 @@ class AbbrPreprocessor(Preprocessor):
                 new_text.append(line)
         return new_text
 
-    def _generate_pattern(self, text):
+    def _generate_pattern(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """
         Given a string, returns an regex pattern to match that string.
 
@@ -83,16 +86,16 @@ class AbbrPreprocessor(Preprocessor):
 class AbbrPattern(Pattern):
     """Abbreviation inline pattern."""
 
-    def __init__(self, pattern, title):
+    def __init__(self: _typing.Self, pattern: _typing.Any, title: _typing.Any) -> None:
         super(AbbrPattern, self).__init__(pattern)
         self.title = title
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         abbr = etree.Element("abbr")
         abbr.text = m.group("abbr")
         abbr.set("title", self.title)
         return abbr
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return AbbrExtension(configs=configs)

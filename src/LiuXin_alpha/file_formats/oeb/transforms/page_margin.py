@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from collections import Counter
 
@@ -19,7 +22,7 @@ class RemoveAdobeMargins(object):
     Remove margins specified in Adobe's page templates.
     """
 
-    def __call__(self, oeb, log, opts):
+    def __call__(self: _typing.Self, oeb: _typing.Any, log: _typing.Any, opts: _typing.Any) -> None:
         self.oeb, self.opts, self.log = oeb, opts, log
 
         for item in self.oeb.manifest:
@@ -49,7 +52,7 @@ class RemoveFakeMargins(object):
     Must be called only after CSS flattening
     """
 
-    def __call__(self, oeb, log, opts):
+    def __call__(self: _typing.Self, oeb: _typing.Any, log: _typing.Any, opts: _typing.Any) -> None:
         if not opts.remove_fake_margins:
             return
         self.oeb, self.log, self.opts = oeb, log, opts
@@ -79,7 +82,7 @@ class RemoveFakeMargins(object):
             except NegativeTextIndent:
                 self.log.debug("Negative text indent detected at level  %s, ignoring this level" % level)
 
-    def get_margins(self, elem):
+    def get_margins(self: _typing.Self, elem: _typing.Any) -> tuple[_typing.Any, ...]:
         cls = elem.get("class", None)
         if cls:
             style = self.selector_map.get("." + cls, None)
@@ -94,7 +97,7 @@ class RemoveFakeMargins(object):
                 return style.marginLeft, style.marginRight, style
         return "", "", None
 
-    def process_level(self, level):
+    def process_level(self: _typing.Self, level: _typing.Any) -> None:
         elems = self.levels[level]
         self.stats[level + "_left"] = Counter()
         self.stats[level + "_right"] = Counter()
@@ -128,8 +131,8 @@ class RemoveFakeMargins(object):
                 if remove_right and rm == mcr:
                     style.removeProperty("margin-right")
 
-    def find_levels(self):
-        def level_of(local_elem, local_body):
+    def find_levels(self: _typing.Self) -> None:
+        def level_of(local_elem: _typing.Any, local_body: _typing.Any) -> _typing.Any:
             ans = 1
             while local_elem.getparent() is not local_body:
                 ans += 1
@@ -173,7 +176,7 @@ class RemoveFakeMargins(object):
             self.levels.pop(k)
             self.log.debug("Ignoring level", k)
 
-    def analyze_stats(self, stats):
+    def analyze_stats(self: _typing.Self, stats: _typing.Any) -> bool:
         if not stats:
             return False
         mc = stats.most_common(1)

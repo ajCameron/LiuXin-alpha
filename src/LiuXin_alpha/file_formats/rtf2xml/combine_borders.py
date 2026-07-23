@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import os
 
 from LiuXin_alpha.file_formats.rtf2xml import copy
@@ -21,12 +24,12 @@ class CombineBorders:
     """Combine borders in RTF tokens to make later processing easier"""
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -35,19 +38,19 @@ class CombineBorders:
         self.__bord_pos = "default"
         self.__bord_att = []
 
-    def found_bd(self, line):
+    def found_bd(self: _typing.Self, line: _typing.Any) -> None:
         # cw<bd<bor-t-r-vi
         self.__state = "border"
         self.__bord_pos = line[6:16]
 
-    def __default_func(self, line):
+    def __default_func(self: _typing.Self, line: _typing.Any) -> _typing.Any:
         # cw<bd<bor-t-r-vi
         if self.__first_five == "cw<bd":
             self.found_bd(line)
             return ""
         return line
 
-    def end_border(self, line, write_obj):
+    def end_border(self: _typing.Self, line: _typing.Any, write_obj: _typing.Any) -> None:
         border_string = "|".join(self.__bord_att)
         self.__bord_att = []
         write_obj.write("cw<bd<{}<nu<{}\n".format(self.__bord_pos, border_string))
@@ -58,7 +61,7 @@ class CombineBorders:
         else:
             write_obj.write(line)
 
-    def add_to_border_desc(self, line):
+    def add_to_border_desc(self: _typing.Self, line: _typing.Any) -> None:
         # cw<bt<bdr-hair__<nu<true
         # cw<bt<bdr-linew<nu<0.50
         # tx<__________<some text
@@ -70,13 +73,13 @@ class CombineBorders:
             num = ":" + num
         self.__bord_att.append(border_desc + num)
 
-    def __border_func(self, line, write_obj):
+    def __border_func(self: _typing.Self, line: _typing.Any, write_obj: _typing.Any) -> None:
         if self.__first_five != "cw<bt":
             self.end_border(line, write_obj)
         else:
             self.add_to_border_desc(line)
 
-    def combine_borders(self):
+    def combine_borders(self: _typing.Self) -> None:
         with open_for_read(self.__file) as read_obj:
             with open_for_write(self.__write_to) as write_obj:
                 for line in read_obj:

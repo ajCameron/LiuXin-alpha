@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 '''
 WikiLinks Extension for Python-Markdown
@@ -86,14 +89,14 @@ from ..util import etree
 import re
 
 
-def build_url(label, base, end):
+def build_url(label: _typing.Any, base: _typing.Any, end: _typing.Any) -> _typing.Any:
     """Build a url from the label, a base, and an end."""
     clean_label = re.sub(r"([ ]+_)|(_[ ]+)|([ ]+)", "_", label)
     return "%s%s%s" % (base, clean_label, end)
 
 
 class WikiLinkExtension(Extension):
-    def __init__(self, configs):
+    def __init__(self: _typing.Self, configs: _typing.Any) -> None:
         # set extension defaults
         self.config = {
             "base_url": ["/", "String to append to beginning or URL."],
@@ -106,7 +109,7 @@ class WikiLinkExtension(Extension):
         for key, value in configs:
             self.setConfig(key, value)
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         self.md = md
 
         # append to end of inline patterns
@@ -117,11 +120,11 @@ class WikiLinkExtension(Extension):
 
 
 class WikiLinks(Pattern):
-    def __init__(self, pattern, config):
+    def __init__(self: _typing.Self, pattern: _typing.Any, config: _typing.Any) -> None:
         super(WikiLinks, self).__init__(pattern)
         self.config = config
 
-    def handleMatch(self, m):
+    def handleMatch(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         if m.group(2).strip():
             base_url, end_url, html_class = self._getMeta()
             label = m.group(2).strip()
@@ -135,7 +138,7 @@ class WikiLinks(Pattern):
             a = ""
         return a
 
-    def _getMeta(self):
+    def _getMeta(self: _typing.Self) -> tuple[_typing.Any, ...]:
         """Return meta data or config data."""
         base_url = self.config["base_url"]
         end_url = self.config["end_url"]
@@ -150,5 +153,5 @@ class WikiLinks(Pattern):
         return base_url, end_url, html_class
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return WikiLinkExtension(configs=configs)

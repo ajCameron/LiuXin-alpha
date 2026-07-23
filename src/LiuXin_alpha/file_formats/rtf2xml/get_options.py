@@ -13,24 +13,27 @@
 """
 Gets options for main part of script
 """
+from __future__ import annotations
+
+import typing as _typing
 import sys, os
 from LiuXin_alpha.file_formats.rtf2xml import options_trem, configure_txt
 
 
 class GetOptions:
     def __init__(
-        self,
-        system_arguments,
-        rtf_dir,
-        bug_handler,
-        configuration_file=None,
-    ):
+        self: _typing.Self,
+        system_arguments: _typing.Any,
+        rtf_dir: _typing.Any,
+        bug_handler: _typing.Any,
+        configuration_file: _typing.Any = None,
+    ) -> None:
         self.__system_arguments = system_arguments
         self.__rtf_dir = rtf_dir
         self.__configuration_file = configuration_file
         self.__bug_handler = bug_handler
 
-    def get_options(self):
+    def get_options(self: _typing.Self) -> _typing.Any:
         """
         return valid, output, help, show_warnings, debug, file
         """
@@ -260,7 +263,7 @@ class GetOptions:
         """
         return return_options
 
-    def __get_config_options(self):
+    def __get_config_options(self: _typing.Self) -> _typing.Any:
         configure_obj = configure_txt.Configure(
             bug_handler=self.__bug_handler, configuration_file=self.__configuration_file
         )

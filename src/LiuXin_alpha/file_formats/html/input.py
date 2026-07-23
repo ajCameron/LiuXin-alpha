@@ -3,6 +3,9 @@
 # seems to be working alright
 
 from __future__ import with_statement, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Input plugin for HTML or OPF ebooks.
@@ -27,7 +30,7 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_urlunparse as urlunparse
 unicode = str
 
 
-def unicode_path(path_to_file, abs=False):
+def unicode_path(path_to_file: _typing.Any, abs: bool = False) -> _typing.Any:
     if isinstance(path_to_file, bytes):
         path = path_to_file.decode("utf-8", "replace")
     else:
@@ -45,7 +48,7 @@ class Link(object):
     """
 
     @classmethod
-    def url_to_local_path(cls, url, base):
+    def url_to_local_path(cls: type[_typing.Self], url: _typing.Any, base: _typing.Any) -> _typing.Any:
         path = url.path
         isabs = False
         if iswindows and path.startswith("/"):
@@ -57,7 +60,7 @@ class Link(object):
             return path
         return os.path.abspath(os.path.join(base, path))
 
-    def __init__(self, url, base):
+    def __init__(self: _typing.Self, url: _typing.Any, base: _typing.Any) -> None:
         """
         :param url:  The url this link points to. Must be an unquoted unicode string.
         :param base: The base directory that relative URLs are with respect to.
@@ -73,20 +76,20 @@ class Link(object):
         if self.is_local and not self.is_internal:
             self.path = self.url_to_local_path(self.parsed_url, base)
 
-    def __hash__(self):
+    def __hash__(self: _typing.Self) -> _typing.Any:
         if self.path is None:
             return hash(self.url)
         return hash(self.path)
 
-    def __eq__(self, other):
+    def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
         return self.path == getattr(other, "path", other)
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return "Link: %s --> %s" % (self.url, self.path)
 
 
 class IgnoreFile(Exception):
-    def __init__(self, msg, errno):
+    def __init__(self: _typing.Self, msg: _typing.Any, errno: _typing.Any) -> None:
         Exception.__init__(self, msg)
         self.doesnt_exist = errno == gerrno.ENOENT
         self.errno = errno
@@ -110,7 +113,7 @@ class HTMLFile:
         re.DOTALL | re.IGNORECASE,
     )
 
-    def __init__(self, path_to_html_file, level, encoding, verbose, referrer=None):
+    def __init__(self: _typing.Self, path_to_html_file: _typing.Any, level: _typing.Any, encoding: _typing.Any, verbose: _typing.Any, referrer: _typing.Any = None) -> None:
         """
 
         :param level: The level of this file. Should be 0 for the root file.
@@ -164,23 +167,23 @@ class HTMLFile:
             self.title = match.group(1) if match is not None else self.title
             self.find_links(src)
 
-    def __eq__(self, other):
+    def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
         return self.path == getattr(other, "path", other)
 
-    def __hash__(self):
+    def __hash__(self: _typing.Self) -> _typing.Any:
         return hash(self.path)
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return "HTMLFile:%d:%s:%s" % (
             self.level,
             "b" if self.is_binary else "a",
             self.path,
         )
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return str(self)
 
-    def find_links(self, src):
+    def find_links(self: _typing.Self, src: _typing.Any) -> None:
         for match in self.LINK_PAT.finditer(src):
             url = None
             for i in ("url1", "url2", "url3"):
@@ -196,11 +199,11 @@ class HTMLFile:
             if link not in self.links:
                 self.links.append(link)
 
-    def resolve(self, url):
+    def resolve(self: _typing.Self, url: _typing.Any) -> _typing.Any:
         return Link(url, self.base)
 
 
-def depth_first(root, flat, visited=None):
+def depth_first(root: _typing.Any, flat: _typing.Any, visited: _typing.Any = None) -> _typing.Iterator[_typing.Any]:
     if visited is None:
         visited = set()
     yield root
@@ -221,7 +224,7 @@ def depth_first(root, flat, visited=None):
                         visited.add(hf)
 
 
-def traverse(path_to_html_file: str, max_levels: int = sys.maxsize, verbose: int = 0, encoding: str = None):
+def traverse(path_to_html_file: str, max_levels: int = sys.maxsize, verbose: int = 0, encoding: str = None) -> tuple[_typing.Any, ...]:
     """
     Recursively traverse all links in the HTML file.
 
@@ -268,7 +271,7 @@ def traverse(path_to_html_file: str, max_levels: int = sys.maxsize, verbose: int
         sys.setrecursionlimit(orec)
 
 
-def get_filelist(htmlfile, dir, opts, log):
+def get_filelist(htmlfile: _typing.Any, dir: _typing.Any, opts: _typing.Any, log: _typing.Any) -> _typing.Any:
     """
     Build list of files referenced by html file or try to detect and use an OPF file instead.
     :param htmlfile:

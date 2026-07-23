@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import os
 import re
 
@@ -25,13 +28,13 @@ class Tokenize:
     """Tokenize RTF into one line per field. Each line will contain information useful for the rest of the script"""
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        copy=None,
-        run_level=1,
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
         # out_file = None,
-    ):
+    ) -> None:
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -43,11 +46,11 @@ class Tokenize:
         self.__uc_bin = False
         self.__uc_value = [1]
 
-    def __reini_utf8_counters(self):
+    def __reini_utf8_counters(self: _typing.Self) -> None:
         self.__uc_char = 0
         self.__uc_bin = False
 
-    def __remove_uc_chars(self, startchar, token):
+    def __remove_uc_chars(self: _typing.Self, startchar: _typing.Any, token: _typing.Any) -> _typing.Any:
         for i in range(startchar, len(token)):
             if self.__uc_char:
                 self.__uc_char -= 1
@@ -56,7 +59,7 @@ class Tokenize:
         # if only char to skip
         return ""
 
-    def __unicode_process(self, token):
+    def __unicode_process(self: _typing.Self, token: _typing.Any) -> _typing.Any:
         # change scope in
         if token == r"\{":
             self.__uc_value.append(self.__uc_value[-1])
@@ -115,7 +118,7 @@ class Tokenize:
         # default
         return token
 
-    def __sub_reg_split(self, input_file):
+    def __sub_reg_split(self: _typing.Self, input_file: _typing.Any) -> _typing.Any:
         input_file = self.__replace_spchar.mreplace(input_file)
         # this is for older RTF
         input_file = self.__par_exp.sub(r"\n\\par \n", input_file)
@@ -130,7 +133,7 @@ class Tokenize:
         # remove empty tokens and \n
         return list(filter(lambda x: len(x) > 0 and x != "\n", tokens))
 
-    def __compile_expressions(self):
+    def __compile_expressions(self: _typing.Self) -> None:
         SIMPLE_RPL = {
             "\\\\": "\\backslash ",
             "\\~": "\\~ ",
@@ -174,7 +177,7 @@ class Tokenize:
         # handle cw using a digit as argument and without space as delimiter
         self.__cwdigit_exp = re.compile(r"(\\[a-zA-Z]+[\-0-9]+)([^0-9 \\]+)")
 
-    def tokenize(self):
+    def tokenize(self: _typing.Self) -> None:
         """Main class for handling other methods. Reads the file \
         , uses method self.sub_reg to make basic substitutions,\
         and process tokens by itself"""

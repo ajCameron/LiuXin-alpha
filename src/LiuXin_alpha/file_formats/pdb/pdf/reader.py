@@ -3,6 +3,9 @@
 """
 Read content from palmdoc pdb file.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
@@ -15,13 +18,13 @@ __docformat__ = "restructuredtext en"
 
 
 class Reader(FormatReader):
-    def __init__(self, header, stream, log, options):
+    def __init__(self: _typing.Self, header: _typing.Any, stream: _typing.Any, log: _typing.Any, options: _typing.Any) -> None:
         self.header = header
         self.stream = stream
         self.log = log
         self.options = options
 
-    def extract_content(self, output_dir):
+    def extract_content(self: _typing.Self, output_dir: _typing.Any) -> _typing.Any:
         self.log.info("Extracting PDF...")
 
         pdf = PersistentTemporaryFile(".pdf")

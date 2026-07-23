@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import typing as _typing
+
 import io
 import struct
 import zlib
-from typing import Iterable
+from collections.abc import Iterable
+from typing import BinaryIO, Protocol, cast
 
 from LiuXin_alpha.constants import __appname__, __version__
 from LiuXin_alpha.file_formats.rb import HEADER, unique_name
@@ -13,7 +16,7 @@ from LiuXin_alpha.file_formats.rb.rbml import RBMLizer
 from LiuXin_alpha.metadata.utils import authors_to_string
 
 try:
-    from PIL import Image as _PILImage
+    from PIL import Image as _PILImage  # pyright: ignore[reportMissingImports]
 except Exception:  # pragma: no cover - optional dependency
     _PILImage = None
 
@@ -25,20 +28,55 @@ __docformat__ = "restructuredtext en"
 TEXT_RECORD_SIZE = 4096
 
 
+class _Logger(Protocol):
+    def debug(self: _typing.Self, message: object) -> object: ...
+
+    def error(self: _typing.Self, message: object) -> object: ...
+
+    def info(self: _typing.Self, message: object) -> object: ...
+
+    def warn(self: _typing.Self, message: object) -> object: ...
+
+    def warning(self: _typing.Self, message: object) -> object: ...
+
+
+class _ManifestItem(Protocol):
+    href: str
+    media_type: str
+    data: object
+
+
+class _ReadablePayload(Protocol):
+    def read(self: _typing.Self) -> bytes | str: ...
+
+    def seek(self: _typing.Self, offset: int) -> object: ...
+
+    def tell(self: _typing.Self) -> int: ...
+
+
 class TocItem(object):
-    def __init__(self, name: bytes, size: int, flags: int):
+    def __init__(self: _typing.Self, name: bytes, size: int, flags: int) -> None:
         self.name = name
         self.size = size
         self.flags = flags
 
 
 class RBWriter(object):
-    def __init__(self, opts, log):
+    def __init__(
+        self: _typing.Self,
+        opts: _typing.Any,
+        log: _Logger,
+    ) -> None:
         self.opts = opts
         self.log = log
-        self.name_map = {}
+        self.name_map: dict[str, str] = {}
 
-    def write_content(self, oeb_book, out_stream, metadata=None):
+    def write_content(
+        self: _typing.Self,
+        oeb_book: _typing.Any,
+        out_stream: BinaryIO,
+        metadata: object | None = None,
+    ) -> None:
         info_data = self._info_section(metadata)
         hidx_data = b" "
         images = self._images(oeb_book.manifest)
@@ -108,10 +146,13 @@ class RBWriter(object):
         out_stream.seek(0x1C)
         out_stream.write(struct.pack("<I", total_size))
 
-    def _toc_name(self, name: str) -> bytes:
+    def _toc_name(self: _typing.Self, name: str) -> bytes:
         return name.encode("utf-8", "replace")[:32].ljust(32, b"\x00")
 
-    def _text(self, oeb_book):
+    def _text(
+        self: _typing.Self,
+        oeb_book: _typing.Any,
+    ) -> tuple[int, list[bytes]]:
         rbmlizer = RBMLizer(self.log, name_map=self.name_map)
         text = rbmlizer.extract_content(oeb_book, self.opts).encode("cp1252", "xmlcharrefreplace")
         size = len(text)
@@ -126,7 +167,10 @@ class RBWriter(object):
 
         return size, pages
 
-    def _images(self, manifest: Iterable):
+    def _images(
+        self: _typing.Self,
+        manifest: Iterable[_ManifestItem],
+    ) -> list[tuple[str, bytes]]:
         from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
         if _PILImage is None:
@@ -158,7 +202,7 @@ class RBWriter(object):
 
         return images
 
-    def _as_bytes(self, payload) -> bytes:
+    def _as_bytes(self: _typing.Self, payload: object) -> bytes:
         if isinstance(payload, bytes):
             return payload
         if isinstance(payload, bytearray):
@@ -166,30 +210,34 @@ class RBWriter(object):
         if isinstance(payload, str):
             return payload.encode("utf-8", "replace")
         if hasattr(payload, "read"):
+            readable = cast(_ReadablePayload, payload)
             current_pos = None
-            if hasattr(payload, "tell"):
+            if hasattr(readable, "tell"):
                 try:
-                    current_pos = payload.tell()
+                    current_pos = readable.tell()
                 except Exception:
                     current_pos = None
             try:
-                if hasattr(payload, "seek"):
-                    payload.seek(0)
+                if hasattr(readable, "seek"):
+                    readable.seek(0)
             except Exception:
                 pass
-            raw = payload.read()
-            if current_pos is not None and hasattr(payload, "seek"):
+            raw = readable.read()
+            if current_pos is not None and hasattr(readable, "seek"):
                 try:
-                    payload.seek(current_pos)
+                    readable.seek(current_pos)
                 except Exception:
                     pass
             if isinstance(raw, bytes):
                 return raw
             if isinstance(raw, str):
                 return raw.encode("utf-8", "replace")
-        return bytes(payload)
+        return bytes(cast(_typing.Any, payload))
 
-    def _info_section(self, metadata):
+    def _info_section(
+        self: _typing.Self,
+        metadata: object | None,
+    ) -> bytes:
         lines = ["TYPE=2"]
         if metadata:
             title_items = getattr(metadata, "title", ())

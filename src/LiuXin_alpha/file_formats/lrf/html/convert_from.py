@@ -5,6 +5,9 @@ I am indebted to esperanc for the initial CSS->Xylog Style conversion code and t
 """
 
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 
 import copy
@@ -85,13 +88,13 @@ __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def to_text(val):
+def to_text(val: _typing.Any) -> _typing.Any:
     if isinstance(val, (bytes, bytearray, memoryview)):
         return bytes(val).decode(sys.getfilesystemencoding() or "utf-8", "replace")
     return val
 
 
-def update_css(ncss, ocss):
+def update_css(ncss: _typing.Any, ocss: _typing.Any) -> None:
     for key in ncss.keys():
         if (key in ocss):
             ocss[key].update(ncss[key])
@@ -99,7 +102,7 @@ def update_css(ncss, ocss):
             ocss[key] = ncss[key]
 
 
-def munge_paths(basepath, url):
+def munge_paths(basepath: _typing.Any, url: _typing.Any) -> tuple[_typing.Any, ...]:
     purl = urlparse(
         unquote(url),
     )
@@ -116,7 +119,7 @@ def munge_paths(basepath, url):
     return os.path.normpath(path), fragment
 
 
-def strip_style_comments(match):
+def strip_style_comments(match: _typing.Any) -> _typing.Any:
     src = match.group()
     while True:
         lindex = src.find("/*")
@@ -130,7 +133,7 @@ def strip_style_comments(match):
     return src
 
 
-def tag_regex(tagname):
+def tag_regex(tagname: _typing.Any) -> _typing.Any:
     """
     Return non-grouping regular expressions that match the opening and closing tags for tagname
     :param tagname:
@@ -227,17 +230,17 @@ class HTMLConverter(object):
         (re.compile("<div[^><]*?>(&nbsp;){4}</div>", re.IGNORECASE), lambda match: "<p></p>"),
     ]
 
-    def __hasattr__(self, attr):
+    def __hasattr__(self: _typing.Self, attr: _typing.Any) -> _typing.Any:
         if hasattr(self.options, attr):
             return True
         return object.__hasattr__(self, attr)
 
-    def __getattr__(self, attr):
+    def __getattr__(self: _typing.Self, attr: _typing.Any) -> _typing.Any:
         if hasattr(self.options, attr):
             return getattr(self.options, attr)
         return object.__getattribute__(self, attr)
 
-    def __setattr__(self, attr, val):
+    def __setattr__(self: _typing.Self, attr: _typing.Any, val: _typing.Any) -> None:
         if hasattr(self.options, attr):
             setattr(self.options, attr, val)
         else:
@@ -267,7 +270,7 @@ class HTMLConverter(object):
         "sub": {"vertical-align": "sub", "font-size": "60%"},
     }
 
-    def __init__(self, book, fonts, options, logger, paths):
+    def __init__(self: _typing.Self, book: _typing.Any, fonts: _typing.Any, options: _typing.Any, logger: _typing.Any, paths: _typing.Any) -> None:
         """
         Convert HTML files at C{paths} and add to C{book}. After creating the object, you must call L{self.writeto}
         to output the LRF/S file.
@@ -371,13 +374,13 @@ class HTMLConverter(object):
             self.log.info("\tRationalizing font sizes...")
             self.book.rationalize_font_sizes(self.base_font_size)
 
-    def is_baen(self, soup):
+    def is_baen(self: _typing.Self, soup: _typing.Any) -> _typing.Any:
         return bool(soup.find("meta", attrs={"name": "Publisher", "content": re.compile("Baen", re.IGNORECASE)}))
 
-    def is_book_designer(self, raw):
+    def is_book_designer(self: _typing.Self, raw: _typing.Any) -> _typing.Any:
         return bool(re.search("<H2[^><]*id=BookTitle", raw))
 
-    def preprocess(self, raw):
+    def preprocess(self: _typing.Self, raw: _typing.Any) -> _typing.Any:
         nmassage = copy.copy(BeautifulSoup.MARKUP_MASSAGE)
         nmassage.extend(HTMLConverter.MARKUP_MASSAGE)
 
@@ -430,7 +433,7 @@ class HTMLConverter(object):
 
         return soup
 
-    def add_file(self, path):
+    def add_file(self: _typing.Self, path: _typing.Any) -> None:
         """
         Add a file to the forming book.
         :param path:
@@ -470,7 +473,7 @@ class HTMLConverter(object):
         self.tops[path] = self.parse_file(soup)
         self.processed_files.append(path)
 
-    def parse_css(self, style):
+    def parse_css(self: _typing.Self, style: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Parse the contents of a <style> tag or .css file.
         selector name and the value is a dictionary of properties
@@ -501,7 +504,7 @@ class HTMLConverter(object):
                         sdict[key] = val
         return sdict, pdict
 
-    def parse_style_properties(self, props):
+    def parse_style_properties(self: _typing.Self, props: _typing.Any) -> _typing.Any:
         """
         Parses a style attribute. The code within a CSS selector block or in
         the style attribute of an HTML element.
@@ -518,7 +521,7 @@ class HTMLConverter(object):
                 prop[key] = val
         return prop
 
-    def tag_css(self, tag, parent_css=None):
+    def tag_css(self: _typing.Self, tag: _typing.Any, parent_css: _typing.Any = None) -> tuple[_typing.Any, ...]:
         """
         Return a dictionary of style properties applicable to Tag tag.
         :param tag:
@@ -528,7 +531,7 @@ class HTMLConverter(object):
         if parent_css is None:
             parent_css = {}
 
-        def merge_parent_css(prop, pcss):
+        def merge_parent_css(prop: _typing.Any, pcss: _typing.Any) -> None:
             # float should not be inherited according to the CSS spec
             # however we need to as we don't do alignment at a block level.
             # float is removed by the process_alignment function.
@@ -569,8 +572,8 @@ class HTMLConverter(object):
             prop.update(self.parse_style_properties(tag["style"]))
         return prop, pprop
 
-    def parse_file(self, soup):
-        def get_valid_block(page):
+    def parse_file(self: _typing.Self, soup: _typing.Any) -> _typing.Any:
+        def get_valid_block(page: _typing.Any) -> _typing.Any:
             for item in page.contents:
                 if isinstance(item, (Canvas, TextBlock, ImageBlock, RuledLine)):
                     if isinstance(item, TextBlock) and not item.contents:
@@ -631,7 +634,7 @@ class HTMLConverter(object):
 
         return top
 
-    def create_link(self, children, tag):
+    def create_link(self: _typing.Self, children: _typing.Any, tag: _typing.Any) -> dict[_typing.Any, _typing.Any]:
         para = None
         for i in range(len(children) - 1, -1, -1):
             if isinstance(children[i], (Span, EmpLine)):
@@ -658,7 +661,7 @@ class HTMLConverter(object):
             "in toc": (self.link_level == 0 and not self.use_spine and not self.options.no_links_in_toc),
         }
 
-    def get_text(self, tag, limit=None):
+    def get_text(self: _typing.Self, tag: _typing.Any, limit: _typing.Any = None) -> _typing.Any:
         css = self.tag_css(tag)[0]
         if ("display" in (css) and css["display"].lower() == "none") or (
             ("visibility" in css) and css["visibility"].lower() == "hidden"
@@ -679,15 +682,15 @@ class HTMLConverter(object):
                 text += self.get_text(c)
         return text if text.strip() else alt_text
 
-    def process_links(self):
-        def add_toc_entry(text, target):
+    def process_links(self: _typing.Self) -> _typing.Any:
+        def add_toc_entry(text: _typing.Any, target: _typing.Any) -> None:
             # TextBlocks in Canvases have a None parent or an Objects Parent
             if target.parent is not None and hasattr(target.parent, "objId"):
                 self.book.addTocEntry(ascii_text, tb)
             else:
                 self.log.debug(_("Cannot add link %s to TOC") % ascii_text)
 
-        def get_target_block(fragment, targets):
+        def get_target_block(fragment: _typing.Any, targets: _typing.Any) -> _typing.Any:
             """
             Return the correct block for the <a name> element
             :param fragment:
@@ -753,7 +756,7 @@ class HTMLConverter(object):
 
         return outside_links
 
-    def create_toc(self, toc):
+    def create_toc(self: _typing.Self, toc: _typing.Any) -> None:
         for item in toc.top_level_items():
             ascii_text = item.text
             if not item.fragment and item.abspath in self.tops:
@@ -764,7 +767,7 @@ class HTMLConverter(object):
                 if url in self.targets:
                     self.book.addTocEntry(ascii_text, self.targets[url])
 
-    def end_page(self):
+    def end_page(self: _typing.Self) -> None:
         """
         End the current page, ensuring that any further content is displayed on a new page.
         """
@@ -778,7 +781,7 @@ class HTMLConverter(object):
             self.book.append(self.current_page)
             self.current_page = self.book.create_page()
 
-    def add_image_page(self, path):
+    def add_image_page(self: _typing.Self, path: _typing.Any) -> None:
 
         # Ignore the cover if the image file is not valid
         if os.access(path, os.R_OK):
@@ -808,7 +811,7 @@ class HTMLConverter(object):
             page.append(canvas)
             self.book.append(page)
 
-    def process_children(self, ptag, pcss, ppcss=None):
+    def process_children(self: _typing.Self, ptag: _typing.Any, pcss: _typing.Any, ppcss: _typing.Any = None) -> None:
         """
         Process the children of ptag
         :param ptag:
@@ -836,7 +839,7 @@ class HTMLConverter(object):
             except AttributeError:
                 print(ptag, type(ptag))
 
-    def get_alignment(self, css):
+    def get_alignment(self: _typing.Self, css: _typing.Any) -> _typing.Any:
         val = css["text-align"].lower() if ("text-align" in css) else None
         align = "head"
         if val is not None:
@@ -853,7 +856,7 @@ class HTMLConverter(object):
             css.pop("float")
         return align
 
-    def process_alignment(self, css):
+    def process_alignment(self: _typing.Self, css: _typing.Any) -> bool:
         """
         Create a new TextBlock only if necessary as indicated by css
         :param css:
@@ -875,7 +878,7 @@ class HTMLConverter(object):
             return True
         return False
 
-    def add_text(self, tag, css, pseudo_css, force_span_use=False):
+    def add_text(self: _typing.Self, tag: _typing.Any, css: _typing.Any, pseudo_css: _typing.Any, force_span_use: bool = False) -> None:
         """
         Add text to the current paragraph taking CSS into account.
         :param tag:
@@ -911,7 +914,7 @@ class HTMLConverter(object):
             # Don't want leading blanks in a new paragraph
             src = src.lstrip()
 
-        def append_text(text_src):
+        def append_text(text_src: _typing.Any) -> None:
             fp, key, variant = self.font_properties(css)
             for x, y in [
                 ("\xad", ""),
@@ -998,11 +1001,11 @@ class HTMLConverter(object):
             if len(last):
                 append_text(last)
 
-    def line_break(self):
+    def line_break(self: _typing.Self) -> None:
         self.current_para.append(CR())
         self.previous_text = "\n"
 
-    def end_current_para(self):
+    def end_current_para(self: _typing.Self) -> None:
         """
         End current paragraph with a paragraph break after it.
         :return:
@@ -1012,7 +1015,7 @@ class HTMLConverter(object):
         self.current_block.append(CR())
         self.current_para = Paragraph()
 
-    def end_current_block(self):
+    def end_current_block(self: _typing.Self) -> None:
         """
         End current TextBlock. Create new TextBlock with the same styles.
         :return:
@@ -1026,8 +1029,8 @@ class HTMLConverter(object):
                 textStyle=self.current_block.textStyle, blockStyle=self.current_block.blockStyle
             )
 
-    def process_image(self, path, tag_css, width=None, height=None, dropcaps=False, rescale=False):
-        def detect_encoding(de_im):
+    def process_image(self: _typing.Self, path: _typing.Any, tag_css: _typing.Any, width: _typing.Any = None, height: _typing.Any = None, dropcaps: bool = False, rescale: bool = False) -> None:
+        def detect_encoding(de_im: _typing.Any) -> _typing.Any:
             fmt = de_im.format
             if fmt == "JPG":
                 fmt = "JPEG"
@@ -1048,7 +1051,7 @@ class HTMLConverter(object):
             return
         encoding = detect_encoding(im)
 
-        def scale_image(se_width, se_height):
+        def scale_image(se_width: _typing.Any, se_height: _typing.Any) -> _typing.Any:
             if se_width <= 0:
                 se_width = 1
             if se_height <= 0:
@@ -1161,7 +1164,7 @@ class HTMLConverter(object):
                 0,
             )
 
-    def process_page_breaks(self, tag, tagname, tag_css):
+    def process_page_breaks(self: _typing.Self, tag: _typing.Any, tagname: _typing.Any, tag_css: _typing.Any) -> _typing.Any:
         if "page-break-before" in tag_css.keys():
             if tag_css["page-break-before"].lower() != "avoid":
                 self.end_page()
@@ -1194,8 +1197,8 @@ class HTMLConverter(object):
                 self.log.debug("Forcing page break at %s" % tagname)
         return end_page
 
-    def block_properties(self, tag_css):
-        def get(what):
+    def block_properties(self: _typing.Self, tag_css: _typing.Any) -> _typing.Any:
+        def get(what: _typing.Any) -> _typing.Any:
             src = [None for i in range(4)]
             if (what in tag_css):
                 msrc = tag_css[what].split()
@@ -1210,7 +1213,7 @@ class HTMLConverter(object):
 
         bl = str(self.current_block.blockStyle.attrs["blockwidth"]) + "px"
 
-        def set(default, one, two):
+        def set(default: _typing.Any, one: _typing.Any, two: _typing.Any) -> _typing.Any:
             set_fval = None
             if one is not None:
                 val = self.unit_convert(one, base_length="10pt" if "em" in one else bl)
@@ -1246,7 +1249,7 @@ class HTMLConverter(object):
 
         return ans
 
-    def font_properties(self, css):
+    def font_properties(self: _typing.Self, css: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Convert the font propertiess in css to the Xylog equivalents. If the CSS
         does not contain a particular font property, the default from self.book.defaultTextSytle
@@ -1259,7 +1262,7 @@ class HTMLConverter(object):
         for key in ("fontwidth", "fontsize", "wordspace", "fontfacename", "fontweight", "baselineskip"):
             t[key] = self.book.defaultTextStyle.attrs[key]
 
-        def font_weight(val):
+        def font_weight(val: _typing.Any) -> _typing.Any:
             ans = 0
             m = re.search("([0-9]+)", val)
             if m:
@@ -1268,13 +1271,13 @@ class HTMLConverter(object):
                 ans = 700
             return "bold" if ans >= 700 else "normal"
 
-        def font_style(fs_val):
+        def font_style(fs_val: _typing.Any) -> _typing.Any:
             fs_ans = "normal"
             if "italic" in fs_val or "oblique" in fs_val:
                 fs_ans = "italic"
             return fs_ans
 
-        def font_family(ff_val):
+        def font_family(ff_val: _typing.Any) -> _typing.Any:
             ff_ans = "serif"
             if max(ff_val.find("courier"), ff_val.find("mono"), ff_val.find("fixed"), ff_val.find("typewriter")) >= 0:
                 ff_ans = "mono"
@@ -1291,13 +1294,13 @@ class HTMLConverter(object):
                 ff_ans = "sans"
             return ff_ans
 
-        def font_variant(val):
+        def font_variant(val: _typing.Any) -> _typing.Any:
             fv_ans = None
             if "small-caps" in val.lower():
                 fv_ans = "small-caps"
             return fv_ans
 
-        def font_key(fk_family, fk_style, fk_weight):
+        def font_key(fk_family: _typing.Any, fk_style: _typing.Any, fk_weight: _typing.Any) -> _typing.Any:
             fk_key = "normal"
             if fk_style == "italic" and fk_weight == "normal":
                 fk_key = "italic"
@@ -1307,7 +1310,7 @@ class HTMLConverter(object):
                 fk_key = "bi"
             return fk_key
 
-        def font_size(val):
+        def font_size(val: _typing.Any) -> _typing.Any:
             """
             Assumes 1em=100%=10pt
             :param val:
@@ -1406,7 +1409,7 @@ class HTMLConverter(object):
         t["baselineskip"] = fs + 20
         return t, key, variant
 
-    def unit_convert(self, val, pts=False, base_length="10pt"):
+    def unit_convert(self: _typing.Self, val: _typing.Any, pts: bool = False, base_length: str = "10pt") -> _typing.Any:
         """
         Tries to convert html units in C{val} to pixels.
         :param val:
@@ -1451,7 +1454,7 @@ class HTMLConverter(object):
                 result = int(round(result))
         return result
 
-    def text_properties(self, tag_css):
+    def text_properties(self: _typing.Self, tag_css: _typing.Any) -> _typing.Any:
         indent = self.book.defaultTextStyle.attrs["parindent"]
         if ("text-indent" in tag_css):
             bl = str(self.current_block.blockStyle.attrs["blockwidth"]) + "px"
@@ -1482,7 +1485,7 @@ class HTMLConverter(object):
 
         return fp
 
-    def process_block(self, tag, tag_css):
+    def process_block(self: _typing.Self, tag: _typing.Any, tag_css: _typing.Any) -> bool:
         """
         Ensure padding and text-indent properties are respected
         :param tag:
@@ -1500,7 +1503,7 @@ class HTMLConverter(object):
 
         align = self.get_alignment(tag_css)
 
-        def fill_out_properties(props, default):
+        def fill_out_properties(props: _typing.Any, default: _typing.Any) -> None:
             for key in default.keys():
                 if not (key in props):
                     props[key] = default[key]
@@ -1508,7 +1511,7 @@ class HTMLConverter(object):
         fill_out_properties(block_properties, self.book.defaultBlockStyle.attrs)
         fill_out_properties(text_properties, self.book.defaultTextStyle.attrs)
 
-        def properties_different(dict1, dict2):
+        def properties_different(dict1: _typing.Any, dict2: _typing.Any) -> bool:
             for key in dict1.keys():
                 if dict1[key] != dict2[key]:
                     return True
@@ -1540,7 +1543,7 @@ class HTMLConverter(object):
             return True
         return False
 
-    def process_anchor(self, tag, tag_css, tag_pseudo_css):
+    def process_anchor(self: _typing.Self, tag: _typing.Any, tag_css: _typing.Any, tag_pseudo_css: _typing.Any) -> None:
         if not self.in_table:  # Anchors in tables are handled separately
             key = "name" if ("name" in tag) else "id"
             name = tag[key].replace("#", "")
@@ -1580,7 +1583,7 @@ class HTMLConverter(object):
         else:
             self.process_children(tag, tag_css, tag_pseudo_css)
 
-    def parse_tag(self, tag, parent_css):
+    def parse_tag(self: _typing.Self, tag: _typing.Any, parent_css: _typing.Any) -> None:
         try:
             tagname = tag.name.lower()
         except AttributeError:
@@ -1937,7 +1940,7 @@ class HTMLConverter(object):
             if end_page:
                 self.end_page()
 
-    def process_table(self, tag, tag_css):
+    def process_table(self: _typing.Self, tag: _typing.Any, tag_css: _typing.Any) -> None:
         self.end_current_block()
         self.current_block = self.book.create_text_block()
         rowpad = 10
@@ -1963,21 +1966,21 @@ class HTMLConverter(object):
             self.current_page.append(canvas)
         self.end_current_block()
 
-    def remove_unused_target_blocks(self):
+    def remove_unused_target_blocks(self: _typing.Self) -> None:
         for block in self.unused_target_blocks:
             block.parent.contents.remove(block)
             block.parent = None
 
-    def writeto(self, path, lrs=False):
+    def writeto(self: _typing.Self, path: _typing.Any, lrs: bool = False) -> None:
         self.remove_unused_target_blocks()
         self.book.renderLrs(path) if lrs else self.book.renderLrf(path)
 
-    def cleanup(self):
+    def cleanup(self: _typing.Self) -> None:
         for _file in list(self.scaled_images.values()) + list(self.rotated_images.values()):
             _file.__del__()
 
 
-def process_file(path, options, logger):
+def process_file(path: _typing.Any, options: _typing.Any, logger: _typing.Any) -> _typing.Any:
     """
     Take an OEB as input and produce an lrf file as output.
     :param path:
@@ -2120,7 +2123,7 @@ def process_file(path, options, logger):
     return oname
 
 
-def try_opf(path, options, logger):
+def try_opf(path: _typing.Any, options: _typing.Any, logger: _typing.Any) -> None:
     if hasattr(options, "opf"):
         opf = options.opf
     else:

@@ -12,6 +12,9 @@
 #########################################################################
 
 
+from __future__ import annotations
+
+import typing as _typing
 class ListTable:
     """
     Parse the list table line. Make a string. Form a dictionary.
@@ -19,15 +22,15 @@ class ListTable:
     """
 
     def __init__(
-        self,
-        bug_handler,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        bug_handler: _typing.Any,
+        run_level: int = 1,
+    ) -> None:
         self.__bug_handler = bug_handler
         self.__initiate_values()
         self.__run_level = run_level
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         self.__list_table_final = ""
         self.__state = "default"
         self.__final_dict = {}
@@ -77,7 +80,7 @@ class ListTable:
         ],
         """
 
-    def __parse_lines(self, line):
+    def __parse_lines(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required : line --line to parse
         Returns:  nothing
@@ -104,7 +107,7 @@ class ListTable:
         self.__write_final_string()
         # self.__add_to_final_line()
 
-    def __default_func(self, line):
+    def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires: line --line to process
         Return: nothing
@@ -115,7 +118,7 @@ class ListTable:
         if self.__token_info == "ob<nu<open-brack":
             self.__state = "unsure_ob"
 
-    def __found_list_func(self, line):
+    def __found_list_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires: line -- line to process
         Returns: nothing
@@ -135,7 +138,7 @@ class ListTable:
         the_dict = {"list-id": []}
         self.__all_lists[-1].append(the_dict)
 
-    def __list_func(self, line):
+    def __list_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires: line --line to process
         Returns: nothing
@@ -156,7 +159,7 @@ class ListTable:
                 # [{att:value}, [], [att:value, []]
                 self.__all_lists[-1][0][att] = value
 
-    def __found_level_func(self, line):
+    def __found_level_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires: line -- line to process
         Returns: nothing
@@ -184,7 +187,7 @@ class ListTable:
         self.__all_lists[-1][-1].append(the_dict)
         self.__level_dict
 
-    def __level_func(self, line):
+    def __level_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line to parse
@@ -205,7 +208,7 @@ class ListTable:
                 value = line[20:]
                 self.__all_lists[-1][-1][0][att] = value
 
-    def __level_number_func(self, line):
+    def __level_number_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line to process
@@ -236,7 +239,7 @@ class ListTable:
             self.__all_lists[-1][-1][0][level] = 'true'
             """
 
-    def __level_text_func(self, line):
+    def __level_text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to process
@@ -274,7 +277,7 @@ class ListTable:
             value = line[20:]
             self.__all_lists[-1][-1][0]["level-template-id"] = value
 
-    def __parse_level_text_length(self, line):
+    def __parse_level_text_length(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line with hexadecimal number
@@ -300,7 +303,7 @@ class ListTable:
                 self.__all_lists[-1][-1][0][prefix_marker] = self.__prefix_string
                 self.__prefix_string = None
 
-    def __list_name_func(self, line):
+    def __list_name_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to process
@@ -312,7 +315,7 @@ class ListTable:
         if self.__token_info == "cb<nu<clos-brack" and self.__cb_count == self.__list_name_ob_count:
             self.__state = "list"
 
-    def __after_bracket_func(self, line):
+    def __after_bracket_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to parse
@@ -343,7 +346,7 @@ class ListTable:
                 msg += 'token is "%s\n"' % (line)
                 raise self.__bug_handler
 
-    def __add_to_final_line(self):
+    def __add_to_final_line(self: _typing.Self) -> None:
         """
         Method no longer used.
         """
@@ -352,7 +355,7 @@ class ListTable:
         self.__list_table_final += "mi<mk<listab-end\n" + "mi<tg<close_____<list-table\n"
         self.__list_table_final += "mi<mk<listabend_\n"
 
-    def __write_final_string(self):
+    def __write_final_string(self: _typing.Self) -> None:
         """
         Requires:
             nothing
@@ -424,7 +427,7 @@ class ListTable:
         self.__list_table_final += "mi<mk<listab-end\n" + "mi<tg<close_____<list-table\n"
         self.__list_table_final += "mi<mk<listabend_\n"
 
-    def parse_list_table(self, line):
+    def parse_list_table(self: _typing.Self, line: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Requires:
             line -- line with border definition in it

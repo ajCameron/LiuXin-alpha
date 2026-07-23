@@ -1,4 +1,7 @@
 from __future__ import with_statement, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Transform XHTML/OPS-ish content into Mobipocket HTML 3.2.
@@ -25,7 +28,7 @@ except Exception:
     except Exception:
         _FallbackImage = None
 
-    def identify_data(data):
+    def identify_data(data: _typing.Any) -> tuple[_typing.Any, ...]:
         if _FallbackImage is None:
             raise RuntimeError("No image identify backend is available")
         meta = _FallbackImage(data).identify()
@@ -43,7 +46,7 @@ logger = logging.getLogger(__name__)
 MBP_NS = "http://mobipocket.com/ns/mbp"
 
 
-def MBP(name):
+def MBP(name: _typing.Any) -> _typing.Any:
     return "{%s}%s" % (MBP_NS, name)
 
 
@@ -94,13 +97,13 @@ PAGE_BREAKS = {"always", "left", "right"}
 COLLAPSE = re.compile(r"[ \t\r\n\v]+")
 
 
-def asfloat(value):
+def asfloat(value: _typing.Any) -> _typing.Any:
     if not isinstance(value, numbers.Real):
         return 0.0
     return float(value)
 
 
-def _parse_numeric(value, default=0.0):
+def _parse_numeric(value: _typing.Any, default: float = 0.0) -> _typing.Any:
     if isinstance(value, numbers.Real):
         return float(value)
     if isinstance(value, str):
@@ -142,7 +145,7 @@ class _FallbackStyle(dict):
         "height": 0.0,
     }
 
-    def __init__(self, elem):
+    def __init__(self: _typing.Self, elem: _typing.Any) -> None:
         super().__init__(self._DEFAULTS)
         self._raw = {}
         tag = barename(getattr(elem, "tag", "") or "").lower()
@@ -182,13 +185,13 @@ class _FallbackStyle(dict):
         self.backgroundColor = self["background-color"]
         self.height = self["height"]
 
-    def _get(self, name):
+    def _get(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         return self._raw.get(name, self.get(name))
 
-    def _unit_convert(self, value, base=500):
+    def _unit_convert(self: _typing.Self, value: _typing.Any, base: int = 500) -> _typing.Any:
         return _parse_numeric(value, default=0.0)
 
-    def cssdict(self):
+    def cssdict(self: _typing.Self) -> dict[_typing.Any, _typing.Any]:
         return {
             "width": self._raw.get("width", "auto"),
             "height": self._raw.get("height", "auto"),
@@ -199,10 +202,10 @@ class _FallbackStyle(dict):
 
 
 class _FallbackStylizer:
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self._cache = {}
 
-    def style(self, elem):
+    def style(self: _typing.Self, elem: _typing.Any) -> _typing.Any:
         ans = self._cache.get(elem)
         if ans is None:
             ans = _FallbackStyle(elem)
@@ -210,7 +213,7 @@ class _FallbackStylizer:
         return ans
 
 
-def isspace(text):
+def isspace(text: _typing.Any) -> _typing.Any:
     if not text:
         return True
     if "\xa0" in text:
@@ -219,7 +222,7 @@ def isspace(text):
 
 
 class BlockState(object):
-    def __init__(self, body):
+    def __init__(self: _typing.Self, body: _typing.Any) -> None:
         self.body = body
         self.nested = []
         self.para = None
@@ -233,7 +236,7 @@ class BlockState(object):
 
 
 class FormatState(object):
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.rendered = False
         self.left = 0.0
         self.halign = "auto"
@@ -253,7 +256,7 @@ class FormatState(object):
         self.list_num = 0
         self.attrib = {}
 
-    def __eq__(self, other):
+    def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
         """
         Returns equal if every aspect of the format state (size, italic, bold e.t.c is the same).
         :param other:
@@ -273,15 +276,15 @@ class FormatState(object):
             and self.underline == other.underline
         )
 
-    def __ne__(self, other):
+    def __ne__(self: _typing.Self, other: _typing.Any) -> _typing.Any:
         return not self.__eq__(other)
 
 
 class MobiMLizer(object):
-    def __init__(self, ignore_tables=False):
+    def __init__(self: _typing.Self, ignore_tables: bool = False) -> None:
         self.ignore_tables = ignore_tables
 
-    def __call__(self, oeb, context):
+    def __call__(self: _typing.Self, oeb: _typing.Any, context: _typing.Any) -> None:
         """
         Convert the book to Mobiml markup
         :param oeb:
@@ -297,7 +300,7 @@ class MobiMLizer(object):
         self.fmap = KeyMapper(profile.fbase, profile.fbase, fnums.keys())
         self.mobimlize_spine()
 
-    def mobimlize_spine(self):
+    def mobimlize_spine(self: _typing.Self) -> None:
         """
         Iterate over the spine and convert every element to MOBIML
         :return:
@@ -321,10 +324,10 @@ class MobiMLizer(object):
             item.data = nroot
             # print etree.tostring(nroot)
 
-    def mobimlize_font(self, ptsize):
+    def mobimlize_font(self: _typing.Self, ptsize: _typing.Any) -> _typing.Any:
         return self.fnums[self.fmap[ptsize]]
 
-    def mobimlize_measure(self, ptsize):
+    def mobimlize_measure(self: _typing.Self, ptsize: _typing.Any) -> _typing.Any:
         if isinstance(ptsize, six_string_types):
             return ptsize
         embase = self.profile.fbase
@@ -332,7 +335,7 @@ class MobiMLizer(object):
             return "%dpt" % int(round(ptsize))
         return "%dem" % int(round(ptsize / embase))
 
-    def preize_text(self, text, pre_wrap=False):
+    def preize_text(self: _typing.Self, text: _typing.Any, pre_wrap: bool = False) -> _typing.Any:
         text = six_unicode(text)
         if pre_wrap:
             # Replace n consecutive spaces with n-1 NBSP + space
@@ -350,7 +353,7 @@ class MobiMLizer(object):
                 result.append(line)
         return result
 
-    def mobimlize_content(self, tag, text, bstate, istates):
+    def mobimlize_content(self: _typing.Self, tag: _typing.Any, text: _typing.Any, bstate: _typing.Any, istates: _typing.Any) -> None:
         """
         Convert text content to mobiml markup.
         :param tag:
@@ -523,7 +526,7 @@ class MobiMLizer(object):
             else:
                 inline.append(item)
 
-    def mobimlize_elem(self, elem, stylizer, bstate, istates, ignore_valign=False):
+    def mobimlize_elem(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, bstate: _typing.Any, istates: _typing.Any, ignore_valign: bool = False) -> None:
         if not isinstance(elem.tag, six_string_types) or namespace(elem.tag) != XHTML_NS:
             return
         style = stylizer.style(elem)

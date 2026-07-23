@@ -10,6 +10,8 @@ standard fonts.
 
 from __future__ import annotations
 
+import typing as _typing
+
 import re
 import textwrap
 from pathlib import Path
@@ -24,7 +26,7 @@ __copyright__ = "2026, LiuXin contributors"
 __docformat__ = "restructuredtext en"
 
 
-def _parse_custom_size(raw):
+def _parse_custom_size(raw: _typing.Any) -> tuple[_typing.Any, ...] | None:
     if not raw:
         return None
     width, sep, height = str(raw).partition("x")
@@ -36,7 +38,7 @@ def _parse_custom_size(raw):
         return None
 
 
-def _unit_to_points(unit):
+def _unit_to_points(unit: _typing.Any) -> _typing.Any:
     unit = (unit or "inch").lower()
     return {
         "point": 1.0,
@@ -50,7 +52,7 @@ def _unit_to_points(unit):
     }.get(unit, 72.0)
 
 
-def _page_size_points(opts):
+def _page_size_points(opts: _typing.Any) -> tuple[_typing.Any, ...]:
     custom = _parse_custom_size(getattr(opts, "custom_size", None))
     if custom is not None:
         scale = _unit_to_points(getattr(opts, "unit", "inch"))
@@ -63,14 +65,14 @@ def _page_size_points(opts):
     return float(width), float(height)
 
 
-def _normalize_text(raw):
+def _normalize_text(raw: _typing.Any) -> _typing.Any:
     # Collapse whitespace but preserve paragraph boundaries.
     out = re.sub(r"[ \t\r\f\v]+", " ", raw)
     out = re.sub(r"\n{3,}", "\n\n", out)
     return out.strip()
 
 
-def _extract_blocks(path):
+def _extract_blocks(path: _typing.Any) -> _typing.Any:
     data = Path(path).read_bytes()
     try:
         root = html.fromstring(data)
@@ -97,13 +99,13 @@ def _extract_blocks(path):
 
 
 class HeadlessPDFWriter(object):
-    def __init__(self, opts, log, cover_data=None, toc=None):
+    def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any, cover_data: _typing.Any = None, toc: _typing.Any = None) -> None:
         self.opts = opts
         self.log = log
         self.cover_data = cover_data
         self.toc = toc
 
-    def _draw_line(self, pdf, font_name, font_size, x, y, text):
+    def _draw_line(self: _typing.Self, pdf: _typing.Any, font_name: _typing.Any, font_size: _typing.Any, x: _typing.Any, y: _typing.Any, text: _typing.Any) -> None:
         pdf.current_page.write("BT ")
         pdf.serialize(Name(font_name))
         pdf.current_page.write(" %s Tf " % int(font_size))
@@ -111,7 +113,7 @@ class HeadlessPDFWriter(object):
         pdf.serialize(String(text))
         pdf.current_page.write_line(" Tj ET")
 
-    def _draw_page_number(self, pdf, font_name, page_num, page_width, bottom_margin):
+    def _draw_page_number(self: _typing.Self, pdf: _typing.Any, font_name: _typing.Any, page_num: _typing.Any, page_width: _typing.Any, bottom_margin: _typing.Any) -> None:
         if not getattr(self.opts, "pdf_page_numbers", False):
             return
         self._draw_line(
@@ -123,7 +125,7 @@ class HeadlessPDFWriter(object):
             str(page_num),
         )
 
-    def dump(self, items, out_stream, pdf_metadata):
+    def dump(self: _typing.Self, items: _typing.Any, out_stream: _typing.Any, pdf_metadata: _typing.Any) -> None:
         page_width, page_height = _page_size_points(self.opts)
         margin_left = float(getattr(self.opts, "margin_left", 36) or 36)
         margin_right = float(getattr(self.opts, "margin_right", 36) or 36)
@@ -146,7 +148,7 @@ class HeadlessPDFWriter(object):
         y = page_height - margin_top
         min_y = margin_bottom + line_height
 
-        def maybe_page_break():
+        def maybe_page_break() -> None:
             nonlocal y, page_num, font_name
             if y < min_y:
                 self._draw_page_number(pdf, font_name, page_num, page_width, margin_bottom)

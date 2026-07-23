@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import glob
 import os
@@ -42,7 +45,7 @@ every time you add an HTML file to the library.\
     supported_platforms = ["windows", "osx", "linux"]
     on_import = True
 
-    def run(self, htmlfile):
+    def run(self: _typing.Self, htmlfile: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
         from LiuXin_alpha.surfaces.gui2.convert.gui_conversion import gui_convert
         from LiuXin_alpha.customize.conversion import OptionRecommendation
@@ -71,12 +74,12 @@ every time you add an HTML file to the library.\
 
         return of.name
 
-    def customization_help(self, gui=False):
+    def customization_help(self: _typing.Self, gui: bool = False) -> _typing.Any:
         return _(
             "Character encoding for the input HTML files. Common choices " "include: cp1252, cp1251, latin1 and utf-8."
         )
 
-    def do_user_config(self, parent=None):
+    def do_user_config(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
         """
         This method shows a configuration dialog for this plugin. It returns
         True if the user clicks OK, False otherwise. The changes are
@@ -97,7 +100,7 @@ every time you add an HTML file to the library.\
         button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         v = QVBoxLayout(config_dialog)
 
-        def size_dialog():
+        def size_dialog() -> None:
             config_dialog.resize(config_dialog.sizeHint())
 
         button_box.accepted.connect(config_dialog.accept)

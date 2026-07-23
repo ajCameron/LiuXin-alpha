@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.customize.conversion import OutputFormatPlugin
 
@@ -16,7 +19,7 @@ class LITOutput(OutputFormatPlugin):
     author = "Marshall T. Vandegrift"
     file_type = "lit"
 
-    def convert(self, oeb_book, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
 
         from LiuXin_alpha.file_formats.lit.writer import LitWriter
         from LiuXin_alpha.file_formats.oeb.transforms.htmltoc import HTMLTOCAdder

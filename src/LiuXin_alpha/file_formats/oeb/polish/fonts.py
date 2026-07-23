@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 
@@ -9,7 +12,7 @@ from LiuXin_alpha.file_formats.oeb.polish.container import OEB_STYLES, OEB_DOCS
 try:
     from LiuXin_alpha.file_formats.oeb.normalize_css import normalize_font
 except Exception:
-    def normalize_font(*args, **kwargs):
+    def normalize_font(*args: _typing.Any, **kwargs: _typing.Any) -> dict[_typing.Any, _typing.Any]:
         return {}
 
 # Py2/Py3 compatiblity layer
@@ -19,13 +22,13 @@ __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def unquote(x):
+def unquote(x: _typing.Any) -> _typing.Any:
     if x and len(x) > 1 and x[0] == x[-1] and x[0] in ('"', "'"):
         x = x[1:-1]
     return x
 
 
-def font_family_data_from_declaration(style, families):
+def font_family_data_from_declaration(style: _typing.Any, families: _typing.Any) -> None:
     font_families = []
     f = style.getProperty("font")
     if f is not None:
@@ -40,7 +43,7 @@ def font_family_data_from_declaration(style, families):
         families[f] = families.get(f, False)
 
 
-def font_family_data_from_sheet(sheet, families):
+def font_family_data_from_sheet(sheet: _typing.Any, families: _typing.Any) -> None:
     for rule in sheet.cssRules:
         if rule.type == rule.STYLE_RULE:
             font_family_data_from_declaration(rule.style, families)
@@ -51,7 +54,7 @@ def font_family_data_from_sheet(sheet, families):
                     families[f.value] = True
 
 
-def font_family_data(container):
+def font_family_data(container: _typing.Any) -> _typing.Any:
     families = {}
     for name, mt in iteritems(container.mime_map):
         if mt in OEB_STYLES:
@@ -70,7 +73,7 @@ def font_family_data(container):
     return families
 
 
-def change_font_family_value(cssvalue, new_name):
+def change_font_family_value(cssvalue: _typing.Any, new_name: _typing.Any) -> None:
     # If cssvalue.type == 'IDENT' cssutils will not serialize the font
     # name properly (it will not enclose it in quotes). So we
     # use the following hack (setting an internal property of the
@@ -79,7 +82,7 @@ def change_font_family_value(cssvalue, new_name):
     cssvalue._type = "STRING"
 
 
-def change_font_family_in_property(style, prop, old_name, new_name=None):
+def change_font_family_in_property(style: _typing.Any, prop: _typing.Any, old_name: _typing.Any, new_name: _typing.Any = None) -> _typing.Any:
     changed = False
     families = {x.value for x in prop.propertyValue}
     _dummy_family = "d7d81cf1-1c8c-4993-b788-e1ab596c0f1f"
@@ -103,7 +106,7 @@ def change_font_family_in_property(style, prop, old_name, new_name=None):
     return changed
 
 
-def change_font_in_declaration(style, old_name, new_name=None):
+def change_font_in_declaration(style: _typing.Any, old_name: _typing.Any, new_name: _typing.Any = None) -> _typing.Any:
     changed = False
     for x in ("font", "font-family"):
         prop = style.getProperty(x)
@@ -112,7 +115,7 @@ def change_font_in_declaration(style, old_name, new_name=None):
     return changed
 
 
-def remove_embedded_font(container, sheet, rule, sheet_name):
+def remove_embedded_font(container: _typing.Any, sheet: _typing.Any, rule: _typing.Any, sheet_name: _typing.Any) -> None:
     src = getattr(rule.style.getProperty("src"), "value")
     if src is not None:
         if src.startswith("url("):
@@ -125,7 +128,7 @@ def remove_embedded_font(container, sheet, rule, sheet_name):
             container.remove_item(name)
 
 
-def change_font_in_sheet(container, sheet, old_name, new_name, sheet_name):
+def change_font_in_sheet(container: _typing.Any, sheet: _typing.Any, old_name: _typing.Any, new_name: _typing.Any, sheet_name: _typing.Any) -> _typing.Any:
     changed = False
     removals = []
     for rule in sheet.cssRules:
@@ -143,7 +146,7 @@ def change_font_in_sheet(container, sheet, old_name, new_name, sheet_name):
     return changed
 
 
-def change_font(container, old_name, new_name=None):
+def change_font(container: _typing.Any, old_name: _typing.Any, new_name: _typing.Any = None) -> _typing.Any:
     """
     Change a font family from old_name to new_name. Changes all occurrences of
     the font family in stylesheets, style tags and style attributes.

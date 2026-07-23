@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 import glob
 import shutil
 import os
@@ -25,7 +28,7 @@ class PMLInput(InputFormatPlugin):
     # pmlz is a zip file containing pml files and png images.
     file_types = {"pml", "pmlz"}
 
-    def process_pml(self, pml_path, html_path, close_all=False):
+    def process_pml(self: _typing.Self, pml_path: _typing.Any, html_path: _typing.Any, close_all: bool = False) -> _typing.Any:
         from LiuXin_alpha.file_formats.pml.pmlconverter import PML_HTMLizer
 
         pclose = False
@@ -63,7 +66,7 @@ class PMLInput(InputFormatPlugin):
 
         return hizer.get_toc()
 
-    def get_images(self, stream, tdir, top_level=False):
+    def get_images(self: _typing.Self, stream: _typing.Any, tdir: _typing.Any, top_level: bool = False) -> _typing.Any:
         images = []
         imgs = []
 
@@ -95,7 +98,7 @@ class PMLInput(InputFormatPlugin):
 
         return images
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.toc import TOC
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile

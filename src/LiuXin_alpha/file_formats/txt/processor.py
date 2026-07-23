@@ -3,6 +3,9 @@
 """
 Read content from txt file.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
@@ -30,7 +33,7 @@ HTML_TEMPLATE = (
 )
 
 
-def clean_txt(txt):
+def clean_txt(txt: _typing.Any) -> _typing.Any:
     """
     Run transformations on the text to put it into
     consistent state.
@@ -59,7 +62,7 @@ def clean_txt(txt):
     return txt
 
 
-def split_txt(txt, epub_split_size_kb=0):
+def split_txt(txt: _typing.Any, epub_split_size_kb: int = 0) -> _typing.Any:
     """
     Ensure there are split points for converting
     to EPUB. A misdetected paragraph type can
@@ -95,7 +98,7 @@ def split_txt(txt, epub_split_size_kb=0):
     return txt
 
 
-def convert_basic(txt, title="", epub_split_size_kb=0):
+def convert_basic(txt: _typing.Any, title: str = "", epub_split_size_kb: int = 0) -> _typing.Any:
     """
     Converts plain text to html by putting all paragraphs in <p> tags. It condense and retains blank lines when
     necessary.
@@ -124,7 +127,7 @@ def convert_basic(txt, title="", epub_split_size_kb=0):
     return HTML_TEMPLATE % (title, "\n".join(lines))
 
 
-def convert_markdown(txt, title="", extensions=("footnotes", "tables", "toc")):
+def convert_markdown(txt: _typing.Any, title: str = "", extensions: tuple[_typing.Any, ...] = ("footnotes", "tables", "toc")) -> _typing.Any:
     from LiuXin_alpha.file_formats.conversion.plugins.txt_input import MD_EXTENSIONS
     from LiuXin_alpha.file_formats.markdown import Markdown
 
@@ -133,7 +136,7 @@ def convert_markdown(txt, title="", extensions=("footnotes", "tables", "toc")):
     return HTML_TEMPLATE % (title, md.convert(txt))
 
 
-def convert_textile(txt, title=""):
+def convert_textile(txt: _typing.Any, title: str = "") -> _typing.Any:
     try:
         from LiuXin_alpha.file_formats.textile.functions import textile
     except Exception:
@@ -147,18 +150,18 @@ def convert_textile(txt, title=""):
     return HTML_TEMPLATE % (title, html)
 
 
-def normalize_line_endings(txt):
+def normalize_line_endings(txt: _typing.Any) -> _typing.Any:
     txt = txt.replace("\r\n", "\n")
     txt = txt.replace("\r", "\n")
     return txt
 
 
-def separate_paragraphs_single_line(txt):
+def separate_paragraphs_single_line(txt: _typing.Any) -> _typing.Any:
     txt = txt.replace("\n", "\n\n")
     return txt
 
 
-def separate_paragraphs_print_formatted(txt):
+def separate_paragraphs_print_formatted(txt: _typing.Any) -> _typing.Any:
     txt = re.sub(
         r"(?miu)^(?P<indent>\t+|[ ]{2,})(?=.)",
         lambda mo: "\n%s" % mo.group("indent"),
@@ -167,8 +170,8 @@ def separate_paragraphs_print_formatted(txt):
     return txt
 
 
-def separate_hard_scene_breaks(txt):
-    def sep_break(line):
+def separate_hard_scene_breaks(txt: _typing.Any) -> _typing.Any:
+    def sep_break(line: _typing.Any) -> _typing.Any:
         if len(line.strip()) > 0:
             return "\n%s\n" % line
         else:
@@ -178,12 +181,12 @@ def separate_hard_scene_breaks(txt):
     return txt
 
 
-def block_to_single_line(txt):
+def block_to_single_line(txt: _typing.Any) -> _typing.Any:
     txt = re.sub(r"(?<=.)\n(?=.)", " ", txt)
     return txt
 
 
-def preserve_spaces(txt):
+def preserve_spaces(txt: _typing.Any) -> _typing.Any:
     """
     Replaces spaces multiple spaces with &nbsp; entities.
     :param txt:
@@ -198,7 +201,7 @@ def preserve_spaces(txt):
     return txt
 
 
-def remove_indents(txt):
+def remove_indents(txt: _typing.Any) -> _typing.Any:
     """
     Remove whitespace at the beginning of each line.
     :param txt:
@@ -208,7 +211,7 @@ def remove_indents(txt):
     return txt
 
 
-def opf_writer(path, opf_name, manifest, spine, mi):
+def opf_writer(path: _typing.Any, opf_name: _typing.Any, manifest: _typing.Any, spine: _typing.Any, mi: _typing.Any) -> None:
     opf = OPFCreator(path, mi)
     opf.create_manifest(manifest)
     opf.create_spine(spine)
@@ -216,7 +219,7 @@ def opf_writer(path, opf_name, manifest, spine, mi):
         opf.render(opffile)
 
 
-def split_string_separator(txt, size):
+def split_string_separator(txt: _typing.Any, size: _typing.Any) -> _typing.Any:
     """
     Splits the text by putting \n\n at the point size.
     :param txt:
@@ -233,7 +236,7 @@ def split_string_separator(txt, size):
     return txt
 
 
-def detect_paragraph_type(txt):
+def detect_paragraph_type(txt: _typing.Any) -> str:
     """
     Tries to determine the paragraph type of the document.
 
@@ -281,7 +284,7 @@ def detect_paragraph_type(txt):
     return "single"
 
 
-def detect_formatting_type(txt):
+def detect_formatting_type(txt: _typing.Any) -> str:
     """
     Tries to determine the formatting of the document.
 

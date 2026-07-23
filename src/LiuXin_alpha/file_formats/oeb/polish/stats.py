@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import json
 import logging
@@ -30,11 +33,11 @@ try:
 except ModuleNotFoundError:
     QEventLoop = Qt = QSize = QTimer = None
 
-    def pyqtProperty(*args, **kwargs):
+    def pyqtProperty(*args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         return property(kwargs.get("fget"), kwargs.get("fset"))
 
-    def pyqtSlot(*args, **kwargs):
-        def deco(func):
+    def pyqtSlot(*args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        def deco(func: _typing.Any) -> _typing.Any:
             return func
 
         return deco
@@ -59,7 +62,7 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def normalize_font_properties(font):
+def normalize_font_properties(font: _typing.Any) -> _typing.Any:
     w = font.get("font-weight", None)
     if not w and w != 0:
         w = "normal"
@@ -109,7 +112,7 @@ widths = {
 }
 
 
-def get_matching_rules(rules, font):
+def get_matching_rules(rules: _typing.Any, font: _typing.Any) -> _typing.Any:
     matches = []
 
     # Filter on family
@@ -160,7 +163,7 @@ def get_matching_rules(rules, font):
     return []
 
 
-def parse_font_families(parser, raw):
+def parse_font_families(parser: _typing.Any, raw: _typing.Any) -> _typing.Iterator[_typing.Any]:
     style = parser.parseStyle("font-family:" + raw, validate=False).getProperty("font-family")
     for x in style.propertyValue:
         x = x.value
@@ -168,7 +171,7 @@ def parse_font_families(parser, raw):
             yield x
 
 
-def get_pseudo_element_font_usage(pseudo_element_font_usage, first_letter_pat, parser):
+def get_pseudo_element_font_usage(pseudo_element_font_usage: _typing.Any, first_letter_pat: _typing.Any, parser: _typing.Any) -> _typing.Any:
     ans = []
     for font_dict, text, pseudo in pseudo_element_font_usage:
         text = text.strip()
@@ -188,7 +191,7 @@ def get_pseudo_element_font_usage(pseudo_element_font_usage, first_letter_pat, p
 
 
 class Page(QWebPage):  # {{{
-    def __init__(self, log):
+    def __init__(self: _typing.Self, log: _typing.Any) -> None:
         self.log = log
         QWebPage.__init__(self)
         self.js = None
@@ -198,13 +201,13 @@ class Page(QWebPage):  # {{{
         nam.setNetworkAccessible(nam.NotAccessible)
         self.longjs_counter = 0
 
-    def javaScriptConsoleMessage(self, msg, lineno, msgid):
+    def javaScriptConsoleMessage(self: _typing.Self, msg: _typing.Any, lineno: _typing.Any, msgid: _typing.Any) -> None:
         self.log("JS:", six_unicode(msg))
 
-    def javaScriptAlert(self, frame, msg):
+    def javaScriptAlert(self: _typing.Self, frame: _typing.Any, msg: _typing.Any) -> None:
         self.log(six_unicode(msg))
 
-    def shouldInterruptJavaScript(self):
+    def shouldInterruptJavaScript(self: _typing.Self) -> bool:
         if self.longjs_counter < 5:
             self.log("Long running javascript, letting it proceed")
             self.longjs_counter += 1
@@ -212,18 +215,18 @@ class Page(QWebPage):  # {{{
         self.log.warn("Long running javascript, aborting it")
         return True
 
-    def _pass_json_value_getter(self):
+    def _pass_json_value_getter(self: _typing.Self) -> _typing.Any:
         val = json.dumps(self.bridge_value)
         return val
 
-    def _pass_json_value_setter(self, value):
+    def _pass_json_value_setter(self: _typing.Self, value: _typing.Any) -> None:
         # Qt WebKit in Qt 4.x adds extra null bytes to the end of the string
         # if the JSON contains non-BMP characters
         self.bridge_value = json.loads(six_unicode(value).rstrip("\0"))
 
     _pass_json_value = pyqtProperty(str, fget=_pass_json_value_getter, fset=_pass_json_value_setter)
 
-    def load_js(self):
+    def load_js(self: _typing.Self) -> None:
         self.longjs_counter = 0
         if self.js is None:
             from LiuXin_alpha.utils.resources import compiled_coffeescript
@@ -246,7 +249,7 @@ class Page(QWebPage):  # {{{
 
 
 class StatsCollector(object):
-    def __init__(self, container, do_embed=False):
+    def __init__(self: _typing.Self, container: _typing.Any, do_embed: bool = False) -> None:
         if CSSParser is None:
             raise ModuleNotFoundError("cssutils is required for oeb polish font statistics.")
         if QEventLoop is None:
@@ -288,7 +291,7 @@ class StatsCollector(object):
         if self.loop.exec_() == 1:
             raise Exception("Failed to gather statistics from book, see log for details")
 
-    def log_exception(self, *args):
+    def log_exception(self: _typing.Self, *args: _typing.Any) -> None:
         orig = self.log.filter_level
         try:
             self.log.filter_level = self.log.DEBUG
@@ -296,7 +299,7 @@ class StatsCollector(object):
         finally:
             self.log.filter_level = orig
 
-    def render_book(self):
+    def render_book(self: _typing.Self) -> None:
         try:
             if not self.render_queue:
                 self.loop.exit()
@@ -306,12 +309,12 @@ class StatsCollector(object):
             self.log_exception("Rendering failed", " - exception message: {}".format(e))
             self.loop.exit(1)
 
-    def render_next(self):
+    def render_next(self: _typing.Self) -> None:
         item = six_unicode(self.render_queue.pop(0))
         self.current_item = item
         self._load_html(item, self.view)
 
-    def collect(self, ok):
+    def collect(self: _typing.Self, ok: _typing.Any) -> None:
         if not ok:
             self.log.error("Failed to render document: %s" % self.container.relpath(self.current_item))
             self.loop.exit(1)
@@ -329,7 +332,7 @@ class StatsCollector(object):
 
         self.render_book()
 
-    def href_to_name(self, href, warn_name):
+    def href_to_name(self: _typing.Self, href: _typing.Any, warn_name: _typing.Any) -> _typing.Any:
         if not href.startswith("file://"):
             self.log.warn("Non-local URI in", warn_name, ":", href, "ignoring")
             return None
@@ -344,7 +347,7 @@ class StatsCollector(object):
             return None
         return name
 
-    def collect_font_stats(self):
+    def collect_font_stats(self: _typing.Self) -> None:
         self.page.evaljs("window.font_stats.get_font_face_rules()")
         font_face_rules = self.page.bridge_value
         if not isinstance(font_face_rules, list):

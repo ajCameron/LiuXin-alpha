@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Add page mapping information to an EPUB book.
@@ -20,7 +23,7 @@ PAGE_RE = re.compile(r"page", re.IGNORECASE)
 ROMAN_RE = re.compile(r"^[ivxlcdm]+$", re.IGNORECASE)
 
 
-def filter_name(name):
+def filter_name(name: _typing.Any) -> _typing.Any:
     name = name.strip()
     name = PAGE_RE.sub("", name)
     for word in name.split():
@@ -30,13 +33,13 @@ def filter_name(name):
     return name
 
 
-def build_name_for(expr):
+def build_name_for(expr: _typing.Any) -> _typing.Any:
     if not expr:
         counter = count(1)
         return lambda elem: str(next(counter))
     selector = etree.XPath(expr, namespaces=NSMAP)
 
-    def name_for(elem):
+    def name_for(elem: _typing.Any) -> _typing.Any:
         results = selector(elem)
         if not results:
             return ""
@@ -52,7 +55,7 @@ def build_name_for(expr):
     return name_for
 
 
-def add_page_map(opfpath, opts):
+def add_page_map(opfpath: _typing.Any, opts: _typing.Any) -> None:
     try:
         from LiuXin_alpha.file_formats.oeb.reader import OEBReader
         from LiuXin_alpha.file_formats.oeb.writer import OEBWriter

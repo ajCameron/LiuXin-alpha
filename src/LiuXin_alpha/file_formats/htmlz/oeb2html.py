@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Transform OEB content into a single (more or less) HTML file.
@@ -63,12 +66,12 @@ class OEB2HTML(object):
     Use get_css to get the CSS classes for the OEB document as a string.
     """
 
-    def __init__(self, log=None):
+    def __init__(self: _typing.Self, log: _typing.Any = None) -> None:
         self.log = default_log if log is None else log
         self.links = {}
         self.images = {}
 
-    def oeb2html(self, oeb_book, opts):
+    def oeb2html(self: _typing.Self, oeb_book: _typing.Any, opts: _typing.Any) -> _typing.Any:
         self.log.info("Converting OEB book to HTML...")
         self.opts = opts
         self.links = {}
@@ -78,7 +81,7 @@ class OEB2HTML(object):
 
         return self.mlize_spine(oeb_book)
 
-    def mlize_spine(self, oeb_book):
+    def mlize_spine(self: _typing.Self, oeb_book: _typing.Any) -> _typing.Any:
         output = ['<html><head><meta http-equiv="Content-Type" content="text/html;charset=utf-8" /></head><body>']
         for item in oeb_book.spine:
             self.log.debug("Converting %s to HTML..." % item.href)
@@ -90,17 +93,17 @@ class OEB2HTML(object):
         output.append("</body></html>")
         return "".join(output)
 
-    def dump_text(self, elem, stylizer, page):
+    def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, page: _typing.Any) -> None:
         raise NotImplementedError
 
-    def get_link_id(self, href, id=""):
+    def get_link_id(self: _typing.Self, href: _typing.Any, id: str = "") -> _typing.Any:
         if id:
             href += "#%s" % id
         if href not in self.links:
             self.links[href] = "#calibre_link-%s" % len(self.links.keys())
         return self.links[href]
 
-    def map_resources(self, oeb_book):
+    def map_resources(self: _typing.Self, oeb_book: _typing.Any) -> None:
         link_attrs_fallback = {
             "href",
             "src",
@@ -142,7 +145,7 @@ class OEB2HTML(object):
                             if href in self.base_hrefs:
                                 self.get_link_id(href, attr_id)
 
-    def rewrite_link(self, url, page=None):
+    def rewrite_link(self: _typing.Self, url: _typing.Any, page: _typing.Any = None) -> _typing.Any:
         if not page:
             return url
         abs_url = page.abshref(urlnormalize(url))
@@ -152,7 +155,7 @@ class OEB2HTML(object):
             return self.links[abs_url]
         return url
 
-    def rewrite_ids(self, root, page):
+    def rewrite_ids(self: _typing.Self, root: _typing.Any, page: _typing.Any) -> None:
         for el in root.iter():
             try:
                 tag = el.tag
@@ -164,7 +167,7 @@ class OEB2HTML(object):
             if "id" in el.attrib:
                 el.attrib["id"] = self.get_link_id(page.href, el.attrib["id"])[1:]
 
-    def get_css(self, oeb_book):
+    def get_css(self: _typing.Self, oeb_book: _typing.Any) -> _typing.Any:
         css_parts = []
         for item in oeb_book.manifest:
             if item.media_type == "text/css":
@@ -174,7 +177,7 @@ class OEB2HTML(object):
                 css_parts.append(css_text)
         return "\n\n".join(x for x in css_parts if x)
 
-    def prepare_string_for_html(self, raw):
+    def prepare_string_for_html(self: _typing.Self, raw: _typing.Any) -> _typing.Any:
         raw = prepare_string_for_xml(raw)
         raw = raw.replace("\u00ad", "&shy;")
         raw = raw.replace("\u2014", "&mdash;")
@@ -188,7 +191,7 @@ class OEB2HTMLNoCSSizer(OEB2HTML):
     This will remap a small number of CSS styles to equivalent HTML tags.
     """
 
-    def dump_text(self, elem, stylizer, page):
+    def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, page: _typing.Any) -> _typing.Any:
         """
 
         :param elem: The element in the etree that we are working on.
@@ -277,7 +280,7 @@ class OEB2HTMLInlineCSSizer(OEB2HTML):
     Turns external CSS classes into inline style attributes.
     """
 
-    def dump_text(self, elem, stylizer, page):
+    def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, page: _typing.Any) -> _typing.Any:
         """
 
         :param elem: The element in the etree that we are working on.
@@ -362,7 +365,7 @@ class OEB2HTMLClassCSSizer(OEB2HTML):
     CSS file called style.css.
     """
 
-    def mlize_spine(self, oeb_book):
+    def mlize_spine(self: _typing.Self, oeb_book: _typing.Any) -> _typing.Any:
         output = []
         for item in oeb_book.spine:
             self.log.debug("Converting %s to HTML..." % item.href)
@@ -384,7 +387,7 @@ class OEB2HTMLClassCSSizer(OEB2HTML):
         )
         return "".join(output)
 
-    def dump_text(self, elem, stylizer, page):
+    def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, page: _typing.Any) -> _typing.Any:
         """
 
         :param elem: The element in the etree that we are working on.
@@ -447,21 +450,21 @@ class OEB2HTMLClassCSSizer(OEB2HTML):
         return text
 
 
-def oeb2html_no_css(oeb_book, log, opts):
+def oeb2html_no_css(oeb_book: _typing.Any, log: _typing.Any, opts: _typing.Any) -> tuple[_typing.Any, ...]:
     local_izer = OEB2HTMLNoCSSizer(log)
     local_html = local_izer.oeb2html(oeb_book, opts)
     images = local_izer.images
     return local_html, images
 
 
-def oeb2html_inline_css(oeb_book, log, opts):
+def oeb2html_inline_css(oeb_book: _typing.Any, log: _typing.Any, opts: _typing.Any) -> tuple[_typing.Any, ...]:
     local_izer = OEB2HTMLInlineCSSizer(log)
     local_html = local_izer.oeb2html(oeb_book, opts)
     images = local_izer.images
     return local_html, images
 
 
-def oeb2html_class_css(oeb_book, log, opts):
+def oeb2html_class_css(oeb_book: _typing.Any, log: _typing.Any, opts: _typing.Any) -> tuple[_typing.Any, ...]:
     local_izer = OEB2HTMLClassCSSizer(log)
     setattr(opts, "htmlz_class_style", "inline")
     local_html = local_izer.oeb2html(oeb_book, opts)

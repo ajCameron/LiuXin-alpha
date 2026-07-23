@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 import os
 
 from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
@@ -173,7 +176,7 @@ class FB2Output(OutputFormatPlugin):
         ),
     }
 
-    def convert(self, oeb_book, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
 
         from LiuXin_alpha.file_formats.fb2.fb2ml import FB2MLizer
         from LiuXin_alpha.file_formats.oeb.transforms.jacket import linearize_jacket

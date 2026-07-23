@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import typing as _typing
 import os
 import sys
 from LiuXin_alpha.file_formats.rtf2xml import open_for_read
@@ -5,12 +8,12 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read
 
 class Configure:
     def __init__(
-        self,
-        configuration_file,
-        bug_handler,
-        debug_dir=None,
-        show_config_file=None,
-    ):
+        self: _typing.Self,
+        configuration_file: _typing.Any,
+        bug_handler: _typing.Any,
+        debug_dir: _typing.Any = None,
+        show_config_file: _typing.Any = None,
+    ) -> None:
         """
         Requires:
             file --file to be read
@@ -24,7 +27,7 @@ class Configure:
         self.__bug_handler = bug_handler
         self.__show_config_file = show_config_file
 
-    def get_configuration(self, type):
+    def get_configuration(self: _typing.Self, type: _typing.Any) -> _typing.Any:
         self.__configuration_file = self.__get_file_name()
         return_dict = {}
         return_dict["config-location"] = self.__configuration_file
@@ -63,7 +66,7 @@ class Configure:
             raise self.__bug_handler(msg)
         return return_dict
 
-    def __get_file_name(self):
+    def __get_file_name(self: _typing.Self) -> _typing.Any:
         home_var = os.environ.get("HOME")
         if home_var:
             home_config = os.path.join(home_var, ".rtf2xml")
@@ -79,7 +82,7 @@ class Configure:
             return script_file
         return self.__configuration_file
 
-    def __parse_dict(self, return_dict):
+    def __parse_dict(self: _typing.Self, return_dict: _typing.Any) -> _typing.Any:
         allowable = [
             "configuration-directory",
             "smart-output",  # = false

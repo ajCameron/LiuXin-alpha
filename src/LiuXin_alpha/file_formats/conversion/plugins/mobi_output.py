@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
@@ -15,7 +18,7 @@ __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def remove_html_cover(oeb, log):
+def remove_html_cover(oeb: _typing.Any, log: _typing.Any) -> None:
     """
     Remove the HTML cover form an oeb object
     :param oeb:
@@ -43,7 +46,7 @@ def remove_html_cover(oeb, log):
             oeb.manifest.remove(item)
 
 
-def extract_mobi(output_path, opts):
+def extract_mobi(output_path: _typing.Any, opts: _typing.Any) -> None:
     if opts.extract_to is not None:
         from LiuXin_alpha.file_formats.mobi.debug.main import inspect_mobi
 
@@ -157,7 +160,7 @@ class MOBIOutput(OutputFormatPlugin):
         ),
     }
 
-    def check_for_periodical(self):
+    def check_for_periodical(self: _typing.Self) -> None:
         if self.is_periodical:
             self.periodicalize_toc()
             self.check_for_masthead()
@@ -165,7 +168,7 @@ class MOBIOutput(OutputFormatPlugin):
         else:
             self.opts.mobi_periodical = False
 
-    def check_for_masthead(self):
+    def check_for_masthead(self: _typing.Self) -> None:
         found = "masthead" in self.oeb.guide
         if not found:
             from LiuXin_alpha.file_formats import generate_masthead
@@ -178,7 +181,7 @@ class MOBIOutput(OutputFormatPlugin):
         else:
             self.oeb.log.debug("Using mastheadImage supplied in manifest...")
 
-    def periodicalize_toc(self):
+    def periodicalize_toc(self: _typing.Self) -> None:
         from LiuXin_alpha.file_formats.oeb.base import TOC
 
         toc = self.oeb.toc
@@ -240,7 +243,7 @@ class MOBIOutput(OutputFormatPlugin):
             # Fix up the periodical href to point to first section href
             toc.nodes[0].href = toc.nodes[0].nodes[0].href
 
-    def convert(self, oeb_book, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         """
         Convert an OEBBook to mobi.
         :param oeb_book: Has to be a LiuXin.file_formats.oeb.base.OEBBook object
@@ -278,12 +281,12 @@ class MOBIOutput(OutputFormatPlugin):
         self.log("Creating MOBI 6 output")
         self.write_mobi(input_plugin, output_path, kf8, resources)
 
-    def create_kf8(self, resources, for_joint=False):
+    def create_kf8(self: _typing.Self, resources: _typing.Any, for_joint: bool = False) -> _typing.Any:
         from LiuXin_alpha.file_formats.mobi.writer8.main import create_kf8_book
 
         return create_kf8_book(self.oeb, self.opts, resources, for_joint=for_joint)
 
-    def write_mobi(self, input_plugin, output_path, kf8, resources):
+    def write_mobi(self: _typing.Self, input_plugin: _typing.Any, output_path: _typing.Any, kf8: _typing.Any, resources: _typing.Any) -> None:
 
         from LiuXin_alpha.customize.ui import plugin_for_input_format
 
@@ -331,12 +334,12 @@ class MOBIOutput(OutputFormatPlugin):
         writer(oeb, output_path)
         extract_mobi(output_path, opts)
 
-    def specialize_css_for_output(self, log, opts, item, stylizer):
+    def specialize_css_for_output(self: _typing.Self, log: _typing.Any, opts: _typing.Any, item: _typing.Any, stylizer: _typing.Any) -> None:
         from LiuXin_alpha.file_formats.mobi.writer8.cleanup import CSSCleanup
 
         CSSCleanup(log, opts)(item, stylizer)
 
-    def workaround_fire_bugs(self, jacket):
+    def workaround_fire_bugs(self: _typing.Self, jacket: _typing.Any) -> None:
         # The idiotic Fire crashes when trying to render the table used to
         # layout the jacket
         from LiuXin_alpha.file_formats.oeb.base import XHTML
@@ -411,7 +414,7 @@ class AZW3Output(OutputFormatPlugin):
         ),
     }
 
-    def convert(self, oeb, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         from LiuXin_alpha.file_formats.mobi.writer2.resources import Resources
         from LiuXin_alpha.file_formats.mobi.writer8.main import create_kf8_book
 
@@ -439,7 +442,7 @@ class AZW3Output(OutputFormatPlugin):
         kf8.write(output_path)
         extract_mobi(output_path, opts)
 
-    def specialize_css_for_output(self, log, opts, item, stylizer):
+    def specialize_css_for_output(self: _typing.Self, log: _typing.Any, opts: _typing.Any, item: _typing.Any, stylizer: _typing.Any) -> None:
         from LiuXin_alpha.file_formats.mobi.writer8.cleanup import CSSCleanup
 
         CSSCleanup(log, opts)(item, stylizer)

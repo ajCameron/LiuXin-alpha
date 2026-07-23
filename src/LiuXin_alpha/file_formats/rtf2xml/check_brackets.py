@@ -12,13 +12,16 @@
 #########################################################################
 
 
+from __future__ import annotations
+
+import typing as _typing
 from LiuXin_alpha.file_formats.rtf2xml import open_for_read
 
 
 class CheckBrackets:
     """Check that brackets match up"""
 
-    def __init__(self, bug_handler=None, file=None):
+    def __init__(self: _typing.Self, bug_handler: _typing.Any = None, file: _typing.Any = None) -> None:
         self.__file = file
         self.__bug_handler = bug_handler
         self.__bracket_count = 0
@@ -26,12 +29,12 @@ class CheckBrackets:
         self.__cb_count = 0
         self.__open_bracket_num = []
 
-    def open_brack(self, line):
+    def open_brack(self: _typing.Self, line: _typing.Any) -> None:
         num = line[-5:-1]
         self.__open_bracket_num.append(num)
         self.__bracket_count += 1
 
-    def close_brack(self, line):
+    def close_brack(self: _typing.Self, line: _typing.Any) -> bool:
         num = line[-5:-1]
         try:
             last_num = self.__open_bracket_num.pop()
@@ -42,7 +45,7 @@ class CheckBrackets:
         self.__bracket_count -= 1
         return True
 
-    def check_brackets(self):
+    def check_brackets(self: _typing.Self) -> tuple[_typing.Any, ...]:
         line_count = 0
         with open_for_read(self.__file) as read_obj:
             for line in read_obj:

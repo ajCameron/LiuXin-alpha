@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 from lxml import etree
 
@@ -10,13 +13,13 @@ class InlineClass(etree.XSLTExtension):
 
     FMTS = ("italics", "bold", "strike-through", "small-caps")
 
-    def __init__(self, log):
+    def __init__(self: _typing.Self, log: _typing.Any) -> None:
         etree.XSLTExtension.__init__(self)
         self.log = log
         self.font_sizes = []
         self.colors = []
 
-    def execute(self, context, self_node, input_node, output_parent):
+    def execute(self: _typing.Self, context: _typing.Any, self_node: _typing.Any, input_node: _typing.Any, output_parent: _typing.Any) -> None:
         classes = ["none"]
         for x in self.FMTS:
             if input_node.get(x, None) == "true":

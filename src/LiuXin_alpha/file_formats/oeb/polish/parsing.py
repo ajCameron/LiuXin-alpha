@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import copy
 import re
@@ -48,13 +51,13 @@ xml_ns = namespaces["xmlns"]
 
 
 class NamespacedHTMLPresent(ValueError):
-    def __init__(self, prefix):
+    def __init__(self: _typing.Self, prefix: _typing.Any) -> None:
         ValueError.__init__(self, prefix)
         self.prefix = prefix
 
 
 # Nodes {{{
-def ElementFactory(name, namespace=None, context=None):
+def ElementFactory(name: _typing.Any, namespace: _typing.Any = None, context: _typing.Any = None) -> _typing.Any:
     context = context or create_lxml_context()
     ns = namespace or namespaces["html"]
     try:
@@ -70,7 +73,7 @@ class Element(ElementBase):
     liuxin_html5lib.treebuilders._base.Node) on top of the lxml ElementBase class
     """
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         attrs = ""
         if self.attrib:
             attrs = " " + " ".join('%s="%s"' % (k, v) for k, v in iteritems(self.attrib))
@@ -87,37 +90,37 @@ class Element(ElementBase):
 
     __repr__ = __str__
 
-    def attributes(self):
+    def attributes(self: _typing.Self) -> _typing.Any:
         return self.attrib
 
     @property
-    def childNodes(self):
+    def childNodes(self: _typing.Self) -> _typing.Any:
         return self
 
     @childNodes.setter
-    def childNodes(self, val):
+    def childNodes(self: _typing.Self, val: _typing.Any) -> None:
         self[:] = list(val)
 
-    def parent(self):
+    def parent(self: _typing.Self) -> _typing.Any:
         return self.getparent()
 
-    def hasContent(self):
+    def hasContent(self: _typing.Self) -> _typing.Any:
         return bool(self.text or len(self))
 
     appendChild = ElementBase.append
     removeChild = ElementBase.remove
 
-    def cloneNode(self):
+    def cloneNode(self: _typing.Self) -> _typing.Any:
         ans = self.makeelement(self.tag, nsmap=self.nsmap, attrib=self.attrib)
         for x in ("name", "namespace", "nameTuple"):
             setattr(ans, x, getattr(self, x))
         return ans
 
-    def insertBefore(self, node, ref_node):
+    def insertBefore(self: _typing.Self, node: _typing.Any, ref_node: _typing.Any) -> None:
         self.insert(self.index(ref_node), node)
 
-    def insertText(self, data, insertBefore=None):
-        def append_text(el, attr):
+    def insertText(self: _typing.Self, data: _typing.Any, insertBefore: _typing.Any = None) -> None:
+        def append_text(el: _typing.Any, attr: _typing.Any) -> None:
             try:
                 setattr(el, attr, (getattr(el, attr) or "") + data)
             except ValueError:
@@ -142,7 +145,7 @@ class Element(ElementBase):
             else:
                 append_text(self, "text")
 
-    def reparentChildren(self, new_parent):
+    def reparentChildren(self: _typing.Self, new_parent: _typing.Any) -> None:
         # Move self.text
         if len(new_parent) > 0:
             el = new_parent[-1]
@@ -157,35 +160,35 @@ class Element(ElementBase):
 
 class Comment(CommentBase):
     @property
-    def data(self):
+    def data(self: _typing.Self) -> _typing.Any:
         return self.text
 
     @data.setter
-    def data(self, val):
+    def data(self: _typing.Self, val: _typing.Any) -> None:
         self.text = val.replace("--", "- -")
 
-    def parent(self):
+    def parent(self: _typing.Self) -> _typing.Any:
         return self.getparent()
 
-    def name(self):
+    def name(self: _typing.Self) -> None:
         return None
 
-    def namespace(self):
+    def namespace(self: _typing.Self) -> None:
         return None
 
-    def nameTuple(self):
+    def nameTuple(self: _typing.Self) -> tuple[_typing.Any, ...]:
         return None, None
 
-    def childNodes(self):
+    def childNodes(self: _typing.Self) -> list[_typing.Any]:
         return []
 
-    def attributes(self):
+    def attributes(self: _typing.Self) -> dict[_typing.Any, _typing.Any]:
         return {}
 
-    def hasContent(self):
+    def hasContent(self: _typing.Self) -> _typing.Any:
         return bool(self.text)
 
-    def no_op(self, *args, **kwargs):
+    def no_op(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
         pass
 
     appendChild = no_op
@@ -193,19 +196,19 @@ class Comment(CommentBase):
     insertBefore = no_op
     reparentChildren = no_op
 
-    def insertText(self, text, insertBefore=None):
+    def insertText(self: _typing.Self, text: _typing.Any, insertBefore: _typing.Any = None) -> None:
         self.text = (self.text or "") + text.replace("--", "- -")
 
-    def cloneNode(self):
+    def cloneNode(self: _typing.Self) -> _typing.Any:
         return copy.copy(self)
 
 
 class Document(object):
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.root = None
         self.doctype = None
 
-    def appendChild(self, child):
+    def appendChild(self: _typing.Self, child: _typing.Any) -> None:
         if isinstance(child, ElementBase):
             self.root = child
         elif isinstance(child, DocType):
@@ -213,12 +216,12 @@ class Document(object):
 
 
 class DocType(object):
-    def __init__(self, name, public_id, system_id):
+    def __init__(self: _typing.Self, name: _typing.Any, public_id: _typing.Any, system_id: _typing.Any) -> None:
         self.text = self.name = name
         self.public_id, self.system_id = public_id, system_id
 
 
-def create_lxml_context():
+def create_lxml_context() -> _typing.Any:
     parser = XMLParser(no_network=True)
     parser.set_element_class_lookup(ElementDefaultClassLookup(element=Element, comment=Comment))
     return parser
@@ -227,7 +230,7 @@ def create_lxml_context():
 # }}}
 
 
-def clean_attrib(name, val, nsmap, attrib, namespaced_attribs):
+def clean_attrib(name: _typing.Any, val: _typing.Any, nsmap: _typing.Any, attrib: _typing.Any, namespaced_attribs: _typing.Any) -> tuple[_typing.Any, ...]:
 
     if isinstance(name, tuple):
         prefix, name, ns = name
@@ -270,7 +273,7 @@ def clean_attrib(name, val, nsmap, attrib, namespaced_attribs):
     return name, False
 
 
-def makeelement_ns(ctx, namespace, prefix, name, attrib, nsmap):
+def makeelement_ns(ctx: _typing.Any, namespace: _typing.Any, prefix: _typing.Any, name: _typing.Any, attrib: _typing.Any, nsmap: _typing.Any) -> _typing.Any:
     nns = attrib.pop("xmlns", None)
     if nns is not None:
         nsmap[None] = nns
@@ -338,25 +341,25 @@ class TreeBuilder(BaseTreeBuilder):
     documentClass = Document
     doctypeClass = DocType
 
-    def __init__(self, namespaceHTMLElements=True, linenumber_attribute=None):
+    def __init__(self: _typing.Self, namespaceHTMLElements: bool = True, linenumber_attribute: _typing.Any = None) -> None:
         BaseTreeBuilder.__init__(self, namespaceHTMLElements)
         self.linenumber_attribute = linenumber_attribute
         self.lxml_context = create_lxml_context()
         self.elementClass = partial(ElementFactory, context=self.lxml_context)
         self.proxy_cache = []
 
-    def getDocument(self):
+    def getDocument(self: _typing.Self) -> _typing.Any:
         return self.document.root
 
     # The following methods are re-implementations from BaseTreeBuilder to
     # handle namespaces properly.
 
-    def insertRoot(self, token):
+    def insertRoot(self: _typing.Self, token: _typing.Any) -> None:
         element = self.createElement(token, nsmap={None: namespaces["html"]})
         self.openElements.append(element)
         self.document.appendChild(element)
 
-    def promote_elem(self, elem, tag_name):
+    def promote_elem(self: _typing.Self, elem: _typing.Any, tag_name: _typing.Any) -> None:
         """
         Add the paraphernalia to elem that the liuxin_html5lib infrastructure needs
         :param elem:
@@ -368,7 +371,7 @@ class TreeBuilder(BaseTreeBuilder):
         elem.namespace = elem.nsmap.get(elem.prefix, html_ns)
         elem.nameTuple = (elem.namespace, elem.name)
 
-    def createElement(self, token, nsmap=None):
+    def createElement(self: _typing.Self, token: _typing.Any, nsmap: _typing.Any = None) -> _typing.Any:
         """
         Create an element but don't insert it anywhere
         :param token:
@@ -405,14 +408,14 @@ class TreeBuilder(BaseTreeBuilder):
                 elem.set(self.linenumber_attribute, str(position[0][0]))
         return elem
 
-    def insertElementNormal(self, token):
+    def insertElementNormal(self: _typing.Self, token: _typing.Any) -> _typing.Any:
         parent = self.openElements[-1]
         element = self.createElement(token, parent.nsmap)
         parent.appendChild(element)
         self.openElements.append(element)
         return element
 
-    def insertElementTable(self, token):
+    def insertElementTable(self: _typing.Self, token: _typing.Any) -> _typing.Any:
         """
         Create an element and insert it into the tree
         :param token:
@@ -431,7 +434,7 @@ class TreeBuilder(BaseTreeBuilder):
         self.openElements.append(element)
         return element
 
-    def clone_node(self, elem, nsmap_update):
+    def clone_node(self: _typing.Self, elem: _typing.Any, nsmap_update: _typing.Any) -> _typing.Any:
         assert len(elem) == 0
         nsmap = elem.nsmap.copy()
         nsmap.update(nsmap_update)
@@ -443,7 +446,7 @@ class TreeBuilder(BaseTreeBuilder):
         nelem.text, nelem.tail = elem.text, elem.tail
         return nelem
 
-    def apply_html_attributes(self, attrs):
+    def apply_html_attributes(self: _typing.Self, attrs: _typing.Any) -> None:
         if not attrs:
             return
         html = self.openElements[0]
@@ -476,7 +479,7 @@ class TreeBuilder(BaseTreeBuilder):
                     else:
                         html.set(to_xml_name(k), v)
 
-    def apply_body_attributes(self, attrs):
+    def apply_body_attributes(self: _typing.Self, attrs: _typing.Any) -> None:
         if not attrs:
             return
         body = self.openElements[1]
@@ -493,13 +496,13 @@ class TreeBuilder(BaseTreeBuilder):
                         k = "lang"
                     body.set(to_xml_name(k), v)
 
-    def insertComment(self, token, parent=None):
+    def insertComment(self: _typing.Self, token: _typing.Any, parent: _typing.Any = None) -> None:
         if parent is None:
             parent = self.openElements[-1]
         parent.appendChild(Comment(token["data"].replace("--", "- -")))
 
 
-def makeelement(ctx, name, attrib):
+def makeelement(ctx: _typing.Any, name: _typing.Any, attrib: _typing.Any) -> _typing.Any:
     attrib.pop("xmlns", None)
     try:
         elem = ctx.makeelement(name)
@@ -518,14 +521,14 @@ def makeelement(ctx, name, attrib):
 
 
 class NoNamespaceTreeBuilder(TreeBuilder):
-    def __init__(self, namespaceHTMLElements=False, linenumber_attribute=None):
+    def __init__(self: _typing.Self, namespaceHTMLElements: bool = False, linenumber_attribute: _typing.Any = None) -> None:
         BaseTreeBuilder.__init__(self, namespaceHTMLElements)
         self.linenumber_attribute = linenumber_attribute
         self.lxml_context = create_lxml_context()
         self.elementClass = partial(ElementFactory, context=self.lxml_context)
         self.proxy_cache = []
 
-    def createElement(self, token, nsmap=None):
+    def createElement(self: _typing.Self, token: _typing.Any, nsmap: _typing.Any = None) -> _typing.Any:
         name = token["name"].rpartition(":")[2]
         elem = makeelement(self.lxml_context, name, token["data"])
         # Keep a reference to elem so that lxml does not delete and re-create
@@ -544,7 +547,7 @@ class NoNamespaceTreeBuilder(TreeBuilder):
                 elem.set(self.linenumber_attribute, str(position[0][0]))
         return elem
 
-    def apply_html_attributes(self, attrs):
+    def apply_html_attributes(self: _typing.Self, attrs: _typing.Any) -> None:
         if not attrs:
             return
         html = self.openElements[0]
@@ -557,7 +560,7 @@ class NoNamespaceTreeBuilder(TreeBuilder):
                         k = "lang"
                     html.set(to_xml_name(k), v)
 
-    def apply_body_attributes(self, attrs):
+    def apply_body_attributes(self: _typing.Self, attrs: _typing.Any) -> None:
         if not attrs:
             return
         body = self.openElements[1]
@@ -579,7 +582,7 @@ class FastStream(object):
 
     __slots__ = ("raw", "pos", "errors", "new_lines", "track_position", "charEncoding")
 
-    def __init__(self, raw, track_position=False):
+    def __init__(self: _typing.Self, raw: _typing.Any, track_position: bool = False) -> None:
         self.raw = raw
         self.pos = 0
         self.errors = []
@@ -588,10 +591,10 @@ class FastStream(object):
         if track_position:
             self.new_lines = tuple(m.start() + 1 for m in re.finditer(r"\n", raw))
 
-    def reset(self):
+    def reset(self: _typing.Self) -> None:
         self.pos = 0
 
-    def char(self):
+    def char(self: _typing.Self) -> _typing.Any:
         try:
             ans = self.raw[self.pos]
         except IndexError:
@@ -599,11 +602,11 @@ class FastStream(object):
         self.pos += 1
         return ans
 
-    def unget(self, char):
+    def unget(self: _typing.Self, char: _typing.Any) -> None:
         if char is not None:
             self.pos = max(0, self.pos - 1)
 
-    def charsUntil(self, characters, opposite=False):
+    def charsUntil(self: _typing.Self, characters: _typing.Any, opposite: bool = False) -> _typing.Any:
         # Use a cache of regexps to find the required characters
         try:
             chars = _regex_cache[(characters, opposite)]
@@ -620,7 +623,7 @@ class FastStream(object):
         self.pos = m.end()
         return m.group()
 
-    def position(self):
+    def position(self: _typing.Self) -> tuple[_typing.Any, ...]:
         if not self.track_position:
             return (-1, -1)
         pos = self.pos
@@ -644,15 +647,15 @@ else:
 
 
 def parse_html5(
-    raw,
-    decoder=None,
-    log=None,
-    discard_namespaces=False,
-    line_numbers=True,
-    linenumber_attribute=None,
-    replace_entities=True,
-    fix_newlines=True,
-):
+    raw: _typing.Any,
+    decoder: _typing.Any = None,
+    log: _typing.Any = None,
+    discard_namespaces: bool = False,
+    line_numbers: bool = True,
+    linenumber_attribute: _typing.Any = None,
+    replace_entities: bool = True,
+    fix_newlines: bool = True,
+) -> _typing.Any:
     if raw is None:
         raise ValueError("Cannot parse HTML5: raw input is None")
     if isinstance(raw, bytes):
@@ -703,7 +706,7 @@ def parse_html5(
     return root
 
 
-def strip_encoding_declarations(raw):
+def strip_encoding_declarations(raw: _typing.Any) -> _typing.Any:
     # A custom encoding stripper that preserves line numbers
     limit = 10 * 1024
     for pat in ENCODING_PATS:
@@ -715,14 +718,14 @@ def strip_encoding_declarations(raw):
 
 
 def parse(
-    raw,
-    decoder=None,
-    log=None,
-    line_numbers=True,
-    linenumber_attribute=None,
-    replace_entities=True,
-    force_html5_parse=False,
-):
+    raw: _typing.Any,
+    decoder: _typing.Any = None,
+    log: _typing.Any = None,
+    line_numbers: bool = True,
+    linenumber_attribute: _typing.Any = None,
+    replace_entities: bool = True,
+    force_html5_parse: bool = False,
+) -> _typing.Any:
     if raw is None:
         raise ValueError("Cannot parse markup: raw input is None")
     if isinstance(raw, bytes):

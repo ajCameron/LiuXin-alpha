@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import sys
 import os
@@ -18,7 +21,7 @@ try:
     from LiuXin_alpha.utils.ipc.simple_worker import WorkerError
 except ModuleNotFoundError:
     class WorkerError(RuntimeError):
-        def __init__(self, message, orig_tb=None):
+        def __init__(self: _typing.Self, message: _typing.Any, orig_tb: _typing.Any = None) -> None:
             super().__init__(message)
             self.orig_tb = orig_tb
 from LiuXin_alpha.utils.decompression.libunzip import extract as zipextract
@@ -34,7 +37,7 @@ class Error(ValueError):
     pass
 
 
-def ask_cli_question(msg):
+def ask_cli_question(msg: _typing.Any) -> bool:
     prints(msg, end=" [y/N]: ")
     sys.stdout.flush()
 
@@ -61,7 +64,7 @@ def ask_cli_question(msg):
     return (ans or "").lower() == "y"
 
 
-def mobi_exploder(path, tdir, question=lambda x: True):
+def mobi_exploder(path: _typing.Any, tdir: _typing.Any, question: _typing.Callable[..., _typing.Any] = lambda x: True) -> _typing.Any:
     from LiuXin_alpha.utils.calibre.ebooks.mobi.tweak import explode, BadFormat
 
     try:
@@ -70,7 +73,7 @@ def mobi_exploder(path, tdir, question=lambda x: True):
         raise Error(as_unicode(e))
 
 
-def zip_exploder(path, tdir, question=lambda x: True):
+def zip_exploder(path: _typing.Any, tdir: _typing.Any, question: _typing.Callable[..., _typing.Any] = lambda x: True) -> _typing.Any:
     try:
         zipextract(path, tdir)
     except Exception as err:
@@ -81,7 +84,7 @@ def zip_exploder(path, tdir, question=lambda x: True):
     raise Error("Invalid book: Could not find .opf")
 
 
-def zip_rebuilder(tdir, path):
+def zip_rebuilder(tdir: _typing.Any, path: _typing.Any) -> None:
     output_abspath = os.path.abspath(path)
     with ZipFile(path, "w", compression=ZIP_DEFLATED) as zf:
         # Write mimetype
@@ -103,7 +106,7 @@ def zip_rebuilder(tdir, path):
                 zf.write(absfn, zfn)
 
 
-def get_tools(fmt):
+def get_tools(fmt: _typing.Any) -> _typing.Any:
     fmt = (fmt or "").lower()
 
     if fmt in {"mobi", "azw", "azw3"}:
@@ -118,7 +121,7 @@ def get_tools(fmt):
     return ans
 
 
-def tweak(ebook_file):
+def tweak(ebook_file: _typing.Any) -> None:
     """
     Command line interface to the Tweak Book tool
     :param ebook_file:

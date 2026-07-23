@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import os
 
 from LiuXin_alpha.file_formats.rtf2xml import copy
@@ -21,13 +24,13 @@ class FixLineEndings:
     """Fix line endings"""
 
     def __init__(
-        self,
-        bug_handler,
-        in_file=None,
-        copy=None,
-        run_level=1,
-        replace_illegals=1,
-    ):
+        self: _typing.Self,
+        bug_handler: _typing.Any,
+        in_file: _typing.Any = None,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+        replace_illegals: int = 1,
+    ) -> None:
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -35,7 +38,7 @@ class FixLineEndings:
         self.__write_to = better_mktemp()
         self.__replace_illegals = replace_illegals
 
-    def fix_endings(self):
+    def fix_endings(self: _typing.Self) -> None:
         # read
         with open(self.__file, "rb") as read_obj:
             input_file = read_obj.read()

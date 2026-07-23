@@ -1,6 +1,9 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from collections import namedtuple
 
@@ -23,11 +26,11 @@ class Count(object):
 
     __slots__ = ("val",)
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.val = 0
 
 
-def from_headings(body, log, namespace):
+def from_headings(body: _typing.Any, log: _typing.Any, namespace: _typing.Any) -> _typing.Any:
     """
     Create a TOC from headings in the document
     :param body:
@@ -46,7 +49,7 @@ def from_headings(body, log, namespace):
 
     idcount = Count()
 
-    def ensure_id(elem):
+    def ensure_id(elem: _typing.Any) -> _typing.Any:
         ans = elem.get("id", None)
         if not ans:
             idcount.val += 1
@@ -75,7 +78,7 @@ def from_headings(body, log, namespace):
         return tocroot
 
 
-def structure_toc(entries):
+def structure_toc(entries: _typing.Any) -> _typing.Any:
     indent_vals = sorted({x.indent for x in entries})
     last_found = [None for i in indent_vals]
     newtoc = TOC()
@@ -85,7 +88,7 @@ def structure_toc(entries):
             newtoc.add_item("index.html", x.anchor, x.text)
         return newtoc
 
-    def find_parent(local_level):
+    def find_parent(local_level: _typing.Any) -> _typing.Any:
         candidates = last_found[:local_level]
         for local_x in reversed(candidates):
             if local_x is not None:
@@ -102,7 +105,7 @@ def structure_toc(entries):
     return newtoc
 
 
-def link_to_txt(a, styles, object_map):
+def link_to_txt(a: _typing.Any, styles: _typing.Any, object_map: _typing.Any) -> _typing.Any:
     if len(a) > 1:
         for child in a:
             run = object_map.get(child, None)
@@ -114,7 +117,7 @@ def link_to_txt(a, styles, object_map):
     return tostring(a, method="text", with_tail=False, encoding=six_unicode).strip()
 
 
-def from_toc(docx, link_map, styles, object_map, log, namespace):
+def from_toc(docx: _typing.Any, link_map: _typing.Any, styles: _typing.Any, object_map: _typing.Any, log: _typing.Any, namespace: _typing.Any) -> _typing.Any:
     x_path, get, ancestor = namespace.XPath, namespace.get, namespace.ancestor
     toc_level = None
     level = 0
@@ -158,5 +161,5 @@ def from_toc(docx, link_map, styles, object_map, log, namespace):
         return structure_toc(toc)
 
 
-def create_toc(docx, body, link_map, styles, object_map, log, namespace):
+def create_toc(docx: _typing.Any, body: _typing.Any, link_map: _typing.Any, styles: _typing.Any, object_map: _typing.Any, log: _typing.Any, namespace: _typing.Any) -> bool:
     return from_toc(docx, link_map, styles, object_map, log, namespace) or from_headings(body, log, namespace)

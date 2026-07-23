@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from lxml.html.builder import TABLE, TR, TD
 
@@ -29,7 +32,7 @@ read_shd = rs
 edges = ("left", "top", "right", "bottom")
 
 
-def _read_width(elem, get):
+def _read_width(elem: _typing.Any, get: _typing.Any) -> _typing.Any:
     ans = inherit
     try:
         w = int(get(elem, "w:w"))
@@ -47,21 +50,21 @@ def _read_width(elem, get):
     return ans
 
 
-def read_width(parent, dest, XPath, get):
+def read_width(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for tblW in XPath("./w:tblW")(parent):
         ans = _read_width(tblW, get)
     setattr(dest, "width", ans)
 
 
-def read_cell_width(parent, dest, XPath, get):
+def read_cell_width(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for tblW in XPath("./w:tcW")(parent):
         ans = _read_width(tblW, get)
     setattr(dest, "width", ans)
 
 
-def read_padding(parent, dest, XPath, get):
+def read_padding(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     name = "tblCellMar" if parent.tag.endswith("}tblPr") else "tcMar"
     ans = {x: inherit for x in edges}
     for mar in XPath("./w:%s" % name)(parent):
@@ -72,7 +75,7 @@ def read_padding(parent, dest, XPath, get):
         setattr(dest, "cell_padding_%s" % x, ans[x])
 
 
-def read_justification(parent, dest, XPath, get):
+def read_justification(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     left = right = inherit
     for jc in XPath("./w:jc[@w:val]")(parent):
         val = get(jc, "w:val")
@@ -88,21 +91,21 @@ def read_justification(parent, dest, XPath, get):
     setattr(dest, "margin_right", right)
 
 
-def read_spacing(parent, dest, XPath, get):
+def read_spacing(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for cs in XPath("./w:tblCellSpacing")(parent):
         ans = _read_width(cs, get)
     setattr(dest, "spacing", ans)
 
 
-def read_float(parent, dest, XPath, get):
+def read_float(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for x in XPath("./w:tblpPr")(parent):
         ans = {k.rpartition("}")[-1]: v for k, v in iteritems(x.attrib)}
     setattr(dest, "float", ans)
 
 
-def read_indent(parent, dest, XPath, get):
+def read_indent(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for cs in XPath("./w:tblInd")(parent):
         ans = _read_width(cs, get)
@@ -112,12 +115,12 @@ def read_indent(parent, dest, XPath, get):
 border_edges = ("left", "top", "right", "bottom", "insideH", "insideV")
 
 
-def read_borders(parent, dest, XPath, get):
+def read_borders(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     name = "tblBorders" if parent.tag.endswith("}tblPr") else "tcBorders"
     read_border(parent, dest, XPath, get, border_edges, name)
 
 
-def read_height(parent, dest, XPath, get):
+def read_height(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for rh in XPath("./w:trHeight")(parent):
         rule = get(rh, "w:hRule", "auto")
@@ -127,7 +130,7 @@ def read_height(parent, dest, XPath, get):
     setattr(dest, "height", ans)
 
 
-def read_vertical_align(parent, dest, XPath, get):
+def read_vertical_align(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for va in XPath("./w:vAlign")(parent):
         val = get(va, "w:val")
@@ -135,7 +138,7 @@ def read_vertical_align(parent, dest, XPath, get):
     setattr(dest, "vertical_align", ans)
 
 
-def read_col_span(parent, dest, XPath, get):
+def read_col_span(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for gs in XPath("./w:gridSpan")(parent):
         try:
@@ -145,7 +148,7 @@ def read_col_span(parent, dest, XPath, get):
     setattr(dest, "col_span", ans)
 
 
-def read_merge(parent, dest, XPath, get):
+def read_merge(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     for x in ("hMerge", "vMerge"):
         ans = inherit
         for m in XPath("./w:%s" % x)(parent):
@@ -153,7 +156,7 @@ def read_merge(parent, dest, XPath, get):
         setattr(dest, x, ans)
 
 
-def read_band_size(parent, dest, XPath, get):
+def read_band_size(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     for x in ("Col", "Row"):
         ans = 1
         for y in XPath("./w:tblStyle%sBandSize" % x)(parent):
@@ -164,7 +167,7 @@ def read_band_size(parent, dest, XPath, get):
         setattr(dest, "%s_band_size" % x.lower(), ans)
 
 
-def read_look(parent, dest, XPath, get):
+def read_look(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = 0
     for x in XPath("./w:tblLook")(parent):
         try:
@@ -177,7 +180,7 @@ def read_look(parent, dest, XPath, get):
 # }}}
 
 
-def clone(style):
+def clone(style: _typing.Any) -> _typing.Any:
     if style is None:
         return None
     try:
@@ -189,13 +192,13 @@ def clone(style):
 
 
 class Style(object):
-    def update(self, other):
+    def update(self: _typing.Self, other: _typing.Any) -> None:
         for prop in self.all_properties:
             nval = getattr(other, prop)
             if nval is not inherit:
                 setattr(self, prop, nval)
 
-    def convert_spacing(self):
+    def convert_spacing(self: _typing.Self) -> _typing.Any:
         ans = {}
         if self.spacing is not inherit:
             if self.spacing in {"auto", "0"}:
@@ -205,7 +208,7 @@ class Style(object):
                 ans["border-spacing"] = self.spacing
         return ans
 
-    def convert_border(self):
+    def convert_border(self: _typing.Self) -> _typing.Any:
         c = {}
         for x in edges:
             border_to_css(x, self, c)
@@ -224,7 +227,7 @@ class RowStyle(Style):
         "spacing",
     )
 
-    def __init__(self, namespace, trPr=None):
+    def __init__(self: _typing.Self, namespace: _typing.Any, trPr: _typing.Any = None) -> None:
         self.namespace = namespace
         if trPr is None:
             for p in self.all_properties:
@@ -238,7 +241,7 @@ class RowStyle(Style):
         self._css = None
 
     @property
-    def css(self):
+    def css(self: _typing.Self) -> _typing.Any:
         if self._css is None:
             c = self._css = {}
             if self.hidden is True:
@@ -272,7 +275,7 @@ class CellStyle(Style):
         "row_span",
     ) + tuple(k % edge for edge in border_edges for k in border_props)
 
-    def __init__(self, namespace, tcPr=None):
+    def __init__(self: _typing.Self, namespace: _typing.Any, tcPr: _typing.Any = None) -> None:
         self.namespace = namespace
         if tcPr is None:
             for p in self.all_properties:
@@ -293,7 +296,7 @@ class CellStyle(Style):
         self._css = None
 
     @property
-    def css(self):
+    def css(self: _typing.Self) -> _typing.Any:
         if self._css is None:
 
             self._css = c = {}
@@ -342,7 +345,7 @@ class TableStyle(Style):
         "look",
     ) + tuple(k % edge for edge in border_edges for k in border_props)
 
-    def __init__(self, namespace, tblPr=None):
+    def __init__(self: _typing.Self, namespace: _typing.Any, tblPr: _typing.Any = None) -> None:
         self.namespace = namespace
         if tblPr is None:
             for p in self.all_properties:
@@ -381,14 +384,14 @@ class TableStyle(Style):
                         orides["run"] = RunStyle(self.namespace, rPr)
         self._css = None
 
-    def resolve_based_on(self, parent):
+    def resolve_based_on(self: _typing.Self, parent: _typing.Any) -> None:
         for p in self.all_properties:
             val = getattr(self, p)
             if val is inherit:
                 setattr(self, p, getattr(parent, p))
 
     @property
-    def css(self):
+    def css(self: _typing.Self) -> _typing.Any:
         if self._css is None:
             c = self._css = {}
             if self.width not in (inherit, "auto"):
@@ -426,7 +429,7 @@ class TableStyle(Style):
 
 
 class Table(object):
-    def __init__(self, namespace, tbl, styles, para_map, is_sub_table=False):
+    def __init__(self: _typing.Self, namespace: _typing.Any, tbl: _typing.Any, styles: _typing.Any, para_map: _typing.Any, is_sub_table: bool = False) -> None:
         self.namespace = namespace
         self.tbl = tbl
         self.styles = styles
@@ -485,7 +488,7 @@ class Table(object):
             for x in self.namespace.XPath("./w:tr/w:tc/w:tbl")(tbl)
         }
 
-    def override_allowed(self, name):
+    def override_allowed(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         Check if the named override is allowed by the tblLook element
         :param name:
@@ -508,7 +511,7 @@ class Table(object):
                 return not bool(look & 0x0400)
         return False
 
-    def get_overrides(self, r, c, num_of_rows, num_of_cols_in_row):
+    def get_overrides(self: _typing.Self, r: _typing.Any, c: _typing.Any, num_of_rows: _typing.Any, num_of_cols_in_row: _typing.Any) -> _typing.Any:
         """
         List of possible overrides for the given para
         :param r:
@@ -519,7 +522,7 @@ class Table(object):
         """
         overrides = ["wholeTable"]
 
-        def divisor(m, n):
+        def divisor(m: _typing.Any, n: _typing.Any) -> _typing.Any:
             return (m - (m % n)) // n
 
         if c is not None:
@@ -552,7 +555,7 @@ class Table(object):
                     overrides.append("seCell")
         return tuple(filter(self.override_allowed, overrides))
 
-    def resolve_row_style(self, tr, overrides):
+    def resolve_row_style(self: _typing.Self, tr: _typing.Any, overrides: _typing.Any) -> None:
         local_rs = RowStyle(self.namespace)
         for o in overrides:
             if o in self.overrides:
@@ -565,7 +568,7 @@ class Table(object):
             local_rs.update(RowStyle(self.namespace, trPr))
         self.style_map[tr] = local_rs
 
-    def resolve_cell_style(self, tc, overrides, row, col, rows, cols_in_row):
+    def resolve_cell_style(self: _typing.Self, tc: _typing.Any, overrides: _typing.Any, row: _typing.Any, col: _typing.Any, rows: _typing.Any, cols_in_row: _typing.Any) -> None:
         cs = CellStyle(self.namespace)
         # from lxml.etree import tostring
         # txt = tostring(tc, method='text', encoding=unicode)
@@ -612,7 +615,7 @@ class Table(object):
 
         self.style_map[tc] = cs
 
-    def resolve_para_style(self, p, overrides):
+    def resolve_para_style(self: _typing.Self, p: _typing.Any, overrides: _typing.Any) -> None:
         text_styles = [clone(self.paragraph_style), clone(self.run_style)]
 
         for o in overrides:
@@ -627,7 +630,7 @@ class Table(object):
                             text_styles[i].update(ops)
         self.style_map[p] = text_styles
 
-    def handle_merged_cells(self):
+    def handle_merged_cells(self: _typing.Self) -> None:
         if not self.cell_map:
             return
         # Handle vMerge
@@ -676,14 +679,14 @@ class Table(object):
                     for tc in run[1:]:
                         tc.getparent().remove(tc)
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for p in self.paragraphs:
             yield p
         for t in itervalues(self.sub_tables):
             for p in t:
                 yield p
 
-    def apply_markup(self, rmap, page, parent=None):
+    def apply_markup(self: _typing.Self, rmap: _typing.Any, page: _typing.Any, parent: _typing.Any = None) -> None:
         table = TABLE("\n\t\t")
         self.table_style.page = page
         style_map = {}
@@ -731,29 +734,29 @@ class Table(object):
 
 
 class Tables(object):
-    def __init__(self, namespace):
+    def __init__(self: _typing.Self, namespace: _typing.Any) -> None:
         self.tables = []
         self.para_map = {}
         self.sub_tables = set()
         self.namespace = namespace
 
-    def register(self, tbl, styles):
+    def register(self: _typing.Self, tbl: _typing.Any, styles: _typing.Any) -> None:
         if tbl in self.sub_tables:
             return
         self.tables.append(Table(self.namespace, tbl, styles, self.para_map))
         self.sub_tables |= set(self.tables[-1].sub_tables)
 
-    def apply_markup(self, object_map, page_map):
+    def apply_markup(self: _typing.Self, object_map: _typing.Any, page_map: _typing.Any) -> None:
         rmap = {v: k for k, v in iteritems(object_map)}
         for table in self.tables:
             table.apply_markup(rmap, page_map[table.tbl])
 
-    def para_style(self, p):
+    def para_style(self: _typing.Self, p: _typing.Any) -> _typing.Any:
         table = self.para_map.get(p, None)
         if table is not None:
             return table.style_map.get(p, (None, None))[0]
 
-    def run_style(self, p):
+    def run_style(self: _typing.Self, p: _typing.Any) -> _typing.Any:
         table = self.para_map.get(p, None)
         if table is not None:
             return table.style_map.get(p, (None, None))[1]

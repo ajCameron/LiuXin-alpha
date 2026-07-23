@@ -17,6 +17,7 @@
 #
 # Contributor(s):
 #
+from __future__ import annotations
 TOOLSVERSION = "ODFPY/0.9.4dev"
 
 ANIMNS = "urn:oasis:names:tc:opendocument:xmlns:animation:1.0"

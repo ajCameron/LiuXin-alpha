@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 
@@ -56,7 +59,7 @@ default_entry = {
 }
 
 
-def read_ncx(sections, index, codec):
+def read_ncx(sections: _typing.Any, index: _typing.Any, codec: _typing.Any) -> _typing.Any:
     index_entries = []
 
     if index != NULL_INDEX:
@@ -94,7 +97,7 @@ def read_ncx(sections, index, codec):
     return index_entries
 
 
-def build_toc(index_entries):
+def build_toc(index_entries: _typing.Any) -> _typing.Any:
     ans = TOC(base_path=os.getcwd())
     levels = {x["hlvl"] for x in index_entries}
     num_map = {-1: ans}

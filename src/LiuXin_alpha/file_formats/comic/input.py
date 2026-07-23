@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import typing as _typing
+
 import os
 import re
 import shutil
@@ -25,7 +27,7 @@ __docformat__ = "restructuredtext en"
 MAX_SCREEN_SIZE = 3000
 
 
-def _pillow_modules():
+def _pillow_modules() -> tuple[_typing.Any, ...] | None:
     try:
         from PIL import Image, ImageChops, ImageFilter, ImageOps
 
@@ -34,22 +36,22 @@ def _pillow_modules():
         return None
 
 
-def _safe_bool(opts, name: str, default: bool = False) -> bool:
+def _safe_bool(opts: _typing.Any, name: str, default: bool = False) -> bool:
     return bool(getattr(opts, name, default))
 
 
-def _safe_int(value, default: int) -> int:
+def _safe_int(value: _typing.Any, default: int) -> int:
     try:
         return int(value)
     except Exception:
         return int(default)
 
 
-def _numeric_sort_key(value: str):
+def _numeric_sort_key(value: str) -> _typing.Any:
     return [int(chunk) if chunk.isdigit() else chunk.lower() for chunk in re.split(r"(\d+)", str(value))]
 
 
-def _parse_screen_size(opts, fallback_width: int, fallback_height: int) -> tuple[int, int]:
+def _parse_screen_size(opts: _typing.Any, fallback_width: int, fallback_height: int) -> tuple[int, int]:
     profile = getattr(opts, "output_profile", None)
     if profile is not None and getattr(profile, "comic_screen_size", None):
         width, height = profile.comic_screen_size
@@ -70,7 +72,7 @@ def _parse_screen_size(opts, fallback_width: int, fallback_height: int) -> tuple
     return _safe_int(width, fallback_width), _safe_int(height, fallback_height)
 
 
-def _trim_uniform_border(image, image_chops_module):
+def _trim_uniform_border(image: _typing.Any, image_chops_module: _typing.Any) -> _typing.Any:
     # Simple, robust trim: compare against a flat image made from the corner pixel.
     try:
         bg = image.copy()
@@ -92,21 +94,21 @@ def _fit_size(width: int, height: int, max_width: int, max_height: int) -> tuple
     return max(1, int(width * ratio)), max(1, int(height * ratio))
 
 
-def _resample_lanczos(Image):
+def _resample_lanczos(Image: _typing.Any) -> _typing.Any:
     resampling = getattr(Image, "Resampling", None)
     if resampling is not None and hasattr(resampling, "LANCZOS"):
         return resampling.LANCZOS
     return getattr(Image, "LANCZOS", 1)
 
 
-def _adaptive_palette(Image):
+def _adaptive_palette(Image: _typing.Any) -> _typing.Any:
     palette = getattr(Image, "Palette", None)
     if palette is not None and hasattr(palette, "ADAPTIVE"):
         return palette.ADAPTIVE
     return getattr(Image, "ADAPTIVE", 0)
 
 
-def extract_comic(path_to_comic_file):
+def extract_comic(path_to_comic_file: _typing.Any) -> _typing.Any:
     """Unarchive a comic file to a persistent temp folder."""
     tdir = PersistentTemporaryDirectory(suffix="_comic_extract")
 
@@ -119,7 +121,7 @@ def extract_comic(path_to_comic_file):
     return tdir
 
 
-def find_pages(dir, sort_on_mtime=False, verbose=False):
+def find_pages(dir: _typing.Any, sort_on_mtime: bool = False, verbose: bool = False) -> _typing.Any:
     """Find image pages in an extracted comic folder."""
     extensions = {"jpeg", "jpg", "gif", "png", "webp"}
     pages = []
@@ -154,7 +156,7 @@ def find_pages(dir, sort_on_mtime=False, verbose=False):
 class PageProcessor(list):  # {{{
     """Render and transform a single source page into one or more output pages."""
 
-    def __init__(self, path_to_page, dest, opts, num):
+    def __init__(self: _typing.Self, path_to_page: _typing.Any, dest: _typing.Any, opts: _typing.Any, num: _typing.Any) -> None:
         super().__init__()
         self.path_to_page = path_to_page
         self.opts = opts
@@ -163,7 +165,7 @@ class PageProcessor(list):  # {{{
         self.rotate = False
         self.render()
 
-    def _render_passthrough(self):
+    def _render_passthrough(self: _typing.Self) -> None:
         output_ext = str(getattr(self.opts, "output_format", "png")).lower()
         output_ext = "jpg" if output_ext in {"jpg", "jpeg"} else output_ext
         if output_ext not in {"png", "jpg", "gif", "webp"}:
@@ -180,7 +182,7 @@ class PageProcessor(list):  # {{{
         shutil.copyfile(self.path_to_page, dest)
         self.append(dest)
 
-    def render(self):
+    def render(self: _typing.Self) -> None:
         mods = _pillow_modules()
         if mods is None:
             self._render_passthrough()
@@ -208,7 +210,7 @@ class PageProcessor(list):  # {{{
 
         self.process_pages()
 
-    def process_pages(self):
+    def process_pages(self: _typing.Self) -> None:
         mods = _pillow_modules()
         if mods is None:
             self._render_passthrough()
@@ -298,7 +300,7 @@ class PageProcessor(list):  # {{{
 # }}}
 
 
-def render_pages(tasks, dest, opts, notification=lambda x, y: x):
+def render_pages(tasks: _typing.Any, dest: _typing.Any, opts: _typing.Any, notification: _typing.Callable[..., _typing.Any] = lambda x, y: x) -> tuple[_typing.Any, ...]:
     """Render all tasks; used by process_pages()."""
     failures, pages = [], []
     for num, path in tasks:
@@ -318,17 +320,17 @@ def render_pages(tasks, dest, opts, notification=lambda x, y: x):
 
 
 class Progress:
-    def __init__(self, total, update):
+    def __init__(self: _typing.Self, total: _typing.Any, update: _typing.Any) -> None:
         self.total = max(1, int(total))
         self.update = update
         self.done = 0
 
-    def __call__(self, percent, msg=""):
+    def __call__(self: _typing.Self, percent: _typing.Any, msg: str = "") -> None:
         self.done += 1
         self.update(float(self.done) / self.total, msg)
 
 
-def _opts_to_payload(opts):
+def _opts_to_payload(opts: _typing.Any) -> dict[_typing.Any, _typing.Any]:
     profile = getattr(opts, "output_profile", None)
     screen_size = getattr(profile, "comic_screen_size", None)
     if screen_size is not None:
@@ -355,7 +357,7 @@ def _opts_to_payload(opts):
     }
 
 
-def _opts_from_payload(payload):
+def _opts_from_payload(payload: _typing.Any) -> _typing.Any:
     payload = dict(payload or {})
     screen_size = payload.pop("comic_screen_size", None)
     output_profile = None
@@ -364,17 +366,17 @@ def _opts_from_payload(payload):
     return SimpleNamespace(output_profile=output_profile, **payload)
 
 
-def _render_pages_job(tasks, dest, opts_payload):
+def _render_pages_job(tasks: _typing.Any, dest: _typing.Any, opts_payload: _typing.Any) -> _typing.Any:
     opts = _opts_from_payload(opts_payload)
     return render_pages(tasks, dest, opts)
 
 
-def _task_chunks(tasks, size):
+def _task_chunks(tasks: _typing.Any, size: _typing.Any) -> _typing.Any:
     size = max(1, int(size))
     return [tasks[i : i + size] for i in range(0, len(tasks), size)]
 
 
-def process_pages(pages, opts, update, tdir):
+def process_pages(pages: _typing.Any, opts: _typing.Any, update: _typing.Any, tdir: _typing.Any) -> _typing.Any:
     """Render all identified comic pages."""
     progress = Progress(len(pages), update)
     tasks = list(enumerate(pages))

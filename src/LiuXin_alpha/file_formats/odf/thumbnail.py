@@ -4,6 +4,9 @@
 # Taken from http://www.zwahlendesign.ch/en/node/20
 # openoffice_icons/openoffice_icons_linux/openoffice11.png
 # License: Freeware
+from __future__ import annotations
+
+import typing as _typing
 import base64
 
 iconstr = """\
@@ -417,7 +420,7 @@ N38FAAAAAElFTkSuQmCC\
 """
 
 
-def thumbnail():
+def thumbnail() -> _typing.Any:
     icon = base64.decodestring(iconstr)
     return icon
 

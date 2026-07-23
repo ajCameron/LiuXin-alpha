@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import typing as _typing
 import array
 import codecs
 import logging
@@ -33,7 +36,7 @@ class LRFDocument(LRFMetaFile):
     class temp(object):
         pass
 
-    def __init__(self, stream):
+    def __init__(self: _typing.Self, stream: _typing.Any) -> None:
         LRFMetaFile.__init__(self, stream)
         self.scramble_key = self.xor_key
         self.page_trees = []
@@ -42,7 +45,7 @@ class LRFDocument(LRFMetaFile):
         self.toc = ""
         self.keep_parsing = True
 
-    def parse(self):
+    def parse(self: _typing.Self) -> None:
         self._parse_objects()
         self.metadata = LRFDocument.temp()
         for a in (
@@ -66,7 +69,7 @@ class LRFDocument(LRFMetaFile):
         for a in ("dpi", "width", "height"):
             setattr(self.device_info, a, getattr(self, a))
 
-    def _parse_objects(self):
+    def _parse_objects(self: _typing.Self) -> None:
         self.objects = {}
         self._file.seek(self.object_index_offset)
         obj_array = array.array("I", self._file.read(4 * 4 * self.number_of_objects))
@@ -83,7 +86,7 @@ class LRFDocument(LRFMetaFile):
             if hasattr(obj, "initialize"):
                 obj.initialize()
 
-    def _parse_object(self, objid, objoff, objsize):
+    def _parse_object(self: _typing.Self, objid: _typing.Any, objoff: _typing.Any, objsize: _typing.Any) -> None:
         obj = get_object(self, self._file, objid, objoff, objsize, self.scramble_key)
         self.objects[objid] = obj
         if isinstance(obj, PageTree):
@@ -97,16 +100,16 @@ class LRFDocument(LRFMetaFile):
                 if hasattr(obj, attr):
                     self.ruby_tags[attr] = getattr(obj, attr)
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for pt in self.page_trees:
             yield pt
 
-    def write_files(self):
+    def write_files(self: _typing.Self) -> None:
         for obj in list(self.image_map.values()) + list(self.font_map.values()):
             with open(obj.file, "wb") as obj_file:
                 obj_file.write(obj.stream)
 
-    def to_xml(self, write_files=True):
+    def to_xml(self: _typing.Self, write_files: bool = True) -> _typing.Any:
 
         bookinfo = '<BookInformation>\n<Info version="1.1">\n<BookInfo>\n'
         bookinfo += '<Title reading="%s">%s</Title>\n' % (
@@ -174,7 +177,7 @@ class LRFDocument(LRFMetaFile):
         return '<BBeBXylog version="1.0">\n' + bookinfo + pages + styles + objects + "</BBeBXylog>"
 
 
-def option_parser():
+def option_parser() -> _typing.Any:
     parser = OptionParser(usage=_("%prog book.lrf\nConvert an LRF file into an LRS (XML UTF-8 encoded) file"))
     parser.add_option("--output", "-o", default=None, help=_("Output LRS file"), dest="out")
     parser.add_option(
@@ -194,7 +197,7 @@ def option_parser():
     return parser
 
 
-def main(args=sys.argv, logger=None):
+def main(args: _typing.Any = sys.argv, logger: _typing.Any = None) -> int:
     parser = option_parser()
     opts, args = parser.parse_args(args)
     if logger is None:

@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 import os
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
@@ -13,7 +16,7 @@ class EreaderError(Exception):
     pass
 
 
-def image_name(name, taken_names=()):
+def image_name(name: _typing.Any, taken_names: tuple[_typing.Any, ...] = ()) -> _typing.Any:
     if isinstance(name, bytes):
         name = name.decode("ascii", "ignore")
     elif not isinstance(name, six_string_types):

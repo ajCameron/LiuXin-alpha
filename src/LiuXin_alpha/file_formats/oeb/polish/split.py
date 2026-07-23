@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import copy
 import os
@@ -29,7 +32,7 @@ class AbortError(ValueError):
     pass
 
 
-def in_table(node):
+def in_table(node: _typing.Any) -> bool:
     while node is not None:
         if node.tag.endswith("}table"):
             return True
@@ -37,7 +40,7 @@ def in_table(node):
     return False
 
 
-def adjust_split_point(split_point, log):
+def adjust_split_point(split_point: _typing.Any, log: _typing.Any) -> _typing.Any:
     """
     Move the split point up its ancestor chain if it has no content
     before it. This handles the common case:
@@ -64,11 +67,11 @@ def adjust_split_point(split_point, log):
     return sp
 
 
-def get_body(root):
+def get_body(root: _typing.Any) -> _typing.Any:
     return root.find("h:body", namespaces=XPNSMAP)
 
 
-def do_split(split_point, log, before=True):
+def do_split(split_point: _typing.Any, log: _typing.Any, before: bool = True) -> tuple[_typing.Any, ...]:
     """
     Split tree into a *before* and an *after* tree at ``split_point``.
 
@@ -90,7 +93,7 @@ def do_split(split_point, log, before=True):
     split_point = root.xpath(path)[0]
     split_point2 = root2.xpath(path)[0]
 
-    def nix_element(local_elem, top=True):
+    def nix_element(local_elem: _typing.Any, top: bool = True) -> None:
         # Remove elem unless top is False in which case replace elem by its
         # children
         local_elem_parent = local_elem.getparent()
@@ -160,13 +163,13 @@ def do_split(split_point, log, before=True):
 
 
 class SplitLinkReplacer(object):
-    def __init__(self, base, bottom_anchors, top_name, bottom_name, container):
+    def __init__(self: _typing.Self, base: _typing.Any, bottom_anchors: _typing.Any, top_name: _typing.Any, bottom_name: _typing.Any, container: _typing.Any) -> None:
         self.bottom_anchors, self.bottom_name = bottom_anchors, bottom_name
         self.container, self.top_name = container, top_name
         self.base = base
         self.replaced = False
 
-    def __call__(self, url):
+    def __call__(self: _typing.Self, url: _typing.Any) -> _typing.Any:
         if url and url.startswith("#"):
             return url
         name = self.container.href_to_name(url, self.base)
@@ -179,7 +182,7 @@ class SplitLinkReplacer(object):
         return url
 
 
-def split(container, name, loc_or_xpath, before=True, totals=None):
+def split(container: _typing.Any, name: _typing.Any, loc_or_xpath: _typing.Any, before: bool = True, totals: _typing.Any = None) -> _typing.Any:
     """
     Split the file specified by name at the position specified by loc_or_xpath.
     Splitting automatically migrates all links and references to the affected
@@ -281,7 +284,7 @@ def split(container, name, loc_or_xpath, before=True, totals=None):
     return bottom_name
 
 
-def multisplit(container, name, xpath, before=True):
+def multisplit(container: _typing.Any, name: _typing.Any, xpath: _typing.Any, before: bool = True) -> _typing.Any:
     """
     Split the specified file at multiple locations (all tags that match the specified XPath expression.
     See also: :func:`split`.
@@ -322,13 +325,13 @@ def multisplit(container, name, xpath, before=True):
 
 
 class MergeLinkReplacer(object):
-    def __init__(self, base, anchor_map, master, container):
+    def __init__(self: _typing.Self, base: _typing.Any, anchor_map: _typing.Any, master: _typing.Any, container: _typing.Any) -> None:
         self.container, self.anchor_map = container, anchor_map
         self.master = master
         self.base = base
         self.replaced = False
 
-    def __call__(self, url):
+    def __call__(self: _typing.Self, url: _typing.Any) -> _typing.Any:
         if url and url.startswith("#"):
             return url
         name = self.container.href_to_name(url, self.base)
@@ -343,18 +346,18 @@ class MergeLinkReplacer(object):
         return url
 
 
-def add_text(body, text):
+def add_text(body: _typing.Any, text: _typing.Any) -> None:
     if len(body) > 0:
         body[-1].tail = (body[-1].tail or "") + text
     else:
         body.text = (body.text or "") + text
 
 
-def all_anchors(root):
+def all_anchors(root: _typing.Any) -> _typing.Any:
     return set(root.xpath("//*/@id")) | set(root.xpath("//*/@name"))
 
 
-def all_stylesheets(container, name):
+def all_stylesheets(container: _typing.Any, name: _typing.Any) -> _typing.Iterator[_typing.Any]:
     for link in XPath("//h:head/h:link[@href]")(container.parsed(name)):
         name = container.href_to_name(link.get("href"), name)
         typ = link.get("type", "text/css")
@@ -362,7 +365,7 @@ def all_stylesheets(container, name):
             yield name
 
 
-def unique_anchor(seen_anchors, current):
+def unique_anchor(seen_anchors: _typing.Any, current: _typing.Any) -> _typing.Any:
     c = 0
     ans = current
     while ans in seen_anchors:
@@ -371,7 +374,7 @@ def unique_anchor(seen_anchors, current):
     return ans
 
 
-def remove_name_attributes(root):
+def remove_name_attributes(root: _typing.Any) -> None:
     # Remove all name attributes, replacing them with id attributes
     for elem in root.xpath("//*[@id and @name]"):
         del elem.attrib["name"]
@@ -379,7 +382,7 @@ def remove_name_attributes(root):
         elem.set("id", elem.attrib.pop("name"))
 
 
-def merge_html(container, names, master):
+def merge_html(container: _typing.Any, names: _typing.Any, master: _typing.Any) -> None:
     p = container.parsed
     root = p(master)
 
@@ -471,7 +474,7 @@ def merge_html(container, names, master):
         container.replace_links(fname, repl)
 
 
-def merge_css(container, names, master):
+def merge_css(container: _typing.Any, names: _typing.Any, master: _typing.Any) -> None:
     p = container.parsed
     msheet = p(master)
     master_base = os.path.dirname(master)
@@ -520,7 +523,7 @@ def merge_css(container, names, master):
                     container.insert_into_xml(head, link)
 
 
-def merge(container, category, names, master):
+def merge(container: _typing.Any, category: _typing.Any, names: _typing.Any, master: _typing.Any) -> None:
     """
     Merge the specified files into a single file, automatically migrating all
     links and references to the affected files. The file must all either be HTML or CSS files.

@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 
@@ -27,20 +30,20 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class LinkedImageNotFound(ValueError):
-    def __init__(self, fname):
+    def __init__(self: _typing.Self, fname: _typing.Any) -> None:
         ValueError.__init__(self, fname)
         self.fname = fname
 
 
-def emu_to_pt(x):
+def emu_to_pt(x: _typing.Any) -> _typing.Any:
     return x / 12700
 
 
-def pt_to_emu(x):
+def pt_to_emu(x: _typing.Any) -> _typing.Any:
     return int(x * 12700)
 
 
-def get_image_properties(parent, XPath, get):
+def get_image_properties(parent: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> tuple[_typing.Any, ...]:
     width = height = None
     for extent in XPath("./wp:extent")(parent):
         try:
@@ -68,7 +71,7 @@ def get_image_properties(parent, XPath, get):
     return ans, alt
 
 
-def get_image_margins(elem):
+def get_image_margins(elem: _typing.Any) -> _typing.Any:
     ans = {}
     for w, css in iteritems({"L": "left", "T": "top", "R": "right", "B": "bottom"}):
         val = elem.get("dist%s" % w, None)
@@ -81,7 +84,7 @@ def get_image_margins(elem):
     return ans
 
 
-def get_hpos(anchor, page_width, XPath, get):
+def get_hpos(anchor: _typing.Any, page_width: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> _typing.Any:
     for ph in XPath("./wp:positionH")(anchor):
         rp = ph.get("relativeFrom", None)
         if rp == "leftMargin":
@@ -114,7 +117,7 @@ def get_hpos(anchor, page_width, XPath, get):
 
 
 class Images(object):
-    def __init__(self, namespace, log):
+    def __init__(self: _typing.Self, namespace: _typing.Any, log: _typing.Any) -> None:
         self.namespace = namespace
         self.rid_map = {}
         self.used = {}
@@ -124,10 +127,10 @@ class Images(object):
         self.links = []
         self.log = log
 
-    def __call__(self, relationships_by_id):
+    def __call__(self: _typing.Self, relationships_by_id: _typing.Any) -> None:
         self.rid_map = relationships_by_id
 
-    def read_image_data(self, fname, base=None):
+    def read_image_data(self: _typing.Self, fname: _typing.Any, base: _typing.Any = None) -> tuple[_typing.Any, ...]:
         if fname.startswith("file://"):
             src = fname[len("file://") :]
             if iswindows and src and src[0] == "/":
@@ -159,7 +162,7 @@ class Images(object):
         base += "." + ext
         return raw, base
 
-    def unique_name(self, base):
+    def unique_name(self: _typing.Self, base: _typing.Any) -> _typing.Any:
         exists = frozenset(itervalues(self.used))
         c = 1
         name = base
@@ -169,7 +172,7 @@ class Images(object):
             c += 1
         return name
 
-    def resize_image(self, raw, base, max_width, max_height):
+    def resize_image(self: _typing.Self, raw: _typing.Any, base: _typing.Any, max_width: _typing.Any, max_height: _typing.Any) -> tuple[_typing.Any, ...]:
         resized, img = resize_to_fit(raw, max_width, max_height)
         if resized:
             base, ext = os.path.splitext(base)
@@ -177,7 +180,7 @@ class Images(object):
             raw = image_to_data(img, fmt=ext[1:])
         return raw, base, resized
 
-    def generate_filename(self, rid, base=None, rid_map=None, max_width=None, max_height=None):
+    def generate_filename(self: _typing.Self, rid: _typing.Any, base: _typing.Any = None, rid_map: _typing.Any = None, max_width: _typing.Any = None, max_height: _typing.Any = None) -> _typing.Any:
         rid_map = self.rid_map if rid_map is None else rid_map
         fname = rid_map[rid]
         key = (fname, max_width, max_height)
@@ -200,7 +203,7 @@ class Images(object):
         self.all_images.add("images/" + name)
         return name
 
-    def pic_to_img(self, pic, alt, parent):
+    def pic_to_img(self: _typing.Self, pic: _typing.Any, alt: _typing.Any, parent: _typing.Any) -> _typing.Any:
         xpath, get = self.namespace.XPath, self.namespace.get
         link = None
         for hl in xpath("descendant::a:hlinkClick[@r:id]")(parent):
@@ -233,7 +236,7 @@ class Images(object):
                         self.links.append((img, link, self.rid_map))
                     return img
 
-    def drawing_to_html(self, drawing, page):
+    def drawing_to_html(self: _typing.Self, drawing: _typing.Any, page: _typing.Any) -> _typing.Iterator[_typing.Any]:
         xpath, get = self.namespace.XPath, self.namespace.get
         # First process the inline pictures
         for inline in xpath("./wp:inline")(drawing):
@@ -262,7 +265,7 @@ class Images(object):
                         )
                     yield ans
 
-    def pict_to_html(self, pict, page):
+    def pict_to_html(self: _typing.Self, pict: _typing.Any, page: _typing.Any) -> _typing.Iterator[_typing.Any]:
         xpath, get = self.namespace.XPath, self.namespace.get
         # First see if we have an <hr>
         is_hr = len(pict) == 1 and get(pict[0], "o:hr") in {"t", "true"}
@@ -297,7 +300,7 @@ class Images(object):
                 img.set("alt", alt or "Image")
                 yield img
 
-    def get_float_properties(self, anchor, style, page):
+    def get_float_properties(self: _typing.Self, anchor: _typing.Any, style: _typing.Any, page: _typing.Any) -> None:
         xpath, get = self.namespace.XPath, self.namespace.get
         if "display" not in style:
             style["display"] = "block"
@@ -342,7 +345,7 @@ class Images(object):
 
         style.update(padding)
 
-    def to_html(self, elem, page, docx, dest_dir):
+    def to_html(self: _typing.Self, elem: _typing.Any, page: _typing.Any, docx: _typing.Any, dest_dir: _typing.Any) -> _typing.Iterator[_typing.Any]:
         dest = os.path.join(dest_dir, "images")
         if not os.path.exists(dest):
             os.mkdir(dest)

@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+from __future__ import annotations
+
+import typing as _typing
 import textwrap
 from lxml import etree
 from urllib.parse import unquote
@@ -13,7 +16,7 @@ try:
 except ModuleNotFoundError:
     from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as _FallbackImage
 
-    def identify_data(data):
+    def identify_data(data: _typing.Any) -> tuple[_typing.Any, ...]:
         with _FallbackImage(data) as img:
             meta = img.identify()
         return meta.get("width", -1), meta.get("height", -1), meta.get("format")
@@ -73,12 +76,12 @@ class CoverManager(object):
     )
 
     def __init__(
-        self,
-        no_default_cover=False,
-        no_svg_cover=False,
-        preserve_aspect_ratio=False,
-        fixed_size=None,
-    ):
+        self: _typing.Self,
+        no_default_cover: bool = False,
+        no_svg_cover: bool = False,
+        preserve_aspect_ratio: bool = False,
+        fixed_size: _typing.Any = None,
+    ) -> None:
         self.no_default_cover = no_default_cover
         self.no_svg_cover = no_svg_cover
         self.preserve_aspect_ratio = preserve_aspect_ratio
@@ -93,12 +96,12 @@ class CoverManager(object):
             style = 'style="height: %s; width: %s"' % (width, height)
         self.non_svg_template = self.NONSVG_TEMPLATE.replace("__style__", style)
 
-    def __call__(self, oeb, opts, log):
+    def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         self.oeb = oeb
         self.log = log
         self.insert_cover()
 
-    def default_cover(self):
+    def default_cover(self: _typing.Self) -> _typing.Any:
         """
         Create a generic cover for books that dont have a cover.
         :return:
@@ -126,7 +129,7 @@ class CoverManager(object):
             self.log.exception("Failed to generate default cover")
         return None
 
-    def inspect_cover(self, href):
+    def inspect_cover(self: _typing.Self, href: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.oeb.base import urlnormalize
 
         for x in self.oeb.manifest:
@@ -138,7 +141,7 @@ class CoverManager(object):
                     self.log.exception("Failed to read image dimensions")
         return None, None
 
-    def insert_cover(self):
+    def insert_cover(self: _typing.Self) -> None:
         from LiuXin_alpha.file_formats.oeb.base import urldefrag
 
         g, m = self.oeb.guide, self.oeb.manifest

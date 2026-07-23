@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 
@@ -21,11 +24,11 @@ if not os.path.exists(config_dir):
     os.makedirs(config_dir)
 
 
-def name_to_path(name):
+def name_to_path(name: _typing.Any) -> _typing.Any:
     return os.path.join(config_dir, sanitize_file_name(name) + ".py")
 
 
-def save_defaults(name, recs):
+def save_defaults(name: _typing.Any, recs: _typing.Any) -> None:
     path = name_to_path(name)
     raw = str(recs)
     with open(path, "wb"):
@@ -34,7 +37,7 @@ def save_defaults(name, recs):
         f.write(raw)
 
 
-def load_defaults(name):
+def load_defaults(name: _typing.Any) -> _typing.Any:
     path = name_to_path(name)
     if not os.path.exists(path):
         open(path, "wb").close()
@@ -46,12 +49,12 @@ def load_defaults(name):
     return r
 
 
-def save_specifics(db, book_id, recs):
+def save_specifics(db: _typing.Any, book_id: _typing.Any, recs: _typing.Any) -> None:
     raw = str(recs)
     db.set_conversion_options(book_id, "PIPE", raw)
 
 
-def load_specifics(db, book_id):
+def load_specifics(db: _typing.Any, book_id: _typing.Any) -> _typing.Any:
     raw = db.conversion_options(book_id, "PIPE")
     r = GuiRecommendations()
     if raw:
@@ -59,31 +62,31 @@ def load_specifics(db, book_id):
     return r
 
 
-def delete_specifics(db, book_id):
+def delete_specifics(db: _typing.Any, book_id: _typing.Any) -> None:
     db.delete_conversion_options(book_id, "PIPE")
 
 
 class GuiRecommendations(dict):
-    def __new__(cls, *args):
+    def __new__(cls: type[_typing.Self], *args: _typing.Any) -> _typing.Any:
         dict.__new__(cls)
         obj = super(GuiRecommendations, cls).__new__(cls, *args)
         obj.disabled_options = set([])
         return obj
 
-    def to_recommendations(self, level=OptionRecommendation.LOW):
+    def to_recommendations(self: _typing.Self, level: _typing.Any = OptionRecommendation.LOW) -> _typing.Any:
         ans = []
         for key, val in self.items():
             ans.append((key, val, level))
         return ans
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         ans = ["{"]
         for key, val in self.items():
             ans.append("\t" + repr(key) + " : " + repr(val) + ",")
         ans.append("}")
         return "\n".join(ans)
 
-    def from_string(self, raw):
+    def from_string(self: _typing.Self, raw: _typing.Any) -> None:
         try:
             d = eval(raw)
         except (SyntaxError, TypeError):
@@ -91,7 +94,7 @@ class GuiRecommendations(dict):
         if d:
             self.update(d)
 
-    def merge_recommendations(self, get_option, level, options, only_existing=False):
+    def merge_recommendations(self: _typing.Self, get_option: _typing.Any, level: _typing.Any, options: _typing.Any, only_existing: bool = False) -> None:
         for name in options:
             if only_existing and name not in self:
                 continue

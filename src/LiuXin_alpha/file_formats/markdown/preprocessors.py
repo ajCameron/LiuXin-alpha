@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 PRE-PROCESSORS
@@ -14,7 +17,7 @@ from . import odict
 import re
 
 
-def build_preprocessors(md_instance, **kwargs):
+def build_preprocessors(md_instance: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     """Build the default set of preprocessors used by Markdown."""
     preprocessors = odict.OrderedDict()
     preprocessors["normalize_whitespace"] = NormalizeWhitespace(md_instance)
@@ -36,7 +39,7 @@ class Preprocessor(util.Processor):
 
     """
 
-    def run(self, lines):
+    def run(self: _typing.Self, lines: _typing.Any) -> None:
         """
         Each subclass of Preprocessor should override the `run` method, which
         takes the document as a list of strings split by newlines and returns
@@ -49,7 +52,7 @@ class Preprocessor(util.Processor):
 class NormalizeWhitespace(Preprocessor):
     """Normalize whitespace for consistant parsing."""
 
-    def run(self, lines):
+    def run(self: _typing.Self, lines: _typing.Any) -> _typing.Any:
         source = "\n".join(lines)
         source = source.replace(util.STX, "").replace(util.ETX, "")
         source = source.replace("\r\n", "\n").replace("\r", "\n") + "\n\n"
@@ -74,7 +77,7 @@ class HtmlBlockPreprocessor(Preprocessor):
     left_tag_re = re.compile(left_tag_pattern, re.VERBOSE)
     markdown_in_raw = False
 
-    def _get_left_tag(self, block):
+    def _get_left_tag(self: _typing.Self, block: _typing.Any) -> tuple[_typing.Any, ...]:
         m = self.left_tag_re.match(block)
         if m:
             tag = m.group("tag")
@@ -99,7 +102,7 @@ class HtmlBlockPreprocessor(Preprocessor):
             tag = block[1:].split(">", 1)[0].lower()
             return tag, len(tag) + 2, {}
 
-    def _recursive_tagfind(self, ltag, rtag, start_index, block):
+    def _recursive_tagfind(self: _typing.Self, ltag: _typing.Any, rtag: _typing.Any, start_index: _typing.Any, block: _typing.Any) -> _typing.Any:
         while 1:
             i = block.find(rtag, start_index)
             if i == -1:
@@ -117,7 +120,7 @@ class HtmlBlockPreprocessor(Preprocessor):
                 # rtag
                 return -1
 
-    def _get_right_tag(self, left_tag, left_index, block):
+    def _get_right_tag(self: _typing.Self, left_tag: _typing.Any, left_index: _typing.Any, block: _typing.Any) -> tuple[_typing.Any, ...]:
         for p in self.right_tag_patterns:
             tag = p % left_tag
             i = self._recursive_tagfind("<%s" % left_tag, tag, left_index, block)
@@ -125,7 +128,7 @@ class HtmlBlockPreprocessor(Preprocessor):
                 return tag.lstrip("<").rstrip(">"), i
         return block.rstrip()[-left_index:-1].lower(), len(block)
 
-    def _equal_tags(self, left_tag, right_tag):
+    def _equal_tags(self: _typing.Self, left_tag: _typing.Any, right_tag: _typing.Any) -> bool:
         if left_tag[0] in ["?", "@", "%"]:  # handle PHP, etc.
             return True
         if ("/" + left_tag) == right_tag:
@@ -137,10 +140,10 @@ class HtmlBlockPreprocessor(Preprocessor):
         else:
             return False
 
-    def _is_oneliner(self, tag):
+    def _is_oneliner(self: _typing.Self, tag: _typing.Any) -> bool:
         return tag in ["hr", "hr/"]
 
-    def run(self, lines):
+    def run(self: _typing.Self, lines: _typing.Any) -> _typing.Any:
         text = "\n".join(lines)
         new_blocks = []
         text = text.rsplit("\n\n")
@@ -265,7 +268,7 @@ class ReferencePreprocessor(Preprocessor):
     RE = re.compile(r"^[ ]{0,3}\[([^\]]*)\]:\s*([^ ]*)[ ]*(%s)?$" % TITLE, re.DOTALL)
     TITLE_RE = re.compile(r"^%s$" % TITLE)
 
-    def run(self, lines):
+    def run(self: _typing.Self, lines: _typing.Any) -> _typing.Any:
         new_text = []
         while lines:
             line = lines.pop(0)

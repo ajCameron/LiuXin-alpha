@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import os, re
 
 from LiuXin_alpha.file_formats.rtf2xml import copy, check_brackets
@@ -26,13 +29,13 @@ class ProcessTokens:
     """
 
     def __init__(
-        self,
-        in_file,
-        exception_handler,
-        bug_handler,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        exception_handler: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -45,11 +48,11 @@ class ProcessTokens:
         self.__exception_handler = exception_handler
         self.__bug_handler = bug_handler
 
-    def compile_expressions(self):
+    def compile_expressions(self: _typing.Self) -> None:
         self.__num_exp = re.compile(r"([a-zA-Z]+)(.*)")
         self.__utf_exp = re.compile(r"(&.*?;)")
 
-    def initiate_token_dict(self):
+    def initiate_token_dict(self: _typing.Self) -> None:
         self.__return_code = 0
         self.dict_token = {
             # unicode
@@ -612,28 +615,28 @@ class ProcessTokens:
         'blipuid'           :   ('un', 'unknown___', self.default_func),
     """
 
-    def __ms_hex_func(self, pre, token, num):
+    def __ms_hex_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> _typing.Any:
         num = num[1:]  # chop off leading 0, which I added
         num = num.upper()  # the mappings store hex in caps
         return "tx<hx<__________<'%s\n" % num  # add an ' for the mappings
 
-    def ms_sub_func(self, pre, token, num):
+    def ms_sub_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> _typing.Any:
         return "tx<mc<__________<%s\n" % token
 
-    def direct_conv_func(self, pre, token, num):
+    def direct_conv_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> _typing.Any:
         return "mi<tg<empty_____<%s\n" % token
 
-    def default_func(self, pre, token, num):
+    def default_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
         if num is None:
             num = "true"
         return f"cw<{pre}<{token}<nu<{num}\n"
 
-    def colorz_func(self, pre, token, num):
+    def colorz_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
         if num is None:
             num = "0"
         return f"cw<{pre}<{token}<nu<{num}\n"
 
-    def __list_type_func(self, pre, token, num):
+    def __list_type_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
         type = "arabic"
         if num is None:
             type = "Arabic"
@@ -652,7 +655,7 @@ class ProcessTokens:
                 type = "Arabic"
         return f"cw<{pre}<{token}<nu<{type}\n"
 
-    def __language_func(self, pre, token, num):
+    def __language_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
         lang_name = self.__language_dict.get(int(re.search("[0-9]+", num).group()))
         if not lang_name:
             lang_name = "not defined"
@@ -661,36 +664,36 @@ class ProcessTokens:
                 raise self.__bug_handler(msg)
         return f"cw<{pre}<{token}<nu<{lang_name}\n"
 
-    def two_part_func(self, pre, token, num):
+    def two_part_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
         list = token.split("<")
         token = list[0]
         num = list[1]
         return f"cw<{pre}<{token}<nu<{num}\n"
         # return 'cw<nu<nu<nu<%s>num<%s\n' % (token, num)
 
-    def divide_by_2(self, pre, token, num):
+    def divide_by_2(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
         num = self.divide_num(num, 2)
         return f"cw<{pre}<{token}<nu<{num}\n"
         # return 'cw<nu<nu<nu<%s>%s<%s\n' % (token, num, token)
 
-    def divide_by_20(self, pre, token, num):
+    def divide_by_20(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
         num = self.divide_num(num, 20)
         return f"cw<{pre}<{token}<nu<{num}\n"
         # return 'cw<nu<nu<nu<%s>%s<%s\n' % (token, num, token)
 
-    def text_func(self, pre, token, num=None):
+    def text_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any = None) -> _typing.Any:
         return "tx<nu<__________<%s\n" % token
 
-    def ob_func(self, pre, token, num=None):
+    def ob_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any = None) -> _typing.Any:
         self.__bracket_count += 1
         return "ob<nu<open-brack<%04d\n" % self.__bracket_count
 
-    def cb_func(self, pre, token, num=None):
+    def cb_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any = None) -> _typing.Any:
         line = "cb<nu<clos-brack<%04d\n" % self.__bracket_count
         self.__bracket_count -= 1
         return line
 
-    def color_func(self, pre, token, num):
+    def color_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
         third_field = "nu"
         if num[-1] == ";":
             num = num[:-1]
@@ -701,7 +704,7 @@ class ProcessTokens:
         return f"cw<{pre}<{token}<{third_field}<{num}\n"
         # return 'cw<cl<%s<nu<nu<%s>%s<%s\n' % (third_field, token, num, token)
 
-    def bool_st_func(self, pre, token, num):
+    def bool_st_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
         if num is None or num == "" or num == "1":
             return f"cw<{pre}<{token}<nu<true\n"
             # return 'cw<nu<nu<nu<%s>true<%s\n' % (token, token)
@@ -712,12 +715,12 @@ class ProcessTokens:
             msg = f"boolean should have some value module process tokens\ntoken is {token}\n'{num}'\n"
             raise self.__bug_handler(msg)
 
-    def __no_sup_sub_func(self, pre, token, num):
+    def __no_sup_sub_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> _typing.Any:
         the_string = "cw<ci<subscript_<nu<false\n"
         the_string += "cw<ci<superscrip<nu<false\n"
         return the_string
 
-    def divide_num(self, numerator, denominator):
+    def divide_num(self: _typing.Self, numerator: _typing.Any, denominator: _typing.Any) -> _typing.Any:
         try:
             # calibre why ignore negative number? Wrong in case of \fi
             numerator = float(re.search("[0-9.\\-]+", numerator).group())
@@ -742,7 +745,7 @@ class ProcessTokens:
             string_num = string_num[:-2]
         return string_num
 
-    def split_let_num(self, token):
+    def split_let_num(self: _typing.Self, token: _typing.Any) -> tuple[_typing.Any, ...]:
         match_obj = re.search(self.__num_exp, token)
         if match_obj is not None:
             first = match_obj.group(1)
@@ -759,7 +762,7 @@ class ProcessTokens:
             return token, 0
         return first, second
 
-    def convert_to_hex(self, number):
+    def convert_to_hex(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         """Convert a string to uppercase hexadecimal"""
         num = int(number)
         try:
@@ -768,7 +771,7 @@ class ProcessTokens:
         except:
             raise self.__bug_handler
 
-    def process_cw(self, token):
+    def process_cw(self: _typing.Self, token: _typing.Any) -> _typing.Any:
         """Change the value of the control word by determining what dictionary
         it belongs to"""
         special = ["*", ":", "}", "{", "~", "_", "-", ";"]
@@ -784,13 +787,13 @@ class ProcessTokens:
         if action:
             return action(pre, token, num)
 
-    def __check_brackets(self, in_file):
+    def __check_brackets(self: _typing.Self, in_file: _typing.Any) -> int:
         self.__check_brack_obj = check_brackets.CheckBrackets(file=in_file)
         good_br = self.__check_brack_obj.check_brackets()[0]
         if not good_br:
             return 1
 
-    def process_tokens(self):
+    def process_tokens(self: _typing.Self) -> _typing.Any:
         """Main method for handling other methods."""
         line_count = 0
         with open_for_read(self.__file) as read_obj:

@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 
@@ -90,15 +93,15 @@ STRICT_NAMESPACES = {
 # }}}
 
 
-def barename(x):
+def barename(x: _typing.Any) -> _typing.Any:
     return x.rpartition("}")[-1]
 
 
-def XML(x):
+def XML(x: _typing.Any) -> _typing.Any:
     return "{%s}%s" % (TRANSITIONAL_NAMESPACES["xml"], x)
 
 
-def generate_anchor(name, existing):
+def generate_anchor(name: _typing.Any, existing: _typing.Any) -> _typing.Any:
     x = y = "id_" + re.sub(r"[^0-9a-zA-Z_]", "", ascii_text(name)).lstrip("_")
     c = 1
     while y in existing:
@@ -108,7 +111,7 @@ def generate_anchor(name, existing):
 
 
 class DOCXNamespace(object):
-    def __init__(self, transitional=True):
+    def __init__(self: _typing.Self, transitional: bool = True) -> None:
         self.xpath_cache = {}
         if transitional:
             self.namespaces = TRANSITIONAL_NAMESPACES.copy()
@@ -117,39 +120,39 @@ class DOCXNamespace(object):
             self.namespaces = STRICT_NAMESPACES.copy()
             self.names = STRICT_NAMES.copy()
 
-    def XPath(self, expr):
+    def XPath(self: _typing.Self, expr: _typing.Any) -> _typing.Any:
         ans = self.xpath_cache.get(expr, None)
         if ans is None:
             self.xpath_cache[expr] = ans = Xp(expr, namespaces=self.namespaces)
         return ans
 
-    def is_tag(self, x, q):
+    def is_tag(self: _typing.Self, x: _typing.Any, q: _typing.Any) -> bool:
         tag = getattr(x, "tag", x)
         ns, name = q.partition(":")[0::2]
         return "{%s}%s" % (self.namespaces.get(ns, None), name) == tag
 
-    def expand(self, name, sep=":"):
+    def expand(self: _typing.Self, name: _typing.Any, sep: str = ":") -> bool:
         ns, tag = name.partition(sep)[::2]
         if ns and tag:
             tag = "{%s}%s" % (self.namespaces[ns], tag)
         return tag or ns
 
-    def get(self, x, attr, default=None):
+    def get(self: _typing.Self, x: _typing.Any, attr: _typing.Any, default: _typing.Any = None) -> _typing.Any:
         return x.attrib.get(self.expand(attr), default)
 
-    def ancestor(self, elem, name):
+    def ancestor(self: _typing.Self, elem: _typing.Any, name: _typing.Any) -> _typing.Any:
         try:
             return self.XPath("ancestor::%s[1]" % name)(elem)[0]
         except IndexError:
             return None
 
-    def children(self, elem, *args):
+    def children(self: _typing.Self, elem: _typing.Any, *args: _typing.Any) -> _typing.Any:
         return self.XPath("|".join("child::%s" % a for a in args))(elem)
 
-    def descendants(self, elem, *args):
+    def descendants(self: _typing.Self, elem: _typing.Any, *args: _typing.Any) -> _typing.Any:
         return self.XPath("|".join("descendant::%s" % a for a in args))(elem)
 
-    def makeelement(self, root, tag, append=True, **attrs):
+    def makeelement(self: _typing.Self, root: _typing.Any, tag: _typing.Any, append: bool = True, **attrs: _typing.Any) -> _typing.Any:
         ans = root.makeelement(self.expand(tag), **{self.expand(k, sep="_"): v for k, v in iteritems(attrs)})
         if append:
             root.append(ans)

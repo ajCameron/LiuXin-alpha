@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 import unicodedata
@@ -32,7 +35,7 @@ class Serializer(object):
 
     NSRMAP = {"": None, XML_NS: "xml", XHTML_NS: "", MBP_NS: "mbp"}
 
-    def __init__(self, oeb, images, is_periodical, write_page_breaks_after_item=True):
+    def __init__(self: _typing.Self, oeb: _typing.Any, images: _typing.Any, is_periodical: _typing.Any, write_page_breaks_after_item: bool = True) -> None:
         """
         Write all the HTML markup in oeb into a single in memory buffer
         containing a single html document with links replaced by offsets into
@@ -79,7 +82,7 @@ class Serializer(object):
 
         self.find_blocks()
 
-    def find_blocks(self):
+    def find_blocks(self: _typing.Self) -> None:
         """
         Mark every item in the spine if it is the start/end of a
         section/article, so that it can be wrapped in divs appropriately.
@@ -89,7 +92,7 @@ class Serializer(object):
             item.is_section_start = item.is_section_end = False
             item.is_article_start = item.is_article_end = False
 
-        def spine_item(tocitem):
+        def spine_item(tocitem: _typing.Any) -> _typing.Any:
             href = urldefrag(tocitem.href)[0]
             for spine_item in self.oeb.spine:
                 if spine_item.href == href:
@@ -127,7 +130,7 @@ class Serializer(object):
 
         item.is_section_end = item.is_article_end = True
 
-    def __call__(self):
+    def __call__(self: _typing.Self) -> _typing.Any:
         """
         Return the document serialized as a single UTF-8 encoded bytestring.
         :return:
@@ -147,14 +150,14 @@ class Serializer(object):
             self.start_offset = self.body_start_offset
         return buf.getvalue()
 
-    def serialize_head(self):
+    def serialize_head(self: _typing.Self) -> None:
         buf = self.buf
         buf.write(b"<head>")
         if len(self.oeb.guide) > 0:
             self.serialize_guide()
         buf.write(b"</head>")
 
-    def serialize_guide(self):
+    def serialize_guide(self: _typing.Self) -> None:
         """
         The Kindle decides where to open a book based on the presence of
         an item in the guide that looks like
@@ -193,7 +196,7 @@ class Serializer(object):
 
         buf.write(b"</guide>")
 
-    def serialize_href(self, href, base=None):
+    def serialize_href(self: _typing.Self, href: _typing.Any, base: _typing.Any = None) -> bool:
         """
         Serialize the href attribute of an <a> or <reference> tag. It is
         serialized as filepos="000000000" and a pointer to its location is
@@ -227,7 +230,7 @@ class Serializer(object):
         buf.write(b"0000000000")
         return True
 
-    def serialize_body(self):
+    def serialize_body(self: _typing.Self) -> None:
         """
         Serialize all items in the spine of the document. Non linear items are
         moved to the end.
@@ -235,7 +238,7 @@ class Serializer(object):
         """
         buf = self.buf
 
-        def serialize_toc_level(tocref, href=None):
+        def serialize_toc_level(tocref: _typing.Any, href: _typing.Any = None) -> None:
             # add the provided toc level to the output stream
             # if href is provided add a link ref to the toc level output (e.g. feed_0/index.html)
             if href is not None:
@@ -304,7 +307,7 @@ class Serializer(object):
         self.body_end_offset = buf.tell()
         buf.write(b"</body>")
 
-    def serialize_item(self, item):
+    def serialize_item(self: _typing.Self, item: _typing.Any) -> None:
         """
         Serialize an individual item from the spine of the input document.
         A reference to this item is stored in self.href_offsets
@@ -330,7 +333,7 @@ class Serializer(object):
             buf.write(b" <a ></a>")
         self.anchor_offset = None
 
-    def serialize_elem(self, elem, item, nsrmap=NSRMAP):
+    def serialize_elem(self: _typing.Self, elem: _typing.Any, item: _typing.Any, nsrmap: _typing.Any = NSRMAP) -> None:
         buf = self.buf
         if not isinstance(elem.tag, six_string_types) or namespace(elem.tag) not in nsrmap:
             return
@@ -380,7 +383,7 @@ class Serializer(object):
                     self.serialize_text(child.tail)
         buf.write(b"</%s>" % tag.encode("utf-8"))
 
-    def serialize_text(self, text, quot=False):
+    def serialize_text(self: _typing.Self, text: _typing.Any, quot: bool = False) -> None:
         text = text.replace("&", "&amp;")
         text = text.replace("<", "&lt;")
         text = text.replace(">", "&gt;")
@@ -391,7 +394,7 @@ class Serializer(object):
             text = unicodedata.normalize("NFC", text)
         self.buf.write(text.encode("utf-8", "replace"))
 
-    def fixup_links(self):
+    def fixup_links(self: _typing.Self) -> None:
         """
         Fill in the correct values for all filepos="..." links with the offsets
         of the linked to content (as stored in id_offsets).

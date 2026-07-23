@@ -699,6 +699,20 @@ class DatabaseDriver(
         if COLUMN_METADATA_TABLE not in set(self.direct_get_tables()):
             return fallback
 
+        catalog_columns = set(
+            self.direct_get_column_headings(COLUMN_METADATA_TABLE)
+        )
+        option_columns = {
+            "column_metadata_formatting_options_json",
+            "column_metadata_display_options_json",
+        }
+        option_selection = (
+            ',\n                  "column_metadata_formatting_options_json",'
+            '\n                  "column_metadata_display_options_json"'
+            if option_columns <= catalog_columns
+            else ""
+        )
+
         conn = self._short_connection()
         try:
             cur = conn.execute(
@@ -711,6 +725,7 @@ class DatabaseDriver(
                   "column_metadata_empty_value_policy",
                   "column_metadata_merge_policy",
                   "column_metadata_validation_profile"
+                  {option_selection}
                 from {self._table_sql(COLUMN_METADATA_TABLE)}
                 where "column_metadata_table_name" = %s
                   and "column_metadata_column_name" = %s
@@ -737,6 +752,14 @@ class DatabaseDriver(
                         "column_metadata_empty_value_policy",
                         "column_metadata_merge_policy",
                         "column_metadata_validation_profile",
+                        *(
+                            (
+                                "column_metadata_formatting_options_json",
+                                "column_metadata_display_options_json",
+                            )
+                            if option_columns <= catalog_columns
+                            else ()
+                        ),
                     )
                 )
             ),
@@ -748,6 +771,16 @@ class DatabaseDriver(
         if COLUMN_METADATA_TABLE not in set(self.direct_get_tables()):
             raise DatabaseIntegrityError(
                 "database has no column_metadata table; migrate the schema before storing column policy"
+            )
+        required_columns = {
+            "column_metadata_formatting_options_json",
+            "column_metadata_display_options_json",
+        }
+        if not required_columns <= set(
+            self.direct_get_column_headings(COLUMN_METADATA_TABLE)
+        ):
+            raise DatabaseIntegrityError(
+                "column_metadata schema is outdated; migrate it before storing presentation options"
             )
 
         conn = self._primary_connection()
@@ -763,8 +796,10 @@ class DatabaseDriver(
                   "column_metadata_comparison_column",
                   "column_metadata_empty_value_policy",
                   "column_metadata_merge_policy",
-                  "column_metadata_validation_profile"
-                ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                  "column_metadata_validation_profile",
+                  "column_metadata_formatting_options_json",
+                  "column_metadata_display_options_json"
+                ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 on conflict (
                   "column_metadata_table_name",
                   "column_metadata_column_name"
@@ -775,7 +810,9 @@ class DatabaseDriver(
                   "column_metadata_comparison_column" = excluded."column_metadata_comparison_column",
                   "column_metadata_empty_value_policy" = excluded."column_metadata_empty_value_policy",
                   "column_metadata_merge_policy" = excluded."column_metadata_merge_policy",
-                  "column_metadata_validation_profile" = excluded."column_metadata_validation_profile"
+                  "column_metadata_validation_profile" = excluded."column_metadata_validation_profile",
+                  "column_metadata_formatting_options_json" = excluded."column_metadata_formatting_options_json",
+                  "column_metadata_display_options_json" = excluded."column_metadata_display_options_json"
                 """,
                 self._column_metadata_db_values(metadata),
             )

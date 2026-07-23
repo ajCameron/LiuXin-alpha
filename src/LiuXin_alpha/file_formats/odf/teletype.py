@@ -26,6 +26,9 @@ to extract or create ODF content, these won't extract or create
 the appropriate <text:s>, <text:tab>, or <text:line-break>
 elements.  This module takes care of that problem.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.file_formats.odf.element import Node
 import LiuXin_alpha.file_formats.odf.opendocument
@@ -33,11 +36,11 @@ from LiuXin_alpha.file_formats.odf.text import S, LineBreak, Tab
 
 
 class WhitespaceText(object):
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.textBuffer = []
         self.spaceCount = 0
 
-    def addTextToElement(self, odfElement, s):
+    def addTextToElement(self: _typing.Self, odfElement: _typing.Any, s: _typing.Any) -> None:
         """Process an input string, inserting
         <text:tab> elements for '\t',
         <text:line-break> elements for '\n', and
@@ -82,7 +85,7 @@ class WhitespaceText(object):
 
         self._emitTextBuffer(odfElement)
 
-    def _emitTextBuffer(self, odfElement):
+    def _emitTextBuffer(self: _typing.Self, odfElement: _typing.Any) -> None:
         """Creates a Text Node whose contents are the current textBuffer.
         Side effect: clears the text buffer.
         """
@@ -90,7 +93,7 @@ class WhitespaceText(object):
             odfElement.addText("".join(self.textBuffer))
         self.textBuffer = []
 
-    def _emitSpaces(self, odfElement):
+    def _emitSpaces(self: _typing.Self, odfElement: _typing.Any) -> None:
         """Creates a <text:s> element for the current spaceCount.
         Side effect: sets spaceCount back to zero
         """
@@ -100,12 +103,12 @@ class WhitespaceText(object):
         self.spaceCount = 0
 
 
-def addTextToElement(odfElement, s):
+def addTextToElement(odfElement: _typing.Any, s: _typing.Any) -> None:
     wst = WhitespaceText()
     wst.addTextToElement(odfElement, s)
 
 
-def extractText(odfElement):
+def extractText(odfElement: _typing.Any) -> _typing.Any:
     """Extract text content from an Element, with whitespace represented
     properly. Returns the text, with tabs, spaces, and newlines
     correctly evaluated. This method recursively descends through the

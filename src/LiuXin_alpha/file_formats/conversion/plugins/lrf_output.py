@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import sys
@@ -20,7 +23,7 @@ __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def _coerce_text(value):
+def _coerce_text(value: _typing.Any) -> _typing.Any:
     if value is None:
         return ""
     if isinstance(value, (bytes, bytearray, memoryview)):
@@ -38,8 +41,8 @@ def _coerce_text(value):
 
 
 class LRFOptions(object):
-    def __init__(self, output, opts, oeb):
-        def f2s(f):
+    def __init__(self: _typing.Self, output: _typing.Any, opts: _typing.Any, oeb: _typing.Any) -> None:
+        def f2s(f: _typing.Any) -> _typing.Any:
             if f is None:
                 return ""
             try:
@@ -202,7 +205,7 @@ class LRFOutput(OutputFormatPlugin):
         ("change_justification", "original", OptionRecommendation.HIGH),
     }
 
-    def convert_images(self, pages, opts, wide):
+    def convert_images(self: _typing.Self, pages: _typing.Any, opts: _typing.Any, wide: _typing.Any) -> None:
 
         from uuid import uuid4
         from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import (
@@ -249,7 +252,7 @@ class LRFOutput(OutputFormatPlugin):
         with open(opts.output, "wb") as out:
             book.renderLrf(out)
 
-    def flatten_toc(self):
+    def flatten_toc(self: _typing.Self) -> None:
         from LiuXin_alpha.file_formats.oeb.base import TOC
 
         nroot = TOC()
@@ -258,7 +261,7 @@ class LRFOutput(OutputFormatPlugin):
                 nroot.add(_coerce_text(getattr(x, "title", "")), _coerce_text(getattr(x, "href", "")))
         self.oeb.toc = nroot
 
-    def convert(self, oeb_book, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         self.log, self.opts, self.oeb = log, opts, oeb_book
 
         lrf_opts = LRFOptions(output_path, opts, oeb_book)

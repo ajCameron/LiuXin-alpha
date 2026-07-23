@@ -1,6 +1,9 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import posixpath
 import re
@@ -16,7 +19,7 @@ __license__ = "GPL v3"
 __copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def start_text(tag, prefix_len=0, top_level=True):
+def start_text(tag: _typing.Any, prefix_len: int = 0, top_level: bool = True) -> _typing.Any:
     ans = tag.text or ""
     limit = 50 - prefix_len
     if len(ans) < limit:
@@ -30,11 +33,11 @@ def start_text(tag, prefix_len=0, top_level=True):
 
 
 class TOCItem(object):
-    def __init__(self, title, bmark, level):
+    def __init__(self: _typing.Self, title: _typing.Any, bmark: _typing.Any, level: _typing.Any) -> None:
         self.title, self.bmark, self.level = title, bmark, level
         self.is_first = self.is_last = False
 
-    def serialize(self, body, makeelement):
+    def serialize(self: _typing.Self, body: _typing.Any, makeelement: _typing.Any) -> None:
         p = makeelement(body, "w:p", append=False)
         ppr = makeelement(p, "w:pPr")
         makeelement(ppr, "w:pStyle", w_val="Normal")
@@ -67,12 +70,12 @@ class TOCItem(object):
         body.insert(0, p)
 
 
-def sanitize_bookmark_name(base):
+def sanitize_bookmark_name(base: _typing.Any) -> _typing.Any:
     return re.sub(r"[^0-9a-zA-Z]", "_", ascii_text(base))
 
 
 class LinksManager(object):
-    def __init__(self, namespace, document_relationships, log):
+    def __init__(self: _typing.Self, namespace: _typing.Any, document_relationships: _typing.Any, log: _typing.Any) -> None:
         self.namespace = namespace
         self.log = log
         self.document_relationships = document_relationships
@@ -84,7 +87,7 @@ class LinksManager(object):
         self.external_links = {}
         self.toc = []
 
-    def bookmark_for_anchor(self, anchor, current_item, html_tag):
+    def bookmark_for_anchor(self: _typing.Self, anchor: _typing.Any, current_item: _typing.Any, html_tag: _typing.Any) -> _typing.Any:
         key = (current_item.href, anchor)
         if key in self.anchor_map:
             return self.anchor_map[key]
@@ -102,11 +105,11 @@ class LinksManager(object):
         return name
 
     @property
-    def bookmark_id(self):
+    def bookmark_id(self: _typing.Self) -> _typing.Any:
         self.bmark_id += 1
         return self.bmark_id
 
-    def serialize_hyperlink(self, parent, link):
+    def serialize_hyperlink(self: _typing.Self, parent: _typing.Any, link: _typing.Any) -> _typing.Any:
         item, url, tooltip = link
         purl = urlparse(url)
         href = purl.path
@@ -134,7 +137,7 @@ class LinksManager(object):
             )
         return parent
 
-    def process_toc_node(self, toc, level=0):
+    def process_toc_node(self: _typing.Self, toc: _typing.Any, level: int = 0) -> None:
         href = toc.href
         if href:
             purl = urlparse(href)
@@ -149,7 +152,7 @@ class LinksManager(object):
         for child in toc:
             self.process_toc_node(child, level + 1)
 
-    def process_toc_links(self, oeb):
+    def process_toc_links(self: _typing.Self, oeb: _typing.Any) -> None:
         self.toc = []
         has_toc = oeb.toc and oeb.toc.count() > 1
         if not has_toc:
@@ -160,7 +163,7 @@ class LinksManager(object):
             self.toc[0].is_first = True
             self.toc[-1].is_last = True
 
-    def serialize_toc(self, body, primary_heading_style):
+    def serialize_toc(self: _typing.Self, body: _typing.Any, primary_heading_style: _typing.Any) -> None:
         pbb = body[0].xpath('//*[local-name()="pageBreakBefore"]')[0]
         pbb.set("{%s}val" % self.namespace.namespaces["w"], "on")
         for block in reversed(self.toc):

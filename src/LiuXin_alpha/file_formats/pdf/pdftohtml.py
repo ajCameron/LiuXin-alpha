@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import errno
 import os
@@ -38,7 +41,7 @@ if (islinux or isbsd) and getattr(sys, "frozen", False):
     PDFTOHTML = os.path.join(sys.executables_location, "bin", "pdftohtml")
 
 
-def pdftohtml(output_dir, pdf_path, no_images, as_xml=False):
+def pdftohtml(output_dir: _typing.Any, pdf_path: _typing.Any, no_images: _typing.Any, as_xml: bool = False) -> None:
     """
     Convert the pdf into html using the pdftohtml app.
     This will write the html as index.html into output_dir.
@@ -58,7 +61,7 @@ def pdftohtml(output_dir, pdf_path, no_images, as_xml=False):
 
     with CurrentDir(output_dir):
         # This is necessary as pdftohtml doesn't always (linux) respect absolute paths.
-        def a(x):
+        def a(x: _typing.Any) -> _typing.Any:
             return os.path.basename(x)
 
         cmd = [
@@ -128,7 +131,7 @@ def pdftohtml(output_dir, pdf_path, no_images, as_xml=False):
                 i.write(raw.replace(b"<br/>", b"<br>"))
 
 
-def flip_image(img, flip):
+def flip_image(img: _typing.Any, flip: _typing.Any) -> None:
     try:
         from PIL import Image as PILImage
     except Exception:
@@ -142,7 +145,7 @@ def flip_image(img, flip):
         im.save(img)
 
 
-def flip_images(raw):
+def flip_images(raw: _typing.Any) -> _typing.Any:
     for match in re.finditer(b"<IMG[^>]+/?>", raw, flags=re.I):
         img = match.group()
         m = re.search(rb'class="(x|y|xy)flip"', img)

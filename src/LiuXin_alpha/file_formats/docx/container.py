@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
@@ -37,25 +40,25 @@ __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def walk(path):
+def walk(path: _typing.Any) -> _typing.Iterator[_typing.Any]:
     for base, _dirnames, filenames in os.walk(path):
         for filename in filenames:
             yield os.path.join(base, filename)
 
 
-def fromstring(raw, parser=RECOVER_PARSER):
+def fromstring(raw: _typing.Any, parser: _typing.Any = RECOVER_PARSER) -> _typing.Any:
     return etree.fromstring(raw, parser=parser)
 
 
-def _local_name(tag):
+def _local_name(tag: _typing.Any) -> _typing.Any:
     return str(tag).rsplit("}", 1)[-1]
 
 
-def _malformed_part(name, part_name):
+def _malformed_part(name: _typing.Any, part_name: _typing.Any) -> None:
     raise InvalidDOCX("The file %s docx file has malformed %s" % (name, part_name))
 
 
-def _parse_required_xml_part(raw, name, part_name, root_name):
+def _parse_required_xml_part(raw: _typing.Any, name: _typing.Any, part_name: _typing.Any, root_name: _typing.Any) -> _typing.Any:
     try:
         root = fromstring(raw)
     except Exception as err:
@@ -66,7 +69,7 @@ def _parse_required_xml_part(raw, name, part_name, root_name):
 
 
 # Read metadata {{{
-def read_doc_props(raw, mi, XPath):
+def read_doc_props(raw: _typing.Any, mi: _typing.Any, XPath: _typing.Any) -> None:
     """
     Read the document metadata
     :param raw: The raw metadata string to parse
@@ -122,14 +125,14 @@ def read_doc_props(raw, mi, XPath):
         mi.languages = langs
 
 
-def read_app_props(raw, mi):
+def read_app_props(raw: _typing.Any, mi: _typing.Any) -> None:
     root = fromstring(raw)
     company = root.xpath('//*[local-name()="Company"]')
     if company and company[0].text and company[0].text.strip():
         mi.publisher = company[0].text.strip()
 
 
-def read_default_style_language(raw, mi, XPath):
+def read_default_style_language(raw: _typing.Any, mi: _typing.Any, XPath: _typing.Any) -> None:
     root = fromstring(raw)
     for lang in XPath("/w:styles/w:docDefaults/w:rPrDefault/w:rPr/w:lang/@w:val")(root):
         lang = canonicalize_lang(lang)
@@ -153,7 +156,7 @@ class DOCX(object):
     max_compression_ratio = 1000
     min_compression_ratio_check_size = 1024 * 1024
 
-    def __init__(self, path_or_stream, log=None, extract=True):
+    def __init__(self: _typing.Self, path_or_stream: _typing.Any, log: _typing.Any = None, extract: bool = True) -> None:
         self.docx_is_transitional = True
         stream = path_or_stream if hasattr(path_or_stream, "read") else open(path_or_stream, "rb")
         self.name = getattr(stream, "name", None) or "<stream>"
@@ -166,19 +169,19 @@ class DOCX(object):
         self.read_package_relationships()
         self.namespace = DOCXNamespace(self.docx_is_transitional)
 
-    def init_zipfile(self, stream):
+    def init_zipfile(self: _typing.Self, stream: _typing.Any) -> None:
         self.validate_container_members(stream)
         self.zipf = ZipFile(stream)
         self.names = frozenset(self.zipf.namelist())
 
-    def normalized_archive_member_name(self, name):
+    def normalized_archive_member_name(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         return normalized_zip_member_name(
             name,
             member_label="DOCX archive",
             error_type=InvalidDOCX,
         )
 
-    def validate_container_members(self, stream):
+    def validate_container_members(self: _typing.Self, stream: _typing.Any) -> None:
         stream.seek(0)
         try:
             zf = ZipFile(stream, "r")
@@ -212,7 +215,7 @@ class DOCX(object):
             zf.close()
             stream.seek(0)
 
-    def extract(self, stream):
+    def extract(self: _typing.Self, stream: _typing.Any) -> None:
         self.validate_container_members(stream)
         self.tdir = PersistentTemporaryDirectory("docx_container")
         try:
@@ -230,17 +233,17 @@ class DOCX(object):
             name = os.path.relpath(f, self.tdir).replace(os.sep, "/")
             self.names[name] = f
 
-    def exists(self, name):
+    def exists(self: _typing.Self, name: _typing.Any) -> bool:
         return name in self.names
 
-    def read(self, name):
+    def read(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         if hasattr(self, "zipf"):
             return self.zipf.open(name).read()
         path = self.names[name]
         with open(path, "rb") as f:
             return f.read()
 
-    def read_content_types(self):
+    def read_content_types(self: _typing.Self) -> None:
         try:
             raw = self.read("[Content_Types].xml")
         except KeyError:
@@ -254,7 +257,7 @@ class DOCX(object):
             name = item.get("PartName").lstrip("/")
             self.content_types[name] = item.get("ContentType")
 
-    def content_type(self, name):
+    def content_type(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         if name in self.content_types:
             return self.content_types[name]
         ext = name.rpartition(".")[-1].lower()
@@ -262,7 +265,7 @@ class DOCX(object):
             return self.default_content_types[ext]
         return guess_type(name)[0]
 
-    def read_package_relationships(self):
+    def read_package_relationships(self: _typing.Self) -> None:
         try:
             raw = self.read("_rels/.rels")
         except KeyError:
@@ -283,7 +286,7 @@ class DOCX(object):
             self.relationships_rmap[target] = typ
 
     @property
-    def document_name(self):
+    def document_name(self: _typing.Self) -> _typing.Any:
         name = self.relationships.get(self.namespace.names["DOCUMENT"], None)
         if name is None:
             names = tuple(n for n in self.names if n == "document.xml" or n.endswith("/document.xml"))
@@ -295,15 +298,15 @@ class DOCX(object):
         return name
 
     @property
-    def document(self):
+    def document(self: _typing.Self) -> _typing.Any:
         name = self.document_name
         return _parse_required_xml_part(self.read(name), self.name, name, "document")
 
     @property
-    def document_relationships(self):
+    def document_relationships(self: _typing.Self) -> _typing.Any:
         return self.get_relationships(self.document_name)
 
-    def get_relationships(self, name):
+    def get_relationships(self: _typing.Self, name: _typing.Any) -> tuple[_typing.Any, ...]:
         base = "/".join(name.split("/")[:-1])
         by_id, by_type = {}, {}
         parts = name.split("/")
@@ -326,7 +329,7 @@ class DOCX(object):
 
         return by_id, by_type
 
-    def get_document_properties_names(self):
+    def get_document_properties_names(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         name = self.relationships.get(self.namespace.names["DOCPROPS"], None)
         if name is None:
             # core.xml is where the metadata for the document is stored - is a (subset) of the Dublin Core metadata
@@ -343,7 +346,7 @@ class DOCX(object):
         yield name
 
     @property
-    def metadata(self):
+    def metadata(self: _typing.Self) -> _typing.Any:
         """
         Return the metadata for this file.
         :return:
@@ -388,7 +391,7 @@ class DOCX(object):
 
         return mi
 
-    def close(self):
+    def close(self: _typing.Self) -> None:
         if hasattr(self, "zipf"):
             self.zipf.close()
         else:

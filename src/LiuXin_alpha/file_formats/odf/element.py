@@ -22,6 +22,9 @@
 # Whatever license applies to that file also applies to this file.
 #
 
+from __future__ import annotations
+
+import typing as _typing
 import xml.dom
 from xml.dom.minicompat import defproperty, EmptyNodeList
 from LiuXin_alpha.file_formats.odf.namespaces import nsdict
@@ -35,7 +38,7 @@ from LiuXin_alpha.utils.libraries.calibre_polyglot.builtins import unicode_type
 # To make it possible to have <rubbish> in your text elements, it is necessary to escape the texts
 
 
-def _escape(data, entities={}):
+def _escape(data: _typing.Any, entities: dict[_typing.Any, _typing.Any] = {}) -> _typing.Any:
     """Escape &, <, and > in a string of data.
 
     You can escape other strings of data by passing a dictionary as
@@ -50,7 +53,7 @@ def _escape(data, entities={}):
     return data
 
 
-def _quoteattr(data, entities={}):
+def _quoteattr(data: _typing.Any, entities: dict[_typing.Any, _typing.Any] = {}) -> _typing.Any:
     """Escape and quote an attribute value.
 
     Escape &, <, and > in a string of data, then quote it for use as
@@ -74,7 +77,7 @@ def _quoteattr(data, entities={}):
     return data
 
 
-def _nssplit(qualifiedName):
+def _nssplit(qualifiedName: _typing.Any) -> _typing.Any:
     """Split a qualified name into namespace part and local part."""
     fields = qualifiedName.split(":", 1)
     if len(fields) == 2:
@@ -83,7 +86,7 @@ def _nssplit(qualifiedName):
         return (None, fields[0])
 
 
-def _nsassign(namespace):
+def _nsassign(namespace: _typing.Any) -> _typing.Any:
     return nsdict.setdefault(namespace, "ns" + unicode_type(len(nsdict)))
 
 
@@ -105,7 +108,7 @@ class Node(xml.dom.Node):
     nextSibling = None
     previousSibling = None
 
-    def hasChildNodes(self):
+    def hasChildNodes(self: _typing.Self) -> bool:
         """Tells whether this element has any children; text nodes,
         subelements, whatever.
         """
@@ -114,18 +117,18 @@ class Node(xml.dom.Node):
         else:
             return False
 
-    def _get_childNodes(self):
+    def _get_childNodes(self: _typing.Self) -> _typing.Any:
         return self.childNodes
 
-    def _get_firstChild(self):
+    def _get_firstChild(self: _typing.Self) -> _typing.Any:
         if self.childNodes:
             return self.childNodes[0]
 
-    def _get_lastChild(self):
+    def _get_lastChild(self: _typing.Self) -> _typing.Any:
         if self.childNodes:
             return self.childNodes[-1]
 
-    def insertBefore(self, newChild, refChild):
+    def insertBefore(self: _typing.Self, newChild: _typing.Any, refChild: _typing.Any) -> _typing.Any:
         """Inserts the node newChild before the existing child node refChild.
         If refChild is null, insert newChild at the end of the list of children.
         """
@@ -152,7 +155,7 @@ class Node(xml.dom.Node):
             newChild.parentNode = self
         return newChild
 
-    def appendChild(self, newChild):
+    def appendChild(self: _typing.Self, newChild: _typing.Any) -> _typing.Any:
         """Adds the node newChild to the end of the list of children of this node.
         If the newChild is already in the tree, it is first removed.
         """
@@ -169,7 +172,7 @@ class Node(xml.dom.Node):
         newChild.nextSibling = None
         return newChild
 
-    def removeChild(self, oldChild):
+    def removeChild(self: _typing.Self, oldChild: _typing.Any) -> _typing.Any:
         """Removes the child node indicated by oldChild from the list of children, and returns it."""
         # FIXME: update ownerDocument.element_dict or find other solution
         try:
@@ -186,7 +189,7 @@ class Node(xml.dom.Node):
         oldChild.parentNode = None
         return oldChild
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         val = []
         for c in self.childNodes:
             val.append(str(c))
@@ -199,7 +202,7 @@ defproperty(Node, "firstChild", doc="First child node, or None.")
 defproperty(Node, "lastChild", doc="Last child node, or None.")
 
 
-def _append_child(self, node):
+def _append_child(self: _typing.Any, node: _typing.Any) -> None:
     # fast path with less checks; usable by DOM builders if careful
     childNodes = self.childNodes
     if childNodes:
@@ -220,28 +223,28 @@ class Childless:
     firstChild = None
     lastChild = None
 
-    def _get_firstChild(self):
+    def _get_firstChild(self: _typing.Self) -> None:
         return None
 
-    def _get_lastChild(self):
+    def _get_lastChild(self: _typing.Self) -> None:
         return None
 
-    def appendChild(self, node):
+    def appendChild(self: _typing.Self, node: _typing.Any) -> None:
         """Raises an error"""
         raise xml.dom.HierarchyRequestErr(self.tagName + " nodes cannot have children")
 
-    def hasChildNodes(self):
+    def hasChildNodes(self: _typing.Self) -> bool:
         return False
 
-    def insertBefore(self, newChild, refChild):
+    def insertBefore(self: _typing.Self, newChild: _typing.Any, refChild: _typing.Any) -> None:
         """Raises an error"""
         raise xml.dom.HierarchyRequestErr(self.tagName + " nodes do not have children")
 
-    def removeChild(self, oldChild):
+    def removeChild(self: _typing.Self, oldChild: _typing.Any) -> None:
         """Raises an error"""
         raise xml.dom.NotFoundErr(self.tagName + " nodes do not have children")
 
-    def replaceChild(self, newChild, oldChild):
+    def replaceChild(self: _typing.Self, newChild: _typing.Any, oldChild: _typing.Any) -> None:
         """Raises an error"""
         raise xml.dom.HierarchyRequestErr(self.tagName + " nodes do not have children")
 
@@ -250,15 +253,15 @@ class Text(Childless, Node):
     nodeType = Node.TEXT_NODE
     tagName = "Text"
 
-    def __init__(self, data):
+    def __init__(self: _typing.Self, data: _typing.Any) -> None:
         self.data = data
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return self.data
 
     __unicode__ = __str__
 
-    def toXml(self, level, f):
+    def toXml(self: _typing.Self, level: _typing.Any, f: _typing.Any) -> None:
         """Write XML in UTF-8"""
         if self.data:
             f.write(_escape(str(self.data)))
@@ -267,7 +270,7 @@ class Text(Childless, Node):
 class CDATASection(Text, Childless):
     nodeType = Node.CDATA_SECTION_NODE
 
-    def toXml(self, level, f):
+    def toXml(self: _typing.Self, level: _typing.Any, f: _typing.Any) -> None:
         """Generate XML output of the node. If the text contains "]]>", then
         escape it by going out of CDATA mode (]]>), then write the string
         and then go into CDATA mode again. (<![CDATA[)
@@ -297,8 +300,8 @@ class Element(Node):
     )
 
     def __init__(
-        self, attributes=None, text=None, cdata=None, qname=None, qattributes=None, check_grammar=True, **args
-    ):
+        self: _typing.Self, attributes: _typing.Any = None, text: _typing.Any = None, cdata: _typing.Any = None, qname: _typing.Any = None, qattributes: _typing.Any = None, check_grammar: bool = True, **args: _typing.Any
+    ) -> None:
         if qname is not None:
             self.qname = qname
         assert hasattr(self, "qname")
@@ -340,7 +343,7 @@ class Element(Node):
                         "Required attribute missing: {} in <{}>".format(r[1].lower().replace("-", ""), self.tagName)
                     )
 
-    def get_knownns(self, prefix):
+    def get_knownns(self: _typing.Self, prefix: _typing.Any) -> _typing.Any:
         """Odfpy maintains a list of known namespaces. In some cases a prefix is used, and
         we need to know which namespace it resolves to.
         """
@@ -350,7 +353,7 @@ class Element(Node):
                 return ns
         return None
 
-    def get_nsprefix(self, namespace):
+    def get_nsprefix(self: _typing.Self, namespace: _typing.Any) -> _typing.Any:
         """Odfpy maintains a list of known namespaces. In some cases we have a namespace URL,
         and needs to look up or assign the prefix for it.
         """
@@ -361,15 +364,15 @@ class Element(Node):
             self.namespaces[namespace] = prefix
         return prefix
 
-    def allowed_attributes(self):
+    def allowed_attributes(self: _typing.Self) -> _typing.Any:
         return grammar.allowed_attributes.get(self.qname)
 
-    def _setOwnerDoc(self, element):
+    def _setOwnerDoc(self: _typing.Self, element: _typing.Any) -> None:
         element.ownerDocument = self.ownerDocument
         for child in element.childNodes:
             self._setOwnerDoc(child)
 
-    def addElement(self, element, check_grammar=True):
+    def addElement(self: _typing.Self, element: _typing.Any, check_grammar: bool = True) -> None:
         """adds an element to an Element
 
         Element.addElement(Element)
@@ -382,7 +385,7 @@ class Element(Node):
         if self.ownerDocument:
             self.ownerDocument.rebuild_caches(element)
 
-    def addText(self, text, check_grammar=True):
+    def addText(self: _typing.Self, text: _typing.Any, check_grammar: bool = True) -> None:
         """Adds text to an element
         Setting check_grammar=False turns off grammar checking
         """
@@ -392,7 +395,7 @@ class Element(Node):
             if text != "":
                 self.appendChild(Text(text))
 
-    def addCDATA(self, cdata, check_grammar=True):
+    def addCDATA(self: _typing.Self, cdata: _typing.Any, check_grammar: bool = True) -> None:
         """Adds CDATA to an element
         Setting check_grammar=False turns off grammar checking
         """
@@ -401,7 +404,7 @@ class Element(Node):
         else:
             self.appendChild(CDATASection(cdata))
 
-    def removeAttribute(self, attr, check_grammar=True):
+    def removeAttribute(self: _typing.Self, attr: _typing.Any, check_grammar: bool = True) -> None:
         """Removes an attribute by name."""
         allowed_attrs = self.allowed_attributes()
         if allowed_attrs is None:
@@ -418,7 +421,7 @@ class Element(Node):
             i = allowed_args.index(attr)
             self.removeAttrNS(allowed_attrs[i][0], allowed_attrs[i][1])
 
-    def setAttribute(self, attr, value, check_grammar=True):
+    def setAttribute(self: _typing.Self, attr: _typing.Any, value: _typing.Any, check_grammar: bool = True) -> None:
         """Add an attribute to the element
         This is sort of a convenience method. All attributes in ODF have
         namespaces. The library knows what attributes are legal and then allows
@@ -441,7 +444,7 @@ class Element(Node):
             i = allowed_args.index(attr)
             self.setAttrNS(allowed_attrs[i][0], allowed_attrs[i][1], value)
 
-    def setAttrNS(self, namespace, localpart, value):
+    def setAttrNS(self: _typing.Self, namespace: _typing.Any, localpart: _typing.Any, value: _typing.Any) -> None:
         """Add an attribute to the element
         In case you need to add an attribute the library doesn't know about
         then you must provide the full qualified name
@@ -451,13 +454,13 @@ class Element(Node):
         c = AttrConverters()
         self.attributes[(namespace, localpart)] = c.convert((namespace, localpart), value, self)
 
-    def getAttrNS(self, namespace, localpart):
+    def getAttrNS(self: _typing.Self, namespace: _typing.Any, localpart: _typing.Any) -> _typing.Any:
         return self.attributes.get((namespace, localpart))
 
-    def removeAttrNS(self, namespace, localpart):
+    def removeAttrNS(self: _typing.Self, namespace: _typing.Any, localpart: _typing.Any) -> None:
         del self.attributes[(namespace, localpart)]
 
-    def getAttribute(self, attr):
+    def getAttribute(self: _typing.Self, attr: _typing.Any) -> _typing.Any:
         """Get an attribute value. The method knows which namespace the attribute is in"""
         allowed_attrs = self.allowed_attributes()
         if allowed_attrs is None:
@@ -472,7 +475,7 @@ class Element(Node):
             i = allowed_args.index(attr)
             return self.getAttrNS(allowed_attrs[i][0], allowed_attrs[i][1])
 
-    def write_open_tag(self, level, f):
+    def write_open_tag(self: _typing.Self, level: _typing.Any, f: _typing.Any) -> None:
         f.write("<" + self.tagName)
         if level == 0:
             for namespace, prefix in self.namespaces.items():
@@ -487,10 +490,10 @@ class Element(Node):
             )
         f.write(">")
 
-    def write_close_tag(self, level, f):
+    def write_close_tag(self: _typing.Self, level: _typing.Any, f: _typing.Any) -> None:
         f.write("</" + self.tagName + ">")
 
-    def toXml(self, level, f):
+    def toXml(self: _typing.Self, level: _typing.Any, f: _typing.Any) -> None:
         """Generate XML stream out of the tree structure"""
         f.write("<" + self.tagName)
         if level == 0:
@@ -512,7 +515,7 @@ class Element(Node):
         else:
             f.write("/>")
 
-    def _getElementsByObj(self, obj, accumulator):
+    def _getElementsByObj(self: _typing.Self, obj: _typing.Any, accumulator: _typing.Any) -> _typing.Any:
         if self.qname == obj.qname:
             accumulator.append(self)
         for e in self.childNodes:
@@ -520,12 +523,12 @@ class Element(Node):
                 accumulator = e._getElementsByObj(obj, accumulator)
         return accumulator
 
-    def getElementsByType(self, element):
+    def getElementsByType(self: _typing.Self, element: _typing.Any) -> _typing.Any:
         """Gets elements based on the type, which is function from text.py, draw.py etc."""
         obj = element(check_grammar=False)
         return self._getElementsByObj(obj, [])
 
-    def isInstanceOf(self, element):
+    def isInstanceOf(self: _typing.Self, element: _typing.Any) -> bool:
         """This is a check to see if the object is an instance of a type"""
         obj = element(check_grammar=False)
         return self.qname == obj.qname

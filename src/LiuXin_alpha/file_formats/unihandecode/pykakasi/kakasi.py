@@ -21,6 +21,9 @@
 # *
 # */
 
+from __future__ import annotations
+
+import typing as _typing
 from LiuXin_alpha.file_formats.unihandecode.pykakasi.j2h import J2H
 from LiuXin_alpha.file_formats.unihandecode.pykakasi.h2a import H2a
 from LiuXin_alpha.file_formats.unihandecode.pykakasi.k2a import K2a
@@ -32,12 +35,12 @@ class kakasi(object):
     h2a = None
     k2a = None
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.j2h = J2H()
         self.h2a = H2a()
         self.k2a = K2a()
 
-    def do(self, text):
+    def do(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         otext = ""
         i = 0
         while True:

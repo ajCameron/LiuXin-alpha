@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
@@ -60,13 +63,13 @@ class MobiReader(object):
     MAX_TOTAL_TEXT_UNCOMPRESSED_SIZE = 128 * 1024 * 1024
 
     def __init__(
-        self,
-        filename_or_stream,
-        log,
-        user_encoding=None,
-        debug=None,
-        try_extra_data_fix=False,
-    ):
+        self: _typing.Self,
+        filename_or_stream: _typing.Any,
+        log: _typing.Any,
+        user_encoding: _typing.Any = None,
+        debug: _typing.Any = None,
+        try_extra_data_fix: bool = False,
+    ) -> None:
         self.log = log
         self.debug = debug
         self.embedded_mi = None
@@ -115,7 +118,7 @@ class MobiReader(object):
 
         self.sections = []
 
-        def section(section_number):
+        def section(section_number: _typing.Any) -> _typing.Any:
             if section_number == self.num_sections - 1:
                 end_off = len(raw)
             else:
@@ -166,7 +169,7 @@ class MobiReader(object):
                 except:
                     self.book_header = bh
 
-    def check_for_drm(self):
+    def check_for_drm(self: _typing.Self) -> None:
         if self.book_header.encryption_type != 0:
             try:
                 name = self.book_header.exth.mi.title
@@ -176,7 +179,7 @@ class MobiReader(object):
                 name = self.name
             raise DRMError(name)
 
-    def extract_content(self, output_dir, parse_cache):
+    def extract_content(self: _typing.Self, output_dir: _typing.Any, parse_cache: _typing.Any) -> None:
         output_dir = os.path.abspath(output_dir)
         self.check_for_drm()
         processed_records = self.extract_text()
@@ -339,7 +342,7 @@ class MobiReader(object):
                 with open(os.path.splitext(htmlfile)[0] + ".ncx", "wb") as ncx_file:
                     ncx_file.write(ncx)
 
-    def read_embedded_metadata(self, root, elem, guide):
+    def read_embedded_metadata(self: _typing.Self, root: _typing.Any, elem: _typing.Any, guide: _typing.Any) -> None:
         elem_xml = html.tostring(elem, encoding="utf-8").decode("utf-8", "replace")
         raw = '<?xml version="1.0" encoding="utf-8" ?>\n<package>' + elem_xml + "</package>"
         stream = six_cStringIO(raw)
@@ -365,7 +368,7 @@ class MobiReader(object):
                                 break
                     break
 
-    def cleanup_html(self):
+    def cleanup_html(self: _typing.Self) -> None:
         self.log.debug("Cleaning up HTML...")
         self.processed_html = re.sub(r'<div height="0(pt|px|ex|em|%){0,1}"></div>', "", self.processed_html)
         if self.book_header.ancient and b"<html" not in self.mobi_html[:300].lower():
@@ -416,19 +419,19 @@ class MobiReader(object):
         if htmls > 1:
             self.processed_html = self.processed_html.replace("</html>", "")
 
-    def remove_random_bytes(self, html):
+    def remove_random_bytes(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         return re.sub(
             "\x14|\x15|\x19|\x1c|\x1d|\xef|\x12|\x13|\xec|\x08|\x01|\x02|\x03|\x04|\x05|\x06|\x07",
             "",
             html,
         )
 
-    def ensure_unit(self, raw, unit="px"):
+    def ensure_unit(self: _typing.Self, raw: _typing.Any, unit: str = "px") -> _typing.Any:
         if re.search(r"\d+$", raw) is not None:
             raw += unit
         return raw
 
-    def upshift_markup(self, root):
+    def upshift_markup(self: _typing.Self, root: _typing.Any) -> None:
         self.log.debug("Converting style information to CSS...")
         size_map = {
             "xx-small": "0.5",
@@ -440,7 +443,7 @@ class MobiReader(object):
             "xx-large": "6",
         }
 
-        def barename(bare_x):
+        def barename(bare_x: _typing.Any) -> _typing.Any:
             return bare_x.rpartition(":")[-1]
 
         mobi_version = self.book_header.mobi_version
@@ -658,8 +661,8 @@ class MobiReader(object):
             else:
                 block.attrib["id"] = tag.attrib["id"]
 
-    def get_left_whitespace(self, tag):
-        def whitespace(tag):
+    def get_left_whitespace(self: _typing.Self, tag: _typing.Any) -> _typing.Any:
+        def whitespace(tag: _typing.Any) -> _typing.Any:
             lm = ti = 0.0
             if tag.tag == "p":
                 ti = unit_convert("1.5em", 12, 500, 166)
@@ -685,7 +688,7 @@ class MobiReader(object):
 
         return ans
 
-    def create_opf(self, htmlfile, guide=None, root=None, styles_css_path=None):
+    def create_opf(self: _typing.Self, htmlfile: _typing.Any, guide: _typing.Any = None, root: _typing.Any = None, styles_css_path: _typing.Any = None) -> tuple[_typing.Any, ...]:
         mi = getattr(self.book_header.exth, "mi", self.embedded_mi)
         if mi is None:
             mi = MetaInformation(self.book_header.title, [_("Unknown")])
@@ -775,7 +778,7 @@ class MobiReader(object):
 
         return opf, ncx_manifest_entry
 
-    def structure_toc(self, toc):
+    def structure_toc(self: _typing.Self, toc: _typing.Any) -> _typing.Any:
         indent_vals = set()
         for item in toc:
             indent_vals.add(item.left_space)
@@ -788,7 +791,7 @@ class MobiReader(object):
 
         newtoc = TOC()
 
-        def find_parent(local_level):
+        def find_parent(local_level: _typing.Any) -> _typing.Any:
             candidates = last_found[:local_level]
             for x in reversed(candidates):
                 if x is not None:
@@ -802,8 +805,8 @@ class MobiReader(object):
 
         return newtoc
 
-    def sizeof_trailing_entries(self, data):
-        def sizeof_trailing_entry(ptr, psize):
+    def sizeof_trailing_entries(self: _typing.Self, data: _typing.Any) -> _typing.Any:
+        def sizeof_trailing_entry(ptr: _typing.Any, psize: _typing.Any) -> _typing.Any:
             bitpos, result = 0, 0
             while True:
                 v = ptr[psize - 1]
@@ -824,24 +827,24 @@ class MobiReader(object):
             num += (data[size - num - 1] & 0x3) + 1
         return num
 
-    def text_section(self, index):
+    def text_section(self: _typing.Self, index: _typing.Any) -> _typing.Any:
         data = self.sections[index][0]
         trail_size = self.sizeof_trailing_entries(data)
         return data[: len(data) - trail_size]
 
-    def text_record_uncompressed_limit(self):
+    def text_record_uncompressed_limit(self: _typing.Self) -> _typing.Any:
         declared = max(int(getattr(self.book_header, "records_size", 0) or 0), 0)
         configured = max(int(self.MAX_TEXT_RECORD_UNCOMPRESSED_SIZE), 1)
         return min(declared, configured) if declared else configured
 
-    def total_text_uncompressed_limit(self, record_limit):
+    def total_text_uncompressed_limit(self: _typing.Self, record_limit: _typing.Any) -> _typing.Any:
         declared_records = max(int(getattr(self.book_header, "records", 0) or 0), 0)
         configured = max(int(self.MAX_TOTAL_TEXT_UNCOMPRESSED_SIZE), record_limit)
         if declared_records:
             return min(configured, declared_records * record_limit)
         return configured
 
-    def checked_text_record(self, data, section_number, record_limit, total_size, total_limit):
+    def checked_text_record(self: _typing.Self, data: _typing.Any, section_number: _typing.Any, record_limit: _typing.Any, total_size: _typing.Any, total_limit: _typing.Any) -> _typing.Any:
         if isinstance(data, str):
             data = data.encode(self.book_header.codec, "replace")
         size = len(data)
@@ -857,7 +860,7 @@ class MobiReader(object):
             )
         return data
 
-    def extract_text(self, offset=1):
+    def extract_text(self: _typing.Self, offset: int = 1) -> _typing.Any:
         self.log.debug("Extracting text...")
         text_sections = [
             self.text_section(i)
@@ -890,7 +893,7 @@ class MobiReader(object):
 
         elif self.book_header.compression_type == b"\x00\x01":
 
-            def unpack(x):
+            def unpack(x: _typing.Any) -> _typing.Any:
                 return x
 
         else:
@@ -926,10 +929,10 @@ class MobiReader(object):
             self.mobi_html = self.mobi_html.replace(b"\x02", b"")  # start of text
         return processed_records
 
-    def replace_page_breaks(self):
+    def replace_page_breaks(self: _typing.Self) -> None:
         self.processed_html = self.PAGE_BREAK_PAT.sub(r'<div \1 class="mbp_pagebreak" />', self.processed_html)
 
-    def add_anchors(self):
+    def add_anchors(self: _typing.Self) -> None:
         self.log.debug("Adding anchors...")
         positions = set([])
         link_pattern = re.compile(br"""<[^<>]+filepos=['"]{0,1}(\d+)[^<>]*>""", re.IGNORECASE)
@@ -965,7 +968,7 @@ class MobiReader(object):
         # Remove anchors placed inside entities
         self.processed_html = re.sub(r'&([^;]*?)(<a id="filepos\d+"></a>)([^;]*);', r"&\1\3;\2", processed_html)
 
-    def extract_images(self, processed_records, output_dir):
+    def extract_images(self: _typing.Self, processed_records: _typing.Any, output_dir: _typing.Any) -> None:
         self.log.debug("Extracting images...")
         if PILImage is None:
             self.log.warning("Pillow is not available, skipping MOBI image extraction")
@@ -1014,7 +1017,7 @@ class MobiReader(object):
                 im.save(jpeg_save_file, format="JPEG")
 
 
-def test_mbp_regex():
+def test_mbp_regex() -> None:
     for raw, m in iteritems(
         {
             "<mbp:pagebreak></mbp:pagebreak>": "",

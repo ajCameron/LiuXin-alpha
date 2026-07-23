@@ -3,6 +3,9 @@
 """
 Render HTML tables as images.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import atexit
 import os
@@ -37,7 +40,7 @@ __docformat__ = "restructuredtext en"
 
 
 class HTMLTableRenderer(QObject):
-    def __init__(self, html, base_dir, width, height, dpi, factor):
+    def __init__(self: _typing.Self, html: _typing.Any, base_dir: _typing.Any, width: _typing.Any, height: _typing.Any, dpi: _typing.Any, factor: _typing.Any) -> None:
         """
         `width, height`: page width and height in pixels
         `base_dir`: The directory in which the HTML file that contains the table resides
@@ -64,7 +67,7 @@ class HTMLTableRenderer(QObject):
         self.page.mainFrame().setTextSizeMultiplier(factor)
         self.page.mainFrame().setHtml(html, QUrl("file:" + os.path.abspath(self.base_dir)))
 
-    def render_html(self, ok):
+    def render_html(self: _typing.Self, ok: _typing.Any) -> None:
         try:
             if not ok:
                 return
@@ -96,7 +99,7 @@ class HTMLTableRenderer(QObject):
             QApplication.quit()
 
 
-def render_table(soup, table, css, base_dir, width, height, dpi, factor=1.0):
+def render_table(soup: _typing.Any, table: _typing.Any, css: _typing.Any, base_dir: _typing.Any, width: _typing.Any, height: _typing.Any, dpi: _typing.Any, factor: float = 1.0) -> _typing.Any:
     head = ""
     for e in soup.findAll(["link", "style"]):
         head += six_unicode(e) + "\n\n"
@@ -126,7 +129,7 @@ def render_table(soup, table, css, base_dir, width, height, dpi, factor=1.0):
     return images
 
 
-def do_render(html, base_dir, width, height, dpi, factor):
+def do_render(html: _typing.Any, base_dir: _typing.Any, width: _typing.Any, height: _typing.Any, dpi: _typing.Any, factor: _typing.Any) -> tuple[_typing.Any, ...]:
     try:
         from LiuXin_alpha.surfaces.gui2 import is_ok_to_use_qt
     except Exception:

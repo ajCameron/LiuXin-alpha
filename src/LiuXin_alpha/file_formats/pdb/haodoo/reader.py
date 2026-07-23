@@ -3,6 +3,9 @@
 """
 Read content from Haodoo.net pdb file.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import struct
 import os
@@ -52,17 +55,17 @@ punct_table = {
 }
 
 
-def fix_punct(line):
+def fix_punct(line: _typing.Any) -> _typing.Any:
     for (key, value) in punct_table.items():
         line = line.replace(key, value)
     return line
 
 
-def _decode_text(raw, encoding, errors="replace"):
+def _decode_text(raw: _typing.Any, encoding: _typing.Any, errors: str = "replace") -> _typing.Any:
     return fix_punct(raw.decode(encoding, errors).rstrip("\x00"))
 
 
-def _parse_record_count(raw):
+def _parse_record_count(raw: _typing.Any) -> _typing.Any:
     normalized = raw.replace(b"\x00", b"").strip()
     try:
         count = int(normalized)
@@ -73,12 +76,12 @@ def _parse_record_count(raw):
     return count
 
 
-def _validate_header_fields(fields):
+def _validate_header_fields(fields: _typing.Any) -> None:
     if len(fields) < 3:
         raise PDBError("Haodoo header is missing required fields")
 
 
-def _validate_chapter_titles(num_records, chapter_titles):
+def _validate_chapter_titles(num_records: _typing.Any, chapter_titles: _typing.Any) -> None:
     if len(chapter_titles) != num_records:
         raise PDBError(
             "Haodoo chapter title count does not match record count: %d != %d"
@@ -87,7 +90,7 @@ def _validate_chapter_titles(num_records, chapter_titles):
 
 
 class LegacyHeaderRecord(object):
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         fields = raw.lstrip().replace(b"\x1b\x1b\x1b", b"\x1b").split(b"\x1b")
         _validate_header_fields(fields)
         self.title = _decode_text(fields[0], "cp950")
@@ -97,7 +100,7 @@ class LegacyHeaderRecord(object):
 
 
 class UnicodeHeaderRecord(object):
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         fields = (
             raw.lstrip()
             .replace(b"\x1b\x00\x1b\x00\x1b\x00", b"\x1b\x00")
@@ -119,7 +122,7 @@ class UnicodeHeaderRecord(object):
 
 
 class Reader(FormatReader):
-    def __init__(self, header, stream, log, options):
+    def __init__(self: _typing.Self, header: _typing.Any, stream: _typing.Any, log: _typing.Any, options: _typing.Any) -> None:
         self.stream = stream
         self.log = log
 
@@ -148,7 +151,7 @@ class Reader(FormatReader):
                 % (self.header_record.num_records, available_chapter_records)
             )
 
-    def author(self):
+    def author(self: _typing.Self) -> _typing.Any:
         self.stream.seek(35)
         version = struct.unpack(b">b", self.stream.read(1))[0]
         if version == 2:
@@ -158,21 +161,21 @@ class Reader(FormatReader):
         else:
             return "Unknown"
 
-    def get_metadata(self):
+    def get_metadata(self: _typing.Self) -> _typing.Any:
         mi = MetaInformation(self.header_record.title, [self.author()])
         mi.language = "zh-tw"
 
         return mi
 
-    def section_data(self, number):
+    def section_data(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         if not (0 <= number < len(self.sections)):
             raise PDBError("Haodoo section number out of range: %s" % number)
         return self.sections[number]
 
-    def decompress_text(self, number):
+    def decompress_text(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         return self.section_data(number).decode(self.encoding, "replace").rstrip("\x00")
 
-    def extract_content(self, output_dir):
+    def extract_content(self: _typing.Self, output_dir: _typing.Any) -> _typing.Any:
         txt = ""
 
         self.log.info("Decompressing text...")

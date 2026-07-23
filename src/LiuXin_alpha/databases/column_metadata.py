@@ -2,14 +2,133 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from dataclasses import dataclass
+from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import dataclass, field
 from enum import Enum
+import json
+import math
 import re
+from types import MappingProxyType
+from typing import cast
 
 
 COLUMN_METADATA_TABLE = "column_metadata"
 DEFAULT_COLUMN_CASE_SENSITIVE = True
+
+
+type ColumnOptionValue = (
+    str
+    | int
+    | float
+    | bool
+    | None
+    | tuple[ColumnOptionValue, ...]
+    | Mapping[str, ColumnOptionValue]
+)
+type ColumnOptions = Mapping[str, ColumnOptionValue]
+
+
+def _freeze_column_option_value(
+    value: object,
+    *,
+    path: str,
+) -> ColumnOptionValue:
+    """Return one deeply immutable, JSON-compatible option value."""
+
+    if value is None or type(value) in {str, int, bool}:
+        return cast(str | int | bool | None, value)
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ValueError(f"{path} must not contain NaN or infinity")
+        return value
+    if isinstance(value, Mapping):
+        mapping = cast(Mapping[object, object], value)
+        frozen: dict[str, ColumnOptionValue] = {}
+        for key, item in mapping.items():
+            if type(key) is not str:
+                raise TypeError(f"{path} keys must be strings")
+            frozen[key] = _freeze_column_option_value(
+                item,
+                path=f"{path}.{key}",
+            )
+        return MappingProxyType(frozen)
+    if isinstance(value, Sequence) and not isinstance(
+        value,
+        (str, bytes, bytearray, memoryview),
+    ):
+        return tuple(
+            _freeze_column_option_value(item, path=f"{path}[{index}]")
+            for index, item in enumerate(value)
+        )
+    raise TypeError(
+        f"{path} contains unsupported value type {type(value).__name__!r}"
+    )
+
+
+def freeze_column_options(
+    options: object | None,
+    *,
+    field_name: str = "options",
+) -> ColumnOptions:
+    """Validate and deeply freeze a column formatting/display option map."""
+
+    if options is None:
+        options = {}
+    if not isinstance(options, Mapping):
+        raise TypeError(f"{field_name} must be a mapping")
+    frozen = _freeze_column_option_value(
+        cast(Mapping[object, object], options),
+        path=field_name,
+    )
+    assert isinstance(frozen, Mapping)
+    return frozen
+
+
+def _mutable_column_option_value(value: ColumnOptionValue) -> object:
+    if isinstance(value, Mapping):
+        return {
+            key: _mutable_column_option_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, tuple):
+        return [_mutable_column_option_value(item) for item in value]
+    return value
+
+
+def column_options_to_json(options: Mapping[str, object] | None) -> str:
+    """Serialize an option map to stable, portable JSON object text."""
+
+    frozen = freeze_column_options(options)
+    payload = _mutable_column_option_value(frozen)
+    return json.dumps(
+        payload,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def column_options_from_json(
+    value: object,
+    *,
+    field_name: str = "options",
+) -> ColumnOptions:
+    """Decode database JSON text into an immutable option map."""
+
+    if value is None:
+        return freeze_column_options({}, field_name=field_name)
+    if isinstance(value, memoryview):
+        value = value.tobytes()
+    if isinstance(value, (bytes, bytearray)):
+        value = bytes(value).decode("utf-8")
+    if isinstance(value, str):
+        decoded = cast(object, json.loads(value))
+    else:
+        decoded = value
+    if not isinstance(decoded, Mapping):
+        raise ValueError(f"{field_name} JSON must contain an object")
+    return freeze_column_options(cast(object, decoded), field_name=field_name)
 
 
 class ColumnSemanticRole(str, Enum):
@@ -87,6 +206,30 @@ class ColumnMetadata:
     empty_value_policy: ColumnEmptyValuePolicy
     merge_policy: ColumnMergePolicy
     validation_profile: ColumnValidationProfile
+    formatting_options: ColumnOptions = field(
+        default_factory=lambda: MappingProxyType({})
+    )
+    display_options: ColumnOptions = field(
+        default_factory=lambda: MappingProxyType({})
+    )
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "formatting_options",
+            freeze_column_options(
+                self.formatting_options,
+                field_name="formatting_options",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "display_options",
+            freeze_column_options(
+                self.display_options,
+                field_name="display_options",
+            ),
+        )
 
 # Case sensitivity describes equality and deduplication, not storage: writers
 # always retain the original display text.

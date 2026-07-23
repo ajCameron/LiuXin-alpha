@@ -1,6 +1,9 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import csv
 from collections import Counter, defaultdict
@@ -39,7 +42,7 @@ border_props = ("padding_%s", "border_%s_width", "border_%s_style", "border_%s_c
 ignore = object()
 
 
-def parse_css_font_family(raw):
+def parse_css_font_family(raw: _typing.Any) -> _typing.Iterator[_typing.Any]:
     if css_parser is not None:
         decl, errs = css_parser.parse_style_attr("font-family:" + raw)
         if decl:
@@ -61,7 +64,7 @@ def parse_css_font_family(raw):
             yield val
 
 
-def css_font_family_to_docx(raw):
+def css_font_family_to_docx(raw: _typing.Any) -> _typing.Any:
     generic = {
         "serif": "Cambria",
         "sansserif": "Candara",
@@ -73,11 +76,11 @@ def css_font_family_to_docx(raw):
         return generic.get(ff.lower(), ff)
 
 
-def bmap(x):
+def bmap(x: _typing.Any) -> _typing.Any:
     return "on" if x else "off"
 
 
-def is_dropcaps(html_tag, tag_style):
+def is_dropcaps(html_tag: _typing.Any, tag_style: _typing.Any) -> bool:
     return (
         len(html_tag) < 2
         and len(etree.tostring(html_tag, method="text", encoding=six_unicode, with_tail=False)) < 5
@@ -86,19 +89,19 @@ def is_dropcaps(html_tag, tag_style):
 
 
 class CombinedStyle(object):
-    def __init__(self, bs, rs, blocks, namespace):
+    def __init__(self: _typing.Self, bs: _typing.Any, rs: _typing.Any, blocks: _typing.Any, namespace: _typing.Any) -> None:
         self.bs, self.rs, self.blocks = bs, rs, blocks
         self.namespace = namespace
         self.id = self.name = self.seq = None
         self.outline_level = None
 
-    def apply(self):
+    def apply(self: _typing.Self) -> None:
         for block in self.blocks:
             block.linked_style = self
             for run in block.runs:
                 run.parent_style = self.rs
 
-    def serialize(self, styles, normal_style):
+    def serialize(self: _typing.Self, styles: _typing.Any, normal_style: _typing.Any) -> None:
         makeelement = self.namespace.makeelement
         w = lambda x: "{%s}%s" % (self.namespace.namespaces["w"], x)
         block = makeelement(styles, "w:style", w_styleId=self.id, w_type="paragraph")
@@ -117,7 +120,7 @@ class CombinedStyle(object):
 
 
 class FloatSpec(object):
-    def __init__(self, namespace, html_tag, tag_style):
+    def __init__(self: _typing.Self, namespace: _typing.Any, html_tag: _typing.Any, tag_style: _typing.Any) -> None:
         self.makeelement = namespace.makeelement
         self.is_dropcaps = is_dropcaps(html_tag, tag_style)
         self.blocks = []
@@ -141,7 +144,7 @@ class FloatSpec(object):
 
         read_css_block_borders(self, tag_style)
 
-    def serialize(self, block, parent):
+    def serialize(self: _typing.Self, block: _typing.Any, parent: _typing.Any) -> None:
         if self.is_dropcaps:
             attrs = dict(
                 w_dropCap="drop",
@@ -198,29 +201,29 @@ class DOCXStyle(object):
     ALL_PROPS = ()
     TYPE = "paragraph"
 
-    def __init__(self, namespace):
+    def __init__(self: _typing.Self, namespace: _typing.Any) -> None:
         self.namespace = namespace
         self.w = lambda x: "{%s}%s" % (namespace.namespaces["w"], x)
         self._hash = hash(tuple(getattr(self, x) for x in self.ALL_PROPS))
         self.id = self.name = None
         self.next_style = None
 
-    def makeelement(self, parent, name, **attrs):
+    def makeelement(self: _typing.Self, parent: _typing.Any, name: _typing.Any, **attrs: _typing.Any) -> _typing.Any:
         return parent.makeelement(self.w(name), **{self.w(k): v for k, v in iteritems(attrs)})
 
-    def __hash__(self):
+    def __hash__(self: _typing.Self) -> _typing.Any:
         return self._hash
 
-    def __eq__(self, other):
+    def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
         for x in self.ALL_PROPS:
             if getattr(self, x) != getattr(other, x, None):
                 return False
         return True
 
-    def __ne__(self, other):
+    def __ne__(self: _typing.Self, other: _typing.Any) -> bool:
         return not self == other
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return etree.tostring(
             self.serialize(etree.Element(self.__class__.__name__, nsmap={"w": self.namespace.namespaces["w"]})),
             pretty_print=True,
@@ -228,7 +231,7 @@ class DOCXStyle(object):
 
     __str__ = __repr__
 
-    def serialize(self, styles, normal_style):
+    def serialize(self: _typing.Self, styles: _typing.Any, normal_style: _typing.Any) -> _typing.Any:
         makeelement = self.makeelement
         style = makeelement(styles, "style", styleId=self.id, type=self.TYPE)
         style.append(makeelement(style, "name", val=self.name))
@@ -276,7 +279,7 @@ class TextStyle(DOCXStyle):
     )
     TYPE = "character"
 
-    def __init__(self, namespace, css, is_parent_style=False):
+    def __init__(self: _typing.Self, namespace: _typing.Any, css: _typing.Any, is_parent_style: bool = False) -> None:
         self.font_family = css_font_family_to_docx(css["font-family"])
         try:
             self.font_size = max(0, int(float(css["font-size"]) * 2))  # stylizer normalizes all font sizes into pts
@@ -363,7 +366,7 @@ class TextStyle(DOCXStyle):
 
         DOCXStyle.__init__(self, namespace)
 
-    def serialize_borders(self, bdr, normal_style):
+    def serialize_borders(self: _typing.Self, bdr: _typing.Any, normal_style: _typing.Any) -> _typing.Any:
         w = self.w
         is_normal_style = self is normal_style
         if is_normal_style or self.padding != normal_style.padding:
@@ -376,7 +379,7 @@ class TextStyle(DOCXStyle):
             bdr.set(w("color"), self.border_color)
         return bdr
 
-    def serialize(self, styles, normal_style):
+    def serialize(self: _typing.Self, styles: _typing.Any, normal_style: _typing.Any) -> _typing.Any:
         makeelement = self.makeelement
         style_root = DOCXStyle.serialize(self, styles, normal_style)
         style = makeelement(style_root, "rPr")
@@ -385,7 +388,7 @@ class TextStyle(DOCXStyle):
             style_root.append(style)
         return style_root
 
-    def serialize_properties(self, rPr, normal_style):
+    def serialize_properties(self: _typing.Self, rPr: _typing.Any, normal_style: _typing.Any) -> None:
         makeelement = self.makeelement
         is_normal_style = self is normal_style
         if is_normal_style or self.font_family != normal_style.font_family:
@@ -401,7 +404,7 @@ class TextStyle(DOCXStyle):
                 for suffix in ("", "Cs"):
                     rPr.append(makeelement(rPr, name + suffix, val=vmap(val)))
 
-        def check_attr(local_attr):
+        def check_attr(local_attr: _typing.Any) -> bool:
             local_val = getattr(self, local_attr)
             return is_normal_style or (local_val != getattr(normal_style, local_attr))
 
@@ -443,19 +446,19 @@ class TextStyle(DOCXStyle):
 
 
 class DescendantTextStyle(object):
-    def __init__(self, parent_style, child_style):
+    def __init__(self: _typing.Self, parent_style: _typing.Any, child_style: _typing.Any) -> None:
         self.id = self.name = None
         self.makeelement = child_style.makeelement
 
         p = []
 
-        def add(name, **props):
+        def add(name: _typing.Any, **props: _typing.Any) -> None:
             p.append((name, frozenset(iteritems(props))))
 
-        def vals(local_attr):
+        def vals(local_attr: _typing.Any) -> tuple[_typing.Any, ...]:
             return getattr(parent_style, local_attr), getattr(child_style, local_attr)
 
-        def check(local_attr):
+        def check(local_attr: _typing.Any) -> bool:
             local_pval, local_cval = vals(local_attr)
             return local_pval != local_cval
 
@@ -508,16 +511,16 @@ class DescendantTextStyle(object):
         self.properties = tuple(p)
         self._hash = hash(self.properties)
 
-    def __hash__(self):
+    def __hash__(self: _typing.Self) -> _typing.Any:
         return self._hash
 
-    def __eq__(self, other):
+    def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
         return self.properties == other.properties
 
-    def __ne__(self, other):
+    def __ne__(self: _typing.Self, other: _typing.Any) -> bool:
         return self.properties != other.properties
 
-    def serialize(self, styles):
+    def serialize(self: _typing.Self, styles: _typing.Any) -> _typing.Any:
         makeelement = self.makeelement
         style = makeelement(styles, "style", styleId=self.id, type="character")
         style.append(makeelement(style, "name", val=self.name))
@@ -529,7 +532,7 @@ class DescendantTextStyle(object):
         return style
 
 
-def read_css_block_borders(self, css, store_css_style=False):
+def read_css_block_borders(self: _typing.Any, css: _typing.Any, store_css_style: bool = False) -> None:
     for edge in border_edges:
         if css is None:
             setattr(self, "padding_" + edge, 0)
@@ -584,7 +587,7 @@ class BlockStyle(DOCXStyle):
         + [x % edge for edge in border_edges for x in border_props]
     )
 
-    def __init__(self, namespace, css, html_block, is_table_cell=False):
+    def __init__(self: _typing.Self, namespace: _typing.Any, css: _typing.Any, html_block: _typing.Any, is_table_cell: bool = False) -> None:
         read_css_block_borders(self, css)
         if is_table_cell:
             for edge in border_edges:
@@ -621,7 +624,7 @@ class BlockStyle(DOCXStyle):
 
         DOCXStyle.__init__(self, namespace)
 
-    def serialize_borders(self, bdr, normal_style):
+    def serialize_borders(self: _typing.Self, bdr: _typing.Any, normal_style: _typing.Any) -> _typing.Any:
         w = self.w
         for edge in border_edges:
             e = bdr.makeelement(w(edge))
@@ -642,7 +645,7 @@ class BlockStyle(DOCXStyle):
                 bdr.append(e)
         return bdr
 
-    def serialize(self, styles, normal_style):
+    def serialize(self: _typing.Self, styles: _typing.Any, normal_style: _typing.Any) -> _typing.Any:
         makeelement = self.makeelement
         style_root = DOCXStyle.serialize(self, styles, normal_style)
         style = makeelement(style_root, "pPr")
@@ -651,7 +654,7 @@ class BlockStyle(DOCXStyle):
             style_root.append(style)
         return style_root
 
-    def serialize_properties(self, pPr, normal_style):
+    def serialize_properties(self: _typing.Self, pPr: _typing.Any, normal_style: _typing.Any) -> None:
         makeelement, w = self.makeelement, self.w
         spacing = makeelement(pPr, "spacing")
         for edge, attr in iteritems({"top": "before", "bottom": "after"}):
@@ -733,13 +736,13 @@ class BlockStyle(DOCXStyle):
 
 
 class StylesManager(object):
-    def __init__(self, namespace, log, document_lang):
+    def __init__(self: _typing.Self, namespace: _typing.Any, log: _typing.Any, document_lang: _typing.Any) -> None:
         self.namespace = namespace
         self.document_lang = lang_as_iso639_1(document_lang) or "en"
         self.log = log
         self.block_styles, self.text_styles = {}, {}
 
-    def create_text_style(self, css_style, is_parent_style=False):
+    def create_text_style(self: _typing.Self, css_style: _typing.Any, is_parent_style: bool = False) -> _typing.Any:
         ans = TextStyle(self.namespace, css_style, is_parent_style=is_parent_style)
         existing = self.text_styles.get(ans, None)
         if existing is None:
@@ -748,7 +751,7 @@ class StylesManager(object):
             ans = existing
         return ans
 
-    def create_block_style(self, css_style, html_block, is_table_cell=False):
+    def create_block_style(self: _typing.Self, css_style: _typing.Any, html_block: _typing.Any, is_table_cell: bool = False) -> _typing.Any:
         ans = BlockStyle(self.namespace, css_style, html_block, is_table_cell=is_table_cell)
         existing = self.block_styles.get(ans, None)
         if existing is None:
@@ -757,7 +760,7 @@ class StylesManager(object):
             ans = existing
         return ans
 
-    def finalize(self, all_blocks):
+    def finalize(self: _typing.Self, all_blocks: _typing.Any) -> None:
         block_counts, run_counts = Counter(), Counter()
         block_rmap, run_rmap = defaultdict(list), defaultdict(list)
         used_pairs = defaultdict(list)
@@ -854,7 +857,7 @@ class StylesManager(object):
                     self.primary_heading_style = s
                     ms = s.rs.font_size
 
-    def serialize(self, styles):
+    def serialize(self: _typing.Self, styles: _typing.Any) -> None:
         lang = styles.xpath('descendant::*[local-name()="lang"]')[0]
         for k in tuple(lang.attrib):
             lang.attrib[k] = self.document_lang

@@ -4,6 +4,9 @@ Basic support for manipulating OEB 1.x/2.0 content and metadata.
 OEB files where a precursor to EPUB - a XML file and a manifest packaged in a zip file, with a .opf file extension.
 Hence, some of the tools to manipulate XML files are here.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import logging
 import os
@@ -19,7 +22,7 @@ try:
     from lxml import html  # type: ignore
 except Exception:  # pragma: no cover - runtime without lxml
     class _MissingLxmlHtml:
-        def __getattr__(self, name):
+        def __getattr__(self: _typing.Self, name: _typing.Any) -> None:
             raise ImportError("lxml.html is unavailable in this runtime")
 
     html = _MissingLxmlHtml()
@@ -109,7 +112,7 @@ OPF2_NSMAP = {
 }
 
 
-def XML(name):
+def XML(name: _typing.Any) -> _typing.Any:
     """
     Makes a name in the XML namespace.
     :param name:
@@ -118,11 +121,11 @@ def XML(name):
     return "{%s}%s" % (XML_NS, name)
 
 
-def OPF(name):
+def OPF(name: _typing.Any) -> _typing.Any:
     return "{%s}%s" % (OPF2_NS, name)
 
 
-def DC(name):
+def DC(name: _typing.Any) -> _typing.Any:
     """
     Names in the Dublin core metadata namespace
     :param name:
@@ -131,11 +134,11 @@ def DC(name):
     return "{%s}%s" % (DC11_NS, name)
 
 
-def XSI(name):
+def XSI(name: _typing.Any) -> _typing.Any:
     return "{%s}%s" % (XSI_NS, name)
 
 
-def DCTERMS(name):
+def DCTERMS(name: _typing.Any) -> _typing.Any:
     """
     dcterms is a more specified version of Dublin Core. For more information on the semantic differences.
     http://wiki.dublincore.org/index.php/FAQ/DC_and_DCTERMS_Namespaces
@@ -145,19 +148,19 @@ def DCTERMS(name):
     return "{%s}%s" % (DCTERMS_NS, name)
 
 
-def NCX(name):
+def NCX(name: _typing.Any) -> _typing.Any:
     return "{%s}%s" % (NCX_NS, name)
 
 
-def SVG(name):
+def SVG(name: _typing.Any) -> _typing.Any:
     return "{%s}%s" % (SVG_NS, name)
 
 
-def XLINK(name):
+def XLINK(name: _typing.Any) -> _typing.Any:
     return "{%s}%s" % (XLINK_NS, name)
 
 
-def CALIBRE(name):
+def CALIBRE(name: _typing.Any) -> _typing.Any:
     """
     Makes a name in the calibre namespace.
     :param name:
@@ -253,24 +256,24 @@ _self_closing_pat_bytes = re.compile(
 )
 
 
-def close_self_closing_tags(raw):
+def close_self_closing_tags(raw: _typing.Any) -> _typing.Any:
     if isinstance(raw, bytes):
         return _self_closing_pat_bytes.sub(br"<\g<tag>\g<arg>></\g<tag>>", raw)
     return _self_closing_pat.sub(r"<\g<tag>\g<arg>></\g<tag>>", raw)
 
 
-def uuid_id():
+def uuid_id() -> _typing.Any:
     return "u" + six_unicode(uuid.uuid4())
 
 
-def itercsslinks(raw):
+def itercsslinks(raw: _typing.Any) -> _typing.Iterator[_typing.Any]:
     for match in _css_url_re.finditer(raw):
         yield match.group(1), match.start(1)
     for match in _css_import_re.finditer(raw):
         yield match.group(1), match.start(1)
 
 
-def iterlinks(root, find_links_in_css=True):
+def iterlinks(root: _typing.Any, find_links_in_css: bool = True) -> _typing.Iterator[_typing.Any]:
     """
     Iterate over all links in a OEB Document.
     :param root: A valid lxml.etree element.
@@ -321,7 +324,7 @@ def iterlinks(root, find_links_in_css=True):
                 yield (el, "style", match.group(1), match.start(1))
 
 
-def make_links_absolute(root, base_url):
+def make_links_absolute(root: _typing.Any, base_url: _typing.Any) -> None:
     """
     Make all links in the document absolute, given the ``base_url`` for the document (the full URL where the document
     came from)
@@ -330,13 +333,13 @@ def make_links_absolute(root, base_url):
     :return:
     """
 
-    def link_repl(href):
+    def link_repl(href: _typing.Any) -> _typing.Any:
         return urljoin(base_url, href)
 
     rewrite_links(root, link_repl)
 
 
-def resolve_base_href(root):
+def resolve_base_href(root: _typing.Any) -> None:
     base_href = None
     basetags = root.xpath("//base[@href]|//h:base[@href]", namespaces=XPNSMAP)
     for b in basetags:
@@ -347,7 +350,7 @@ def resolve_base_href(root):
     make_links_absolute(root, base_href, resolve_base_href=False)
 
 
-def rewrite_links(root, link_repl_func, resolve_base_href=False):
+def rewrite_links(root: _typing.Any, link_repl_func: _typing.Any, resolve_base_href: bool = False) -> None:
     """
     Rewrite all the links in the document.  For each link ``link_repl_func(link)`` will be called, and the return value
     will replace the old link.
@@ -397,7 +400,7 @@ def rewrite_links(root, link_repl_func, resolve_base_href=False):
     if CSSParser is None:
         # Fallback CSS URL rewriting without cssutils. This handles url(...)
         # and @import references in <style> and inline style attributes.
-        def replace_css_links(text):
+        def replace_css_links(text: _typing.Any) -> _typing.Any:
             if not text:
                 return text
             links = list(itercsslinks(text))
@@ -490,7 +493,7 @@ XMLDECL_RE = re.compile(r"^\s*<[?]xml.*?[?]>")
 CSSURL_RE = re.compile(r"""url[(](?P<q>["']?)(?P<url>[^)]+)(?P=q)[)]""")
 
 
-def element(parent, *args, **kwargs):
+def element(parent: _typing.Any, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     """
     Return an element, optionally under a parent. Pass parent = None to get a top level element.
     :param parent:
@@ -503,7 +506,7 @@ def element(parent, *args, **kwargs):
     return etree.Element(*args, **kwargs)
 
 
-def prefixname(name, nsrmap):
+def prefixname(name: _typing.Any, nsrmap: _typing.Any) -> _typing.Any:
     """
     Makes an element name with the correct prefix.
     :param name:
@@ -521,7 +524,7 @@ def prefixname(name, nsrmap):
     return ":".join((prefix, barename(name)))
 
 
-def isprefixname(name):
+def isprefixname(name: _typing.Any) -> bool:
     """
     True if the name is prefixed - False otherwise
     :param name:
@@ -531,7 +534,7 @@ def isprefixname(name):
     return name and PREFIXNAME_RE.match(name) is not None
 
 
-def qname(name, nsmap):
+def qname(name: _typing.Any, nsmap: _typing.Any) -> _typing.Any:
     if not isprefixname(name):
         return name
     prefix, local = name.split(":", 1)
@@ -540,19 +543,19 @@ def qname(name, nsmap):
     return "{%s}%s" % (nsmap[prefix], local)
 
 
-def isqname(name):
+def isqname(name: _typing.Any) -> bool:
     return name and QNAME_RE.match(name) is not None
 
 
-def XPath(expr):
+def XPath(expr: _typing.Any) -> _typing.Any:
     return etree.XPath(expr, namespaces=XPNSMAP)
 
 
-def xpath(elem, expr):
+def xpath(elem: _typing.Any, expr: _typing.Any) -> _typing.Any:
     return elem.xpath(expr, namespaces=XPNSMAP)
 
 
-def xml2str(root, pretty_print=False, strip_comments=False, with_tail=True):
+def xml2str(root: _typing.Any, pretty_print: bool = False, strip_comments: bool = False, with_tail: bool = True) -> _typing.Any:
     """
     Render the xml document as a string
     :param root: The root of the xml tree to render
@@ -582,15 +585,15 @@ def xml2str(root, pretty_print=False, strip_comments=False, with_tail=True):
     return ans
 
 
-def xml2unicode(root, pretty_print=False):
+def xml2unicode(root: _typing.Any, pretty_print: bool = False) -> _typing.Any:
     return etree.tostring(root, pretty_print=pretty_print)
 
 
-def xml2text(elem):
+def xml2text(elem: _typing.Any) -> _typing.Any:
     return etree.tostring(elem, method="text", encoding=unicode, with_tail=False)
 
 
-def serialize(data, media_type, pretty_print=False):
+def serialize(data: _typing.Any, media_type: _typing.Any, pretty_print: bool = False) -> _typing.Any:
     if isinstance(data, etree._Element):
         is_oeb_doc = media_type in OEB_DOCS
         if is_oeb_doc:
@@ -617,38 +620,38 @@ class SimpleCSSRule(object):
     STYLE_RULE = 1
     CHARSET_RULE = 2
 
-    def __init__(self, css_text):
+    def __init__(self: _typing.Self, css_text: _typing.Any) -> None:
         self.cssText = css_text
         stripped = css_text.lstrip().lower()
         self.type = self.CHARSET_RULE if stripped.startswith("@charset") else self.STYLE_RULE
 
 
 class SimpleCSSStyleSheet(object):
-    def __init__(self, text=""):
+    def __init__(self: _typing.Self, text: str = "") -> None:
         self.namespaces = {}
         self.cssRules = []
         self.cssText = ""
         self.set_css_text(text)
 
-    def _parse_rules(self, text):
+    def _parse_rules(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         matches = re.findall(r"@charset\s+[^;]+;|[^{}]+{[^{}]*}", text, flags=re.I | re.S)
         if not matches:
             stripped = text.strip()
             matches = [stripped] if stripped else []
         return [SimpleCSSRule(x.strip()) for x in matches if x.strip()]
 
-    def set_css_text(self, text):
+    def set_css_text(self: _typing.Self, text: _typing.Any) -> None:
         self.cssText = text or ""
         self.cssRules = self._parse_rules(self.cssText)
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Any:
         return iter(self.cssRules)
 
-    def add(self, rule):
+    def add(self: _typing.Self, rule: _typing.Any) -> None:
         self.cssRules.append(SimpleCSSRule(getattr(rule, "cssText", six_unicode(rule))))
         self.cssText = "\n".join(r.cssText for r in self.cssRules)
 
-    def deleteRule(self, index):
+    def deleteRule(self: _typing.Self, index: _typing.Any) -> None:
         del self.cssRules[index]
         self.cssText = "\n".join(r.cssText for r in self.cssRules)
 
@@ -659,7 +662,7 @@ URL_SAFE = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ" "abcdefghijklmnopqrstuvwxyz" "012345
 URL_UNSAFE = [ASCII_CHARS - URL_SAFE, UNIBYTE_CHARS - URL_SAFE]
 
 
-def urlquote(href):
+def urlquote(href: _typing.Any) -> _typing.Any:
     """
     Quote URL-unsafe characters, allowing IRI-safe characters.
     That is, this function returns valid IRIs not valid URIs. In particular, IRIs can contain non-ascii characters.
@@ -676,13 +679,13 @@ def urlquote(href):
     return "".join(result)
 
 
-def urlunquote(href, error_handling="strict"):
+def urlunquote(href: _typing.Any, error_handling: str = "strict") -> _typing.Any:
     if isinstance(href, bytes):
         href = href.decode("utf-8", error_handling)
     return unquote(href, errors=error_handling)
 
 
-def urlnormalize(href):
+def urlnormalize(href: _typing.Any) -> _typing.Any:
     """
     Convert a URL into normalized form, with all and only URL-unsafe characters URL quoted.
     :param href:
@@ -698,7 +701,7 @@ def urlnormalize(href):
     return urlunparse(parts)
 
 
-def extract(elem):
+def extract(elem: _typing.Any) -> None:
     """
     Removes this element from the tree, including its children and text.
     The tail text is joined to the previous element or parent.
@@ -720,12 +723,12 @@ class DummyHandler(logging.Handler):
     Dummy logging handler - passes the message on to the log if the log is set, otherwise does nothing.
     """
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         logging.Handler.__init__(self, logging.WARNING)
         self.setFormatter(logging.Formatter("%(message)s"))
         self.log = None
 
-    def emit(self, record):
+    def emit(self: _typing.Self, record: _typing.Any) -> None:
         if self.log is not None:
             msg = self.format(record)
             f = self.log.error if record.levelno >= logging.ERROR else self.log.warn
@@ -753,19 +756,19 @@ class NullContainer(object):
     For use with book formats which do not support container-like access.
     """
 
-    def __init__(self, log):
+    def __init__(self: _typing.Self, log: _typing.Any) -> None:
         self.log = log
 
-    def read(self, path):
+    def read(self: _typing.Self, path: _typing.Any) -> None:
         raise OEBError("Attempt to read from NullContainer")
 
-    def write(self, path):
+    def write(self: _typing.Self, path: _typing.Any) -> None:
         raise OEBError("Attempt to write to NullContainer")
 
-    def exists(self, path):
+    def exists(self: _typing.Self, path: _typing.Any) -> bool:
         return False
 
-    def namelist(self):
+    def namelist(self: _typing.Self) -> list[_typing.Any]:
         return []
 
 
@@ -775,7 +778,7 @@ class DirContainer(object):
     Contains pointer to files which are stored on the file system.
     """
 
-    def __init__(self, path, log, ignore_opf=False):
+    def __init__(self: _typing.Self, path: _typing.Any, log: _typing.Any, ignore_opf: bool = False) -> None:
         self.log = log
         # `isbytestring()` in this codebase currently treats str as bytes-like.
         # Only decode actual bytes here.
@@ -796,7 +799,7 @@ class DirContainer(object):
                     self.opfname = path
                     return
 
-    def _unquote(self, path):
+    def _unquote(self: _typing.Self, path: _typing.Any) -> _typing.Any:
         """
         Transforms a path into an actual path which (hopefully) points to a resource on the system.
         :param path:
@@ -806,7 +809,7 @@ class DirContainer(object):
             path = path.decode("utf-8", "replace")
         return urlunquote(path)
 
-    def read(self, path):
+    def read(self: _typing.Self, path: _typing.Any) -> _typing.Any:
         """
         Read and returns the binary data for a given path.
         :param path: Path from the manifest (will be unquotes before trying to read). Relative.
@@ -818,7 +821,7 @@ class DirContainer(object):
         with open(path, "rb") as f:
             return f.read()
 
-    def write(self, path, data):
+    def write(self: _typing.Self, path: _typing.Any, data: _typing.Any) -> _typing.Any:
         """
         Write data out to the system.
         :param path: Relative path to the resource. Will be unquoted before the method tries to write the info out.
@@ -832,7 +835,7 @@ class DirContainer(object):
         with open(path, "wb") as f:
             return f.write(data)
 
-    def exists(self, path):
+    def exists(self: _typing.Self, path: _typing.Any) -> _typing.Any:
         """
         Checks to see if the given path exists
         :param path: Path in the manifest (will be unquoted before trying to return data).
@@ -852,7 +855,7 @@ class DirContainer(object):
             # LANG=en_US.ASCII python -c "import os; os.stat(u'Espa\xf1a')"
             return os.path.isfile(path.encode(filesystem_encoding))
 
-    def namelist(self):
+    def namelist(self: _typing.Self) -> _typing.Any:
         """
         Returns the names of all the files in the root - will always return posix style relative paths (paths
         separated by /).
@@ -948,7 +951,7 @@ class Metadata(object):
             Smart accessor for the attributes of an OEB metadata item
             """
 
-            def __init__(self, attr, allowed=None):
+            def __init__(self: _typing.Self, attr: _typing.Any, allowed: _typing.Any = None) -> None:
                 """
 
                 :param attr:
@@ -959,7 +962,7 @@ class Metadata(object):
                 self.attr = attr
                 self.allowed = allowed
 
-            def term_attr(self, obj):
+            def term_attr(self: _typing.Self, obj: _typing.Any) -> _typing.Any:
                 term = obj.term
                 if namespace(term) != DC11_NS:
                     term = OPF("meta")
@@ -970,15 +973,15 @@ class Metadata(object):
                     )
                 return self.attr(term)
 
-            def __get__(self, obj, cls):
+            def __get__(self: _typing.Self, obj: _typing.Any, cls: _typing.Any) -> _typing.Any:
                 if obj is None:
                     return None
                 return obj.attrib.get(self.term_attr(obj), "")
 
-            def __set__(self, obj, value):
+            def __set__(self: _typing.Self, obj: _typing.Any, value: _typing.Any) -> None:
                 obj.attrib[self.term_attr(obj)] = value
 
-        def __init__(self, term, value, attrib=None, nsmap=None, **kwargs):
+        def __init__(self: _typing.Self, term: _typing.Any, value: _typing.Any, attrib: _typing.Any = None, nsmap: _typing.Any = None, **kwargs: _typing.Any) -> None:
             """
             :param term: Metadata term
             :param value: The value for the metadata entry (should be hashable - probably a string)
@@ -1019,15 +1022,15 @@ class Metadata(object):
                     attrib[nsattr] = attrib.pop(attr)
 
         @property
-        def name(self):
+        def name(self: _typing.Self) -> _typing.Any:
             return self.term
 
         @property
-        def content(self):
+        def content(self: _typing.Self) -> _typing.Any:
             return self.value
 
         @content.setter
-        def content(self, value):
+        def content(self: _typing.Self, value: _typing.Any) -> None:
             self.value = value
 
         scheme = Attribute(
@@ -1054,35 +1057,35 @@ class Metadata(object):
             ],
         )
 
-        def __getitem__(self, key):
+        def __getitem__(self: _typing.Self, key: _typing.Any) -> _typing.Any:
             return self.attrib[key]
 
-        def __setitem__(self, key, value):
+        def __setitem__(self: _typing.Self, key: _typing.Any, value: _typing.Any) -> None:
             self.attrib[key] = value
 
-        def __contains__(self, key):
+        def __contains__(self: _typing.Self, key: _typing.Any) -> bool:
             return key in self.attrib
 
-        def get(self, key, default=None):
+        def get(self: _typing.Self, key: _typing.Any, default: _typing.Any = None) -> _typing.Any:
             return self.attrib.get(key, default)
 
-        def __repr__(self):
+        def __repr__(self: _typing.Self) -> _typing.Any:
             return "Item(term=%r, value=%r, attrib=%r)" % (
                 barename(self.term),
                 self.value,
                 self.attrib,
             )
 
-        def __str__(self):
+        def __str__(self: _typing.Self) -> _typing.Any:
             val = six_unicode(self.value)
             if isinstance(val, bytes):
                 val = val.decode("utf-8", "replace")
             return val
 
-        def __unicode__(self):
+        def __unicode__(self: _typing.Self) -> _typing.Any:
             return as_unicode(self.value)
 
-        def to_opf1(self, dcmeta=None, xmeta=None, nsrmap=None):
+        def to_opf1(self: _typing.Self, dcmeta: _typing.Any = None, xmeta: _typing.Any = None, nsrmap: _typing.Any = None) -> _typing.Any:
 
             if nsrmap is None:
                 nsrmap = {}
@@ -1102,7 +1105,7 @@ class Metadata(object):
                 elem.attrib["content"] = prefixname(self.value, nsrmap)
             return elem
 
-        def to_opf2(self, parent=None, nsrmap=None):
+        def to_opf2(self: _typing.Self, parent: _typing.Any = None, nsrmap: _typing.Any = None) -> _typing.Any:
 
             if nsrmap is None:
                 nsrmap = {}
@@ -1122,11 +1125,11 @@ class Metadata(object):
                 elem.attrib["content"] = prefixname(self.value, nsrmap)
             return elem
 
-    def __init__(self, oeb):
+    def __init__(self: _typing.Self, oeb: _typing.Any) -> None:
         self.oeb = oeb
         self.items = defaultdict(list)
 
-    def add(self, term, value, attrib=None, nsmap=None, **kwargs):
+    def add(self: _typing.Self, term: _typing.Any, value: _typing.Any, attrib: _typing.Any = None, nsmap: _typing.Any = None, **kwargs: _typing.Any) -> _typing.Any:
         """
         Add a new metadata item.
         :param term:
@@ -1146,34 +1149,34 @@ class Metadata(object):
         items.append(item)
         return item
 
-    def iterkeys(self):
+    def iterkeys(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for key in self.items:
             yield key
 
     __iter__ = iterkeys
 
-    def clear(self, key):
+    def clear(self: _typing.Self, key: _typing.Any) -> None:
         l = self.items[key]
         for x in list(l):
             l.remove(x)
 
-    def filter(self, key, predicate):
+    def filter(self: _typing.Self, key: _typing.Any, predicate: _typing.Any) -> None:
         l = self.items[key]
         for x in list(l):
             if predicate(x):
                 l.remove(x)
 
-    def __getitem__(self, key):
+    def __getitem__(self: _typing.Self, key: _typing.Any) -> _typing.Any:
         return self.items[key]
 
-    def __contains__(self, key):
+    def __contains__(self: _typing.Self, key: _typing.Any) -> bool:
         return key in self.items
 
-    def __getattr__(self, term):
+    def __getattr__(self: _typing.Self, term: _typing.Any) -> _typing.Any:
         return self.items[term]
 
     @property
-    def _nsmap(self):
+    def _nsmap(self: _typing.Self) -> _typing.Any:
         nsmap = {}
         for term in self.items:
             for item in self.items[term]:
@@ -1181,7 +1184,7 @@ class Metadata(object):
         return nsmap
 
     @property
-    def _opf1_nsmap(self):
+    def _opf1_nsmap(self: _typing.Self) -> _typing.Any:
         nsmap = self._nsmap
         for key, value in nsmap.items():
             if value in OPF_NSES or value in DC_NSES:
@@ -1189,12 +1192,12 @@ class Metadata(object):
         return nsmap
 
     @property
-    def _opf2_nsmap(self):
+    def _opf2_nsmap(self: _typing.Self) -> _typing.Any:
         nsmap = self._nsmap
         nsmap.update(OPF2_NSMAP)
         return nsmap
 
-    def to_opf1(self, parent=None):
+    def to_opf1(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
         nsmap = self._opf1_nsmap
         nsrmap = dict((value, key) for key, value in nsmap.items())
         elem = element(parent, "metadata", nsmap=nsmap)
@@ -1208,7 +1211,7 @@ class Metadata(object):
             chaptertour.to_opf1(dcmeta, xmeta, nsrmap=nsrmap)
         return elem
 
-    def to_opf2(self, parent=None):
+    def to_opf2(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
         nsmap = self._opf2_nsmap
         nsrmap = dict((value, key) for key, value in nsmap.items())
         elem = element(parent, OPF("metadata"), nsmap=nsmap)
@@ -1260,7 +1263,7 @@ class Manifest(object):
 
         NUM_RE = re.compile("^(.*)([0-9][0-9.]*)(?=[.]|$)")
 
-        def __init__(self, oeb, id, href, media_type, fallback=None, loader=str, data=None):
+        def __init__(self: _typing.Self, oeb: _typing.Any, id: _typing.Any, href: _typing.Any, media_type: _typing.Any, fallback: _typing.Any = None, loader: _typing.Any = str, data: _typing.Any = None) -> None:
             if href:
                 href = six_unicode(href)
             self.oeb = oeb
@@ -1276,7 +1279,7 @@ class Manifest(object):
             self._loader = loader
             self._data = data
 
-        def __repr__(self):
+        def __repr__(self: _typing.Self) -> _typing.Any:
             return "Item(id=%r, href=%r, media_type=%r)" % (
                 self.id,
                 self.href,
@@ -1284,13 +1287,13 @@ class Manifest(object):
             )
 
         # Parsing {{{
-        def _parse_xml(self, data):
+        def _parse_xml(self: _typing.Self, data: _typing.Any) -> _typing.Any:
             data = xml_to_unicode(data, strip_encoding_pats=True, assume_utf8=True, resolve_entities=True)[0]
             if not data:
                 return None
             return etree.fromstring(data, parser=RECOVER_PARSER)
 
-        def _parse_xhtml(self, data):
+        def _parse_xhtml(self: _typing.Self, data: _typing.Any) -> _typing.Any:
             orig_data = data
             fname = urlunquote(self.href)
             self.oeb.log.debug("Parsing", fname, "...")
@@ -1308,7 +1311,7 @@ class Manifest(object):
                 return self._parse_xml(orig_data)
             return data
 
-        def _parse_txt(self, data):
+        def _parse_txt(self: _typing.Self, data: _typing.Any) -> _typing.Any:
             """
             Parse data as a string.
             :param data:
@@ -1329,7 +1332,7 @@ class Manifest(object):
 
             return self._parse_xhtml(convert_markdown(data, title=title))
 
-        def _parse_css(self, data):
+        def _parse_css(self: _typing.Self, data: _typing.Any) -> _typing.Any:
             self.oeb.log.debug("Parsing", self.href, "...")
             data = self.oeb.decode(data)
             data = self.oeb.css_preprocessor(data, add_namespace=True)
@@ -1353,7 +1356,7 @@ class Manifest(object):
                 data.cssRules.remove(rule)
             return data
 
-        def _fetch_css(self, path):
+        def _fetch_css(self: _typing.Self, path: _typing.Any) -> tuple[_typing.Any, ...]:
             hrefs = self.oeb.manifest.hrefs
             if path not in hrefs:
                 self.oeb.logger.warn("CSS import of missing file %r" % path)
@@ -1369,7 +1372,7 @@ class Manifest(object):
         # }}}
 
         @property
-        def data(self):
+        def data(self: _typing.Self) -> _typing.Any:
             """
             Provides MIME type sensitive access to the manifest
             entry's associated content.
@@ -1404,14 +1407,14 @@ class Manifest(object):
             return data
 
         @data.setter
-        def data(self, value):
+        def data(self: _typing.Self, value: _typing.Any) -> None:
             self._data = value
 
         @data.deleter
-        def data(self):
+        def data(self: _typing.Self) -> None:
             self._data = None
 
-        def unload_data_from_memory(self, memory=None):
+        def unload_data_from_memory(self: _typing.Self, memory: _typing.Any = None) -> None:
             """
             Write the internal _data cache out to memory.
             :param memory: If None, then creates a temporary file and writes the data out to that
@@ -1426,7 +1429,7 @@ class Manifest(object):
                         pt.write(self._data)
                     self.oeb._temp_files.append(pt.name)
 
-                    def loader(*args):
+                    def loader(*args: _typing.Any) -> _typing.Any:
                         with open(pt.name, "rb") as f:
                             ans = f.read()
                         os.remove(pt.name)
@@ -1435,7 +1438,7 @@ class Manifest(object):
                     self._loader = loader
                 else:
 
-                    def loader2(*args):
+                    def loader2(*args: _typing.Any) -> _typing.Any:
                         with open(memory, "rb") as f:
                             ans = f.read()
                         return ans
@@ -1443,13 +1446,13 @@ class Manifest(object):
                     self._loader = loader2
                 self._data = None
 
-        def __str__(self):
+        def __str__(self: _typing.Self) -> _typing.Any:
             text = serialize(self.data, self.media_type, pretty_print=self.oeb.pretty_print)
             if isinstance(text, bytes):
                 return text.decode("utf-8", "replace")
             return six_unicode(text)
 
-        def __unicode__(self):
+        def __unicode__(self: _typing.Self) -> _typing.Any:
             data = self.data
             if isinstance(data, etree._Element):
                 return xml2unicode(data, pretty_print=self.oeb.pretty_print)
@@ -1459,16 +1462,16 @@ class Manifest(object):
                 return data.cssText
             return six_unicode(data)
 
-        def __eq__(self, other):
+        def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
             return id(self) == id(other)
 
-        def __hash__(self):
+        def __hash__(self: _typing.Self) -> _typing.Any:
             return id(self)
 
-        def __ne__(self, other):
+        def __ne__(self: _typing.Self, other: _typing.Any) -> _typing.Any:
             return not self.__eq__(other)
 
-        def __cmp__(self, other):
+        def __cmp__(self: _typing.Self, other: _typing.Any) -> _typing.Any:
             result = six_cmp(self.spine_position, other.spine_position)
             if result != 0:
                 return result
@@ -1482,7 +1485,7 @@ class Manifest(object):
             okey = (oref, onum, other.id)
             return six_cmp(skey, okey)
 
-        def relhref(self, href):
+        def relhref(self: _typing.Self, href: _typing.Any) -> _typing.Any:
             """
             Convert the URL provided in :param:`href` from a book-absolute reference to a reference relative to this
             manifest item.
@@ -1509,7 +1512,7 @@ class Manifest(object):
                 relhref = "#".join((relhref, frag))
             return relhref
 
-        def abshref(self, href):
+        def abshref(self: _typing.Self, href: _typing.Any) -> _typing.Any:
             """
             Convert the URL provided in :param:`href` from a reference relative to this manifest item to a
             book-absolute reference.
@@ -1536,13 +1539,13 @@ class Manifest(object):
             href = os.path.normpath(href).replace("\\", "/")
             return href
 
-    def __init__(self, oeb):
+    def __init__(self: _typing.Self, oeb: _typing.Any) -> None:
         self.oeb = oeb
         self.items = set()
         self.ids = {}
         self.hrefs = {}
 
-    def add(self, id, href, media_type, fallback=None, loader=None, data=None):
+    def add(self: _typing.Self, id: _typing.Any, href: _typing.Any, media_type: _typing.Any, fallback: _typing.Any = None, loader: _typing.Any = None, data: _typing.Any = None) -> _typing.Any:
         """
         Add a new item to the book manifest.
 
@@ -1566,7 +1569,7 @@ class Manifest(object):
         self.hrefs[item.href] = item
         return item
 
-    def remove(self, item):
+    def remove(self: _typing.Self, item: _typing.Any) -> None:
         """
         Removes :param:`item` from the manifest.
         :param item:
@@ -1581,13 +1584,13 @@ class Manifest(object):
         if item in self.oeb.spine:
             self.oeb.spine.remove(item)
 
-    def remove_duplicate_item(self, item):
+    def remove_duplicate_item(self: _typing.Self, item: _typing.Any) -> None:
         if item in self.ids:
             item = self.ids[item]
         del self.ids[item.id]
         self.items.remove(item)
 
-    def generate(self, id=None, href=None):
+    def generate(self: _typing.Self, id: _typing.Any = None, href: _typing.Any = None) -> tuple[_typing.Any, ...]:
         """
         Generate a new unique identifier and/or internal path for use in
         creating a new manifest item, using the provided :param:`id` and/or :param:`href` as bases.
@@ -1615,20 +1618,20 @@ class Manifest(object):
                 index += 1
         return id, six_unicode(href)
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for item in self.items:
             yield item
 
-    def __len__(self):
+    def __len__(self: _typing.Self) -> _typing.Any:
         return len(self.items)
 
-    def values(self):
+    def values(self: _typing.Self) -> _typing.Any:
         return list(self.items)
 
-    def __contains__(self, item):
+    def __contains__(self: _typing.Self, item: _typing.Any) -> bool:
         return item in self.items
 
-    def to_opf1(self, parent=None):
+    def to_opf1(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
         elem = element(parent, "manifest")
         for item in self.items:
             media_type = item.media_type
@@ -1646,7 +1649,7 @@ class Manifest(object):
             element(elem, "item", attrib=attrib)
         return elem
 
-    def to_opf2(self, parent=None):
+    def to_opf2(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
         elem = element(parent, OPF("manifest"))
         for item in sorted(self.items, key=lambda x: x.href):
             media_type = item.media_type
@@ -1665,7 +1668,7 @@ class Manifest(object):
         return elem
 
     @property
-    def main_stylesheet(self):
+    def main_stylesheet(self: _typing.Self) -> _typing.Any:
         ans = getattr(self, "_main_stylesheet", None)
         if ans is None:
             for item in self:
@@ -1675,7 +1678,7 @@ class Manifest(object):
         return ans
 
     @main_stylesheet.setter
-    def main_stylesheet(self, item):
+    def main_stylesheet(self: _typing.Self, item: _typing.Any) -> None:
         self._main_stylesheet = item
 
 
@@ -1687,12 +1690,12 @@ class Spine(object):
     appear. Provides Python container access as a list-like object.
     """
 
-    def __init__(self, oeb):
+    def __init__(self: _typing.Self, oeb: _typing.Any) -> None:
         self.oeb = oeb
         self.items = []
         self.page_progression_direction = None
 
-    def _linear(self, linear):
+    def _linear(self: _typing.Self, linear: _typing.Any) -> _typing.Any:
         if isinstance(linear, six_string_types):
             linear = linear.lower()
         if linear is None or linear in ("yes", "true"):
@@ -1701,7 +1704,7 @@ class Spine(object):
             linear = False
         return linear
 
-    def add(self, item, linear=None):
+    def add(self: _typing.Self, item: _typing.Any, linear: _typing.Any = None) -> _typing.Any:
         """
         Append :param:`item` to the end of the `Spine`.
         :param item:
@@ -1713,7 +1716,7 @@ class Spine(object):
         self.items.append(item)
         return item
 
-    def insert(self, index, item, linear):
+    def insert(self: _typing.Self, index: _typing.Any, item: _typing.Any, linear: _typing.Any) -> _typing.Any:
         """
         Insert :param:`item` at position :param:`index` in the `Spine`.
         :param index:
@@ -1728,7 +1731,7 @@ class Spine(object):
             self.items[i].spine_position = i
         return item
 
-    def remove(self, item):
+    def remove(self: _typing.Self, item: _typing.Any) -> None:
         """
         Remove :param:`item` from the `Spine`.
         :param item:
@@ -1740,33 +1743,33 @@ class Spine(object):
             self.items[i].spine_position = i
         item.spine_position = None
 
-    def index(self, item):
+    def index(self: _typing.Self, item: _typing.Any) -> _typing.Any:
         for i, x in enumerate(self):
             if item == x:
                 return i
         return -1
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for item in self.items:
             yield item
 
-    def __getitem__(self, index):
+    def __getitem__(self: _typing.Self, index: _typing.Any) -> _typing.Any:
         return self.items[index]
 
-    def __len__(self):
+    def __len__(self: _typing.Self) -> _typing.Any:
         return len(self.items)
 
-    def __contains__(self, item):
+    def __contains__(self: _typing.Self, item: _typing.Any) -> bool:
         return item in self.items
 
-    def to_opf1(self, parent=None):
+    def to_opf1(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
         elem = element(parent, "spine")
         for item in self.items:
             if item.linear:
                 element(elem, "itemref", attrib={"idref": item.id})
         return elem
 
-    def to_opf2(self, parent=None):
+    def to_opf2(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
         elem = element(parent, OPF("spine"))
         for item in self.items:
             attrib = {"idref": item.id}
@@ -1820,7 +1823,7 @@ class Guide(object):
         TITLES = dict(_TYPES_TITLES)
         ORDER = dict((t, i) for i, (t, _) in enumerate(_TYPES_TITLES))  # noqa
 
-        def __init__(self, oeb, type, title, href):
+        def __init__(self: _typing.Self, oeb: _typing.Any, type: _typing.Any, title: _typing.Any, href: _typing.Any) -> None:
             self.oeb = oeb
             if type.lower() in self.TYPES:
                 local_type = type.lower()
@@ -1834,7 +1837,7 @@ class Guide(object):
             self.title = title
             self.href = urlnormalize(href)
 
-        def __repr__(self):
+        def __repr__(self: _typing.Self) -> _typing.Any:
             return "Reference(type=%r, title=%r, href=%r)" % (
                 self.type,
                 self.title,
@@ -1842,16 +1845,16 @@ class Guide(object):
             )
 
         @property
-        def _order(self):
+        def _order(self: _typing.Self) -> _typing.Any:
             return self.ORDER.get(self.type, self.type)
 
-        def __cmp__(self, other):
+        def __cmp__(self: _typing.Self, other: _typing.Any) -> _typing.Any:
             if not isinstance(other, Guide.Reference):
                 return NotImplemented
             return six_cmp(self._order, other._order)
 
         @property
-        def item(self):
+        def item(self: _typing.Self) -> _typing.Any:
             """
             The manifest item associated with this reference.
             """
@@ -1859,11 +1862,11 @@ class Guide(object):
             hrefs = self.oeb.manifest.hrefs
             return hrefs.get(path, None)
 
-    def __init__(self, oeb):
+    def __init__(self: _typing.Self, oeb: _typing.Any) -> None:
         self.oeb = oeb
         self.refs = {}
 
-    def add(self, type, title, href):
+    def add(self: _typing.Self, type: _typing.Any, title: _typing.Any, href: _typing.Any) -> _typing.Any:
         """
         Add a new reference to the `Guide`.
         :param type:
@@ -1877,35 +1880,35 @@ class Guide(object):
         self.refs[type] = ref
         return ref
 
-    def remove(self, type):
+    def remove(self: _typing.Self, type: _typing.Any) -> _typing.Any:
         return self.refs.pop(type, None)
 
-    def iterkeys(self):
+    def iterkeys(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for item_type in self.refs:
             yield item_type
 
     __iter__ = iterkeys
 
-    def values(self):
+    def values(self: _typing.Self) -> _typing.Any:
         return sorted(self.refs.values())
 
-    def items(self):
+    def items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for item_type, ref in self.refs.items():
             yield item_type, ref
 
-    def __getitem__(self, key):
+    def __getitem__(self: _typing.Self, key: _typing.Any) -> _typing.Any:
         return self.refs[key]
 
-    def __delitem__(self, key):
+    def __delitem__(self: _typing.Self, key: _typing.Any) -> None:
         del self.refs[key]
 
-    def __contains__(self, key):
+    def __contains__(self: _typing.Self, key: _typing.Any) -> bool:
         return key in self.refs
 
-    def __len__(self):
+    def __len__(self: _typing.Self) -> _typing.Any:
         return len(self.refs)
 
-    def to_opf1(self, parent=None):
+    def to_opf1(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
         elem = element(parent, "guide")
         for ref in self.refs.values():
             attrib = {"type": ref.type, "href": urlunquote(ref.href)}
@@ -1914,7 +1917,7 @@ class Guide(object):
             element(elem, "reference", attrib=attrib)
         return elem
 
-    def to_opf2(self, parent=None):
+    def to_opf2(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
         elem = element(parent, OPF("guide"))
         for ref in self.refs.values():
             attrib = {"type": ref.type, "href": urlunquote(ref.href)}
@@ -1941,16 +1944,16 @@ class TOC(object):
     """
 
     def __init__(
-        self,
-        title=None,
-        href=None,
-        klass=None,
-        id=None,
-        play_order=None,
-        author=None,
-        description=None,
-        toc_thumbnail=None,
-    ):
+        self: _typing.Self,
+        title: _typing.Any = None,
+        href: _typing.Any = None,
+        klass: _typing.Any = None,
+        id: _typing.Any = None,
+        play_order: _typing.Any = None,
+        author: _typing.Any = None,
+        description: _typing.Any = None,
+        toc_thumbnail: _typing.Any = None,
+    ) -> None:
         self.title = title
         self.href = urlnormalize(href) if href else href
         self.klass = klass
@@ -1965,16 +1968,16 @@ class TOC(object):
         self.toc_thumbnail = toc_thumbnail
 
     def add(
-        self,
-        title,
-        href,
-        klass=None,
-        id=None,
-        play_order=0,
-        author=None,
-        description=None,
-        toc_thumbnail=None,
-    ):
+        self: _typing.Self,
+        title: _typing.Any,
+        href: _typing.Any,
+        klass: _typing.Any = None,
+        id: _typing.Any = None,
+        play_order: int = 0,
+        author: _typing.Any = None,
+        description: _typing.Any = None,
+        toc_thumbnail: _typing.Any = None,
+    ) -> _typing.Any:
         """
         Create and return a new sub-node of this node.
         :param title:
@@ -1991,7 +1994,7 @@ class TOC(object):
         self.nodes.append(node)
         return node
 
-    def remove(self, node):
+    def remove(self: _typing.Self, node: _typing.Any) -> bool:
         for child in self.nodes:
             if child is node:
                 self.nodes.remove(child)
@@ -2001,34 +2004,34 @@ class TOC(object):
                     return True
         return False
 
-    def iter(self):
+    def iter(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         """Iterate over this node and all descendants in depth-first order."""
         yield self
         for child in self.nodes:
             for node in child.iter():
                 yield node
 
-    def count(self):
+    def count(self: _typing.Self) -> _typing.Any:
         return len(list(self.iter())) - 1
 
-    def next_play_order(self):
+    def next_play_order(self: _typing.Self) -> _typing.Any:
         entries = [x.play_order for x in self.iter()]
         base = max(entries) if entries else 0
         return base + 1
 
-    def has_href(self, href):
+    def has_href(self: _typing.Self, href: _typing.Any) -> bool:
         for x in self.iter():
             if x.href == href:
                 return True
         return False
 
-    def has_text(self, text):
+    def has_text(self: _typing.Self, text: _typing.Any) -> bool:
         for x in self.iter():
             if x.title and x.title.lower() == text.lower():
                 return True
         return False
 
-    def iterdescendants(self, breadth_first=False):
+    def iterdescendants(self: _typing.Self, breadth_first: bool = False) -> _typing.Iterator[_typing.Any]:
         """
         Iterate over all descendant nodes in depth-first order.
         :param breadth_first:
@@ -2045,15 +2048,15 @@ class TOC(object):
                 for node in child.iter():
                     yield node
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         """Iterate over all immediate child nodes."""
         for node in self.nodes:
             yield node
 
-    def __getitem__(self, index):
+    def __getitem__(self: _typing.Self, index: _typing.Any) -> _typing.Any:
         return self.nodes[index]
 
-    def autolayer(self):
+    def autolayer(self: _typing.Self) -> None:
         """
         Make sequences of children pointing to the same content file into
         children of the first node referencing that file.
@@ -2066,7 +2069,7 @@ class TOC(object):
             else:
                 prev = node
 
-    def depth(self):
+    def depth(self: _typing.Self) -> _typing.Any:
         """
         The maximum depth of the navigation tree rooted at this node.
         """
@@ -2075,19 +2078,19 @@ class TOC(object):
         except ValueError:
             return 1
 
-    def get_lines(self, lvl=0):
+    def get_lines(self: _typing.Self, lvl: int = 0) -> _typing.Any:
         ans = [("\t" * lvl) + "TOC: %s --> %s" % (self.title, self.href)]
         for child in self:
             ans.extend(child.get_lines(lvl + 1))
         return ans
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return "\n".join(self.get_lines())
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         return "\n".join(self.get_lines())
 
-    def to_opf1(self, tour):
+    def to_opf1(self: _typing.Self, tour: _typing.Any) -> _typing.Any:
         for node in self.nodes:
             element(
                 tour,
@@ -2097,7 +2100,7 @@ class TOC(object):
             node.to_opf1(tour)
         return tour
 
-    def to_ncx(self, parent=None):
+    def to_ncx(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
         if parent is None:
             parent = etree.Element(NCX("navMap"))
         for node in self.nodes:
@@ -2120,20 +2123,20 @@ class TOC(object):
             node.to_ncx(point)
         return parent
 
-    def rationalize_play_orders(self):
+    def rationalize_play_orders(self: _typing.Self) -> None:
         """
         Ensure that all nodes with the same play_order have the same href and
         with different play_orders have different hrefs.
         """
 
-        def po_node(n):
+        def po_node(n: _typing.Any) -> _typing.Any:
             for x in self.iter():
                 if x is n:
                     return
                 if x.play_order == n.play_order:
                     return x
 
-        def href_node(n):
+        def href_node(n: _typing.Any) -> _typing.Any:
             for loc_x in self.iter():
                 if loc_x is n:
                     return
@@ -2177,17 +2180,17 @@ class PageList(object):
 
         TYPES = {"front", "normal", "special"}
 
-        def __init__(self, name, href, type="normal", klass=None, id=None):
+        def __init__(self: _typing.Self, name: _typing.Any, href: _typing.Any, type: str = "normal", klass: _typing.Any = None, id: _typing.Any = None) -> None:
             self.name = six_unicode(name)
             self.href = urlnormalize(href)
             self.type = type if type in self.TYPES else "normal"
             self.id = id
             self.klass = klass
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.pages = []
 
-    def add(self, name, href, type="normal", klass=None, id=None):
+    def add(self: _typing.Self, name: _typing.Any, href: _typing.Any, type: str = "normal", klass: _typing.Any = None, id: _typing.Any = None) -> _typing.Any:
         """
         Create a new page and add it to the `PageList`.
         :param name:
@@ -2201,23 +2204,23 @@ class PageList(object):
         self.pages.append(page)
         return page
 
-    def __len__(self):
+    def __len__(self: _typing.Self) -> _typing.Any:
         return len(self.pages)
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for page in self.pages:
             yield page
 
-    def __getitem__(self, index):
+    def __getitem__(self: _typing.Self, index: _typing.Any) -> _typing.Any:
         return self.pages[index]
 
-    def pop(self, index=-1):
+    def pop(self: _typing.Self, index: _typing.Any = -1) -> _typing.Any:
         return self.pages.pop(index)
 
-    def remove(self, page):
+    def remove(self: _typing.Self, page: _typing.Any) -> _typing.Any:
         return self.pages.remove(page)
 
-    def to_ncx(self, parent=None):
+    def to_ncx(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
         plist = element(parent, NCX("pageList"), id=uuid_id())
         values = dict((t, count(1)) for t in ("front", "normal", "special"))
         for page in self.pages:
@@ -2233,7 +2236,7 @@ class PageList(object):
             element(ptarget, NCX("content"), src=page.href)
         return plist
 
-    def to_page_map(self):
+    def to_page_map(self: _typing.Self) -> _typing.Any:
         pmap = etree.Element(OPF("page-map"), nsmap={None: OPF2_NS})
         for page in self.pages:
             element(pmap, OPF("page"), name=page.name, href=page.href)
@@ -2249,14 +2252,14 @@ class OEBBook(object):
     COVER_OBJECT_XP = XPath("h:body//h:object[@data][position() = 1]")
 
     def __init__(
-        self,
-        logger,
-        html_preprocessor,
-        css_preprocessor=CSSPreProcessor(),
-        encoding="utf-8",
-        pretty_print=False,
-        input_encoding="utf-8",
-    ):
+        self: _typing.Self,
+        logger: _typing.Any,
+        html_preprocessor: _typing.Any,
+        css_preprocessor: _typing.Any = CSSPreProcessor(),
+        encoding: str = "utf-8",
+        pretty_print: bool = False,
+        input_encoding: str = "utf-8",
+    ) -> None:
         """Create empty book.  Arguments:
 
         :param:`encoding`: Default encoding for textual content read
@@ -2306,7 +2309,7 @@ class OEBBook(object):
         self.auto_generated_toc = True
         self._temp_files = []
 
-    def clean_temp_files(self):
+    def clean_temp_files(self: _typing.Self) -> None:
         for path in self._temp_files:
             try:
                 os.remove(path)
@@ -2314,7 +2317,7 @@ class OEBBook(object):
                 self.log.exception("Unable to clean temporary files - {}".format(str(e)))
 
     @classmethod
-    def generate(cls, opts):
+    def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
         """
         Generate an OEBBook instance from command-line options.
         :param opts:
@@ -2324,7 +2327,7 @@ class OEBBook(object):
         pretty_print = opts.pretty_print
         return cls(encoding=encoding, pretty_print=pretty_print)
 
-    def translate(self, text):
+    def translate(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """
         Translate :param:`text` into the book's primary language.
         :param text: Text to be translated
@@ -2334,14 +2337,14 @@ class OEBBook(object):
         lang = lang.split("-", 1)[0].lower()
         return translate(lang, text)
 
-    def decode(self, data):
+    def decode(self: _typing.Self, data: _typing.Any) -> _typing.Any:
         """
         Automatically decode :param:`data` into a `unicode` object.
         :param data: Data to be translated into a unicode object
         :return:
         """
 
-        def fix_data(d):
+        def fix_data(d: _typing.Any) -> _typing.Any:
             return d.replace("\r\n", "\n").replace("\r", "\n")
 
         if isinstance(data, unicode):
@@ -2377,7 +2380,7 @@ class OEBBook(object):
         data, _ = xml_to_unicode(data)
         return fix_data(data)
 
-    def to_opf1(self):
+    def to_opf1(self: _typing.Self) -> dict[_typing.Any, _typing.Any]:
         """
         Produce OPF 1.2 representing the book's metadata and structure.
 
@@ -2394,7 +2397,7 @@ class OEBBook(object):
         self.guide.to_opf1(package)
         return {OPF_MIME: ("content.opf", package)}
 
-    def _update_playorder(self, ncx):
+    def _update_playorder(self: _typing.Self, ncx: _typing.Any) -> None:
         hrefs = set(map(urlnormalize, xpath(ncx, "//ncx:content/@src")))
         playorder = {}
         next_item = 1
@@ -2423,7 +2426,7 @@ class OEBBook(object):
             elem.attrib["playOrder"] = str(order)
         return
 
-    def _to_ncx(self):
+    def _to_ncx(self: _typing.Self) -> _typing.Any:
         lang = six_unicode(self.metadata.language[0])
         lang = lang.replace("_", "-")
 
@@ -2456,7 +2459,7 @@ class OEBBook(object):
 
         return ncx
 
-    def to_opf2(self, page_map=False):
+    def to_opf2(self: _typing.Self, page_map: bool = False) -> _typing.Any:
         """
         Produce OPF 2.0 representing the book's metadata and structure.
 

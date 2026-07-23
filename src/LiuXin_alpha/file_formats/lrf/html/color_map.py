@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import typing as _typing
 import re
 
 __license__ = "GPL v3"
@@ -101,7 +104,7 @@ hex_pat = re.compile(r"#(\d{2})(\d{2})(\d{2})")
 rgb_pat = re.compile(r"rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)", re.IGNORECASE)
 
 
-def lrs_color(html_color):
+def lrs_color(html_color: _typing.Any) -> _typing.Any:
     hcol = html_color.lower()
     match = hex_pat.search(hcol)
     if match:

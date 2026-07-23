@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 from collections import Counter
@@ -18,7 +21,7 @@ try:
     from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer as Sz, Style as St
 except Exception:
     class _MissingStylizerBase(object):
-        def __init__(self, *args, **kwargs):
+        def __init__(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
             raise RuntimeError("DOCX writer requires cssutils-backed stylizer support")
 
     Sz = _MissingStylizerBase
@@ -33,7 +36,7 @@ __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def lang_for_tag(tag):
+def lang_for_tag(tag: _typing.Any) -> _typing.Any:
     for attr in ("lang", "{http://www.w3.org/XML/1998/namespace}lang"):
         val = lang_as_iso639_1(tag.get(attr))
         if val:
@@ -41,12 +44,12 @@ def lang_for_tag(tag):
 
 
 class Style(St):
-    def __init__(self, *args, **kwargs):
+    def __init__(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
         St.__init__(self, *args, **kwargs)
         self._letterSpacing = None
 
     @property
-    def letterSpacing(self):
+    def letterSpacing(self: _typing.Self) -> _typing.Any:
         if self._letterSpacing is not None:
             val = self._get("letter-spacing")
             if val == "normal":
@@ -57,7 +60,7 @@ class Style(St):
 
 
 class Stylizer(Sz):
-    def style(self, element):
+    def style(self: _typing.Self, element: _typing.Any) -> _typing.Any:
         try:
             return self._styles[element]
         except KeyError:
@@ -68,7 +71,7 @@ class TextRun(object):
 
     ws_pat = None
 
-    def __init__(self, namespace, style, first_html_parent, lang=None):
+    def __init__(self: _typing.Self, namespace: _typing.Any, style: _typing.Any, first_html_parent: _typing.Any, lang: _typing.Any = None) -> None:
         self.first_html_parent = first_html_parent
         if self.ws_pat is None:
             TextRun.ws_pat = self.ws_pat = re.compile(r"\s+")
@@ -80,7 +83,7 @@ class TextRun(object):
         self.makeelement = namespace.makeelement
         self.descendant_style = None
 
-    def add_text(self, text, preserve_whitespace, bookmark=None, link=None):
+    def add_text(self: _typing.Self, text: _typing.Any, preserve_whitespace: _typing.Any, bookmark: _typing.Any = None, link: _typing.Any = None) -> None:
         if not preserve_whitespace:
             text = self.ws_pat.sub(" ", text)
             if text.strip() != text:
@@ -90,13 +93,13 @@ class TextRun(object):
         self.texts.append((text, preserve_whitespace, bookmark))
         self.link = link
 
-    def add_break(self, clear="none", bookmark=None):
+    def add_break(self: _typing.Self, clear: str = "none", bookmark: _typing.Any = None) -> None:
         self.texts.append((None, clear, bookmark))
 
-    def add_image(self, drawing, bookmark=None):
+    def add_image(self: _typing.Self, drawing: _typing.Any, bookmark: _typing.Any = None) -> None:
         self.texts.append((drawing, None, bookmark))
 
-    def serialize(self, p, links_manager):
+    def serialize(self: _typing.Self, p: _typing.Any, links_manager: _typing.Any) -> None:
         makeelement = self.makeelement
         parent = p if self.link is None else links_manager.serialize_hyperlink(p, self.link)
         r = makeelement(parent, "w:r")
@@ -125,10 +128,10 @@ class TextRun(object):
             if bookmark is not None:
                 makeelement(r, "w:bookmarkEnd", w_id=str(bid))
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return repr(self.texts)
 
-    def is_empty(self):
+    def is_empty(self: _typing.Self) -> bool:
         if not self.texts:
             return True
         if len(self.texts) == 1 and self.texts[0][:2] == ("", False):
@@ -136,7 +139,7 @@ class TextRun(object):
         return False
 
     @property
-    def style_weight(self):
+    def style_weight(self: _typing.Self) -> _typing.Any:
         ans = 0
         for text, preserve_whitespace, bookmark in self.texts:
             if isinstance(text, type("")):
@@ -146,16 +149,16 @@ class TextRun(object):
 
 class Block(object):
     def __init__(
-        self,
-        namespace,
-        styles_manager,
-        links_manager,
-        html_block,
-        style,
-        is_table_cell=False,
-        float_spec=None,
-        is_list_item=False,
-    ):
+        self: _typing.Self,
+        namespace: _typing.Any,
+        styles_manager: _typing.Any,
+        links_manager: _typing.Any,
+        html_block: _typing.Any,
+        style: _typing.Any,
+        is_table_cell: bool = False,
+        float_spec: _typing.Any = None,
+        is_list_item: bool = False,
+    ) -> None:
         self.namespace = namespace
         self.bookmarks = set()
         self.list_tag = (html_block, style) if is_list_item else None
@@ -179,7 +182,7 @@ class Block(object):
         self.page_break_after = False
         self.block_lang = None
 
-    def resolve_skipped(self, next_block):
+    def resolve_skipped(self: _typing.Self, next_block: _typing.Any) -> None:
         if not self.is_empty():
             return
         if len(self.html_block) > 0 and self.html_block[0] is next_block.html_block:
@@ -188,16 +191,16 @@ class Block(object):
                 next_block.list_tag = self.list_tag
 
     def add_text(
-        self,
-        text,
-        style,
-        ignore_leading_whitespace=False,
-        html_parent=None,
-        is_parent_style=False,
-        bookmark=None,
-        link=None,
-        lang=None,
-    ):
+        self: _typing.Self,
+        text: _typing.Any,
+        style: _typing.Any,
+        ignore_leading_whitespace: bool = False,
+        html_parent: _typing.Any = None,
+        is_parent_style: bool = False,
+        bookmark: _typing.Any = None,
+        link: _typing.Any = None,
+        lang: _typing.Any = None,
+    ) -> None:
         ts = self.styles_manager.create_text_style(style, is_parent_style=is_parent_style)
         ws = style["white-space"]
         if self.runs and ts == self.runs[-1].style and link == self.runs[-1].link and lang == self.runs[-1].lang:
@@ -221,7 +224,7 @@ class Block(object):
         else:
             run.add_text(text, preserve_whitespace, bookmark=bookmark, link=link)
 
-    def add_break(self, clear="none", bookmark=None):
+    def add_break(self: _typing.Self, clear: str = "none", bookmark: _typing.Any = None) -> None:
         if self.runs:
             run = self.runs[-1]
         else:
@@ -233,7 +236,7 @@ class Block(object):
             self.runs.append(run)
         run.add_break(clear=clear, bookmark=bookmark)
 
-    def add_image(self, drawing, bookmark=None):
+    def add_image(self: _typing.Self, drawing: _typing.Any, bookmark: _typing.Any = None) -> None:
         if self.runs:
             run = self.runs[-1]
         else:
@@ -245,7 +248,7 @@ class Block(object):
             self.runs.append(run)
         run.add_image(drawing, bookmark=bookmark)
 
-    def serialize(self, body):
+    def serialize(self: _typing.Self, body: _typing.Any) -> None:
         makeelement = self.namespace.makeelement
         p = makeelement(body, "w:p")
         end_bookmarks = []
@@ -286,12 +289,12 @@ class Block(object):
         for bmark in end_bookmarks:
             makeelement(p, "w:bookmarkEnd", w_id=bmark)
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "Block(%r)" % self.runs
 
     __str__ = __repr__
 
-    def is_empty(self):
+    def is_empty(self: _typing.Self) -> bool:
         for run in self.runs:
             if not run.is_empty():
                 return False
@@ -299,7 +302,7 @@ class Block(object):
 
 
 class Blocks(object):
-    def __init__(self, namespace, styles_manager, links_manager):
+    def __init__(self: _typing.Self, namespace: _typing.Any, styles_manager: _typing.Any, links_manager: _typing.Any) -> None:
         self.namespace = namespace
         self.styles_manager = styles_manager
         self.links_manager = links_manager
@@ -312,10 +315,10 @@ class Blocks(object):
         self.open_html_blocks = set()
         self.html_tag_start_blocks = {}
 
-    def current_or_new_block(self, html_tag, tag_style):
+    def current_or_new_block(self: _typing.Self, html_tag: _typing.Any, tag_style: _typing.Any) -> bool:
         return self.current_block or self.start_new_block(html_tag, tag_style)
 
-    def end_current_block(self):
+    def end_current_block(self: _typing.Self) -> None:
         if self.current_block is not None:
             self.all_blocks.append(self.current_block)
             if self.current_table is not None and self.current_table.current_row is not None:
@@ -327,13 +330,13 @@ class Blocks(object):
         self.current_block = None
 
     def start_new_block(
-        self,
-        html_block,
-        style,
-        is_table_cell=False,
-        float_spec=None,
-        is_list_item=False,
-    ):
+        self: _typing.Self,
+        html_block: _typing.Any,
+        style: _typing.Any,
+        is_table_cell: bool = False,
+        float_spec: _typing.Any = None,
+        is_list_item: bool = False,
+    ) -> _typing.Any:
         self.end_current_block()
         self.current_block = Block(
             self.namespace,
@@ -349,21 +352,21 @@ class Blocks(object):
         self.open_html_blocks.add(html_block)
         return self.current_block
 
-    def start_new_table(self, html_tag, tag_style=None):
+    def start_new_table(self: _typing.Self, html_tag: _typing.Any, tag_style: _typing.Any = None) -> None:
         self.current_table = Table(self.namespace, html_tag, tag_style)
         self.tables.append(self.current_table)
 
-    def start_new_row(self, html_tag, tag_style):
+    def start_new_row(self: _typing.Self, html_tag: _typing.Any, tag_style: _typing.Any) -> None:
         if self.current_table is None:
             self.start_new_table(html_tag)
         self.current_table.start_new_row(html_tag, tag_style)
 
-    def start_new_cell(self, html_tag, tag_style):
+    def start_new_cell(self: _typing.Self, html_tag: _typing.Any, tag_style: _typing.Any) -> None:
         if self.current_table is None:
             self.start_new_table(html_tag)
         self.current_table.start_new_cell(html_tag, tag_style)
 
-    def finish_tag(self, html_tag):
+    def finish_tag(self: _typing.Self, html_tag: _typing.Any) -> None:
         if self.current_block is not None and html_tag in self.open_html_blocks:
             start_block = self.html_tag_start_blocks.get(html_tag)
             if start_block is not None and start_block.html_style["page-break-after"] == "always":
@@ -384,11 +387,11 @@ class Blocks(object):
                     self.block_map[table] = len(self.items)
                     self.items.append(table)
 
-    def serialize(self, body):
+    def serialize(self: _typing.Self, body: _typing.Any) -> None:
         for item in self.items:
             item.serialize(body)
 
-    def delete_block_at(self, pos=None):
+    def delete_block_at(self: _typing.Self, pos: _typing.Any = None) -> None:
         pos = self.pos if pos is None else pos
         block = self.all_blocks[pos]
         del self.all_blocks[pos]
@@ -409,11 +412,11 @@ class Blocks(object):
         except (IndexError, KeyError):
             pass
 
-    def __enter__(self):
+    def __enter__(self: _typing.Self) -> None:
         self.pos = len(self.all_blocks)
         self.block_map = {}
 
-    def __exit__(self, etype, value, traceback):
+    def __exit__(self: _typing.Self, etype: _typing.Any, value: _typing.Any, traceback: _typing.Any) -> None:
         if value is not None:
             return  # Since there was an exception, the data structures are not in a consistent state
         if self.current_block is not None:
@@ -428,14 +431,14 @@ class Blocks(object):
             self.all_blocks[self.pos].page_break_before = True
         self.block_map = {}
 
-    def apply_page_break_after(self):
+    def apply_page_break_after(self: _typing.Self) -> None:
         for i, block in enumerate(self.all_blocks):
             if block.page_break_after and i < len(self.all_blocks) - 1:
                 next_block = self.all_blocks[i + 1]
                 if next_block.parent_items is block.parent_items and block.parent_items is self.items:
                     next_block.page_break_before = True
 
-    def resolve_language(self):
+    def resolve_language(self: _typing.Self) -> None:
         default_lang = self.styles_manager.document_lang
         for block in self.all_blocks:
             count = Counter()
@@ -449,7 +452,7 @@ class Blocks(object):
                 if bl == default_lang:
                     block.block_lang = None
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "Block(%r)" % self.runs
 
 
@@ -462,7 +465,7 @@ class Convert(object):
     a[href] { text-decoration: underline; color: blue }
     """
 
-    def __init__(self, oeb, docx, mi, add_cover, add_toc):
+    def __init__(self: _typing.Self, oeb: _typing.Any, docx: _typing.Any, mi: _typing.Any, add_cover: _typing.Any, add_toc: _typing.Any) -> None:
         self.oeb, self.docx, self.add_cover, self.add_toc = (
             oeb,
             docx,
@@ -473,7 +476,7 @@ class Convert(object):
         self.mi = mi
         self.cover_img = None
 
-    def __call__(self):
+    def __call__(self: _typing.Self) -> None:
         from LiuXin_alpha.file_formats.oeb.transforms.rasterize import SVGRasterizer
 
         self.svg_rasterizer = SVGRasterizer(base_css=self.base_css)
@@ -524,7 +527,7 @@ class Convert(object):
         self.styles_manager.finalize(all_blocks)
         self.write()
 
-    def process_item(self, item):
+    def process_item(self: _typing.Self, item: _typing.Any) -> None:
         self.current_item = item
         stylizer = self.svg_rasterizer.stylizer_cache.get(item)
         if stylizer is None:
@@ -544,7 +547,7 @@ class Convert(object):
                 self.links_manager.bookmark_for_anchor(self.links_manager.top_anchor, self.current_item, body)
                 self.process_tag(body, stylizer, is_first_tag=i == 0)
 
-    def process_tag(self, html_tag, stylizer, is_first_tag=False, float_spec=None):
+    def process_tag(self: _typing.Self, html_tag: _typing.Any, stylizer: _typing.Any, is_first_tag: bool = False, float_spec: _typing.Any = None) -> None:
         tagname = barename(html_tag.tag)
         if tagname in {"script", "style", "title", "meta"}:
             return
@@ -624,7 +627,7 @@ class Convert(object):
                 lang=self.current_lang,
             )
 
-    def create_block_from_parent(self, html_tag, stylizer):
+    def create_block_from_parent(self: _typing.Self, html_tag: _typing.Any, stylizer: _typing.Any) -> _typing.Any:
         parent = html_tag.getparent()
         block = self.blocks.current_or_new_block(parent, stylizer.style(parent))
         # Do not inherit page-break-before from parent
@@ -632,15 +635,15 @@ class Convert(object):
         return block
 
     def add_block_tag(
-        self,
-        tagname,
-        html_tag,
-        tag_style,
-        stylizer,
-        is_table_cell=False,
-        float_spec=None,
-        is_list_item=False,
-    ):
+        self: _typing.Self,
+        tagname: _typing.Any,
+        html_tag: _typing.Any,
+        tag_style: _typing.Any,
+        stylizer: _typing.Any,
+        is_table_cell: bool = False,
+        float_spec: _typing.Any = None,
+        is_list_item: bool = False,
+    ) -> None:
         block = self.blocks.start_new_block(
             html_tag,
             tag_style,
@@ -664,7 +667,7 @@ class Convert(object):
                     lang=self.current_lang,
                 )
 
-    def add_inline_tag(self, tagname, html_tag, tag_style, stylizer):
+    def add_inline_tag(self: _typing.Self, tagname: _typing.Any, html_tag: _typing.Any, tag_style: _typing.Any, stylizer: _typing.Any) -> None:
         anchor = html_tag.get("id") or html_tag.get("name") or None
         bmark = None
         if anchor:
@@ -691,10 +694,10 @@ class Convert(object):
                     lang=self.current_lang,
                 )
 
-    def bookmark_for_anchor(self, anchor, html_tag):
+    def bookmark_for_anchor(self: _typing.Self, anchor: _typing.Any, html_tag: _typing.Any) -> _typing.Any:
         return self.links_manager.bookmark_for_anchor(anchor, self.current_item, html_tag)
 
-    def write(self):
+    def write(self: _typing.Self) -> None:
         self.docx.document, self.docx.styles, body = create_skeleton(self.opts)
         self.blocks.serialize(body)
         body.append(body[0])  # Move <sectPr> to the end

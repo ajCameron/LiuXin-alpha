@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys, os, re
 
 from LiuXin_alpha.file_formats.rtf2xml import copy
@@ -22,7 +25,7 @@ class Colors:
     Change lines with color info from color numbers to the actual color names.
     """
 
-    def __init__(self, in_file, bug_handler, copy=None, run_level=1):
+    def __init__(self: _typing.Self, in_file: _typing.Any, bug_handler: _typing.Any, copy: _typing.Any = None, run_level: int = 1) -> None:
         """
         Required:
             'file'--file to parse
@@ -40,7 +43,7 @@ class Colors:
         self.__write_to = better_mktemp()
         self.__run_level = run_level
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
         """
@@ -60,7 +63,7 @@ class Colors:
         self.__line_color_exp = re.compile(r"bdr-color_:(\d+)")
         # cw<bd<bor-par-to<nu<bdr-hair__|bdr-li-wid:0.50|bdr-sp-wid:1.00|bdr-color_:2
 
-    def __before_color_func(self, line):
+    def __before_color_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line
@@ -76,7 +79,7 @@ class Colors:
             self.__state = "in_color_table"
         self.__write_obj.write(line)
 
-    def __default_color_func(self, line):
+    def __default_color_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line
@@ -88,7 +91,7 @@ class Colors:
         hex_num = line[-3:-1]
         self.__color_string += hex_num
 
-    def __blue_func(self, line):
+    def __blue_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line
@@ -110,7 +113,7 @@ class Colors:
         self.__color_num += 1
         self.__color_string = "#"
 
-    def __in_color_func(self, line):
+    def __in_color_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line
@@ -134,7 +137,7 @@ class Colors:
                 )
             action(line)
 
-    def __after_color_func(self, line):
+    def __after_color_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Check the to see if it contains color info. If it does, extract the
         number and look up the hex value in the color dictionary. If the color
@@ -180,7 +183,7 @@ class Colors:
             self.__write_obj.write(line)
         # cw<bd<bor-par-to<nu<bdr-hair__|bdr-li-wid:0.50|bdr-sp-wid:1.00|bdr-color_:2
 
-    def __sub_from_line_color(self, match_obj):
+    def __sub_from_line_color(self: _typing.Self, match_obj: _typing.Any) -> _typing.Any:
         num = match_obj.group(1)
         try:
             num = int(num)
@@ -193,7 +196,7 @@ class Colors:
         hex_num = self.__figure_num(num)
         return "bdr-color_:%s" % hex_num
 
-    def __figure_num(self, num):
+    def __figure_num(self: _typing.Self, num: _typing.Any) -> _typing.Any:
         if num == 0:
             hex_num = "false"
         else:
@@ -205,13 +208,13 @@ class Colors:
                 raise self.__bug_handler(msg)
         return hex_num
 
-    def __do_nothing_func(self, line):
+    def __do_nothing_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Bad RTF will have text in the color table
         """
         pass
 
-    def convert_colors(self):
+    def convert_colors(self: _typing.Self) -> None:
         """
         Requires:
             nothing

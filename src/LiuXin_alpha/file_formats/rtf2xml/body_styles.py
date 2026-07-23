@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import os
 
 from LiuXin_alpha.file_formats.rtf2xml import copy
@@ -28,13 +31,13 @@ class BodyStyles:
     """
 
     def __init__(
-        self,
-        in_file,
-        list_of_styles,
-        bug_handler,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        list_of_styles: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         """
         Required:
             'file'--file to parse
@@ -54,7 +57,7 @@ class BodyStyles:
         self.__write_to = better_mktemp()
         # self.__write_to = 'table_info.data'
 
-    def insert_info(self):
+    def insert_info(self: _typing.Self) -> None:
         """ """
         read_obj = open_for_read(self.__file)
         self.__write_obj = open_for_write(self.__write_to)

@@ -2,6 +2,9 @@
 This package contains logic to read and write LRF files.
 The LRF file format is documented at U{http://www.sven.de/librie/Librie/LrfFormat}.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.file_formats import ConversionError
 
@@ -39,14 +42,14 @@ class PRS500_PROFILE(object):
     name = "prs500"
 
 
-def _log_warn(logger, message):
+def _log_warn(logger: _typing.Any, message: _typing.Any) -> None:
     if hasattr(logger, "warning"):
         logger.warning(message)
     elif hasattr(logger, "warn"):
         logger.warn(message)
 
 
-def find_custom_fonts(options, logger):
+def find_custom_fonts(options: _typing.Any, logger: _typing.Any) -> _typing.Any:
     try:
         from LiuXin_alpha.utils.fonts.scanner import font_scanner
     except ModuleNotFoundError:
@@ -55,7 +58,7 @@ def find_custom_fonts(options, logger):
 
     fonts = {"serif": None, "sans": None, "mono": None}
 
-    def family(cmd):
+    def family(cmd: _typing.Any) -> _typing.Any:
         return cmd.split(",")[-1].strip()
 
     if options.serif_family:
@@ -76,7 +79,7 @@ def find_custom_fonts(options, logger):
     return fonts
 
 
-def Book(options, logger, font_delta=0, header=None, profile=PRS500_PROFILE, **settings):
+def Book(options: _typing.Any, logger: _typing.Any, font_delta: int = 0, header: _typing.Any = None, profile: _typing.Any = PRS500_PROFILE, **settings: _typing.Any) -> tuple[_typing.Any, ...]:
     from uuid import uuid4
 
     ps = dict()

@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Admonition extension for Python-Markdown
@@ -52,7 +55,7 @@ import re
 class AdmonitionExtension(Extension):
     """Admonition extension for Python-Markdown."""
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         """Add Admonition to Markdown instance."""
         md.registerExtension(self)
 
@@ -65,13 +68,13 @@ class AdmonitionProcessor(BlockProcessor):
     CLASSNAME_TITLE = "admonition-title"
     RE = re.compile(r'(?:^|\n)!!!\ ?([\w\-]+)(?:\ "(.*?)")?')
 
-    def test(self, parent, block):
+    def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> bool:
         sibling = self.lastChild(parent)
         return self.RE.search(block) or (
             block.startswith(" " * self.tab_length) and sibling and sibling.get("class", "").find(self.CLASSNAME) != -1
         )
 
-    def run(self, parent, blocks):
+    def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         sibling = self.lastChild(parent)
         block = blocks.pop(0)
         m = self.RE.search(block)
@@ -100,7 +103,7 @@ class AdmonitionProcessor(BlockProcessor):
             # list for future processing.
             blocks.insert(0, theRest)
 
-    def get_class_and_title(self, match):
+    def get_class_and_title(self: _typing.Self, match: _typing.Any) -> tuple[_typing.Any, ...]:
         klass, title = match.group(1).lower(), match.group(2)
         if title is None:
             # no title was provided, use the capitalized classname as title
@@ -113,5 +116,5 @@ class AdmonitionProcessor(BlockProcessor):
         return klass, title
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return AdmonitionExtension(configs=configs)

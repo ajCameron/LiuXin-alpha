@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from lxml import etree
 
@@ -13,7 +16,7 @@ __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def get_book_language(container):
+def get_book_language(container: _typing.Any) -> _typing.Any:
     for lang in container.opf_xpath("//dc:language"):
         raw = getattr(lang, "text", None)
         if not raw:
@@ -32,7 +35,7 @@ def get_book_language(container):
             return code
 
 
-def set_guide_item(container, item_type, title, name, frag=None):
+def set_guide_item(container: _typing.Any, item_type: _typing.Any, title: _typing.Any, name: _typing.Any, frag: _typing.Any = None) -> None:
     ref_tag = "{%s}reference" % OPF_NAMESPACES["opf"]
     item_type = "" if item_type is None else str(item_type)
     href = None

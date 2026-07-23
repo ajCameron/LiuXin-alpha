@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 
@@ -35,12 +38,12 @@ class HTMLZInput(InputFormatPlugin):
     max_compression_ratio = 1000
     min_compression_ratio_check_size = 1024 * 1024
 
-    def _warn(self, log, message):
+    def _warn(self: _typing.Self, log: _typing.Any, message: _typing.Any) -> None:
         warn = getattr(log, "warning", None) or getattr(log, "warn", None)
         if warn is not None:
             warn(message)
 
-    def _warn_optional_enrichment_loss(self, log, options, code, message, details=None):
+    def _warn_optional_enrichment_loss(self: _typing.Self, log: _typing.Any, options: _typing.Any, code: _typing.Any, message: _typing.Any, details: _typing.Any = None) -> None:
         self._warn(log, message)
         report = ensure_conversion_report(options)
         report.add_warning(message)
@@ -55,7 +58,7 @@ class HTMLZInput(InputFormatPlugin):
             details=details or {},
         )
 
-    def _safe_cover_path(self, basedir, cover_path):
+    def _safe_cover_path(self: _typing.Self, basedir: _typing.Any, cover_path: _typing.Any) -> _typing.Any:
         if not cover_path:
             return None
         cover_path = str(cover_path).replace("\\", "/")
@@ -74,14 +77,14 @@ class HTMLZInput(InputFormatPlugin):
             return None
         return candidate
 
-    def normalized_archive_member_name(self, name):
+    def normalized_archive_member_name(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         return normalized_zip_member_name(
             name,
             member_label="HTMLZ archive",
             error_type=ValueError,
         )
 
-    def validate_container_members(self, stream):
+    def validate_container_members(self: _typing.Self, stream: _typing.Any) -> None:
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         stream.seek(0)
@@ -121,11 +124,11 @@ class HTMLZInput(InputFormatPlugin):
             zf.close()
             stream.seek(0)
 
-    def warn_preflight_rejection(self, stream, log, error):
+    def warn_preflight_rejection(self: _typing.Self, stream: _typing.Any, log: _typing.Any, error: _typing.Any) -> None:
         path = getattr(stream, "name", "stream")
         self._warn(log, "HTMLZ preflight rejected %s: %s" % (path, error))
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """
         Takes an htmlz file as input and outputs an OEB.
         :param stream: The html file as a stream to convert

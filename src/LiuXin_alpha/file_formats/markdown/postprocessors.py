@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 POST-PROCESSORS
@@ -16,7 +19,7 @@ from . import odict
 import re
 
 
-def build_postprocessors(md_instance, **kwargs):
+def build_postprocessors(md_instance: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     """Build the default postprocessors for Markdown."""
     postprocessors = odict.OrderedDict()
     postprocessors["raw_html"] = RawHtmlPostprocessor(md_instance)
@@ -36,7 +39,7 @@ class Postprocessor(util.Processor):
 
     """
 
-    def run(self, text):
+    def run(self: _typing.Self, text: _typing.Any) -> None:
         """
         Subclasses of Postprocessor should implement a `run` method, which
         takes the html document as a single text string and returns a
@@ -49,7 +52,7 @@ class Postprocessor(util.Processor):
 class RawHtmlPostprocessor(Postprocessor):
     """Restore raw html to the document."""
 
-    def run(self, text):
+    def run(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """Iterate over html stash and restore "safe" html."""
         for i in range(self.markdown.htmlStash.html_counter):
             html, safe = self.markdown.htmlStash.rawHtmlBlocks[i]
@@ -68,14 +71,14 @@ class RawHtmlPostprocessor(Postprocessor):
             text = text.replace(self.markdown.htmlStash.get_placeholder(i), html)
         return text
 
-    def escape(self, html):
+    def escape(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         """Basic html escaping"""
         html = html.replace("&", "&amp;")
         html = html.replace("<", "&lt;")
         html = html.replace(">", "&gt;")
         return html.replace('"', "&quot;")
 
-    def isblocklevel(self, html):
+    def isblocklevel(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         m = re.match(r"^\<\/?([^ >]+)", html)
         if m:
             if m.group(1)[0] in ("!", "?", "@", "%"):
@@ -88,7 +91,7 @@ class RawHtmlPostprocessor(Postprocessor):
 class AndSubstitutePostprocessor(Postprocessor):
     """Restore valid entities"""
 
-    def run(self, text):
+    def run(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         text = text.replace(util.AMP_SUBSTITUTE, "&")
         return text
 
@@ -98,8 +101,8 @@ class UnescapePostprocessor(Postprocessor):
 
     RE = re.compile(r"%s(\d+)%s" % (util.STX, util.ETX))
 
-    def unescape(self, m):
+    def unescape(self: _typing.Self, m: _typing.Any) -> _typing.Any:
         return util.int2str(int(m.group(1)))
 
-    def run(self, text):
+    def run(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         return self.RE.sub(self.unescape, text)

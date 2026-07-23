@@ -3,6 +3,9 @@
 """
 Read content from ereader pdb file with a 132 byte header created by Dropbook.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
@@ -34,7 +37,7 @@ class HeaderRecord(object):
     defined in the file header.
     """
 
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         if len(raw) < HEADER_RECORD_SIZE:
             raise EreaderError("Truncated eReader 132-byte header record")
         (self.compression,) = struct.unpack(">H", raw[0:2])
@@ -60,7 +63,7 @@ class HeaderRecord(object):
 
 
 class Reader132(FormatReader):
-    def __init__(self, header, stream, log, options):
+    def __init__(self: _typing.Self, header: _typing.Any, stream: _typing.Any, log: _typing.Any, options: _typing.Any) -> None:
         self.log = log
         self.encoding = options.input_encoding
 
@@ -83,13 +86,13 @@ class Reader132(FormatReader):
 
         self.mi = get_metadata(stream, False)
 
-    def _validate_section_range(self, offset, count, label):
+    def _validate_section_range(self: _typing.Self, offset: _typing.Any, count: _typing.Any, label: _typing.Any) -> None:
         if count <= 0:
             return
         if offset < 0 or offset + count > len(self.sections):
             raise EreaderError("%s range exceeds available eReader sections" % label)
 
-    def _validate_header_ranges(self):
+    def _validate_header_ranges(self: _typing.Self) -> None:
         if self.header_record.non_text_offset < 1 or self.header_record.non_text_offset > len(self.sections):
             raise EreaderError("eReader text range exceeds available sections")
         self._validate_section_range(self.header_record.chapter_offset, self.header_record.chapter_count, "eReader chapter")
@@ -100,15 +103,15 @@ class Reader132(FormatReader):
         if self.header_record.has_metadata and not (0 <= self.header_record.metadata_offset < len(self.sections)):
             raise EreaderError("eReader metadata offset exceeds available sections")
 
-    def _text_encoding(self):
+    def _text_encoding(self: _typing.Self) -> _typing.Any:
         return "cp1252" if self.encoding is None else self.encoding
 
-    def section_data(self, number):
+    def section_data(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         if number < 0 or number >= len(self.sections):
             raise EreaderError("eReader section %i is outside the PDB section table" % number)
         return self.sections[number]
 
-    def decompress_text(self, number):
+    def decompress_text(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         payload = self.section_data(number)
         try:
             if self.header_record.compression == 2:
@@ -125,7 +128,7 @@ class Reader132(FormatReader):
         except Exception as err:
             raise EreaderError("eReader text decompression failed for section %i: %s" % (number, err)) from err
 
-    def get_image(self, number):
+    def get_image(self: _typing.Self, number: _typing.Any) -> tuple[_typing.Any, ...]:
         if (
             number < self.header_record.image_data_offset
             or number > self.header_record.image_data_offset + self.header_record.num_image_pages - 1
@@ -138,7 +141,7 @@ class Reader132(FormatReader):
         img = data[62:]
         return name, img
 
-    def get_text_page(self, number):
+    def get_text_page(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         """
         Only palmdoc and zlib compressed are supported. The text is
         assumed to be encoded as Windows-1252. The encoding is part of
@@ -151,7 +154,7 @@ class Reader132(FormatReader):
 
         return self.decompress_text(number)
 
-    def extract_content(self, output_dir):
+    def extract_content(self: _typing.Self, output_dir: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.pml.pmlconverter import (
             footnote_to_html,
             sidebar_to_html,
@@ -240,7 +243,7 @@ class Reader132(FormatReader):
 
         return opf_path
 
-    def create_opf(self, output_dir, images, toc):
+    def create_opf(self: _typing.Self, output_dir: _typing.Any, images: _typing.Any, toc: _typing.Any) -> _typing.Any:
         with CurrentDir(output_dir):
             if "cover.png" in images:
                 self.mi.cover = os.path.join("images", "cover.png")
@@ -261,7 +264,7 @@ class Reader132(FormatReader):
 
         return os.path.join(output_dir, "metadata.opf")
 
-    def dump_pml(self):
+    def dump_pml(self: _typing.Self) -> _typing.Any:
         """
         This is primarily used for debugging and 3rd party tools to
         get the plm markup that comprises the text in the file.
@@ -273,7 +276,7 @@ class Reader132(FormatReader):
 
         return pml
 
-    def dump_images(self, output_dir):
+    def dump_images(self: _typing.Self, output_dir: _typing.Any) -> None:
         """
         This is primarily used for debugging and 3rd party tools to
         get the images in the file.

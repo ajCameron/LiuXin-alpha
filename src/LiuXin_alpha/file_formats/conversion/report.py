@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import typing as _typing
+
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping
 
@@ -10,13 +12,13 @@ class ConversionLossSample:
     codepoints: tuple[str, ...]
 
     @classmethod
-    def from_text(cls, text: str) -> "ConversionLossSample":
+    def from_text(cls: type[_typing.Self], text: str) -> "ConversionLossSample":
         return cls(
             text=text,
             codepoints=tuple("U+%04X" % ord(char) for char in text),
         )
 
-    def to_mapping(self) -> dict[str, object]:
+    def to_mapping(self: _typing.Self) -> dict[str, object]:
         return {
             "text": self.text,
             "codepoints": list(self.codepoints),
@@ -36,7 +38,7 @@ class ConversionLossEvent:
     samples: tuple[ConversionLossSample, ...] = ()
     details: Mapping[str, Any] = field(default_factory=dict)
 
-    def to_mapping(self) -> dict[str, object]:
+    def to_mapping(self: _typing.Self) -> dict[str, object]:
         return {
             "phase": self.phase,
             "code": self.code,
@@ -60,7 +62,7 @@ class ConversionReport:
     warnings: list[str] = field(default_factory=list)
 
     def apply_context_defaults(
-        self,
+        self: _typing.Self,
         *,
         source_format: str | None = None,
         target_format: str | None = None,
@@ -73,11 +75,11 @@ class ConversionReport:
         if self.edge_name is None:
             self.edge_name = edge_name
 
-    def add_warning(self, message: str) -> None:
+    def add_warning(self: _typing.Self, message: str) -> None:
         self.warnings.append(message)
 
     def add_loss_event(
-        self,
+        self: _typing.Self,
         *,
         phase: str,
         code: str,
@@ -105,7 +107,7 @@ class ConversionReport:
         self.loss_events.append(event)
         return event
 
-    def to_mapping(self) -> dict[str, object]:
+    def to_mapping(self: _typing.Self) -> dict[str, object]:
         return {
             "source_format": self.source_format,
             "target_format": self.target_format,

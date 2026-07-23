@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import hashlib
 import logging
@@ -21,27 +24,27 @@ try:
     from cssutils import replaceUrls, getUrls
 except ModuleNotFoundError:
     # cssutils is optional; provide a regex-based fallback.
-    def _css_text(sheet):
+    def _css_text(sheet: _typing.Any) -> bool:
         text = getattr(sheet, "cssText", sheet)
         if isinstance(text, bytes):
             text = text.decode("utf-8", "replace")
         return text or ""
 
-    def _set_css_text(sheet, text):
+    def _set_css_text(sheet: _typing.Any, text: _typing.Any) -> _typing.Any:
         if hasattr(sheet, "set_css_text"):
             sheet.set_css_text(text)
         elif hasattr(sheet, "cssText"):
             sheet.cssText = text
         return sheet
 
-    def getUrls(sheet):
+    def getUrls(sheet: _typing.Any) -> _typing.Iterator[_typing.Any]:
         from LiuXin_alpha.file_formats.oeb.base import itercsslinks
 
         text = _css_text(sheet)
         for link, _ in itercsslinks(text):
             yield link
 
-    def replaceUrls(sheet, repl_func):
+    def replaceUrls(sheet: _typing.Any, repl_func: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.oeb.base import itercsslinks
 
         text = _css_text(sheet)
@@ -108,11 +111,11 @@ try:
     from LiuXin_alpha.utils.ipc.simple_worker import fork_job, WorkerError
 except ModuleNotFoundError:
     class WorkerError(RuntimeError):
-        def __init__(self, message, orig_tb=None):
+        def __init__(self: _typing.Self, message: _typing.Any, orig_tb: _typing.Any = None) -> None:
             super().__init__(message)
             self.orig_tb = orig_tb
 
-    def fork_job(*args, **kwargs):
+    def fork_job(*args: _typing.Any, **kwargs: _typing.Any) -> None:
         raise RuntimeError("LiuXin_alpha.utils.ipc.simple_worker is not available in this port.")
 
 __license__ = "GPL v3"
@@ -135,7 +138,7 @@ ADOBE_OBFUSCATION = "http://ns.adobe.com/pdf/enc#RC"
 IDPF_OBFUSCATION = "http://www.idpf.org/2008/embedding"
 
 
-def decrypt_font_data(key, data, algorithm):
+def decrypt_font_data(key: _typing.Any, data: _typing.Any, algorithm: _typing.Any) -> _typing.Any:
     is_adobe = algorithm == ADOBE_OBFUSCATION
     crypt_len = 1024 if is_adobe else 1040
     crypt = bytearray(data[:crypt_len])
@@ -145,11 +148,11 @@ def decrypt_font_data(key, data, algorithm):
 
 
 class CSSPreProcessor(cssp):
-    def __call__(self, data):
+    def __call__(self: _typing.Self, data: _typing.Any) -> _typing.Any:
         return self.MS_PAT.sub(self.ms_sub, data)
 
 
-def clone_dir(src, dest):
+def clone_dir(src: _typing.Any, dest: _typing.Any) -> None:
     """
     Clone a directory using hard links for the files, dest must already exist
     :param src:
@@ -169,7 +172,7 @@ def clone_dir(src, dest):
                 shutil.copy2(spath, dpath)
 
 
-def clone_container(container, dest_dir):
+def clone_container(container: _typing.Any, dest_dir: _typing.Any) -> _typing.Any:
     """
     Efficiently clone a container using hard links
     :param container:
@@ -214,7 +217,7 @@ class Container(object):  # {{{
     SUPPORTS_TITLEPAGES = True
     SUPPORTS_FILENAMES = True
 
-    def __init__(self, rootpath, opfpath, log, clone_data=None):
+    def __init__(self: _typing.Self, rootpath: _typing.Any, opfpath: _typing.Any, log: _typing.Any, clone_data: _typing.Any = None) -> None:
         self.root = clone_data["root"] if clone_data is not None else os.path.abspath(rootpath)
         self.log = log
         self.html_preprocessor = HTMLPreProcessor()
@@ -281,7 +284,7 @@ class Container(object):  # {{{
         # Update mime map with data from the OPF
         self.refresh_mime_map()
 
-    def refresh_mime_map(self):
+    def refresh_mime_map(self: _typing.Self) -> None:
         for item in self.opf_xpath("//opf:manifest/opf:item[@href and @media-type]"):
             href = item.get("href")
             name = self.href_to_name(href, self.opf_name)
@@ -289,7 +292,7 @@ class Container(object):  # {{{
                 # some epubs include the opf in the manifest with an incorrect mime type
                 self.mime_map[name] = item.get("media-type")
 
-    def clone_data(self, dest_dir):
+    def clone_data(self: _typing.Self, dest_dir: _typing.Any) -> dict[_typing.Any, _typing.Any]:
         Container.commit(self, keep_parsed=True)
         self.cloned = True
         clone_dir(self.root, dest_dir)
@@ -306,7 +309,7 @@ class Container(object):  # {{{
             },
         }
 
-    def guess_type(self, name):
+    def guess_type(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         Return the expected mimetype for the specified file name based on its extension.
         :param name:
@@ -319,7 +322,7 @@ class Container(object):  # {{{
             ans = "application/xhtml+xml"
         return ans
 
-    def add_name_to_manifest(self, name):
+    def add_name_to_manifest(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         Add an entry to the manifest for a file with the specified name. Returns the manifest id.
         :param name:
@@ -339,7 +342,7 @@ class Container(object):  # {{{
         self.dirty(self.opf_name)
         return item_id
 
-    def add_file(self, name, data, media_type=None, spine_index=None):
+    def add_file(self: _typing.Self, name: _typing.Any, data: _typing.Any, media_type: _typing.Any = None, spine_index: _typing.Any = None) -> None:
         """
         Add a file to this container. Entries for the file are automatically created in the OPF manifest and spine
         (if the file is a text document)
@@ -375,7 +378,7 @@ class Container(object):  # {{{
             si = manifest.makeelement(OPF("itemref"), idref=item_id)
             self.insert_into_xml(spine, si, index=spine_index)
 
-    def rename(self, current_name, new_name):
+    def rename(self: _typing.Self, current_name: _typing.Any, new_name: _typing.Any) -> None:
         """
         Renames a file from current_name to new_name. It automatically rebases all links inside the file if the
         directory the file is in changes. Note however, that links are not updated in the other files that could
@@ -428,7 +431,7 @@ class Container(object):  # {{{
             self.replace_links(new_name, repl)
             self.dirty(new_name)
 
-    def replace_links(self, name, replace_func):
+    def replace_links(self: _typing.Self, name: _typing.Any, replace_func: _typing.Any) -> _typing.Any:
         """
         Replace all links in name using replace_func, which must be a
         callable that accepts a URL and returns the replaced URL. It must also
@@ -455,7 +458,7 @@ class Container(object):  # {{{
             self.dirty(name)
         return replace_func.replaced
 
-    def iterlinks(self, name, get_line_numbers=True):
+    def iterlinks(self: _typing.Self, name: _typing.Any, get_line_numbers: bool = True) -> _typing.Iterator[_typing.Any]:
         """
         Iterate over all links in name. If get_line_numbers is True the yields results of the form
         (link, line_number, offset). Where line_number is the line_number at which the link occurs and offset is
@@ -497,7 +500,7 @@ class Container(object):  # {{{
                     0,
                 ) if get_line_numbers else elem.get("src")
 
-    def abspath_to_name(self, fullpath, root=None):
+    def abspath_to_name(self: _typing.Self, fullpath: _typing.Any, root: _typing.Any = None) -> _typing.Any:
         """
         Convert an absolute path to a canonical name relative to :attr:`root`
         :param fullpath:
@@ -506,7 +509,7 @@ class Container(object):  # {{{
         """
         return self.relpath(os.path.abspath(fullpath), base=root).replace(os.sep, "/")
 
-    def name_to_abspath(self, name):
+    def name_to_abspath(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         Convert a canonical name to an absolute OS dependant path
         :param name: canonical name - seperated by '/'
@@ -514,7 +517,7 @@ class Container(object):  # {{{
         """
         return os.path.abspath(join(self.root, *name.split("/")))
 
-    def exists(self, name):
+    def exists(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         True iff a file corresponding to the canonical name exists. Note
         that this function suffers from the limitations of the underlying OS
@@ -526,7 +529,7 @@ class Container(object):  # {{{
         """
         return os.path.exists(self.name_to_abspath(name))
 
-    def href_to_name(self, href, base=None):
+    def href_to_name(self: _typing.Self, href: _typing.Any, base: _typing.Any = None) -> _typing.Any:
         """
         Convert an href (relative to base) to a name. base must be a name or None, in which case self.root is used.
         :param href:
@@ -549,7 +552,7 @@ class Container(object):  # {{{
         fullpath = os.path.join(base, *href.split("/"))
         return self.abspath_to_name(fullpath)
 
-    def name_to_href(self, name, base=None):
+    def name_to_href(self: _typing.Self, name: _typing.Any, base: _typing.Any = None) -> _typing.Any:
         """
         Convert a name to a href relative to base, which must be a name or None in which case self.root is used as the
         base
@@ -562,7 +565,7 @@ class Container(object):  # {{{
         path = relpath(fullpath, basepath).replace(os.sep, "/")
         return urlquote(path)
 
-    def opf_xpath(self, expr):
+    def opf_xpath(self: _typing.Self, expr: _typing.Any) -> _typing.Any:
         """
         Convenience method to evaluate an XPath expression on the OPF file,
         has the opf: and dc: namespace prefixes pre-defined.
@@ -571,7 +574,7 @@ class Container(object):  # {{{
         """
         return self.opf.xpath(expr, namespaces=OPF_NAMESPACES)
 
-    def has_name(self, name):
+    def has_name(self: _typing.Self, name: _typing.Any) -> bool:
         """
         Return True iff a file with the same canonical name as that specified exists. Unlike :meth:`exists` this method
         is always case-sensitive.
@@ -580,7 +583,7 @@ class Container(object):  # {{{
         """
         return name and name in self.name_path_map
 
-    def relpath(self, path, base=None):
+    def relpath(self: _typing.Self, path: _typing.Any, base: _typing.Any = None) -> _typing.Any:
         """
         Convert an absolute path (with os separators) to a path relative to base (defaults to self.root).
         The relative path is *not* a name. Use :meth:`abspath_to_name` for that.
@@ -590,7 +593,7 @@ class Container(object):  # {{{
         """
         return relpath(path, base or self.root)
 
-    def decode(self, data, normalize_to_nfc=True):
+    def decode(self: _typing.Self, data: _typing.Any, normalize_to_nfc: bool = True) -> _typing.Any:
         """
         Automatically decode ``data`` into a ``unicode`` object.
         :param data:
@@ -598,7 +601,7 @@ class Container(object):  # {{{
                                  EPUB and AZW3 formats.
         """
 
-        def fix_data(d):
+        def fix_data(d: _typing.Any) -> _typing.Any:
             return d.replace("\r\n", "\n").replace("\r", "\n")
 
         if isinstance(data, str):
@@ -631,11 +634,11 @@ class Container(object):  # {{{
             data = unicodedata.normalize("NFC", data)
         return fix_data(data)
 
-    def ok_to_be_unmanifested(self, name):
+    def ok_to_be_unmanifested(self: _typing.Self, name: _typing.Any) -> bool:
         return name in self.names_that_need_not_be_manifested
 
     @property
-    def names_that_need_not_be_manifested(self):
+    def names_that_need_not_be_manifested(self: _typing.Self) -> set[_typing.Any]:
         """
         Set of names that are allowed to be missing from the manifest. Depends on the ebook file format.
         :return:
@@ -643,7 +646,7 @@ class Container(object):  # {{{
         return {self.opf_name}
 
     @property
-    def names_that_must_not_be_removed(self):
+    def names_that_must_not_be_removed(self: _typing.Self) -> set[_typing.Any]:
         """
         Set of names that must never be deleted from the container. Depends on the ebook file format.
         :return:
@@ -651,21 +654,21 @@ class Container(object):  # {{{
         return {self.opf_name}
 
     @property
-    def names_that_must_not_be_changed(self):
+    def names_that_must_not_be_changed(self: _typing.Self) -> _typing.Any:
         """
         Set of names that must never be renamed. Depends on the ebook file format.
         :return:
         """
         return set()
 
-    def parse_xml(self, data):
+    def parse_xml(self: _typing.Self, data: _typing.Any) -> _typing.Any:
         data, self.used_encoding = xml_to_unicode(
             data, strip_encoding_pats=True, assume_utf8=True, resolve_entities=True
         )
         data = unicodedata.normalize("NFC", data)
         return etree.fromstring(data, parser=RECOVER_PARSER)
 
-    def parse_xhtml(self, data, fname="<string>", force_html5_parse=False):
+    def parse_xhtml(self: _typing.Self, data: _typing.Any, fname: str = "<string>", force_html5_parse: bool = False) -> _typing.Any:
         if self.tweak_mode:
             return parse_html_tweak(
                 data,
@@ -686,7 +689,7 @@ class Container(object):  # {{{
             except NotHTML:
                 return self.parse_xml(data)
 
-    def parse(self, path, mime):
+    def parse(self: _typing.Self, path: _typing.Any, mime: _typing.Any) -> _typing.Any:
         with open(path, "rb") as src:
             data = src.read()
         if mime in OEB_DOCS:
@@ -697,7 +700,7 @@ class Container(object):  # {{{
             data = self.parse_css(data, self.relpath(path))
         return data
 
-    def raw_data(self, name, decode=True, normalize_to_nfc=True):
+    def raw_data(self: _typing.Self, name: _typing.Any, decode: bool = True, normalize_to_nfc: bool = True) -> _typing.Any:
         """
         Return the raw data corresponding to the file specified by name
         :param name: The name of the file to decode
@@ -712,7 +715,7 @@ class Container(object):  # {{{
             ans = self.decode(ans, normalize_to_nfc=normalize_to_nfc)
         return ans
 
-    def parse_css(self, data, fname="<string>", is_declaration=False):
+    def parse_css(self: _typing.Self, data: _typing.Any, fname: str = "<string>", is_declaration: bool = False) -> _typing.Any:
         return parse_css(
             data,
             fname=fname,
@@ -722,7 +725,7 @@ class Container(object):  # {{{
             css_preprocessor=(None if self.tweak_mode else self.css_preprocessor),
         )
 
-    def parsed(self, name):
+    def parsed(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         Return a parsed representation of the file specified by name. For HTML and XML files an lxml tree is returned.
         For CSS files a cssutils stylesheet is returned.
@@ -740,7 +743,7 @@ class Container(object):  # {{{
             self.encoding_map[name] = self.used_encoding
         return ans
 
-    def replace(self, name, obj):
+    def replace(self: _typing.Self, name: _typing.Any, obj: _typing.Any) -> None:
         """
         Replace the parsed object corresponding to name with obj, which must be a similar object, i.e. an lxml tree
         for HTML/XML or a cssutils stylesheet for a CSS file.
@@ -752,7 +755,7 @@ class Container(object):  # {{{
         self.dirty(name)
 
     @property
-    def opf(self):
+    def opf(self: _typing.Self) -> _typing.Any:
         """
         The parsed OPF file
         :return:
@@ -760,7 +763,7 @@ class Container(object):  # {{{
         return self.parsed(self.opf_name)
 
     @property
-    def mi(self):
+    def mi(self: _typing.Self) -> _typing.Any:
         """
         The metadata of this book as a Metadata object. Note that this
         object is constructed on the fly every time this property is requested,
@@ -773,7 +776,7 @@ class Container(object):  # {{{
         return O(BytesIO(mi), basedir=self.opf_dir, unquote_urls=False, populate_spine=False).to_book_metadata()
 
     @property
-    def opf_version(self):
+    def opf_version(self: _typing.Self) -> _typing.Any:
         """
         The version set on the OPF\'s <package> element
         :return:
@@ -784,7 +787,7 @@ class Container(object):  # {{{
             return ""
 
     @property
-    def manifest_id_map(self):
+    def manifest_id_map(self: _typing.Self) -> _typing.Any:
         """
         Mapping of manifest id to canonical names
         :return:
@@ -795,7 +798,7 @@ class Container(object):  # {{{
         }
 
     @property
-    def manifest_type_map(self):
+    def manifest_type_map(self: _typing.Self) -> _typing.Any:
         """
         Mapping of manifest media-type to list of canonical names of that media-type
         :return:
@@ -806,7 +809,7 @@ class Container(object):  # {{{
         return {mt: tuple(v) for mt, v in iteritems(ans)}
 
     @property
-    def guide_type_map(self):
+    def guide_type_map(self: _typing.Self) -> _typing.Any:
         """
         Mapping of guide type to canonical name
         :return:
@@ -817,7 +820,7 @@ class Container(object):  # {{{
         }
 
     @property
-    def spine_iter(self):
+    def spine_iter(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         """
         An iterator that yields item, name is_linear for every item in the books' spine.
         Item is the lxml element, name is the canonical file name and is_linear is True if the item is linear.
@@ -839,7 +842,7 @@ class Container(object):  # {{{
             yield item, name, False
 
     @property
-    def spine_names(self):
+    def spine_names(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         """
         An iterator yielding name and is_linear for every item in the books' spine.
         See also: :attr:`spine_iter` and :attr:`spine_items`.
@@ -849,7 +852,7 @@ class Container(object):  # {{{
             yield name, linear
 
     @property
-    def spine_items(self):
+    def spine_items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         """
         An iterator yielding canonical name for every item in the books' spine.
         See also: :attr:`spine_iter` and :attr:`spine_items`.
@@ -858,7 +861,7 @@ class Container(object):  # {{{
         for name, linear in self.spine_names:
             yield self.name_path_map[name]
 
-    def remove_from_spine(self, spine_items, remove_if_no_longer_in_spine=True):
+    def remove_from_spine(self: _typing.Self, spine_items: _typing.Any, remove_if_no_longer_in_spine: bool = True) -> None:
         """
         Remove the specified items (by canonical name) from the spine.
         If ``remove_if_no_longer_in_spine`` is True, the items are also deleted from the book, not just from the spine.
@@ -877,7 +880,7 @@ class Container(object):  # {{{
             for name in nixed:
                 self.remove_item(name)
 
-    def set_spine(self, spine_items):
+    def set_spine(self: _typing.Self, spine_items: _typing.Any) -> None:
         """
         Set the spine to be spine_items where spine_items is an iterable of the form (name, linear).
         Will raise an error if one of the names is not present in the manifest.
@@ -905,7 +908,7 @@ class Container(object):  # {{{
             spine[-1].tail = last_tail
         self.dirty(self.opf_name)
 
-    def remove_item(self, name, remove_from_guide=True):
+    def remove_item(self: _typing.Self, name: _typing.Any, remove_from_guide: bool = True) -> None:
         """
         Remove the item identified by name from this container. This removes all references to the item in the OPF
         manifest, guide and spine as well as from any internal caches.
@@ -953,7 +956,7 @@ class Container(object):  # {{{
         self.parsed_cache.pop(name, None)
         self.dirtied.discard(name)
 
-    def dirty(self, name):
+    def dirty(self: _typing.Self, name: _typing.Any) -> None:
         """
         Mark the parsed object corresponding to name as dirty. See also: :meth:`parsed`.
         :param name:
@@ -961,7 +964,7 @@ class Container(object):  # {{{
         """
         self.dirtied.add(name)
 
-    def remove_from_xml(self, item):
+    def remove_from_xml(self: _typing.Self, item: _typing.Any) -> _typing.Any:
         """
         Removes item from parent, fixing indentation (works only with self closing items)
         :param item:
@@ -979,7 +982,7 @@ class Container(object):  # {{{
         parent.remove(item)
         return item
 
-    def insert_into_xml(self, parent, item, index=None):
+    def insert_into_xml(self: _typing.Self, parent: _typing.Any, item: _typing.Any, index: _typing.Any = None) -> None:
         """
         Insert item into parent (or append if index is None), fixing
         indentation. Only works with self closing items.
@@ -1010,7 +1013,7 @@ class Container(object):  # {{{
             if idx == len(parent) - 1:
                 parent[idx - 1].tail = parent.text
 
-    def opf_get_or_create(self, name):
+    def opf_get_or_create(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         Convenience method to either return the first XML element with the specified name or create it under the
         opf:package element and then return it, if it does not already exist.
@@ -1027,7 +1030,7 @@ class Container(object):  # {{{
         package.append(item)
         return item
 
-    def generate_item(self, name, id_prefix=None, media_type=None, unique_href=True):
+    def generate_item(self: _typing.Self, name: _typing.Any, id_prefix: _typing.Any = None, media_type: _typing.Any = None, unique_href: bool = True) -> _typing.Any:
         """
         Add an item to the manifest with href derived from the given name.
         Ensures uniqueness of href and id automatically.
@@ -1050,7 +1053,7 @@ class Container(object):  # {{{
             item_id = id_prefix + "%d" % c
         all_names = {x.get("href") for x in self.opf_xpath("//opf:manifest/opf:item[@href]")}
 
-        def exists(h):
+        def exists(h: _typing.Any) -> _typing.Any:
             return self.exists(self.href_to_name(h, self.opf_name))
 
         if unique_href:
@@ -1076,7 +1079,7 @@ class Container(object):  # {{{
         open(path, "wb").close()
         return item
 
-    def format_opf(self):
+    def format_opf(self: _typing.Self) -> None:
         try:
             mdata = self.opf_xpath("//opf:metadata")[0]
         except IndexError:
@@ -1100,7 +1103,7 @@ class Container(object):  # {{{
             if "content" in meta.attrib:
                 meta.set("content", meta.attrib.pop("content"))
 
-    def serialize_item(self, name):
+    def serialize_item(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         Convert a parsed object (identified by canonical name) into a bytestring. See :meth:`parsed`.
         :param name:
@@ -1115,7 +1118,7 @@ class Container(object):  # {{{
             data = re.sub(rb"(<[/]{0,1})opf:", r"\1", data)
         return data
 
-    def commit_item(self, name, keep_parsed=False):
+    def commit_item(self: _typing.Self, name: _typing.Any, keep_parsed: bool = False) -> None:
         """
         Commit a parsed object to disk (it is serialized and written to the underlying file).
         If ``keep_parsed`` is True the parsed representation is retained in the cache. See also: :meth:`parsed`
@@ -1135,7 +1138,7 @@ class Container(object):  # {{{
         with open(dest, "wb") as f:
             f.write(data)
 
-    def filesize(self, name):
+    def filesize(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         Return the size in bytes of the file represented by the specified canonical name.
         Automatically handles dirtied parsed objects. See also: :meth:`parsed`
@@ -1147,7 +1150,7 @@ class Container(object):  # {{{
         path = self.name_to_abspath(name)
         return os.path.getsize(path)
 
-    def open(self, name, mode="rb"):
+    def open(self: _typing.Self, name: _typing.Any, mode: str = "rb") -> _typing.Any:
         """
         Open the file pointed to by name for direct read/write.
         Note that this will commit the file if it is dirtied and remove it from the parse cache.
@@ -1172,7 +1175,7 @@ class Container(object):  # {{{
                 os.rename(temp, path)
         return open(path, mode)
 
-    def commit(self, outpath=None, keep_parsed=False):
+    def commit(self: _typing.Self, outpath: _typing.Any = None, keep_parsed: bool = False) -> None:
         """
         Commit all dirtied parsed objects to the filesystem and write out the ebook file at outpath.
         :param output: The path to write the saved ebook file to. If None, the path of the original book file is used.
@@ -1184,7 +1187,7 @@ class Container(object):  # {{{
         for name in tuple(self.dirtied):
             self.commit_item(name, keep_parsed=keep_parsed)
 
-    def compare_to(self, other):
+    def compare_to(self: _typing.Self, other: _typing.Any) -> _typing.Any:
         if set(self.name_path_map) != set(other.name_path_map):
             return "Set of files is not the same"
         mismatches = []
@@ -1224,7 +1227,7 @@ class EpubContainer(Container):
         "rights.xml": False,
     }
 
-    def __init__(self, pathtoepub, log, clone_data=None, tdir=None):
+    def __init__(self: _typing.Self, pathtoepub: _typing.Any, log: _typing.Any, clone_data: _typing.Any = None, tdir: _typing.Any = None) -> None:
         if clone_data is not None:
             super(EpubContainer, self).__init__(None, None, log, clone_data=clone_data)
             for x in ("pathtoepub", "obfuscated_fonts"):
@@ -1278,13 +1281,13 @@ class EpubContainer(Container):
             self.process_encryption()
         self.parsed_cache["META-INF/container.xml"] = container
 
-    def clone_data(self, dest_dir):
+    def clone_data(self: _typing.Self, dest_dir: _typing.Any) -> _typing.Any:
         ans = super(EpubContainer, self).clone_data(dest_dir)
         ans["pathtoepub"] = self.pathtoepub
         ans["obfuscated_fonts"] = self.obfuscated_fonts.copy()
         return ans
 
-    def rename(self, old_name, new_name):
+    def rename(self: _typing.Self, old_name: _typing.Any, new_name: _typing.Any) -> None:
         is_opf = old_name == self.opf_name
         super(EpubContainer, self).rename(old_name, new_name)
         if is_opf:
@@ -1305,21 +1308,21 @@ class EpubContainer(Container):
                     self.dirty("META-INF/encryption.xml")
 
     @property
-    def names_that_need_not_be_manifested(self):
+    def names_that_need_not_be_manifested(self: _typing.Self) -> _typing.Any:
         return super(EpubContainer, self).names_that_need_not_be_manifested | {"META-INF/" + x for x in self.META_INF}
 
-    def ok_to_be_unmanifested(self, name):
+    def ok_to_be_unmanifested(self: _typing.Self, name: _typing.Any) -> bool:
         return name in self.names_that_need_not_be_manifested or name.startswith("META-INF/")
 
     @property
-    def names_that_must_not_be_removed(self):
+    def names_that_must_not_be_removed(self: _typing.Self) -> _typing.Any:
         return super(EpubContainer, self).names_that_must_not_be_removed | {"META-INF/container.xml"}
 
     @property
-    def names_that_must_not_be_changed(self):
+    def names_that_must_not_be_changed(self: _typing.Self) -> _typing.Any:
         return super(EpubContainer, self).names_that_must_not_be_changed | {"META-INF/" + x for x in self.META_INF}
 
-    def remove_item(self, name, remove_from_guide=True):
+    def remove_item(self: _typing.Self, name: _typing.Any, remove_from_guide: bool = True) -> None:
         # Handle removal of obfuscated fonts
         if name == "META-INF/encryption.xml":
             self.obfuscated_fonts.clear()
@@ -1339,7 +1342,7 @@ class EpubContainer(Container):
                     self.dirty("META-INF/encryption.xml")
         super(EpubContainer, self).remove_item(name, remove_from_guide=remove_from_guide)
 
-    def process_encryption(self):
+    def process_encryption(self: _typing.Self) -> None:
         fonts = {}
         enc = self.parsed("META-INF/encryption.xml")
         for em in enc.xpath('//*[local-name()="EncryptionMethod" and @Algorithm]'):
@@ -1395,7 +1398,7 @@ class EpubContainer(Container):
                 f.write(raw)
             self.obfuscated_fonts[font] = (alg, tkey)
 
-    def commit(self, outpath=None, keep_parsed=False):
+    def commit(self: _typing.Self, outpath: _typing.Any = None, keep_parsed: bool = False) -> None:
         super(EpubContainer, self).commit(keep_parsed=keep_parsed)
         restore_fonts = {}
         for name in self.obfuscated_fonts:
@@ -1418,11 +1421,11 @@ class EpubContainer(Container):
                 f.write(data)
 
     @property
-    def path_to_ebook(self):
+    def path_to_ebook(self: _typing.Self) -> _typing.Any:
         return self.pathtoepub
 
     @path_to_ebook.setter
-    def path_to_ebook(self, val):
+    def path_to_ebook(self: _typing.Self, val: _typing.Any) -> None:
         self.pathtoepub = val
 
 
@@ -1434,7 +1437,7 @@ class InvalidMobi(InvalidBook):
     pass
 
 
-def do_explode(path, dest):
+def do_explode(path: _typing.Any, dest: _typing.Any) -> tuple[_typing.Any, ...]:
     from LiuXin_alpha.file_formats.mobi.reader.mobi6 import MobiReader
     from LiuXin_alpha.file_formats.mobi.reader.mobi8 import Mobi8Reader
 
@@ -1449,17 +1452,17 @@ def do_explode(path, dest):
     return opf, obfuscated_fonts
 
 
-def opf_to_azw3(opf, outpath, container):
+def opf_to_azw3(opf: _typing.Any, outpath: _typing.Any, container: _typing.Any) -> None:
     from LiuXin_alpha.customize.ui import plugin_for_input_format, plugin_for_output_format
     from LiuXin_alpha.file_formats.conversion.plumber import Plumber, create_oebbook
 
     class Item(Manifest.Item):
-        def _parse_css(self, data):
+        def _parse_css(self: _typing.Self, data: _typing.Any) -> _typing.Any:
             # The default CSS parser used by oeb.base inserts the h namespace
             # and resolves all @import rules. We dont want that.
             return container.parse_css(data)
 
-    def specialize(local_oeb):
+    def specialize(local_oeb: _typing.Any) -> None:
         local_oeb.manifest.Item = Item
 
     plumber = Plumber(opf, outpath, container.log)
@@ -1472,7 +1475,7 @@ def opf_to_azw3(opf, outpath, container):
     outp.convert(oeb, outpath, inp, plumber.opts, container.log)
 
 
-def epub_to_azw3(epub, outpath=None):
+def epub_to_azw3(epub: _typing.Any, outpath: _typing.Any = None) -> None:
     container = get_container(epub, tweak_mode=True)
     outpath = outpath or (epub.rpartition(".")[0] + ".azw3")
     opf_to_azw3(container.name_to_abspath(container.opf_name), outpath, container)
@@ -1484,7 +1487,7 @@ class AZW3Container(Container):
     SUPPORTS_TITLEPAGES = False
     SUPPORTS_FILENAMES = False
 
-    def __init__(self, pathtoazw3, log, clone_data=None, tdir=None):
+    def __init__(self: _typing.Self, pathtoazw3: _typing.Any, log: _typing.Any, clone_data: _typing.Any = None, tdir: _typing.Any = None) -> None:
         if clone_data is not None:
             super(AZW3Container, self).__init__(None, None, log, clone_data=clone_data)
             for x in ("pathtoazw3", "obfuscated_fonts"):
@@ -1543,35 +1546,35 @@ class AZW3Container(Container):
         super(AZW3Container, self).__init__(tdir, opf_path, log)
         self.obfuscated_fonts = {x.replace(os.sep, "/") for x in obfuscated_fonts}
 
-    def clone_data(self, dest_dir):
+    def clone_data(self: _typing.Self, dest_dir: _typing.Any) -> _typing.Any:
         ans = super(AZW3Container, self).clone_data(dest_dir)
         ans["pathtoazw3"] = self.pathtoazw3
         ans["obfuscated_fonts"] = self.obfuscated_fonts.copy()
         return ans
 
-    def commit(self, outpath=None, keep_parsed=False):
+    def commit(self: _typing.Self, outpath: _typing.Any = None, keep_parsed: bool = False) -> None:
         super(AZW3Container, self).commit(keep_parsed=keep_parsed)
         if outpath is None:
             outpath = self.pathtoazw3
         opf_to_azw3(self.name_path_map[self.opf_name], outpath, self)
 
     @property
-    def path_to_ebook(self):
+    def path_to_ebook(self: _typing.Self) -> _typing.Any:
         return self.pathtoazw3
 
     @path_to_ebook.setter
-    def path_to_ebook(self, val):
+    def path_to_ebook(self: _typing.Self, val: _typing.Any) -> None:
         self.pathtoazw3 = val
 
     @property
-    def names_that_must_not_be_changed(self):
+    def names_that_must_not_be_changed(self: _typing.Self) -> _typing.Any:
         return set(self.name_path_map)
 
 
 # }}}
 
 
-def get_container(path, log=None, tdir=None, tweak_mode=False):
+def get_container(path: _typing.Any, log: _typing.Any = None, tdir: _typing.Any = None, tweak_mode: bool = False) -> _typing.Any:
     if log is None:
         log = default_log
     ebook = (
@@ -1583,7 +1586,7 @@ def get_container(path, log=None, tdir=None, tweak_mode=False):
     return ebook
 
 
-def test_roundtrip():
+def test_roundtrip() -> None:
     test_ebook = get_container(sys.argv[-1])
     p = PersistentTemporaryFile(suffix="." + sys.argv[-1].rpartition(".")[-1])
     p.close()

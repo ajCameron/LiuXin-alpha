@@ -20,6 +20,9 @@
 # $Id: userfield.py 447 2008-07-10 20:01:30Z roug $
 
 """Class to show and manipulate user fields in odf documents."""
+from __future__ import annotations
+
+import typing as _typing
 
 import sys
 import zipfile
@@ -52,7 +55,7 @@ class UserFields(object):
     src_file = None
     dest_file = None
 
-    def __init__(self, src=None, dest=None):
+    def __init__(self: _typing.Self, src: _typing.Any = None, dest: _typing.Any = None) -> None:
         """Constructor
 
         src ... source document name, file like object or None for stdin
@@ -63,7 +66,7 @@ class UserFields(object):
         self.dest_file = dest
         self.document = None
 
-    def loaddoc(self):
+    def loaddoc(self: _typing.Self) -> None:
         if isinstance(self.src_file, six_string_types):
             # src_file is a filename, check if it is a zip-file
             if not zipfile.is_zipfile(self.src_file):
@@ -74,7 +77,7 @@ class UserFields(object):
 
         self.document = load(self.src_file)
 
-    def savedoc(self):
+    def savedoc(self: _typing.Self) -> None:
         # write output
         if self.dest_file is None:
             # use stdout if no filename given
@@ -82,7 +85,7 @@ class UserFields(object):
         else:
             self.document.save(self.dest_file)
 
-    def list_fields(self):
+    def list_fields(self: _typing.Self) -> _typing.Any:
         """List (extract) all known user-fields.
 
         Returns list of user-field names.
@@ -90,7 +93,7 @@ class UserFields(object):
         """
         return [x[0] for x in self.list_fields_and_values()]
 
-    def list_fields_and_values(self, field_names=None):
+    def list_fields_and_values(self: _typing.Self, field_names: _typing.Any = None) -> _typing.Any:
         """List (extract) user-fields with type and value.
 
         field_names ... list of field names to show or None for all.
@@ -120,7 +123,7 @@ class UserFields(object):
                 )
         return found_fields
 
-    def list_values(self, field_names):
+    def list_values(self: _typing.Self, field_names: _typing.Any) -> _typing.Any:
         """Extract the contents of given field names from the file.
 
         field_names ... list of field names
@@ -130,7 +133,7 @@ class UserFields(object):
         """
         return [x[2] for x in self.list_fields_and_values(field_names)]
 
-    def get(self, field_name):
+    def get(self: _typing.Self, field_name: _typing.Any) -> _typing.Any:
         """Extract the contents of this field from the file.
 
         Returns field value or None if field does not exist.
@@ -141,7 +144,7 @@ class UserFields(object):
             return None
         return values[0]
 
-    def get_type_and_value(self, field_name):
+    def get_type_and_value(self: _typing.Self, field_name: _typing.Any) -> tuple[_typing.Any, ...] | None:
         """Extract the type and contents of this field from the file.
 
         Returns tuple (<type>, <field-value>) or None if field does not exist.
@@ -153,7 +156,7 @@ class UserFields(object):
         field_name, value_type, value = fields[0]
         return value_type, value
 
-    def update(self, data):
+    def update(self: _typing.Self, data: _typing.Any) -> None:
         """Set the value of user fields. The field types will be the same.
 
         data ... dict, with field name as key, field value as value

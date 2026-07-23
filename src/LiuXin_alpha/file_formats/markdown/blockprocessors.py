@@ -1,6 +1,9 @@
 from __future__ import unicode_literals
 from __future__ import division
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 CORE MARKDOWN BLOCKPARSER
@@ -24,7 +27,7 @@ from .blockparser import BlockParser
 logger = logging.getLogger("MARKDOWN")
 
 
-def build_block_parser(md_instance, **kwargs):
+def build_block_parser(md_instance: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     """Build the default block parser used by Markdown."""
     parser = BlockParser(md_instance)
     parser.blockprocessors["empty"] = EmptyBlockProcessor(parser)
@@ -51,18 +54,18 @@ class BlockProcessor:
 
     """
 
-    def __init__(self, parser):
+    def __init__(self: _typing.Self, parser: _typing.Any) -> None:
         self.parser = parser
         self.tab_length = parser.markdown.tab_length
 
-    def lastChild(self, parent):
+    def lastChild(self: _typing.Self, parent: _typing.Any) -> _typing.Any:
         """Return the last child of an etree element."""
         if len(parent):
             return parent[-1]
         else:
             return None
 
-    def detab(self, text):
+    def detab(self: _typing.Self, text: _typing.Any) -> tuple[_typing.Any, ...]:
         """Remove a tab from the front of each line of the given text."""
         newtext = []
         lines = text.split("\n")
@@ -75,7 +78,7 @@ class BlockProcessor:
                 break
         return "\n".join(newtext), "\n".join(lines[len(newtext) :])
 
-    def looseDetab(self, text, level=1):
+    def looseDetab(self: _typing.Self, text: _typing.Any, level: int = 1) -> _typing.Any:
         """Remove a tab from front of lines but allowing dedented lines."""
         lines = text.split("\n")
         for i in range(len(lines)):
@@ -83,7 +86,7 @@ class BlockProcessor:
                 lines[i] = lines[i][self.tab_length * level :]
         return "\n".join(lines)
 
-    def test(self, parent, block):
+    def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> None:
         """Test for block type. Must be overridden by subclasses.
 
         As the parser loops through processors, it will call the ``test`` method
@@ -103,7 +106,7 @@ class BlockProcessor:
         """
         pass
 
-    def run(self, parent, blocks):
+    def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         """Run processor. Must be overridden by subclasses.
 
         When the parser determines the appropriate type of a block, the parser
@@ -142,18 +145,18 @@ class ListIndentProcessor(BlockProcessor):
     ITEM_TYPES = ["li"]
     LIST_TYPES = ["ul", "ol"]
 
-    def __init__(self, *args):
+    def __init__(self: _typing.Self, *args: _typing.Any) -> None:
         BlockProcessor.__init__(self, *args)
         self.INDENT_RE = re.compile(r"^(([ ]{%s})+)" % self.tab_length)
 
-    def test(self, parent, block):
+    def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> bool:
         return (
             block.startswith(" " * self.tab_length)
             and not self.parser.state.isstate("detabbed")
             and (parent.tag in self.ITEM_TYPES or (len(parent) and parent[-1] and (parent[-1].tag in self.LIST_TYPES)))
         )
 
-    def run(self, parent, blocks):
+    def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         block = blocks.pop(0)
         level, sibling = self.get_level(parent, block)
         block = self.looseDetab(block, level)
@@ -189,12 +192,12 @@ class ListIndentProcessor(BlockProcessor):
             self.create_item(sibling, block)
         self.parser.state.reset()
 
-    def create_item(self, parent, block):
+    def create_item(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> None:
         """Create a new li and parse the block with it as the parent."""
         li = util.etree.SubElement(parent, "li")
         self.parser.parseBlocks(li, [block])
 
-    def get_level(self, parent, block):
+    def get_level(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> tuple[_typing.Any, ...]:
         """Get level of indent based on list level."""
         # Get indent level
         m = self.INDENT_RE.match(block)
@@ -225,10 +228,10 @@ class ListIndentProcessor(BlockProcessor):
 class CodeBlockProcessor(BlockProcessor):
     """Process code blocks."""
 
-    def test(self, parent, block):
+    def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> _typing.Any:
         return block.startswith(" " * self.tab_length)
 
-    def run(self, parent, blocks):
+    def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         sibling = self.lastChild(parent)
         block = blocks.pop(0)
         theRest = ""
@@ -256,10 +259,10 @@ class BlockQuoteProcessor(BlockProcessor):
 
     RE = re.compile(r"(^|\n)[ ]{0,3}>[ ]?(.*)")
 
-    def test(self, parent, block):
+    def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> _typing.Any:
         return bool(self.RE.search(block))
 
-    def run(self, parent, blocks):
+    def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         block = blocks.pop(0)
         m = self.RE.search(block)
         if m:
@@ -281,7 +284,7 @@ class BlockQuoteProcessor(BlockProcessor):
         self.parser.parseChunk(quote, block)
         self.parser.state.reset()
 
-    def clean(self, line):
+    def clean(self: _typing.Self, line: _typing.Any) -> _typing.Any:
         """Remove ``>`` from beginning of a line."""
         m = self.RE.match(line)
         if line.strip() == ">":
@@ -310,10 +313,10 @@ class OListProcessor(BlockProcessor):
     # List of allowed sibling tags.
     SIBLING_TAGS = ["ol", "ul"]
 
-    def test(self, parent, block):
+    def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> _typing.Any:
         return bool(self.RE.match(block))
 
-    def run(self, parent, blocks):
+    def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         # Check fr multiple items in one block.
         items = self.get_items(blocks.pop(0))
         sibling = self.lastChild(parent)
@@ -372,7 +375,7 @@ class OListProcessor(BlockProcessor):
                 self.parser.parseBlocks(li, [item])
         self.parser.state.reset()
 
-    def get_items(self, block):
+    def get_items(self: _typing.Self, block: _typing.Any) -> _typing.Any:
         """Break a block into list items."""
         items = []
         for line in block.split("\n"):
@@ -412,10 +415,10 @@ class HashHeaderProcessor(BlockProcessor):
     # Detect a header at start of any line in block
     RE = re.compile(r"(^|\n)(?P<level>#{1,6})(?P<header>.*?)#*(\n|$)")
 
-    def test(self, parent, block):
+    def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> _typing.Any:
         return bool(self.RE.search(block))
 
-    def run(self, parent, blocks):
+    def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         block = blocks.pop(0)
         m = self.RE.search(block)
         if m:
@@ -443,10 +446,10 @@ class SetextHeaderProcessor(BlockProcessor):
     # Detect Setext-style header. Must be first 2 lines of block.
     RE = re.compile(r"^.*?\n[=-]+[ ]*(\n|$)", re.MULTILINE)
 
-    def test(self, parent, block):
+    def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> _typing.Any:
         return bool(self.RE.match(block))
 
-    def run(self, parent, blocks):
+    def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         lines = blocks.pop(0).split("\n")
         # Determine level. ``=`` is 1 and ``-`` is 2.
         if lines[1].startswith("="):
@@ -467,7 +470,7 @@ class HRProcessor(BlockProcessor):
     # Detect hr on any line of a block.
     SEARCH_RE = re.compile(RE, re.MULTILINE)
 
-    def test(self, parent, block):
+    def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> bool:
         m = self.SEARCH_RE.search(block)
         # No atomic grouping in python so we simulate it here for performance.
         # The regex only matches what would be in the atomic group - the HR.
@@ -478,7 +481,7 @@ class HRProcessor(BlockProcessor):
             return True
         return False
 
-    def run(self, parent, blocks):
+    def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         block = blocks.pop(0)
         # Check for lines in block before hr.
         prelines = block[: self.match.start()].rstrip("\n")
@@ -497,10 +500,10 @@ class HRProcessor(BlockProcessor):
 class EmptyBlockProcessor(BlockProcessor):
     """Process blocks that are empty or start with an empty line."""
 
-    def test(self, parent, block):
+    def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> bool:
         return not block or block.startswith("\n")
 
-    def run(self, parent, blocks):
+    def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         block = blocks.pop(0)
         filler = "\n\n"
         if block:
@@ -521,10 +524,10 @@ class EmptyBlockProcessor(BlockProcessor):
 class ParagraphProcessor(BlockProcessor):
     """Process Paragraph blocks."""
 
-    def test(self, parent, block):
+    def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> bool:
         return True
 
-    def run(self, parent, blocks):
+    def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         block = blocks.pop(0)
         if block.strip():
             # Not a blank block. Add to parent, otherwise throw it away.

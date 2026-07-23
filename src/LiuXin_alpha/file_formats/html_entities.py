@@ -2,6 +2,7 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
 
 # Ported from calibre.
 # The LiuXin-alpha tree vendors the html5lib constants and a small compat layer.

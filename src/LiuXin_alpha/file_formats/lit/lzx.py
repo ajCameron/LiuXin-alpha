@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 LZX compression/decompression wrapper.
@@ -21,13 +24,13 @@ Compressor = _lzx.Compressor
 
 
 class Decompressor(object):
-    def __init__(self, wbits):
+    def __init__(self: _typing.Self, wbits: _typing.Any) -> None:
         self.wbits = wbits
         self.blocksize = 1 << wbits
         _lzx.init(wbits)
 
-    def decompress(self, data, outlen):
+    def decompress(self: _typing.Self, data: _typing.Any, outlen: _typing.Any) -> _typing.Any:
         return _lzx.decompress(data, outlen)
 
-    def reset(self):
+    def reset(self: _typing.Self) -> _typing.Any:
         return _lzx.reset()

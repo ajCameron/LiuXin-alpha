@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from functools import partial
 
@@ -22,7 +25,7 @@ __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def nonvoid_cdata_elements(test, parse_function):
+def nonvoid_cdata_elements(test: _typing.Any, parse_function: _typing.Any) -> None:
     """
     If self closed version of non-void cdata elements like <title/> are
     present, the HTML5 parsing algorithm treats all following data as CDATA
@@ -43,10 +46,10 @@ def nonvoid_cdata_elements(test, parse_function):
             )
 
 
-def namespaces(test, parse_function):
+def namespaces(test: _typing.Any, parse_function: _typing.Any) -> None:
     ae = test.assertEqual
 
-    def match_and_prefix(local_root, local_xpath, prefix, local_err=""):
+    def match_and_prefix(local_root: _typing.Any, local_xpath: _typing.Any, prefix: _typing.Any, local_err: str = "") -> None:
         matches = XPath(local_xpath)(local_root)
         ae(len(matches), 1, local_err)
         ae(matches[0].prefix, prefix, local_err)
@@ -114,7 +117,7 @@ def namespaces(test, parse_function):
     root = parse_function(markup)
     err = "Arbitrary namespaces not preserved, parsed markup:\n" + etree.tostring(root, encoding="unicode")
 
-    def xpath(expr):
+    def xpath(expr: _typing.Any) -> _typing.Any:
         return etree.XPath(expr, namespaces={"ns1": "NS", "ns2": "NS2"})(root)
 
     ae(len(xpath("//ns1:tag1")), 1, err)
@@ -135,7 +138,7 @@ def namespaces(test, parse_function):
     ae(len(XPath("//*[@xml:lang]")(root)), 0, err)
 
 
-def space_characters(test, parse_function):
+def space_characters(test: _typing.Any, parse_function: _typing.Any) -> None:
     markup = "<html><p>\u000c</p>"
     root = parse_function(markup)
     err = "form feed character not converted, parsed markup:\n" + etree.tostring(root, encoding="unicode")
@@ -146,21 +149,21 @@ def space_characters(test, parse_function):
     test.assertNotIn("\u000c", root.xpath('//*[local-name()="p"]')[0].text, err)
 
 
-def case_insensitive_element_names(test, parse_function):
+def case_insensitive_element_names(test: _typing.Any, parse_function: _typing.Any) -> None:
     markup = "<HTML><P> </p>"
     root = parse_function(markup)
     err = "case sensitive parsing, parsed markup:\n" + etree.tostring(root, encoding="unicode")
     test.assertEqual(len(XPath("//h:p")(root)), 1, err)
 
 
-def entities(test, parse_function):
+def entities(test: _typing.Any, parse_function: _typing.Any) -> None:
     markup = "<html><p>&nbsp;&apos;</p>"
     root = parse_function(markup)
     err = "Entities not handled, parsed markup:\n" + etree.tostring(root, encoding="unicode")
     test.assertEqual("\xa0'", root.xpath('//*[local-name()="p"]')[0].text, err)
 
 
-def multiple_html_and_body(test, parse_function):
+def multiple_html_and_body(test: _typing.Any, parse_function: _typing.Any) -> None:
     markup = '<html id="1"><body id="2"><p><html lang="en"><body lang="de"></p>'
     root = parse_function(markup)
     err = "multiple html and body not handled, parsed markup:\n" + etree.tostring(root, encoding="unicode")
@@ -170,7 +173,7 @@ def multiple_html_and_body(test, parse_function):
     test.assertEqual(len(XPath("//h:body[@id and @lang]")(root)), 1, err)
 
 
-def attribute_replacement(test, parse_function):
+def attribute_replacement(test: _typing.Any, parse_function: _typing.Any) -> None:
     markup = '<html><body><svg viewbox="0"></svg><svg xmlns="%s" viewbox="1">' % SVG_NS
     root = parse_function(markup)
     err = "SVG attributes not normalized, parsed markup:\n" + etree.tostring(root, encoding="unicode")
@@ -189,7 +192,7 @@ basic_checks = (
 
 
 class ParsingTests(BaseTest):
-    def test_conversion_parser(self):
+    def test_conversion_parser(self: _typing.Self) -> None:
         """
         Test parsing with the HTML5 parser used for conversion
         :return:
@@ -197,7 +200,7 @@ class ParsingTests(BaseTest):
         for test in basic_checks:
             test(self, html5_parse)
 
-    def test_polish_parser(self):
+    def test_polish_parser(self: _typing.Self) -> None:
         """
         Test parsing with the HTML5 parser used for polishing
         :return:
@@ -243,7 +246,7 @@ class ParsingTests(BaseTest):
         )
 
 
-def timing():
+def timing() -> None:
 
     import sys
     import time

@@ -17,6 +17,9 @@
 #
 # Contributor(s):
 #
+from __future__ import annotations
+
+import typing as _typing
 import re
 import types
 
@@ -29,17 +32,17 @@ pattern_color = re.compile(r"#[0-9a-fA-F]{6}")
 pattern_vector3D = re.compile(r"\([ ]*-?([0-9]+(\.[0-9]*)?|\.[0-9]+)([ ]+-?([0-9]+(\.[0-9]*)?|\.[0-9]+)){2}[ ]*\)")
 
 
-def make_NCName(arg):
+def make_NCName(arg: _typing.Any) -> _typing.Any:
     for c in (":", " "):
         arg = arg.replace(c, "_%x_" % ord(c))
     return arg
 
 
-def cnv_anyURI(attribute, arg, element):
+def cnv_anyURI(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     return six_unicode(arg)
 
 
-def cnv_boolean(attribute, arg, element):
+def cnv_boolean(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> str:
     if arg.lower() in ("false", "no"):
         return "false"
     if arg:
@@ -48,7 +51,7 @@ def cnv_boolean(attribute, arg, element):
 
 
 # Potentially accept color values
-def cnv_color(attribute, arg, element):
+def cnv_color(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     """
     A RGB color in conformance with §5.9.11 of [XSL], that is a RGB color in notation “#rrggbb”, where
     rr, gg and bb are 8-bit hexadecimal digits.
@@ -60,7 +63,7 @@ def cnv_color(attribute, arg, element):
     return str(arg)
 
 
-def cnv_configtype(attribute, arg, element):
+def cnv_configtype(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     if str(arg) not in (
         "boolean",
         "short",
@@ -75,36 +78,36 @@ def cnv_configtype(attribute, arg, element):
     return str(arg)
 
 
-def cnv_data_source_has_labels(attribute, arg, element):
+def cnv_data_source_has_labels(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     if str(arg) not in ("none", "row", "column", "both"):
         raise ValueError("'%s' not allowed" % str(arg))
     return str(arg)
 
 
 # Understand different date formats
-def cnv_date(attribute, arg, element):
+def cnv_date(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     """A dateOrDateTime value is either an [xmlschema-2] date value or an [xmlschema-2] dateTime
     value.
     """
     return str(arg)
 
 
-def cnv_dateTime(attribute, arg, element):
+def cnv_dateTime(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     """A dateOrDateTime value is either an [xmlschema-2] date value or an [xmlschema-2] dateTime
     value.
     """
     return str(arg)
 
 
-def cnv_double(attribute, arg, element):
+def cnv_double(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     return str(arg)
 
 
-def cnv_duration(attribute, arg, element):
+def cnv_duration(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     return str(arg)
 
 
-def cnv_family(attribute, arg, element):
+def cnv_family(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     """
     A style family
     :param attribute:
@@ -130,7 +133,7 @@ def cnv_family(attribute, arg, element):
     return str(arg)
 
 
-def __save_prefix(attribute, arg, element):
+def __save_prefix(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     prefix = arg.split(":", 1)[0]
     if prefix == arg:
         return six_unicode(arg)
@@ -142,7 +145,7 @@ def __save_prefix(attribute, arg, element):
     return six_unicode(arg)
 
 
-def cnv_formula(attribute, arg, element):
+def cnv_formula(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     """A string containing a formula. Formulas do not have a predefined syntax, but the string should
     begin with a namespace prefix, followed by a “:” (COLON, U+003A) separator, followed by the text
     of the formula. The namespace bound to the prefix determines the syntax and semantics of the
@@ -151,19 +154,19 @@ def cnv_formula(attribute, arg, element):
     return __save_prefix(attribute, arg, element)
 
 
-def cnv_ID(attribute, arg, element):
+def cnv_ID(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     return str(arg)
 
 
-def cnv_IDREF(attribute, arg, element):
+def cnv_IDREF(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     return str(arg)
 
 
-def cnv_integer(attribute, arg, element):
+def cnv_integer(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     return str(arg)
 
 
-def cnv_legend_position(attribute, arg, element):
+def cnv_legend_position(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     if str(arg) not in (
         "start",
         "end",
@@ -181,7 +184,7 @@ def cnv_legend_position(attribute, arg, element):
 pattern_length = re.compile(r"-?([0-9]+(\.[0-9]*)?|\.[0-9]+)((cm)|(mm)|(in)|(pt)|(pc)|(px))")
 
 
-def cnv_length(attribute, arg, element):
+def cnv_length(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     """A (positive or negative) physical length, consisting of magnitude and unit, in conformance with the
     Units of Measure defined in §5.9.13 of [XSL].
     """
@@ -191,7 +194,7 @@ def cnv_length(attribute, arg, element):
     return arg
 
 
-def cnv_lengthorpercent(attribute, arg, element):
+def cnv_lengthorpercent(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     failed = False
     try:
         return cnv_length(attribute, arg, element)
@@ -206,13 +209,13 @@ def cnv_lengthorpercent(attribute, arg, element):
     return arg
 
 
-def cnv_metavaluetype(attribute, arg, element):
+def cnv_metavaluetype(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     if str(arg) not in ("float", "date", "time", "boolean", "string"):
         raise ValueError("'%s' not allowed" % str(arg))
     return str(arg)
 
 
-def cnv_major_minor(attribute, arg, element):
+def cnv_major_minor(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> None:
     if arg not in ("major", "minor"):
         raise ValueError("'%s' is not either 'minor' or 'major'" % arg)
 
@@ -220,7 +223,7 @@ def cnv_major_minor(attribute, arg, element):
 pattern_namespacedToken = re.compile(r"[0-9a-zA-Z_]+:[0-9a-zA-Z._\-]+")
 
 
-def cnv_namespacedToken(attribute, arg, element):
+def cnv_namespacedToken(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     global pattern_namespacedToken
 
     if not pattern_namespacedToken.match(arg):
@@ -228,7 +231,7 @@ def cnv_namespacedToken(attribute, arg, element):
     return __save_prefix(attribute, arg, element)
 
 
-def cnv_NCName(attribute, arg, element):
+def cnv_NCName(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     """NCName is defined in http://www.w3.org/TR/REC-xml-names/#NT-NCName
     Essentially an XML name minus ':'
     """
@@ -242,7 +245,7 @@ def cnv_NCName(attribute, arg, element):
 # or a text string naming the style. If it is a text string, then it must
 # already have been converted to an NCName
 # The text-string argument is mainly for when we build a structure from XML
-def cnv_StyleNameRef(attribute, arg, element):
+def cnv_StyleNameRef(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     try:
         return arg.getAttrNS(STYLENS, "name")
     except:
@@ -253,7 +256,7 @@ def cnv_StyleNameRef(attribute, arg, element):
 # or a text string naming the style. If it is a text string, then it must
 # already have been converted to an NCName
 # The text-string argument is mainly for when we build a structure from XML
-def cnv_DrawNameRef(attribute, arg, element):
+def cnv_DrawNameRef(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     try:
         return arg.getAttrNS(DRAWNS, "name")
     except:
@@ -261,18 +264,18 @@ def cnv_DrawNameRef(attribute, arg, element):
 
 
 # Must accept list of Style objects
-def cnv_NCNames(attribute, arg, element):
+def cnv_NCNames(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     return " ".join(arg)
 
 
-def cnv_nonNegativeInteger(attribute, arg, element):
+def cnv_nonNegativeInteger(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     return str(arg)
 
 
 pattern_percent = re.compile(r"-?([0-9]+(\.[0-9]*)?|\.[0-9]+)%")
 
 
-def cnv_percent(attribute, arg, element):
+def cnv_percent(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     global pattern_percent
     if not pattern_percent.match(arg):
         raise ValueError("'%s' is not a valid length" % arg)
@@ -284,7 +287,7 @@ pattern_points = re.compile(r"-?[0-9]+,-?[0-9]+([ ]+-?[0-9]+,-?[0-9]+)*")
 # pattern_points = re.compile(r'-?[0-9.]+,-?[0-9.]+([ ]+-?[0-9.]+,-?[0-9.]+)*')
 
 
-def cnv_points(attribute, arg, element):
+def cnv_points(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     global pattern_points
     if isinstance(arg, str):
         if not pattern_points.match(arg):
@@ -298,40 +301,40 @@ def cnv_points(attribute, arg, element):
         return strarg
 
 
-def cnv_positiveInteger(attribute, arg, element):
+def cnv_positiveInteger(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     return str(arg)
 
 
-def cnv_string(attribute, arg, element):
+def cnv_string(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     return six_unicode(arg)
 
 
-def cnv_textnoteclass(attribute, arg, element):
+def cnv_textnoteclass(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     if str(arg) not in ("footnote", "endnote"):
         raise ValueError("'%s' not allowed" % str(arg))
     return str(arg)
 
 
 # Understand different time formats
-def cnv_time(attribute, arg, element):
+def cnv_time(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     return str(arg)
 
 
-def cnv_token(attribute, arg, element):
+def cnv_token(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     return str(arg)
 
 
 pattern_viewbox = re.compile(r"-?[0-9]+([ ]+-?[0-9]+){3}$")
 
 
-def cnv_viewbox(attribute, arg, element):
+def cnv_viewbox(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     global pattern_viewbox
     if not pattern_viewbox.match(arg):
         raise ValueError("viewBox must be four integers separated by whitespaces")
     return arg
 
 
-def cnv_xlinkshow(attribute, arg, element):
+def cnv_xlinkshow(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     if str(arg) not in ("new", "replace", "embed"):
         raise ValueError("'%s' not allowed" % str(arg))
     return str(arg)
@@ -1561,7 +1564,7 @@ attrconverters = {
 
 
 class AttrConverters:
-    def convert(self, attribute, value, element):
+    def convert(self: _typing.Self, attribute: _typing.Any, value: _typing.Any, element: _typing.Any) -> _typing.Any:
         """Based on the element, figures out how to check/convert the attribute value
         All values are converted to string
         """

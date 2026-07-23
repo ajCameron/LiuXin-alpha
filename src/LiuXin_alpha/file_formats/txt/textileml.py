@@ -3,6 +3,9 @@
 """
 Transform OEB content into Textile formatted plain text
 """
+from __future__ import annotations
+
+import typing as _typing
 import re
 from functools import partial
 
@@ -29,10 +32,10 @@ class TextileMLizer(OEB2HTML):
 
     MAX_EM = 10
 
-    def __init__(self, log=None):
+    def __init__(self: _typing.Self, log: _typing.Any = None) -> None:
         OEB2HTML.__init__(self, log=log)
 
-    def extract_content(self, oeb_book, opts):
+    def extract_content(self: _typing.Self, oeb_book: _typing.Any, opts: _typing.Any) -> _typing.Any:
         self.log.info("Converting XHTML to Textile formatted TXT...")
         self.opts = opts
         self.in_pre = False
@@ -64,7 +67,7 @@ class TextileMLizer(OEB2HTML):
 
         return txt
 
-    def mlize_spine(self, oeb_book):
+    def mlize_spine(self: _typing.Self, oeb_book: _typing.Any) -> _typing.Any:
         output = [""]
         for item in oeb_book.spine:
             self.log.debug("Converting %s to Textile formatted TXT..." % item.href)
@@ -75,9 +78,9 @@ class TextileMLizer(OEB2HTML):
             output.append("\n\n")
         return "".join(output)
 
-    def tidy_up(self, text):
+    def tidy_up(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         # May need tweaking and finetuning
-        def check_escaping(text, tests):
+        def check_escaping(text: _typing.Any, tests: _typing.Any) -> _typing.Any:
             for t in tests:
                 # I'm not checking for duplicated spans '%' as any that follow each other were being incorrectly merged
                 txt = "%s" % t
@@ -151,7 +154,7 @@ class TextileMLizer(OEB2HTML):
 
         return text
 
-    def remove_newlines(self, text):
+    def remove_newlines(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         text = text.replace("\r\n", " ")
         text = text.replace("\n", " ")
         text = text.replace("\r", " ")
@@ -163,7 +166,7 @@ class TextileMLizer(OEB2HTML):
             self.remove_space_after_newline = False
         return text
 
-    def check_styles(self, style):
+    def check_styles(self: _typing.Self, style: _typing.Any) -> _typing.Any:
         txt = "{"
         if self.opts.keep_color:
             if "color" in style.cssdict() and style["color"] != "black":
@@ -175,21 +178,21 @@ class TextileMLizer(OEB2HTML):
             txt = ""
         return txt
 
-    def check_halign(self, style):
+    def check_halign(self: _typing.Self, style: _typing.Any) -> _typing.Any:
         tests = {"left": "<", "justify": "<>", "center": "=", "right": ">"}
         for i in tests:
             if style["text-align"] == i:
                 return tests[i]
         return ""
 
-    def check_valign(self, style):
+    def check_valign(self: _typing.Self, style: _typing.Any) -> _typing.Any:
         tests = {"top": "^", "bottom": "~"}  # , 'middle':'-'}
         for i in tests:
             if style["vertical-align"] == i:
                 return tests[i]
         return ""
 
-    def check_padding(self, style, stylizer):
+    def check_padding(self: _typing.Self, style: _typing.Any, stylizer: _typing.Any) -> _typing.Any:
         txt = ""
         left_padding_pts = 0
         left_margin_pts = 0
@@ -219,7 +222,7 @@ class TextileMLizer(OEB2HTML):
 
         return txt
 
-    def check_id_tag(self, attribs):
+    def check_id_tag(self: _typing.Self, attribs: _typing.Any) -> _typing.Any:
         txt = ""
         if "id" in attribs:
             txt = "(#" + attribs["id"] + ")"
@@ -227,7 +230,7 @@ class TextileMLizer(OEB2HTML):
             self.id_no_text = "\xa0"
         return txt
 
-    def build_block(self, tag, style, attribs, stylizer):
+    def build_block(self: _typing.Self, tag: _typing.Any, style: _typing.Any, attribs: _typing.Any, stylizer: _typing.Any) -> _typing.Any:
         txt = "\n" + tag
         if self.opts.keep_links:
             txt += self.check_id_tag(attribs)
@@ -236,12 +239,12 @@ class TextileMLizer(OEB2HTML):
         txt += self.check_styles(style)
         return txt
 
-    def prepare_string_for_textile(self, txt):
+    def prepare_string_for_textile(self: _typing.Self, txt: _typing.Any) -> _typing.Any:
         if re.search(r"(\s([*&_+\-~@%|]|\?{2})\S)|(\S([*&_+\-~@%|]|\?{2})\s)", txt):
             return " ==%s== " % txt
         return txt
 
-    def dump_text(self, elem, stylizer):
+    def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any) -> _typing.Any:
         """
         Dumps the processed text.
         :param elem:

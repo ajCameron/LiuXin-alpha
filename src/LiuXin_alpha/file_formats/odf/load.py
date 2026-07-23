@@ -25,6 +25,9 @@
 # the structure again.
 
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from xml.sax import handler
 
@@ -49,18 +52,18 @@ class LoadParser(handler.ContentHandler):
         (OFFICENS, "styles"),
     )
 
-    def __init__(self, document):
+    def __init__(self: _typing.Self, document: _typing.Any) -> None:
         self.doc = document
         self.data = []
         self.level = 0
         self.parse = False
 
-    def characters(self, data):
+    def characters(self: _typing.Self, data: _typing.Any) -> None:
         if self.parse == False:
             return
         self.data.append(data)
 
-    def startElementNS(self, tag, qname, attrs):
+    def startElementNS(self: _typing.Self, tag: _typing.Any, qname: _typing.Any, attrs: _typing.Any) -> None:
         if tag in self.triggers:
             self.parse = True
         if self.doc._parsing != "styles.xml" and tag == (OFFICENS, "font-face-decls"):
@@ -104,7 +107,7 @@ class LoadParser(handler.ContentHandler):
             self.parent.addElement(e, check_grammar=False)
         self.parent = e
 
-    def endElementNS(self, tag, qname):
+    def endElementNS(self: _typing.Self, tag: _typing.Any, qname: _typing.Any) -> None:
         if self.parse == False:
             return
         self.level = self.level - 1

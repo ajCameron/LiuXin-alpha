@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys, os
 
 from LiuXin_alpha.file_formats.rtf2xml import copy
@@ -25,15 +28,15 @@ class Preamble:
     """
 
     def __init__(
-        self,
-        file,
-        bug_handler,
-        platform,
-        default_font,
-        code_page,
-        copy=None,
-        temp_dir=None,
-    ):
+        self: _typing.Self,
+        file: _typing.Any,
+        bug_handler: _typing.Any,
+        platform: _typing.Any,
+        default_font: _typing.Any,
+        code_page: _typing.Any,
+        copy: _typing.Any = None,
+        temp_dir: _typing.Any = None,
+    ) -> None:
         """
         Required:
             file--file to parse
@@ -58,7 +61,7 @@ class Preamble:
         else:
             self.__write_to = "info_table_info.data"
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
         """
@@ -77,14 +80,14 @@ class Preamble:
             "mi<mk<body-open_": self.__found_body_func,
         }
 
-    def __default_func(self, line):
+    def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         action = self.__default_dict.get(self.__token_info)
         if action:
             action(line)
         else:
             self.__write_obj.write(line)
 
-    def __found_rtf_head_func(self, line):
+    def __found_rtf_head_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- the line to parse
@@ -100,10 +103,10 @@ class Preamble:
             "<platform>%s\n" % (self.__default_font, self.__code_page, self.__platform)
         )
 
-    def __found_list_table_func(self, line):
+    def __found_list_table_func(self: _typing.Self, line: _typing.Any) -> None:
         self.__state = "list_table"
 
-    def __list_table_func(self, line):
+    def __list_table_func(self: _typing.Self, line: _typing.Any) -> None:
         if self.__token_info == "mi<mk<listabend_":
             self.__state = "default"
         elif line[0:2] == "tx":
@@ -111,10 +114,10 @@ class Preamble:
         else:
             self.__write_obj.write(line)
 
-    def __found_revision_table_func(self, line):
+    def __found_revision_table_func(self: _typing.Self, line: _typing.Any) -> None:
         self.__state = "revision"
 
-    def __revision_table_func(self, line):
+    def __revision_table_func(self: _typing.Self, line: _typing.Any) -> None:
         if self.__token_info == "mi<mk<revtbl-end":
             self.__state = "default"
         elif line[0:2] == "tx":
@@ -122,14 +125,14 @@ class Preamble:
         else:
             self.__write_obj.write(line)
 
-    def __found_body_func(self, line):
+    def __found_body_func(self: _typing.Self, line: _typing.Any) -> None:
         self.__state = "body"
         self.__write_obj.write(line)
 
-    def __body_func(self, line):
+    def __body_func(self: _typing.Self, line: _typing.Any) -> None:
         self.__write_obj.write(line)
 
-    def fix_preamble(self):
+    def fix_preamble(self: _typing.Self) -> None:
         """
         Requires:
             nothing

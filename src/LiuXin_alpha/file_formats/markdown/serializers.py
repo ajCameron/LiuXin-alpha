@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 # markdown/searializers.py
 #
@@ -87,18 +90,18 @@ _namespace_map = {
 }
 
 
-def _raise_serialization_error(text):
+def _raise_serialization_error(text: _typing.Any) -> None:
     raise TypeError("cannot serialize %r (type %s)" % (text, type(text).__name__))
 
 
-def _encode(text, encoding):
+def _encode(text: _typing.Any, encoding: _typing.Any) -> _typing.Any:
     try:
         return text.encode(encoding, "xmlcharrefreplace")
     except (TypeError, AttributeError):
         _raise_serialization_error(text)
 
 
-def _escape_cdata(text):
+def _escape_cdata(text: _typing.Any) -> _typing.Any:
     # escape character data
     try:
         # it's worth avoiding do-nothing calls for strings that are
@@ -115,7 +118,7 @@ def _escape_cdata(text):
         _raise_serialization_error(text)
 
 
-def _escape_attrib(text):
+def _escape_attrib(text: _typing.Any) -> _typing.Any:
     # escape attribute value
     try:
         if "&" in text:
@@ -133,7 +136,7 @@ def _escape_attrib(text):
         _raise_serialization_error(text)
 
 
-def _escape_attrib_html(text):
+def _escape_attrib_html(text: _typing.Any) -> _typing.Any:
     # escape attribute value
     try:
         if "&" in text:
@@ -149,7 +152,7 @@ def _escape_attrib_html(text):
         _raise_serialization_error(text)
 
 
-def _serialize_html(write, elem, qnames, namespaces, format):
+def _serialize_html(write: _typing.Any, elem: _typing.Any, qnames: _typing.Any, namespaces: _typing.Any, format: _typing.Any) -> None:
     tag = elem.tag
     text = elem.text
     if tag is Comment:
@@ -205,7 +208,7 @@ def _serialize_html(write, elem, qnames, namespaces, format):
         write(_escape_cdata(elem.tail))
 
 
-def _write_html(root, encoding=None, default_namespace=None, format="html"):
+def _write_html(root: _typing.Any, encoding: _typing.Any = None, default_namespace: _typing.Any = None, format: str = "html") -> _typing.Any:
     assert root is not None
     data = []
     write = data.append
@@ -221,7 +224,7 @@ def _write_html(root, encoding=None, default_namespace=None, format="html"):
 # serialization support
 
 
-def _namespaces(elem, default_namespace=None):
+def _namespaces(elem: _typing.Any, default_namespace: _typing.Any = None) -> tuple[_typing.Any, ...]:
     # identify namespaces used in this tree
 
     # maps qnames to *encoded* prefix:local names
@@ -232,7 +235,7 @@ def _namespaces(elem, default_namespace=None):
     if default_namespace:
         namespaces[default_namespace] = ""
 
-    def add_qname(qname):
+    def add_qname(qname: _typing.Any) -> None:
         # calculate serialized qname representation
         try:
             if qname[:1] == "{":
@@ -279,9 +282,9 @@ def _namespaces(elem, default_namespace=None):
     return qnames, namespaces
 
 
-def to_html_string(element):
+def to_html_string(element: _typing.Any) -> _typing.Any:
     return _write_html(ElementTree(element).getroot(), format="html")
 
 
-def to_xhtml_string(element):
+def to_xhtml_string(element: _typing.Any) -> _typing.Any:
     return _write_html(ElementTree(element).getroot(), format="xhtml")

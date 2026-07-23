@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import posixpath
-from typing import TypeVar
+from collections.abc import Collection
+from typing import Protocol
 
 
 DEFAULT_MAX_ARCHIVE_MEMBERS = 4096
@@ -15,10 +16,15 @@ class ArchivePreflightError(ValueError):
     pass
 
 
-_ErrorT = TypeVar("_ErrorT", bound=Exception)
+class ZipMemberInfo(Protocol):
+    """Archive-member fields consumed by the shared preflight checks."""
+
+    filename: str
+    file_size: int
+    compress_size: int
 
 
-def _raise(error_type: type[_ErrorT], message: str) -> None:
+def _raise(error_type: type[Exception], message: str) -> None:
     raise error_type(message)
 
 
@@ -26,7 +32,7 @@ def normalized_zip_member_name(
     name: str,
     *,
     member_label: str = "archive",
-    error_type: type[_ErrorT] = ArchivePreflightError,
+    error_type: type[Exception] = ArchivePreflightError,
 ) -> str:
     raw_name = str(name)
     normalized = raw_name.replace("\\", "/")
@@ -45,11 +51,11 @@ def normalized_zip_member_name(
 
 
 def validate_zip_member_infos(
-    infos,
+    infos: Collection[ZipMemberInfo],
     *,
     container_label: str = "archive",
     member_label: str | None = None,
-    error_type: type[_ErrorT] = ArchivePreflightError,
+    error_type: type[Exception] = ArchivePreflightError,
     allow_unsafe_paths: bool = False,
     max_archive_members: int = DEFAULT_MAX_ARCHIVE_MEMBERS,
     max_member_uncompressed_size: int = DEFAULT_MAX_MEMBER_UNCOMPRESSED_SIZE,

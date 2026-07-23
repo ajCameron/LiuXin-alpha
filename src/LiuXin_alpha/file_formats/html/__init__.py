@@ -3,6 +3,9 @@
 # metadata extraction should now be working
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 
@@ -14,7 +17,7 @@ __docformat__ = "restructuredtext en"
 COMMENT_PAT = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
-def tostring(root, strip_comments=False, pretty_print=False):
+def tostring(root: _typing.Any, strip_comments: bool = False, pretty_print: bool = False) -> _typing.Any:
     """
     Serializes an XHTML structure
     :param root:

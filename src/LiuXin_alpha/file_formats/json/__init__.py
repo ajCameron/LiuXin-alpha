@@ -12,7 +12,7 @@ from LiuXin_alpha.utils.date import isoformat, parse_date
 __author__ = "Cameron"
 
 
-def _parse_datetime_value(raw):
+def _parse_datetime_value(raw: str | bytes) -> datetime.datetime:
     try:
         return parse_date(raw, assume_utc=True)
     except Exception:
@@ -25,7 +25,7 @@ def _parse_datetime_value(raw):
         return dt.astimezone(datetime.timezone.utc)
 
 
-def to_json(obj):
+def to_json(obj: object) -> dict[str, str]:
     if isinstance(obj, (bytes, bytearray, memoryview)):
         raw = bytes(obj)
         return {
@@ -40,7 +40,7 @@ def to_json(obj):
     raise TypeError(repr(obj) + " is not JSON serializable")
 
 
-def from_json(obj):
+def from_json(obj: object) -> object:
     if not isinstance(obj, dict):
         return obj
     cls = obj.get("__class__")

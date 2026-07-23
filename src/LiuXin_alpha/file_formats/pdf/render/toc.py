@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 
@@ -12,7 +15,7 @@ from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 from LiuXin_alpha.utils.localization import trans as _
 
 
-def convert_node(toc, table, level, pdf):
+def convert_node(toc: _typing.Any, table: _typing.Any, level: _typing.Any, pdf: _typing.Any) -> None:
     tr = TR(TD(toc.text or _("Unknown")), TD())
     tr.set("class", "level-%d" % level)
     anchors = pdf.links.anchors
@@ -31,13 +34,13 @@ def convert_node(toc, table, level, pdf):
     table.append(tr)
 
 
-def process_children(toc, table, level, pdf):
+def process_children(toc: _typing.Any, table: _typing.Any, level: _typing.Any, pdf: _typing.Any) -> None:
     for child in toc:
         convert_node(child, table, level, pdf)
         process_children(child, table, level + 1, pdf)
 
 
-def toc_as_html(toc, pdf, opts):
+def toc_as_html(toc: _typing.Any, pdf: _typing.Any, opts: _typing.Any) -> _typing.Any:
     pdf = pdf.engine.pdf
     indents = []
     for i in memory_range(1, 7):

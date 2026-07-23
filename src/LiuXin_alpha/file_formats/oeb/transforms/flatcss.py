@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 CSS flattening transform.
@@ -52,13 +55,13 @@ COLLAPSE = re.compile(r"[ \t\r\n\v]+")
 STRIPNUM = re.compile(r"[-0-9]+$")
 
 
-def asfloat(value, default):
+def asfloat(value: _typing.Any, default: _typing.Any) -> _typing.Any:
     if not isinstance(value, (int, float)):
         value = default
     return float(value)
 
 
-def dynamic_rescale_factor(node):
+def dynamic_rescale_factor(node: _typing.Any) -> _typing.Any:
     classes = node.get("class", "").split(" ")
     classes = [x.replace("calibre_rescale_", "") for x in classes if x.startswith("calibre_rescale_")]
     if not classes:
@@ -73,13 +76,13 @@ def dynamic_rescale_factor(node):
 
 
 class KeyMapper(object):
-    def __init__(self, sbase, dbase, dkey):
+    def __init__(self: _typing.Self, sbase: _typing.Any, dbase: _typing.Any, dkey: _typing.Any) -> None:
         self.sbase = float(sbase)
         self.dprop = [(self.relate(x, dbase), float(x)) for x in dkey]
         self.cache = {}
 
     @staticmethod
-    def relate(size, base):
+    def relate(size: _typing.Any, base: _typing.Any) -> _typing.Any:
         if size == 0:
             return base
         size = float(size)
@@ -103,7 +106,7 @@ class KeyMapper(object):
             result = sign * math.log(diff, logb)
         return result
 
-    def __getitem__(self, ssize):
+    def __getitem__(self: _typing.Self, ssize: _typing.Any) -> _typing.Any:
         ssize = asfloat(ssize, 0)
         if ssize in self.cache:
             return self.cache[ssize]
@@ -111,7 +114,7 @@ class KeyMapper(object):
         self.cache[ssize] = dsize
         return dsize
 
-    def map(self, ssize):
+    def map(self: _typing.Self, ssize: _typing.Any) -> _typing.Any:
         sbase = self.sbase
         prop = self.relate(ssize, sbase)
         diff = [(abs(prop - p), s) for p, s in self.dprop]
@@ -120,24 +123,24 @@ class KeyMapper(object):
 
 
 class ScaleMapper(object):
-    def __init__(self, sbase, dbase):
+    def __init__(self: _typing.Self, sbase: _typing.Any, dbase: _typing.Any) -> None:
         self.dscale = float(dbase) / float(sbase)
 
-    def __getitem__(self, ssize):
+    def __getitem__(self: _typing.Self, ssize: _typing.Any) -> _typing.Any:
         ssize = asfloat(ssize, 0)
         dsize = ssize * self.dscale
         return dsize
 
 
 class NullMapper(object):
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         pass
 
-    def __getitem__(self, ssize):
+    def __getitem__(self: _typing.Self, ssize: _typing.Any) -> _typing.Any:
         return ssize
 
 
-def FontMapper(sbase=None, dbase=None, dkey=None):
+def FontMapper(sbase: _typing.Any = None, dbase: _typing.Any = None, dkey: _typing.Any = None) -> _typing.Any:
     if sbase and dbase and dkey:
         return KeyMapper(sbase, dbase, dkey)
     elif sbase and dbase:
@@ -147,11 +150,11 @@ def FontMapper(sbase=None, dbase=None, dkey=None):
 
 
 class EmbedFontsCSSRules(object):
-    def __init__(self, body_font_family, rules):
+    def __init__(self: _typing.Self, body_font_family: _typing.Any, rules: _typing.Any) -> None:
         self.body_font_family, self.rules = body_font_family, rules
         self.href = None
 
-    def __call__(self, oeb):
+    def __call__(self: _typing.Self, oeb: _typing.Any) -> _typing.Any:
         if not self.body_font_family:
             return None
         if not self.href:
@@ -169,15 +172,15 @@ class CSSFlattener(object):
     """
 
     def __init__(
-        self,
-        fbase=None,
-        fkey=None,
-        lineh=None,
-        unfloat=False,
-        untable=False,
-        page_break_on_body=False,
-        specializer=None,
-    ):
+        self: _typing.Self,
+        fbase: _typing.Any = None,
+        fkey: _typing.Any = None,
+        lineh: _typing.Any = None,
+        unfloat: bool = False,
+        untable: bool = False,
+        page_break_on_body: bool = False,
+        specializer: _typing.Any = None,
+    ) -> None:
         self.fbase = fbase
         self.fkey = fkey
         self.lineh = lineh
@@ -187,14 +190,14 @@ class CSSFlattener(object):
         self.page_break_on_body = page_break_on_body
 
     @classmethod
-    def config(cls, cfg):
+    def config(cls: type[_typing.Self], cfg: _typing.Any) -> _typing.Any:
         return cfg
 
     @classmethod
-    def generate(cls, opts):
+    def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
         return cls()
 
-    def __call__(self, oeb, context):
+    def __call__(self: _typing.Self, oeb: _typing.Any, context: _typing.Any) -> None:
         if not _HAS_CSSUTILS:
             raise ModuleNotFoundError("cssutils is required for CSS flattening transforms")
         oeb.logger.info("Flattening CSS and remapping font sizes...")
@@ -230,7 +233,7 @@ class CSSFlattener(object):
         self.fmap = FontMapper(self.sbase, self.fbase, self.fkey)
         self.flatten_spine()
 
-    def get_embed_font_info(self, family, failure_critical=True):
+    def get_embed_font_info(self: _typing.Self, family: _typing.Any, failure_critical: bool = True) -> tuple[_typing.Any, ...]:
         efi = []
         body_font_family = None
         if not family:
@@ -279,7 +282,7 @@ class CSSFlattener(object):
 
         return body_font_family, efi
 
-    def stylize_spine(self):
+    def stylize_spine(self: _typing.Self) -> None:
         self.stylizers = {}
         profile = self.context.source
         css = ""
@@ -316,7 +319,7 @@ class CSSFlattener(object):
             )
             self.stylizers[item] = stylizer
 
-    def baseline_node(self, node, stylizer, sizes, csize):
+    def baseline_node(self: _typing.Self, node: _typing.Any, stylizer: _typing.Any, sizes: _typing.Any, csize: _typing.Any) -> None:
         csize = stylizer.style(node)["font-size"]
         if node.text:
             sizes[csize] += len(COLLAPSE.sub(" ", node.text))
@@ -325,7 +328,7 @@ class CSSFlattener(object):
             if child.tail:
                 sizes[csize] += len(COLLAPSE.sub(" ", child.tail))
 
-    def baseline_spine(self):
+    def baseline_spine(self: _typing.Self) -> _typing.Any:
         sizes = defaultdict(float)
         for item in self.oeb.spine:
             html = item.data
@@ -340,7 +343,7 @@ class CSSFlattener(object):
         self.oeb.logger.info("Source base font size is %0.05fpt" % sbase)
         return sbase
 
-    def clean_edges(self, cssdict, style, fsize):
+    def clean_edges(self: _typing.Self, cssdict: _typing.Any, style: _typing.Any, fsize: _typing.Any) -> None:
         slineh = self.sbase * 1.26
         dlineh = self.lineh
         for kind in ("margin", "padding"):
@@ -366,7 +369,7 @@ class CSSFlattener(object):
                         value = 0.0
                     cssdict[edge_property] = "%0.5fem" % (value / fsize)
 
-    def flatten_node(self, node, stylizer, names, styles, pseudo_styles, psize, item_id):
+    def flatten_node(self: _typing.Self, node: _typing.Any, stylizer: _typing.Any, names: _typing.Any, styles: _typing.Any, pseudo_styles: _typing.Any, psize: _typing.Any, item_id: _typing.Any) -> None:
         if not isinstance(node.tag, string_types) or namespace(node.tag) != XHTML_NS:
             return
         tag = barename(node.tag)
@@ -411,7 +414,7 @@ class CSSFlattener(object):
             node.tag = XHTML(tag)
             if "size" in node.attrib:
 
-                def force_int(raw):
+                def force_int(raw: _typing.Any) -> _typing.Any:
                     return int(re.search(r"([0-9+-]+)", raw).group(1))
 
                 size = node.attrib["size"].strip()
@@ -598,7 +601,7 @@ class CSSFlattener(object):
         for child in node:
             self.flatten_node(child, stylizer, names, styles, pseudo_styles, psize, item_id)
 
-    def flatten_head(self, item, href, global_href):
+    def flatten_head(self: _typing.Self, item: _typing.Any, href: _typing.Any, global_href: _typing.Any) -> None:
         html = item.data
         head = html.find(XHTML("head"))
         for node in html.xpath('//*[local-name()="style" or local-name()="link"]'):
@@ -618,7 +621,7 @@ class CSSFlattener(object):
             l = etree.SubElement(head, XHTML("link"), rel="stylesheet", type=CSS_MIME, href=href)
             l.tail = "\n"
 
-    def replace_css(self, css):
+    def replace_css(self: _typing.Self, css: _typing.Any) -> _typing.Any:
         manifest = self.oeb.manifest
         for item in manifest.values():
             if item.media_type in OEB_STYLES:
@@ -628,7 +631,7 @@ class CSSFlattener(object):
         self.oeb.manifest.main_stylesheet = item
         return href
 
-    def collect_global_css(self):
+    def collect_global_css(self: _typing.Self) -> _typing.Any:
         global_css = defaultdict(list)
         for item in self.oeb.spine:
             stylizer = self.stylizers[item]
@@ -659,7 +662,7 @@ class CSSFlattener(object):
                 ans[item] = gc_map[css]
         return ans
 
-    def flatten_spine(self):
+    def flatten_spine(self: _typing.Self) -> None:
         names = defaultdict(int)
         styles, pseudo_styles = {}, defaultdict(dict)
         for item in self.oeb.spine:

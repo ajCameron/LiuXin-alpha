@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import typing as _typing
+
 import re
 import sys
 from collections import defaultdict
@@ -19,7 +21,7 @@ from LiuXin_alpha.file_formats.readability.htmls import (
 )
 
 
-def tounicode(tree_or_node, **kwargs):
+def tounicode(tree_or_node: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     kwargs["encoding"] = "unicode"
     return htostring(tree_or_node, **kwargs)
 
@@ -42,7 +44,7 @@ REGEXES = {
 }
 
 
-def describe(node, depth=1):
+def describe(node: _typing.Any, depth: int = 1) -> _typing.Any:
     if not hasattr(node, "tag"):
         return "[%s]" % type(node)
     name = node.tag
@@ -57,7 +59,7 @@ def describe(node, depth=1):
     return name
 
 
-def to_int(x):
+def to_int(x: _typing.Any) -> _typing.Any:
     if not x:
         return None
     x = x.strip()
@@ -68,13 +70,13 @@ def to_int(x):
     return int(x)
 
 
-def clean(text):
+def clean(text: _typing.Any) -> _typing.Any:
     text = re.sub(r"\s*\n\s*", "\n", text)
     text = re.sub(r"[ \t]{2,}", " ", text)
     return text.strip()
 
 
-def text_length(i):
+def text_length(i: _typing.Any) -> _typing.Any:
     return len(clean(i.text_content() or ""))
 
 
@@ -86,7 +88,7 @@ class Document:
     TEXT_LENGTH_THRESHOLD = 25
     RETRY_LENGTH = 250
 
-    def __init__(self, input, log, **options):
+    def __init__(self: _typing.Self, input: _typing.Any, log: _typing.Any, **options: _typing.Any) -> None:
         self.input = input
         self.options = defaultdict(lambda: None)
         for key, value in options.items():
@@ -95,7 +97,7 @@ class Document:
         self.log = log
         self.keep_elements = set()
 
-    def _html(self, force=False):
+    def _html(self: _typing.Self, force: bool = False) -> _typing.Any:
         if force or self.html is None:
             self.html = self._parse(self.input)
             path = self.options["keep_elements"]
@@ -104,7 +106,7 @@ class Document:
 
         return self.html
 
-    def _parse(self, input):
+    def _parse(self: _typing.Self, input: _typing.Any) -> _typing.Any:
         doc = build_doc(input)
         doc = html_cleaner.clean_html(doc)
         base_href = self.options["url"]
@@ -114,16 +116,16 @@ class Document:
             doc.resolve_base_href()
         return doc
 
-    def content(self):
+    def content(self: _typing.Self) -> _typing.Any:
         return get_body(self._html(True))
 
-    def title(self):
+    def title(self: _typing.Self) -> _typing.Any:
         return get_title(self._html(True))
 
-    def short_title(self):
+    def short_title(self: _typing.Self) -> _typing.Any:
         return shorten_title(self._html(True))
 
-    def summary(self):
+    def summary(self: _typing.Self) -> _typing.Any:
         try:
             ruthless = True
             while True:
@@ -162,7 +164,7 @@ class Document:
             self.log.exception("error getting summary: ")
             raise Unparseable(str(err))
 
-    def get_article(self, candidates, best_candidate):
+    def get_article(self: _typing.Self, candidates: _typing.Any, best_candidate: _typing.Any) -> _typing.Any:
         sibling_score_threshold = max([10, best_candidate["content_score"] * 0.2])
         output = document_fromstring("<div/>")
         parent = output.xpath("//div")[0]
@@ -190,7 +192,7 @@ class Document:
                 parent.append(sibling)
         return output.find("body")
 
-    def select_best_candidate(self, candidates):
+    def select_best_candidate(self: _typing.Self, candidates: _typing.Any) -> _typing.Any:
         sorted_candidates = sorted(candidates.values(), key=lambda x: x["content_score"], reverse=True)
         for candidate in sorted_candidates[:5]:
             elem = candidate["elem"]
@@ -201,14 +203,14 @@ class Document:
 
         return sorted_candidates[0]
 
-    def get_link_density(self, elem):
+    def get_link_density(self: _typing.Self, elem: _typing.Any) -> _typing.Any:
         link_length = 0
         for item in elem.findall(".//a"):
             link_length += text_length(item)
         total_length = text_length(elem)
         return float(link_length) / max(total_length, 1)
 
-    def score_paragraphs(self):
+    def score_paragraphs(self: _typing.Self) -> _typing.Any:
         min_len = self.options.get("min_text_length", self.TEXT_LENGTH_THRESHOLD)
         candidates = {}
         ordered = []
@@ -250,7 +252,7 @@ class Document:
 
         return candidates
 
-    def class_weight(self, elem):
+    def class_weight(self: _typing.Self, elem: _typing.Any) -> _typing.Any:
         weight = 0
         if elem.get("class", None):
             if REGEXES["negativeRe"].search(elem.get("class")):
@@ -266,7 +268,7 @@ class Document:
 
         return weight
 
-    def score_node(self, elem):
+    def score_node(self: _typing.Self, elem: _typing.Any) -> dict[_typing.Any, _typing.Any]:
         content_score = self.class_weight(elem)
         name = elem.tag.lower()
         if name == "div":
@@ -279,10 +281,10 @@ class Document:
             content_score -= 5
         return {"content_score": content_score, "elem": elem}
 
-    def debug(self, *parts):
+    def debug(self: _typing.Self, *parts: _typing.Any) -> None:
         self.log.debug(*parts)
 
-    def remove_unlikely_candidates(self):
+    def remove_unlikely_candidates(self: _typing.Self) -> None:
         for elem in self.html.iter():
             if elem in self.keep_elements:
                 continue
@@ -295,7 +297,7 @@ class Document:
                 self.debug("Removing unlikely candidate - %s" % describe(elem))
                 elem.drop_tree()
 
-    def transform_misused_divs_into_paragraphs(self):
+    def transform_misused_divs_into_paragraphs(self: _typing.Self) -> None:
         for elem in self.tags(self.html, "div"):
             child_markup = "".join(tostring(child, encoding="unicode") for child in list(elem))
             if not REGEXES["divToPElementsRe"].search(child_markup):
@@ -317,17 +319,17 @@ class Document:
                 if child.tag == "br":
                     child.drop_tree()
 
-    def tags(self, node, *tag_names):
+    def tags(self: _typing.Self, node: _typing.Any, *tag_names: _typing.Any) -> _typing.Iterator[_typing.Any]:
         for tag_name in tag_names:
             for elem in node.findall(".//%s" % tag_name):
                 yield elem
 
-    def reverse_tags(self, node, *tag_names):
+    def reverse_tags(self: _typing.Self, node: _typing.Any, *tag_names: _typing.Any) -> _typing.Iterator[_typing.Any]:
         for tag_name in tag_names:
             for elem in reversed(node.findall(".//%s" % tag_name)):
                 yield elem
 
-    def sanitize(self, node, candidates):
+    def sanitize(self: _typing.Self, node: _typing.Any, candidates: _typing.Any) -> _typing.Any:
         min_len = self.options.get("min_text_length", self.TEXT_LENGTH_THRESHOLD)
         for header in self.tags(node, "h1", "h2", "h3", "h4", "h5", "h6"):
             if self.class_weight(header) < 0 or self.get_link_density(header) > 0.33:
@@ -422,7 +424,7 @@ class Document:
         return clean_attributes(tounicode(node))
 
 
-def option_parser():
+def option_parser() -> _typing.Any:
     from LiuXin_alpha.utils.config.config_tools import OptionParser
 
     parser = OptionParser(usage="%prog: [options] file")
@@ -446,7 +448,7 @@ def option_parser():
     return parser
 
 
-def main():
+def main() -> None:
     from LiuXin_alpha.utils.logging import default_log
 
     parser = option_parser()

@@ -1,4 +1,7 @@
 from __future__ import with_statement, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Container-/OPF-based input OEBBook reader.
@@ -90,7 +93,7 @@ class OEBReader(object):
     """List of transforms to apply to content read with this Reader."""
 
     @classmethod
-    def config(cls, cfg):
+    def config(cls: type[_typing.Self], cfg: _typing.Any) -> None:
         """
         Add any book-reading options to the :class:`Config` object
         :param cfg:
@@ -98,7 +101,7 @@ class OEBReader(object):
         return
 
     @classmethod
-    def generate(cls, opts):
+    def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
         """
         Generate a Reader instance from command-line options.
         Included for future compatibility reasons.
@@ -107,7 +110,7 @@ class OEBReader(object):
         """
         return cls()
 
-    def __call__(self, oeb, path):
+    def __call__(self: _typing.Self, oeb: _typing.Any, path: _typing.Any) -> _typing.Any:
         """
         Read the book at :param:`path` into the :class:`OEBBook` object
         :param:`oeb`.
@@ -122,7 +125,7 @@ class OEBReader(object):
         self._all_from_opf(opf)
         return oeb
 
-    def _clean_opf(self, opf):
+    def _clean_opf(self: _typing.Self, opf: _typing.Any) -> _typing.Any:
         nsmap = {}
         for elem in opf.iter():
             nsmap.update(elem.nsmap)
@@ -157,7 +160,7 @@ class OEBReader(object):
 
         return nroot
 
-    def _read_opf(self):
+    def _read_opf(self: _typing.Self) -> _typing.Any:
         data = self.oeb.container.read(None)
         data = self.oeb.decode(data)
         data = XMLDECL_RE.sub("", data)
@@ -190,7 +193,7 @@ class OEBReader(object):
         opf = self._clean_opf(opf)
         return opf
 
-    def _metadata_from_opf(self, opf):
+    def _metadata_from_opf(self: _typing.Self, opf: _typing.Any) -> None:
 
         from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
             meta_info_to_oeb_metadata,
@@ -218,7 +221,7 @@ class OEBReader(object):
         if not has_aut:
             m.add("creator", self.oeb.translate(__("Unknown")), role="aut")
 
-    def _manifest_prune_invalid(self):
+    def _manifest_prune_invalid(self: _typing.Self) -> _typing.Any:
         """
         Remove items from manifest that contain invalid data. This prevents
         catastrophic conversion failure, when a few files contain corrupted
@@ -240,7 +243,7 @@ class OEBReader(object):
                     self.oeb.manifest.remove(item)
         return bad
 
-    def _manifest_add_missing(self, invalid):
+    def _manifest_add_missing(self: _typing.Self, invalid: _typing.Any) -> None:
         try:
             import cssutils
         except ModuleNotFoundError:
@@ -328,7 +331,7 @@ class OEBReader(object):
             for item in invalid:
                 self.oeb.manifest.remove(item)
 
-    def _manifest_from_opf(self, opf):
+    def _manifest_from_opf(self: _typing.Self, opf: _typing.Any) -> None:
         manifest = self.oeb.manifest
         for elem in xpath(opf, "/o2:package/o2:manifest/o2:item"):
             man_id = elem.get("id")
@@ -355,7 +358,7 @@ class OEBReader(object):
         invalid = self._manifest_prune_invalid()
         self._manifest_add_missing(invalid)
 
-    def _spine_add_extra(self):
+    def _spine_add_extra(self: _typing.Self) -> None:
         manifest = self.oeb.manifest
         spine = self.oeb.spine
         unchecked = set(spine)
@@ -389,7 +392,7 @@ class OEBReader(object):
                 self.logger.warn("Spine-referenced file %r not in spine" % item.href)
             spine.add(item, linear=False)
 
-    def _spine_from_opf(self, opf):
+    def _spine_from_opf(self: _typing.Self, opf: _typing.Any) -> None:
         spine = self.oeb.spine
         manifest = self.oeb.manifest
         for elem in xpath(opf, "/o2:package/o2:spine/o2:itemref"):
@@ -413,7 +416,7 @@ class OEBReader(object):
             if val in {"ltr", "rtl"}:
                 spine.page_progression_direction = val
 
-    def _guide_from_opf(self, opf):
+    def _guide_from_opf(self: _typing.Self, opf: _typing.Any) -> None:
         guide = self.oeb.guide
         manifest = self.oeb.manifest
         for elem in xpath(opf, "/o2:package/o2:guide/o2:reference"):
@@ -433,7 +436,7 @@ class OEBReader(object):
             if typ not in guide:
                 guide.add(typ, elem.get("title"), ref_href)
 
-    def _find_ncx(self, opf):
+    def _find_ncx(self: _typing.Self, opf: _typing.Any) -> _typing.Any:
         result = xpath(opf, "/o2:package/o2:spine/@toc")
         if result:
             element_id = result[0]
@@ -448,7 +451,7 @@ class OEBReader(object):
                 return item
         return None
 
-    def _toc_from_navpoint(self, item, toc, navpoint):
+    def _toc_from_navpoint(self: _typing.Self, item: _typing.Any, toc: _typing.Any, navpoint: _typing.Any) -> None:
         children = xpath(navpoint, "ncx:navPoint")
         for child in children:
             title = "".join(xpath(child, "ncx:navLabel/ncx:text/text()"))
@@ -508,7 +511,7 @@ class OEBReader(object):
 
             self._toc_from_navpoint(item, node, child)
 
-    def _toc_from_ncx(self, item):
+    def _toc_from_ncx(self: _typing.Self, item: _typing.Any) -> bool:
         if (item is None) or (item.data is None):
             return False
         self.log.debug("Reading TOC from NCX...")
@@ -523,7 +526,7 @@ class OEBReader(object):
             self._toc_from_navpoint(item, toc, navmap)
         return True
 
-    def _toc_from_tour(self, opf):
+    def _toc_from_tour(self: _typing.Self, opf: _typing.Any) -> bool:
         result = xpath(opf, "o2:tours/o2:tour")
         if not result:
             return False
@@ -545,7 +548,7 @@ class OEBReader(object):
             toc.add(title, href, id=element_id)
         return True
 
-    def _toc_from_html(self, opf):
+    def _toc_from_html(self: _typing.Self, opf: _typing.Any) -> bool:
         if "toc" not in self.oeb.guide:
             return False
         self.log.debug("Reading TOC from HTML...")
@@ -578,7 +581,7 @@ class OEBReader(object):
             toc.add(" ".join(titles[href]), href)
         return True
 
-    def _toc_from_spine(self, opf):
+    def _toc_from_spine(self: _typing.Self, opf: _typing.Any) -> bool:
         self.log.warn("Generating default TOC from spine...")
         toc = self.oeb.toc
         titles = []
@@ -608,7 +611,7 @@ class OEBReader(object):
             toc.add(title, item.href)
         return True
 
-    def _toc_from_opf(self, opf, item):
+    def _toc_from_opf(self: _typing.Self, opf: _typing.Any, item: _typing.Any) -> None:
         self.oeb.auto_generated_toc = False
         if self._toc_from_ncx(item):
             return
@@ -620,7 +623,7 @@ class OEBReader(object):
         self._toc_from_spine(opf)
         self.oeb.auto_generated_toc = True
 
-    def _pages_from_ncx(self, opf, item):
+    def _pages_from_ncx(self: _typing.Self, opf: _typing.Any, item: _typing.Any) -> bool:
         if item is None:
             return False
         ncx = item.data
@@ -643,7 +646,7 @@ class OEBReader(object):
             pages.add(name, href, type=type, id=id, klass=klass)
         return True
 
-    def _find_page_map(self, opf):
+    def _find_page_map(self: _typing.Self, opf: _typing.Any) -> _typing.Any:
         result = xpath(opf, "/o2:package/o2:spine/@page-map")
         if result:
             manifest_id = result[0]
@@ -658,7 +661,7 @@ class OEBReader(object):
                 return item
         return None
 
-    def _pages_from_page_map(self, opf):
+    def _pages_from_page_map(self: _typing.Self, opf: _typing.Any) -> bool:
         """
         Extract the pages from the page map and add them to the self.oeb.pages variable.
         :param opf:
@@ -684,14 +687,14 @@ class OEBReader(object):
             pages.add(name, href, type=page_type)
         return True
 
-    def _pages_from_opf(self, opf, item):
+    def _pages_from_opf(self: _typing.Self, opf: _typing.Any, item: _typing.Any) -> None:
         if self._pages_from_ncx(opf, item):
             return
         if self._pages_from_page_map(opf):
             return
         return
 
-    def _cover_from_html(self, hcover):
+    def _cover_from_html(self: _typing.Self, hcover: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats import render_html_svg_workaround
 
         with TemporaryDirectory("_html_cover") as tdir:
@@ -706,7 +709,7 @@ class OEBReader(object):
         item = self.oeb.manifest.add(manifest_id, href, JPEG_MIME, data=data)
         return item
 
-    def _locate_cover_image(self):
+    def _locate_cover_image(self: _typing.Self) -> _typing.Any:
         """
         Tries to find the cover image.
         :return:
@@ -748,14 +751,14 @@ class OEBReader(object):
                 return item
         return self._cover_from_html(hcover)
 
-    def _ensure_cover_image(self):
+    def _ensure_cover_image(self: _typing.Self) -> None:
         cover = self._locate_cover_image()
         if self.oeb.metadata.cover:
             self.oeb.metadata.cover[0].value = cover.id
             return
         self.oeb.metadata.add("cover", cover.id)
 
-    def _manifest_remove_duplicates(self):
+    def _manifest_remove_duplicates(self: _typing.Self) -> None:
         seen = set()
         dups = set()
         for item in self.oeb.manifest:
@@ -770,7 +773,7 @@ class OEBReader(object):
                     self.oeb.log.warn("Removing duplicate manifest item with id:", x.id)
                     self.oeb.manifest.remove_duplicate_item(x)
 
-    def _all_from_opf(self, opf):
+    def _all_from_opf(self: _typing.Self, opf: _typing.Any) -> None:
         self.oeb.version = opf.get("version", "1.2")
         self._metadata_from_opf(opf)
         self._manifest_from_opf(opf)
@@ -783,7 +786,7 @@ class OEBReader(object):
         # self._ensure_cover_image()
 
 
-def main(argv=sys.argv):
+def main(argv: _typing.Any = sys.argv) -> int:
     reader = OEBReader()
     for arg in argv[1:]:
         oeb = reader(OEBBook(), arg)

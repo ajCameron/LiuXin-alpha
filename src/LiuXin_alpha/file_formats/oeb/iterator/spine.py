@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 import os
@@ -27,7 +30,7 @@ __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def character_count(html):
+def character_count(html: _typing.Any) -> _typing.Any:
     """
     Return the number of "significant" text characters in a HTML string.
     :param html:
@@ -40,7 +43,7 @@ def character_count(html):
     return count
 
 
-def anchor_map(html):
+def anchor_map(html: _typing.Any) -> _typing.Any:
     """
     Return map of all anchor names to their offsets in the html
     :param html:
@@ -53,7 +56,7 @@ def anchor_map(html):
     return ans
 
 
-def all_links(html):
+def all_links(html: _typing.Any) -> _typing.Any:
     """
     Return set of all links in the file
     :param html:
@@ -71,14 +74,14 @@ def all_links(html):
 
 class SpineItem(unicode):
     def __new__(
-        cls,
-        path,
-        mime_type=None,
-        read_anchor_map=True,
-        run_char_count=True,
-        from_epub=False,
-        read_links=True,
-    ):
+        cls: type[_typing.Self],
+        path: _typing.Any,
+        mime_type: _typing.Any = None,
+        read_anchor_map: bool = True,
+        run_char_count: bool = True,
+        from_epub: bool = False,
+        read_links: bool = True,
+    ) -> _typing.Any:
         ppath = path.partition("#")[0]
         if not os.path.exists(path) and os.path.exists(ppath):
             path = ppath
@@ -118,7 +121,7 @@ class SpineItem(unicode):
 
 
 class IndexEntry(object):
-    def __init__(self, spine, toc_entry, num):
+    def __init__(self: _typing.Self, spine: _typing.Any, toc_entry: _typing.Any, num: _typing.Any) -> None:
         self.num = num
         self.text = toc_entry.text or _("Unknown")
         self.key = toc_entry.abspath
@@ -140,7 +143,7 @@ class IndexEntry(object):
         self.sort_key = (self.spine_pos, self.anchor_pos)
         self.spine_count = len(spine)
 
-    def find_end(self, all_entries):
+    def find_end(self: _typing.Self, all_entries: _typing.Any) -> None:
         potential_enders = [
             i
             for i in all_entries
@@ -157,7 +160,7 @@ class IndexEntry(object):
             self.end_anchor = None
 
 
-def create_indexing_data(spine, toc):
+def create_indexing_data(spine: _typing.Any, toc: _typing.Any) -> None:
     if not toc:
         return
     f = partial(IndexEntry, spine)

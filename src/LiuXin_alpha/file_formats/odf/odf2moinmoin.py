@@ -20,6 +20,9 @@
 # Contributor(s):
 #
 
+from __future__ import annotations
+
+import typing as _typing
 import sys, zipfile, xml.dom.minidom
 from LiuXin_alpha.file_formats.odf.namespaces import nsdict
 from LiuXin_alpha.file_formats.odf.elementtypes import *
@@ -39,7 +42,7 @@ INLINE_TAGS = [nsdict[item[0]] + ":" + item[1] for item in inline_elements]
 class TextProps:
     """Holds properties for a text style."""
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
 
         self.italic = False
         self.bold = False
@@ -49,30 +52,30 @@ class TextProps:
         self.superscript = False
         self.subscript = False
 
-    def setItalic(self, value):
+    def setItalic(self: _typing.Self, value: _typing.Any) -> None:
         if value == "italic":
             self.italic = True
         elif value == "normal":
             self.italic = False
 
-    def setBold(self, value):
+    def setBold(self: _typing.Self, value: _typing.Any) -> None:
         if value == "bold":
             self.bold = True
         elif value == "normal":
             self.bold = False
 
-    def setFixed(self, value):
+    def setFixed(self: _typing.Self, value: _typing.Any) -> None:
         self.fixed = value
 
-    def setUnderlined(self, value):
+    def setUnderlined(self: _typing.Self, value: _typing.Any) -> None:
         if value and value != "none":
             self.underlined = True
 
-    def setStrikethrough(self, value):
+    def setStrikethrough(self: _typing.Self, value: _typing.Any) -> None:
         if value and value != "none":
             self.strikethrough = True
 
-    def setPosition(self, value):
+    def setPosition(self: _typing.Self, value: _typing.Any) -> None:
         if value is None or value == "":
             return
         posisize = value.split(" ")
@@ -93,7 +96,7 @@ class TextProps:
                 self.superscript = True
                 self.subscript = False
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
 
         return "[italic=%s, bold=i%s, fixed=%s]" % (
             str(self.italic),
@@ -105,7 +108,7 @@ class TextProps:
 class ParagraphProps:
     """Holds properties of a paragraph style."""
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
 
         self.blockquote = False
         self.headingLevel = 0
@@ -113,19 +116,19 @@ class ParagraphProps:
         self.title = False
         self.indented = 0
 
-    def setIndented(self, value):
+    def setIndented(self: _typing.Self, value: _typing.Any) -> None:
         self.indented = value
 
-    def setHeading(self, level):
+    def setHeading(self: _typing.Self, level: _typing.Any) -> None:
         self.headingLevel = level
 
-    def setTitle(self, value):
+    def setTitle(self: _typing.Self, value: _typing.Any) -> None:
         self.title = value
 
-    def setCode(self, value):
+    def setCode(self: _typing.Self, value: _typing.Any) -> None:
         self.code = value
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
 
         return "[bq=%s, h=%d, code=%s]" % (
             str(self.blockquote),
@@ -137,15 +140,15 @@ class ParagraphProps:
 class ListProperties:
     """Holds properties for a list style."""
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.ordered = False
 
-    def setOrdered(self, value):
+    def setOrdered(self: _typing.Self, value: _typing.Any) -> None:
         self.ordered = value
 
 
 class ODF2MoinMoin(object):
-    def __init__(self, filepath):
+    def __init__(self: _typing.Self, filepath: _typing.Any) -> None:
         self.footnotes = []
         self.footnoteCounter = 0
         self.textStyles = {"Standard": TextProps()}
@@ -175,7 +178,7 @@ class ODF2MoinMoin(object):
 
         self.load(filepath)
 
-    def processFontDeclarations(self, fontDecl):
+    def processFontDeclarations(self: _typing.Self, fontDecl: _typing.Any) -> None:
         """Extracts necessary font information from a font-declaration
         element.
         """
@@ -183,7 +186,7 @@ class ODF2MoinMoin(object):
             if fontFace.getAttribute("style:font-pitch") == "fixed":
                 self.fixedFonts.append(fontFace.getAttribute("style:name"))
 
-    def extractTextProperties(self, style, parent=None):
+    def extractTextProperties(self: _typing.Self, style: _typing.Any, parent: _typing.Any = None) -> _typing.Any:
         """Extracts text properties from a style element."""
 
         textProps = TextProps()
@@ -210,7 +213,7 @@ class ODF2MoinMoin(object):
 
         return textProps
 
-    def extractParagraphProperties(self, style, parent=None):
+    def extractParagraphProperties(self: _typing.Self, style: _typing.Any, parent: _typing.Any = None) -> _typing.Any:
         """Extracts paragraph properties from a style element."""
 
         paraProps = ParagraphProps()
@@ -246,7 +249,7 @@ class ODF2MoinMoin(object):
 
         return paraProps
 
-    def processStyles(self, styleElements):
+    def processStyles(self: _typing.Self, styleElements: _typing.Any) -> None:
         """Runs through "style" elements extracting necessary information."""
 
         for style in styleElements:
@@ -266,7 +269,7 @@ class ODF2MoinMoin(object):
                 self.paragraphStyles[name] = self.extractParagraphProperties(style, parent)
                 self.textStyles[name] = self.extractTextProperties(style, parent)
 
-    def processListStyles(self, listStyleElements):
+    def processListStyles(self: _typing.Self, listStyleElements: _typing.Any) -> None:
 
         for style in listStyleElements:
             name = style.getAttribute("style:name")
@@ -283,7 +286,7 @@ class ODF2MoinMoin(object):
 
             self.listStyles[name] = prop
 
-    def load(self, filepath):
+    def load(self: _typing.Self, filepath: _typing.Any) -> None:
         """Loads an ODT file."""
 
         zip = zipfile.ZipFile(filepath)
@@ -303,7 +306,7 @@ class ODF2MoinMoin(object):
         self.processStyles(self.content.getElementsByTagName("style:style"))
         self.processListStyles(self.content.getElementsByTagName("text:list-style"))
 
-    def compressCodeBlocks(self, text):
+    def compressCodeBlocks(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """Removes extra blank lines from code blocks."""
 
         return text
@@ -323,10 +326,10 @@ class ODF2MoinMoin(object):
         return "".join(buffer)
 
     # -----------------------------------
-    def do_nothing(self, node):
+    def do_nothing(self: _typing.Self, node: _typing.Any) -> str:
         return ""
 
-    def draw_image(self, node):
+    def draw_image(self: _typing.Self, node: _typing.Any) -> _typing.Any:
         """"""
 
         link = node.getAttribute("xlink:href")
@@ -336,7 +339,7 @@ class ODF2MoinMoin(object):
             link = link[9:]
         return "[[Image(%s)]]\n" % link
 
-    def text_a(self, node):
+    def text_a(self: _typing.Self, node: _typing.Any) -> _typing.Any:
         text = self.textToString(node)
         link = node.getAttribute("xlink:href")
         if link.strip() == text.strip():
@@ -344,26 +347,26 @@ class ODF2MoinMoin(object):
         else:
             return "[%s %s] " % (link.strip(), text.strip())
 
-    def text_line_break(self, node):
+    def text_line_break(self: _typing.Self, node: _typing.Any) -> str:
         return "[[BR]]"
 
-    def text_note(self, node):
+    def text_note(self: _typing.Self, node: _typing.Any) -> _typing.Any:
         cite = node.getElementsByTagName("text:note-citation")[0].childNodes[0].nodeValue
         body = node.getElementsByTagName("text:note-body")[0].childNodes[0]
         self.footnotes.append((cite, self.textToString(body)))
         return "^%s^" % cite
 
-    def text_s(self, node):
+    def text_s(self: _typing.Self, node: _typing.Any) -> _typing.Any:
         try:
             num = int(node.getAttribute("text:c"))
             return " " * num
         except:
             return " "
 
-    def text_tab(self, node):
+    def text_tab(self: _typing.Self, node: _typing.Any) -> str:
         return "    "
 
-    def inline_markup(self, node):
+    def inline_markup(self: _typing.Self, node: _typing.Any) -> _typing.Any:
         text = self.textToString(node)
 
         if not text.strip():
@@ -394,7 +397,7 @@ class ODF2MoinMoin(object):
         return "%s%s%s" % ("".join(mark), text, "".join(revmark))
 
     # -----------------------------------
-    def listToString(self, listElement, indent=0):
+    def listToString(self: _typing.Self, listElement: _typing.Any, indent: int = 0) -> _typing.Any:
 
         self.lastsegment = listElement.tagName
         buffer = []
@@ -425,7 +428,7 @@ class ODF2MoinMoin(object):
 
         return "".join(buffer)
 
-    def tableToString(self, tableElement):
+    def tableToString(self: _typing.Self, tableElement: _typing.Any) -> _typing.Any:
         """MoinMoin uses || to delimit table cells"""
 
         self.lastsegment = tableElement.tagName
@@ -443,7 +446,7 @@ class ODF2MoinMoin(object):
                     self.lastsegment = cell.tagName
         return "".join(buffer)
 
-    def toString(self):
+    def toString(self: _typing.Self) -> _typing.Any:
         """Converts the document to a string.
         FIXME: Result from second call differs from first call
         """
@@ -487,7 +490,7 @@ class ODF2MoinMoin(object):
         buffer.append("")
         return self.compressCodeBlocks("\n".join(buffer))
 
-    def textToString(self, element):
+    def textToString(self: _typing.Self, element: _typing.Any) -> _typing.Any:
 
         buffer = []
 
@@ -517,7 +520,7 @@ class ODF2MoinMoin(object):
 
         return "".join(buffer)
 
-    def paragraphToString(self, paragraph, indent=0):
+    def paragraphToString(self: _typing.Self, paragraph: _typing.Any, indent: int = 0) -> _typing.Any:
 
         dummyParaProps = ParagraphProps()
 
@@ -556,7 +559,7 @@ class ODF2MoinMoin(object):
         else:
             return self.wrapParagraph(text, indent=indent)
 
-    def wrapParagraph(self, text, indent=0, blockquote=False):
+    def wrapParagraph(self: _typing.Self, text: _typing.Any, indent: int = 0, blockquote: bool = False) -> _typing.Any:
 
         counter = 0
         buffer = []

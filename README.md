@@ -49,9 +49,10 @@ Run the strict static typing target set with:
 bash scripts/run_type_checks.sh
 ```
 
-The type-check helper installs the `typing` extra into `.venv` before running
-`basedpyright` and `mypy`. Use `--skip-install` to reuse an already prepared
-environment.
+The type-check helper installs the `typing` extra into `.venv`, verifies
+complete callable annotations across `file_formats`, and then runs
+`basedpyright` and `mypy` over the configured strict targets. Use
+`--skip-install` to reuse an already prepared environment.
 
 ## PostgreSQL Backend
 

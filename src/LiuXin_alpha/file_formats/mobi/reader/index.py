@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import logging
 import struct
@@ -46,19 +49,19 @@ class InvalidFile(ValueError):
     pass
 
 
-def _require_bytes(data, length, context):
+def _require_bytes(data: _typing.Any, length: _typing.Any, context: _typing.Any) -> None:
     if len(data) < length:
         raise InvalidFile("Truncated %s" % context)
 
 
-def _decode_index_int(data, context):
+def _decode_index_int(data: _typing.Any, context: _typing.Any) -> tuple[_typing.Any, ...]:
     value, consumed = decint(data)
     if consumed <= 0:
         raise InvalidFile("Malformed variable-width integer in %s" % context)
     return value, consumed
 
 
-def _section_data(sections, index, context):
+def _section_data(sections: _typing.Any, index: _typing.Any, context: _typing.Any) -> _typing.Any:
     if index < 0 or index >= len(sections):
         raise InvalidFile("%s index outside section table: %d" % (context, index))
     try:
@@ -67,7 +70,7 @@ def _section_data(sections, index, context):
         raise InvalidFile("Malformed %s section entry" % context)
 
 
-def check_signature(data, signature):
+def check_signature(data: _typing.Any, signature: _typing.Any) -> None:
     if data[: len(signature)] != signature:
         raise InvalidFile("Not a valid %r section" % signature)
 
@@ -80,13 +83,13 @@ class NotATAGXSection(InvalidFile):
     pass
 
 
-def format_bytes(byts):
+def format_bytes(byts: _typing.Any) -> _typing.Any:
     byts = bytearray(byts)
     byts = [hex(b)[2:] for b in byts]
     return " ".join(byts)
 
 
-def parse_indx_header(data):
+def parse_indx_header(data: _typing.Any) -> _typing.Any:
     check_signature(data, b"INDX")
     words = INDEX_HEADER_FIELDS
     num = len(words)
@@ -132,7 +135,7 @@ class CNCX(object):  # {{{
     data.
     """
 
-    def __init__(self, records, codec):
+    def __init__(self: _typing.Self, records: _typing.Any, codec: _typing.Any) -> None:
         self.records = OrderedDict()
         record_offset = 0
         for raw in records:
@@ -151,25 +154,25 @@ class CNCX(object):  # {{{
                 pos += consumed + length
             record_offset += 0x10000
 
-    def __getitem__(self, offset):
+    def __getitem__(self: _typing.Self, offset: _typing.Any) -> _typing.Any:
         return self.records.get(offset)
 
-    def get(self, offset, default=None):
+    def get(self: _typing.Self, offset: _typing.Any, default: _typing.Any = None) -> _typing.Any:
         return self.records.get(offset, default)
 
-    def __bool__(self):
+    def __bool__(self: _typing.Self) -> _typing.Any:
         return bool(self.records)
 
     __nonzero__ = __bool__
 
-    def iteritems(self):
+    def iteritems(self: _typing.Self) -> _typing.Any:
         return iteritems(self.records)
 
 
 # }}}
 
 
-def parse_tagx_section(data):
+def parse_tagx_section(data: _typing.Any) -> tuple[_typing.Any, ...]:
     check_signature(data, b"TAGX")
     _require_bytes(data, 12, "TAGX header")
 
@@ -187,7 +190,7 @@ def parse_tagx_section(data):
     return control_byte_count, tags
 
 
-def get_tag_map(control_byte_count, tagx, data, strict=False):
+def get_tag_map(control_byte_count: _typing.Any, tagx: _typing.Any, data: _typing.Any, strict: bool = False) -> _typing.Any:
     ptags = []
     ans = {}
     if control_byte_count > len(data):
@@ -266,7 +269,7 @@ def get_tag_map(control_byte_count, tagx, data, strict=False):
     return ans
 
 
-def parse_index_record(table, data, control_byte_count, tags, codec, ordt_map, strict=False):
+def parse_index_record(table: _typing.Any, data: _typing.Any, control_byte_count: _typing.Any, tags: _typing.Any, codec: _typing.Any, ordt_map: _typing.Any, strict: bool = False) -> _typing.Any:
     header = parse_indx_header(data)
     idxt_pos = header["start"]
     _require_bytes(data, idxt_pos + 4, "INDX IDXT table")
@@ -310,7 +313,7 @@ def parse_index_record(table, data, control_byte_count, tags, codec, ordt_map, s
     return header
 
 
-def read_index(sections, idx, codec):
+def read_index(sections: _typing.Any, idx: _typing.Any, codec: _typing.Any) -> tuple[_typing.Any, ...]:
     table, cncx = OrderedDict(), CNCX([], codec)
 
     data = _section_data(sections, idx, "INDX")

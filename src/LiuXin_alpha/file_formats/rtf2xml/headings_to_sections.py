@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import os, re
 from LiuXin_alpha.file_formats.rtf2xml import copy
 from LiuXin_alpha.utils.ptempfiles import better_mktemp
@@ -20,12 +23,12 @@ class HeadingsToSections:
     """ """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         """
         Required:
             'file'
@@ -41,7 +44,7 @@ class HeadingsToSections:
         self.__copy = copy
         self.__write_to = better_mktemp()
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Required:
             Nothing
@@ -90,7 +93,7 @@ class HeadingsToSections:
         self.__section_num = [0]
         self.__id_regex = re.compile(r"\<list-id\>(\d+)")
 
-    def __close_lists(self):
+    def __close_lists(self: _typing.Self) -> None:
         """
         Required:
             Nothing
@@ -116,7 +119,7 @@ class HeadingsToSections:
         self.__all_lists = self.__all_lists[num_levels_closed:]
         self.__all_lists.reverse()
 
-    def __close_sections(self, current_level):
+    def __close_sections(self: _typing.Self, current_level: _typing.Any) -> None:
         self.__all_sections.reverse()
         num_levels_closed = 0
         for level in self.__all_sections:
@@ -126,7 +129,7 @@ class HeadingsToSections:
         self.__all_sections = self.__all_sections[num_levels_closed:]
         self.__all_sections.reverse()
 
-    def __write_start_section(self, current_level, name):
+    def __write_start_section(self: _typing.Self, current_level: _typing.Any, name: _typing.Any) -> None:
         section_num = ""
         for the_num in self.__section_num:
             section_num += "%s." % the_num
@@ -140,11 +143,11 @@ class HeadingsToSections:
             "<type>%s\n" % (section_num, num_in_level, level, name)
         )
 
-    def __write_end_section(self):
+    def __write_end_section(self: _typing.Self) -> None:
         self.__write_obj.write("mi<mk<sect-close\n")
         self.__write_obj.write("mi<tg<close_____<section\n")
 
-    def __default_func(self, line):
+    def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             self, line
@@ -173,7 +176,7 @@ class HeadingsToSections:
             self.__state = "after_body"
         self.__write_obj.write(line)
 
-    def __handle_heading(self, name):
+    def __handle_heading(self: _typing.Self, name: _typing.Any) -> None:
         num = self.__headings.index(name) + 1
         self.__close_sections(num)
         self.__all_sections.append(num)
@@ -185,12 +188,12 @@ class HeadingsToSections:
             self.__section_num[-1] += 1
         self.__write_start_section(num, name)
 
-    def __in_table_func(self, line):
+    def __in_table_func(self: _typing.Self, line: _typing.Any) -> None:
         if self.__token_info == "mi<mk<table-end_":
             self.__state = "default"
         self.__write_obj.write(line)
 
-    def __in_list_func(self, line):
+    def __in_list_func(self: _typing.Self, line: _typing.Any) -> None:
         if self.__token_info == "mi<mk<list_close":
             self.__list_depth -= 1
         elif self.__token_info == "mi<mk<list_start":
@@ -199,10 +202,10 @@ class HeadingsToSections:
             self.__state = "default"
         self.__write_obj.write(line)
 
-    def __after_body_func(self, line):
+    def __after_body_func(self: _typing.Self, line: _typing.Any) -> None:
         self.__write_obj.write(line)
 
-    def make_sections(self):
+    def make_sections(self: _typing.Self) -> None:
         """
         Required:
             nothing

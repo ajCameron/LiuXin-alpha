@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 from collections import Counter, OrderedDict
@@ -49,7 +52,7 @@ ns["lower-case"] = lambda c, x: x.lower() if hasattr(x, "lower") else x
 
 
 class TOC(object):
-    def __init__(self, title=None, dest=None, frag=None):
+    def __init__(self: _typing.Self, title: _typing.Any = None, dest: _typing.Any = None, frag: _typing.Any = None) -> None:
         self.title, self.dest, self.frag = title, dest, frag
         self.dest_exists = self.dest_error = None
         if self.title:
@@ -57,17 +60,17 @@ class TOC(object):
         self.parent = None
         self.children = []
 
-    def add(self, title, dest, frag=None):
+    def add(self: _typing.Self, title: _typing.Any, dest: _typing.Any, frag: _typing.Any = None) -> _typing.Any:
         c = TOC(title, dest, frag)
         self.children.append(c)
         c.parent = self
         return c
 
-    def remove(self, child):
+    def remove(self: _typing.Self, child: _typing.Any) -> None:
         self.children.remove(child)
         child.parent = None
 
-    def remove_from_parent(self):
+    def remove_from_parent(self: _typing.Self) -> None:
         if self.parent is None:
             return
         idx = self.parent.children.index(self)
@@ -77,20 +80,20 @@ class TOC(object):
         self.parent.children.remove(self)
         self.parent = None
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for c in self.children:
             yield c
 
-    def __len__(self):
+    def __len__(self: _typing.Self) -> _typing.Any:
         return len(self.children)
 
-    def iterdescendants(self):
+    def iterdescendants(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for child in self:
             yield child
             for gc in child.iterdescendants():
                 yield gc
 
-    def depth(self):
+    def depth(self: _typing.Self) -> _typing.Any:
         """
         The maximum depth of the navigation tree rooted at this node.
         """
@@ -99,22 +102,22 @@ class TOC(object):
         except ValueError:
             return 1
 
-    def get_lines(self, lvl=0):
+    def get_lines(self: _typing.Self, lvl: int = 0) -> _typing.Any:
         frag = ("#" + self.frag) if self.frag else ""
         ans = [("\t" * lvl) + "TOC: %s --> %s%s" % (self.title, self.dest, frag)]
         for child in self:
             ans.extend(child.get_lines(lvl + 1))
         return ans
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return b"\n".join([x.encode("utf-8") for x in self.get_lines()])
 
 
-def child_xpath(tag, name):
+def child_xpath(tag: _typing.Any, name: _typing.Any) -> _typing.Any:
     return tag.xpath('./*[calibre:lower-case(local-name()) = "%s"]' % name)
 
 
-def add_from_navpoint(container, navpoint, parent, ncx_name):
+def add_from_navpoint(container: _typing.Any, navpoint: _typing.Any, parent: _typing.Any, ncx_name: _typing.Any) -> _typing.Any:
     dest = frag = text = None
     nl = child_xpath(navpoint, "navlabel")
     if nl:
@@ -135,14 +138,14 @@ def add_from_navpoint(container, navpoint, parent, ncx_name):
     return parent.add(text or None, dest or None, frag or None)
 
 
-def process_ncx_node(container, node, toc_parent, ncx_name):
+def process_ncx_node(container: _typing.Any, node: _typing.Any, toc_parent: _typing.Any, ncx_name: _typing.Any) -> None:
     for navpoint in node.xpath('./*[calibre:lower-case(local-name()) = "navpoint"]'):
         child = add_from_navpoint(container, navpoint, toc_parent, ncx_name)
         if child is not None:
             process_ncx_node(container, navpoint, child, ncx_name)
 
 
-def parse_ncx(container, ncx_name):
+def parse_ncx(container: _typing.Any, ncx_name: _typing.Any) -> _typing.Any:
     root = container.parsed(ncx_name)
     toc_root = TOC()
     navmaps = root.xpath('//*[calibre:lower-case(local-name()) = "navmap"]')
@@ -160,7 +163,7 @@ def parse_ncx(container, ncx_name):
     return toc_root
 
 
-def verify_toc_destinations(container, toc):
+def verify_toc_destinations(container: _typing.Any, toc: _typing.Any) -> None:
     anchor_map = {}
     anchor_xpath = XPath("//*/@id|//h:a/@name")
     for item in toc.iterdescendants():
@@ -189,7 +192,7 @@ def verify_toc_destinations(container, toc):
             item.dest_error = _("The anchor %(a)s does not exist in file %(f)s") % dict(a=item.frag, f=name)
 
 
-def find_existing_toc(container):
+def find_existing_toc(container: _typing.Any) -> _typing.Any:
     toc = container.opf_xpath("//opf:spine/@toc")
     if toc:
         toc = container.manifest_id_map.get(toc[0], None)
@@ -201,7 +204,7 @@ def find_existing_toc(container):
     return toc
 
 
-def get_toc(container, verify_destinations=True):
+def get_toc(container: _typing.Any, verify_destinations: bool = True) -> _typing.Any:
     toc = find_existing_toc(container)
     if toc is None or not container.has_name(toc):
         ans = TOC()
@@ -214,7 +217,7 @@ def get_toc(container, verify_destinations=True):
     return ans
 
 
-def ensure_id(elem):
+def ensure_id(elem: _typing.Any) -> tuple[_typing.Any, ...]:
     if elem.tag == XHTML("a"):
         anchor = elem.get("name", None)
         if anchor:
@@ -226,7 +229,7 @@ def ensure_id(elem):
     return True, elem.get("id")
 
 
-def elem_to_toc_text(elem):
+def elem_to_toc_text(elem: _typing.Any) -> _typing.Any:
     text = xml2text(elem).strip()
     if not text:
         text = elem.get("title", "")
@@ -239,7 +242,7 @@ def elem_to_toc_text(elem):
     return text
 
 
-def item_at_top(elem):
+def item_at_top(elem: _typing.Any) -> bool:
     try:
         body = XPath("//h:body")(elem.getroottree().getroot())[0]
     except (TypeError, IndexError, KeyError, AttributeError):
@@ -262,7 +265,7 @@ def item_at_top(elem):
     return True
 
 
-def from_xpaths(container, xpaths):
+def from_xpaths(container: _typing.Any, xpaths: _typing.Any) -> _typing.Any:
     """
     Generate a Table of Contents from a list of XPath expressions. Each
     expression in the list corresponds to a level of the generate ToC. For
@@ -327,7 +330,7 @@ def from_xpaths(container, xpaths):
     return tocroot
 
 
-def from_links(container):
+def from_links(container: _typing.Any) -> _typing.Any:
     """
     Generate a Table of Contents from links in the book.
     :param container:
@@ -366,7 +369,7 @@ def from_links(container):
     return toc
 
 
-def find_text(node):
+def find_text(node: _typing.Any) -> _typing.Any:
     limit = 200
     pat = re.compile(r"\s+")
     for child in node:
@@ -383,7 +386,7 @@ def find_text(node):
                 return text
 
 
-def from_files(container):
+def from_files(container: _typing.Any) -> _typing.Any:
     """
     Generate a Table of Contents from files in the book.
     :param container:
@@ -405,7 +408,7 @@ def from_files(container):
     return toc
 
 
-def node_from_loc(root, locs, totals=None):
+def node_from_loc(root: _typing.Any, locs: _typing.Any, totals: _typing.Any = None) -> _typing.Any:
     body = root.xpath('//*[local-name()="body"]')
     if not body:
         raise MalformedMarkup()
@@ -425,7 +428,7 @@ def node_from_loc(root, locs, totals=None):
     return node
 
 
-def add_id(container, name, loc, totals=None):
+def add_id(container: _typing.Any, name: _typing.Any, loc: _typing.Any, totals: _typing.Any = None) -> _typing.Any:
     root = container.parsed(name)
     try:
         node = node_from_loc(root, loc, totals=totals)
@@ -449,7 +452,7 @@ def add_id(container, name, loc, totals=None):
     return node.get("id")
 
 
-def create_ncx(toc, to_href, btitle, lang, uid):
+def create_ncx(toc: _typing.Any, to_href: _typing.Any, btitle: _typing.Any, lang: _typing.Any, uid: _typing.Any) -> _typing.Any:
     lang = (lang or "en").replace("_", "-")
     ncx = etree.Element(
         NCX("ncx"),
@@ -471,7 +474,7 @@ def create_ncx(toc, to_href, btitle, lang, uid):
 
     play_order = Counter()
 
-    def process_node(xml_parent, toc_parent):
+    def process_node(xml_parent: _typing.Any, toc_parent: _typing.Any) -> None:
         for child in toc_parent:
             play_order["c"] += 1
             point = etree.SubElement(
@@ -496,7 +499,7 @@ def create_ncx(toc, to_href, btitle, lang, uid):
     return ncx
 
 
-def commit_toc(container, toc, lang=None, uid=None):
+def commit_toc(container: _typing.Any, toc: _typing.Any, lang: _typing.Any = None, uid: _typing.Any = None) -> None:
     tocname = find_existing_toc(container)
     if tocname is None:
         item = container.generate_item("toc.ncx", id_prefix="toc")
@@ -529,7 +532,7 @@ def commit_toc(container, toc, lang=None, uid=None):
     container.pretty_print.add(tocname)
 
 
-def remove_names_from_toc(container, names):
+def remove_names_from_toc(container: _typing.Any, names: _typing.Any) -> bool:
     toc = get_toc(container)
     if len(toc) == 0:
         return False
@@ -546,14 +549,14 @@ def remove_names_from_toc(container, names):
     return False
 
 
-def find_inline_toc(container):
+def find_inline_toc(container: _typing.Any) -> _typing.Any:
     for name, linear in container.spine_names:
         if container.parsed(name).xpath('//*[local-name()="body" and @id="calibre_generated_inline_toc"]'):
             return name
 
 
-def toc_to_html(toc, container, toc_name, title, lang=None):
-    def process_node(html_parent, local_toc, level=1, indent="  ", style_level=2):
+def toc_to_html(toc: _typing.Any, container: _typing.Any, toc_name: _typing.Any, title: _typing.Any, lang: _typing.Any = None) -> _typing.Any:
+    def process_node(html_parent: _typing.Any, local_toc: _typing.Any, level: int = 1, indent: str = "  ", style_level: int = 2) -> None:
         li = html_parent.makeelement(XHTML("li"))
         li.tail = "\n" + (indent * level)
         html_parent.append(li)
@@ -600,7 +603,7 @@ def toc_to_html(toc, container, toc_name, title, lang=None):
     return html
 
 
-def create_inline_toc(container, title=None):
+def create_inline_toc(container: _typing.Any, title: _typing.Any = None) -> _typing.Any:
     """
     Create an inline (HTML) Table of Contents from an existing NCX table of contents.
 

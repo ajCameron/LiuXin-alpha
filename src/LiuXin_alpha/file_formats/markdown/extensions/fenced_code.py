@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Fenced Code Extension for Python Markdown
@@ -92,7 +95,7 @@ LANG_TAG = ' class="%s"'
 
 
 class FencedCodeExtension(Extension):
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         """Add FencedBlockPreprocessor to the Markdown instance."""
         md.registerExtension(self)
 
@@ -100,13 +103,13 @@ class FencedCodeExtension(Extension):
 
 
 class FencedBlockPreprocessor(Preprocessor):
-    def __init__(self, md):
+    def __init__(self: _typing.Self, md: _typing.Any) -> None:
         super(FencedBlockPreprocessor, self).__init__(md)
 
         self.checked_for_codehilite = False
         self.codehilite_conf = {}
 
-    def run(self, lines):
+    def run(self: _typing.Self, lines: _typing.Any) -> _typing.Any:
         """Match and store Fenced Code Blocks in the HtmlStash."""
 
         # Check for code hilite extension
@@ -149,7 +152,7 @@ class FencedBlockPreprocessor(Preprocessor):
                 break
         return text.split("\n")
 
-    def _escape(self, txt):
+    def _escape(self: _typing.Self, txt: _typing.Any) -> _typing.Any:
         """basic html escaping"""
         txt = txt.replace("&", "&amp;")
         txt = txt.replace("<", "&lt;")
@@ -158,5 +161,5 @@ class FencedBlockPreprocessor(Preprocessor):
         return txt
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return FencedCodeExtension(configs=configs)

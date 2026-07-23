@@ -3,6 +3,9 @@
 """
 Write content to ereader pdb file.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import io
 import re
@@ -31,7 +34,7 @@ IDENTITY = "PNRdPPrs"
 MAX_RECORD_SIZE = 8192
 
 
-def _to_bytes(value, encoding="utf-8"):
+def _to_bytes(value: _typing.Any, encoding: str = "utf-8") -> _typing.Any:
     if value is None:
         return b""
     if isinstance(value, bytes):
@@ -39,7 +42,7 @@ def _to_bytes(value, encoding="utf-8"):
     return str(value).encode(encoding, "replace")
 
 
-def _thumbnail_resample():
+def _thumbnail_resample() -> _typing.Any:
     if _PILImage is None:
         return None
     resampling = getattr(_PILImage, "Resampling", None)
@@ -49,11 +52,11 @@ def _thumbnail_resample():
 
 
 class Writer(FormatWriter):
-    def __init__(self, opts, log):
+    def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any) -> None:
         self.opts = opts
         self.log = log
 
-    def write_content(self, oeb_book, out_stream, metadata=None):
+    def write_content(self: _typing.Self, oeb_book: _typing.Any, out_stream: _typing.Any, metadata: _typing.Any = None) -> None:
         pmlmlizer = PMLMLizer(self.log)
         pml = str(pmlmlizer.extract_content(oeb_book, self.opts)).encode("cp1252", "replace")
 
@@ -96,7 +99,7 @@ class Writer(FormatWriter):
             else:
                 out_stream.write(item)
 
-    def _text(self, pml):
+    def _text(self: _typing.Self, pml: _typing.Any) -> tuple[_typing.Any, ...]:
         pml_pages = []
         text_sizes = b""
         index = 0
@@ -118,7 +121,7 @@ class Writer(FormatWriter):
 
         return pml_pages, text_sizes
 
-    def _index_item(self, regex, pml):
+    def _index_item(self: _typing.Self, regex: _typing.Any, pml: _typing.Any) -> _typing.Any:
         index = []
         for mo in re.finditer(regex, pml):
             item = b""
@@ -138,7 +141,7 @@ class Writer(FormatWriter):
                 index.append(item)
         return index
 
-    def _images(self, manifest, image_hrefs):
+    def _images(self: _typing.Self, manifest: _typing.Any, image_hrefs: _typing.Any) -> _typing.Any:
         """
         Image format.
 
@@ -184,7 +187,7 @@ class Writer(FormatWriter):
 
         return images
 
-    def _metadata(self, metadata):
+    def _metadata(self: _typing.Self, metadata: _typing.Any) -> _typing.Any:
         """
         Metadata takes the form:
         title\x00
@@ -218,7 +221,7 @@ class Writer(FormatWriter):
             "%s\x00%s\x00%s\x00%s\x00%s\x00" % (title, author, local_copyright, publisher, isbn)
         ).encode("cp1252", "replace")
 
-    def _header_record(self, text_count, chapter_count, link_count, image_count):
+    def _header_record(self: _typing.Self, text_count: _typing.Any, chapter_count: _typing.Any, link_count: _typing.Any, image_count: _typing.Any) -> _typing.Any:
         """
         text_count = the number of text pages
         image_count = the number of images

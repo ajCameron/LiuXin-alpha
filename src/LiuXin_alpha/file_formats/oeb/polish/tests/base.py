@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import shutil
@@ -23,7 +26,7 @@ __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def get_cache():
+def get_cache() -> _typing.Any:
     from LiuXin_alpha.constants import cache_dir
 
     cache = os.path.join(cache_dir(), "polish-test")
@@ -31,7 +34,7 @@ def get_cache():
     return cache
 
 
-def needs_recompile(obj, srcs):
+def needs_recompile(obj: _typing.Any, srcs: _typing.Any) -> bool:
     if isinstance(srcs, type("")):
         srcs = [srcs]
     try:
@@ -44,13 +47,13 @@ def needs_recompile(obj, srcs):
     return False
 
 
-def build_book(src, dest, args=()):
+def build_book(src: _typing.Any, dest: _typing.Any, args: tuple[_typing.Any, ...] = ()) -> None:
     from LiuXin_alpha.file_formats.conversion.cli import main
 
     main(["ebook-convert", src, dest] + list(args))
 
 
-def add_resources(raw, rmap):
+def add_resources(raw: _typing.Any, rmap: _typing.Any) -> _typing.Any:
     for placeholder, path in iteritems(rmap):
         if not path:
             raise RuntimeError("Missing required polish test resource for placeholder: %s" % placeholder)
@@ -60,14 +63,14 @@ def add_resources(raw, rmap):
     return raw
 
 
-def _existing_path(*paths):
+def _existing_path(*paths: _typing.Any) -> _typing.Any:
     for path in paths:
         if path and os.path.exists(path):
             return path
     return None
 
 
-def _find_any_ttf_font():
+def _find_any_ttf_font() -> _typing.Any:
     for pattern in (
         "/usr/share/fonts/**/*.ttf",
         "/usr/local/share/fonts/**/*.ttf",
@@ -78,7 +81,7 @@ def _find_any_ttf_font():
     return None
 
 
-def get_simple_book(fmt="epub"):
+def get_simple_book(fmt: str = "epub") -> _typing.Any:
     cache = get_cache()
     ans = os.path.join(cache, "simple." + fmt)
     src = os.path.join(os.path.dirname(__file__), "simple.html")
@@ -120,7 +123,7 @@ def get_simple_book(fmt="epub"):
     return ans
 
 
-def get_split_book(fmt="epub"):
+def get_split_book(fmt: str = "epub") -> _typing.Any:
     cache = get_cache()
     ans = os.path.join(cache, "split." + fmt)
     src = os.path.join(os.path.dirname(__file__), "split.html")
@@ -145,10 +148,10 @@ def get_split_book(fmt="epub"):
 
 
 class DevNull(object):
-    def __call__(self, *args, **kwargs):
+    def __call__(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
         return None
 
-    def __getattr__(self, name):
+    def __getattr__(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         return self
 
 
@@ -160,15 +163,15 @@ class BaseTest(unittest.TestCase):
     longMessage = True
     maxDiff = None
 
-    def setUp(self):
+    def setUp(self: _typing.Self) -> None:
         pc.default_log = devnull
         self.tdir = PersistentTemporaryDirectory(suffix="-polish-test")
 
-    def tearDown(self):
+    def tearDown(self: _typing.Self) -> None:
         shutil.rmtree(self.tdir, ignore_errors=True)
         del self.tdir
 
-    def check_links(self, container):
+    def check_links(self: _typing.Self, container: _typing.Any) -> None:
         for name in container.name_path_map:
             for link in container.iterlinks(name, get_line_numbers=False):
                 dest = container.href_to_name(link, name)

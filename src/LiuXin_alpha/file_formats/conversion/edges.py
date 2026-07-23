@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import typing as _typing
+
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Iterable
@@ -30,12 +32,12 @@ class ConversionEdge:
     lossless: bool | None = None
     notes: tuple[str, ...] = ()
 
-    def supports(self, source_format: str, target_format: str) -> bool:
+    def supports(self: _typing.Self, source_format: str, target_format: str) -> bool:
         source = normalize_format_name(source_format)
         target = normalize_format_name(target_format)
         return self.source_format == source and self.target_format == target
 
-    def to_mapping(self) -> dict[str, object]:
+    def to_mapping(self: _typing.Self) -> dict[str, object]:
         return {
             "name": self.name,
             "source_format": self.source_format,
@@ -56,17 +58,17 @@ class ConversionEdge:
 class ConversionEdgeRegistry:
     edges: list[ConversionEdge] = field(default_factory=list)
 
-    def register(self, edge: ConversionEdge) -> ConversionEdge:
+    def register(self: _typing.Self, edge: ConversionEdge) -> ConversionEdge:
         self.edges.append(edge)
         self.edges.sort(key=lambda item: (item.priority, item.name))
         return edge
 
-    def extend(self, edges: Iterable[ConversionEdge]) -> None:
+    def extend(self: _typing.Self, edges: Iterable[ConversionEdge]) -> None:
         for edge in edges:
             self.register(edge)
 
     def edges_for(
-        self,
+        self: _typing.Self,
         *,
         source_format: str | None = None,
         target_format: str | None = None,
@@ -83,11 +85,11 @@ class ConversionEdgeRegistry:
             and (edge_kind is None or edge.kind == edge_kind)
         ]
 
-    def preferred_edge(self, source_format: str, target_format: str) -> ConversionEdge | None:
+    def preferred_edge(self: _typing.Self, source_format: str, target_format: str) -> ConversionEdge | None:
         matches = self.edges_for(source_format=source_format, target_format=target_format)
         return matches[0] if matches else None
 
-    def to_mapping(self) -> dict[str, object]:
+    def to_mapping(self: _typing.Self) -> dict[str, object]:
         return {"edges": [edge.to_mapping() for edge in self.edges]}
 
 

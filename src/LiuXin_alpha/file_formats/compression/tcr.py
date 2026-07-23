@@ -4,19 +4,24 @@
 
 from __future__ import annotations
 
+import typing as _typing
+
 import io
 import re
+from typing import BinaryIO, TypeAlias
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
 __docformat__ = "restructuredtext en"
+
+TCRInput: TypeAlias = str | bytes | bytearray | memoryview
 
 
 def _int_to_byte(value: int) -> bytes:
     return bytes([value & 0xFF])
 
 
-def _to_bytes(data):
+def _to_bytes(data: TCRInput) -> bytes:
     if isinstance(data, bytes):
         return data
     if isinstance(data, bytearray):
@@ -31,12 +36,18 @@ def _to_bytes(data):
 class TCRCompressor:
     """Encode byte content into TCR format."""
 
-    def _reset(self):
+    def __init__(self: _typing.Self) -> None:
+        self.unused_codes: set[int]
+        self.coded_txt: bytes
+        self.codes: list[bytes]
+        self._reset()
+
+    def _reset(self: _typing.Self) -> None:
         self.unused_codes = set()
         self.coded_txt = b""
         self.codes = []
 
-    def _combine_codes(self):
+    def _combine_codes(self: _typing.Self) -> None:
         possible_codes = []
         a_code = set(re.findall(br"(?ms).", self.coded_txt))
 
@@ -49,12 +60,12 @@ class TCRCompressor:
             self.coded_txt = self.coded_txt.replace(code, code[0:1])
             self.codes[code[0]] = b"%s%s" % (self.codes[code[0]], self.codes[code[1]])
 
-    def _free_unused_codes(self):
+    def _free_unused_codes(self: _typing.Self) -> None:
         for i in range(256):
             if i not in self.unused_codes and _int_to_byte(i) not in self.coded_txt:
                 self.unused_codes.add(i)
 
-    def _new_codes(self):
+    def _new_codes(self: _typing.Self) -> list[bytes]:
         possible_new_codes = sorted(set(re.findall(br"(?ms)..", self.coded_txt)))
         new_codes_count = []
 
@@ -65,7 +76,7 @@ class TCRCompressor:
 
         return [x[0] for x in sorted(new_codes_count, key=lambda local_c: (local_c[1], local_c[0]))]
 
-    def compress(self, txt):
+    def compress(self: _typing.Self, txt: TCRInput) -> bytes:
         txt = _to_bytes(txt)
         self._reset()
 
@@ -110,7 +121,7 @@ class TCRCompressor:
         return b"!!8-Bit!!" + b"".join(code_dict) + self.coded_txt
 
 
-def decompress(stream):
+def decompress(stream: BinaryIO) -> bytes:
     """Decompress a TCR stream into bytes."""
     stream.seek(0)
     if stream.read(9) != b"!!8-Bit!!":
@@ -137,7 +148,7 @@ def decompress(stream):
     return b"".join(txt)
 
 
-def compress(txt):
+def compress(txt: TCRInput) -> bytes:
     payload = _to_bytes(txt)
     encoded = TCRCompressor().compress(payload)
     # The historical algorithm occasionally produces non-reversible output for

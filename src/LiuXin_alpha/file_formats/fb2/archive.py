@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Collection, Iterable
 from io import BytesIO
-from typing import Any
+from typing import TypeAlias
 
 from LiuXin_alpha.file_formats.archive_preflight import (
     DEFAULT_MAX_ARCHIVE_MEMBERS,
@@ -9,6 +10,7 @@ from LiuXin_alpha.file_formats.archive_preflight import (
     DEFAULT_MAX_MEMBER_UNCOMPRESSED_SIZE,
     DEFAULT_MAX_TOTAL_UNCOMPRESSED_SIZE,
     DEFAULT_MIN_COMPRESSION_RATIO_CHECK_SIZE,
+    ZipMemberInfo,
     normalized_zip_member_name,
     validate_zip_member_infos,
 )
@@ -19,7 +21,10 @@ class FB2ZipError(ValueError):
     pass
 
 
-def ensure_bytes(raw: Any) -> bytes:
+FB2Input: TypeAlias = str | bytes | bytearray | memoryview | Iterable[int]
+
+
+def ensure_bytes(raw: FB2Input) -> bytes:
     if isinstance(raw, bytes):
         return raw
     if isinstance(raw, bytearray):
@@ -34,7 +39,7 @@ def normalized_archive_member_name(name: str, *, label: str = "FB2 archive") -> 
 
 
 def validate_archive_infos(
-    infos,
+    infos: Collection[ZipMemberInfo],
     *,
     label: str = "FB2 archive",
     max_archive_members: int = DEFAULT_MAX_ARCHIVE_MEMBERS,
@@ -73,7 +78,7 @@ def select_single_fb2_member(names: dict[str, str], *, label: str = "FB2 archive
 
 
 def extract_fb2_payload_from_bytes(
-    raw_container: Any,
+    raw_container: FB2Input,
     *,
     label: str = "FB2 archive",
     force_zip: bool = False,

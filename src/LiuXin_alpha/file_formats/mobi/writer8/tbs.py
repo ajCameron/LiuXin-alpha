@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from collections import namedtuple, OrderedDict
 from operator import attrgetter
@@ -38,7 +41,7 @@ Entry = namedtuple(
 )
 
 
-def fill_entry(entry, start_offset, text_record_length):
+def fill_entry(entry: _typing.Any, start_offset: _typing.Any, text_record_length: _typing.Any) -> _typing.Any:
     length_offset = start_offset + entry.length
     if start_offset < 0:
         action = "spans" if length_offset > text_record_length else "ends"
@@ -48,7 +51,7 @@ def fill_entry(entry, start_offset, text_record_length):
     return Entry(*(entry[:-4] + (action, start_offset, length_offset, text_record_length)))
 
 
-def populate_strand(parent, entries):
+def populate_strand(parent: _typing.Any, entries: _typing.Any) -> _typing.Any:
     ans = [parent]
     children = [c for c in entries if c.parent == parent.index]
     if children:
@@ -76,7 +79,7 @@ def populate_strand(parent, entries):
     return ans
 
 
-def separate_strands(entries):
+def separate_strands(entries: _typing.Any) -> _typing.Any:
     ans = []
     while entries:
         top, entries = entries[0], entries[1:]
@@ -90,7 +93,7 @@ def separate_strands(entries):
     return ans
 
 
-def collect_indexing_data(entries, text_record_lengths):
+def collect_indexing_data(entries: _typing.Any, text_record_lengths: _typing.Any) -> _typing.Any:
     """
     For every text record calculate which index entries start, end, span or are contained within that record.
     Arrange these entries in 'strands'.
@@ -126,7 +129,7 @@ class NegativeStrandIndex(Exception):
     pass
 
 
-def encode_strands_as_sequences(strands, tbs_type=8):
+def encode_strands_as_sequences(strands: _typing.Any, tbs_type: int = 8) -> _typing.Any:
     """
     Encode the list of strands for a single text record into a list of sequences, ready to be converted into TBS bytes.
     :param strands:
@@ -194,7 +197,7 @@ def encode_strands_as_sequences(strands, tbs_type=8):
     return ans
 
 
-def sequences_to_bytes(sequences):
+def sequences_to_bytes(sequences: _typing.Any) -> _typing.Any:
     ans = []
     flag_size = 3
     for val, extra in sequences:
@@ -203,7 +206,7 @@ def sequences_to_bytes(sequences):
     return b"".join(ans)
 
 
-def calculate_all_tbs(indexing_data, tbs_type=8):
+def calculate_all_tbs(indexing_data: _typing.Any, tbs_type: int = 8) -> _typing.Any:
     rmap = {}
     for i, strands in enumerate(indexing_data):
         sequences = encode_strands_as_sequences(strands, tbs_type=tbs_type)
@@ -212,7 +215,7 @@ def calculate_all_tbs(indexing_data, tbs_type=8):
     return rmap
 
 
-def apply_trailing_byte_sequences(index_table, records, text_record_lengths):
+def apply_trailing_byte_sequences(index_table: _typing.Any, records: _typing.Any, text_record_lengths: _typing.Any) -> bool:
     entries = tuple(
         Entry(
             r["index"],

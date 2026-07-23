@@ -3,6 +3,9 @@
 """
 Read content from ereader pdb file with a 116 and 202 byte header created by Makebook.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import struct
@@ -29,7 +32,7 @@ class HeaderRecord(object):
     defined in the file header.
     """
 
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         if len(raw) not in HEADER_RECORD_SIZES:
             raise EreaderError("Size mismatch. eReader header record size %s KB is not supported." % len(raw))
         (self.version,) = struct.unpack(">H", raw[0:2])
@@ -39,7 +42,7 @@ class HeaderRecord(object):
 
 
 class Reader202(FormatReader):
-    def __init__(self, header, stream, log, options):
+    def __init__(self: _typing.Self, header: _typing.Any, stream: _typing.Any, log: _typing.Any, options: _typing.Any) -> None:
         self.log = log
         self.encoding = options.input_encoding
 
@@ -59,19 +62,19 @@ class Reader202(FormatReader):
 
         self.mi = get_metadata(stream, False)
 
-    def _validate_header_ranges(self):
+    def _validate_header_ranges(self: _typing.Self) -> None:
         if self.header_record.non_text_offset < 1 or self.header_record.non_text_offset > len(self.sections):
             raise EreaderError("eReader text range exceeds available sections")
 
-    def _text_encoding(self):
+    def _text_encoding(self: _typing.Self) -> _typing.Any:
         return "cp1252" if self.encoding is None else self.encoding
 
-    def section_data(self, number):
+    def section_data(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         if number < 0 or number >= len(self.sections):
             raise EreaderError("eReader section %i is outside the PDB section table" % number)
         return self.sections[number]
 
-    def decompress_text(self, number):
+    def decompress_text(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
 
         payload = self.section_data(number)
@@ -83,7 +86,7 @@ class Reader202(FormatReader):
         except Exception as err:
             raise EreaderError("eReader text decompression failed for section %i: %s" % (number, err)) from err
 
-    def get_image(self, number):
+    def get_image(self: _typing.Self, number: _typing.Any) -> tuple[_typing.Any, ...]:
         name = None
         img = None
 
@@ -96,7 +99,7 @@ class Reader202(FormatReader):
 
         return name, img
 
-    def get_text_page(self, number):
+    def get_text_page(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         """
         Only palmdoc compression is supported. The text is xored with 0xA5 and
         assumed to be encoded as Windows-1252. The encoding is part of
@@ -109,7 +112,7 @@ class Reader202(FormatReader):
 
         return self.decompress_text(number)
 
-    def extract_content(self, output_dir):
+    def extract_content(self: _typing.Self, output_dir: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.pml.pmlconverter import pml_to_html
 
         output_dir = os.path.abspath(output_dir)
@@ -152,7 +155,7 @@ class Reader202(FormatReader):
 
         return opf_path
 
-    def create_opf(self, output_dir, images):
+    def create_opf(self: _typing.Self, output_dir: _typing.Any, images: _typing.Any) -> _typing.Any:
         with CurrentDir(output_dir):
             opf = OPFCreator(output_dir, self.mi)
 
@@ -168,7 +171,7 @@ class Reader202(FormatReader):
 
         return os.path.join(output_dir, "metadata.opf")
 
-    def dump_pml(self):
+    def dump_pml(self: _typing.Self) -> _typing.Any:
         """
         This is primarily used for debugging and 3rd party tools to
         get the plm markup that comprises the text in the file.
@@ -180,7 +183,7 @@ class Reader202(FormatReader):
 
         return pml
 
-    def dump_images(self, output_dir):
+    def dump_images(self: _typing.Self, output_dir: _typing.Any) -> None:
         """
         This is primarily used for debugging and 3rd party tools to
         get the images in the file.

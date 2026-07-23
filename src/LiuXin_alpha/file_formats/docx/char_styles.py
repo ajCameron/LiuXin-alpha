@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from collections import OrderedDict
 
@@ -19,7 +22,7 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 # Read from XML {{{
-def read_text_border(parent, dest, XPath, get):
+def read_text_border(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     border_color = border_style = border_width = padding = inherit
     elems = XPath("./w:bdr")(parent)
     if elems and elems[0].attrib:
@@ -54,7 +57,7 @@ def read_text_border(parent, dest, XPath, get):
     setattr(dest, "padding", padding)
 
 
-def read_color(parent, dest, XPath, get):
+def read_color(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for col in XPath("./w:color[@w:val]")(parent):
         val = get(col, "w:val")
@@ -64,7 +67,7 @@ def read_color(parent, dest, XPath, get):
     setattr(dest, "color", ans)
 
 
-def convert_highlight_color(val):
+def convert_highlight_color(val: _typing.Any) -> _typing.Any:
     return {
         "darkBlue": "#000080",
         "darkCyan": "#008080",
@@ -77,7 +80,7 @@ def convert_highlight_color(val):
     }.get(val, val)
 
 
-def read_highlight(parent, dest, XPath, get):
+def read_highlight(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for col in XPath("./w:highlight[@w:val]")(parent):
         val = get(col, "w:val")
@@ -91,7 +94,7 @@ def read_highlight(parent, dest, XPath, get):
     setattr(dest, "highlight", ans)
 
 
-def read_lang(parent, dest, XPath, get):
+def read_lang(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for col in XPath("./w:lang[@w:val]")(parent):
         val = get(col, "w:val")
@@ -110,7 +113,7 @@ def read_lang(parent, dest, XPath, get):
     setattr(dest, "lang", ans)
 
 
-def read_letter_spacing(parent, dest, XPath, get):
+def read_letter_spacing(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for col in XPath("./w:spacing[@w:val]")(parent):
         val = simple_float(get(col, "w:val"), 0.05)
@@ -119,7 +122,7 @@ def read_letter_spacing(parent, dest, XPath, get):
     setattr(dest, "letter_spacing", ans)
 
 
-def read_sz(parent, dest, XPath, get):
+def read_sz(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for col in XPath("./w:sz[@w:val]")(parent):
         val = simple_float(get(col, "w:val"), 0.5)
@@ -128,7 +131,7 @@ def read_sz(parent, dest, XPath, get):
     setattr(dest, "font_size", ans)
 
 
-def read_underline(parent, dest, XPath, get):
+def read_underline(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for col in XPath("./w:u[@w:val]")(parent):
         val = get(col, "w:val")
@@ -137,7 +140,7 @@ def read_underline(parent, dest, XPath, get):
     setattr(dest, "text_decoration", ans)
 
 
-def read_vert_align(parent, dest, XPath, get):
+def read_vert_align(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for col in XPath("./w:vertAlign[@w:val]")(parent):
         val = get(col, "w:val")
@@ -146,7 +149,7 @@ def read_vert_align(parent, dest, XPath, get):
     setattr(dest, "vert_align", ans)
 
 
-def read_position(parent, dest, XPath, get):
+def read_position(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for col in XPath("./w:position[@w:val]")(parent):
         val = get(col, "w:val")
@@ -157,7 +160,7 @@ def read_position(parent, dest, XPath, get):
     setattr(dest, "position", ans)
 
 
-def read_font_family(parent, dest, XPath, get):
+def read_font_family(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
     ans = inherit
     for col in XPath("./w:rFonts")(parent):
         val = get(col, "w:asciiTheme")
@@ -221,7 +224,7 @@ class RunStyle(object):
         "vanish",
     }
 
-    def __init__(self, namespace, rPr=None):
+    def __init__(self: _typing.Self, namespace: _typing.Any, rPr: _typing.Any = None) -> None:
         self.namespace = namespace
         self.linked_style = None
         if rPr is None:
@@ -268,7 +271,7 @@ class RunStyle(object):
 
         self._css = None
 
-    def update(self, other):
+    def update(self: _typing.Self, other: _typing.Any) -> None:
         for prop in self.all_properties:
             nval = getattr(other, prop)
             if nval is not inherit:
@@ -276,13 +279,13 @@ class RunStyle(object):
         if other.linked_style is not None:
             self.linked_style = other.linked_style
 
-    def resolve_based_on(self, parent):
+    def resolve_based_on(self: _typing.Self, parent: _typing.Any) -> None:
         for p in self.all_properties:
             val = getattr(self, p)
             if val is inherit:
                 setattr(self, p, getattr(parent, p))
 
-    def get_border_css(self, ans):
+    def get_border_css(self: _typing.Self, ans: _typing.Any) -> None:
         for x in ("color", "style", "width"):
             val = getattr(self, "border_" + x)
             if x == "width" and val is not inherit:
@@ -290,12 +293,12 @@ class RunStyle(object):
             if val is not inherit:
                 ans["border-%s" % x] = val
 
-    def clear_border_css(self):
+    def clear_border_css(self: _typing.Self) -> None:
         for x in ("color", "style", "width"):
             setattr(self, "border_" + x, inherit)
 
     @property
-    def css(self):
+    def css(self: _typing.Self) -> _typing.Any:
         if self._css is None:
             c = self._css = OrderedDict()
             td = set()
@@ -346,5 +349,5 @@ class RunStyle(object):
 
         return self._css
 
-    def same_border(self, other):
+    def same_border(self: _typing.Self, other: _typing.Any) -> bool:
         return self.get_border_css({}) == other.get_border_css({})

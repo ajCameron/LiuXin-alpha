@@ -1,6 +1,7 @@
 """
 Microsoft LIT tag and attribute tables.
 """
+from __future__ import annotations
 
 from LiuXin_alpha.file_formats.lit.maps.opf import MAP as OPF_MAP
 from LiuXin_alpha.file_formats.lit.maps.html import MAP as HTML_MAP

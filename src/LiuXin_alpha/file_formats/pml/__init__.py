@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
 __docformat__ = "restructuredtext en"
@@ -175,7 +178,7 @@ U_CHARS = (
 )
 
 
-def unipmlcode(char):
+def unipmlcode(char: _typing.Any) -> _typing.Any:
     try:
         val = ord(char.encode("cp1252"))
         if val in A_CHARS:

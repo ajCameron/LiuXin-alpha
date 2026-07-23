@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 from io import BytesIO
@@ -23,7 +26,7 @@ class DJVUInput(InputFormatPlugin):
     description = "Convert OCR-ed DJVU files (.djvu) to HTML"
     file_types = {"djvu", "djv"}
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
 
         from LiuXin_alpha.file_formats.txt.processor import convert_basic
 

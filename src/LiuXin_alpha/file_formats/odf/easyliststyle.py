@@ -19,6 +19,9 @@
 # Contributor(s):
 #
 
+from __future__ import annotations
+
+import typing as _typing
 import re
 
 from LiuXin_alpha.file_formats.odf.style import Style, TextProperties, ListLevelProperties
@@ -47,12 +50,12 @@ SHOW_ALL_LEVELS = True
 SHOW_ONE_LEVEL = False
 
 
-def styleFromString(name, specifiers, delim, spacing, showAllLevels):
+def styleFromString(name: _typing.Any, specifiers: _typing.Any, delim: _typing.Any, spacing: _typing.Any, showAllLevels: _typing.Any) -> _typing.Any:
     specArray = specifiers.split(delim)
     return styleFromList(name, specArray, spacing, showAllLevels)
 
 
-def styleFromList(styleName, specArray, spacing, showAllLevels):
+def styleFromList(styleName: _typing.Any, specArray: _typing.Any, spacing: _typing.Any, showAllLevels: _typing.Any) -> _typing.Any:
     bullet = ""
     numPrefix = ""
     numSuffix = ""

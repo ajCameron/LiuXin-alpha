@@ -3,6 +3,9 @@
 """
 Read content from palmdoc pdb file.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import io
 import struct
@@ -18,7 +21,7 @@ PALMDOC_HEADER_RECORD_SIZE = 16
 SUPPORTED_COMPRESSION = {1, 2, 258}
 
 
-def _require_bytes(raw, size, context):
+def _require_bytes(raw: _typing.Any, size: _typing.Any, context: _typing.Any) -> None:
     if len(raw) < size:
         raise PDBError("Truncated PalmDOC %s" % context)
 
@@ -31,14 +34,14 @@ class HeaderRecord(object):
     defined in the file header.
     """
 
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         _require_bytes(raw, PALMDOC_HEADER_RECORD_SIZE, "header record")
         (self.compression,) = struct.unpack(">H", raw[0:2])
         (self.num_records,) = struct.unpack(">H", raw[8:10])
 
 
 class Reader(FormatReader):
-    def __init__(self, header, stream, log, options):
+    def __init__(self: _typing.Self, header: _typing.Any, stream: _typing.Any, log: _typing.Any, options: _typing.Any) -> None:
         self.stream = stream
         self.log = log
         self.options = options
@@ -53,12 +56,12 @@ class Reader(FormatReader):
         if self.header_record.num_records > len(self.sections) - 1:
             raise PDBError("PalmDOC text record count exceeds available PDB sections")
 
-    def section_data(self, number):
+    def section_data(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         if number < 0 or number >= len(self.sections):
             raise PDBError("PalmDOC section %i is outside the PDB section table" % number)
         return self.sections[number]
 
-    def decompress_text(self, number):
+    def decompress_text(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         if self.header_record.compression == 1:
             return self.section_data(number)
         if self.header_record.compression == 2 or self.header_record.compression == 258:
@@ -71,7 +74,7 @@ class Reader(FormatReader):
                 raise PDBError("PalmDOC decompression failed for section %i: %s" % (number, err)) from err
         raise PDBError("Unsupported PalmDOC compression type %i" % self.header_record.compression)
 
-    def extract_content(self, output_dir):
+    def extract_content(self: _typing.Self, output_dir: _typing.Any) -> _typing.Any:
         """
         Extract the contents of a palmdoc file.
         :param output_dir:

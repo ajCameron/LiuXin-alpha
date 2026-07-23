@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Sane List Extension for Python-Markdown
@@ -42,11 +45,11 @@ class SaneUListProcessor(UListProcessor):
 class SaneListExtension(Extension):
     """Add sane lists to Markdown."""
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         """Override existing Processors."""
         md.parser.blockprocessors["olist"] = SaneOListProcessor(md.parser)
         md.parser.blockprocessors["ulist"] = SaneUListProcessor(md.parser)
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return SaneListExtension(configs=configs)

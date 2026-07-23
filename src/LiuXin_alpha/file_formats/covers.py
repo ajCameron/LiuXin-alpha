@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 import random
@@ -107,14 +110,14 @@ Prefs = namedtuple("Prefs", " ".join(sorted(cprefs.defaults)))
 # }}}
 
 
-def get_use_roman():
+def get_use_roman() -> _typing.Any:
     global _use_roman
     if _use_roman is None:
         return config["use_roman_numerals_for_series_number"]
     return _use_roman
 
 
-def set_use_roman(val):
+def set_use_roman(val: _typing.Any) -> None:
     global _use_roman
     _use_roman = bool(val)
 
@@ -124,7 +127,7 @@ def set_use_roman(val):
 Point = namedtuple("Point", "x y")
 
 
-def parse_text_formatting(text):
+def parse_text_formatting(text: _typing.Any) -> tuple[_typing.Any, ...]:
     """
     Prepare text for writing out by parsing the style information.
     :param text:
@@ -187,14 +190,14 @@ class Block(object):
     """
 
     def __init__(
-        self,
-        text="",
-        width=0,
-        font=None,
-        img=None,
-        max_height=100,
-        align=Qt.AlignCenter,
-    ):
+        self: _typing.Self,
+        text: str = "",
+        width: int = 0,
+        font: _typing.Any = None,
+        img: _typing.Any = None,
+        max_height: int = 100,
+        align: _typing.Any = Qt.AlignCenter,
+    ) -> None:
         self.layouts = []
         self._position = Point(0, 0)
         self.leading = self.line_spacing = 0
@@ -231,15 +234,15 @@ class Block(object):
             self.layouts.append(self.leading)
 
     @property
-    def height(self):
+    def height(self: _typing.Self) -> _typing.Any:
         return int(ceil(sum(l if isinstance(l, (int, float)) else l.boundingRect().height() for l in self.layouts)))
 
     @property
-    def position(self):
+    def position(self: _typing.Self) -> _typing.Any:
         return self._position
 
     @position.setter
-    def position(self, tuple_x_y):
+    def position(self: _typing.Self, tuple_x_y: _typing.Any) -> None:
         x = tuple_x_y[0]
         y = tuple_x_y[1]
         self._position = Point(x, y)
@@ -253,7 +256,7 @@ class Block(object):
                     l.setPosition(QPointF(x, y))
                     y += l.boundingRect().height()
 
-    def draw(self, painter):
+    def draw(self: _typing.Self, painter: _typing.Any) -> None:
         for l in self.layouts:
             if hasattr(l, "draw"):
                 # Etch effect for the text
@@ -267,7 +270,7 @@ class Block(object):
                 painter.restore()
 
 
-def layout_text(prefs, img, title, subtitle, footer, max_height, style):
+def layout_text(prefs: _typing.Any, img: _typing.Any, title: _typing.Any, subtitle: _typing.Any, footer: _typing.Any, max_height: _typing.Any, style: _typing.Any) -> tuple[_typing.Any, ...]:
     """
     Preform the layout of text on the cover.
     :param prefs:
@@ -321,7 +324,7 @@ def layout_text(prefs, img, title, subtitle, footer, max_height, style):
 
 
 # Format text using templates {{{
-def sanitize(s):
+def sanitize(s: _typing.Any) -> _typing.Any:
     return unicodedata.normalize("NFC", clean_xml_chars(clean_ascii_chars(force_unicode(s or ""))))
 
 
@@ -329,31 +332,31 @@ _formatter = None
 _template_cache = {}
 
 
-def escape_formatting(val):
+def escape_formatting(val: _typing.Any) -> _typing.Any:
     return val.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def unescape_formatting(val):
+def unescape_formatting(val: _typing.Any) -> _typing.Any:
     return val.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
 
 
 class Formatter(SafeFormat):
-    def get_value(self, orig_key, args, kwargs):
+    def get_value(self: _typing.Self, orig_key: _typing.Any, args: _typing.Any, kwargs: _typing.Any) -> _typing.Any:
         ans = SafeFormat.get_value(self, orig_key, args, kwargs)
         return escape_formatting(ans)
 
 
-def formatter():
+def formatter() -> _typing.Any:
     global _formatter
     if _formatter is None:
         _formatter = Formatter()
     return _formatter
 
 
-def format_fields(mi, prefs):
+def format_fields(mi: _typing.Any, prefs: _typing.Any) -> _typing.Any:
     f = formatter()
 
-    def safe_format(field):
+    def safe_format(field: _typing.Any) -> _typing.Any:
         return f.safe_format(
             getattr(prefs, field),
             mi,
@@ -366,7 +369,7 @@ def format_fields(mi, prefs):
 
 
 @contextmanager
-def preserve_fields(obj, fields):
+def preserve_fields(obj: _typing.Any, fields: _typing.Any) -> _typing.Iterator[_typing.Any]:
     if isinstance(fields, str):
         fields = fields.split()
     null = object()
@@ -381,7 +384,7 @@ def preserve_fields(obj, fields):
                 setattr(obj, f, val)
 
 
-def format_text(mi, prefs):
+def format_text(mi: _typing.Any, prefs: _typing.Any) -> _typing.Any:
     with preserve_fields(mi, "authors formatted_series_index"):
         mi.authors = [a for a in mi.authors if a != _("Unknown")]
         mi.formatted_series_index = fmt_sidx(
@@ -395,14 +398,14 @@ def format_text(mi, prefs):
 _FORMATTING_TAG_RX = re.compile(r"</?[a-zA-Z1-6]+/?>")
 
 
-def _plain_text_for_fallback(text):
+def _plain_text_for_fallback(text: _typing.Any) -> _typing.Any:
     text = force_unicode(text or "")
     text = unescape_formatting(text)
     text = _FORMATTING_TAG_RX.sub("", text)
     return sanitize(text)
 
 
-def _basic_format_text(mi):
+def _basic_format_text(mi: _typing.Any) -> tuple[_typing.Any, ...]:
     title = escape_formatting(getattr(mi, "title", "") or _("Unknown"))
 
     authors = [a for a in getattr(mi, "authors", ()) if a and a != _("Unknown")]
@@ -425,7 +428,7 @@ def _basic_format_text(mi):
     return "<b>" + title, subtitle, "<b>" + footer
 
 
-def _safe_format_text(mi, prefs):
+def _safe_format_text(mi: _typing.Any, prefs: _typing.Any) -> _typing.Any:
     try:
         return tuple(format_text(mi, prefs))
     except Exception:
@@ -434,7 +437,7 @@ def _safe_format_text(mi, prefs):
         return _basic_format_text(mi)
 
 
-def _coerce_positive_int(value, default, minimum=1):
+def _coerce_positive_int(value: _typing.Any, default: _typing.Any, minimum: int = 1) -> _typing.Any:
     try:
         ans = int(value)
     except Exception:
@@ -442,7 +445,7 @@ def _coerce_positive_int(value, default, minimum=1):
     return max(int(minimum), ans)
 
 
-def _normalize_cover_prefs(prefs):
+def _normalize_cover_prefs(prefs: _typing.Any) -> _typing.Any:
     return prefs._replace(
         cover_width=_coerce_positive_int(prefs.cover_width, cprefs.defaults["cover_width"]),
         cover_height=_coerce_positive_int(prefs.cover_height, cprefs.defaults["cover_height"]),
@@ -457,7 +460,7 @@ def _normalize_cover_prefs(prefs):
 ColorTheme = namedtuple("ColorTheme", "color1 color2 contrast_color1 contrast_color2")
 
 
-def to_theme(x):
+def to_theme(x: _typing.Any) -> _typing.Any:
     return {k: v for k, v in zip(ColorTheme._fields[:4], x.split())}
 
 
@@ -471,12 +474,12 @@ default_color_themes = {
 }
 
 
-def theme_to_colors(theme):
+def theme_to_colors(theme: _typing.Any) -> _typing.Any:
     colors = {k: QColor("#" + theme[k]) for k in ColorTheme._fields}
     return ColorTheme(**colors)
 
 
-def load_color_themes(prefs):
+def load_color_themes(prefs: _typing.Any) -> _typing.Any:
     t = default_color_themes.copy()
     t.update(prefs.color_themes)
     disabled = frozenset(prefs.disabled_color_themes)
@@ -495,7 +498,7 @@ def load_color_themes(prefs):
     return ans
 
 
-def color(color_theme, name):
+def color(color_theme: _typing.Any, name: _typing.Any) -> _typing.Any:
     ans = getattr(color_theme, name)
     if not ans.isValid():
         ans = QColor("#" + fallback_colors[name])
@@ -510,7 +513,7 @@ class Style(object):
 
     TITLE_ALIGN = SUBTITLE_ALIGN = FOOTER_ALIGN = Qt.AlignHCenter | Qt.AlignTop
 
-    def __init__(self, color_theme, prefs):
+    def __init__(self: _typing.Self, color_theme: _typing.Any, prefs: _typing.Any) -> None:
         # Will be written over immediately
         self.hmargin = None
         self.vmargin = None
@@ -522,11 +525,11 @@ class Style(object):
         self.load_colors(color_theme)
         self.calculate_margins(prefs)
 
-    def calculate_margins(self, prefs):
+    def calculate_margins(self: _typing.Self, prefs: _typing.Any) -> None:
         self.hmargin = int((50 / 600) * prefs.cover_width)
         self.vmargin = int((50 / 800) * prefs.cover_height)
 
-    def load_colors(self, color_theme):
+    def load_colors(self: _typing.Self, color_theme: _typing.Any) -> None:
         self.color1 = color(color_theme, "color1")
         self.color2 = color(color_theme, "color2")
         self.ccolor1 = color(color_theme, "contrast_color1")
@@ -538,7 +541,7 @@ class Cross(Style):
     NAME = "The Cross"
     GUI_NAME = _("The Cross")
 
-    def __call__(self, painter, rect, color_theme, title_block, subtitle_block, footer_block):
+    def __call__(self: _typing.Self, painter: _typing.Any, rect: _typing.Any, color_theme: _typing.Any, title_block: _typing.Any, subtitle_block: _typing.Any, footer_block: _typing.Any) -> tuple[_typing.Any, ...]:
         painter.fillRect(rect, self.color1)
         r = QRect(
             0,
@@ -563,18 +566,18 @@ class Half(Style):
     NAME = "Half and Half"
     GUI_NAME = _("Half and Half")
 
-    def __call__(self, painter, rect, color_theme, title_block, subtitle_block, footer_block):
+    def __call__(self: _typing.Self, painter: _typing.Any, rect: _typing.Any, color_theme: _typing.Any, title_block: _typing.Any, subtitle_block: _typing.Any, footer_block: _typing.Any) -> tuple[_typing.Any, ...]:
         g = QLinearGradient(QPointF(0, 0), QPointF(0, rect.height()))
         g.setStops([(0, self.color1), (0.7, self.color2), (1, self.color1)])
         painter.fillRect(rect, QBrush(g))
         return self.ccolor1, self.ccolor1, self.ccolor1
 
 
-def rotate_vector(angle, x, y):
+def rotate_vector(angle: _typing.Any, x: _typing.Any, y: _typing.Any) -> tuple[_typing.Any, ...]:
     return x * cos(angle) - y * sin(angle), x * sin(angle) + y * cos(angle)
 
 
-def draw_curved_line(painter_path, dx, dy, c1_frac, c1_amp, c2_frac, c2_amp):
+def draw_curved_line(painter_path: _typing.Any, dx: _typing.Any, dy: _typing.Any, c1_frac: _typing.Any, c1_amp: _typing.Any, c2_frac: _typing.Any, c2_amp: _typing.Any) -> None:
     length = sqrt(dx * dx + dy * dy)
     angle = atan2(dy, dx)
     c1 = QPointF(*rotate_vector(angle, c1_frac * length, c1_amp * length))
@@ -589,12 +592,12 @@ class Banner(Style):
     GUI_NAME = _("Banner")
     GRADE = 0.07
 
-    def calculate_margins(self, prefs):
+    def calculate_margins(self: _typing.Self, prefs: _typing.Any) -> None:
         Style.calculate_margins(self, prefs)
         self.hmargin = int(0.15 * prefs.cover_width)
         self.fold_width = int(0.1 * prefs.cover_width)
 
-    def __call__(self, painter, rect, color_theme, title_block, subtitle_block, footer_block):
+    def __call__(self: _typing.Self, painter: _typing.Any, rect: _typing.Any, color_theme: _typing.Any, title_block: _typing.Any, subtitle_block: _typing.Any, footer_block: _typing.Any) -> tuple[_typing.Any, ...]:
         painter.fillRect(rect, self.color1)
         top = title_block.position.y + 10
         extra_spacing = (
@@ -620,7 +623,7 @@ class Banner(Style):
         width23 = int(0.67 * rwidth)
         rtop = top + height * yfrac
 
-        def draw_fold(x, m=1, corner=left_corner):
+        def draw_fold(x: _typing.Any, m: int = 1, corner: _typing.Any = left_corner) -> tuple[_typing.Any, ...]:
             ans = p = QPainterPath(QPointF(x, rtop))
             draw_curved_line(p, rwidth * m, 0, 0.1, 0.1 * m, 0.5, -0.2 * m)
             fold_upper = p.currentPosition()
@@ -661,7 +664,7 @@ class Blocks(Style):
     GUI_NAME = _("Blocks")
     FOOTER_ALIGN = Qt.AlignRight | Qt.AlignTop
 
-    def __call__(self, painter, rect, color_theme, title_block, subtitle_block, footer_block):
+    def __call__(self: _typing.Self, painter: _typing.Any, rect: _typing.Any, color_theme: _typing.Any, title_block: _typing.Any, subtitle_block: _typing.Any, footer_block: _typing.Any) -> tuple[_typing.Any, ...]:
         painter.fillRect(rect, self.color1)
         y = rect.height() - rect.height() // 3
         r = QRect(rect)
@@ -673,13 +676,13 @@ class Blocks(Style):
         return self.ccolor1, self.ccolor1, self.ccolor2
 
 
-def all_styles():
+def all_styles() -> _typing.Any:
     return set(
         x.NAME for x in globals().values() if isinstance(x, type) and issubclass(x, Style) and x is not Style
     )
 
 
-def load_styles(prefs, respect_disabled=True):
+def load_styles(prefs: _typing.Any, respect_disabled: bool = True) -> _typing.Any:
     disabled = frozenset(prefs.disabled_styles) if respect_disabled else ()
     ans = tuple(
         x
@@ -695,7 +698,7 @@ def load_styles(prefs, respect_disabled=True):
 # }}}
 
 
-def _fallback_resource_cover_bytes():
+def _fallback_resource_cover_bytes() -> _typing.Any:
     for name in ("library.png", "lt.png", "cover_texture.png"):
         try:
             data = I(name, data=True)
@@ -706,7 +709,7 @@ def _fallback_resource_cover_bytes():
     return b""
 
 
-def _draw_fallback_cover_with_pillow(title, subtitle, footer, width, height):
+def _draw_fallback_cover_with_pillow(title: _typing.Any, subtitle: _typing.Any, footer: _typing.Any, width: _typing.Any, height: _typing.Any) -> _typing.Any:
     try:
         from PIL import Image, ImageDraw, ImageFont
     except Exception:
@@ -722,7 +725,7 @@ def _draw_fallback_cover_with_pillow(title, subtitle, footer, width, height):
     draw.rectangle([(0, split_y), (img.width, img.height)], fill=(56, 74, 100))
     draw.rectangle([(0, 0), (img.width, int(img.height * 0.18))], fill=(226, 232, 238))
 
-    def load_font(size):
+    def load_font(size: _typing.Any) -> _typing.Any:
         for font_name in ("DejaVuSans.ttf", "LiberationSans-Regular.ttf", "Arial.ttf"):
             try:
                 return ImageFont.truetype(font_name, size=size)
@@ -734,7 +737,7 @@ def _draw_fallback_cover_with_pillow(title, subtitle, footer, width, height):
     subtitle_font = load_font(max(14, img.height // 30))
     footer_font = load_font(max(12, img.height // 32))
 
-    def text_height(font):
+    def text_height(font: _typing.Any) -> _typing.Any:
         try:
             bbox = draw.textbbox((0, 0), "Ag", font=font)
             return max(1, bbox[3] - bbox[1])
@@ -748,7 +751,7 @@ def _draw_fallback_cover_with_pillow(title, subtitle, footer, width, height):
     margin = max(16, img.width // 20)
     max_text_width = img.width - 2 * margin
 
-    def wrap_lines(text, font):
+    def wrap_lines(text: _typing.Any, font: _typing.Any) -> _typing.Any:
         text = (text or "").strip()
         if not text:
             return []
@@ -770,7 +773,7 @@ def _draw_fallback_cover_with_pillow(title, subtitle, footer, width, height):
         return lines
 
     y = margin
-    def safe_draw_text(x, y, text, fill, font):
+    def safe_draw_text(x: _typing.Any, y: _typing.Any, text: _typing.Any, fill: _typing.Any, font: _typing.Any) -> None:
         try:
             draw.text((x, y), text, fill=fill, font=font)
             return
@@ -809,7 +812,7 @@ def _draw_fallback_cover_with_pillow(title, subtitle, footer, width, height):
     return out.getvalue()
 
 
-def _fallback_cover_bytes(title, subtitle, footer, width, height):
+def _fallback_cover_bytes(title: _typing.Any, subtitle: _typing.Any, footer: _typing.Any, width: _typing.Any, height: _typing.Any) -> _typing.Any:
     data = _draw_fallback_cover_with_pillow(title, subtitle, footer, width, height)
     if data is not None:
         return data
@@ -826,7 +829,7 @@ def _fallback_cover_bytes(title, subtitle, footer, width, height):
         return data
 
 
-def init_environment():
+def init_environment() -> None:
     if not HAS_QT:
         return
     try:
@@ -839,7 +842,7 @@ def init_environment():
     load_builtin_fonts()
 
 
-def generate_cover(mi, prefs=None, as_qimage=False):
+def generate_cover(mi: _typing.Any, prefs: _typing.Any = None, as_qimage: bool = False) -> _typing.Any:
     prefs = prefs or cprefs
     prefs = {k: prefs.get(k) for k in cprefs.defaults}
     prefs = Prefs(**prefs)
@@ -872,7 +875,7 @@ def generate_cover(mi, prefs=None, as_qimage=False):
     return pixmap_to_data(img)
 
 
-def override_prefs(base_prefs, **overrides):
+def override_prefs(base_prefs: _typing.Any, **overrides: _typing.Any) -> _typing.Any:
     ans = {k: overrides.get(k, base_prefs[k]) for k in cprefs.defaults}
     override_color_theme = overrides.get("override_color_theme")
     if override_color_theme is not None:
@@ -890,7 +893,7 @@ def override_prefs(base_prefs, **overrides):
     return ans
 
 
-def create_cover(title, authors, series=None, series_index=1, prefs=None, as_qimage=False):
+def create_cover(title: _typing.Any, authors: _typing.Any, series: _typing.Any = None, series_index: int = 1, prefs: _typing.Any = None, as_qimage: bool = False) -> _typing.Any:
     """
     Create a cover from the specified title, author and series. Any user set templates are ignored, to ensure that the
      specified metadata is used. '
@@ -915,7 +918,7 @@ def create_cover(title, authors, series=None, series_index=1, prefs=None, as_qim
     return generate_cover(mi, prefs=prefs, as_qimage=as_qimage)
 
 
-def calibre_cover2(title, author_string="", series_string="", prefs=None, as_qimage=False):
+def calibre_cover2(title: _typing.Any, author_string: str = "", series_string: str = "", prefs: _typing.Any = None, as_qimage: bool = False) -> _typing.Any:
     title, subtitle, footer = (
         "<b>" + escape_formatting(title),
         "<i>" + escape_formatting(series_string),
@@ -943,7 +946,7 @@ def calibre_cover2(title, author_string="", series_string="", prefs=None, as_qim
     class CalibeLogoStyle(Style):
         NAME = GUI_NAME = "calibre"
 
-        def __call__(self, painter, rect, color_theme, title_block, subtitle_block, footer_block):
+        def __call__(self: _typing.Self, painter: _typing.Any, rect: _typing.Any, color_theme: _typing.Any, title_block: _typing.Any, subtitle_block: _typing.Any, footer_block: _typing.Any) -> tuple[_typing.Any, ...]:
             top = title_block.position.y + 10
             extra_spacing = (
                 subtitle_block.line_spacing // 2 if subtitle_block.line_spacing else title_block.line_spacing // 3
@@ -977,7 +980,7 @@ def calibre_cover2(title, author_string="", series_string="", prefs=None, as_qim
     return pixmap_to_data(img)
 
 
-def scale_cover(prefs, scale):
+def scale_cover(prefs: _typing.Any, scale: _typing.Any) -> None:
     for x in (
         "cover_width",
         "cover_height",
@@ -988,7 +991,7 @@ def scale_cover(prefs, scale):
         prefs[x] = _coerce_positive_int(scale * prefs[x], prefs[x])
 
 
-def generate_masthead(title, output_path=None, width=600, height=60, as_qimage=False, font_family=None):
+def generate_masthead(title: _typing.Any, output_path: _typing.Any = None, width: int = 600, height: int = 60, as_qimage: bool = False, font_family: _typing.Any = None) -> _typing.Any:
     width = _coerce_positive_int(width, 600)
     height = _coerce_positive_int(height, 60)
     if not HAS_QT:
@@ -1022,7 +1025,7 @@ def generate_masthead(title, output_path=None, width=600, height=60, as_qimage=F
         f.write(data)
 
 
-def test(scale=0.25):
+def test(scale: float = 0.25) -> None:
     if not HAS_QT:
         raise RuntimeError("PyQt5 is required to run covers.test()")
     from PyQt5.Qt import (

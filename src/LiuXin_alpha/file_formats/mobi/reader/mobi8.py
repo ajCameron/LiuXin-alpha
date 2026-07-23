@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import struct
 import re
@@ -43,7 +46,7 @@ FlowInfo = namedtuple("FlowInfo", "type format dir fname")
 
 
 # locate beginning and ending positions of tag with specific aid attribute
-def locate_beg_end_of_tag(ml, aid):
+def locate_beg_end_of_tag(ml: _typing.Any, aid: _typing.Any) -> tuple[_typing.Any, ...]:
     pattern = rb"""<[^>]*\said\s*=\s*['"]%s['"][^>]*>""" % aid
     aid_pattern = re.compile(pattern, re.IGNORECASE)
     for m in re.finditer(aid_pattern, ml):
@@ -53,7 +56,7 @@ def locate_beg_end_of_tag(ml, aid):
     return 0, 0
 
 
-def reverse_tag_iter(block):
+def reverse_tag_iter(block: _typing.Any) -> _typing.Iterator[_typing.Any]:
     """
     Iterate over all tags in block in reverse order, i.e. last tag to first tag.
     :param block:
@@ -71,7 +74,7 @@ def reverse_tag_iter(block):
         end = plt
 
 
-def get_first_resource_index(first_image_index, num_of_text_records, first_text_record_number):
+def get_first_resource_index(first_image_index: _typing.Any, num_of_text_records: _typing.Any, first_text_record_number: _typing.Any) -> _typing.Any:
     first_resource_index = first_image_index
     if first_resource_index in {-1, NULL_INDEX}:
         first_resource_index = num_of_text_records + first_text_record_number
@@ -79,13 +82,13 @@ def get_first_resource_index(first_image_index, num_of_text_records, first_text_
 
 
 class Mobi8Reader(object):
-    def __init__(self, mobi6_reader, log, for_tweak=False):
+    def __init__(self: _typing.Self, mobi6_reader: _typing.Any, log: _typing.Any, for_tweak: bool = False) -> None:
         self.for_tweak = for_tweak
         self.mobi6_reader, self.log = mobi6_reader, log
         self.header = mobi6_reader.book_header
         self.encrypted_fonts = []
 
-    def _kf8_section(self, index, context):
+    def _kf8_section(self: _typing.Self, index: _typing.Any, context: _typing.Any) -> _typing.Any:
         try:
             outside = index < 0 or index >= len(self.kf8_sections)
         except TypeError:
@@ -97,13 +100,13 @@ class Mobi8Reader(object):
         except (IndexError, TypeError):
             raise MobiError("Malformed %s section entry" % context)
 
-    def _read_index(self, index, context):
+    def _read_index(self: _typing.Self, index: _typing.Any, context: _typing.Any) -> _typing.Any:
         try:
             return read_index(self.kf8_sections, index, self.header.codec)
         except (InvalidFile, IndexError, KeyError, TypeError, ValueError, struct.error) as err:
             raise MobiError("Malformed KF8 %s index: %s" % (context, err))
 
-    def _read_fdst(self):
+    def _read_fdst(self: _typing.Self) -> _typing.Any:
         header = self._kf8_section(self.header.fdstidx, "FDST")
         if header[:4] != b"FDST":
             raise MobiError("KF8 does not have a valid FDST record")
@@ -126,7 +129,7 @@ class Mobi8Reader(object):
                 raise MobiError("KF8 FDST flow range exceeds raw markup")
         return flow_table
 
-    def __call__(self):
+    def __call__(self: _typing.Self) -> _typing.Any:
         self.mobi6_reader.check_for_drm()
         bh = self.mobi6_reader.book_header
         if self.mobi6_reader.kf8_type == "joint":
@@ -168,7 +171,7 @@ class Mobi8Reader(object):
         spine = self.expand_text(resource_map)
         return self.write_opf(guide, ncx, spine, resource_map)
 
-    def read_indices(self):
+    def read_indices(self: _typing.Self) -> None:
         self.flow_table = ()
 
         if self.header.fdstidx != NULL_INDEX:
@@ -227,7 +230,7 @@ class Mobi8Reader(object):
             except (IndexError, KeyError, TypeError, ValueError) as err:
                 raise MobiError("Malformed KF8 guide index: %s" % err)
 
-    def build_parts(self):
+    def build_parts(self: _typing.Self) -> None:
         raw_ml = self.mobi6_reader.mobi_html
         self.flows = []
         self.flowinfo = []
@@ -354,7 +357,7 @@ class Mobi8Reader(object):
             self.flows[j] = flowpart
             self.flowinfo.append(FlowInfo(typ, local_format, local_dir, local_fname))
 
-    def get_file_info(self, pos):
+    def get_file_info(self: _typing.Self, pos: _typing.Any) -> _typing.Any:
         """
         Get information about the part (file) that exists at pos in
         the raw markup
@@ -366,7 +369,7 @@ class Mobi8Reader(object):
                 return part
         return Part(*repeat(None, len(Part._fields)))
 
-    def get_id_tag_by_pos_fid(self, posfid, offset):
+    def get_id_tag_by_pos_fid(self: _typing.Self, posfid: _typing.Any, offset: _typing.Any) -> tuple[_typing.Any, ...]:
         # first convert kindle:pos:fid and offset info to position in file
         insertpos, idtext, filenum, seqnm, startpos, length = self.elems[posfid]
         pos = insertpos + offset
@@ -381,7 +384,7 @@ class Mobi8Reader(object):
         idtext = self.get_id_tag(pos)
         return "%s/%s" % (fi.type, fi.filename), idtext
 
-    def get_id_tag(self, pos):
+    def get_id_tag(self: _typing.Self, pos: _typing.Any) -> _typing.Any:
         # Find the first tag with a named anchor (name or id attribute) before
         # pos
         fi = self.get_file_info(pos)
@@ -406,7 +409,7 @@ class Mobi8Reader(object):
         # No tag found, link to start of file
         return b""
 
-    def create_guide(self):
+    def create_guide(self: _typing.Self) -> _typing.Any:
         guide = Guide()
         has_start = False
         for ref_type, ref_title, pos_fid in self.guide:
@@ -444,7 +447,7 @@ class Mobi8Reader(object):
 
         return guide
 
-    def create_ncx(self):
+    def create_ncx(self: _typing.Self) -> _typing.Any:
         try:
             index_entries = read_ncx(self.kf8_sections, self.header.ncxidx, self.header.codec)
             remove = []
@@ -482,7 +485,7 @@ class Mobi8Reader(object):
         except (InvalidFile, IndexError, KeyError, TypeError, ValueError, struct.error) as err:
             raise MobiError("Malformed KF8 NCX index: %s" % err)
 
-    def extract_resources(self, sections):
+    def extract_resources(self: _typing.Self, sections: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.mobi.writer2.resources import PLACEHOLDER_GIF
 
         resource_map = []
@@ -556,10 +559,10 @@ class Mobi8Reader(object):
 
         return resource_map
 
-    def expand_text(self, resource_map):
+    def expand_text(self: _typing.Self, resource_map: _typing.Any) -> _typing.Any:
         return expand_mobi8_markup(self, resource_map, self.log)
 
-    def write_opf(self, guide, toc, spine, resource_map):
+    def write_opf(self: _typing.Self, guide: _typing.Any, toc: _typing.Any, spine: _typing.Any, resource_map: _typing.Any) -> str:
         mi = self.header.exth.mi
         if self.cover_offset is not None and self.cover_offset < len(resource_map):
             mi.cover = resource_map[self.cover_offset]
@@ -580,7 +583,7 @@ class Mobi8Reader(object):
         opf = OPFCreator(os.getcwd(), mi)
         opf.guide = guide
 
-        def exclude(path):
+        def exclude(path: _typing.Any) -> bool:
             return os.path.basename(path) == "debug-raw.html"
 
         # If there are no images then the azw3 input plugin dumps all
@@ -611,7 +614,7 @@ class Mobi8Reader(object):
             opf.render(of, ncx, "toc.ncx")
         return "metadata.opf"
 
-    def read_inline_toc(self, href, frag):
+    def read_inline_toc(self: _typing.Self, href: _typing.Any, frag: _typing.Any) -> _typing.Any:
         ans = TOC()
         base_href = "/".join(href.split("/")[:-1])
         with open(href.replace("/", os.sep), "rb") as f:
@@ -629,7 +632,7 @@ class Mobi8Reader(object):
             if elems:
                 start = elems[0]
 
-        def node_depth(local_elem):
+        def node_depth(local_elem: _typing.Any) -> _typing.Any:
             local_ans = 0
             local_parent = local_elem.getparent()
             while local_parent is not None:

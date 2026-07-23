@@ -11,6 +11,9 @@ Used in a number of ways
 # Todo: probably should be merged with ebook_toc in metadata
 
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import glob
@@ -62,18 +65,18 @@ def _parse_href(raw_href: str) -> Optional[Tuple[str, Optional[str]]]:
 
 class TOC(list):
     def __init__(
-        self,
+        self: _typing.Self,
         href: Optional[str] = None,
         fragment: Optional[str] = None,
         text: Optional[str] = None,
         parent: Optional["TOC"] = None,
         play_order: int = 0,
         base_path: Optional[str] = None,
-        type="unknown",
-        author=None,
-        description=None,
-        toc_thumbnail=None,
-    ):
+        type: str = "unknown",
+        author: _typing.Any = None,
+        description: _typing.Any = None,
+        toc_thumbnail: _typing.Any = None,
+    ) -> None:
         """
         Startup an empty table of contents.
 
@@ -103,7 +106,7 @@ class TOC(list):
         self.description = description
         self.toc_thumbnail = toc_thumbnail
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         lines = ["TOC: %s#%s %s" % (self.href, self.fragment, self.text)]
         for child in self:
             c = str(child).splitlines()
@@ -111,10 +114,10 @@ class TOC(list):
                 lines.append("\t" + l)
         return "\n".join(lines)
 
-    def count(self, type):
+    def count(self: _typing.Self, type: _typing.Any) -> _typing.Any:
         return len([i for i in self.flat() if i.type == type])
 
-    def purge(self, types, max=0):
+    def purge(self: _typing.Self, types: _typing.Any, max: int = 0) -> _typing.Any:
         remove = []
         for entry in self.flat():
             if entry.type in types:
@@ -126,21 +129,21 @@ class TOC(list):
             entry.parent.remove(entry)
         return remove
 
-    def remove(self, entry):
+    def remove(self: _typing.Self, entry: _typing.Any) -> None:
         list.remove(self, entry)
         entry.parent = None
 
     def add_item(
-        self,
-        href,
-        fragment,
-        text,
-        play_order=None,
-        type="unknown",
-        author=None,
-        description=None,
-        toc_thumbnail=None,
-    ):
+        self: _typing.Self,
+        href: _typing.Any,
+        fragment: _typing.Any,
+        text: _typing.Any,
+        play_order: _typing.Any = None,
+        type: str = "unknown",
+        author: _typing.Any = None,
+        description: _typing.Any = None,
+        toc_thumbnail: _typing.Any = None,
+    ) -> _typing.Any:
         """
         Add an item to the toc
         :param href:
@@ -171,7 +174,7 @@ class TOC(list):
         )
         return self[-1]
 
-    def top_level_items(self):
+    def top_level_items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         """
         Iterate through the top level files.
         :return:
@@ -180,7 +183,7 @@ class TOC(list):
             if item.text is not None:
                 yield item
 
-    def depth(self):
+    def depth(self: _typing.Self) -> _typing.Any:
         depth = 1
         for obj in self:
             c = obj.depth()
@@ -188,7 +191,7 @@ class TOC(list):
                 depth = c + 1
         return depth
 
-    def flat(self):
+    def flat(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         """
         Depth first iteration over the tree rooted at self
         :return:
@@ -199,7 +202,7 @@ class TOC(list):
                 yield i
 
     @property
-    def abspath(self):
+    def abspath(self: _typing.Self) -> _typing.Any:
         """
         Return the file this toc entry points to as a absolute path to a file on the system.
         :return:
@@ -211,7 +214,7 @@ class TOC(list):
             path = os.path.join(self.base_path, path)
         return path
 
-    def read_from_opf(self, opfreader):
+    def read_from_opf(self: _typing.Self, opfreader: _typing.Any) -> None:
         toc = opfreader.soup.find("spine", toc=True)
         if toc is not None:
             toc = toc["toc"]
@@ -256,7 +259,7 @@ class TOC(list):
                     toc = m[0]
                     self.read_ncx_toc(toc)
 
-    def read_ncx_toc(self, toc, root=None):
+    def read_ncx_toc(self: _typing.Self, toc: _typing.Any, root: _typing.Any = None) -> None:
         self.base_path = os.path.dirname(toc)
         if root is None:
             with open(toc, "rb") as toc_file:
@@ -265,7 +268,7 @@ class TOC(list):
         xpn = {"re": "http://exslt.org/regular-expressions"}
         XPath = functools.partial(etree.XPath, namespaces=xpn)
 
-        def get_attr(node, default=None, attr="playorder"):
+        def get_attr(node: _typing.Any, default: _typing.Any = None, attr: str = "playorder") -> _typing.Any:
             for name, val in node.attrib.items():
                 if name and val and name.lower().endswith(attr):
                     return val
@@ -276,7 +279,7 @@ class TOC(list):
         content_path = XPath('./*[re:match(local-name(), "content$", "i")]')
         np_path = XPath('./*[re:match(local-name(), "navpoint$", "i")]')
 
-        def process_navpoint(np, dest):
+        def process_navpoint(np: _typing.Any, dest: _typing.Any) -> None:
             try:
                 play_order = int(get_attr(np, 1))
             except:
@@ -310,7 +313,7 @@ class TOC(list):
         for child in np_path(nm):
             process_navpoint(child, self)
 
-    def read_html_toc(self, toc):
+    def read_html_toc(self: _typing.Self, toc: _typing.Any) -> None:
         self.base_path = os.path.dirname(toc)
         with open(toc, "rb") as f:
             raw = f.read()
@@ -344,7 +347,7 @@ class TOC(list):
                 self.add_item(href, fragment, txt)
                 seen.add(key)
 
-    def render(self, stream, uid):
+    def render(self: _typing.Self, stream: _typing.Any, uid: _typing.Any) -> None:
         root = E.ncx(
             E.head(
                 E.meta(name="dtb:uid", content=str(uid)),
@@ -360,7 +363,7 @@ class TOC(list):
         root.set("{http://www.w3.org/XML/1998/namespace}lang", "en")
         c = Counter()
 
-        def navpoint(parent, np):
+        def navpoint(parent: _typing.Any, np: _typing.Any) -> None:
             text = np.text
             if not text:
                 text = ""

@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 import sys
@@ -44,36 +47,36 @@ class Log(object):
     WARNING = logging.WARNING
     ERROR = logging.ERROR
 
-    def __init__(self, level=logging.INFO):
+    def __init__(self: _typing.Self, level: _typing.Any = logging.INFO) -> None:
         self._logger = get_compat_logger("LiuXin_alpha.oeb.polish")
         self.filter_level = level
         self._logger.setLevel(level)
 
-    def _emit(self, level, *args):
+    def _emit(self: _typing.Self, level: _typing.Any, *args: _typing.Any) -> None:
         if not args:
             msg = ""
         else:
             msg = " ".join(str(x) for x in args)
         self._logger.log(level, msg)
 
-    def __call__(self, *args):
+    def __call__(self: _typing.Self, *args: _typing.Any) -> None:
         self._emit(self.INFO, *args)
 
-    def debug(self, *args):
+    def debug(self: _typing.Self, *args: _typing.Any) -> None:
         self._emit(self.DEBUG, *args)
 
-    def info(self, *args):
+    def info(self: _typing.Self, *args: _typing.Any) -> None:
         self._emit(self.INFO, *args)
 
-    def warn(self, *args):
+    def warn(self: _typing.Self, *args: _typing.Any) -> None:
         self._emit(self.WARN, *args)
 
     warning = warn
 
-    def error(self, *args):
+    def error(self: _typing.Self, *args: _typing.Any) -> None:
         self._emit(self.ERROR, *args)
 
-    def exception(self, *args):
+    def exception(self: _typing.Self, *args: _typing.Any) -> None:
         self._logger.exception(" ".join(str(x) for x in args))
 
 
@@ -170,7 +173,7 @@ that need to parse them all.</p>
 }
 
 
-def hfix(name, raw):
+def hfix(name: _typing.Any, raw: _typing.Any) -> _typing.Any:
     if name == "about":
         return raw.format("")
     raw = raw.replace("\n\n", "__XX__")
@@ -184,7 +187,7 @@ CLI_HELP = {x: hfix(x, re.sub("<.*?>", "", y)) for x, y in iteritems(HELP)}
 # }}}
 
 
-def update_metadata(ebook, new_opf):
+def update_metadata(ebook: _typing.Any, new_opf: _typing.Any) -> None:
     from LiuXin_alpha.file_formats.opf.opf2 import OPF
     from LiuXin_alpha.metadata.file_sources.epub import update_metadata
 
@@ -205,8 +208,8 @@ def update_metadata(ebook, new_opf):
         stream.write(opf.render())
 
 
-def polish_one(ebook, opts, report, customization=None):
-    def rt(x):
+def polish_one(ebook: _typing.Any, opts: _typing.Any, report: _typing.Any, customization: _typing.Any = None) -> _typing.Any:
+    def rt(x: _typing.Any) -> _typing.Any:
         return report("\n### " + x)
 
     jacket = None
@@ -287,7 +290,7 @@ def polish_one(ebook, opts, report, customization=None):
     return changed
 
 
-def polish(file_map, opts, log, report):
+def polish(file_map: _typing.Any, opts: _typing.Any, log: _typing.Any, report: _typing.Any) -> None:
     st = time.time()
     for inbook, outbook in iteritems(file_map):
         report(_("## Polishing: %s") % (inbook.rpartition(".")[-1].upper()))
@@ -301,7 +304,7 @@ def polish(file_map, opts, log, report):
 REPORT = "{0} REPORT {0}".format("-" * 30)
 
 
-def gui_polish(data):
+def gui_polish(data: _typing.Any) -> _typing.Any:
     files = data.pop("files")
 
     if not data.pop("metadata"):
@@ -325,7 +328,7 @@ def gui_polish(data):
     return "\n\n".join(report)
 
 
-def tweak_polish(container, actions, customization=None):
+def tweak_polish(container: _typing.Any, actions: _typing.Any, customization: _typing.Any = None) -> tuple[_typing.Any, ...]:
     opts = ALL_OPTS.copy()
     opts.update(actions)
     o = namedtuple("Options", " ".join(iterkeys(ALL_OPTS)))
@@ -335,7 +338,7 @@ def tweak_polish(container, actions, customization=None):
     return report, changed
 
 
-def option_parser():
+def option_parser() -> _typing.Any:
     from LiuXin_alpha.utils.config.config_tools import OptionParser
 
     usage = "%prog [options] input_file [output_file]\n\n" + re.sub(r"<.*?>", "", CLI_HELP["about"])
@@ -367,7 +370,7 @@ def option_parser():
     return parser
 
 
-def main(args=None):
+def main(args: _typing.Any = None) -> None:
     parser = option_parser()
     opts, args = parser.parse_args(args or sys.argv[1:])
     log = Log(level=Log.DEBUG if opts.verbose else Log.INFO)

@@ -1,6 +1,9 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import posixpath
@@ -28,7 +31,7 @@ __copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"
 Image = namedtuple("Image", "rid fname width height fmt item")
 
 
-def as_num(x):
+def as_num(x: _typing.Any) -> _typing.Any:
     try:
         return float(x)
     except Exception:
@@ -36,7 +39,7 @@ def as_num(x):
     return 0
 
 
-def get_image_margins(style):
+def get_image_margins(style: _typing.Any) -> _typing.Any:
     ans = {}
     for edge in "Left Right Top Bottom".split():
         val = as_num(getattr(style, "padding" + edge)) + as_num(getattr(style, "margin" + edge))
@@ -45,14 +48,14 @@ def get_image_margins(style):
 
 
 class ImagesManager(object):
-    def __init__(self, oeb, document_relationships):
+    def __init__(self: _typing.Self, oeb: _typing.Any, document_relationships: _typing.Any) -> None:
         self.oeb, self.log = oeb, oeb.log
         self.images = {}
         self.seen_filenames = set()
         self.document_relationships = document_relationships
         self.count = 0
 
-    def read_image(self, href):
+    def read_image(self: _typing.Self, href: _typing.Any) -> _typing.Any:
         if href not in self.images:
             item = self.oeb.manifest.hrefs.get(href)
             if item is None or not isinstance(item.data, bytes):
@@ -69,7 +72,7 @@ class ImagesManager(object):
             item.unload_data_from_memory()
         return self.images[href]
 
-    def add_image(self, img, block, stylizer, bookmark=None, as_block=False):
+    def add_image(self: _typing.Self, img: _typing.Any, block: _typing.Any, stylizer: _typing.Any, bookmark: _typing.Any = None, as_block: bool = False) -> _typing.Any:
         src = img.get("src")
         if not src:
             return
@@ -82,7 +85,7 @@ class ImagesManager(object):
         block.add_image(drawing, bookmark=bookmark)
         return rid
 
-    def create_image_markup(self, html_img, stylizer, href, as_block=False):
+    def create_image_markup(self: _typing.Self, html_img: _typing.Any, stylizer: _typing.Any, href: _typing.Any, as_block: bool = False) -> _typing.Any:
         # TODO: img inside a link (clickable image)
         style = stylizer.style(html_img)
         floating = style["float"]
@@ -143,7 +146,7 @@ class ImagesManager(object):
         self.create_docx_image_markup(parent, name, html_img.get("alt") or name, img.rid, width, height)
         return ans
 
-    def create_docx_image_markup(self, parent, name, alt, img_rid, width, height):
+    def create_docx_image_markup(self: _typing.Self, parent: _typing.Any, name: _typing.Any, alt: _typing.Any, img_rid: _typing.Any, width: _typing.Any, height: _typing.Any) -> None:
         makeelement, namespaces = (
             self.document_relationships.namespace.makeelement,
             self.document_relationships.namespace.namespaces,
@@ -168,7 +171,7 @@ class ImagesManager(object):
         makeelement(xfrm, "a:off", x="0", y="0"), makeelement(xfrm, "a:ext", cx=str(width), cy=str(height))
         makeelement(makeelement(sp_pr, "a:prstGeom", prst="rect"), "a:avLst")
 
-    def create_filename(self, href, fmt):
+    def create_filename(self: _typing.Self, href: _typing.Any, fmt: _typing.Any) -> _typing.Any:
         fname = ascii_filename(urlunquote(posixpath.basename(href)))
         fname = posixpath.splitext(fname)[0]
         fname = fname[:75].rstrip(".") or "image"
@@ -181,17 +184,17 @@ class ImagesManager(object):
         fname += os.extsep + fmt.lower()
         return fname
 
-    def serialize(self, images_map):
+    def serialize(self: _typing.Self, images_map: _typing.Any) -> None:
         for img in itervalues(self.images):
             images_map["word/" + img.fname] = partial(self.get_data, img.item)
 
-    def get_data(self, item):
+    def get_data(self: _typing.Self, item: _typing.Any) -> _typing.Any:
         try:
             return item.data
         finally:
             item.unload_data_from_memory(False)
 
-    def create_cover_markup(self, img, width, height):
+    def create_cover_markup(self: _typing.Self, img: _typing.Any, width: _typing.Any, height: _typing.Any) -> _typing.Any:
         self.count += 1
         makeelement, namespaces = (
             self.document_relationships.namespace.makeelement,
@@ -215,7 +218,7 @@ class ImagesManager(object):
         self.create_docx_image_markup(parent, "cover.jpg", _("Cover"), img.rid, width, height)
         return ans
 
-    def write_cover_block(self, body, cover_image):
+    def write_cover_block(self: _typing.Self, body: _typing.Any, cover_image: _typing.Any) -> None:
         makeelement, namespaces = (
             self.document_relationships.namespace.makeelement,
             self.document_relationships.namespace.namespaces,

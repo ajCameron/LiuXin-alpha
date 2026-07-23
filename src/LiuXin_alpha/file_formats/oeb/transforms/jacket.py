@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
@@ -39,7 +42,7 @@ JACKET_XPATH = '//h:meta[@name="calibre-content" and @content="jacket"]'
 
 
 class SafeFormatter(Formatter):
-    def get_value(self, *args, **kwargs):
+    def get_value(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         try:
             return Formatter.get_value(self, *args, **kwargs)
         except KeyError:
@@ -51,7 +54,7 @@ class Jacket(object):
     Book jacket manipulation. Remove first image and insert comments at start of book.
     """
 
-    def remove_images(self, item, limit=1):
+    def remove_images(self: _typing.Self, item: _typing.Any, limit: int = 1) -> _typing.Any:
         path = XPath("//h:img[@src]")
         removed = 0
         for img in path(item.data):
@@ -65,7 +68,7 @@ class Jacket(object):
                 removed += 1
         return removed
 
-    def remove_first_image(self):
+    def remove_first_image(self: _typing.Self) -> None:
         deleted_item = None
         for item in self.oeb.spine:
             removed = self.remove_images(item)
@@ -86,7 +89,7 @@ class Jacket(object):
                 if href == deleted_item.href:
                     self.oeb.toc.remove(item)
 
-    def insert_metadata(self, mi):
+    def insert_metadata(self: _typing.Self, mi: _typing.Any) -> None:
         self.log("Inserting metadata into book...")
 
         try:
@@ -126,7 +129,7 @@ class Jacket(object):
             item.unload_data_from_memory()
             img.set("src", jacket.relhref(item.href))
 
-    def remove_existing_jacket(self):
+    def remove_existing_jacket(self: _typing.Self) -> None:
         for x in self.oeb.spine[:4]:
             if XPath(JACKET_XPATH)(x.data):
                 self.remove_images(x, limit=sys.maxsize)
@@ -134,7 +137,7 @@ class Jacket(object):
                 self.log("Removed existing jacket")
                 break
 
-    def __call__(self, oeb, opts, metadata):
+    def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, metadata: _typing.Any) -> None:
         """
         Add metadata in jacket.xhtml if specified in opts.
         If not specified, remove previous jacket instance
@@ -150,7 +153,7 @@ class Jacket(object):
 # Render Jacket {{{
 
 
-def get_rating(rating, rchar, e_rchar):
+def get_rating(rating: _typing.Any, rchar: _typing.Any, e_rchar: _typing.Any) -> _typing.Any:
     ans = ""
     try:
         num = float(rating) / 2
@@ -166,7 +169,7 @@ def get_rating(rating, rchar, e_rchar):
 
 
 class Series(unicode):
-    def __new__(cls, series, series_index):
+    def __new__(cls: type[_typing.Self], series: _typing.Any, series_index: _typing.Any) -> _typing.Any:
         if series and series_index is not None:
             roman = _("Number {1} of <em>{0}</em>").format(
                 escape(series), escape(fmt_sidx(series_index, use_roman=True))
@@ -180,7 +183,7 @@ class Series(unicode):
 
 
 class Tags(unicode):
-    def __new__(cls, tags, output_profile):
+    def __new__(cls: type[_typing.Self], tags: _typing.Any, output_profile: _typing.Any) -> _typing.Any:
         tags = [escape(x) for x in tags or ()]
         t = unicode.__new__(cls, ", ".join(tags))
         t.alphabetical = ", ".join(sorted(tags, key=sort_key))
@@ -189,14 +192,14 @@ class Tags(unicode):
 
 
 def render_jacket(
-    mi,
-    output_profile,
-    alt_title=_("Unknown"),
-    alt_tags=None,
-    alt_comments="",
-    alt_publisher="",
-    rescale_fonts=False,
-):
+    mi: _typing.Any,
+    output_profile: _typing.Any,
+    alt_title: _typing.Any = _("Unknown"),
+    alt_tags: _typing.Any = None,
+    alt_comments: str = "",
+    alt_publisher: str = "",
+    rescale_fonts: bool = False,
+) -> _typing.Any:
     if alt_tags is None:
         alt_tags = []
 
@@ -244,7 +247,7 @@ def render_jacket(
         author = ""
     author = escape(author)
 
-    def generate_html(local_comments):
+    def generate_html(local_comments: _typing.Any) -> _typing.Any:
         args = dict(
             xmlns=XHTML_NS,
             title_str=title_str,
@@ -349,7 +352,7 @@ def render_jacket(
 # }}}
 
 
-def linearize_jacket(oeb):
+def linearize_jacket(oeb: _typing.Any) -> None:
     for x in oeb.spine[:4]:
         if XPath(JACKET_XPATH)(x.data):
             for e in XPath("//h:table|//h:tr|//h:th")(x.data):
@@ -359,7 +362,7 @@ def linearize_jacket(oeb):
             break
 
 
-def referenced_images(root):
+def referenced_images(root: _typing.Any) -> _typing.Iterator[_typing.Any]:
     for img in XPath("//h:img[@src]")(root):
         src = img.get("src")
         if src.startswith("file://"):

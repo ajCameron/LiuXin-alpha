@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from collections import defaultdict
 from operator import attrgetter
@@ -39,7 +42,7 @@ STYLE_MAP = {
 }
 
 
-def find_list_containers(list_tag, tag_style):
+def find_list_containers(list_tag: _typing.Any, tag_style: _typing.Any) -> _typing.Any:
     node = list_tag
     stylizer = tag_style._stylizer
     ans = []
@@ -56,14 +59,14 @@ def find_list_containers(list_tag, tag_style):
 
 
 class NumberingDefinition(object):
-    def __init__(self, top_most, stylizer, namespace):
+    def __init__(self: _typing.Self, top_most: _typing.Any, stylizer: _typing.Any, namespace: _typing.Any) -> None:
         self.namespace = namespace
         self.top_most = top_most
         self.stylizer = stylizer
         self.level_map = defaultdict(list)
         self.num_id = None
 
-    def finalize(self):
+    def finalize(self: _typing.Self) -> None:
         items_for_level = defaultdict(list)
         container_for_level = {}
         type_for_level = {}
@@ -82,15 +85,15 @@ class NumberingDefinition(object):
             for ilvl in sorted(self.level_map)
         )
 
-    def __hash__(self):
+    def __hash__(self: _typing.Self) -> _typing.Any:
         return hash(self.levels)
 
-    def link_blocks(self):
+    def link_blocks(self: _typing.Self) -> None:
         for ilvl, items in iteritems(self.level_map):
             for container, list_tag, block, list_type, tag_style in items:
                 block.numbering_id = (self.num_id + 1, ilvl)
 
-    def serialize(self, parent):
+    def serialize(self: _typing.Self, parent: _typing.Any) -> None:
         makeelement = self.namespace.makeelement
         an = makeelement(parent, "w:abstractNum", w_abstractNumId=str(self.num_id))
         makeelement(an, "w:multiLevelType", w_val="hybridMultilevel")
@@ -100,7 +103,7 @@ class NumberingDefinition(object):
 
 
 class Level(object):
-    def __init__(self, list_type, container, items, ilvl=0):
+    def __init__(self: _typing.Self, list_type: _typing.Any, container: _typing.Any, items: _typing.Any, ilvl: int = 0) -> None:
         self.ilvl = ilvl
         try:
             self.start = int(container.get("start"))
@@ -118,10 +121,10 @@ class Level(object):
             self.lvl_text = "%{}.".format(self.ilvl + 1)
             self.num_fmt = STYLE_MAP.get(list_type, "decimal")
 
-    def __hash__(self):
+    def __hash__(self: _typing.Self) -> _typing.Any:
         return hash((self.start, self.num_fmt, self.lvl_text))
 
-    def serialize(self, parent, makeelement):
+    def serialize(self: _typing.Self, parent: _typing.Any, makeelement: _typing.Any) -> None:
         lvl = makeelement(parent, "w:lvl", w_ilvl=str(self.ilvl))
         makeelement(lvl, "w:start", w_val=str(self.start))
         makeelement(lvl, "w:numFmt", w_val=self.num_fmt)
@@ -145,11 +148,11 @@ class Level(object):
 
 
 class ListsManager(object):
-    def __init__(self, docx):
+    def __init__(self: _typing.Self, docx: _typing.Any) -> None:
         self.namespace = docx.namespace
         self.lists = {}
 
-    def finalize(self, all_blocks):
+    def finalize(self: _typing.Self, all_blocks: _typing.Any) -> None:
         lists = {}
         for block in all_blocks:
             if block.list_tag is not None:
@@ -178,7 +181,7 @@ class ListsManager(object):
             defn.link_blocks()
         self.definitions = sorted(itervalues(definitions), key=attrgetter("num_id"))
 
-    def serialize(self, parent):
+    def serialize(self: _typing.Self, parent: _typing.Any) -> None:
         for defn in self.definitions:
             defn.serialize(parent)
         makeelement = self.namespace.makeelement

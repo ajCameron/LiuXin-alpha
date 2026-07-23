@@ -3,6 +3,9 @@
 """
 Transform OEB content into PML markup
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 
@@ -76,7 +79,7 @@ SEPARATE_TAGS = [
 
 
 class PMLMLizer(object):
-    def __init__(self, log, conversion_report=None):
+    def __init__(self: _typing.Self, log: _typing.Any, conversion_report: _typing.Any = None) -> None:
         self.log = log
         self.conversion_report = conversion_report
         self.image_hrefs = {}
@@ -87,7 +90,7 @@ class PMLMLizer(object):
         self.opts = None
         self.toc = None
 
-    def extract_content(self, oeb_book, opts):
+    def extract_content(self: _typing.Self, oeb_book: _typing.Any, opts: _typing.Any) -> _typing.Any:
         self.log.info("Converting XHTML to PML markup...")
         self.oeb_book = oeb_book
         self.opts = opts
@@ -99,7 +102,7 @@ class PMLMLizer(object):
 
         return self.pmlmlize_spine()
 
-    def create_flat_toc(self, nodes, level=0):
+    def create_flat_toc(self: _typing.Self, nodes: _typing.Any, level: int = 0) -> None:
         for item in nodes:
             href, mid, local_id = item.href.partition("#")
             self.get_anchor_id(href, local_id)
@@ -108,7 +111,7 @@ class PMLMLizer(object):
             self.toc[href][local_id] = (item.title, level)
             self.create_flat_toc(item.nodes, level + 1)
 
-    def pmlmlize_spine(self):
+    def pmlmlize_spine(self: _typing.Self) -> _typing.Any:
         self.image_hrefs = {}
         self.link_hrefs = {}
         output = list([""])
@@ -118,7 +121,7 @@ class PMLMLizer(object):
         output = self.clean_text(output)
         return output
 
-    def get_cover_page(self):
+    def get_cover_page(self: _typing.Self) -> _typing.Any:
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
         from LiuXin_alpha.file_formats.oeb.base import XHTML
 
@@ -141,7 +144,7 @@ class PMLMLizer(object):
                 output += "".join(self.dump_text(item.data.find(XHTML("body")), stylizer, item))
         return output
 
-    def get_text(self):
+    def get_text(self: _typing.Self) -> _typing.Any:
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
         from LiuXin_alpha.file_formats.oeb.base import XHTML
 
@@ -156,27 +159,27 @@ class PMLMLizer(object):
             text += self.dump_text(content.find(XHTML("body")), stylizer, item)
         return "".join(text)
 
-    def add_page_anchor(self, page):
+    def add_page_anchor(self: _typing.Self, page: _typing.Any) -> _typing.Any:
         return self.get_anchor(page, "")
 
-    def get_anchor_id(self, href, aid):
+    def get_anchor_id(self: _typing.Self, href: _typing.Any, aid: _typing.Any) -> _typing.Any:
         aid = "%s#%s" % (href, aid)
         if aid not in self.link_hrefs.keys():
             self.link_hrefs[aid] = "calibre_link-%s" % len(self.link_hrefs.keys())
         aid = self.link_hrefs[aid]
         return aid
 
-    def get_anchor(self, page, aid):
+    def get_anchor(self: _typing.Self, page: _typing.Any, aid: _typing.Any) -> _typing.Any:
         aid = self.get_anchor_id(page.href, aid)
         return '\\Q="%s"' % aid
 
-    def remove_newlines(self, text):
+    def remove_newlines(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         text = text.replace("\r\n", " ")
         text = text.replace("\n", " ")
         text = text.replace("\r", " ")
         return text
 
-    def prepare_string_for_pml(self, text):
+    def prepare_string_for_pml(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         text = self.remove_newlines(text)
         # Replace \ with \\ so \ in the text is not interperted as
         # a pml code.
@@ -186,7 +189,7 @@ class PMLMLizer(object):
         text = text.replace("\\\\c \\\\c", "\\c \n\\c\n")
         return text
 
-    def prepare_text(self, text):
+    def prepare_text(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         # Replace empty paragraphs with \c pml codes used to denote emtpy lines.
         prepare_pat = r"(?<=</p>)\s*<p[^>]*>[\xc2\xa0\s]*</p>"
         try:
@@ -198,7 +201,7 @@ class PMLMLizer(object):
         text = re.sub(prepare_pat, r"\\c\n\\c", text)
         return text
 
-    def _report_unsupported_pml_characters(self, unsupported_counts):
+    def _report_unsupported_pml_characters(self: _typing.Self, unsupported_counts: _typing.Any) -> None:
         report = self.conversion_report
         if report is None or not unsupported_counts:
             return
@@ -225,13 +228,13 @@ class PMLMLizer(object):
         if warn is not None:
             warn(message)
 
-    def _pml_code_for_character(self, unsupported_counts, char):
+    def _pml_code_for_character(self: _typing.Self, unsupported_counts: _typing.Any, char: _typing.Any) -> _typing.Any:
         code = unipmlcode(char)
         if code == "?":
             unsupported_counts[char] = unsupported_counts.get(char, 0) + 1
         return code
 
-    def clean_text(self, text):
+    def clean_text(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         # Remove excessive \p tags
         text = re.sub(r"\\p\s*\\p", "", text)
 
@@ -293,7 +296,7 @@ class PMLMLizer(object):
 
         return text
 
-    def dump_text(self, elem, stylizer, page, tag_stack=None):
+    def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, page: _typing.Any, tag_stack: _typing.Any = None) -> _typing.Any:
         from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace
 
         if tag_stack is None:
@@ -449,7 +452,7 @@ class PMLMLizer(object):
 
         return text
 
-    def close_tags(self, tags):
+    def close_tags(self: _typing.Self, tags: _typing.Any) -> _typing.Any:
         text = []
         for tag in tags:
             # block isn't a real tag we just use

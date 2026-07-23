@@ -5,6 +5,9 @@ lxml based OPF parser.
 """
 
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import copy
 import functools
@@ -93,11 +96,11 @@ class PrettyPrint:
     Turns the pretty print OPF option on and off.
     """
 
-    def __enter__(self):
+    def __enter__(self: _typing.Self) -> None:
         global pretty_print_opf
         pretty_print_opf = True
 
-    def __exit__(self, *args):
+    def __exit__(self: _typing.Self, *args: _typing.Any) -> None:
         global pretty_print_opf
         pretty_print_opf = False
 
@@ -118,7 +121,7 @@ class Resource(object):  # {{{
     :method:`href`
     """
 
-    def __init__(self, href_or_path, basedir=os.getcwd(), is_path=True):
+    def __init__(self: _typing.Self, href_or_path: _typing.Any, basedir: _typing.Any = os.getcwd(), is_path: bool = True) -> None:
         self.orig = href_or_path
         self._href = None
         self._basedir = basedir
@@ -151,7 +154,7 @@ class Resource(object):  # {{{
                 self.path = os.path.abspath(os.path.join(basedir, pc.replace("/", os.sep)))
                 self.fragment = url[-1]
 
-    def href(self, basedir=None):
+    def href(self: _typing.Self, basedir: _typing.Any = None) -> _typing.Any:
         """
         Return a URL pointing to this resource. If it is a file on the filesystem the URL is relative to `basedir`.
 
@@ -179,13 +182,13 @@ class Resource(object):  # {{{
             rpath = rpath.decode("utf-8", "replace")
         return rpath.replace(os.sep, "/") + frag
 
-    def set_basedir(self, path):
+    def set_basedir(self: _typing.Self, path: _typing.Any) -> None:
         self._basedir = path
 
-    def basedir(self):
+    def basedir(self: _typing.Self) -> _typing.Any:
         return self._basedir
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "Resource(%s, %s)" % (repr(self.path), repr(self.href()))
 
 
@@ -193,43 +196,43 @@ class Resource(object):  # {{{
 
 
 class ResourceCollection(object):  # {{{
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self._resources = []
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for r in self._resources:
             yield r
 
-    def __len__(self):
+    def __len__(self: _typing.Self) -> _typing.Any:
         return len(self._resources)
 
-    def __getitem__(self, index):
+    def __getitem__(self: _typing.Self, index: _typing.Any) -> _typing.Any:
         return self._resources[index]
 
-    def __bool__(self):
+    def __bool__(self: _typing.Self) -> bool:
         return len(self._resources) > 0
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         resources = map(repr, self)
         return "[%s]" % ", ".join(resources)
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return str(self)
 
-    def append(self, resource):
+    def append(self: _typing.Self, resource: _typing.Any) -> None:
         if not isinstance(resource, Resource):
             raise ValueError("Can only append objects of type Resource")
         self._resources.append(resource)
 
-    def remove(self, resource):
+    def remove(self: _typing.Self, resource: _typing.Any) -> None:
         self._resources.remove(resource)
 
-    def replace(self, start, end, items):
+    def replace(self: _typing.Self, start: _typing.Any, end: _typing.Any, items: _typing.Any) -> None:
         "Same as list[start:end] = items"
         self._resources[start:end] = items
 
     @staticmethod
-    def from_directory_contents(top, topdown=True):
+    def from_directory_contents(top: _typing.Any, topdown: bool = True) -> _typing.Any:
         """
         Makes and returns a ResourceCollection from the given starting position
         :param top: Starting position
@@ -244,7 +247,7 @@ class ResourceCollection(object):  # {{{
             collection.append(res)
         return collection
 
-    def set_basedir(self, path):
+    def set_basedir(self: _typing.Self, path: _typing.Any) -> None:
         for res in self:
             res.set_basedir(path)
 
@@ -254,7 +257,7 @@ class ResourceCollection(object):  # {{{
 
 class ManifestItem(Resource):  # {{{
     @staticmethod
-    def from_opf_manifest_item(item, basedir):
+    def from_opf_manifest_item(item: _typing.Any, basedir: _typing.Any) -> _typing.Any:
         href = item.get("href", None)
         if href:
             res = ManifestItem(href, basedir=basedir, is_path=True)
@@ -264,27 +267,27 @@ class ManifestItem(Resource):  # {{{
             return res
 
     @property
-    def media_type(self):
+    def media_type(self: _typing.Self) -> _typing.Any:
         return self.mime_type
 
     @media_type.setter
-    def media_type(self, val):
+    def media_type(self: _typing.Self, val: _typing.Any) -> None:
         self.mime_type = val
 
-    def __unicode__(self):
+    def __unicode__(self: _typing.Self) -> _typing.Any:
         return '<item id="%s" href="%s" media-type="%s" />' % (
             self.id,
             self.href(),
             self.media_type,
         )
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return six_unicode(self).encode("utf-8")
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return six_unicode(self)
 
-    def __getitem__(self, index):
+    def __getitem__(self: _typing.Self, index: _typing.Any) -> _typing.Any:
         if index == 0:
             return self.href()
         if index == 1:
@@ -296,7 +299,7 @@ class ManifestItem(Resource):  # {{{
 
 
 class Manifest(ResourceCollection):  # {{{
-    def append_from_opf_manifest_item(self, item, dir):
+    def append_from_opf_manifest_item(self: _typing.Self, item: _typing.Any, dir: _typing.Any) -> None:
         self.append(ManifestItem.from_opf_manifest_item(item, dir))
         item_id = item.get("id", "")
         if not item_id:
@@ -305,7 +308,7 @@ class Manifest(ResourceCollection):  # {{{
         self.next_id += 1
 
     @staticmethod
-    def from_opf_manifest_element(items, dir):
+    def from_opf_manifest_element(items: _typing.Any, dir: _typing.Any) -> _typing.Any:
         m = Manifest()
         for item in items:
             try:
@@ -315,7 +318,7 @@ class Manifest(ResourceCollection):  # {{{
         return m
 
     @staticmethod
-    def from_paths(entries):
+    def from_paths(entries: _typing.Any) -> _typing.Any:
         """
         `entries`: List of (path, mime-type) If mime-type is None it is autodetected
         :param entries:
@@ -331,7 +334,7 @@ class Manifest(ResourceCollection):  # {{{
             m.append(mi)
         return m
 
-    def add_item(self, path, mime_type=None):
+    def add_item(self: _typing.Self, path: _typing.Any, mime_type: _typing.Any = None) -> _typing.Any:
         mi = ManifestItem(path, is_path=True)
         if mime_type:
             mi.mime_type = mime_type
@@ -340,27 +343,27 @@ class Manifest(ResourceCollection):  # {{{
         self.append(mi)
         return mi.id
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         ResourceCollection.__init__(self)
         self.next_id = 1
 
-    def item(self, id):
+    def item(self: _typing.Self, id: _typing.Any) -> _typing.Any:
         for i in self:
             if i.id == id:
                 return i
 
-    def id_for_path(self, path):
+    def id_for_path(self: _typing.Self, path: _typing.Any) -> _typing.Any:
         path = os.path.normpath(os.path.abspath(path))
         for i in self:
             if i.path and os.path.normpath(i.path) == path:
                 return i.id
 
-    def path_for_id(self, id):
+    def path_for_id(self: _typing.Self, id: _typing.Any) -> _typing.Any:
         for i in self:
             if i.id == id:
                 return i.path
 
-    def type_for_id(self, id):
+    def type_for_id(self: _typing.Self, id: _typing.Any) -> _typing.Any:
         for i in self:
             if i.id == id:
                 return i.mime_type
@@ -371,13 +374,13 @@ class Manifest(ResourceCollection):  # {{{
 
 class Spine(ResourceCollection):  # {{{
     class Item(Resource):
-        def __init__(self, idfunc, *args, **kwargs):
+        def __init__(self: _typing.Self, idfunc: _typing.Any, *args: _typing.Any, **kwargs: _typing.Any) -> None:
             Resource.__init__(self, *args, **kwargs)
             self.is_linear = True
             self.id = idfunc(self.path)
             self.idref = None
 
-        def __repr__(self):
+        def __repr__(self: _typing.Self) -> _typing.Any:
             return "Spine.Item(path=%r, id=%s, is_linear=%s)" % (
                 self.path,
                 self.id,
@@ -385,7 +388,7 @@ class Spine(ResourceCollection):  # {{{
             )
 
     @staticmethod
-    def from_opf_spine_element(itemrefs, manifest):
+    def from_opf_spine_element(itemrefs: _typing.Any, manifest: _typing.Any) -> _typing.Any:
         s = Spine(manifest)
         seen = set()
         path_map = {i.id: i.path for i in s.manifest}
@@ -402,7 +405,7 @@ class Spine(ResourceCollection):  # {{{
         return s
 
     @staticmethod
-    def from_paths(paths, manifest):
+    def from_paths(paths: _typing.Any, manifest: _typing.Any) -> _typing.Any:
         s = Spine(manifest)
         for path in paths:
             try:
@@ -411,11 +414,11 @@ class Spine(ResourceCollection):  # {{{
                 continue
         return s
 
-    def __init__(self, manifest):
+    def __init__(self: _typing.Self, manifest: _typing.Any) -> None:
         ResourceCollection.__init__(self)
         self.manifest = manifest
 
-    def replace(self, start, end, ids):
+    def replace(self: _typing.Self, start: _typing.Any, end: _typing.Any, ids: _typing.Any) -> None:
         """
         Replace the items between start (inclusive) and end (not inclusive) with the items identified by ids. ids can
         be a list of any length.
@@ -432,17 +435,17 @@ class Spine(ResourceCollection):  # {{{
             items.append(Spine.Item(lambda x: local_id, path, is_path=True))
         ResourceCollection.replace(start, end, items)
 
-    def linear_items(self):
+    def linear_items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for r in self:
             if r.is_linear:
                 yield r.path
 
-    def nonlinear_items(self):
+    def nonlinear_items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for r in self:
             if not r.is_linear:
                 yield r.path
 
-    def items(self):
+    def items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for i in self:
             yield i.path
 
@@ -453,21 +456,21 @@ class Spine(ResourceCollection):  # {{{
 class Guide(ResourceCollection):  # {{{
     class Reference(Resource):
         @staticmethod
-        def from_opf_resource_item(ref, basedir):
+        def from_opf_resource_item(ref: _typing.Any, basedir: _typing.Any) -> _typing.Any:
             title, href, type = ref.get("title", ""), ref.get("href"), ref.get("type")
             res = Guide.Reference(href, basedir, is_path=True)
             res.title = title
             res.type = type
             return res
 
-        def __repr__(self):
+        def __repr__(self: _typing.Self) -> _typing.Any:
             ans = '<reference type="%s" href="%s" ' % (self.type, self.href())
             if self.title:
                 ans += 'title="%s" ' % self.title
             return ans + "/>"
 
     @staticmethod
-    def from_opf_guide(references, base_dir=os.getcwd()):
+    def from_opf_guide(references: _typing.Any, base_dir: _typing.Any = os.getcwd()) -> _typing.Any:
         coll = Guide()
         for ref in references:
             try:
@@ -477,7 +480,7 @@ class Guide(ResourceCollection):  # {{{
                 continue
         return coll
 
-    def set_cover(self, path):
+    def set_cover(self: _typing.Self, path: _typing.Any) -> None:
         map(self.remove, [i for i in self if "cover" in i.type.lower()])
         for local_type in (
             "cover",
@@ -499,13 +502,13 @@ class MetadataField(object):
     """
 
     def __init__(
-        self,
-        name,
-        is_dc=True,
-        formatter=None,
-        none_is=None,
-        renderer=lambda x: six_unicode(x),
-    ):
+        self: _typing.Self,
+        name: _typing.Any,
+        is_dc: bool = True,
+        formatter: _typing.Any = None,
+        none_is: _typing.Any = None,
+        renderer: _typing.Callable[..., _typing.Any] = lambda x: six_unicode(x),
+    ) -> None:
         """
         Provides various options for setting the behavior of the metadata field.
         :param name:
@@ -520,7 +523,7 @@ class MetadataField(object):
         self.none_is = none_is
         self.renderer = renderer
 
-    def __real_get__(self, obj, type=None):
+    def __real_get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any = None) -> _typing.Any:
         """
         Preforms the actual retrieval from the OPF, according to the pre-set behavioral defaults.
         :param obj:
@@ -542,13 +545,13 @@ class MetadataField(object):
             ans = ans.strip()
         return ans
 
-    def __get__(self, obj, type=None):
+    def __get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any = None) -> _typing.Any:
         ans = self.__real_get__(obj, type)
         if ans is None:
             ans = self.none_is
         return ans
 
-    def __set__(self, obj, val):
+    def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
 
         elem = obj.get_metadata_element(self.name)
 
@@ -569,7 +572,7 @@ class PluralMetadataField(object):
     Represents a metadata field which has multiple entries.
     """
 
-    def __init__(self, name, is_dc=True, none_is=None, renderer=lambda x: six_unicode(x)):
+    def __init__(self: _typing.Self, name: _typing.Any, is_dc: bool = True, none_is: _typing.Any = None, renderer: _typing.Callable[..., _typing.Any] = lambda x: six_unicode(x)) -> None:
         """
         Provides various options for setting the behavior of the metadata field.
         :param name: The name of the metadata field - will
@@ -582,7 +585,7 @@ class PluralMetadataField(object):
         self.none_is = none_is
         self.renderer = renderer
 
-    def __real_get__(self, obj, type=None):
+    def __real_get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any = None) -> _typing.Any:
         """
         Preforms the actual retrieval from the OPF according to the pre-set behavioral defaults.
         :param obj:
@@ -599,13 +602,13 @@ class PluralMetadataField(object):
             return None
         return ans
 
-    def __get__(self, obj, type):
+    def __get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any) -> _typing.Any:
         ans = self.__real_get__(obj, type)
         if ans is None:
             ans = self.none_is
         return ans
 
-    def __set__(self, instance, value):
+    def __set__(self: _typing.Self, instance: _typing.Any, value: _typing.Any) -> None:
         raise NotImplementedError
 
 
@@ -615,7 +618,7 @@ class PluralSeriesIndexField(PluralMetadataField):
     the index of that series.
     """
 
-    def __get__(self, obj, type):
+    def __get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any) -> _typing.Any:
         ans = obj.get_metadata_elements(self.name)
         if not ans:
             return None
@@ -633,13 +636,13 @@ class PluralRatingField(PluralMetadataField):
     Represents the rating field - returns an OrderedDict keyed with the name of the rating and valued with that rating.
     """
 
-    def __init__(self, name, is_dc=True, none_is=None, renderer=lambda x: six_unicode(x)):
+    def __init__(self: _typing.Self, name: _typing.Any, is_dc: bool = True, none_is: _typing.Any = None, renderer: _typing.Callable[..., _typing.Any] = lambda x: six_unicode(x)) -> None:
         PluralMetadataField.__init__(self, name, is_dc, none_is, renderer)
         from LiuXin_alpha.file_formats.oeb.base import OPF as OPF_name
 
         self.opf_name = OPF_name
 
-    def __get__(self, obj, type):
+    def __get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any) -> _typing.Any:
         ans = obj.get_metadata_elements(self.name)
         if not ans:
             return None
@@ -656,7 +659,7 @@ class PluralRatingField(PluralMetadataField):
 
 
 class TitleSortField(MetadataField):
-    def __get__(self, obj, type=None):
+    def __get__(self: _typing.Self, obj: _typing.Any, type: _typing.Any = None) -> _typing.Any:
         c = self.__real_get__(obj, type)
         if c is None:
             matches = obj.title_path(obj.metadata)
@@ -673,7 +676,7 @@ class TitleSortField(MetadataField):
             c = c.strip()
         return c
 
-    def __set__(self, obj, val):
+    def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
         MetadataField.__set__(self, obj, val)
         matches = obj.title_path(obj.metadata)
         if matches:
@@ -688,7 +691,7 @@ class TitleSortField(MetadataField):
 # - HELPER FUNCTIONS
 
 
-def serialize_user_metadata(metadata_elem, all_user_metadata, tail="\n" + (" " * 8)):
+def serialize_user_metadata(metadata_elem: _typing.Any, all_user_metadata: _typing.Any, tail: _typing.Any = "\n" + (" " * 8)) -> None:
     from LiuXin_alpha.metadata.book.json_codec import object_to_unicode, encode_is_multiple
     from LiuXin_alpha.utils.config.config_tools import to_json
 
@@ -711,7 +714,7 @@ def serialize_user_metadata(metadata_elem, all_user_metadata, tail="\n" + (" " *
         metadata_elem.append(meta)
 
 
-def dump_dict(cats):
+def dump_dict(cats: _typing.Any) -> _typing.Any:
     """
     Serialize a dictionary for storage.
     :param cats:
@@ -905,7 +908,7 @@ class OPF(object):  # {{{
     pubdate = MetadataField("pubdate", is_dc=True)
 
     @staticmethod
-    def get_contributor_marc_code(contributor_type):
+    def get_contributor_marc_code(contributor_type: _typing.Any) -> _typing.Any:
         """
         Takes a contributor type and returns a contributor marc code - or KeyErrors out.
         :param contributor_type:
@@ -914,7 +917,7 @@ class OPF(object):  # {{{
         return creator_to_marc(contributor_type)
 
     @classmethod
-    def get_contributor_path(cls, contributor_type):
+    def get_contributor_path(cls: type[_typing.Self], contributor_type: _typing.Any) -> _typing.Any:
         """
         A contributor of a type recognized by LiuXin - i.e. a value in LiuXin.constants.creator_marc_roles_dict.
         Allows support for contributors beyond the author type recognized by calibre.
@@ -930,15 +933,15 @@ class OPF(object):  # {{{
         return contributor_path
 
     def __init__(
-        self,
-        stream,
-        basedir=os.getcwd(),
-        unquote_urls=True,
-        populate_spine=True,
-        try_to_guess_cover=True,
-        preparsed_opf=None,
-        read_toc=True,
-    ):
+        self: _typing.Self,
+        stream: _typing.Any,
+        basedir: _typing.Any = os.getcwd(),
+        unquote_urls: bool = True,
+        populate_spine: bool = True,
+        try_to_guess_cover: bool = True,
+        preparsed_opf: _typing.Any = None,
+        read_toc: bool = True,
+    ) -> None:
         """
         Reads a stream and loads its data into the class.
 
@@ -993,7 +996,7 @@ class OPF(object):  # {{{
 
         self.read_user_metadata()
 
-    def read_user_metadata(self):
+    def read_user_metadata(self: _typing.Self) -> None:
         """
         Parse the file and read user information back out.
         :return:
@@ -1027,7 +1030,7 @@ class OPF(object):  # {{{
                 continue
         self._user_metadata_ = temp.get_all_user_metadata(True)
 
-    def to_book_metadata(self, calibre=True):
+    def to_book_metadata(self: _typing.Self, calibre: bool = True) -> _typing.Any:
         """
         Return the metadata of the opf document as a calibreMetadata object.
         :return:
@@ -1055,7 +1058,7 @@ class OPF(object):  # {{{
 
         return ans
 
-    def write_user_metadata(self):
+    def write_user_metadata(self: _typing.Self) -> None:
         elems = self.root.xpath('//*[name() = "meta" and starts-with(@name,"calibre:user_metadata:") and @content]')
         for elem in elems:
             elem.getparent().remove(elem)
@@ -1065,7 +1068,7 @@ class OPF(object):  # {{{
             # Optional user-metadata codec not available in minimal runtime environments.
             return
 
-    def find_toc(self):
+    def find_toc(self: _typing.Self) -> None:
         self.toc = None
         try:
             spine = self.XPath('descendant::*[re:match(name(), "spine", "i")]')(self.root)
@@ -1108,7 +1111,7 @@ class OPF(object):  # {{{
         except:
             pass
 
-    def get_text(self, elem):
+    def get_text(self: _typing.Self, elem: _typing.Any) -> _typing.Any:
         """
         If there is text in the element returns the text of the element - otherwise returns the content.
         :param elem:
@@ -1116,16 +1119,16 @@ class OPF(object):  # {{{
         """
         return "".join(self.CONTENT(elem) or self.TEXT(elem))
 
-    def set_text(self, elem, content):
+    def set_text(self: _typing.Self, elem: _typing.Any, content: _typing.Any) -> None:
         if elem.tag == self.META:
             elem.attrib["content"] = content
         else:
             elem.text = content
 
-    def itermanifest(self):
+    def itermanifest(self: _typing.Self) -> _typing.Any:
         return self.manifest_path(self.root)
 
-    def create_manifest_item(self, href, media_type):
+    def create_manifest_item(self: _typing.Self, href: _typing.Any, media_type: _typing.Any) -> _typing.Any:
         ids = [i.get("id", None) for i in self.itermanifest()]
         local_id = None
         for c in memory_range(1, sys.maxsize):
@@ -1141,7 +1144,7 @@ class OPF(object):  # {{{
         ans.tail = "\n\t\t"
         return ans
 
-    def replace_manifest_item(self, item, items):
+    def replace_manifest_item(self: _typing.Self, item: _typing.Any, items: _typing.Any) -> _typing.Any:
         items = [self.create_manifest_item(*i) for i in items]
         for i, item2 in enumerate(items):
             item2.set("id", item.get("id") + ".%d" % (i + 1))
@@ -1150,7 +1153,7 @@ class OPF(object):  # {{{
         manifest[index : index + 1] = items
         return [i.get("id") for i in items]
 
-    def add_path_to_manifest(self, path, media_type):
+    def add_path_to_manifest(self: _typing.Self, path: _typing.Any, media_type: _typing.Any) -> _typing.Any:
         path = os.path.abspath(path)
         for i in self.itermanifest():
             xpath = os.path.join(self.base_dir, *(i.get("href", "").split("/")))
@@ -1164,17 +1167,17 @@ class OPF(object):  # {{{
         self.manifest.append_from_opf_manifest_item(item, self.basedir)
         return item.get("id")
 
-    def iterspine(self):
+    def iterspine(self: _typing.Self) -> _typing.Any:
         return self.spine_path(self.root)
 
-    def spine_items(self):
+    def spine_items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for item in self.iterspine():
             idref = item.get("idref", "")
             for x in self.itermanifest():
                 if x.get("id", None) == idref:
                     yield x.get("href", "")
 
-    def first_spine_item(self):
+    def first_spine_item(self: _typing.Self) -> _typing.Any:
         items = self.iterspine()
         if not items:
             return None
@@ -1183,12 +1186,12 @@ class OPF(object):  # {{{
             if x.get("id", None) == idref:
                 return x.get("href", None)
 
-    def create_spine_item(self, idref):
+    def create_spine_item(self: _typing.Self, idref: _typing.Any) -> _typing.Any:
         ans = etree.Element("{%s}itemref" % self.NAMESPACES["opf"], idref=idref)
         ans.tail = "\n\t\t"
         return ans
 
-    def replace_spine_items_by_idref(self, idref, new_idrefs):
+    def replace_spine_items_by_idref(self: _typing.Self, idref: _typing.Any, new_idrefs: _typing.Any) -> None:
         items = list(map(self.create_spine_item, new_idrefs))
         spine = self.XPath('/opf:package/*[re:match(name(), "spine", "i")]')(self.root)[0]
         old = [i for i in self.iterspine() if i.get("idref", None) == idref]
@@ -1196,13 +1199,13 @@ class OPF(object):  # {{{
             i = spine.index(x)
             spine[i : i + 1] = items
 
-    def create_guide_element(self):
+    def create_guide_element(self: _typing.Self) -> _typing.Any:
         e = etree.SubElement(self.root, "{%s}guide" % self.NAMESPACES["opf"])
         e.text = "\n        "
         e.tail = "\n"
         return e
 
-    def remove_guide(self):
+    def remove_guide(self: _typing.Self) -> None:
         self.guide = None
         for g in self.root.xpath(
             './*[re:match(name(), "guide", "i")]',
@@ -1210,23 +1213,23 @@ class OPF(object):  # {{{
         ):
             self.root.remove(g)
 
-    def create_guide_item(self, type, title, href):
+    def create_guide_item(self: _typing.Self, type: _typing.Any, title: _typing.Any, href: _typing.Any) -> _typing.Any:
         e = etree.Element("{%s}reference" % self.NAMESPACES["opf"], type=type, title=title, href=href)
         e.tail = "\n"
         return e
 
-    def add_guide_item(self, type, title, href):
+    def add_guide_item(self: _typing.Self, type: _typing.Any, title: _typing.Any, href: _typing.Any) -> None:
         g = self.root.xpath(
             './*[re:match(name(), "guide", "i")]',
             namespaces={"re": "http://exslt.org/regular-expressions"},
         )[0]
         g.append(self.create_guide_item(type, title, href))
 
-    def iterguide(self):
+    def iterguide(self: _typing.Self) -> _typing.Any:
         return self.guide_path(self.root)
 
-    def unquote_urls(self):
-        def get_href(local_item):
+    def unquote_urls(self: _typing.Self) -> None:
+        def get_href(local_item: _typing.Any) -> _typing.Any:
             raw = unquote(local_item.get("href", ""))
             if not isinstance(raw, unicode):
                 raw = raw.decode("utf-8")
@@ -1246,14 +1249,14 @@ class OPF(object):  # {{{
     # AN2: It is pretty cool
     # {{{
     @property
-    def title(self):
+    def title(self: _typing.Self) -> _typing.Any:
         for elem in self.title_path(self.metadata):
             title = self.get_text(elem)
             if title and title.strip():
                 return re.sub(r"\s+", " ", title.strip())
 
     @title.setter
-    def title(self, val):
+    def title(self: _typing.Self, val: _typing.Any) -> None:
         val = (val or "").strip()
         titles = self.title_path(self.metadata)
         if self.package_version < 3:
@@ -1270,7 +1273,7 @@ class OPF(object):  # {{{
 
     # {{{
     @property
-    def authors(self):
+    def authors(self: _typing.Self) -> _typing.Any:
         """
         Returns a list of all creators with the role of author, in the order they appear in the document.
         :return:
@@ -1282,7 +1285,7 @@ class OPF(object):  # {{{
         return ans
 
     @authors.setter
-    def authors(self, val):
+    def authors(self: _typing.Self, val: _typing.Any) -> None:
         """
         Sets the values for all the authors in the row.
         :param val:
@@ -1305,7 +1308,7 @@ class OPF(object):  # {{{
     # }}}
 
     # {{{
-    def get_contributors(self, role):
+    def get_contributors(self: _typing.Self, role: _typing.Any) -> _typing.Any:
         """
         Returns all the contributors with a particular role in the opf.
         :return:
@@ -1316,7 +1319,7 @@ class OPF(object):  # {{{
             ans.extend(string_to_authors(self.get_text(elem)))
         return ans
 
-    def set_contributors(self, role, val):
+    def set_contributors(self: _typing.Self, role: _typing.Any, val: _typing.Any) -> None:
         """
         Set the contributors with a particular role in the opf.
         :param role:
@@ -1347,7 +1350,7 @@ class OPF(object):  # {{{
 
     # {{{
     @property
-    def author_sort(self):
+    def author_sort(self: _typing.Self) -> _typing.Any:
         """
         The author sort field is just a string - reads the {OPF_NAMESPACE}file_as property and returns it
         :return:
@@ -1362,7 +1365,7 @@ class OPF(object):  # {{{
                     return ans
 
     @author_sort.setter
-    def author_sort(self, val):
+    def author_sort(self: _typing.Self, val: _typing.Any) -> None:
         """
         Updates the file-as property with the new author sort
         :param val:
@@ -1379,7 +1382,7 @@ class OPF(object):  # {{{
 
     # {{{
     @property
-    def tags(self):
+    def tags(self: _typing.Self) -> _typing.Any:
         ans = []
         for tag in self.tags_path(self.metadata):
             text = self.get_text(tag)
@@ -1388,7 +1391,7 @@ class OPF(object):  # {{{
         return ans
 
     @tags.setter
-    def tags(self, val):
+    def tags(self: _typing.Self, val: _typing.Any) -> None:
         # Purge the old tags, if any
         for tag in list(self.tags_path(self.metadata)):
             tag.getparent().remove(tag)
@@ -1400,7 +1403,7 @@ class OPF(object):  # {{{
 
     # {{{
     @property
-    def pubdate(self):
+    def pubdate(self: _typing.Self) -> _typing.Any:
         ans = None
         for match in self.pubdate_path(self.metadata):
             try:
@@ -1413,7 +1416,7 @@ class OPF(object):  # {{{
         return ans
 
     @pubdate.setter
-    def pubdate(self, val):
+    def pubdate(self: _typing.Self, val: _typing.Any) -> None:
         least_val = least_elem = None
         for match in self.pubdate_path(self.metadata):
             try:
@@ -1437,12 +1440,12 @@ class OPF(object):  # {{{
 
     # {{{
     @property
-    def isbn(self):
+    def isbn(self: _typing.Self) -> bool:
         for match in self.isbn_path(self.metadata):
             return self.get_text(match) or None
 
     @isbn.setter
-    def isbn(self, val):
+    def isbn(self: _typing.Self, val: _typing.Any) -> None:
         matches = self.isbn_path(self.metadata)
         if not val:
             for x in matches:
@@ -1455,7 +1458,7 @@ class OPF(object):  # {{{
 
     # }}}
 
-    def get_all_identifiers(self):
+    def get_all_identifiers(self: _typing.Self) -> _typing.Any:
         """
         Returns all the identifiers in the document in the form of a dictionary keyed with the type of the identifier
         and valued with a set containing all the instances of that identifier in the OPF object.
@@ -1482,7 +1485,7 @@ class OPF(object):  # {{{
                         identifiers["isbn"].add(val)
         return identifiers
 
-    def get_identifiers(self):
+    def get_identifiers(self: _typing.Self) -> _typing.Any:
         """
         Miantained for calibre compatability reasons - returns a dictionary keyed with the name of the identifiers and
         valued with the first instance of that identifier type in the OPF object.
@@ -1510,7 +1513,7 @@ class OPF(object):  # {{{
                         identifiers["isbn"] = val
         return identifiers
 
-    def set_identifiers(self, identifiers):
+    def set_identifiers(self: _typing.Self, identifiers: _typing.Any) -> None:
         identifiers = identifiers.copy()
         uuid_id = None
         for attr in self.root.attrib:
@@ -1539,13 +1542,13 @@ class OPF(object):  # {{{
 
     # {{{
     @property
-    def application_id(self):
+    def application_id(self: _typing.Self) -> bool:
 
         for match in self.application_id_path(self.metadata):
             return self.get_text(match) or None
 
     @application_id.setter
-    def application_id(self, val):
+    def application_id(self: _typing.Self, val: _typing.Any) -> None:
         removed_ids = set()
         for x in tuple(self.application_id_path(self.metadata)):
             removed_ids.add(x.get("id", None))
@@ -1565,13 +1568,13 @@ class OPF(object):  # {{{
 
     # {{{
     @property
-    def uuid(self):
+    def uuid(self: _typing.Self) -> bool:
 
         for match in self.uuid_id_path(self.metadata):
             return self.get_text(match) or None
 
     @uuid.setter
-    def uuid(self, val):
+    def uuid(self: _typing.Self, val: _typing.Any) -> None:
         matches = self.uuid_id_path(self.metadata)
         if not matches:
             attrib = {"{%s}scheme" % self.NAMESPACES["opf"]: "uuid"}
@@ -1582,21 +1585,21 @@ class OPF(object):  # {{{
 
     # {{{
     @property
-    def language(self):
+    def language(self: _typing.Self) -> _typing.Any:
 
         ans = self.languages
         if ans:
             return ans[0]
 
     @language.setter
-    def language(self, val):
+    def language(self: _typing.Self, val: _typing.Any) -> None:
         self.languages = [val]
 
     # }}}
 
     # {{{
     @property
-    def languages(self):
+    def languages(self: _typing.Self) -> _typing.Any:
 
         ans = []
         for match in self.languages_path(self.metadata):
@@ -1609,7 +1612,7 @@ class OPF(object):  # {{{
         return ans
 
     @languages.setter
-    def languages(self, val):
+    def languages(self: _typing.Self, val: _typing.Any) -> None:
 
         matches = self.languages_path(self.metadata)
         for x in matches:
@@ -1622,7 +1625,7 @@ class OPF(object):  # {{{
     # }}}
 
     @property
-    def raw_languages(self):
+    def raw_languages(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for match in self.languages_path(self.metadata):
             t = self.get_text(match)
             if t and t.strip():
@@ -1630,13 +1633,13 @@ class OPF(object):  # {{{
 
     # {{{
     @property
-    def book_producer(self):
+    def book_producer(self: _typing.Self) -> bool:
 
         for match in self.bkp_path(self.metadata):
             return self.get_text(match) or None
 
     @book_producer.setter
-    def book_producer(self, val):
+    def book_producer(self: _typing.Self, val: _typing.Any) -> None:
         matches = self.bkp_path(self.metadata)
         if not matches:
             matches = [self.create_metadata_element("contributor")]
@@ -1645,12 +1648,12 @@ class OPF(object):  # {{{
 
     # }}}
 
-    def identifier_iter(self):
+    def identifier_iter(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for item in self.identifier_path(self.metadata):
             yield item
 
     @property
-    def raw_unique_identifier(self):
+    def raw_unique_identifier(self: _typing.Self) -> _typing.Any:
         uuid_elem = None
         for attr in self.root.attrib:
             if attr.endswith("unique-identifier"):
@@ -1665,20 +1668,20 @@ class OPF(object):  # {{{
                         return raw
 
     @property
-    def unique_identifier(self):
+    def unique_identifier(self: _typing.Self) -> _typing.Any:
         raw = self.raw_unique_identifier
         if raw:
             return raw.rpartition(":")[-1]
 
     @property
-    def page_progression_direction(self):
+    def page_progression_direction(self: _typing.Self) -> _typing.Any:
         spine = self.XPath('descendant::*[re:match(name(), "spine", "i")][1]')(self.root)
         if spine:
             for k, v in iteritems(spine[0].attrib):
                 if k == "page-progression-direction" or k.endswith("}page-progression-direction"):
                     return v
 
-    def guess_cover(self):
+    def guess_cover(self: _typing.Self) -> _typing.Any:
         """
         Try to guess a cover. Needed for some old/badly formed OPF files.
         :return:
@@ -1700,7 +1703,7 @@ class OPF(object):  # {{{
                             return cpath
 
     @property
-    def epub3_raster_cover(self):
+    def epub3_raster_cover(self: _typing.Self) -> _typing.Any:
         for item in self.itermanifest():
             props = set((item.get("properties") or "").lower().split())
             if "cover-image" in props:
@@ -1709,7 +1712,7 @@ class OPF(object):  # {{{
                     return item.get("href", None)
 
     @property
-    def raster_cover(self):
+    def raster_cover(self: _typing.Self) -> _typing.Any:
         covers = self.raster_cover_path(self.metadata)
         if covers:
             cover_id = covers[0].get("content")
@@ -1727,7 +1730,7 @@ class OPF(object):  # {{{
             return self.epub3_raster_cover
 
     @property
-    def guide_raster_cover(self):
+    def guide_raster_cover(self: _typing.Self) -> _typing.Any:
         covers = self.guide_cover_path(self.root)
         if covers:
             mt_map = {i.get("href"): i for i in self.itermanifest()}
@@ -1740,7 +1743,7 @@ class OPF(object):  # {{{
                             return i
 
     @property
-    def epub3_nav(self):
+    def epub3_nav(self: _typing.Self) -> _typing.Any:
         if self.package_version >= 3.0:
             for item in self.itermanifest():
                 props = (item.get("properties") or "").lower().split()
@@ -1755,7 +1758,7 @@ class OPF(object):  # {{{
 
     # {{{
     @property
-    def cover(self):
+    def cover(self: _typing.Self) -> _typing.Any:
 
         if self.guide is not None:
             for t in ("cover", "other.ms-coverimage-standard", "other.ms-coverimage"):
@@ -1771,7 +1774,7 @@ class OPF(object):  # {{{
             return
 
     @cover.setter
-    def cover(self, path):
+    def cover(self: _typing.Self, path: _typing.Any) -> None:
 
         if self.guide is not None:
             self.guide.set_cover(path)
@@ -1801,7 +1804,7 @@ class OPF(object):  # {{{
     #
     # ----------------------------------------------------------------------------------------------------------------------
 
-    def get_metadata_elements(self, name):
+    def get_metadata_elements(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         Returns all the elements corresponding to a given metadata name.
         :param name:
@@ -1810,7 +1813,7 @@ class OPF(object):  # {{{
         matches = self.metadata_elem_path(self.metadata, name=name)
         return [m for m in matches]
 
-    def get_metadata_element(self, name):
+    def get_metadata_element(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         Returns metadata matches corresponding to the given name - if there are multiple matches returns the first
         one in the document.
@@ -1821,7 +1824,7 @@ class OPF(object):  # {{{
         if matches:
             return matches[0]
 
-    def create_metadata_element(self, name, attrib=None, is_dc=True):
+    def create_metadata_element(self: _typing.Self, name: _typing.Any, attrib: _typing.Any = None, is_dc: bool = True) -> _typing.Any:
         """
         Make a metadata element.
         :param name:
@@ -1843,7 +1846,7 @@ class OPF(object):  # {{{
         elem.tail = "\n"
         return elem
 
-    def render(self, encoding="utf-8"):
+    def render(self: _typing.Self, encoding: str = "utf-8") -> _typing.Any:
 
         for meta in self.raster_cover_path(self.metadata):
             # Ensure that the name attribute occurs before the content
@@ -1864,7 +1867,7 @@ class OPF(object):  # {{{
         if len(smap) == 2 and smap["calibre:series"][1] > smap["calibre:series_index"][1]:
             s, si = smap["calibre:series"][0], smap["calibre:series_index"][0]
 
-            def swap(attr):
+            def swap(attr: _typing.Any) -> None:
                 t = s.get(attr, "")
                 s.set(attr, si.get(attr, "")), si.set(attr, t)
 
@@ -1882,7 +1885,7 @@ class OPF(object):  # {{{
             raw = '<?xml version="1.0"  encoding="%s"?>\n' % encoding.upper() + raw
         return raw
 
-    def smart_update(self, mi, replace_metadata=False, apply_null=False):
+    def smart_update(self: _typing.Self, mi: _typing.Any, replace_metadata: bool = False, apply_null: bool = False) -> None:
         """
         Update the metadata in the opf file - optionally setting the metadata null.
         :param mi: The metadata to
@@ -1971,7 +1974,7 @@ class OPF(object):  # {{{
 
 
 class OPFCreator(calibreMetadata):
-    def __init__(self, base_path, other):
+    def __init__(self: _typing.Self, base_path: _typing.Any, other: _typing.Any) -> None:
         """
         Initialize.
         :param base_path: An absolute path to the directory in which this OPF file
@@ -2033,7 +2036,7 @@ class OPFCreator(calibreMetadata):
         if getattr(self, "cover", None):
             self.guide.set_cover(self.cover)
 
-    def create_manifest(self, entries):
+    def create_manifest(self: _typing.Self, entries: _typing.Any) -> None:
         """
         Create <manifest>
         :param entries: List of (path, mime-type) If mime-type is None it is autodetected
@@ -2046,10 +2049,10 @@ class OPFCreator(calibreMetadata):
         self.manifest = Manifest.from_paths(entries)
         self.manifest.set_basedir(self.base_path)
 
-    def create_manifest_from_files_in(self, files_and_dirs, exclude=lambda x: False):
+    def create_manifest_from_files_in(self: _typing.Self, files_and_dirs: _typing.Any, exclude: _typing.Callable[..., _typing.Any] = lambda x: False) -> None:
         entries = []
 
-        def dodir(local_dir):
+        def dodir(local_dir: _typing.Any) -> None:
             for spec in os.walk(local_dir):
                 root, files = spec[0], spec[-1]
                 for name in files:
@@ -2065,7 +2068,7 @@ class OPFCreator(calibreMetadata):
 
         self.create_manifest(entries)
 
-    def create_spine(self, entries):
+    def create_spine(self: _typing.Self, entries: _typing.Any) -> None:
         """
         Create the <spine> element. Must first call :method:`create_manifest`.
         :param entries: List of paths
@@ -2077,26 +2080,26 @@ class OPFCreator(calibreMetadata):
         )
         self.spine = Spine.from_paths(entries, self.manifest)
 
-    def set_toc(self, toc):
+    def set_toc(self: _typing.Self, toc: _typing.Any) -> None:
         """
         Set the toc. You must call :method:`create_spine` before calling this method.
         :param toc: A :class:`TOC` object
         """
         self.toc = toc
 
-    def create_guide(self, guide_element):
+    def create_guide(self: _typing.Self, guide_element: _typing.Any) -> None:
         self.guide = Guide.from_opf_guide(guide_element, self.base_path)
         self.guide.set_basedir(self.base_path)
 
     # Todo: Seems to be code duplications here
     def render(
-        self,
-        opf_stream=sys.stdout,
-        ncx_stream=None,
-        ncx_manifest_entry=None,
-        encoding=None,
-        process_guide=None,
-    ):
+        self: _typing.Self,
+        opf_stream: _typing.Any = sys.stdout,
+        ncx_stream: _typing.Any = None,
+        ncx_manifest_entry: _typing.Any = None,
+        encoding: _typing.Any = None,
+        process_guide: _typing.Any = None,
+    ) -> None:
         """
         Render the OPF file to the given opf_stream.
         :param opf_stream:
@@ -2143,7 +2146,7 @@ class OPFCreator(calibreMetadata):
         M = ElementMaker(namespace=DNS, nsmap={"dc": DC11_NS, "calibre": CALIBRE_NS, "opf": OPF2_NS})
         DC = ElementMaker(namespace=DC11_NS)
 
-        def DC_ELEM(tag, text, dc_attrs={}, opf_attrs={}):
+        def DC_ELEM(tag: _typing.Any, text: _typing.Any, dc_attrs: dict[_typing.Any, _typing.Any] = {}, opf_attrs: dict[_typing.Any, _typing.Any] = {}) -> _typing.Any:
             if text:
                 elem = getattr(DC, tag)(clean_ascii_chars(text), **dc_attrs)
             else:
@@ -2152,7 +2155,7 @@ class OPFCreator(calibreMetadata):
                 elem.set("{%s}%s" % (OPF2_NS, k), v)
             return elem
 
-        def CAL_ELEM(name, content):
+        def CAL_ELEM(name: _typing.Any, content: _typing.Any) -> _typing.Any:
             return M.meta(name=name, content=content)
 
         metadata = M.metadata()
@@ -2295,7 +2298,7 @@ class OPFCreator(calibreMetadata):
             ncx_stream.flush()
 
 
-def metadata_to_opf(mi, as_string=True, default_lang=None):
+def metadata_to_opf(mi: _typing.Any, as_string: bool = True, default_lang: _typing.Any = None) -> _typing.Any:
     """
     Take a calibreMetadata/Metadata object and serialize it to a string.
     :param mi:
@@ -2345,7 +2348,7 @@ def metadata_to_opf(mi, as_string=True, default_lang=None):
     guide = root[1]
     metadata[0].tail = "\n" + (" " * 8)
 
-    def factory(tag, text=None, sort=None, role=None, scheme=None, name=None, content=None):
+    def factory(tag: _typing.Any, text: _typing.Any = None, sort: _typing.Any = None, role: _typing.Any = None, scheme: _typing.Any = None, name: _typing.Any = None, content: _typing.Any = None) -> None:
         """
         Adds an element to the OPF file.
         :param tag:
@@ -2645,7 +2648,7 @@ def metadata_to_opf(mi, as_string=True, default_lang=None):
         return root
 
 
-def calibre_metadata_to_opf(mi, as_string=True, default_lang=None):
+def calibre_metadata_to_opf(mi: _typing.Any, as_string: bool = True, default_lang: _typing.Any = None) -> _typing.Any:
     """
     Write a calibre metadata instance out to an opf file.
     :param mi:
@@ -2689,7 +2692,7 @@ def calibre_metadata_to_opf(mi, as_string=True, default_lang=None):
     guide = root[1]
     metadata[0].tail = "\n" + (" " * 8)
 
-    def factory(tag, text=None, sort=None, role=None, scheme=None, name=None, content=None):
+    def factory(tag: _typing.Any, text: _typing.Any = None, sort: _typing.Any = None, role: _typing.Any = None, scheme: _typing.Any = None, name: _typing.Any = None, content: _typing.Any = None) -> None:
         """
         Add an element to the opf.
         :param tag:

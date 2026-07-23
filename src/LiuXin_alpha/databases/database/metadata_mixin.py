@@ -16,6 +16,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnMergePolicy,
     ColumnMetadata,
     ColumnNormalizationProfile,
+    ColumnOptions,
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
@@ -459,6 +460,52 @@ class DatabaseMetadataMixin:
             table,
             column,
             validation_profile,
+        )
+
+    def get_formatting_options(
+        self: "DatabaseAPI",
+        table: str,
+        column: str,
+    ) -> ColumnOptions:
+        """Return immutable value-formatting hints for one column."""
+
+        return self.driver_wrapper.get_formatting_options(table, column)
+
+    def set_formatting_options(
+        self: "DatabaseAPI",
+        table: str,
+        column: str,
+        formatting_options: Mapping[str, object],
+    ) -> None:
+        """Persist value-formatting hints for one column."""
+
+        self.driver_wrapper.set_formatting_options(
+            table,
+            column,
+            formatting_options,
+        )
+
+    def get_display_options(
+        self: "DatabaseAPI",
+        table: str,
+        column: str,
+    ) -> ColumnOptions:
+        """Return immutable surface-display hints for one column."""
+
+        return self.driver_wrapper.get_display_options(table, column)
+
+    def set_display_options(
+        self: "DatabaseAPI",
+        table: str,
+        column: str,
+        display_options: Mapping[str, object],
+    ) -> None:
+        """Persist surface-display hints for one column."""
+
+        self.driver_wrapper.set_display_options(
+            table,
+            column,
+            display_options,
         )
 
     def set_case_sensitivity(

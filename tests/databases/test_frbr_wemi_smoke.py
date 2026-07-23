@@ -16,6 +16,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnEmptyValuePolicy,
     ColumnMergePolicy,
     ColumnSemanticRole,
+    column_options_to_json,
     default_column_case_sensitive,
     infer_column_metadata,
 )
@@ -114,7 +115,9 @@ def test_frbr_generator_create_new_database_smoke(tmp_path: pathlib.Path) -> Non
                   column_metadata_comparison_column,
                   column_metadata_empty_value_policy,
                   column_metadata_merge_policy,
-                  column_metadata_validation_profile
+                  column_metadata_validation_profile,
+                  column_metadata_formatting_options_json,
+                  column_metadata_display_options_json
                 FROM column_metadata;
                 """
             )
@@ -158,6 +161,8 @@ def test_frbr_generator_create_new_database_smoke(tmp_path: pathlib.Path) -> Non
                 metadata.empty_value_policy.value,
                 metadata.merge_policy.value,
                 metadata.validation_profile.value,
+                column_options_to_json(metadata.formatting_options),
+                column_options_to_json(metadata.display_options),
             )
             if metadata.comparison_column is not None:
                 assert metadata.comparison_column in table_columns[metadata.table]
@@ -243,6 +248,8 @@ def test_frbr_generator_create_new_database_smoke(tmp_path: pathlib.Path) -> Non
                 metadata.empty_value_policy.value,
                 metadata.merge_policy.value,
                 metadata.validation_profile.value,
+                column_options_to_json(metadata.formatting_options),
+                column_options_to_json(metadata.display_options),
             )
             if metadata.comparison_column is not None:
                 assert headings[metadata.comparison_column] == "TEXT"

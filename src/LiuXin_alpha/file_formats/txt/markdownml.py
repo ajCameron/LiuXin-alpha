@@ -3,6 +3,9 @@
 """
 Transform OEB content into Textile formatted plain text
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 from functools import partial
@@ -27,7 +30,7 @@ __docformat__ = "restructuredtext en"
 
 
 class MarkdownMLizer(OEB2HTML):
-    def extract_content(self, oeb_book, opts):
+    def extract_content(self: _typing.Self, oeb_book: _typing.Any, opts: _typing.Any) -> _typing.Any:
         self.log.info("Converting XHTML to Markdown formatted TXT...")
         self.opts = opts
         self.in_code = False
@@ -48,7 +51,7 @@ class MarkdownMLizer(OEB2HTML):
 
         return txt
 
-    def mlize_spine(self, oeb_book):
+    def mlize_spine(self: _typing.Self, oeb_book: _typing.Any) -> _typing.Any:
         output = [""]
         for item in oeb_book.spine:
             self.log.debug("Converting %s to Markdown formatted TXT..." % item.href)
@@ -59,7 +62,7 @@ class MarkdownMLizer(OEB2HTML):
             output.append("\n\n")
         return "".join(output)
 
-    def tidy_up(self, text):
+    def tidy_up(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         # Remove blank space form beginning of paragraph.
         text = re.sub("(?msu)^[ ]{1,3}", "", text)
         # pre has 4 spaces. We trimmed 3 so anything with a space left is a pre.
@@ -89,7 +92,7 @@ class MarkdownMLizer(OEB2HTML):
 
         return text
 
-    def remove_newlines(self, text):
+    def remove_newlines(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         text = text.replace("\r\n", " ")
         text = text.replace("\n", " ")
         text = text.replace("\r", " ")
@@ -101,17 +104,17 @@ class MarkdownMLizer(OEB2HTML):
             self.remove_space_after_newline = False
         return text
 
-    def prepare_string_for_markdown(self, txt):
+    def prepare_string_for_markdown(self: _typing.Self, txt: _typing.Any) -> _typing.Any:
         txt = re.sub(r"([\\`*_{}\[\]()#+!])", r"\\\1", txt)
         return txt
 
-    def prepare_string_for_pre(self, txt):
+    def prepare_string_for_pre(self: _typing.Self, txt: _typing.Any) -> _typing.Any:
         new_text = []
         for l in txt.splitlines():
             new_text.append("    " + l)
         return "\n".join(new_text)
 
-    def dump_text(self, elem, stylizer):
+    def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any) -> _typing.Any:
         """"""
 
         # We can only processes tags. If there isn't a tag return any text.

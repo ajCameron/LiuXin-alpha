@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 RTF tokenizer and token parser. v.1.0 (1/17/2010)
@@ -17,105 +20,105 @@ __docformat__ = "restructuredtext en"
 
 
 class tokenDelimitatorStart:
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         pass
 
-    def toRTF(self):
+    def toRTF(self: _typing.Self) -> str:
         return "{"
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> str:
         return "{"
 
 
 class tokenDelimitatorEnd:
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         pass
 
-    def toRTF(self):
+    def toRTF(self: _typing.Self) -> str:
         return "}"
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> str:
         return "}"
 
 
 class tokenControlWord:
-    def __init__(self, name, separator=""):
+    def __init__(self: _typing.Self, name: _typing.Any, separator: str = "") -> None:
         self.name = name
         self.separator = separator
 
-    def toRTF(self):
+    def toRTF(self: _typing.Self) -> _typing.Any:
         return self.name + self.separator
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return self.name + self.separator
 
 
 class tokenControlWordWithNumericArgument:
-    def __init__(self, name, argument, separator=""):
+    def __init__(self: _typing.Self, name: _typing.Any, argument: _typing.Any, separator: str = "") -> None:
         self.name = name
         self.argument = argument
         self.separator = separator
 
-    def toRTF(self):
+    def toRTF(self: _typing.Self) -> _typing.Any:
         return self.name + repr(self.argument) + self.separator
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return self.name + repr(self.argument) + self.separator
 
 
 class tokenControlSymbol:
-    def __init__(self, name):
+    def __init__(self: _typing.Self, name: _typing.Any) -> None:
         self.name = name
 
-    def toRTF(self):
+    def toRTF(self: _typing.Self) -> _typing.Any:
         return self.name
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return self.name
 
 
 class tokenData:
-    def __init__(self, data):
+    def __init__(self: _typing.Self, data: _typing.Any) -> None:
         self.data = data
 
-    def toRTF(self):
+    def toRTF(self: _typing.Self) -> _typing.Any:
         return self.data
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return self.data
 
 
 class tokenBinN:
-    def __init__(self, data, separator=""):
+    def __init__(self: _typing.Self, data: _typing.Any, separator: str = "") -> None:
         self.data = data
         self.separator = separator
 
-    def toRTF(self):
+    def toRTF(self: _typing.Self) -> _typing.Any:
         return "\\bin" + repr(len(self.data)) + self.separator + self.data
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "\\bin" + repr(len(self.data)) + self.separator + self.data
 
 
 class token8bitChar:
-    def __init__(self, data):
+    def __init__(self: _typing.Self, data: _typing.Any) -> None:
         self.data = data
 
-    def toRTF(self):
+    def toRTF(self: _typing.Self) -> _typing.Any:
         return "\\'" + self.data
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "\\'" + self.data
 
 
 class tokenUnicode:
-    def __init__(self, data, separator="", current_ucn=1, eqList=None):
+    def __init__(self: _typing.Self, data: _typing.Any, separator: str = "", current_ucn: int = 1, eqList: _typing.Any = None) -> None:
         self.data = data
         self.separator = separator
         self.current_ucn = current_ucn
         self.eqList = [] if eqList is None else eqList
 
-    def toRTF(self):
+    def toRTF(self: _typing.Self) -> _typing.Any:
         result = "\\u" + repr(self.data) + " "
         ucn = self.current_ucn
         if len(self.eqList) < ucn:
@@ -128,33 +131,33 @@ class tokenUnicode:
             result = result + eq.toRTF()
         return result
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "\\u" + repr(self.data)
 
 
-def isAsciiLetter(value):
+def isAsciiLetter(value: _typing.Any) -> bool:
     return ((value >= "a") and (value <= "z")) or ((value >= "A") and (value <= "Z"))
 
 
-def isDigit(value):
+def isDigit(value: _typing.Any) -> bool:
     return (value >= "0") and (value <= "9")
 
 
-def isChar(value, char):
+def isChar(value: _typing.Any, char: _typing.Any) -> bool:
     return value == char
 
 
-def isString(buffer, string):
+def isString(buffer: _typing.Any, string: _typing.Any) -> bool:
     return buffer == string
 
 
 class RtfTokenParser:
-    def __init__(self, tokens):
+    def __init__(self: _typing.Self, tokens: _typing.Any) -> None:
         self.tokens = tokens
         self.process()
         self.processUnicode()
 
-    def process(self):
+    def process(self: _typing.Self) -> None:
         i = 0
         new_tokens = []
         while i < len(self.tokens):
@@ -176,7 +179,7 @@ class RtfTokenParser:
 
         self.tokens = list(new_tokens)
 
-    def processUnicode(self):
+    def processUnicode(self: _typing.Self) -> None:
         i = 0
         new_tokens = []
         uc_nb_stack = [1]
@@ -248,7 +251,7 @@ class RtfTokenParser:
 
         self.tokens = list(new_tokens)
 
-    def toRTF(self):
+    def toRTF(self: _typing.Self) -> _typing.Any:
         result = []
         for token in self.tokens:
             result.append(token.toRTF())
@@ -256,7 +259,7 @@ class RtfTokenParser:
 
 
 class RtfTokenizer:
-    def __init__(self, rtfData):
+    def __init__(self: _typing.Self, rtfData: _typing.Any) -> None:
         self.rtfData = []
         self.tokens = []
         if isinstance(rtfData, bytes):
@@ -264,7 +267,7 @@ class RtfTokenizer:
         self.rtfData = rtfData
         self.tokenize()
 
-    def tokenize(self):
+    def tokenize(self: _typing.Self) -> None:
         i = 0
         lastDataStart = -1
         while i < len(self.rtfData):
@@ -357,7 +360,7 @@ class RtfTokenizer:
                 lastDataStart = i
             i += 1
 
-    def toRTF(self):
+    def toRTF(self: _typing.Self) -> _typing.Any:
         result = []
         for token in self.tokens:
             result.append(token.toRTF())

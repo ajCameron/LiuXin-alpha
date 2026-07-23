@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from collections import defaultdict
 from uuid import uuid4
@@ -11,7 +14,7 @@ try:
     from LiuXin_alpha.file_formats.oeb.transforms.subset import find_font_face_rules
 except Exception:
     # Font subsetting backend is optional during the ongoing port.
-    def find_font_face_rules(sheet, oeb):
+    def find_font_face_rules(sheet: _typing.Any, oeb: _typing.Any) -> list[_typing.Any]:
         return []
 
 # Py2/Py3
@@ -21,7 +24,7 @@ __license__ = "GPL v3"
 __copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def obfuscate_font_data(data, key):
+def obfuscate_font_data(data: _typing.Any, key: _typing.Any) -> _typing.Any:
     prefix = bytearray(data[:32])
     key = bytearray(reversed(key.bytes))
     prefix = bytes(bytearray(prefix[i] ^ key[i % len(key)] for i in memory_range(len(prefix))))
@@ -29,11 +32,11 @@ def obfuscate_font_data(data, key):
 
 
 class FontsManager(object):
-    def __init__(self, namespace, oeb, opts):
+    def __init__(self: _typing.Self, namespace: _typing.Any, oeb: _typing.Any, opts: _typing.Any) -> None:
         self.namespace = namespace
         self.oeb, self.log, self.opts = oeb, oeb.log, opts
 
-    def serialize(self, text_styles, fonts, embed_relationships, font_data_map):
+    def serialize(self: _typing.Self, text_styles: _typing.Any, fonts: _typing.Any, embed_relationships: _typing.Any, font_data_map: _typing.Any) -> None:
         makeelement = self.namespace.makeelement
         font_families, seen = set(), set()
         for ts in text_styles:

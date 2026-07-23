@@ -53,6 +53,9 @@ purpose.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 
@@ -70,15 +73,15 @@ class Unidecoder(object):
 
     codepoints = {}
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.codepoints = CODEPOINTS
         self.codepoints.update(HANCODES)
 
-    def decode(self, text):
+    def decode(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         # Replace characters larger than 127 with their ASCII equivelent.
         return re.sub("[^\x00-\x7f]", lambda x: self.replace_point(x.group()), text)
 
-    def replace_point(self, codepoint):
+    def replace_point(self: _typing.Self, codepoint: _typing.Any) -> _typing.Any:
         """
         Returns the replacement character or ? if none can be found.
         :param codepoint:
@@ -92,7 +95,7 @@ class Unidecoder(object):
         except:
             return "?"
 
-    def code_group(self, character):
+    def code_group(self: _typing.Self, character: _typing.Any) -> _typing.Any:
         """
         Find what group character is a part of.
         :param character:
@@ -104,7 +107,7 @@ class Unidecoder(object):
         except:
             return "x%02x" % (ord(character) >> 8)
 
-    def grouped_point(self, character):
+    def grouped_point(self: _typing.Self, character: _typing.Any) -> _typing.Any:
         """
         Return the location the replacement character is in the list for a
         the group character is a part of.

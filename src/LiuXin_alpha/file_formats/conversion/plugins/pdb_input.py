@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
@@ -21,7 +24,7 @@ class PDBInput(InputFormatPlugin):
     description = "Convert PDB to HTML"
     file_types = {"pdb", "updb"}
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.pdb.header import PdbHeaderReader
         from LiuXin_alpha.file_formats.pdb import PDBError, IDENTITY_TO_NAME, get_reader
 

@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+from __future__ import annotations
+
+import typing as _typing
 import functools
 import re
 import json
@@ -50,13 +53,13 @@ LIGATURES = {
 _ligpat = re.compile("|".join(LIGATURES))
 
 
-def sanitize_head(match):
+def sanitize_head(match: _typing.Any) -> _typing.Any:
     x = match.group(1)
     x = _span_pat.sub("", x)
     return "<head>\n%s\n</head>" % x
 
 
-def chap_head(match):
+def chap_head(match: _typing.Any) -> _typing.Any:
     chap = match.group("chap")
     title = match.group("title")
     if not title:
@@ -65,7 +68,7 @@ def chap_head(match):
         return "<h1>" + chap + "</h1>\n<h3>" + title + "</h3>\n"
 
 
-def wrap_lines(match):
+def wrap_lines(match: _typing.Any) -> _typing.Any:
     ital = match.group("ital")
     if not ital:
         return " "
@@ -73,7 +76,7 @@ def wrap_lines(match):
         return ital + " "
 
 
-def smarten_punctuation(html, log):
+def smarten_punctuation(html: _typing.Any, log: _typing.Any) -> _typing.Any:
 
     from uuid import uuid4
     from LiuXin_alpha.utils.libraries.smartypants import smartyPants
@@ -104,7 +107,7 @@ class DocAnalysis(object):
     Blank lines are excluded from analysis
     """
 
-    def __init__(self, format="html", raw=""):
+    def __init__(self: _typing.Self, format: str = "html", raw: str = "") -> None:
         raw = raw.replace("&nbsp;", " ")
         linere = None
         if format == "html":
@@ -117,7 +120,7 @@ class DocAnalysis(object):
             linere = re.compile(".*?\n")
         self.lines = linere.findall(raw)
 
-    def line_length(self, percent):
+    def line_length(self: _typing.Self, percent: _typing.Any) -> _typing.Any:
         """
         Analyses the document to find the median line length.
         percentage is a decimal number, 0 - 1 which is used to determine
@@ -154,7 +157,7 @@ class DocAnalysis(object):
 
         return lengths[index]
 
-    def line_histogram(self, percent):
+    def line_histogram(self: _typing.Self, percent: _typing.Any) -> bool:
         """
         Creates a broad histogram of the document to determine whether it incorporates hard
         line breaks.  Lines are sorted into 20 'buckets' based on length.
@@ -216,7 +219,7 @@ class Dehyphenator(object):
     retain hyphens.
     """
 
-    def __init__(self, verbose=0, log=None):
+    def __init__(self: _typing.Self, verbose: int = 0, log: _typing.Any = None) -> None:
         self.log = log
         self.verbose = verbose
         # Add common suffixes to the regex below to increase the likelihood of a match -
@@ -234,7 +237,7 @@ class Dehyphenator(object):
         self.prefixes = re.compile(r"%s$" % self.prefix_string, re.IGNORECASE)
         self.removeprefix = re.compile(r"%s" % self.prefix_string, re.IGNORECASE)
 
-    def dehyphenate(self, match):
+    def dehyphenate(self: _typing.Self, match: _typing.Any) -> _typing.Any:
         firsthalf = match.group("firstpart")
         secondhalf = match.group("secondpart")
         try:
@@ -292,7 +295,7 @@ class Dehyphenator(object):
                     self.log("          returned hyphenated word: " + str(hyphenated))
                 return hyphenated
 
-    def __call__(self, html, format, length=1):
+    def __call__(self: _typing.Self, html: _typing.Any, format: _typing.Any, length: int = 1) -> _typing.Any:
         self.html = html
         self.format = format
         if format == "html":
@@ -345,7 +348,7 @@ class CSSPreProcessor(object):
         re.MULTILINE | re.IGNORECASE | re.VERBOSE,
     )
 
-    def ms_sub(self, match):
+    def ms_sub(self: _typing.Self, match: _typing.Any) -> _typing.Any:
         end = match.group("end")
         try:
             start = match.group("start")
@@ -355,7 +358,7 @@ class CSSPreProcessor(object):
             end = ""
         return start + end
 
-    def __call__(self, data, add_namespace=False):
+    def __call__(self: _typing.Self, data: _typing.Any, add_namespace: bool = False) -> _typing.Any:
         from LiuXin_alpha.file_formats.oeb.base import XHTML_CSS_NAMESPACE
 
         data = self.MS_PAT.sub(self.ms_sub, data)
@@ -573,13 +576,13 @@ class HTMLPreProcessor(object):
         ),
     ]
 
-    def __init__(self, log=None, extra_opts=None, regex_wizard_callback=None):
+    def __init__(self: _typing.Self, log: _typing.Any = None, extra_opts: _typing.Any = None, regex_wizard_callback: _typing.Any = None) -> None:
         self.log = log
         self.extra_opts = extra_opts
         self.regex_wizard_callback = regex_wizard_callback
         self.current_href = None
 
-    def is_baen(self, src):
+    def is_baen(self: _typing.Self, src: _typing.Any) -> bool:
         """
         Was the book produced by Baen books?
         :param src:
@@ -587,10 +590,10 @@ class HTMLPreProcessor(object):
         """
         return re.compile(r'<meta\s+name="Publisher"\s+content=".*?Baen.*?"', re.IGNORECASE).search(src) is not None
 
-    def is_book_designer(self, raw):
+    def is_book_designer(self: _typing.Self, raw: _typing.Any) -> bool:
         return re.search("<H2[^><]*id=BookTitle", raw) is not None
 
-    def is_pdftohtml(self, src):
+    def is_pdftohtml(self: _typing.Self, src: _typing.Any) -> bool:
         """
         Was the book produced by calibre's pdftohtml?
         :param src:
@@ -598,7 +601,7 @@ class HTMLPreProcessor(object):
         """
         return "<!-- created by calibre's pdftohtml -->" in src[:1000]
 
-    def __call__(self, html, remove_special_chars=None, get_preprocess_html=False):
+    def __call__(self: _typing.Self, html: _typing.Any, remove_special_chars: _typing.Any = None, get_preprocess_html: bool = False) -> _typing.Any:
         if remove_special_chars is not None:
             html = remove_special_chars.sub("", html)
         html = html.replace("\0", "")
@@ -631,7 +634,7 @@ class HTMLPreProcessor(object):
         user_sr_rules = {}
 
         # Function for processing search and replace
-        def do_search_replace(local_search_pattern, local_replace_txt):
+        def do_search_replace(local_search_pattern: _typing.Any, local_replace_txt: _typing.Any) -> None:
             try:
                 search_re = re.compile(local_search_pattern)
                 if not local_replace_txt:
@@ -705,7 +708,7 @@ class HTMLPreProcessor(object):
             return html
 
         # Used during debug
-        def dump(raw, where):
+        def dump(raw: _typing.Any, where: _typing.Any) -> None:
             import os
 
             dp = getattr(self.extra_opts, "debug_pipeline", None)

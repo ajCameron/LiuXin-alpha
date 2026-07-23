@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import typing as _typing
+
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
@@ -75,7 +77,7 @@ class RecipeInput(InputFormatPlugin):
         ),
     }
 
-    def convert(self, recipe_or_file, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, recipe_or_file: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """
         Download news from a site. Convert that news to an OEB for later conversion to another type of ebook.
         :param recipe_or_file: The recipe to download - either the name of an inbuilt recipe, a path to a .recipe file
@@ -180,11 +182,11 @@ class RecipeInput(InputFormatPlugin):
                 if f.endswith(".opf"):
                     return os.path.abspath(f)
 
-    def postprocess_book(self, oeb, opts, log):
+    def postprocess_book(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         if self.recipe_object is not None:
             self.recipe_object.postprocess_book(oeb, opts, log)
 
-    def specialize(self, oeb, opts, log, output_fmt):
+    def specialize(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any, output_fmt: _typing.Any) -> None:
         if opts.no_inline_navbars:
             from LiuXin_alpha.file_formats.oeb.base import XPath
 
@@ -192,7 +194,7 @@ class RecipeInput(InputFormatPlugin):
                 for div in XPath('//h:div[contains(@class, "calibre_navbar")]')(item.data):
                     div.getparent().remove(div)
 
-    def save_download(self, zf):
+    def save_download(self: _typing.Self, zf: _typing.Any) -> None:
         raw = self.recipe_source
         if isinstance(raw, str):
             raw = raw.encode("utf-8")
