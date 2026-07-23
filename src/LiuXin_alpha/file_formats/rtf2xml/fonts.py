@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys, os
 
 from LiuXin_alpha.file_formats.rtf2xml import copy
@@ -23,13 +26,13 @@ class Fonts:
     """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        default_font_num,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        default_font_num: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         """
         Required:
             'file'--file to parse
@@ -48,7 +51,7 @@ class Fonts:
         self.__write_to = better_mktemp()
         self.__run_level = run_level
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
         """
@@ -69,7 +72,7 @@ class Fonts:
         # individual font written
         self.__wrote_ind_font = 0
 
-    def __default_func(self, line):
+    def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line
@@ -82,7 +85,7 @@ class Fonts:
             self.__state = "font_table"
         self.__write_obj.write(line)
 
-    def __font_table_func(self, line):
+    def __font_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line
@@ -105,7 +108,7 @@ class Fonts:
             self.__text_line = ""
         # self.__write_obj.write(line)
 
-    def __font_in_table_func(self, line):
+    def __font_in_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line
@@ -141,7 +144,7 @@ class Fonts:
             self.__found_end_font_table_func()
             self.__state = "after_font_table"
 
-    def __found_end_font_table_func(self):
+    def __found_end_font_table_func(self: _typing.Self) -> None:
         """
         Required:
             nothing
@@ -153,7 +156,7 @@ class Fonts:
         if not self.__wrote_ind_font:
             self.__write_obj.write("mi<tg<empty-att_" "<font-in-table<name>Times<num>0\n")
 
-    def __after_font_table_func(self, line):
+    def __after_font_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line
@@ -183,7 +186,7 @@ class Fonts:
         else:
             self.__write_obj.write(line)
 
-    def convert_fonts(self):
+    def convert_fonts(self: _typing.Self) -> _typing.Any:
         """
         Required:
             nothing

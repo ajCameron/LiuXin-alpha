@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
 __docformat__ = "restructuredtext en"
@@ -12,7 +15,7 @@ class PDBError(Exception):
 FORMAT_READERS = None
 
 
-def _import_readers():
+def _import_readers() -> None:
     global FORMAT_READERS
     from LiuXin_alpha.file_formats.pdb.ereader.reader import Reader as Ereader_Reader
     from LiuXin_alpha.file_formats.pdb.palmdoc.reader import Reader as Palmdoc_Reader
@@ -37,7 +40,7 @@ ALL_FORMAT_WRITERS = {"doc", "ztxt", "ereader"}
 FORMAT_WRITERS = None
 
 
-def _import_writers():
+def _import_writers() -> None:
     global FORMAT_WRITERS
     from LiuXin_alpha.file_formats.pdb.palmdoc.writer import Writer as Palmdoc_Writer
     from LiuXin_alpha.file_formats.pdb.ztxt.writer import Writer as ZTXT_Writer
@@ -84,7 +87,7 @@ IDENTITY_TO_NAME = {
 }
 
 
-def get_reader(identity):
+def get_reader(identity: _typing.Any) -> _typing.Any:
     """
     Returns None if no reader is found for the identity.
     :param identity:
@@ -96,7 +99,7 @@ def get_reader(identity):
     return FORMAT_READERS.get(identity, None)
 
 
-def get_writer(extension):
+def get_writer(extension: _typing.Any) -> _typing.Any:
     """
     Returns None if no writer is found for extension.
     :param extension:

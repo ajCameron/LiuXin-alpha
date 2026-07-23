@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import copy
 import logging
@@ -68,7 +71,7 @@ to_ref = partial(to_base, base=32, min_num_digits=4)
 
 
 class KF8Writer(object):
-    def __init__(self, oeb, opts, resources):
+    def __init__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, resources: _typing.Any) -> None:
         if cssutils is None:
             raise RuntimeError("cssutils is required for MOBI/KF8 generation")
         self.oeb, self.opts, self.log = oeb, opts, oeb.log
@@ -102,7 +105,7 @@ class KF8Writer(object):
         # We do not want to use this ToC for MOBI 6, so remove it
         self.toc_adder.remove_generated_toc()
 
-    def dup_data(self):
+    def dup_data(self: _typing.Self) -> None:
         """
         Duplicate data so that any changes we make to markup/CSS only affect KF8 output and not MOBI 6 output
         :return:
@@ -120,10 +123,10 @@ class KF8Writer(object):
                 # exception)
                 self._data_cache[item.href] = cssutils.parseString(item.data.cssText, validate=False)
 
-    def data(self, item):
+    def data(self: _typing.Self, item: _typing.Any) -> _typing.Any:
         return self._data_cache.get(item.href, item.data)
 
-    def cleanup_markup(self):
+    def cleanup_markup(self: _typing.Self) -> None:
         for item in self.oeb.spine:
             root = self.data(item)
 
@@ -132,7 +135,7 @@ class KF8Writer(object):
                 if not tag.text and not tag.get("src", False):
                     tag.getparent().remove(tag)
 
-    def replace_resource_links(self):
+    def replace_resource_links(self: _typing.Self) -> None:
         """
         Replace links to resources (raster images/fonts) with pointers to
         the MOBI record containing the resource. The pointers are of the form:
@@ -141,7 +144,7 @@ class KF8Writer(object):
         :return:
         """
 
-        def pointer(local_item, local_oref):
+        def pointer(local_item: _typing.Any, local_oref: _typing.Any) -> _typing.Any:
             ref = urlnormalize(local_item.abshref(local_oref))
             idx = self.resources.item_map.get(ref, None)
             if idx is not None:
@@ -181,7 +184,7 @@ class KF8Writer(object):
                 replacer = partial(pointer, item)
                 cssutils.replaceUrls(sheet, replacer, ignoreImportRules=True)
 
-    def extract_css_into_flows(self):
+    def extract_css_into_flows(self: _typing.Self) -> None:
         inlines = defaultdict(list)  # Ensure identical <style>s not repeated
         sheets = {}
 
@@ -193,7 +196,7 @@ class KF8Writer(object):
                 sheets[item.href] = len(self.flows)
                 self.flows.append(sheet)
 
-        def fix_import_rules(local_sheet):
+        def fix_import_rules(local_sheet: _typing.Any) -> _typing.Any:
             changed = False
             for rule in local_sheet.cssRules.rulesOfType(CSSRule.IMPORT_RULE):
                 if rule.href:
@@ -248,7 +251,7 @@ class KF8Writer(object):
             if hasattr(sheet, "cssText"):
                 self.flows[i] = force_unicode(sheet.cssText, "utf-8")
 
-    def extract_svg_into_flows(self):
+    def extract_svg_into_flows(self: _typing.Self) -> None:
         images = {}
 
         for item in self.oeb.manifest:
@@ -277,7 +280,7 @@ class KF8Writer(object):
                 if idx is not None:
                     img.set("src", "kindle:flow:%s?mime=image/svg+xml" % to_ref(idx))
 
-    def replace_internal_links_with_placeholders(self):
+    def replace_internal_links_with_placeholders(self: _typing.Self) -> None:
         self.link_map = {}
         count = 0
         hrefs = {item.href for item in self.oeb.spine}
@@ -298,7 +301,7 @@ class KF8Writer(object):
                     self.link_map[placeholder] = (href, frag)
                     a.set("href", placeholder)
 
-    def insert_aid_attributes(self):
+    def insert_aid_attributes(self: _typing.Self) -> None:
         self.id_map = {}
         for i, item in enumerate(self.oeb.spine):
             root = self.data(item)
@@ -321,7 +324,7 @@ class KF8Writer(object):
 
                     j += 1
 
-    def chunk_it_up(self):
+    def chunk_it_up(self: _typing.Self) -> None:
         placeholder_map = {}
         for placeholder, x in iteritems(self.link_map):
             href, frag = x
@@ -336,7 +339,7 @@ class KF8Writer(object):
 
         self.flows[0] = chunker.text
 
-    def create_text_records(self):
+    def create_text_records(self: _typing.Self) -> None:
         self.flows = [x.encode("utf-8") if isinstance(x, str) else x for x in self.flows]
         text = b"".join(self.flows)
         self.text_length = len(text)
@@ -368,7 +371,7 @@ class KF8Writer(object):
             self.records.append(b"\x00" * (records_size % 4))
             self.first_non_text_record_idx += 1
 
-    def create_fdst_records(self):
+    def create_fdst_records(self: _typing.Self) -> None:
         FDST = namedtuple("Flow", "start end")
         entries = []
         self.fdst_table = []
@@ -380,7 +383,7 @@ class KF8Writer(object):
         self.fdst_records = [rec]
         self.fdst_count = len(self.fdst_table)
 
-    def create_indices(self):
+    def create_indices(self: _typing.Self) -> None:
         self.skel_records = SkelIndex(self.skel_table)()
         self.chunk_records = ChunkIndex(self.chunk_table)()
         self.ncx_records = []
@@ -460,7 +463,7 @@ class KF8Writer(object):
                 entry["parent"] = id_to_index[entry.pop("parent_id")]
 
         # Write the lengths
-        def get_next_start(local_entry):
+        def get_next_start(local_entry: _typing.Any) -> _typing.Any:
             enders = [
                 e["offset"]
                 for e in entries
@@ -477,7 +480,7 @@ class KF8Writer(object):
         idx_type = NonLinearNCXIndex if is_non_linear else NCXIndex
         self.ncx_records = idx_type(entries)()
 
-    def create_guide(self):
+    def create_guide(self: _typing.Self) -> None:
         self.start_offset = None
         self.guide_table = []
         self.guide_records = []
@@ -499,6 +502,6 @@ class KF8Writer(object):
             self.guide_records = GuideIndex(self.guide_table)()
 
 
-def create_kf8_book(oeb, opts, resources, for_joint=False):
+def create_kf8_book(oeb: _typing.Any, opts: _typing.Any, resources: _typing.Any, for_joint: bool = False) -> _typing.Any:
     writer = KF8Writer(oeb, opts, resources)
     return KF8Book(writer, for_joint=for_joint)

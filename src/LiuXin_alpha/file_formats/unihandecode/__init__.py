@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 __license__ = "GPL 3"
 __copyright__ = "2010, Hiroshi Miura <miurahr@linux.com>"
 __docformat__ = "restructuredtext en"
@@ -25,7 +28,7 @@ class Unihandecoder(object):
     preferred_encoding = None
     decoder = None
 
-    def __init__(self, lang="zh", encoding="utf-8"):
+    def __init__(self: _typing.Self, lang: str = "zh", encoding: str = "utf-8") -> None:
         self.preferred_encoding = encoding
         lang = lang.lower()
         if lang[:2] == "ja":
@@ -45,7 +48,7 @@ class Unihandecoder(object):
 
             self.decoder = Unidecoder()
 
-    def decode(self, text):
+    def decode(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         try:
             unicode  # python2
             if not isinstance(text, unicode):

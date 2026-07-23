@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Smart_Strong Extension for Python-Markdown
@@ -35,11 +38,11 @@ STRONG_RE = r"(\*{2})(.+?)\2"
 class SmartEmphasisExtension(Extension):
     """Add smart_emphasis extension to Markdown class."""
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         """Modify inline patterns."""
         md.inlinePatterns["strong"] = SimpleTagPattern(STRONG_RE, "strong")
         md.inlinePatterns.add("strong2", SimpleTagPattern(SMART_STRONG_RE, "strong"), ">emphasis2")
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return SmartEmphasisExtension(configs=dict(configs or {}))

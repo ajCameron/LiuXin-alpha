@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import typing as _typing
+
 import re
 
 import lxml.html
@@ -10,16 +12,16 @@ from LiuXin_alpha.file_formats.readability.cleaners import clean_attributes, nor
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 
-def build_doc(page):
+def build_doc(page: _typing.Any) -> _typing.Any:
     page_unicode = xml_to_unicode(page, strip_encoding_pats=True)[0]
     return lxml.html.document_fromstring(page_unicode)
 
 
-def js_re(src, pattern, flags, repl):
+def js_re(src: _typing.Any, pattern: _typing.Any, flags: _typing.Any, repl: _typing.Any) -> _typing.Any:
     return re.compile(pattern, flags).sub(repl.replace("$", "\\"), src)
 
 
-def normalize_entities(cur_title):
+def normalize_entities(cur_title: _typing.Any) -> _typing.Any:
     entities = {
         "\u2014": "-",
         "\u2013": "-",
@@ -36,11 +38,11 @@ def normalize_entities(cur_title):
     return cur_title
 
 
-def norm_title(title):
+def norm_title(title: _typing.Any) -> _typing.Any:
     return normalize_entities(normalize_spaces(title))
 
 
-def get_title(doc):
+def get_title(doc: _typing.Any) -> _typing.Any:
     title_elem = doc.find(".//title")
     title = title_elem.text if title_elem is not None else None
     if not title:
@@ -48,14 +50,14 @@ def get_title(doc):
     return norm_title(title)
 
 
-def add_match(collection, text, orig):
+def add_match(collection: _typing.Any, text: _typing.Any, orig: _typing.Any) -> None:
     text = norm_title(text)
     if len(text.split()) >= 2 and len(text) >= 15:
         if text.replace('"', "") in orig.replace('"', ""):
             collection.add(text)
 
 
-def _iter_css_candidates(doc, selector):
+def _iter_css_candidates(doc: _typing.Any, selector: _typing.Any) -> _typing.Any:
     try:
         from cssselect import HTMLTranslator  # type: ignore
 
@@ -77,7 +79,7 @@ def _iter_css_candidates(doc, selector):
         return []
 
 
-def shorten_title(doc):
+def shorten_title(doc: _typing.Any) -> _typing.Any:
     title = get_title(doc)
     if not title or title == "[no-title]":
         return ""
@@ -135,7 +137,7 @@ def shorten_title(doc):
     return title
 
 
-def get_body(doc):
+def get_body(doc: _typing.Any) -> _typing.Any:
     for elem in list(doc.xpath(".//script | .//link | .//style")):
         parent = elem.getparent()
         if parent is not None:

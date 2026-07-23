@@ -1,6 +1,9 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import textwrap
@@ -66,7 +69,7 @@ _license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def xml2str(root, pretty_print=False, with_tail=False):
+def xml2str(root: _typing.Any, pretty_print: bool = False, with_tail: bool = False) -> _typing.Any:
     if hasattr(etree, "cleanup_namespaces"):
         etree.cleanup_namespaces(root)
     ans = etree.tostring(
@@ -79,17 +82,17 @@ def xml2str(root, pretty_print=False, with_tail=False):
     return ans
 
 
-def page_size(opts):
+def page_size(opts: _typing.Any) -> tuple[_typing.Any, ...]:
     width, height = PAPER_SIZES[opts.docx_page_size]
     if opts.docx_custom_page_size is not None:
         width, height = map(float, opts.docx_custom_page_size.partition("x")[0::2])
     return width, height
 
 
-def create_skeleton(opts, namespaces=None):
+def create_skeleton(opts: _typing.Any, namespaces: _typing.Any = None) -> tuple[_typing.Any, ...]:
     namespaces = namespaces or DOCXNamespace().namespaces
 
-    def w(x):
+    def w(x: _typing.Any) -> _typing.Any:
         return "{%s}%s" % (namespaces["w"], x)
 
     dn = {k: v for k, v in iteritems(namespaces) if k in {"w", "r", "m", "ve", "o", "wp", "w10", "wne", "a", "pic"}}
@@ -101,7 +104,7 @@ def create_skeleton(opts, namespaces=None):
     width, height = page_size(opts)
     width, height = int(20 * width), int(20 * height)
 
-    def margin(which):
+    def margin(which: _typing.Any) -> tuple[_typing.Any, ...]:
         return w(which), str(int(getattr(opts, "margin_" + which) * 20))
 
     body.append(
@@ -144,7 +147,7 @@ def create_skeleton(opts, namespaces=None):
     return doc, styles, body
 
 
-def update_doc_props(root, mi, namespace):
+def update_doc_props(root: _typing.Any, mi: _typing.Any, namespace: _typing.Any) -> None:
     """
     Update a document with the given metadata
     :param root:
@@ -154,7 +157,7 @@ def update_doc_props(root, mi, namespace):
     :return:
     """
 
-    def setm(name, text=None, ns="dc"):
+    def setm(name: _typing.Any, text: _typing.Any = None, ns: str = "dc") -> _typing.Any:
         """
         Helper function to set the metadata in the document tree.
         :param name: The name of the metadata element to set
@@ -189,7 +192,7 @@ def update_doc_props(root, mi, namespace):
 
 
 class DocumentRelationships(object):
-    def __init__(self, namespace):
+    def __init__(self: _typing.Self, namespace: _typing.Any) -> None:
         self.rmap = {}
         self.namespace = namespace
         for typ, target in iteritems(
@@ -202,20 +205,20 @@ class DocumentRelationships(object):
         ):
             self.add_relationship(target, typ)
 
-    def get_relationship_id(self, target, rtype, target_mode=None):
+    def get_relationship_id(self: _typing.Self, target: _typing.Any, rtype: _typing.Any, target_mode: _typing.Any = None) -> _typing.Any:
         return self.rmap.get((target, rtype, target_mode))
 
-    def add_relationship(self, target, rtype, target_mode=None):
+    def add_relationship(self: _typing.Self, target: _typing.Any, rtype: _typing.Any, target_mode: _typing.Any = None) -> _typing.Any:
         ans = self.get_relationship_id(target, rtype, target_mode)
         if ans is None:
             ans = "rId%d" % (len(self.rmap) + 1)
             self.rmap[(target, rtype, target_mode)] = ans
         return ans
 
-    def add_image(self, target):
+    def add_image(self: _typing.Self, target: _typing.Any) -> _typing.Any:
         return self.add_relationship(target, self.namespace.names["IMAGES"])
 
-    def serialize(self):
+    def serialize(self: _typing.Self) -> _typing.Any:
         namespaces = self.namespace.namespaces
         e = ElementMaker(namespace=namespaces["pr"], nsmap={None: namespaces["pr"]})
         relationships = e.Relationships()
@@ -228,7 +231,7 @@ class DocumentRelationships(object):
 
 
 class DOCX(object):
-    def __init__(self, opts, log):
+    def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any) -> None:
         self.namespace = DOCXNamespace()
         namespaces = self.namespace.namespaces
         self.opts, self.log = opts, log
@@ -242,7 +245,7 @@ class DOCX(object):
 
     # Boilerplate {{{
     @property
-    def contenttypes(self):
+    def contenttypes(self: _typing.Self) -> _typing.Any:
         e = ElementMaker(
             namespace=self.namespace.namespaces["ct"],
             nsmap={None: self.namespace.namespaces["ct"]},
@@ -289,7 +292,7 @@ class DOCX(object):
         return xml2str(types)
 
     @property
-    def appproperties(self):
+    def appproperties(self: _typing.Self) -> _typing.Any:
         e = ElementMaker(
             namespace=self.namespace.namespaces["ep"],
             nsmap={None: self.namespace.namespaces["ep"]},
@@ -309,7 +312,7 @@ class DOCX(object):
         return xml2str(props)
 
     @property
-    def containerrels(self):
+    def containerrels(self: _typing.Self) -> _typing.Any:
         return textwrap.dedent(
             b"""\
         <?xml version='1.0' encoding='utf-8'?>
@@ -323,7 +326,7 @@ class DOCX(object):
         )
 
     @property
-    def websettings(self):
+    def websettings(self: _typing.Self) -> _typing.Any:
         e = ElementMaker(
             namespace=self.namespace.namespaces["w"],
             nsmap={"w": self.namespace.namespaces["w"]},
@@ -333,7 +336,7 @@ class DOCX(object):
 
     # }}}
 
-    def convert_metadata(self, mi):
+    def convert_metadata(self: _typing.Self, mi: _typing.Any) -> _typing.Any:
         namespaces = self.namespace.namespaces
         e = ElementMaker(
             namespace=namespaces["cp"],
@@ -351,10 +354,10 @@ class DOCX(object):
         update_doc_props(cp, self.mi, self.namespace)
         return xml2str(cp)
 
-    def create_empty_document(self, mi):
+    def create_empty_document(self: _typing.Self, mi: _typing.Any) -> None:
         self.document, self.styles = create_skeleton(self.opts)[:2]
 
-    def write(self, path_or_stream, mi, create_empty_document=False):
+    def write(self: _typing.Self, path_or_stream: _typing.Any, mi: _typing.Any, create_empty_document: bool = False) -> None:
         if create_empty_document:
             self.create_empty_document(mi)
         with ZipFile(path_or_stream, "w") as zf:

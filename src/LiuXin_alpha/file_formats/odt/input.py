@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Convert an ODT file into a Open Ebook
@@ -46,7 +49,7 @@ class Extract(ODF2XHTML):
     max_compression_ratio = 1000
     min_compression_ratio_check_size = 1024 * 1024
 
-    def validate_container_members(self, stream):
+    def validate_container_members(self: _typing.Self, stream: _typing.Any) -> None:
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         stream.seek(0)
@@ -75,7 +78,7 @@ class Extract(ODF2XHTML):
             zf.close()
             stream.seek(0)
 
-    def extract_pictures(self, zf):
+    def extract_pictures(self: _typing.Self, zf: _typing.Any) -> None:
         if not os.path.exists("Pictures"):
             os.makedirs("Pictures")
         pictures_root = os.path.abspath("Pictures")
@@ -98,7 +101,7 @@ class Extract(ODF2XHTML):
             with open(target, "wb") as f:
                 f.write(data)
 
-    def fix_markup(self, html, log):
+    def fix_markup(self: _typing.Self, html: _typing.Any, log: _typing.Any) -> _typing.Any:
         root = etree.fromstring(html)
         self.filter_css(root, log)
         self.extract_css(root, log)
@@ -108,7 +111,7 @@ class Extract(ODF2XHTML):
             html = html.decode("utf-8", "replace")
         return html
 
-    def extract_css(self, root, log):
+    def extract_css(self: _typing.Self, root: _typing.Any, log: _typing.Any) -> None:
         ans = []
         for s in root.xpath('//*[local-name() = "style" and @type="text/css"]'):
             ans.append(s.text)
@@ -137,7 +140,7 @@ class Extract(ODF2XHTML):
         with open("odfpy.css", "wb") as f:
             f.write(css.encode("utf-8"))
 
-    def get_css_for_class(self, cls):
+    def get_css_for_class(self: _typing.Self, cls: _typing.Any) -> _typing.Any:
         if not cls:
             return None
         if self.css is None:
@@ -148,7 +151,7 @@ class Extract(ODF2XHTML):
                 if q == "." + cls:
                     return rule
 
-    def epubify_markup(self, root, log):
+    def epubify_markup(self: _typing.Self, root: _typing.Any, log: _typing.Any) -> None:
         from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML
 
         # Fix empty title tags
@@ -229,7 +232,7 @@ class Extract(ODF2XHTML):
                 style = div2.attrib["style"]
                 div2.attrib["style"] = "display:inline;" + style
 
-    def filter_css(self, root, log):
+    def filter_css(self: _typing.Self, root: _typing.Any, log: _typing.Any) -> None:
         if CSSParser is None:
             return
         style = root.xpath('//*[local-name() = "style" and @type="text/css"]')
@@ -249,7 +252,7 @@ class Extract(ODF2XHTML):
                     if extra:
                         x.set("class", orig + " " + " ".join(extra))
 
-    def do_filter_css(self, css):
+    def do_filter_css(self: _typing.Self, css: _typing.Any) -> tuple[_typing.Any, ...]:
         if parseString is None:
             return css, {}
 
@@ -280,7 +283,7 @@ class Extract(ODF2XHTML):
             css_text = css_text.decode("utf-8", "ignore")
         return css_text, sel_map
 
-    def search_page_img(self, mi, log):
+    def search_page_img(self: _typing.Self, mi: _typing.Any, log: _typing.Any) -> None:
         for frm in self.document.topnode.getElementsByType(odFrame):
             try:
                 if frm.getAttrNS(odTEXTNS, "anchor-type") == "page":
@@ -289,7 +292,7 @@ class Extract(ODF2XHTML):
             except ValueError:
                 pass
 
-    def filter_cover(self, mi, log):
+    def filter_cover(self: _typing.Self, mi: _typing.Any, log: _typing.Any) -> None:
         # filter the Element tree (remove the detected cover)
         if mi.cover and mi.odf_cover_frame:
             for frm in self.document.topnode.getElementsByType(odFrame):
@@ -312,7 +315,7 @@ class Extract(ODF2XHTML):
                         log("Removed cover image paragraph from document...")
                         break
 
-    def filter_load(self, odffile, mi, log):
+    def filter_load(self: _typing.Self, odffile: _typing.Any, mi: _typing.Any, log: _typing.Any) -> None:
         """
         This is an adaption from ODF2XHTML. It adds a step between load and parse of the document where the Element
         tree can be modified.
@@ -337,7 +340,7 @@ class Extract(ODF2XHTML):
         # parse the modified tree and generate xhtml
         self._walknode(self.document.topnode)
 
-    def __call__(self, stream, odir, log):
+    def __call__(self: _typing.Self, stream: _typing.Any, odir: _typing.Any, log: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
 
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile

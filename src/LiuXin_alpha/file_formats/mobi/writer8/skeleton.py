@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 from collections import namedtuple
@@ -104,11 +107,11 @@ _self_closing_pat = re.compile(
 )
 
 
-def close_self_closing_tags(raw):
+def close_self_closing_tags(raw: _typing.Any) -> _typing.Any:
     return _self_closing_pat.sub(rb"<\g<tag>\g<arg>></\g<tag>>", raw)
 
 
-def path_to_node(node):
+def path_to_node(node: _typing.Any) -> _typing.Any:
     ans = []
     parent = node.getparent()
     while parent is not None:
@@ -118,7 +121,7 @@ def path_to_node(node):
     return tuple(reversed(ans))
 
 
-def node_from_path(root, path):
+def node_from_path(root: _typing.Any, path: _typing.Any) -> _typing.Any:
     parent = root
     for idx in path:
         parent = parent[idx]
@@ -128,7 +131,7 @@ def node_from_path(root, path):
 mychr = chr if ispy3 else unichr
 
 
-def tostring(raw, **kwargs):
+def tostring(raw: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     """
     lxml *sometimes* represents non-ascii characters as hex entities in
     attribute values. I can't figure out exactly what circumstances cause it.
@@ -150,7 +153,7 @@ def tostring(raw, **kwargs):
 
 
 class Chunk(object):
-    def __init__(self, raw, selector):
+    def __init__(self: _typing.Self, raw: _typing.Any, selector: _typing.Any) -> None:
         self.raw = raw
         self.starts_tags = []
         self.ends_tags = []
@@ -158,14 +161,14 @@ class Chunk(object):
         self.is_first_chunk = False
         self.selector = "%s-//*[@aid='%s']" % selector
 
-    def __len__(self):
+    def __len__(self: _typing.Self) -> _typing.Any:
         return len(self.raw)
 
-    def merge(self, chunk):
+    def merge(self: _typing.Self, chunk: _typing.Any) -> None:
         self.raw += chunk.raw
         self.ends_tags = chunk.ends_tags
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "Chunk(len=%r insert_pos=%r starts_tags=%r ends_tags=%r)" % (
             len(self.raw),
             self.insert_pos,
@@ -177,7 +180,7 @@ class Chunk(object):
 
 
 class Skeleton(object):
-    def __init__(self, file_number, item, root, chunks):
+    def __init__(self: _typing.Self, file_number: _typing.Any, item: _typing.Any, root: _typing.Any, chunks: _typing.Any) -> None:
         self.file_number, self.item = file_number, item
         self.chunks = chunks
 
@@ -187,13 +190,13 @@ class Skeleton(object):
 
         self.calculate_insert_positions()
 
-    def render(self, root):
+    def render(self: _typing.Self, root: _typing.Any) -> _typing.Any:
         raw = tostring(root, xml_declaration=True)
         raw = raw.replace(b"<html", ('<html xmlns="%s"' % XHTML_NS).encode("utf-8"), 1)
         raw = close_self_closing_tags(raw)
         return raw
 
-    def calculate_metrics(self, root):
+    def calculate_metrics(self: _typing.Self, root: _typing.Any) -> None:
         metric = namedtuple("Metric", "start end")
         self.metrics = {}
         for tag in root.xpath("//*[@aid]"):
@@ -203,7 +206,7 @@ class Skeleton(object):
             end_length = len(raw.rpartition(b"<")[-1]) + 1
             self.metrics[tag.get("aid")] = metric(start_length, end_length)
 
-    def calculate_insert_positions(self):
+    def calculate_insert_positions(self: _typing.Self) -> None:
         pos = self.body_offset
         for chunk in self.chunks:
             for tag in chunk.starts_tags:
@@ -213,23 +216,23 @@ class Skeleton(object):
             for tag in chunk.ends_tags:
                 pos += self.metrics[tag].end
 
-    def rebuild(self):
+    def rebuild(self: _typing.Self) -> _typing.Any:
         ans = self.skeleton
         for chunk in self.chunks:
             i = chunk.insert_pos
             ans = ans[:i] + chunk.raw + ans[i:]
         return ans
 
-    def __len__(self):
+    def __len__(self: _typing.Self) -> _typing.Any:
         return len(self.skeleton) + sum([len(x.raw) for x in self.chunks])
 
     @property
-    def raw_text(self):
+    def raw_text(self: _typing.Self) -> _typing.Any:
         return b"".join([self.skeleton] + [x.raw for x in self.chunks])
 
 
 class Chunker(object):
-    def __init__(self, oeb, data_func, placeholder_map):
+    def __init__(self: _typing.Self, oeb: _typing.Any, data_func: _typing.Any, placeholder_map: _typing.Any) -> None:
         self.oeb, self.log = oeb, oeb.log
         self.data = data_func
         self.placeholder_map = placeholder_map
@@ -279,7 +282,7 @@ class Chunker(object):
         text = b"".join(x.raw_text for x in self.skeletons)
         self.text = self.set_internal_links(text, b"".join(x.rebuild() for x in self.skeletons))
 
-    def remove_namespaces(self, root):
+    def remove_namespaces(self: _typing.Self, root: _typing.Any) -> _typing.Any:
         lang = None
         for attr, val in iteritems(root.attrib):
             if attr.rpartition("}")[-1] == "lang":
@@ -326,7 +329,7 @@ class Chunker(object):
 
         return nroot
 
-    def step_into_tag(self, tag, chunks):
+    def step_into_tag(self: _typing.Self, tag: _typing.Any, chunks: _typing.Any) -> None:
         aid = tag.get("aid")
         self.chunk_selector = ("P", aid)
 
@@ -371,12 +374,12 @@ class Chunker(object):
                 my_chunks[0].is_first_chunk = True
         self.chunk_selector = ("S", aid)
 
-    def chunk_up_text(self, text):
+    def chunk_up_text(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         text = escape(text)
         text = text.encode("utf-8")
         ans = []
 
-        def split_multibyte_text(raw):
+        def split_multibyte_text(raw: _typing.Any) -> tuple[_typing.Any, ...]:
             if len(raw) <= CHUNK_SIZE:
                 return raw, b""
             l = raw[:CHUNK_SIZE]
@@ -390,7 +393,7 @@ class Chunker(object):
             ans.append(b'<span class="AmznBigTextBlock">' + start + b"</span>")
         return [Chunk(x, self.chunk_selector) for x in ans]
 
-    def merge_small_chunks(self, chunks):
+    def merge_small_chunks(self: _typing.Self, chunks: _typing.Any) -> _typing.Any:
         ans = chunks[:1]
         for chunk in chunks[1:]:
             prev = ans[-1]
@@ -404,7 +407,7 @@ class Chunker(object):
                 prev.merge(chunk)
         return ans
 
-    def create_tables(self):
+    def create_tables(self: _typing.Self) -> None:
         skel = namedtuple("Skel", "file_number name chunk_count start_pos length")
         sp = 0
         for s in self.skeletons:
@@ -441,7 +444,7 @@ class Chunker(object):
                 cp += len(chunk.raw)
                 num += 1
 
-    def set_internal_links(self, text, rebuilt_text):
+    def set_internal_links(self: _typing.Self, text: _typing.Any, rebuilt_text: _typing.Any) -> _typing.Any:
         """
         Update the internal link placeholders to point to the correct
         location, based on the chunk table.
@@ -477,7 +480,7 @@ class Chunker(object):
 
         self.aid_offset_map = aid_map
 
-        def to_placeholder(aid):
+        def to_placeholder(aid: _typing.Any) -> _typing.Any:
             pos, fid, _ = aid_map[aid]
             pos, fid = to_base(pos, min_num_digits=4), to_href(fid)
             return ":off:".join((pos, fid)).encode("ascii")
@@ -488,7 +491,7 @@ class Chunker(object):
         }
 
         # Now update the links
-        def sub(local_match):
+        def sub(local_match: _typing.Any) -> _typing.Any:
             raw = local_match.group()
             pl = local_match.group(1)
             try:
@@ -499,7 +502,7 @@ class Chunker(object):
 
         return re.sub(rb"<[^>]+(kindle:pos:fid:0000:off:[0-9A-Za-z]{10})", sub, text)
 
-    def dump(self, orig_dumps):
+    def dump(self: _typing.Self, orig_dumps: _typing.Any) -> None:
         import os
         import shutil
         import tempfile

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import typing as _typing
 import sys, os
 
 from LiuXin_alpha.file_formats.rtf2xml import copy
@@ -24,12 +27,12 @@ class Inline:
     """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         """
         Required:
             'file'--file to parse
@@ -46,7 +49,7 @@ class Inline:
         self.__run_level = run_level
         self.__write_to = better_mktemp()
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
         """
@@ -119,7 +122,7 @@ class Inline:
         }
         self.__caps_list = ["false"]
 
-    def __set_list_func(self, line):
+    def __set_list_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line--line of text
@@ -138,7 +141,7 @@ class Inline:
                 self.__inline_list = self.__list_inline_list
                 self.__groups_in_waiting = self.__groups_in_waiting_list
 
-    def __default_func(self, line):
+    def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line-- line of text
@@ -152,7 +155,7 @@ class Inline:
             action(line)
         self.__write_obj.write(line)
 
-    def __found_open_bracket_func(self, line):
+    def __found_open_bracket_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- current line of text
@@ -167,7 +170,7 @@ class Inline:
         self.__inline_list.append({})
         self.__inline_list[-1]["contains_inline"] = 0
 
-    def __after_open_bracket_func(self, line):
+    def __after_open_bracket_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line of text
@@ -188,7 +191,7 @@ class Inline:
                 action(line)
         self.__write_obj.write(line)
 
-    def __handle_control_word(self, line):
+    def __handle_control_word(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line --line of text
@@ -219,7 +222,7 @@ class Inline:
                     self.__write_obj.write('mi<mk<font-dingb\n')
             """
 
-    def __close_bracket_func(self, line):
+    def __close_bracket_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line of text
@@ -261,7 +264,7 @@ class Inline:
         if self.__groups_in_waiting[0] != 0:
             self.__groups_in_waiting[0] -= 1
 
-    def __found_text_func(self, line):
+    def __found_text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line--line of text
@@ -284,7 +287,7 @@ class Inline:
             elif self.__groups_in_waiting[0] != 0:
                 self.__write_inline()
 
-    def __write_inline(self):
+    def __write_inline(self: _typing.Self) -> None:
         """
         Required:
             nothing
@@ -328,7 +331,7 @@ class Inline:
                     self.__write_obj.write("\n")
         self.__groups_in_waiting[0] = 0
 
-    def __end_para_func(self, line):
+    def __end_para_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line of text
@@ -357,7 +360,7 @@ class Inline:
                 self.__write_obj.write("mi<tg<close_____<inline\n")
         self.__in_para = 0
 
-    def __start_para_func(self, line):
+    def __start_para_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line of text
@@ -385,14 +388,14 @@ class Inline:
                 self.__write_obj.write("\n")
         self.__groups_in_waiting[0] = 0
 
-    def __found_field_func(self, line):
+    def __found_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Just a default function to make sure I don't prematurely exit
         default state
         """
         pass
 
-    def form_tags(self):
+    def form_tags(self: _typing.Self) -> None:
         """
         Requires:
             area--area to parse (list or non-list)

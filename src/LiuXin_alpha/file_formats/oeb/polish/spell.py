@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import sys
 from collections import defaultdict
@@ -15,16 +18,16 @@ try:
     from LiuXin_alpha.utils.spell.dictionary import parse_lang_code
 except ModuleNotFoundError:
     class _FallbackLocale(object):
-        def __init__(self, langcode):
+        def __init__(self: _typing.Self, langcode: _typing.Any) -> None:
             self.langcode = langcode
 
-    def split_into_words(text, lang):
+    def split_into_words(text: _typing.Any, lang: _typing.Any) -> _typing.Any:
         return str(text).split()
 
-    def index_of(word, text, lang=None):
+    def index_of(word: _typing.Any, text: _typing.Any, lang: _typing.Any = None) -> _typing.Any:
         return str(text).find(str(word))
 
-    def parse_lang_code(code):
+    def parse_lang_code(code: _typing.Any) -> _typing.Any:
         if not code:
             code = "eng"
         return _FallbackLocale(str(code).split("-")[0].lower())
@@ -43,7 +46,7 @@ class Patterns(object):
 
     __slots__ = ("sanitize_invisible_pat", "split_pat", "digit_pat", "fr_elision_pat")
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
 
         import regex
 
@@ -62,7 +65,7 @@ class Patterns(object):
         )
 
 
-def patterns():
+def patterns() -> _typing.Any:
     global _patterns
     if _patterns is None:
         _patterns = Patterns()
@@ -81,13 +84,13 @@ class Location(object):
     )
 
     def __init__(
-        self,
-        file_name=None,
-        elided_prefix="",
-        original_word=None,
-        location_node=None,
-        node_item=(None, None),
-    ):
+        self: _typing.Self,
+        file_name: _typing.Any = None,
+        elided_prefix: str = "",
+        original_word: _typing.Any = None,
+        location_node: _typing.Any = None,
+        node_item: tuple[_typing.Any, ...] = (None, None),
+    ) -> None:
         self.file_name, self.elided_prefix, self.original_word = (
             file_name,
             elided_prefix,
@@ -99,16 +102,16 @@ class Location(object):
             location_node.sourceline,
         )
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "%s @ %s:%s" % (self.original_word, self.file_name, self.sourceline)
 
     __str__ = __repr__
 
-    def replace(self, new_word):
+    def replace(self: _typing.Self, new_word: _typing.Any) -> None:
         self.original_word = self.elided_prefix + new_word
 
 
-def filter_words(word):
+def filter_words(word: _typing.Any) -> bool:
     if not word:
         return False
     p = patterns()
@@ -117,7 +120,7 @@ def filter_words(word):
     return True
 
 
-def get_words(text, lang):
+def get_words(text: _typing.Any, lang: _typing.Any) -> _typing.Any:
     try:
         ans = split_into_words(six_unicode(text), lang)
     except (TypeError, ValueError):
@@ -125,7 +128,7 @@ def get_words(text, lang):
     return filter(filter_words, ans)
 
 
-def add_words(text, node, words, file_name, locale, node_item):
+def add_words(text: _typing.Any, node: _typing.Any, words: _typing.Any, file_name: _typing.Any, locale: _typing.Any, node_item: _typing.Any) -> None:
     candidates = get_words(text, locale.langcode)
     if candidates:
         p = patterns()
@@ -142,13 +145,13 @@ def add_words(text, node, words, file_name, locale, node_item):
             words[(sword, locale)].append(loc)
 
 
-def add_words_from_attr(node, attr, words, file_name, locale):
+def add_words_from_attr(node: _typing.Any, attr: _typing.Any, words: _typing.Any, file_name: _typing.Any, locale: _typing.Any) -> None:
     text = node.get(attr, None)
     if text:
         add_words(text, node, words, file_name, locale, (True, attr))
 
 
-def add_words_from_text(node, attr, words, file_name, locale):
+def add_words_from_text(node: _typing.Any, attr: _typing.Any, words: _typing.Any, file_name: _typing.Any, locale: _typing.Any) -> None:
     add_words(getattr(node, attr), node, words, file_name, locale, (False, attr))
 
 
@@ -160,7 +163,7 @@ opf_spell_tags = {"title", "creator", "subject", "description", "publisher"}
 # this code matches up with the syntax highlighter base spell checking
 
 
-def read_words_from_opf(root, words, file_name, book_locale):
+def read_words_from_opf(root: _typing.Any, words: _typing.Any, file_name: _typing.Any, book_locale: _typing.Any) -> None:
     for tag in root.iterdescendants("*"):
         if tag.text is not None and barename(tag.tag) in opf_spell_tags:
             add_words_from_text(tag, "text", words, file_name, book_locale)
@@ -171,7 +174,7 @@ ncx_spell_tags = {"text"}
 xml_spell_tags = opf_spell_tags | ncx_spell_tags
 
 
-def read_words_from_ncx(root, words, file_name, book_locale):
+def read_words_from_ncx(root: _typing.Any, words: _typing.Any, file_name: _typing.Any, book_locale: _typing.Any) -> None:
     for tag in root.xpath('//*[local-name()="text"]'):
         if tag.text is not None:
             add_words_from_text(tag, "text", words, file_name, book_locale)
@@ -180,7 +183,7 @@ def read_words_from_ncx(root, words, file_name, book_locale):
 html_spell_tags = {"script", "style", "link"}
 
 
-def read_words_from_html_tag(tag, words, file_name, parent_locale, locale):
+def read_words_from_html_tag(tag: _typing.Any, words: _typing.Any, file_name: _typing.Any, parent_locale: _typing.Any, locale: _typing.Any) -> None:
     if tag.text is not None and barename(tag.tag) not in html_spell_tags:
         add_words_from_text(tag, "text", words, file_name, locale)
     for attr in {"alt", "title"}:
@@ -189,7 +192,7 @@ def read_words_from_html_tag(tag, words, file_name, parent_locale, locale):
         add_words_from_text(tag, "tail", words, file_name, parent_locale)
 
 
-def locale_from_tag(tag):
+def locale_from_tag(tag: _typing.Any) -> _typing.Any:
     if "lang" in tag.attrib:
         try:
             loc = parse_lang_code(tag.get("lang"))
@@ -206,7 +209,7 @@ def locale_from_tag(tag):
             return loc
 
 
-def read_words_from_html(root, words, file_name, book_locale):
+def read_words_from_html(root: _typing.Any, words: _typing.Any, file_name: _typing.Any, book_locale: _typing.Any) -> None:
     stack = [(root, book_locale)]
     while stack:
         parent, parent_locale = stack.pop()
@@ -215,7 +218,7 @@ def read_words_from_html(root, words, file_name, book_locale):
         stack.extend((tag, locale) for tag in parent.iterchildren("*"))
 
 
-def group_sort(locations):
+def group_sort(locations: _typing.Any) -> _typing.Any:
     order = {}
     for loc in locations:
         if loc.file_name not in order:
@@ -223,7 +226,7 @@ def group_sort(locations):
     return sorted(locations, key=lambda l: (order[l.file_name], l.sourceline))
 
 
-def get_checkable_file_names(container):
+def get_checkable_file_names(container: _typing.Any) -> tuple[_typing.Any, ...]:
     file_names = [name for name, linear in container.spine_names] + [container.opf_name]
     toc = find_existing_toc(container)
     if toc is not None and container.exists(toc):
@@ -231,7 +234,7 @@ def get_checkable_file_names(container):
     return file_names, toc
 
 
-def get_all_words(container, book_locale):
+def get_all_words(container: _typing.Any, book_locale: _typing.Any) -> _typing.Any:
     words = defaultdict(list)
     file_names, toc = get_checkable_file_names(container)
     for file_name in file_names:
@@ -248,11 +251,11 @@ def get_all_words(container, book_locale):
     return {k: group_sort(v) for k, v in iteritems(words)}
 
 
-def merge_locations(locs1, locs2):
+def merge_locations(locs1: _typing.Any, locs2: _typing.Any) -> _typing.Any:
     return group_sort(locs1 + locs2)
 
 
-def replace(text, original_word, new_word, lang):
+def replace(text: _typing.Any, original_word: _typing.Any, new_word: _typing.Any, lang: _typing.Any) -> tuple[_typing.Any, ...]:
     indices = []
     original_word, new_word, text = (
         six_unicode(original_word),
@@ -273,7 +276,7 @@ def replace(text, original_word, new_word, lang):
     return text, bool(indices)
 
 
-def replace_word(container, new_word, locations, locale):
+def replace_word(container: _typing.Any, new_word: _typing.Any, locations: _typing.Any, locale: _typing.Any) -> _typing.Any:
     changed = set()
     for loc in locations:
         node = loc.location_node

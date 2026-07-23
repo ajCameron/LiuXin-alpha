@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import errno
 import os
@@ -61,15 +64,15 @@ NBSP = "\xa0"
 
 
 class Text:
-    def __init__(self, elem, attr, buf):
+    def __init__(self: _typing.Self, elem: _typing.Any, attr: _typing.Any, buf: _typing.Any) -> None:
         self.elem, self.attr, self.buf = elem, attr, buf
 
-    def add_elem(self, elem):
+    def add_elem(self: _typing.Self, elem: _typing.Any) -> None:
         setattr(self.elem, self.attr, "".join(self.buf))
         self.elem, self.attr, self.buf = elem, "tail", []
 
 
-def html_lang(docx_lang):
+def html_lang(docx_lang: _typing.Any) -> _typing.Any:
     lang = canonicalize_lang(docx_lang)
     if lang and lang != "und":
         lang = lang_as_iso639_1(lang)
@@ -79,15 +82,15 @@ def html_lang(docx_lang):
 
 class Convert(object):
     def __init__(
-        self,
-        path_or_stream,
-        dest_dir=None,
-        log=None,
-        detect_cover=True,
-        notes_text=None,
-        notes_nopb=False,
-        nosupsub=False,
-    ):
+        self: _typing.Self,
+        path_or_stream: _typing.Any,
+        dest_dir: _typing.Any = None,
+        log: _typing.Any = None,
+        detect_cover: bool = True,
+        notes_text: _typing.Any = None,
+        notes_nopb: bool = False,
+        nosupsub: bool = False,
+    ) -> None:
         self.docx = DOCX(path_or_stream, log=log)
         self.namespace = self.docx.namespace
         self.ms_pat = re.compile(r"\s{2,}")
@@ -129,7 +132,7 @@ class Convert(object):
         else:
             self.doc_lang = None
 
-    def __call__(self):
+    def __call__(self: _typing.Self) -> _typing.Any:
         doc = self.docx.document
         relationships_by_id, relationships_by_type = self.docx.document_relationships
         self.fields(doc, self.log)
@@ -286,7 +289,7 @@ class Convert(object):
 
         return self.write(doc)
 
-    def read_page_properties(self, doc):
+    def read_page_properties(self: _typing.Self, doc: _typing.Any) -> None:
         current = []
         self.page_map = OrderedDict()
         self.section_starts = []
@@ -314,8 +317,8 @@ class Convert(object):
             for x in current:
                 self.page_map[x] = pr
 
-    def read_styles(self, relationships_by_type):
-        def get_name(rtype, defname):
+    def read_styles(self: _typing.Self, relationships_by_type: _typing.Any) -> None:
+        def get_name(rtype: _typing.Any, defname: _typing.Any) -> _typing.Any:
             name = relationships_by_type.get(rtype, None)
             if name is None:
                 cname = self.docx.document_name.split("/")
@@ -406,7 +409,7 @@ class Convert(object):
 
         self.styles.resolve_numbering(numbering)
 
-    def write(self, doc):
+    def write(self: _typing.Self, doc: _typing.Any) -> _typing.Any:
         toc = create_toc(
             doc,
             self.body,
@@ -434,7 +437,7 @@ class Convert(object):
         if self.cover_image is not None:
             opf.guide.set_cover(self.cover_image)
 
-        def process_guide(E, guide):
+        def process_guide(E: _typing.Any, guide: _typing.Any) -> None:
             if self.toc_anchor is not None:
                 guide.append(
                     E.reference(
@@ -451,7 +454,7 @@ class Convert(object):
             os.remove(toc_file)
         return os.path.join(self.dest_dir, "metadata.opf")
 
-    def read_block_anchors(self, doc):
+    def read_block_anchors(self: _typing.Self, doc: _typing.Any) -> None:
         doc_anchors = frozenset(self.namespace.XPath("./w:body/w:bookmarkStart[@w:name]")(doc))
         if doc_anchors:
             current_bm = set()
@@ -476,7 +479,7 @@ class Convert(object):
                     if anchor:
                         current_bm.add(anchor)
 
-    def convert_p(self, p):
+    def convert_p(self: _typing.Self, p: _typing.Any) -> _typing.Any:
         dest = P()
         self.object_map[dest] = p
         style = self.styles.resolve_paragraph(p)
@@ -488,7 +491,7 @@ class Convert(object):
         current_hyperlink = None
         hl_xpath = self.namespace.XPath("ancestor::w:hyperlink[1]")
 
-        def p_parent(local_x):
+        def p_parent(local_x: _typing.Any) -> _typing.Any:
             # Ensure that nested <w:p> tags are handled. These can occur if a
             # textbox is present inside a paragraph.
             while True:
@@ -596,7 +599,7 @@ class Convert(object):
 
         return dest
 
-    def wrap_elems(self, elems, wrapper):
+    def wrap_elems(self: _typing.Self, elems: _typing.Any, wrapper: _typing.Any) -> _typing.Any:
         p = elems[0].getparent()
         idx = p.index(elems[0])
         p.insert(idx, wrapper)
@@ -612,7 +615,7 @@ class Convert(object):
             wrapper.append(elem)
         return wrapper
 
-    def resolve_links(self):
+    def resolve_links(self: _typing.Self) -> None:
         self.resolved_link_map = {}
         for hyperlink, spans in iteritems(self.link_map):
             relationships_by_id = self.link_source_map[hyperlink]
@@ -688,7 +691,7 @@ class Convert(object):
                 else:
                     a.set("href", dest)
 
-    def convert_run(self, run):
+    def convert_run(self: _typing.Self, run: _typing.Any) -> _typing.Any:
         ans = SPAN()
         self.object_map[ans] = run
         text = Text(ans, "text", [])
@@ -763,7 +766,7 @@ class Convert(object):
                 ans.set("lang", lang)
         return ans
 
-    def add_frame(self, html_obj, style):
+    def add_frame(self: _typing.Self, html_obj: _typing.Any, style: _typing.Any) -> None:
         last_run = self.framed[-1]
         if style is inherit:
             if last_run:
@@ -778,7 +781,7 @@ class Convert(object):
         else:
             last_run.append((html_obj, style))
 
-    def apply_frames(self):
+    def apply_frames(self: _typing.Self) -> None:
         for run in filter(None, self.framed):
             style = run[0][1]
             paras = tuple(x[0] for x in run)
@@ -801,8 +804,8 @@ class Convert(object):
             self.framed_map[frame] = css = border_style.css
             self.styles.register(css, "frame")
 
-    def mark_block_runs(self, paras):
-        def numeric_margin(value):
+    def mark_block_runs(self: _typing.Self, paras: _typing.Any) -> None:
+        def numeric_margin(value: _typing.Any) -> _typing.Any:
             if isinstance(value, (int, float)):
                 return value
             if isinstance(value, str) and value.endswith("pt"):
@@ -812,7 +815,7 @@ class Convert(object):
                     pass
             return 0
 
-        def process_run(run):
+        def process_run(run: _typing.Any) -> None:
             max_left = max_right = 0
             has_visible_border = None
             for p in run:

@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import shutil
@@ -152,7 +155,7 @@ class EPUBOutput(OutputFormatPlugin):
 
     recommendations = {("pretty_print", True, OptionRecommendation.HIGH)}
 
-    def workaround_webkit_quirks(self):  # {{{
+    def workaround_webkit_quirks(self: _typing.Self) -> None:  # {{{
         from LiuXin_alpha.file_formats.oeb.base import XPath
 
         for x in self.oeb.spine:
@@ -170,7 +173,7 @@ class EPUBOutput(OutputFormatPlugin):
 
     # }}}
 
-    def upshift_markup(self):  # {{{
+    def upshift_markup(self: _typing.Self) -> None:  # {{{
         """
         Upgrade markup to comply with XHTML 1.1 where possible
         :return:
@@ -206,7 +209,7 @@ class EPUBOutput(OutputFormatPlugin):
 
     # }}}
 
-    def ensure_legacy_css_files(self):
+    def ensure_legacy_css_files(self: _typing.Self) -> None:
         try:
             import cssutils  # noqa: F401
             return
@@ -240,7 +243,7 @@ class EPUBOutput(OutputFormatPlugin):
                     c += 1
                 self.oeb.manifest.add(item_id, font_alias, src_item.media_type, data=src_item.data)
 
-    def convert(self, oeb_book, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         self.log, self.opts, self.oeb = log, opts, oeb_book
 
         if self.opts.epub_inline_toc:
@@ -315,7 +318,7 @@ class EPUBOutput(OutputFormatPlugin):
         identifiers = oeb_book.metadata["identifier"]
         uuid = None
 
-        def identifier_value(x):
+        def identifier_value(x: _typing.Any) -> _typing.Any:
             raw = getattr(x, "value", getattr(x, "content", ""))
             if isinstance(raw, bytes):
                 return raw.decode("utf-8", "replace")
@@ -384,7 +387,7 @@ class EPUBOutput(OutputFormatPlugin):
                     zf.extractall(path=opts.extract_to)
                 self.log.info("EPUB extracted to", opts.extract_to)
 
-    def encrypt_fonts(self, uris, tdir, uuid):  # {{{
+    def encrypt_fonts(self: _typing.Self, uris: _typing.Any, tdir: _typing.Any, uuid: _typing.Any) -> _typing.Any:  # {{{
         from binascii import unhexlify
 
         key = re.sub(r"[^a-fA-F0-9]", "", uuid)
@@ -439,7 +442,7 @@ class EPUBOutput(OutputFormatPlugin):
 
     # }}}
 
-    def condense_ncx(self, ncx_path):
+    def condense_ncx(self: _typing.Self, ncx_path: _typing.Any) -> None:
         """
         Condense the ncx file - Navigation Control File - used in ePub files to define the Table of Contents.
         :param ncx_path:
@@ -458,7 +461,7 @@ class EPUBOutput(OutputFormatPlugin):
             with open(ncx_path, "wb") as ncx_file:
                 ncx_file.write(compressed)
 
-    def workaround_ade_quirks(self):  # {{{
+    def workaround_ade_quirks(self: _typing.Self) -> None:  # {{{
         """
         Perform various markup transforms to get the output to render correctly in the quirky ADE.
         """
@@ -603,14 +606,14 @@ class EPUBOutput(OutputFormatPlugin):
 
     # }}}
 
-    def workaround_sony_quirks(self):  # {{{
+    def workaround_sony_quirks(self: _typing.Self) -> None:  # {{{
         """
         Perform toc link transforms to alleviate slow loading.
         """
         from LiuXin_alpha.file_formats.oeb.base import urldefrag, XPath
         from LiuXin_alpha.file_formats.oeb.polish.toc import item_at_top
 
-        def frag_is_at_top(root, frag):
+        def frag_is_at_top(root: _typing.Any, frag: _typing.Any) -> _typing.Any:
             elem = XPath('//*[@id="%s" or @name="%s"]' % (frag, frag))(root)
             if elem:
                 elem = elem[0]
@@ -618,7 +621,7 @@ class EPUBOutput(OutputFormatPlugin):
                 return False
             return item_at_top(elem)
 
-        def simplify_toc_entry(toc):
+        def simplify_toc_entry(toc: _typing.Any) -> None:
             if toc.href:
                 href, frag = urldefrag(toc.href)
                 if frag:

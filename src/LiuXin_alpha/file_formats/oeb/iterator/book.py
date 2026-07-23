@@ -6,6 +6,9 @@ Iterate over the HTML files in an ebook. Useful for writing viewers.
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import math
@@ -48,7 +51,7 @@ class FakeOpts(object):
     input_encoding = None
 
 
-def write_oebbook(oeb, path):
+def write_oebbook(oeb: _typing.Any, path: _typing.Any) -> _typing.Any:
     from LiuXin_alpha.file_formats.oeb.writer import OEBWriter
     from LiuXin_alpha.utils.calibre import walk
 
@@ -63,7 +66,7 @@ class EbookIterator(BookmarksMixin):
 
     CHARACTERS_PER_PAGE = 1000
 
-    def __init__(self, pathtoebook, log=None):
+    def __init__(self: _typing.Self, pathtoebook: _typing.Any, log: _typing.Any = None) -> None:
         self.log = log or default_log
         pathtoebook = pathtoebook.strip()
         self.pathtoebook = os.path.abspath(pathtoebook)
@@ -72,7 +75,7 @@ class EbookIterator(BookmarksMixin):
         ext = re.sub(r"(x{0,1})htm(l{0,1})", "html", ext)
         self.ebook_ext = ext.replace("original_", "")
 
-    def search(self, text, index, backwards=False):
+    def search(self: _typing.Self, text: _typing.Any, index: _typing.Any, backwards: bool = False) -> _typing.Any:
         text = prepare_string_for_xml(text.lower())
         pmap = [(i, path) for i, path in enumerate(self.spine)]
         if backwards:
@@ -89,14 +92,14 @@ class EbookIterator(BookmarksMixin):
                     return i
 
     def __enter__(
-        self,
-        processed=False,
-        only_input_plugin=False,
-        run_char_count=True,
-        read_anchor_map=True,
-        view_kepub=False,
-        read_links=True,
-    ):
+        self: _typing.Self,
+        processed: bool = False,
+        only_input_plugin: bool = False,
+        run_char_count: bool = True,
+        read_anchor_map: bool = True,
+        view_kepub: bool = False,
+        read_links: bool = True,
+    ) -> _typing.Any:
         """
         Convert an ebook file into an exploded OEB book suitable for display in viewers/preprocessing etc.
         :param processed:
@@ -221,7 +224,7 @@ class EbookIterator(BookmarksMixin):
 
         return self
 
-    def verify_links(self):
+    def verify_links(self: _typing.Self) -> None:
         spine_paths = {s: s for s in self.spine}
         for item in self.spine:
             base = os.path.dirname(item)
@@ -243,7 +246,7 @@ class EbookIterator(BookmarksMixin):
                     if not p.fragment or p.fragment in path.anchor_map:
                         item.verified_links.add((path, p.fragment))
 
-    def __exit__(self, *args):
+    def __exit__(self: _typing.Self, *args: _typing.Any) -> None:
         self._tdir.__exit__(*args)
         for x in self.delete_on_exit:
             try:

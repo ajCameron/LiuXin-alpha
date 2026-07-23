@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Convert .fb2 files to .lrf
@@ -42,7 +45,7 @@ FB2NS = "http://www.gribuser.ru/xml/fictionbook/2.0"
 FB21NS = "http://www.gribuser.ru/xml/fictionbook/2.1"
 
 
-def _get_fb2_metadata(stream, file_ext):
+def _get_fb2_metadata(stream: _typing.Any, file_ext: _typing.Any) -> _typing.Any:
     """
     Resolve metadata using the legacy path when available, with a fallback to
     the metadata reader plugin registry.
@@ -83,20 +86,20 @@ class FB2Input(InputFormatPlugin):
         ),
     }
 
-    def _warn(self, message):
+    def _warn(self: _typing.Self, message: _typing.Any) -> None:
         log = getattr(self, "log", None)
         warn = getattr(log, "warning", None) or getattr(log, "warn", None)
         if warn is not None:
             warn(message)
 
-    def warn_preflight_rejection(self, stream, log, error):
+    def warn_preflight_rejection(self: _typing.Self, stream: _typing.Any, log: _typing.Any, error: _typing.Any) -> None:
         warn = getattr(log, "warning", None) or getattr(log, "warn", None)
         if warn is None:
             return
         source = getattr(stream, "name", "stream")
         warn("FB2 preflight rejected %s: %s" % (source, error))
 
-    def extract_input_payload(self, raw_container, file_ext):
+    def extract_input_payload(self: _typing.Self, raw_container: _typing.Any, file_ext: _typing.Any) -> _typing.Any:
         return extract_fb2_payload_from_bytes(
             raw_container,
             label="FB2 input",
@@ -108,7 +111,7 @@ class FB2Input(InputFormatPlugin):
             min_compression_ratio_check_size=self.min_compression_ratio_check_size,
         )
 
-    def embedded_binary_filename_is_unsafe(self, name):
+    def embedded_binary_filename_is_unsafe(self: _typing.Self, name: _typing.Any) -> bool:
         if not name:
             return True
         normalized = str(name).replace("\\", "/")
@@ -123,7 +126,7 @@ class FB2Input(InputFormatPlugin):
             or os.path.isabs(str(name))
         )
 
-    def safe_embedded_binary_filename(self, binary_id, content_type, index, used_names):
+    def safe_embedded_binary_filename(self: _typing.Self, binary_id: _typing.Any, content_type: _typing.Any, index: _typing.Any, used_names: _typing.Any) -> _typing.Any:
         original_name = str(binary_id or "").strip()
         candidate = original_name
         content_ext = str(content_type or "").rpartition("/")[-1].lower()
@@ -158,7 +161,7 @@ class FB2Input(InputFormatPlugin):
         used_names.add(unique_candidate.casefold())
         return unique_candidate
 
-    def decode_embedded_binary(self, raw, binary_id):
+    def decode_embedded_binary(self: _typing.Self, raw: _typing.Any, binary_id: _typing.Any) -> _typing.Any:
         if isinstance(raw, bytes):
             compact = b"".join(raw.split())
         else:
@@ -173,7 +176,7 @@ class FB2Input(InputFormatPlugin):
             self._warn(_("Binary data with id=%s is corrupted, ignoring") % binary_id)
             return None
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.chardet import xml_to_unicode
         from LiuXin_alpha.file_formats.oeb.base import XLINK_NS, XHTML_NS, RECOVER_PARSER
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
@@ -336,7 +339,7 @@ class FB2Input(InputFormatPlugin):
                 opf.render(f)
             return os.path.join(os.getcwd(), "metadata.opf")
 
-    def extract_embedded_content(self, doc):
+    def extract_embedded_content(self: _typing.Self, doc: _typing.Any) -> None:
         """
         Extract and decode content embedded in the document.
         :param doc:

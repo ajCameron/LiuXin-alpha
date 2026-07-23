@@ -1,6 +1,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -8,7 +11,7 @@ __docformat__ = "restructuredtext en"
 
 
 class ConversionUserFeedBack(Exception):
-    def __init__(self, title, msg, level="info", det_msg=""):
+    def __init__(self: _typing.Self, title: _typing.Any, msg: _typing.Any, level: str = "info", det_msg: str = "") -> None:
         """
         Show a simple message to the user
         :param title: The title (very short description)

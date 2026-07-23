@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
@@ -32,25 +35,25 @@ MAX_PALMDB_RECORDS = 4096
 MAX_MOBI_HEADER_LENGTH = 500
 
 
-def _require_bytes(raw, length, context):
+def _require_bytes(raw: _typing.Any, length: _typing.Any, context: _typing.Any) -> None:
     if len(raw) < length:
         raise MobiError("Truncated MOBI data while reading %s" % context)
 
 
-def _unpack(fmt, raw, offset, context):
+def _unpack(fmt: _typing.Any, raw: _typing.Any, offset: _typing.Any, context: _typing.Any) -> _typing.Any:
     length = struct.calcsize(fmt)
     _require_bytes(raw, offset + length, context)
     return struct.unpack_from(fmt, raw, offset)
 
 
-def _read_exact(stream, length, context):
+def _read_exact(stream: _typing.Any, length: _typing.Any, context: _typing.Any) -> _typing.Any:
     raw = stream.read(length)
     if len(raw) != length:
         raise MobiError("Truncated MOBI data while reading %s" % context)
     return raw
 
 
-def _stream_length(stream):
+def _stream_length(stream: _typing.Any) -> _typing.Any:
     if not (hasattr(stream, "seek") and hasattr(stream, "tell")):
         return None
     pos = stream.tell()
@@ -61,12 +64,12 @@ def _stream_length(stream):
         stream.seek(pos)
 
 
-def _validate_record_count(count):
+def _validate_record_count(count: _typing.Any) -> None:
     if count > MAX_PALMDB_RECORDS:
         raise MobiError("PalmDB record count %d exceeds limit %d" % (count, MAX_PALMDB_RECORDS))
 
 
-def _validate_record_offsets(offsets, *, data_size, table_end):
+def _validate_record_offsets(offsets: _typing.Any, *, data_size: _typing.Any, table_end: _typing.Any) -> None:
     previous = None
     for index, offset in enumerate(offsets):
         if offset < table_end:
@@ -78,7 +81,7 @@ def _validate_record_offsets(offsets, *, data_size, table_end):
         previous = offset
 
 
-def read_palmdb_record_table(raw):
+def read_palmdb_record_table(raw: _typing.Any) -> tuple[_typing.Any, ...]:
     _require_bytes(raw, PALMDB_HEADER_SIZE, "PalmDB header")
     count = _unpack(">H", raw, 76, "PalmDB record count")[0]
     if count < 1:
@@ -101,7 +104,7 @@ def read_palmdb_record_table(raw):
 
 
 class EXTHHeader(object):  # {{{
-    def __init__(self, raw, codec, title):
+    def __init__(self: _typing.Self, raw: _typing.Any, codec: _typing.Any, title: _typing.Any) -> None:
         _require_bytes(raw, 12, "EXTH header")
         self.doctype = raw[:4]
         if self.doctype != b"EXTH":
@@ -190,7 +193,7 @@ class EXTHHeader(object):  # {{{
         if title:
             self.mi.title = replace_entities(clean_xml_chars(clean_ascii_chars(title)))
 
-    def process_metadata(self, idx, content, codec):
+    def process_metadata(self: _typing.Self, idx: _typing.Any, content: _typing.Any, codec: _typing.Any) -> None:
         if idx == 100:
             if self.mi.is_null("authors"):
                 self.mi.authors = []
@@ -269,7 +272,7 @@ class EXTHHeader(object):  # {{{
 
 
 class BookHeader(object):
-    def __init__(self, raw, ident, user_encoding, log, try_extra_data_fix=False):
+    def __init__(self: _typing.Self, raw: _typing.Any, ident: _typing.Any, user_encoding: _typing.Any, log: _typing.Any, try_extra_data_fix: bool = False) -> None:
         self.log = log
         ident_text = ident.decode("ascii", "ignore") if isinstance(ident, (bytes, bytearray)) else str(ident)
         self.compression_type = raw[:2]
@@ -391,7 +394,7 @@ class BookHeader(object):
 
 
 class MetadataHeader(BookHeader):
-    def __init__(self, stream, log):
+    def __init__(self: _typing.Self, stream: _typing.Any, log: _typing.Any) -> None:
         self.stream = stream
         self._stream_size = _stream_length(stream)
         self.ident = self.identity()
@@ -405,7 +408,7 @@ class MetadataHeader(BookHeader):
             self.exth = None
 
     @property
-    def kf8_type(self):
+    def kf8_type(self: _typing.Self) -> str | None:
         if self.mobi_version == 8 and getattr(self, "skelidx", NULL_INDEX) != NULL_INDEX:
             return "standalone"
 
@@ -419,18 +422,18 @@ class MetadataHeader(BookHeader):
             pass
         return None
 
-    def identity(self):
+    def identity(self: _typing.Self) -> _typing.Any:
         self.stream.seek(60)
         ident = _read_exact(self.stream, 8, "PalmDB identity").upper()
         if ident not in (b"BOOKMOBI", b"TEXTREAD"):
             raise MobiError("Unknown book type: %s" % ident)
         return ident
 
-    def section_count(self):
+    def section_count(self: _typing.Self) -> _typing.Any:
         self.stream.seek(76)
         return struct.unpack(">H", _read_exact(self.stream, 2, "PalmDB record count"))[0]
 
-    def _read_record_offsets(self):
+    def _read_record_offsets(self: _typing.Self) -> _typing.Any:
         table_end = PALMDB_HEADER_SIZE + (self.num_sections * PALMDB_RECORD_TABLE_ENTRY_SIZE) + 2
         if self._stream_size is not None and table_end > self._stream_size:
             raise MobiError("Truncated MOBI data while reading PalmDB record table")
@@ -443,7 +446,7 @@ class MetadataHeader(BookHeader):
         _validate_record_offsets(offsets, data_size=self._stream_size, table_end=table_end)
         return offsets
 
-    def section_offset(self, number):
+    def section_offset(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         if number < 0 or number >= self.num_sections:
             raise MobiError("non-existent MOBI section %r" % number)
         if hasattr(self, "_record_offsets"):
@@ -451,7 +454,7 @@ class MetadataHeader(BookHeader):
         self.stream.seek(78 + number * 8)
         return struct.unpack(">LBBBB", _read_exact(self.stream, 8, "PalmDB record table entry"))[0]
 
-    def header(self):
+    def header(self: _typing.Self) -> _typing.Any:
         section_headers = list()
         # First section with the metadata
         section_headers.append(self.section_offset(0))
@@ -465,7 +468,7 @@ class MetadataHeader(BookHeader):
         self.stream.seek(off)
         return _read_exact(self.stream, end_off - off, "MOBI record 0")
 
-    def section_data(self, number):
+    def section_data(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         if number < 0 or number >= self.num_sections:
             raise MobiError("non-existent MOBI section %r" % number)
         start = self.section_offset(number)

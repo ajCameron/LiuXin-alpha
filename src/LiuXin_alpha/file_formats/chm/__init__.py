@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 """CHM format support."""
+from __future__ import annotations
 
 from .reader import CHMError, CHMReader
 

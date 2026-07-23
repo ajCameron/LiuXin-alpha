@@ -2,6 +2,12 @@
 # coding: utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
+
+from collections.abc import Sequence
+from typing import Protocol, cast
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Anthon van der Neut <A.van.der.Neut@ruamel.eu>"
@@ -84,22 +90,30 @@ CTXIDS = 3
 MAXLEN = 1024**2
 
 
+class _BzzPlugin(Protocol):
+    def decompress(self: _typing.Self, data: bytes) -> bytes: ...
+
+
 # Exception classes used by this module.
 class BZZDecoderError(Exception):
 
     """This exception is raised when BZZDecode runs into trouble"""
 
-    def __init__(self, msg):
+    def __init__(self: _typing.Self, msg: str) -> None:
+        super().__init__(msg)
         self.msg = msg
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> str:
         return "BZZDecoderError: %s" % self.msg
 
 
 # This table has been designed for the ZPCoder
 #   * by running the following command in file 'zptable.sn':
 #   * (fast-crude (steady-mat 0.0035  0.0002) 260)))
-default_ztable = [  # {{{
+ZTableEntry = tuple[int, int, int, int]
+
+
+default_ztable: list[ZTableEntry] = [  # {{{
     (0x8000, 0x0000, 84, 145),  # 000: p=0.500000 (    0,    0)
     (0x8000, 0x0000, 3, 4),  # 001: p=0.500000 (    0,    0)
     (0x8000, 0x0000, 4, 3),  # 002: p=0.500000 (    0,    0)
@@ -621,28 +635,32 @@ xmtf = (
 
 
 class BZZDecoder:
-    def __init__(self, infile, outfile):
+    def __init__(
+        self: _typing.Self,
+        infile: bytes,
+        outfile: bytearray,
+    ) -> None:
         self.instream = infile
         self.inptr = 0
         self.outf = outfile
         self.ieof = False
-        self.bptr = None
-        self.xsize = None
-        self.outbuf = [0] * (MAXBLOCK * 1024)
-        self.byte = None
+        self.bptr = 0
+        self.xsize = 0
+        self.outbuf: list[int] = [0] * (MAXBLOCK * 1024)
+        self.byte = 0
         self.scount = 0
         self.delay = 25
         self.a = 0
         self.code = 0
         self.bufint = 0
-        self.ctx = [0] * 300
+        self.ctx: list[int] = [0] * 300
         # table
-        self.p = [0] * 256
-        self.m = [0] * 256
-        self.up = [0] * 256
-        self.dn = [0] * 256
+        self.p: list[int] = [0] * 256
+        self.m: list[int] = [0] * 256
+        self.up: list[int] = [0] * 256
+        self.dn: list[int] = [0] * 256
         # machine independent ffz
-        self.ffzt = [0] * 256
+        self.ffzt: list[int] = [0] * 256
 
         # Create machine independent ffz table
         for i in range(256):
@@ -667,7 +685,7 @@ class BZZDecoder:
         if self.code >= 0x8000:
             self.fence = 0x7FFF
 
-    def convert(self, sz):
+    def convert(self: _typing.Self, sz: int) -> int:
         if self.ieof:
             return 0
         copied = 0
@@ -692,7 +710,7 @@ class BZZDecoder:
             # offset += bytes; // for tell()
         return copied
 
-    def preload(self):
+    def preload(self: _typing.Self) -> None:
         while self.scount <= 24:
             if not self.read_byte():
                 self.byte = 0xFF
@@ -702,14 +720,17 @@ class BZZDecoder:
             self.bufint = (self.bufint << 8) | self.byte
             self.scount += 8
 
-    def newtable(self, table):
+    def newtable(
+        self: _typing.Self,
+        table: Sequence[ZTableEntry],
+    ) -> None:
         for i in range(256):
             self.p[i] = table[i][0]
             self.m[i] = table[i][1]
             self.up[i] = table[i][2]
             self.dn[i] = table[i][3]
 
-    def decode(self):
+    def decode(self: _typing.Self) -> int:
         outbuf = self.outbuf
         # Decode block size
         self.xsize = self.decode_raw(24)
@@ -724,7 +745,7 @@ class BZZDecoder:
             if self.zpcodec_decoder():
                 fshift += 1
         # Prepare Quasi MTF
-        mtf = list(xmtf)  # unsigned chars
+        mtf: list[int] = list(xmtf)  # unsigned chars
         freq = [0] * FREQMAX
         fadd = 4
         # Decode
@@ -833,7 +854,7 @@ class BZZDecoder:
             raise BZZDecoderError("BiteStream.corrupt")
         return self.xsize
 
-    def decode_raw(self, bits):
+    def decode_raw(self: _typing.Self, bits: int) -> int:
         n = 1
         m = 1 << bits
         while n < m:
@@ -841,7 +862,12 @@ class BZZDecoder:
             n = (n << 1) | b
         return n - m
 
-    def decode_binary(self, ctx, index, bits):
+    def decode_binary(
+        self: _typing.Self,
+        ctx: list[int],
+        index: int,
+        bits: int,
+    ) -> int:
         n = 1
         m = 1 << bits
         while n < m:
@@ -849,10 +875,14 @@ class BZZDecoder:
             n = (n << 1) | b
         return n - m
 
-    def zpcodec_decoder(self):
+    def zpcodec_decoder(self: _typing.Self) -> int:
         return self.decode_sub_simple(0, 0x8000 + (self.a >> 1))
 
-    def decode_sub_simple(self, mps, z):
+    def decode_sub_simple(
+        self: _typing.Self,
+        mps: int,
+        z: int,
+    ) -> int:
         # Test MPS/LPS
         if z > self.code:
             # LPS branch
@@ -888,7 +918,12 @@ class BZZDecoder:
             result = mps
         return result
 
-    def decode_sub(self, ctx, index, z):
+    def decode_sub(
+        self: _typing.Self,
+        ctx: list[int],
+        index: int,
+        z: int,
+    ) -> int:
         # Save bit
         bit = ctx[index] & 1
         # Avoid interval reversion
@@ -931,7 +966,11 @@ class BZZDecoder:
                 self.fence = 0x7FFF
             return bit
 
-    def zpcodec_decode(self, ctx, index):
+    def zpcodec_decode(
+        self: _typing.Self,
+        ctx: list[int],
+        index: int,
+    ) -> int:
         z = self.a + self.p[ctx[index]]
         if z <= self.fence:
             self.a = z
@@ -940,7 +979,7 @@ class BZZDecoder:
             res = self.decode_sub(ctx, index, z)
         return res
 
-    def read_byte(self):
+    def read_byte(self: _typing.Self) -> bool:
         try:
             self.byte = self.instream[self.inptr]
             self.inptr += 1
@@ -948,7 +987,7 @@ class BZZDecoder:
         except IndexError:
             return False
 
-    def ffz(self):
+    def ffz(self: _typing.Self) -> int:
         x = self.a
         if x >= 0xFF00:
             return self.ffzt[x & 0xFF] + 8
@@ -957,13 +996,13 @@ class BZZDecoder:
 
 
 # for testing
-def main():
+def main() -> None:
     import sys
     from LiuXin_alpha.utils.plugins import plugins
 
     with open(sys.argv[1], "rb") as f:
         raw = f.read()
-    d = plugins["bzzdec"][0]
+    d = cast(_BzzPlugin, plugins["bzzdec"][0])
     print(d.decompress(raw))
 
 

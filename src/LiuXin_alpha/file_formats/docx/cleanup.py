@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 
@@ -18,7 +21,7 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 NBSP = "\xa0"
 
 
-def mergeable(previous, current):
+def mergeable(previous: _typing.Any, current: _typing.Any) -> bool:
     if previous.tail or current.tail:
         return False
     if previous.get("class", None) != current.get("class", None):
@@ -31,14 +34,14 @@ def mergeable(previous, current):
         return False
 
 
-def append_text(parent, text):
+def append_text(parent: _typing.Any, text: _typing.Any) -> None:
     if len(parent) > 0:
         parent[-1].tail = (parent[-1].tail or "") + text
     else:
         parent.text = (parent.text or "") + text
 
 
-def merge(parent, span):
+def merge(parent: _typing.Any, span: _typing.Any) -> None:
     if span.text:
         append_text(parent, span.text)
     for child in span:
@@ -48,25 +51,25 @@ def merge(parent, span):
     span.getparent().remove(span)
 
 
-def merge_run(run):
+def merge_run(run: _typing.Any) -> None:
     parent = run[0]
     for span in run[1:]:
         merge(parent, span)
 
 
-def liftable(css):
+def liftable(css: _typing.Any) -> _typing.Any:
     # A <span> is liftable if all its styling would work just as well if it is
     # specified on the parent element.
     prefixes = {x.partition("-")[0] for x in iterkeys(css)}
     return not (prefixes - {"text", "font", "letter", "color", "background"})
 
 
-def add_text(elem, attr, text):
+def add_text(elem: _typing.Any, attr: _typing.Any, text: _typing.Any) -> None:
     old = getattr(elem, attr) or ""
     setattr(elem, attr, old + text)
 
 
-def lift(span):
+def lift(span: _typing.Any) -> None:
     # Replace an element by its content (text, children and tail)
     parent = span.getparent()
     idx = parent.index(span)
@@ -95,7 +98,7 @@ def lift(span):
             add_text(last_child, "tail", span.tail)
 
 
-def before_count(root, tag, limit=10):
+def before_count(root: _typing.Any, tag: _typing.Any, limit: int = 10) -> _typing.Any:
     body = root.xpath("//body[1]")
     if not body:
         return limit
@@ -108,7 +111,7 @@ def before_count(root, tag, limit=10):
             return limit
 
 
-def cleanup_markup(log, root, styles, dest_dir, detect_cover, XPath):
+def cleanup_markup(log: _typing.Any, root: _typing.Any, styles: _typing.Any, dest_dir: _typing.Any, detect_cover: _typing.Any, XPath: _typing.Any) -> _typing.Any:
     # Move <hr>s outside paragraphs, if possible.
     pancestor = XPath("|".join("ancestor::%s[1]" % x for x in ("p", "h1", "h2", "h3", "h4", "h5", "h6")))
     for hr in root.xpath("//span/hr"):

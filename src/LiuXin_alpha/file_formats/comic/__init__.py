@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 """Comic archive helpers."""
+from __future__ import annotations
 
 from .input import extract_comic, find_pages, process_pages
 

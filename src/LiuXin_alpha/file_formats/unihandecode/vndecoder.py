@@ -3,6 +3,9 @@
 """
 Decode unicode text to an ASCII representation of the text in Vietnamese.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.file_formats.unihandecode.unidecoder import Unidecoder
 from LiuXin_alpha.file_formats.unihandecode.vncodepoints import CODEPOINTS as HANCODES
@@ -17,6 +20,6 @@ class Vndecoder(Unidecoder):
 
     codepoints = {}
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.codepoints = CODEPOINTS
         self.codepoints.update(HANCODES)

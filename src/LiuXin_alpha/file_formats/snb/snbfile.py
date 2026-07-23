@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import typing as _typing
+
 import bz2
 import os
 import struct
@@ -9,7 +11,7 @@ import sys
 import zlib
 from dataclasses import dataclass
 from functools import cmp_to_key
-from typing import BinaryIO
+from typing import BinaryIO, Protocol, TypeAlias
 
 from LiuXin_alpha.utils.calibre import guess_type
 from LiuXin_alpha.utils.libraries.liuxin_six import six_cmp
@@ -40,7 +42,7 @@ class FileStream:
     contentOffset: int = 0
     fileBody: bytes = b""
 
-    def IsBinary(self) -> bool:
+    def IsBinary(self: _typing.Self) -> bool:
         return self.attr & 0x41000000 != 0x41000000
 
 
@@ -53,6 +55,20 @@ class BlockData:
     Offset: int = 0
 
 
+class _BinaryWriter(Protocol):
+    def close(self: _typing.Self) -> object: ...
+
+    def tell(self: _typing.Self) -> int: ...
+
+    def seek(self: _typing.Self, offset: int, whence: int = 0) -> int: ...
+
+    def write(self: _typing.Self, data: bytes) -> int: ...
+
+
+SNBPath: TypeAlias = str | os.PathLike[str]
+SNBOutput: TypeAlias = SNBPath | _BinaryWriter
+
+
 class SNBFile:
     BLOCK_SIZE = 0x8000
     HEADER_SIZE = 44
@@ -63,10 +79,31 @@ class SNBFile:
     REVZ1 = 0x00000000
     REVZ2 = 0x00000000
 
-    def __init__(self, inputFile=None):
+    def __init__(
+        self: _typing.Self,
+        inputFile: SNBPath | None = None,
+    ) -> None:
         self.files: list[FileStream] = []
         self.blocks: list[BlockData] = []
         self.fileName: str | None = None
+        self.magic = b""
+        self.rev80 = 0
+        self.revA3 = 0
+        self.revZ1 = 0
+        self.fileCount = 0
+        self.vfatSize = 0
+        self.vfatCompressed = 0
+        self.binStreamSize = 0
+        self.plainStreamSizeUncompressed = 0
+        self.revZ2 = 0
+        self.vfat = b""
+        self.tailSize = 0
+        self.tailOffset = 0
+        self.tailMagic = b""
+        self.vTailUncompressed = b""
+        self.tailSizeUncompressed = 0
+        self.binBlock = 0
+        self.plainBlock = 0
         if inputFile is not None:
             self.Open(inputFile)
 
@@ -87,13 +124,13 @@ class SNBFile:
     def _encode_name(name: str) -> bytes:
         return _normalize_name(name).encode("utf-8", "replace")
 
-    def Open(self, inputFile):
-        self.fileName = str(inputFile)
+    def Open(self: _typing.Self, inputFile: SNBPath) -> None:
+        self.fileName = os.fspath(inputFile)
         with open(self.fileName, "rb") as snbFile:
             snbFile.seek(0)
             self.Parse(snbFile)
 
-    def Parse(self, snbFile: BinaryIO, metaOnly: bool = False):
+    def Parse(self: _typing.Self, snbFile: BinaryIO, metaOnly: bool = False) -> None:
         self.files = []
         self.blocks = []
 
@@ -145,7 +182,7 @@ class SNBFile:
             else:
                 raise ValueError(f"Invalid file entry attr={f.attr!r} name={f.fileName!r}")
 
-    def _read_plain_stream(self, snbFile: BinaryIO) -> bytes:
+    def _read_plain_stream(self: _typing.Self, snbFile: BinaryIO) -> bytes:
         if self.plainBlock <= 0:
             return b""
 
@@ -167,7 +204,7 @@ class SNBFile:
                 chunks.append(data)
         return b"".join(chunks)
 
-    def ParseFile(self, vfat: bytes, fileCount: int):
+    def ParseFile(self: _typing.Self, vfat: bytes, fileCount: int) -> None:
         names_blob = vfat[fileCount * 12 :]
         for i in range(fileCount):
             f = FileStream()
@@ -175,7 +212,7 @@ class SNBFile:
             f.fileName = self._decode_name(self._read_c_string(names_blob, f.fileNameOffset))
             self.files.append(f)
 
-    def ParseTail(self, vtail: bytes, fileCount: int):
+    def ParseTail(self: _typing.Self, vtail: bytes, fileCount: int) -> None:
         self.binBlock = _ceil_div(self.binStreamSize, self.BLOCK_SIZE)
         self.plainBlock = _ceil_div(self.plainStreamSizeUncompressed, self.BLOCK_SIZE)
         for i in range(self.binBlock + self.plainBlock):
@@ -189,7 +226,7 @@ class SNBFile:
                 vtail[rec_start + i * 8 : rec_start + (i + 1) * 8],
             )
 
-    def IsValid(self) -> bool:
+    def IsValid(self: _typing.Self) -> bool:
         if self.magic != SNBFile.MAGIC:
             return False
         if self.rev80 != SNBFile.REV80:
@@ -208,7 +245,7 @@ class SNBFile:
             return False
         return True
 
-    def FromDir(self, tdir):
+    def FromDir(self: _typing.Self, tdir: SNBPath) -> None:
         for root, dirs, files in os.walk(tdir):
             dirs.sort()
             files.sort()
@@ -220,7 +257,12 @@ class SNBFile:
                 else:
                     self.AppendBinary(rel_path, tdir)
 
-    def _append(self, fileName: str, tdir: str, attr: int):
+    def _append(
+        self: _typing.Self,
+        fileName: str,
+        tdir: SNBPath,
+        attr: int,
+    ) -> None:
         f = FileStream()
         f.attr = attr
         disk_path = os.path.join(tdir, fileName)
@@ -230,21 +272,35 @@ class SNBFile:
         f.fileName = _normalize_name(fileName)
         self.files.append(f)
 
-    def AppendPlain(self, fileName, tdir):
+    def AppendPlain(
+        self: _typing.Self,
+        fileName: str,
+        tdir: SNBPath,
+    ) -> None:
         self._append(fileName, tdir, 0x41000000)
 
-    def AppendBinary(self, fileName, tdir):
+    def AppendBinary(
+        self: _typing.Self,
+        fileName: str,
+        tdir: SNBPath,
+    ) -> None:
         self._append(fileName, tdir, 0x01000000)
 
-    def GetFileStream(self, fileName):
+    def GetFileStream(
+        self: _typing.Self,
+        fileName: str,
+    ) -> bytes | None:
         target = _normalize_name(fileName)
         for file in self.files:
             if file.fileName == target:
                 return file.fileBody
         return None
 
-    def OutputImageFiles(self, path):
-        fileNames = []
+    def OutputImageFiles(
+        self: _typing.Self,
+        path: SNBPath,
+    ) -> list[tuple[str, str]]:
+        fileNames: list[tuple[str, str]] = []
         for f in self.files:
             fname = os.path.basename(f.fileName)
             _, ext = os.path.splitext(fname)
@@ -255,16 +311,16 @@ class SNBFile:
                 fileNames.append((fname, mime_type))
         return fileNames
 
-    def Output(self, outputFile):
+    def Output(self: _typing.Self, outputFile: SNBOutput) -> None:
         # Required by SNB format: entries sorted by filename.
         self.files.sort(key=cmp_to_key(compareFileStream))
 
-        close_output = False
-        if hasattr(outputFile, "write"):
-            output_handle = outputFile
-        else:
+        if isinstance(outputFile, (str, os.PathLike)):
             output_handle = open(outputFile, "wb")
             close_output = True
+        else:
+            output_handle = outputFile
+            close_output = False
 
         try:
             vmbrp1 = struct.pack(
@@ -345,7 +401,7 @@ class SNBFile:
             if close_output:
                 output_handle.close()
 
-    def Dump(self):
+    def Dump(self: _typing.Self) -> None:
         if self.fileName:
             print("File Name:\t", self.fileName)
         print("File Count:\t", self.fileCount)
@@ -364,7 +420,7 @@ class SNBFile:
             print("Content Offset: ", f.contentOffset)
 
 
-def usage():
+def usage() -> None:
     print("This unit test is for INTERNAL usage only)!")
     print("This unit test accepts two parameters.")
     print("python snbfile.py <INPUTFILE> <DESTFILE>")
@@ -372,7 +428,7 @@ def usage():
     print("Meta data of the file will be shown during this process.")
 
 
-def main():
+def main() -> int:
     if len(sys.argv) != 3:
         usage()
         sys.exit(0)

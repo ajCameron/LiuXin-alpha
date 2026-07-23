@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import struct
 
@@ -52,7 +55,7 @@ FIELD_NAMES = {
 }
 
 
-def read_variable_len_data(data, header):
+def read_variable_len_data(data: _typing.Any, header: _typing.Any) -> None:
     offset = header["tagx"]
     indices = []
     idxt_offset = header["start"]
@@ -78,7 +81,7 @@ def read_variable_len_data(data, header):
     header["indices"] = indices
 
 
-def read_index(sections, idx, codec):
+def read_index(sections: _typing.Any, idx: _typing.Any, codec: _typing.Any) -> tuple[_typing.Any, ...]:
     table, cncx = OrderedDict(), CNCX([], codec)
 
     data = sections[idx].raw
@@ -116,13 +119,13 @@ def read_index(sections, idx, codec):
 
 
 class Index(object):
-    def __init__(self, idx, records, codec):
+    def __init__(self: _typing.Self, idx: _typing.Any, records: _typing.Any, codec: _typing.Any) -> None:
         self.table = self.cncx = self.header = self.records = None
         self.index_headers = []
         if idx != NULL_INDEX:
             self.table, self.cncx, self.header, self.index_headers = read_index(records, idx, codec)
 
-    def render(self):
+    def render(self: _typing.Self) -> _typing.Any:
         ans = ["*" * 10 + " Index Header " + "*" * 10]
         a = ans.append
         if self.header is not None:
@@ -153,15 +156,15 @@ class Index(object):
 
         return ans + [""]
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return "\n".join(self.render())
 
-    def __iter__(self):
+    def __iter__(self: _typing.Self) -> _typing.Any:
         return iter(self.records)
 
 
 class SKELIndex(Index):
-    def __init__(self, skelidx, records, codec):
+    def __init__(self: _typing.Self, skelidx: _typing.Any, records: _typing.Any, codec: _typing.Any) -> None:
         super(SKELIndex, self).__init__(skelidx, records, codec)
         self.records = []
 
@@ -182,7 +185,7 @@ class SKELIndex(Index):
 
 
 class SECTIndex(Index):
-    def __init__(self, sectidx, records, codec):
+    def __init__(self: _typing.Self, sectidx: _typing.Any, records: _typing.Any, codec: _typing.Any) -> None:
         super(SECTIndex, self).__init__(sectidx, records, codec)
         self.records = []
 
@@ -206,7 +209,7 @@ class SECTIndex(Index):
 
 
 class GuideIndex(Index):
-    def __init__(self, guideidx, records, codec):
+    def __init__(self: _typing.Self, guideidx: _typing.Any, records: _typing.Any, codec: _typing.Any) -> None:
         super(GuideIndex, self).__init__(guideidx, records, codec)
         self.records = []
 
@@ -227,7 +230,7 @@ class GuideIndex(Index):
 
 
 class NCXIndex(Index):
-    def __init__(self, ncxidx, records, codec):
+    def __init__(self: _typing.Self, ncxidx: _typing.Any, records: _typing.Any, codec: _typing.Any) -> None:
         super(NCXIndex, self).__init__(ncxidx, records, codec)
         self.records = []
 
@@ -265,7 +268,7 @@ class NCXIndex(Index):
                             if tag == which:
                                 entry[name] = self.cncx.get(fieldvalue, default_entry[name])
 
-                def refindx(local_e, local_name):
+                def refindx(local_e: _typing.Any, local_name: _typing.Any) -> _typing.Any:
                     ans = local_e[local_name]
                     if ans < 0:
                         ans = None

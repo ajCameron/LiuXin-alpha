@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Definition List Extension for Python-Markdown
@@ -34,10 +37,10 @@ class DefListProcessor(BlockProcessor):
     RE = re.compile(r"(^|\n)[ ]{0,3}:[ ]{1,3}(.*?)(\n|$)")
     NO_INDENT_RE = re.compile(r"^[ ]{0,3}[^ :]")
 
-    def test(self, parent, block):
+    def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> _typing.Any:
         return bool(self.RE.search(block))
 
-    def run(self, parent, blocks):
+    def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> bool:
 
         raw_block = blocks.pop(0)
         m = self.RE.search(raw_block)
@@ -96,7 +99,7 @@ class DefListIndentProcessor(ListIndentProcessor):
     ITEM_TYPES = ["dd"]
     LIST_TYPES = ["dl"]
 
-    def create_item(self, parent, block):
+    def create_item(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> None:
         """Create a new dd and parse the block with it as the parent."""
         dd = etree.SubElement(parent, "dd")
         self.parser.parseBlocks(dd, [block])
@@ -105,11 +108,11 @@ class DefListIndentProcessor(ListIndentProcessor):
 class DefListExtension(Extension):
     """Add definition lists to Markdown."""
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         """Add an instance of DefListProcessor to BlockParser."""
         md.parser.blockprocessors.add("defindent", DefListIndentProcessor(md.parser), ">indent")
         md.parser.blockprocessors.add("deflist", DefListProcessor(md.parser), ">ulist")
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return DefListExtension(configs=configs)

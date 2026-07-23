@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
@@ -44,7 +47,7 @@ class PDFInput(InputFormatPlugin):
         ),
     }
 
-    def convert_new(self, stream, accelerators):
+    def convert_new(self: _typing.Self, stream: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.pdf.pdftohtml import pdftohtml
         from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars
         from LiuXin_alpha.file_formats.pdf.reflow import PDFDocument
@@ -55,7 +58,7 @@ class PDFInput(InputFormatPlugin):
         PDFDocument(xml, self.opts, self.log)
         return os.path.join(os.getcwd(), "metadata.opf")
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """
         Should always be run as part of a fork job - as pdftohtml (which is used here) has to change the cwd.
         :param stream: File to be converted (opened as rb)

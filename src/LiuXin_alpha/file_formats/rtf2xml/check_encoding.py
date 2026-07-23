@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
 
+from __future__ import annotations
+
+import typing as _typing
 import sys
 
 
 class CheckEncoding:
-    def __init__(self, bug_handler):
+    def __init__(self: _typing.Self, bug_handler: _typing.Any) -> None:
         self.__bug_handler = bug_handler
 
-    def __get_position_error(self, line, encoding, line_num):
+    def __get_position_error(self: _typing.Self, line: _typing.Any, encoding: _typing.Any, line_num: _typing.Any) -> None:
         char_position = 0
         for char in line:
             char_position += 1
@@ -17,7 +20,7 @@ class CheckEncoding:
             except ValueError as msg:
                 sys.stderr.write("line: %s char: %s\n%s\n" % (line_num, char_position, str(msg)))
 
-    def check_encoding(self, path, encoding="us-ascii", verbose=True):
+    def check_encoding(self: _typing.Self, path: _typing.Any, encoding: str = "us-ascii", verbose: bool = True) -> bool:
         line_num = 0
         with open(path, "rb") as read_obj:
             for line in read_obj:

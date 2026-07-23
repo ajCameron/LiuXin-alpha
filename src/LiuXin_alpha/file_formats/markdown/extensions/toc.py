@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Table of Contents Extension for Python-Markdown
@@ -19,7 +22,7 @@ from .headerid import slugify, unique, itertext
 import re
 
 
-def order_toc_list(toc_list):
+def order_toc_list(toc_list: _typing.Any) -> _typing.Any:
     """Given an unsorted list with errors and skips, return a nested one.
     [{'level': 1}, {'level': 2}]
     =>
@@ -31,7 +34,7 @@ def order_toc_list(toc_list):
     [{'level': 2, 'children': []}, {'level': 1, 'children': []}]
     """
 
-    def build_correct(remaining_list, prev_elements=None):
+    def build_correct(remaining_list: _typing.Any, prev_elements: _typing.Any = None) -> tuple[_typing.Any, ...]:
         if prev_elements is None:
             prev_elements = [{"level": 1000}]
 
@@ -86,12 +89,12 @@ def order_toc_list(toc_list):
 class TocTreeprocessor(Treeprocessor):
 
     # Iterator wrapper to get parent and child all at once
-    def iterparent(self, root):
+    def iterparent(self: _typing.Self, root: _typing.Any) -> _typing.Iterator[_typing.Any]:
         for parent in root.iter():
             for child in parent:
                 yield parent, child
 
-    def add_anchor(self, c, elem_id):  # @ReservedAssignment
+    def add_anchor(self: _typing.Self, c: _typing.Any, elem_id: _typing.Any) -> None:  # @ReservedAssignment
         if self.use_anchors:
             anchor = etree.Element("a")
             anchor.text = c.text
@@ -103,14 +106,14 @@ class TocTreeprocessor(Treeprocessor):
                 c.remove(elem)
             c.append(anchor)
 
-    def build_toc_etree(self, div, toc_list):
+    def build_toc_etree(self: _typing.Self, div: _typing.Any, toc_list: _typing.Any) -> _typing.Any:
         # Add title to the div
         if self.config["title"]:
             header = etree.SubElement(div, "span")
             header.attrib["class"] = "toctitle"
             header.text = self.config["title"]
 
-        def build_etree_ul(toc_list, parent):
+        def build_etree_ul(toc_list: _typing.Any, parent: _typing.Any) -> _typing.Any:
             ul = etree.SubElement(parent, "ul")
             for item in toc_list:
                 # List item link, to be inserted into the toc div
@@ -124,7 +127,7 @@ class TocTreeprocessor(Treeprocessor):
 
         return build_etree_ul(toc_list, div)
 
-    def run(self, doc):
+    def run(self: _typing.Self, doc: _typing.Any) -> None:
 
         div = etree.Element("div")
         div.attrib["class"] = "toc"
@@ -195,7 +198,7 @@ class TocExtension(Extension):
 
     TreeProcessorClass = TocTreeprocessor
 
-    def __init__(self, configs=None):
+    def __init__(self: _typing.Self, configs: _typing.Any = None) -> None:
         self.config = {
             "marker": [
                 "[TOC]",
@@ -212,7 +215,7 @@ class TocExtension(Extension):
         for key, value in (configs or []):
             self.setConfig(key, value)
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         tocext = self.TreeProcessorClass(md)
         tocext.config = self.getConfigs()
         # Headerid ext is set to '>prettify'. With this set to '_end',
@@ -223,5 +226,5 @@ class TocExtension(Extension):
         md.treeprocessors.add("toc", tocext, "_end")
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return TocExtension(configs=configs)

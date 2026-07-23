@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from operator import itemgetter
 
@@ -17,7 +20,7 @@ __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def get_applicable_xe_fields(index, xe_fields, XPath, expand):
+def get_applicable_xe_fields(index: _typing.Any, xe_fields: _typing.Any, XPath: _typing.Any, expand: _typing.Any) -> _typing.Any:
     iet = index.get("entry-type", None)
     xe_fields = [xe for xe in xe_fields if xe.get("entry-type", None) == iet]
 
@@ -27,7 +30,7 @@ def get_applicable_xe_fields(index, xe_fields, XPath, expand):
         sl, el = sl.strip(), el.strip()
         if sl and el:
 
-            def inrange(text):
+            def inrange(text: _typing.Any) -> bool:
                 return sl <= text[0] <= el
 
             xe_fields = [xe for xe in xe_fields if inrange(xe.get("text", ""))]
@@ -39,7 +42,7 @@ def get_applicable_xe_fields(index, xe_fields, XPath, expand):
     bookmarks = {b for b in XPath("//w:bookmarkStart")(xe_fields[0]["start_elem"]) if b.get(attr, None) == bmark}
     ancestors = XPath("ancestor::w:bookmarkStart")
 
-    def contained(local_xe):
+    def contained(local_xe: _typing.Any) -> _typing.Any:
         # Check if the xe field is contained inside a bookmark with the
         # specified name
         return bool(set(ancestors(local_xe["start_elem"])) & bookmarks)
@@ -47,7 +50,7 @@ def get_applicable_xe_fields(index, xe_fields, XPath, expand):
     return [xe for xe in xe_fields if contained(xe)]
 
 
-def make_block(expand, style, parent, pos):
+def make_block(expand: _typing.Any, style: _typing.Any, parent: _typing.Any, pos: _typing.Any) -> tuple[_typing.Any, ...]:
     p = parent.makeelement(expand("w:p"))
     parent.insert(pos, p)
     if style is not None:
@@ -64,7 +67,7 @@ def make_block(expand, style, parent, pos):
     return p, t
 
 
-def add_xe(xe, t, expand):
+def add_xe(xe: _typing.Any, t: _typing.Any, expand: _typing.Any) -> tuple[_typing.Any, ...]:
     text = xe.get("text", "")
     pt = xe.get("page-number-text", None)
     t.text = text or " "
@@ -79,7 +82,7 @@ def add_xe(xe, t, expand):
     return xe["anchor"], t.getparent()
 
 
-def process_index(field, index, xe_fields, log, XPath, expand):
+def process_index(field: _typing.Any, index: _typing.Any, xe_fields: _typing.Any, log: _typing.Any, XPath: _typing.Any, expand: _typing.Any) -> tuple[_typing.Any, ...]:
     """
     We remove all the word generated index markup and replace it with our own that is more suitable for an ebook.
     :param field:
@@ -136,7 +139,7 @@ def process_index(field, index, xe_fields, log, XPath, expand):
     return hyperlinks, blocks
 
 
-def split_up_block(block, a, text, parts, ldict):
+def split_up_block(block: _typing.Any, a: _typing.Any, text: _typing.Any, parts: _typing.Any, ldict: _typing.Any) -> None:
     prefix = parts[:-1]
     a.text = parts[-1]
     parent = a.getparent()
@@ -188,7 +191,7 @@ to insert nk+1 and all following entries from n into p immediately following pk.
 """
 
 
-def find_match(prev_block, pind, nextent, ldict):
+def find_match(prev_block: _typing.Any, pind: _typing.Any, nextent: _typing.Any, ldict: _typing.Any) -> _typing.Any:
     curlevel = ldict.get(prev_block[pind], -1)
     if curlevel < 0:
         return -1
@@ -203,7 +206,7 @@ def find_match(prev_block, pind, nextent, ldict):
     return -1
 
 
-def add_link(pent, nent, ldict):
+def add_link(pent: _typing.Any, nent: _typing.Any, ldict: _typing.Any) -> None:
     na = nent.xpath("descendant::a[1]")
     # If there is no link, leave it as text
     if not na or len(na) == 0:
@@ -222,7 +225,7 @@ def add_link(pent, nent, ldict):
         pent.append(na)
 
 
-def merge_blocks(prev_block, next_block, pind, nind, next_path, ldict):
+def merge_blocks(prev_block: _typing.Any, next_block: _typing.Any, pind: _typing.Any, nind: _typing.Any, next_path: _typing.Any, ldict: _typing.Any) -> None:
     # First elements match. Any more in next?
     if len(next_path) == (nind + 1):
         nextent = next_block[nind]
@@ -245,7 +248,7 @@ def merge_blocks(prev_block, next_block, pind, nind, next_path, ldict):
     next_block.getparent().remove(next_block)
 
 
-def polish_index_markup(index, blocks):
+def polish_index_markup(index: _typing.Any, blocks: _typing.Any) -> None:
     # Blocks are in reverse order at this point
     path_map = {}
     ldict = {}

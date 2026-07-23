@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import typing as _typing
+
 import codecs
 import os
 import shutil
@@ -160,22 +162,22 @@ class ComicInput(InputFormatPlugin):
         ("linearize_tables", False, OptionRecommendation.HIGH),
     }
 
-    def _warn(self, message):
+    def _warn(self: _typing.Self, message: _typing.Any) -> None:
         log = getattr(self, "log", None)
         warn = getattr(log, "warning", None) or getattr(log, "warn", None)
         if warn is not None:
             warn(message)
 
     def _report_loss_event(
-        self,
+        self: _typing.Self,
         *,
-        code,
-        message,
-        source_format,
-        count=1,
-        details=None,
-        add_warning=False,
-    ):
+        code: _typing.Any,
+        message: _typing.Any,
+        source_format: _typing.Any,
+        count: int = 1,
+        details: _typing.Any = None,
+        add_warning: bool = False,
+    ) -> _typing.Any:
         holder = getattr(self, "opts", None)
         if holder is None:
             return None
@@ -200,7 +202,7 @@ class ComicInput(InputFormatPlugin):
             details=details or {},
         )
 
-    def _warn_recoverable_loss(self, *, code, message, source_format, details=None):
+    def _warn_recoverable_loss(self: _typing.Self, *, code: _typing.Any, message: _typing.Any, source_format: _typing.Any, details: _typing.Any = None) -> None:
         self._warn(message)
         self._report_loss_event(
             code=code,
@@ -210,14 +212,14 @@ class ComicInput(InputFormatPlugin):
             add_warning=True,
         )
 
-    def normalized_archive_member_name(self, name):
+    def normalized_archive_member_name(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         return normalized_zip_member_name(
             name,
             member_label="comic archive",
             error_type=ValueError,
         )
 
-    def should_preflight_zip_archive(self, source, ext_hint=None):
+    def should_preflight_zip_archive(self: _typing.Self, source: _typing.Any, ext_hint: _typing.Any = None) -> bool:
         if ext_hint and ext_hint.lower() in {"cbz", "cbc", "zip"}:
             return True
 
@@ -233,7 +235,7 @@ class ComicInput(InputFormatPlugin):
                 return False
         return False
 
-    def should_preflight_rar_archive(self, source, ext_hint=None):
+    def should_preflight_rar_archive(self: _typing.Self, source: _typing.Any, ext_hint: _typing.Any = None) -> bool:
         if ext_hint and ext_hint.lower() in {"cbr", "rar"}:
             return True
 
@@ -271,7 +273,7 @@ class ComicInput(InputFormatPlugin):
 
         return False
 
-    def validate_zip_archive_members(self, source, label="comic archive"):
+    def validate_zip_archive_members(self: _typing.Self, source: _typing.Any, label: str = "comic archive") -> None:
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         if hasattr(source, "seek"):
@@ -310,7 +312,7 @@ class ComicInput(InputFormatPlugin):
                 except Exception:
                     pass
 
-    def _rar_source_path(self, source):
+    def _rar_source_path(self: _typing.Self, source: _typing.Any) -> _typing.Any:
         path = os.fspath(source) if isinstance(source, os.PathLike) else source
         if isinstance(path, str) and os.path.exists(path):
             return os.path.abspath(path)
@@ -325,7 +327,7 @@ class ComicInput(InputFormatPlugin):
 
         raise ValueError("RAR archive source is not readable")
 
-    def _rar_infos_from_external_listing(self, path):
+    def _rar_infos_from_external_listing(self: _typing.Self, path: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.utils.decompression import unrar
 
         with open(path, "rb") as stream:
@@ -343,7 +345,7 @@ class ComicInput(InputFormatPlugin):
             for name in names
         ]
 
-    def _rar_archive_infos(self, path):
+    def _rar_archive_infos(self: _typing.Self, path: _typing.Any) -> _typing.Any:
         try:
             from LiuXin_alpha.utils.decompression.rarfile import rarfile
 
@@ -358,7 +360,7 @@ class ComicInput(InputFormatPlugin):
                     "parser=%s; external=%s" % (parser_error, listing_error)
                 ) from listing_error
 
-    def validate_rar_archive_members(self, source, label="comic archive"):
+    def validate_rar_archive_members(self: _typing.Self, source: _typing.Any, label: str = "comic archive") -> None:
         path = self._rar_source_path(source)
         try:
             infos = self._rar_archive_infos(path)
@@ -448,11 +450,11 @@ class ComicInput(InputFormatPlugin):
                 },
             )
 
-    def warn_preflight_rejection(self, source, error):
+    def warn_preflight_rejection(self: _typing.Self, source: _typing.Any, error: _typing.Any) -> None:
         path = getattr(source, "name", source)
         self._warn("Comic preflight rejected %s: %s" % (path, error))
 
-    def get_comics_from_collection(self, stream):
+    def get_comics_from_collection(self: _typing.Self, stream: _typing.Any) -> _typing.Any:
         """
         Extract comics from a collection (which seems to be a zipped together collection of comics with a comix.txt file
         which describes the contents of the bundle).
@@ -518,7 +520,7 @@ class ComicInput(InputFormatPlugin):
 
         return comics
 
-    def get_pages(self, comic, tdir2):
+    def get_pages(self: _typing.Self, comic: _typing.Any, tdir2: _typing.Any) -> _typing.Any:
 
         from LiuXin_alpha.file_formats.comic.input import (
             extract_comic,
@@ -562,10 +564,10 @@ class ComicInput(InputFormatPlugin):
                 thumbnail = None
         return new_pages
 
-    def get_images(self):
+    def get_images(self: _typing.Self) -> _typing.Any:
         return self._images
 
-    def _stream_to_path(self, stream, tdir, ext_hint):
+    def _stream_to_path(self: _typing.Self, stream: _typing.Any, tdir: _typing.Any, ext_hint: _typing.Any) -> _typing.Any:
         stream_name = getattr(stream, "name", None)
         if stream_name and os.path.exists(stream_name):
             return os.path.abspath(stream_name)
@@ -594,7 +596,7 @@ class ComicInput(InputFormatPlugin):
 
         return os.path.abspath(input_name)
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.metadata.utils import calibreMetaInformation as MetaInformation
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
         from LiuXin_alpha.file_formats.toc import TOC
@@ -643,7 +645,7 @@ class ComicInput(InputFormatPlugin):
             opf = OPFCreator(work_root, mi)
             entries = []
 
-            def href(local_x):
+            def href(local_x: _typing.Any) -> _typing.Any:
                 if len(comics) == 1:
                     return os.path.basename(local_x)
                 return "/".join(local_x.split(os.sep)[-2:])
@@ -681,7 +683,7 @@ class ComicInput(InputFormatPlugin):
                 opf.render(m, n, "toc.ncx")
             return metadata_path
 
-    def create_wrappers(self, pages):
+    def create_wrappers(self: _typing.Self, pages: _typing.Any) -> _typing.Any:
         """
         Create a wrapper for the pictures which form the parts of the comic.
         :param pages:

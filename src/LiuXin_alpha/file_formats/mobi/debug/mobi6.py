@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import struct
@@ -34,7 +37,7 @@ __docformat__ = "restructuredtext en"
 
 
 class TagX(object):  # {{{
-    def __init__(self, tag, num_values, bitmask, eof):
+    def __init__(self: _typing.Self, tag: _typing.Any, num_values: _typing.Any, bitmask: _typing.Any, eof: _typing.Any) -> None:
         self.tag, self.num_values, self.bitmask, self.eof = (
             tag,
             num_values,
@@ -44,7 +47,7 @@ class TagX(object):  # {{{
         self.num_of_values = num_values
         self.is_eof = self.eof == 1 and self.tag == 0 and self.num_values == 0 and self.bitmask == 0
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "TAGX(tag=%02d, num_values=%d, bitmask=%r, eof=%d)" % (
             self.tag,
             self.num_values,
@@ -56,7 +59,7 @@ class TagX(object):  # {{{
 
 
 class SecondaryIndexHeader(object):  # {{{
-    def __init__(self, record):
+    def __init__(self: _typing.Self, record: _typing.Any) -> None:
         self.record = record
         raw = self.record.raw
         # open('/t/index_header.bin', 'wb').write(raw)
@@ -113,11 +116,11 @@ class SecondaryIndexHeader(object):  # {{{
         if idxt[6:].replace(b"\0", b""):
             raise ValueError("Non null trailing bytes after IDXT")
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         ans = ["*" * 20 + " Secondary Index Header " + "*" * 20]
         a = ans.append
 
-        def u(w):
+        def u(w: _typing.Any) -> None:
             a("Unknown: %r (%d bytes) (All zeros: %r)" % (w, len(w), not bool(w.replace(b"\0", b""))))
 
         a("Header length: %d" % self.header_length)
@@ -151,7 +154,7 @@ class SecondaryIndexHeader(object):  # {{{
 
 
 class IndexHeader(object):  # {{{
-    def __init__(self, record):
+    def __init__(self: _typing.Self, record: _typing.Any) -> None:
         self.record = record
         raw = self.record.raw
         # open('/t/index_header.bin', 'wb').write(raw)
@@ -212,11 +215,11 @@ class IndexHeader(object):  # {{{
         # if idxt[6:].replace(b'\0', b''):
         #     raise ValueError('Non null trailing bytes after IDXT')
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         ans = ["*" * 20 + " Index Header (%d bytes)" % len(self.record.raw) + "*" * 20]
         a = ans.append
 
-        def u(w):
+        def u(w: _typing.Any) -> None:
             a("Unknown: %r (%d bytes) (All zeros: %r)" % (w, len(w), not bool(w.replace(b"\0", b""))))
 
         a("Header length: %d" % self.header_length)
@@ -283,7 +286,7 @@ class Tag(object):  # {{{
         73: ("image_attr_offset", "Image attribution offset in cncx"),
     }
 
-    def __init__(self, tag_type, vals, cncx):
+    def __init__(self: _typing.Self, tag_type: _typing.Any, vals: _typing.Any, cncx: _typing.Any) -> None:
         self.value = vals if len(vals) > 1 else vals[0] if vals else None
 
         self.cncx_value = None
@@ -297,7 +300,7 @@ class Tag(object):  # {{{
         if "_offset" in self.attr:
             self.cncx_value = cncx[self.value]
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         if self.cncx_value is not None:
             return "%s : %r [%r]" % (self.desc, self.value, self.cncx_value)
         return "%s : %r" % (self.desc, self.value)
@@ -315,7 +318,7 @@ class IndexEntry(object):  # {{{
     used in the navigation UI.
     """
 
-    def __init__(self, ident, entry, cncx):
+    def __init__(self: _typing.Self, ident: _typing.Any, entry: _typing.Any, cncx: _typing.Any) -> None:
         try:
             self.index = int(ident, 16)
         except ValueError:
@@ -323,62 +326,62 @@ class IndexEntry(object):  # {{{
         self.tags = [Tag(tag_type, vals, cncx) for tag_type, vals in iteritems(entry)]
 
     @property
-    def label(self):
+    def label(self: _typing.Self) -> _typing.Any:
         for tag in self.tags:
             if tag.attr == "label_offset":
                 return tag.cncx_value
         return ""
 
     @property
-    def offset(self):
+    def offset(self: _typing.Self) -> _typing.Any:
         for tag in self.tags:
             if tag.attr == "offset":
                 return tag.value
         return 0
 
     @property
-    def size(self):
+    def size(self: _typing.Self) -> _typing.Any:
         for tag in self.tags:
             if tag.attr == "size":
                 return tag.value
         return 0
 
     @property
-    def depth(self):
+    def depth(self: _typing.Self) -> _typing.Any:
         for tag in self.tags:
             if tag.attr == "depth":
                 return tag.value
         return 0
 
     @property
-    def parent_index(self):
+    def parent_index(self: _typing.Self) -> _typing.Any:
         for tag in self.tags:
             if tag.attr == "parent_index":
                 return tag.value
         return -1
 
     @property
-    def first_child_index(self):
+    def first_child_index(self: _typing.Self) -> _typing.Any:
         for tag in self.tags:
             if tag.attr == "first_child_index":
                 return tag.value
         return -1
 
     @property
-    def last_child_index(self):
+    def last_child_index(self: _typing.Self) -> _typing.Any:
         for tag in self.tags:
             if tag.attr == "last_child_index":
                 return tag.value
         return -1
 
     @property
-    def pos_fid(self):
+    def pos_fid(self: _typing.Self) -> _typing.Any:
         for tag in self.tags:
             if tag.attr == "pos_fid":
                 return tag.value
         return [0, 0]
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         ans = ["Index Entry(index=%s, length=%d)" % (self.index, len(self.tags))]
         for tag in self.tags:
             if tag.value is not None:
@@ -398,7 +401,7 @@ class IndexRecord(object):  # {{{
     in the trailing data of the text records.
     """
 
-    def __init__(self, records, index_header, cncx):
+    def __init__(self: _typing.Self, records: _typing.Any, index_header: _typing.Any, cncx: _typing.Any) -> None:
         self.alltext = None
         table = OrderedDict()
         tags = [TagX(x.tag, x.num_values, x.bitmask, x.eof) for x in index_header.tagx_entries]
@@ -423,7 +426,7 @@ class IndexRecord(object):  # {{{
         for ident, entry in iteritems(table):
             self.indices.append(IndexEntry(ident, entry, cncx))
 
-    def get_parent(self, index):
+    def get_parent(self: _typing.Self, index: _typing.Any) -> None:
         if index.depth < 1:
             return None
         parent_depth = index.depth - 1
@@ -431,11 +434,11 @@ class IndexRecord(object):  # {{{
             if p.depth != parent_depth:
                 continue
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         ans = ["*" * 20 + " Index Entries (%d entries) " % len(self.indices) + "*" * 20]
         a = ans.append
 
-        def u(w):
+        def u(w: _typing.Any) -> None:
             a("Unknown: %r (%d bytes) (All zeros: %r)" % (w, len(w), not bool(w.replace(b"\0", b""))))
 
         for entry in self.indices:
@@ -465,7 +468,7 @@ class CNCX(object):  # {{{
     data.
     """
 
-    def __init__(self, records, codec):
+    def __init__(self: _typing.Self, records: _typing.Any, codec: _typing.Any) -> None:
         self.records = OrderedDict()
         record_offset = 0
         for record in records:
@@ -485,10 +488,10 @@ class CNCX(object):  # {{{
                 pos += consumed + length
             record_offset += 0x10000
 
-    def __getitem__(self, offset):
+    def __getitem__(self: _typing.Self, offset: _typing.Any) -> _typing.Any:
         return self.records.get(offset)
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         ans = ["*" * 20 + " cncx (%d strings) " % len(self.records) + "*" * 20]
         for k, v in iteritems(self.records):
             ans.append("%10d : %s" % (k, v))
@@ -499,12 +502,12 @@ class CNCX(object):  # {{{
 
 
 class ImageRecord(object):  # {{{
-    def __init__(self, idx, record, fmt):
+    def __init__(self: _typing.Self, idx: _typing.Any, record: _typing.Any, fmt: _typing.Any) -> None:
         self.raw = record.raw
         self.fmt = fmt
         self.idx = idx
 
-    def dump(self, folder):
+    def dump(self: _typing.Self, folder: _typing.Any) -> None:
         name = "%06d" % self.idx
         with open(os.path.join(folder, name + "." + self.fmt), "wb") as f:
             f.write(self.raw)
@@ -514,7 +517,7 @@ class ImageRecord(object):  # {{{
 
 
 class BinaryRecord(object):  # {{{
-    def __init__(self, idx, record):
+    def __init__(self: _typing.Self, idx: _typing.Any, record: _typing.Any) -> None:
         self.raw = record.raw
         sig = self.raw[:4]
         name = "%06d" % idx
@@ -537,7 +540,7 @@ class BinaryRecord(object):  # {{{
             name += "-" + "EOF"
         self.name = name
 
-    def dump(self, folder):
+    def dump(self: _typing.Self, folder: _typing.Any) -> None:
         with open(os.path.join(folder, self.name + ".bin"), "wb") as f:
             f.write(self.raw)
 
@@ -546,7 +549,7 @@ class BinaryRecord(object):  # {{{
 
 
 class FontRecord(object):  # {{{
-    def __init__(self, idx, record):
+    def __init__(self: _typing.Self, idx: _typing.Any, record: _typing.Any) -> None:
         self.raw = record.raw
         name = "%06d" % idx
         self.font = read_font_record(self.raw)
@@ -555,7 +558,7 @@ class FontRecord(object):  # {{{
         self.payload = self.font["font_data"] if self.font["font_data"] else self.font["raw_data"]
         self.name = "%s.%s" % (name, self.font["ext"])
 
-    def dump(self, folder):
+    def dump(self: _typing.Self, folder: _typing.Any) -> None:
         with open(os.path.join(folder, self.name), "wb") as f:
             f.write(self.payload)
 
@@ -564,7 +567,7 @@ class FontRecord(object):  # {{{
 
 
 class TBSIndexing(object):  # {{{
-    def __init__(self, text_records, indices, doc_type):
+    def __init__(self: _typing.Self, text_records: _typing.Any, indices: _typing.Any, doc_type: _typing.Any) -> None:
         self.record_indices = OrderedDict()
         self.doc_type = doc_type
         self.indices = indices
@@ -594,19 +597,19 @@ class TBSIndexing(object):  # {{{
                 if rec:
                     x[rec].append(entry)
 
-    def get_index(self, idx):
+    def get_index(self: _typing.Self, idx: _typing.Any) -> _typing.Any:
         for i in self.indices:
             if i.index in {idx, six_unicode(idx)}:
                 return i
         raise IndexError("Index %d not found" % idx)
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         ans = ["*" * 20 + " TBS Indexing (%d records) " % len(self.record_indices) + "*" * 20]
         for r, dat in iteritems(self.record_indices):
             ans += self.dump_record(r, dat)[-1]
         return "\n".join(ans)
 
-    def dump(self, bdir):
+    def dump(self: _typing.Self, bdir: _typing.Any) -> None:
         types = defaultdict(list)
         for r, dat in iteritems(self.record_indices):
             tbs_type, strings = self.dump_record(r, dat)
@@ -617,7 +620,7 @@ class TBSIndexing(object):  # {{{
             with open(os.path.join(bdir, "tbs_type_%d.txt" % typ), "wb") as f:
                 f.write("\n".join(strings))
 
-    def dump_record(self, r, dat):
+    def dump_record(self: _typing.Self, r: _typing.Any, dat: _typing.Any) -> tuple[_typing.Any, ...]:
         ans = list()
         ans.append("\nRecord #%d: Starts at: %d Ends at: %d" % (r.idx, dat["geom"][0], dat["geom"][1]))
         s, e, c = dat["starts"], dat["ends"], dat["complete"]
@@ -635,11 +638,11 @@ class TBSIndexing(object):  # {{{
                         % (x.index, x.parent_index, x.depth, x.offset, x.size, x.label)
                     )
 
-        def bin4(num):
+        def bin4(num: _typing.Any) -> _typing.Any:
             ans = bin(num)[2:]
             return bytes("0" * (4 - len(ans)) + ans)
 
-        def repr_extra(x):
+        def repr_extra(x: _typing.Any) -> _typing.Any:
             return str({bin4(k): v for k, v in iteritems(extra)})
 
         tbs_type = 0
@@ -669,10 +672,10 @@ class TBSIndexing(object):  # {{{
         ans.append("")
         return tbs_type, ans
 
-    def interpret_periodical(self, tbs_type, byts, record_offset):
+    def interpret_periodical(self: _typing.Self, tbs_type: _typing.Any, byts: _typing.Any, record_offset: _typing.Any) -> tuple[_typing.Any, ...]:
         ans = []
 
-        def read_section_transitions(byts, psi=None):  # {{{
+        def read_section_transitions(byts: _typing.Any, psi: _typing.Any = None) -> _typing.Any:  # {{{
             if psi is None:
                 # Assume previous section is 1
                 psi = self.get_index(1)
@@ -725,7 +728,7 @@ class TBSIndexing(object):  # {{{
 
         # }}}
 
-        def read_starting_section(local_byts):  # {{{
+        def read_starting_section(local_byts: _typing.Any) -> tuple[_typing.Any, ...]:  # {{{
             orig = local_byts
             si, extra, consumed = decode_tbs(local_byts)
             local_byts = local_byts[consumed:]
@@ -760,7 +763,7 @@ class TBSIndexing(object):  # {{{
 
 
 class MOBIFile(object):  # {{{
-    def __init__(self, mf):
+    def __init__(self: _typing.Self, mf: _typing.Any) -> None:
         for x in (
             "raw",
             "palmdb",
@@ -850,7 +853,7 @@ class MOBIFile(object):  # {{{
         if self.index_record is not None:
             self.tbs_indexing = TBSIndexing(self.text_records, self.index_record.indices, self.mobi_header.type_raw)
 
-    def print_header(self, f=sys.stdout):
+    def print_header(self: _typing.Self, f: _typing.Any = sys.stdout) -> None:
         print(str(self.palmdb).encode("utf-8"), file=f)
         print(file=f)
         print("Record headers:", file=f)
@@ -864,7 +867,7 @@ class MOBIFile(object):  # {{{
 # }}}
 
 
-def inspect_mobi(mobi_file, ddir):
+def inspect_mobi(mobi_file: _typing.Any, ddir: _typing.Any) -> None:
     f = MOBIFile(mobi_file)
     with open(os.path.join(ddir, "header.txt"), "wb") as out:
         f.print_header(f=out)

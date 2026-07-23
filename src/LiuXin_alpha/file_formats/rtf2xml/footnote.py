@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import os
 
 from LiuXin_alpha.file_formats.rtf2xml import copy
@@ -27,19 +30,19 @@ class Footnote:
     """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
         self.__write_to = better_mktemp()
         self.__found_a_footnote = 0
 
-    def __first_line_func(self, line):
+    def __first_line_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Print the tag info for footnotes.  Check whether footnote is an
         endnote and make the tag according to that.
@@ -50,7 +53,7 @@ class Footnote:
             self.__write_to_foot_obj.write("mi<tg<open-att__<footnote<num>%s\n" % self.__footnote_count)
         self.__first_line = 0
 
-    def __in_footnote_func(self, line):
+    def __in_footnote_func(self: _typing.Self, line: _typing.Any) -> None:
         """Handle all tokens that are part of footnote"""
         if self.__first_line:
             self.__first_line_func(line)
@@ -67,7 +70,7 @@ class Footnote:
         else:
             self.__write_to_foot_obj.write(line)
 
-    def __found_footnote(self, line):
+    def __found_footnote(self: _typing.Self, line: _typing.Any) -> None:
         """Found a footnote"""
         self.__found_a_footnote = 1
         self.__in_footnote = 1
@@ -79,7 +82,7 @@ class Footnote:
         self.__write_obj.write("mi<mk<footnt-ind<%04d\n" % self.__footnote_count)
         self.__write_to_foot_obj.write("mi<mk<footnt-ope<%04d\n" % self.__footnote_count)
 
-    def __default_sep(self, line):
+    def __default_sep(self: _typing.Self, line: _typing.Any) -> None:
         """Handle all tokens that are not footnote tokens"""
         if self.__token_info == "cw<nt<footnote__":
             self.__found_footnote(line)
@@ -88,7 +91,7 @@ class Footnote:
             num = str(self.__footnote_count + 1)
             self.__write_obj.write("tx<nu<__________<%s\n" % num)
 
-    def __initiate_sep_values(self):
+    def __initiate_sep_values(self: _typing.Self) -> None:
         """
         initiate counters for separate_footnotes method.
         """
@@ -100,7 +103,7 @@ class Footnote:
         self.__first_line = 0  # have not processed the first line of footnote
         self.__footnote_count = 0
 
-    def separate_footnotes(self):
+    def separate_footnotes(self: _typing.Self) -> None:
         """
         Separate all the footnotes in an RTF file and put them at the bottom,
         where they are easier to process.  Each time a footnote is found,
@@ -146,14 +149,14 @@ class Footnote:
         copy_obj.rename(self.__write_to, self.__file)
         os.remove(self.__write_to)
 
-    def update_info(self, file, copy):
+    def update_info(self: _typing.Self, file: _typing.Any, copy: _typing.Any) -> None:
         """
         Unused method
         """
         self.__file = file
         self.__copy = copy
 
-    def __get_foot_body_func(self, line):
+    def __get_foot_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Process lines in main body and look for beginning of footnotes.
         """
@@ -163,7 +166,7 @@ class Footnote:
         else:
             self.__write_obj.write(line)
 
-    def __get_foot_foot_func(self, line):
+    def __get_foot_foot_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Copy footnotes from bottom of file to a separate, temporary file.
         """
@@ -172,7 +175,7 @@ class Footnote:
         else:
             self.__write_to_foot_obj.write(line)
 
-    def __get_footnotes(self):
+    def __get_footnotes(self: _typing.Self) -> None:
         """
         Private method to remove footnotes from main file.  Read one line from
         the main file at a time. If the state is 'body', call on the private
@@ -190,7 +193,7 @@ class Footnote:
                         elif self.__state == "foot":
                             self.__get_foot_foot_func(line)
 
-    def __get_foot_from_temp(self, num):
+    def __get_foot_from_temp(self: _typing.Self, num: _typing.Any) -> _typing.Any:
         """
         Private method for joining footnotes to body. This method reads from
         the temporary file until the proper footnote marker is found. It
@@ -209,7 +212,7 @@ class Footnote:
                 if line == look_for:
                     found_foot = 1
 
-    def __join_from_temp(self):
+    def __join_from_temp(self: _typing.Self) -> None:
         """
         Private method for rejoining footnotes to body.  Read from the
         newly-created, temporary file that contains the body text but no
@@ -226,7 +229,7 @@ class Footnote:
                             line = self.__get_foot_from_temp(line[17:-1])
                         self.__write_obj.write(line)
 
-    def join_footnotes(self):
+    def join_footnotes(self: _typing.Self) -> None:
         """
         Join the footnotes from the bottom of the file and put them in their
         former places.  First, remove the footnotes from the bottom of the

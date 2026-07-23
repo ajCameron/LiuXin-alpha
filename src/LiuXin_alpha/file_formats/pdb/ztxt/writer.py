@@ -3,6 +3,9 @@
 """
 Writer content to ztxt pdb file.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import struct
 import zlib
@@ -22,11 +25,11 @@ MAX_RECORD_SIZE = 8192
 
 
 class Writer(FormatWriter):
-    def __init__(self, opts, log):
+    def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any) -> None:
         self.opts = opts
         self.log = log
 
-    def write_content(self, oeb_book, out_stream, metadata=None):
+    def write_content(self: _typing.Self, oeb_book: _typing.Any, out_stream: _typing.Any, metadata: _typing.Any = None) -> None:
         title = (
             self.opts.title
             if self.opts.title
@@ -58,7 +61,7 @@ class Writer(FormatWriter):
         for record in [header_record] + txt_records:
             out_stream.write(record)
 
-    def _generate_text(self, oeb_book):
+    def _generate_text(self: _typing.Self, oeb_book: _typing.Any) -> tuple[_typing.Any, ...]:
         writer = TXTMLizer(self.log)
         txt = writer.extract_content(oeb_book, self.opts)
 
@@ -73,7 +76,7 @@ class Writer(FormatWriter):
 
         return txt_records, txt_length
 
-    def _header_record(self, txt_length, record_count, crc32):
+    def _header_record(self: _typing.Self, txt_length: _typing.Any, record_count: _typing.Any, crc32: _typing.Any) -> _typing.Any:
         record = b""
 
         record += struct.pack(">H", 0x012C)  # [0:2], version. 0x012c = 1.44

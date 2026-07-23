@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 from copy import deepcopy
@@ -25,11 +28,11 @@ class SVGRasterizerSafe(SVGRasterizer):
     SVGRasterizer - without the reliance on PyQt
     """
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         if not _HAS_WAND:
             raise Unavailable("wand is unavailable for safe SVG rasterization")
 
-    def rasterize_svg(self, elem, width=0, height=0, format="PNG"):
+    def rasterize_svg(self: _typing.Self, elem: _typing.Any, width: int = 0, height: int = 0, format: str = "PNG") -> _typing.Any:
         """
         Do the actual work of rasterizing an svg into a sensible format.
         :param elem:
@@ -90,7 +93,7 @@ class SVGRasterizerSafe(SVGRasterizer):
 
             return str(image.make_blob(format.lower()))
 
-    def new_width_and_height(self, width, height, old_width, old_height):
+    def new_width_and_height(self: _typing.Self, width: _typing.Any, height: _typing.Any, old_width: _typing.Any, old_height: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Given a desired final width or height works out the new width and height and returns them
         :param width:
@@ -119,5 +122,5 @@ class SVGRasterizerSafe(SVGRasterizer):
         else:
             raise NotImplementedError("This position should never be reached")
 
-    def rasterize_external(self, elem, style, item, svgitem):
+    def rasterize_external(self: _typing.Self, elem: _typing.Any, style: _typing.Any, item: _typing.Any, svgitem: _typing.Any) -> None:
         raise NotImplementedError("No current way of dealing with an incoming svgitem")

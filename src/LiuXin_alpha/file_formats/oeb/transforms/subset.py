@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from collections import defaultdict
 
@@ -31,7 +34,7 @@ __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def get_font_properties(rule, default=None):
+def get_font_properties(rule: _typing.Any, default: _typing.Any = None) -> _typing.Any:
     """
     Given a CSS rule, extract normalized font properties from
     it. Note that shorthand font property should already have been expanded
@@ -100,7 +103,7 @@ def get_font_properties(rule, default=None):
     return props
 
 
-def find_font_face_rules(sheet, oeb):
+def find_font_face_rules(sheet: _typing.Any, oeb: _typing.Any) -> _typing.Any:
     """
     Find all @font-face rules in the given sheet and extract the relevant info from them.
     sheet can be either a ManifestItem or a CSSStyleSheet.
@@ -139,7 +142,7 @@ def find_font_face_rules(sheet, oeb):
     return ans
 
 
-def elem_style(style_rules, cls, inherited_style):
+def elem_style(style_rules: _typing.Any, cls: _typing.Any, inherited_style: _typing.Any) -> _typing.Any:
     """
     Find the effective style for the given element.
     :param style_rules:
@@ -179,7 +182,7 @@ class SubsetFonts(object):
     CSS normalization and flattening to work.
     """
 
-    def __call__(self, oeb, log, opts):
+    def __call__(self: _typing.Self, oeb: _typing.Any, log: _typing.Any, opts: _typing.Any) -> None:
         self.oeb, self.log, self.opts = oeb, log, opts
         if not _HAS_FONT_SUBSETTER or subset is None:
             self.log.warn("Font subsetter is unavailable; skipping embedded font subsetting.")
@@ -194,7 +197,7 @@ class SubsetFonts(object):
 
         totals = [0, 0]
 
-        def remove(local_font):
+        def remove(local_font: _typing.Any) -> None:
             totals[1] += len(local_font["item"].data)
             self.oeb.manifest.remove(local_font["item"])
             local_font["rule"].parentStyleSheet.deleteRule(local_font["rule"])
@@ -236,7 +239,7 @@ class SubsetFonts(object):
         if totals[0]:
             self.log("Reduced total font size to %.1f%% of original" % (totals[0] / totals[1] * 100))
 
-    def find_embedded_fonts(self):
+    def find_embedded_fonts(self: _typing.Self) -> None:
         """
         Find all @font-face rules and extract the relevant info from them.
         :return None:
@@ -247,7 +250,7 @@ class SubsetFonts(object):
                 continue
             self.embedded_fonts.extend(find_font_face_rules(item, self.oeb))
 
-    def find_style_rules(self):
+    def find_style_rules(self: _typing.Self) -> None:
         """
         Extract all font related style information from all stylesheets into a
         dict mapping classes to font properties specified by that class. All
@@ -275,7 +278,7 @@ class SubsetFonts(object):
 
         self.style_rules = dict(rules)
 
-    def find_font_usage(self):
+    def find_font_usage(self: _typing.Self) -> None:
         for item in self.oeb.manifest:
             if not hasattr(item.data, "xpath"):
                 continue
@@ -288,7 +291,7 @@ class SubsetFonts(object):
                 }
                 self.find_usage_in(body, base)
 
-    def used_font(self, style):
+    def used_font(self: _typing.Self, style: _typing.Any) -> _typing.Any:
         """
         Given a style find the embedded font that matches it. Returns None if
         no match is found (can happen if no family matches).
@@ -365,7 +368,7 @@ class SubsetFonts(object):
             if matches:
                 return matches[0]
 
-    def find_chars(self, elem):
+    def find_chars(self: _typing.Self, elem: _typing.Any) -> _typing.Any:
         ans = set()
         if elem.text:
             ans |= set(elem.text)
@@ -374,7 +377,7 @@ class SubsetFonts(object):
                 ans |= set(child.tail)
         return ans
 
-    def find_usage_in(self, elem, inherited_style):
+    def find_usage_in(self: _typing.Self, elem: _typing.Any, inherited_style: _typing.Any) -> None:
         style = elem_style(self.style_rules, elem.get("class", "") or "", inherited_style)
         for child in elem:
             self.find_usage_in(child, style)

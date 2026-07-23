@@ -3,6 +3,7 @@ COMMAND-LINE SPECIFIC STUFF
 =============================================================================
 
 """
+from __future__ import annotations
 
 import sys
 import optparse
@@ -15,7 +16,7 @@ from . import markdownFromFile, version
 logger = logging.getLogger("MARKDOWN")
 
 
-def parse_options():
+def parse_options() -> tuple[_typing.Any, ...]:
     """
     Define and parse `optparse` options for command-line usage.
     """
@@ -117,7 +118,7 @@ def parse_options():
     }, options.verbose
 
 
-def run():
+def run() -> None:
     """Run Markdown from the command line."""
 
     # Parse options and adjust logging level if necessary

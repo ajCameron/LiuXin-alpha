@@ -119,6 +119,11 @@ fi
 PIP_INSTALL_CMD=("${VENV_PYTHON}" -m pip install -e ".[typing]")
 BASEDPYRIGHT_CMD=("${VENV_DIR}/bin/basedpyright")
 MYPY_CMD=("${VENV_DIR}/bin/mypy")
+FILE_FORMAT_ANNOTATION_CMD=(
+    "${VENV_PYTHON}"
+    "${REPO_ROOT}/scripts/annotate_file_formats.py"
+    "--check"
+)
 
 if [[ ${RUN_BASEDPYRIGHT} -eq 1 && ${RUN_MYPY} -eq 0 && ${#TOOL_ARGS[@]} -gt 0 ]]; then
     BASEDPYRIGHT_CMD+=("${TOOL_ARGS[@]}")
@@ -147,6 +152,8 @@ if [[ ${RUN_MYPY} -eq 1 ]]; then
     printf 'mypy step: '
     print_cmd "${MYPY_CMD[@]}"
 fi
+printf 'file_formats annotation step: '
+print_cmd "${FILE_FORMAT_ANNOTATION_CMD[@]}"
 
 if [[ ${DRY_RUN} -eq 1 ]]; then
     exit 0
@@ -178,6 +185,8 @@ if [[ ${RUN_MYPY} -eq 1 && ! -x "${VENV_DIR}/bin/mypy" ]]; then
 fi
 
 STATUS=0
+
+"${FILE_FORMAT_ANNOTATION_CMD[@]}"
 
 if [[ ${RUN_BASEDPYRIGHT} -eq 1 ]]; then
     set +e

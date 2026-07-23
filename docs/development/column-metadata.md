@@ -35,6 +35,8 @@ Each `column_metadata` row stores:
 | `empty_value_policy` | `null_is_missing`, `null_or_blank_is_missing`, or `preserve`. |
 | `merge_policy` | `replace`, `set_union`, `append`, or `preserve_existing`. |
 | `validation_profile` | Explicit declarative validator. `none` means no specialized validator; typed profiles include `identifier`, `code`, `boolean`, `number`, `date_time`, `locator`, `json`, `hash`, `normalized_key`, and the display-text profiles. |
+| `formatting_options` | Immutable JSON-compatible hints for representing the value, such as `template`, `date_format`, `number_format`, `separator`, or `empty_value`. |
+| `display_options` | Immutable JSON-compatible surface hints, such as `label`, `description`, `visible`, `editable`, `multiline`, `width`, or `alignment`. |
 
 All registered display columns treat `NULL` and blank text as missing. Titles,
 names, labels, and sort keys use Unicode NFC, trimming, and case folding.
@@ -45,6 +47,13 @@ Taxonomy terms use `set_union`; `comments.comment`, `notes.note`, and
 `synopses.synopsis` use `append`; other display columns use `replace`.
 Validation profile names are declarative contracts for consumers and do not
 themselves rewrite stored values.
+
+Formatting and display options are deliberately open JSON objects rather than
+backend- or toolkit-specific classes. Empty objects are the neutral default.
+Writers may preserve and transport these hints, but formatting belongs at the
+surface boundary and must not change the canonical value stored in the data
+column. Returned option maps, nested maps, and sequences are deeply immutable;
+use a setter with a replacement mapping instead of mutating a returned value.
 
 ## Machine-column defaults
 
@@ -259,6 +268,20 @@ database.set_validation_profile(
     "tags",
     "tag",
     ColumnValidationProfile.TAXONOMY_TERM,
+)
+
+database.get_formatting_options("ratings", "rating")
+database.set_formatting_options(
+    "ratings",
+    "rating",
+    {"number_format": "0.0", "empty_value": "—"},
+)
+
+database.get_display_options("works", "work_title")
+database.set_display_options(
+    "works",
+    "work_title",
+    {"label": "Title", "visible": True, "width": 42},
 )
 ```
 

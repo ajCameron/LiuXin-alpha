@@ -13,6 +13,9 @@ This functionality is owned by Kakasi Japanese processing engine.
 
 Copyright (c) 2010 Hiroshi Miura
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 
@@ -30,12 +33,12 @@ class Jadecoder(Unidecoder):
     kakasi = None
     codepoints = {}
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.codepoints = CODEPOINTS
         self.codepoints.update(JACODES)
         self.kakasi = kakasi()
 
-    def decode(self, text):
+    def decode(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         try:
             result = self.kakasi.do(text)
             return re.sub("[^\x00-\x7f]", lambda x: self.replace_point(x.group()), result)

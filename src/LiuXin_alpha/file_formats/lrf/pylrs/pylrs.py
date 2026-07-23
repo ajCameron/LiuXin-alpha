@@ -37,6 +37,9 @@
 #                           EmpLine, EmpDots
 
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
@@ -92,12 +95,12 @@ class ContentError(Exception):
     pass
 
 
-def _checkExists(filename):
+def _checkExists(filename: _typing.Any) -> None:
     if not os.path.exists(filename):
         raise LrsError("file '%s' not found" % filename)
 
 
-def _formatXml(root):
+def _formatXml(root: _typing.Any) -> None:
     """
     A helper to make the LRS output look nicer.
     :param root:
@@ -110,7 +113,7 @@ def _formatXml(root):
             elem.tail = "\n"
 
 
-def ElementWithText(tag, text, **extra):
+def ElementWithText(tag: _typing.Any, text: _typing.Any, **extra: _typing.Any) -> _typing.Any:
     """
     A shorthand function to create Elements with text.
     :param tag:
@@ -123,7 +126,7 @@ def ElementWithText(tag, text, **extra):
     return e
 
 
-def ElementWithReading(tag, text, reading=False):
+def ElementWithReading(tag: _typing.Any, text: _typing.Any, reading: bool = False) -> _typing.Any:
     """
     A helper function that creates reading attributes.
     :param tag:
@@ -148,7 +151,7 @@ def ElementWithReading(tag, text, reading=False):
     return ElementWithText(tag, text, reading=readingText)
 
 
-def appendTextElements(e, contentsList, se):
+def appendTextElements(e: _typing.Any, contentsList: _typing.Any, se: _typing.Any) -> None:
     """
     A helper function to convert text streams into the proper elements.
     :param e:
@@ -157,7 +160,7 @@ def appendTextElements(e, contentsList, se):
     :return:
     """
 
-    def uconcat(text, newText, se):
+    def uconcat(text: _typing.Any, newText: _typing.Any, se: _typing.Any) -> _typing.Any:
         if type(newText) != type(text):
             if type(text) is str:
                 text = text.decode(se)
@@ -189,7 +192,7 @@ class Delegator(object):
     A mixin class to create delegated methods that create elements.
     """
 
-    def __init__(self, delegates):
+    def __init__(self: _typing.Self, delegates: _typing.Any) -> None:
         self.delegates = delegates
         self.delegatedMethods = []
         # self.delegatedSettingsDict = {}
@@ -211,7 +214,7 @@ class Delegator(object):
                 self.delegatedSettings.append(setting)
             """
 
-    def applySetting(self, name, value, testValid=False):
+    def applySetting(self: _typing.Self, name: _typing.Any, value: _typing.Any, testValid: bool = False) -> _typing.Any:
         applied = False
         if name in self.getSettings():
             setattr(self, name, value)
@@ -230,7 +233,7 @@ class Delegator(object):
 
         return applied
 
-    def applySettings(self, settings, testValid=False):
+    def applySettings(self: _typing.Self, settings: _typing.Any, testValid: bool = False) -> None:
         for (setting, value) in settings.items():
             self.applySetting(setting, value, testValid)
             """
@@ -241,7 +244,7 @@ class Delegator(object):
                 setattr(d, setting, value)
             """
 
-    def appendDelegates(self, element, sourceEncoding):
+    def appendDelegates(self: _typing.Self, element: _typing.Any, sourceEncoding: _typing.Any) -> None:
         for d in self.delegates:
             e = d.toElement(sourceEncoding)
             if e is not None:
@@ -251,21 +254,21 @@ class Delegator(object):
                 else:
                     element.append(e)
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         for d in self.delegates:
             d.appendReferencedObjects(parent)
 
-    def getMethods(self):
+    def getMethods(self: _typing.Self) -> _typing.Any:
         return self.delegatedMethods
 
-    def getSettings(self):
+    def getSettings(self: _typing.Self) -> list[_typing.Any]:
         return []
 
-    def toLrfDelegates(self, lrfWriter):
+    def toLrfDelegates(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         for d in self.delegates:
             d.toLrf(lrfWriter)
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         self.toLrfDelegates(lrfWriter)
 
 
@@ -274,7 +277,7 @@ class LrsAttributes(object):
     A mixin class to handle default and user supplied attributes.
     """
 
-    def __init__(self, defaults, alsoAllow=None, **settings):
+    def __init__(self: _typing.Self, defaults: _typing.Any, alsoAllow: _typing.Any = None, **settings: _typing.Any) -> None:
         if alsoAllow is None:
             alsoAllow = []
         self.attrs = defaults.copy()
@@ -291,13 +294,13 @@ class LrsContainer(object):
     This class is a mixin class for elements that are contained in or contain an unknown number of other elements.
     """
 
-    def __init__(self, validChildren):
+    def __init__(self: _typing.Self, validChildren: _typing.Any) -> None:
         self.parent = None
         self.contents = []
         self.validChildren = validChildren
         self.must_append = False  #: If True even an empty container is appended by append_to
 
-    def has_text(self):
+    def has_text(self: _typing.Self) -> bool:
         """
         Return True iff this container has non whitespace text
         :return:
@@ -314,7 +317,7 @@ class LrsContainer(object):
                 return True
         return False
 
-    def append_to(self, parent):
+    def append_to(self: _typing.Self, parent: _typing.Any) -> None:
         """
         Append self to C{parent} iff self has non whitespace textual content
         :param parent:
@@ -323,16 +326,16 @@ class LrsContainer(object):
         if self.contents or self.must_append:
             parent.append(self)
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         for c in self.contents:
             c.appendReferencedObjects(parent)
 
-    def setParent(self, parent):
+    def setParent(self: _typing.Self, parent: _typing.Any) -> None:
         if self.parent is not None:
             raise LrsError("object already has parent")
         self.parent = parent
 
-    def append(self, content, convertText=True):
+    def append(self: _typing.Self, content: _typing.Any, convertText: bool = True) -> _typing.Any:
         """
         Appends valid objects to container.  Can auto-covert text strings to Text objects.
         :param content:
@@ -356,7 +359,7 @@ class LrsContainer(object):
         self.contents.append(content)
         return self
 
-    def get_all(self, predicate=lambda x: x):
+    def get_all(self: _typing.Self, predicate: _typing.Callable[..., _typing.Any] = lambda x: x) -> _typing.Iterator[_typing.Any]:
         for child in self.contents:
             if predicate(child):
                 yield child
@@ -373,22 +376,22 @@ class LrsObject(object):
     nextObjId = 0
 
     @classmethod
-    def getNextObjId(selfClass):
+    def getNextObjId(selfClass: _typing.Any) -> _typing.Any:
         selfClass.nextObjId += 1
         return selfClass.nextObjId
 
-    def __init__(self, assignId=False):
+    def __init__(self: _typing.Self, assignId: bool = False) -> None:
         if assignId:
             self.objId = LrsObject.getNextObjId()
         else:
             self.objId = 0
 
-    def assignId(self):
+    def assignId(self: _typing.Self) -> None:
         if self.objId != 0:
             raise LrsError("id already assigned to " + self.__class__.__name__)
         self.objId = LrsObject.getNextObjId()
 
-    def lrsObjectElement(self, name, objlabel="objlabel", labelName=None, labelDecorate=True, **settings):
+    def lrsObjectElement(self: _typing.Self, name: _typing.Any, objlabel: str = "objlabel", labelName: _typing.Any = None, labelDecorate: bool = True, **settings: _typing.Any) -> _typing.Any:
         """
 
         :param name:
@@ -454,14 +457,14 @@ class Book(Delegator):
     """
 
     def __init__(
-        self,
-        textstyledefault=None,
-        blockstyledefault=None,
-        pagestyledefault=None,
-        optimizeTags=False,
-        optimizeCompression=False,
-        **settings
-    ):
+        self: _typing.Self,
+        textstyledefault: _typing.Any = None,
+        blockstyledefault: _typing.Any = None,
+        pagestyledefault: _typing.Any = None,
+        optimizeTags: bool = False,
+        optimizeCompression: bool = False,
+        **settings: _typing.Any
+    ) -> None:
 
         self.parent = None  # we are the top of the parent chain
 
@@ -520,32 +523,32 @@ class Book(Delegator):
         self.allow_new_page = True  #: If False L{create_page} raises an exception
         self.gc_count = 0
 
-    def set_title(self, title):
+    def set_title(self: _typing.Self, title: _typing.Any) -> None:
         ot = self.delegates[0].delegates[0].delegates[0].title
         self.delegates[0].delegates[0].delegates[0].title = (title, ot[1])
 
-    def set_author(self, author):
+    def set_author(self: _typing.Self, author: _typing.Any) -> None:
         ot = self.delegates[0].delegates[0].delegates[0].author
         self.delegates[0].delegates[0].delegates[0].author = (author, ot[1])
 
-    def create_text_style(self, **settings):
+    def create_text_style(self: _typing.Self, **settings: _typing.Any) -> _typing.Any:
         ans = TextStyle(**self.defaultTextStyle.attrs.copy())
         ans.update(settings)
         return ans
 
-    def create_block_style(self, **settings):
+    def create_block_style(self: _typing.Self, **settings: _typing.Any) -> _typing.Any:
         ans = BlockStyle(**self.defaultBlockStyle.attrs.copy())
         ans.update(settings)
         return ans
 
-    def create_page_style(self, **settings):
+    def create_page_style(self: _typing.Self, **settings: _typing.Any) -> _typing.Any:
         if not self.allow_new_page:
             raise ContentError
         ans = PageStyle(**self.defaultPageStyle.attrs.copy())
         ans.update(settings)
         return ans
 
-    def create_page(self, pageStyle=None, **settings):
+    def create_page(self: _typing.Self, pageStyle: _typing.Any = None, **settings: _typing.Any) -> _typing.Any:
         """
         Return a new L{Page}. The page has not been appended to this book.
         :param pageStyle:
@@ -556,7 +559,7 @@ class Book(Delegator):
             pageStyle = self.defaultPageStyle
         return Page(pageStyle=pageStyle, **settings)
 
-    def create_text_block(self, textStyle=None, blockStyle=None, **settings):
+    def create_text_block(self: _typing.Self, textStyle: _typing.Any = None, blockStyle: _typing.Any = None, **settings: _typing.Any) -> _typing.Any:
         """
         Return a new L{TextBlock}. The block has not been appended to this book.
         :param textStyle:
@@ -570,7 +573,7 @@ class Book(Delegator):
             blockStyle = self.defaultBlockStyle
         return TextBlock(textStyle=textStyle, blockStyle=blockStyle, **settings)
 
-    def pages(self):
+    def pages(self: _typing.Self) -> _typing.Any:
         """
         Return list of Page objects in this book
         :return:
@@ -584,7 +587,7 @@ class Book(Delegator):
                 break
         return ans
 
-    def last_page(self):
+    def last_page(self: _typing.Self) -> _typing.Any:
         """
         Return last Page in this book
         :return:
@@ -597,14 +600,14 @@ class Book(Delegator):
                     if isinstance(candidate, Page):
                         return candidate
 
-    def embed_font(self, file, facename):
+    def embed_font(self: _typing.Self, file: _typing.Any, facename: _typing.Any) -> None:
         f = Font(file, facename)
         self.append(f)
 
-    def getSettings(self):
+    def getSettings(self: _typing.Self) -> list[_typing.Any]:
         return ["sourceencoding"]
 
-    def append(self, content):
+    def append(self: _typing.Self, content: _typing.Any) -> None:
         """
         Find and invoke the correct appender for this content.
         :param content:
@@ -617,7 +620,7 @@ class Book(Delegator):
             raise LrsError("can't append %s to Book" % className)
         method(content)
 
-    def rationalize_font_sizes(self, base_font_size=10):
+    def rationalize_font_sizes(self: _typing.Self, base_font_size: int = 10) -> None:
         base_font_size *= 10.0
         main = None
         for obj in self.delegates:
@@ -655,7 +658,7 @@ class Book(Delegator):
         old_base_font_size = float(max(fonts.items(), key=operator.itemgetter(1))[0])
         factor = base_font_size / old_base_font_size
 
-        def rescale(old):
+        def rescale(old: _typing.Any) -> _typing.Any:
             return str(int(int(old) * factor))
 
         text_blocks = list(main.get_all(lambda x: isinstance(x, TextBlock)))
@@ -673,13 +676,13 @@ class Book(Delegator):
             ts.attrs["fontsize"] = rescale(ts.attrs["fontsize"])
             ts.attrs["baselineskip"] = rescale(ts.attrs["baselineskip"])
 
-    def renderLrs(self, lrsFile, encoding="UTF-8"):
+    def renderLrs(self: _typing.Self, lrsFile: _typing.Any, encoding: str = "UTF-8") -> None:
         if isinstance(lrsFile, six_string_types):
             lrsFile = codecs.open(lrsFile, "wb", encoding=encoding)
         self.render(lrsFile, outputEncodingName=encoding)
         lrsFile.close()
 
-    def renderLrf(self, lrfFile):
+    def renderLrf(self: _typing.Self, lrfFile: _typing.Any) -> None:
         self.appendReferencedObjects(self)
         # Todo: Waiting until I can actually run some tests
         if isinstance(lrfFile, six_string_types):
@@ -693,13 +696,13 @@ class Book(Delegator):
         lrfWriter.writeFile(lrfFile)
         lrfFile.close()
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         root = Element("BBeBXylog", version="1.0")
         root.append(Element("Property"))
         self.appendDelegates(root, self.sourceencoding)
         return root
 
-    def render(self, f, outputEncodingName="UTF-8"):
+    def render(self: _typing.Self, f: _typing.Any, outputEncodingName: str = "UTF-8") -> None:
         """
         Write the book as an LRS to file f.
         :param f:
@@ -730,10 +733,10 @@ class BookInformation(Delegator):
     Just a container for the Info and TableOfContents elements.
     """
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         Delegator.__init__(self, [Info(), TableOfContents()])
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         bi = Element("BookInformation")
         self.appendDelegates(bi, se)
         return bi
@@ -744,20 +747,20 @@ class Info(Delegator):
     Just a container for the BookInfo and DocInfo elements.
     """
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.genreading = DEFAULT_GENREADING
         Delegator.__init__(self, [BookInfo(), DocInfo()])
 
-    def getSettings(self):
+    def getSettings(self: _typing.Self) -> list[_typing.Any]:
         return ["genreading"]  # + self.delegatedSettings
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         info = Element("Info", version="1.1")
         info.append(self.delegates[0].toElement(se, reading="s" in self.genreading))
         info.append(self.delegates[1].toElement(se))
         return info
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         # this info is set in XML form in the LRF
         info = Element("Info", version="1.1")
         # self.appendDelegates(info)
@@ -787,19 +790,19 @@ class Info(Delegator):
 
 
 class TableOfContents(object):
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.tocEntries = []
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         pass
 
-    def getMethods(self):
+    def getMethods(self: _typing.Self) -> list[_typing.Any]:
         return ["addTocEntry"]
 
-    def getSettings(self):
+    def getSettings(self: _typing.Self) -> list[_typing.Any]:
         return []
 
-    def addTocEntry(self, tocLabel, textBlock):
+    def addTocEntry(self: _typing.Self, tocLabel: _typing.Any, textBlock: _typing.Any) -> None:
         if not isinstance(textBlock, (Canvas, TextBlock, ImageBlock, RuledLine)):
             raise LrsError(
                 "TOC destination must be a Canvas, TextBlock, ImageBlock or RuledLine not a " + str(type(textBlock))
@@ -821,7 +824,7 @@ class TableOfContents(object):
         self.tocEntries.append(TocLabel(tocLabel, textBlock))
         textBlock.tocLabel = tocLabel
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         if len(self.tocEntries) == 0:
             return None
 
@@ -830,7 +833,7 @@ class TableOfContents(object):
             toc.append(t.toElement(se))
         return toc
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         if len(self.tocEntries) == 0:
             return
 
@@ -844,11 +847,11 @@ class TableOfContents(object):
 
 
 class TocLabel(object):
-    def __init__(self, label, textBlock):
+    def __init__(self: _typing.Self, label: _typing.Any, textBlock: _typing.Any) -> None:
         self.label = escape(re.sub(r"&(\S+?);", entity_to_unicode, label))
         self.textBlock = textBlock
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         return ElementWithText(
             "TocLabel",
             self.label,
@@ -858,7 +861,7 @@ class TocLabel(object):
 
 
 class BookInfo(object):
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.title = "Untitled"
         self.author = "Anonymous"
         self.bookid = None
@@ -870,13 +873,13 @@ class BookInfo(object):
         self.category = None
         self.classification = None
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         pass
 
-    def getMethods(self):
+    def getMethods(self: _typing.Self) -> list[_typing.Any]:
         return []
 
-    def getSettings(self):
+    def getSettings(self: _typing.Self) -> list[_typing.Any]:
         return [
             "author",
             "title",
@@ -889,7 +892,7 @@ class BookInfo(object):
             "classification",
         ]
 
-    def _appendISBN(self, bi):
+    def _appendISBN(self: _typing.Self, bi: _typing.Any) -> None:
         pi = Element("ProductIdentifier")
         isbn_element = ElementWithText("ISBNPrintable", self.isbn)
         isbn_value_element = ElementWithText("ISBNValue", self.isbn.replace("-", ""))
@@ -898,7 +901,7 @@ class BookInfo(object):
         pi.append(isbn_value_element)
         bi.append(pi)
 
-    def toElement(self, se, reading=True):
+    def toElement(self: _typing.Self, se: _typing.Any, reading: bool = True) -> _typing.Any:
         bi = Element("BookInfo")
         bi.append(ElementWithReading("Title", self.title, reading=reading))
         bi.append(ElementWithReading("Author", self.author, reading=reading))
@@ -917,7 +920,7 @@ class BookInfo(object):
 
 
 class DocInfo(object):
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.thumbnail = None
         self.language = "en"
         self.creator = None
@@ -925,13 +928,13 @@ class DocInfo(object):
         self.producer = "%s v%s" % (__appname__, __version__)
         self.numberofpages = "0"
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         pass
 
-    def getMethods(self):
+    def getMethods(self: _typing.Self) -> list[_typing.Any]:
         return []
 
-    def getSettings(self):
+    def getSettings(self: _typing.Self) -> list[_typing.Any]:
         return [
             "thumbnail",
             "language",
@@ -941,7 +944,7 @@ class DocInfo(object):
             "numberofpages",
         ]
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         docInfo = Element("DocInfo")
 
         if self.thumbnail is not None:
@@ -956,24 +959,24 @@ class DocInfo(object):
 
 
 class Main(LrsContainer):
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         LrsContainer.__init__(self, [Page])
 
-    def getMethods(self):
+    def getMethods(self: _typing.Self) -> list[_typing.Any]:
         return ["appendPage", "Page"]
 
-    def getSettings(self):
+    def getSettings(self: _typing.Self) -> list[_typing.Any]:
         return []
 
-    def Page(self, *args, **kwargs):
+    def Page(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         p = Page(*args, **kwargs)
         self.append(p)
         return p
 
-    def appendPage(self, page):
+    def appendPage(self: _typing.Self, page: _typing.Any) -> None:
         self.append(page)
 
-    def toElement(self, sourceEncoding):
+    def toElement(self: _typing.Self, sourceEncoding: _typing.Any) -> _typing.Any:
         main = Element(self.__class__.__name__)
 
         for page in self.contents:
@@ -981,7 +984,7 @@ class Main(LrsContainer):
 
         return main
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         page_ids = []
 
         # set this id now so that pages can see it
@@ -1002,28 +1005,28 @@ class Main(LrsContainer):
 
 
 class Solos(LrsContainer):
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         LrsContainer.__init__(self, [Solo])
 
-    def getMethods(self):
+    def getMethods(self: _typing.Self) -> list[_typing.Any]:
         return ["appendSolo", "Solo"]
 
-    def getSettings(self):
+    def getSettings(self: _typing.Self) -> list[_typing.Any]:
         return []
 
-    def Solo(self, *args, **kwargs):
+    def Solo(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         p = Solo(*args, **kwargs)
         self.append(p)
         return p
 
-    def appendSolo(self, solo):
+    def appendSolo(self: _typing.Self, solo: _typing.Any) -> None:
         self.append(solo)
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         for s in self.contents:
             s.toLrf(lrfWriter)
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         solos = []
         for s in self.contents:
             solos.append(s.toElement(se))
@@ -1043,21 +1046,21 @@ class Template(object):
     Does nothing that I know of.
     """
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         pass
 
-    def getMethods(self):
+    def getMethods(self: _typing.Self) -> list[_typing.Any]:
         return []
 
-    def getSettings(self):
+    def getSettings(self: _typing.Self) -> list[_typing.Any]:
         return []
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         t = Element("Template")
         t.attrib["version"] = "1.0"
         return t
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         # does nothing
         pass
 
@@ -1083,24 +1086,24 @@ class StyleDefault(LrsAttributes):
 
     alsoAllow = ["refempdotsfont", "rubyAlignAndAdjust"]
 
-    def __init__(self, **settings):
+    def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
         LrsAttributes.__init__(self, self.defaults, alsoAllow=self.alsoAllow, **settings)
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         return Element("SetDefault", self.attrs)
 
 
 class Style(LrsContainer, Delegator):
-    def __init__(self, styledefault=StyleDefault()):
+    def __init__(self: _typing.Self, styledefault: _typing.Any = StyleDefault()) -> None:
         LrsContainer.__init__(self, [PageStyle, TextStyle, BlockStyle])
         Delegator.__init__(self, [BookStyle(styledefault=styledefault)])
         self.bookStyle = self.delegates[0]
         self.appendPageStyle = self.appendTextStyle = self.appendBlockStyle = self.append
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         LrsContainer.appendReferencedObjects(self, parent)
 
-    def getMethods(self):
+    def getMethods(self: _typing.Self) -> _typing.Any:
         return [
             "PageStyle",
             "TextStyle",
@@ -1110,25 +1113,25 @@ class Style(LrsContainer, Delegator):
             "appendBlockStyle",
         ] + self.delegatedMethods
 
-    def getSettings(self):
+    def getSettings(self: _typing.Self) -> _typing.Any:
         return [(self.bookStyle, x) for x in self.bookStyle.getSettings()]
 
-    def PageStyle(self, *args, **kwargs):
+    def PageStyle(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         ps = PageStyle(*args, **kwargs)
         self.append(ps)
         return ps
 
-    def TextStyle(self, *args, **kwargs):
+    def TextStyle(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         ts = TextStyle(*args, **kwargs)
         self.append(ts)
         return ts
 
-    def BlockStyle(self, *args, **kwargs):
+    def BlockStyle(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         bs = BlockStyle(*args, **kwargs)
         self.append(bs)
         return bs
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         style = Element("Style")
         style.append(self.bookStyle.toElement(se))
 
@@ -1137,7 +1140,7 @@ class Style(LrsContainer, Delegator):
 
         return style
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         self.bookStyle.toLrf(lrfWriter)
 
         for s in self.contents:
@@ -1145,25 +1148,25 @@ class Style(LrsContainer, Delegator):
 
 
 class BookStyle(LrsObject, LrsContainer):
-    def __init__(self, styledefault=StyleDefault()):
+    def __init__(self: _typing.Self, styledefault: _typing.Any = StyleDefault()) -> None:
         LrsObject.__init__(self, assignId=True)
         LrsContainer.__init__(self, [Font])
         self.styledefault = styledefault
         self.booksetting = BookSetting()
         self.appendFont = self.append
 
-    def getSettings(self):
+    def getSettings(self: _typing.Self) -> list[_typing.Any]:
         return ["styledefault", "booksetting"]
 
-    def getMethods(self):
+    def getMethods(self: _typing.Self) -> list[_typing.Any]:
         return ["Font", "appendFont"]
 
-    def Font(self, *args, **kwargs):
+    def Font(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
         f = Font(*args, **kwargs)
         self.append(f)
         return
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         book_style = self.lrsObjectElement("BookStyle", objlabel="stylelabel", labelDecorate=False)
         book_style.append(self.styledefault.toElement(se))
         book_style.append(self.booksetting.toElement(se))
@@ -1171,7 +1174,7 @@ class BookStyle(LrsObject, LrsContainer):
             book_style.append(font.toElement(se))
         return book_style
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         book_atr = LrfObject("BookAtr", self.objId)
         book_atr.appendLrfTag(LrfTag("ChildPageTree", lrfWriter.getPageTreeId()))
         book_atr.appendTagDict(self.styledefault.attrs)
@@ -1186,7 +1189,7 @@ class BookStyle(LrsObject, LrsContainer):
 
 
 class BookSetting(LrsAttributes):
-    def __init__(self, **settings):
+    def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
         defaults = dict(
             bindingdirection="Lr",
             dpi="1660",
@@ -1196,7 +1199,7 @@ class BookSetting(LrsAttributes):
         )
         LrsAttributes.__init__(self, defaults, **settings)
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         a = self.attrs
         lrfWriter.dpi = int(a["dpi"])
         lrfWriter.bindingdirection = BINDING_DIRECTION_ENCODING[a["bindingdirection"]]
@@ -1204,7 +1207,7 @@ class BookSetting(LrsAttributes):
         lrfWriter.width = int(a["screenwidth"])
         lrfWriter.colorDepth = int(a["colordepth"])
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         return Element("BookSetting", self.attrs)
 
 
@@ -1213,7 +1216,7 @@ class LrsStyle(LrsObject, LrsAttributes, LrsContainer):
     A mixin class for styles.
     """
 
-    def __init__(self, elementName, defaults=None, alsoAllow=None, **overrides):
+    def __init__(self: _typing.Self, elementName: _typing.Any, defaults: _typing.Any = None, alsoAllow: _typing.Any = None, **overrides: _typing.Any) -> None:
         if defaults is None:
             defaults = {}
 
@@ -1226,26 +1229,26 @@ class LrsStyle(LrsObject, LrsAttributes, LrsContainer):
         # self.label = str(self.objId)
         # self.parent = None
 
-    def update(self, settings):
+    def update(self: _typing.Self, settings: _typing.Any) -> None:
         for name, value in settings.items():
             if name not in self.__class__.validSettings:
                 raise LrsError("%s not a valid setting for %s" % (name, self.__class__.__name__))
             self.attrs[name] = value
 
-    def getLabel(self):
+    def getLabel(self: _typing.Self) -> _typing.Any:
         return str(self.objId)
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         element = Element(self.elementName, stylelabel=self.getLabel(), objid=str(self.objId))
         element.attrib.update(self.attrs)
         return element
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         obj = LrfObject(self.elementName, self.objId)
         obj.appendTagDict(self.attrs, self.__class__.__name__)
         lrfWriter.append(obj)
 
-    def __eq__(self, other):
+    def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
         if hasattr(other, "attrs"):
             return self.__class__ == other.__class__ and self.attrs == other.attrs
         return False
@@ -1307,10 +1310,10 @@ class TextStyle(LrsStyle):
 
     defaults = baseDefaults.copy()
 
-    def __init__(self, **overrides):
+    def __init__(self: _typing.Self, **overrides: _typing.Any) -> None:
         LrsStyle.__init__(self, "TextStyle", self.defaults, alsoAllow=self.alsoAllow, **overrides)
 
-    def copy(self):
+    def copy(self: _typing.Self) -> _typing.Any:
         tb = TextStyle()
         tb.attrs = self.attrs.copy()
         return tb
@@ -1345,10 +1348,10 @@ class BlockStyle(LrsStyle):
     validSettings = baseDefaults.keys()
     defaults = baseDefaults.copy()
 
-    def __init__(self, **overrides):
+    def __init__(self: _typing.Self, **overrides: _typing.Any) -> None:
         LrsStyle.__init__(self, "BlockStyle", self.defaults, **overrides)
 
-    def copy(self):
+    def copy(self: _typing.Self) -> _typing.Any:
         tb = BlockStyle()
         tb.attrs = self.attrs.copy()
         return tb
@@ -1393,12 +1396,12 @@ class PageStyle(LrsStyle):
     defaults = baseDefaults.copy()
 
     @classmethod
-    def translateHeaderAndFooter(selfClass, parent, settings):
+    def translateHeaderAndFooter(selfClass: _typing.Any, parent: _typing.Any, settings: _typing.Any) -> None:
         selfClass._fixup(parent, "header", settings)
         selfClass._fixup(parent, "footer", settings)
 
     @classmethod
-    def _fixup(selfClass, parent, basename, settings):
+    def _fixup(selfClass: _typing.Any, parent: _typing.Any, basename: _typing.Any, settings: _typing.Any) -> None:
         evenbase = "even" + basename
         oddbase = "odd" + basename
         if basename in settings:
@@ -1420,13 +1423,13 @@ class PageStyle(LrsStyle):
                 parent.append(oddObj)
             settings[oddbase + "id"] = str(oddObj.objId)
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         if self.objectsAppended:
             return
         PageStyle.translateHeaderAndFooter(parent, self.attrs)
         self.objectsAppended = True
 
-    def __init__(self, **settings):
+    def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
         # self.fixHeaderSettings(settings)
         LrsStyle.__init__(self, "PageStyle", self.defaults, alsoAllow=self.alsoAllow, **settings)
 
@@ -1439,7 +1442,7 @@ class Page(LrsObject, LrsContainer):
 
     defaultPageStyle = PageStyle()
 
-    def __init__(self, pageStyle=defaultPageStyle, **settings):
+    def __init__(self: _typing.Self, pageStyle: _typing.Any = defaultPageStyle, **settings: _typing.Any) -> None:
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [TextBlock, BlockSpace, RuledLine, ImageBlock, Canvas])
 
@@ -1451,7 +1454,7 @@ class Page(LrsObject, LrsContainer):
 
         self.settings = settings.copy()
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         PageStyle.translateHeaderAndFooter(parent, self.settings)
 
         self.pageStyle.appendReferencedObjects(parent)
@@ -1461,17 +1464,17 @@ class Page(LrsObject, LrsContainer):
 
         LrsContainer.appendReferencedObjects(self, parent)
 
-    def RuledLine(self, *args, **kwargs):
+    def RuledLine(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         rl = RuledLine(*args, **kwargs)
         self.append(rl)
         return rl
 
-    def BlockSpace(self, *args, **kwargs):
+    def BlockSpace(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         bs = BlockSpace(*args, **kwargs)
         self.append(bs)
         return bs
 
-    def TextBlock(self, *args, **kwargs):
+    def TextBlock(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         """
         Create and append a new text block (shortcut).
         :param args:
@@ -1482,7 +1485,7 @@ class Page(LrsObject, LrsContainer):
         self.append(tb)
         return tb
 
-    def ImageBlock(self, *args, **kwargs):
+    def ImageBlock(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         """
         Create and append and new Image block (shorthand).
         :param args:
@@ -1493,13 +1496,13 @@ class Page(LrsObject, LrsContainer):
         self.append(ib)
         return ib
 
-    def addLrfObject(self, objId):
+    def addLrfObject(self: _typing.Self, objId: _typing.Any) -> None:
         self.stream.appendLrfTag(LrfTag("Link", objId))
 
-    def appendLrfTag(self, lrfTag):
+    def appendLrfTag(self: _typing.Self, lrfTag: _typing.Any) -> None:
         self.stream.appendLrfTag(lrfTag)
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         # tags:
         # ObjectList
         # Link to pagestyle
@@ -1524,7 +1527,7 @@ class Page(LrsObject, LrsContainer):
         p.appendTagDict(self.settings)
         p.appendLrfTags(self.stream.getStreamTags(lrfWriter.getSourceEncoding()))
 
-    def toElement(self, sourceEncoding):
+    def toElement(self: _typing.Self, sourceEncoding: _typing.Any) -> _typing.Any:
         page = self.lrsObjectElement("Page")
         page.set("pagestyle", self.pageStyle.getLabel())
         page.attrib.update(self.settings)
@@ -1546,7 +1549,7 @@ class TextBlock(LrsObject, LrsContainer):
     defaultTextStyle = TextStyle()
     defaultBlockStyle = BlockStyle()
 
-    def __init__(self, textStyle=defaultTextStyle, blockStyle=defaultBlockStyle, **settings):
+    def __init__(self: _typing.Self, textStyle: _typing.Any = defaultTextStyle, blockStyle: _typing.Any = defaultBlockStyle, **settings: _typing.Any) -> None:
         """
         Create TextBlock.
         :param textStyle:
@@ -1577,7 +1580,7 @@ class TextBlock(LrsObject, LrsContainer):
         self.currentTextStyle = textStyle.copy() if self.textSettings else textStyle
         self.currentTextStyle.attrs.update(self.textSettings)
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         if self.textStyle.parent is None:
             parent.append(self.textStyle)
 
@@ -1586,7 +1589,7 @@ class TextBlock(LrsObject, LrsContainer):
 
         LrsContainer.appendReferencedObjects(self, parent)
 
-    def Paragraph(self, *args, **kwargs):
+    def Paragraph(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         """
         Create and append a Paragraph to this TextBlock.  A CR is automatically inserted after the Paragraph.
         To avoid this behavior, create the Paragraph and append it to the TextBlock in a separate call.
@@ -1599,7 +1602,7 @@ class TextBlock(LrsObject, LrsContainer):
         self.append(CR())
         return p
 
-    def toElement(self, sourceEncoding):
+    def toElement(self: _typing.Self, sourceEncoding: _typing.Any) -> _typing.Any:
         tb = self.lrsObjectElement("TextBlock", labelName="Block")
         tb.attrib.update(self.textSettings)
         tb.attrib.update(self.blockSettings)
@@ -1613,7 +1616,7 @@ class TextBlock(LrsObject, LrsContainer):
 
         return tb
 
-    def getReferencedObjIds(self):
+    def getReferencedObjIds(self: _typing.Self) -> _typing.Any:
         ids = [self.objId, self.extraId, self.blockStyle.objId, self.textStyle.objId]
         for content in self.contents:
             if hasattr(content, "getReferencedObjIds"):
@@ -1621,10 +1624,10 @@ class TextBlock(LrsObject, LrsContainer):
 
         return ids
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         self.toLrfContainer(lrfWriter, lrfWriter)
 
-    def toLrfContainer(self, lrfWriter, container):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
         # id really belongs to the outer block
         extraId = LrsObject.getNextObjId()
 
@@ -1669,45 +1672,45 @@ class Paragraph(LrsContainer):
     explicit .append methods to build up the text stream.
     """
 
-    def __init__(self, text=None):
+    def __init__(self: _typing.Self, text: _typing.Any = None) -> None:
         LrsContainer.__init__(self, [Text, CR, DropCaps, CharButton, LrsSimpleChar1, six_string_types])
         if text is not None:
             if isinstance(text, six_string_types):
                 text = Text(text)
             self.append(text)
 
-    def CR(self):
+    def CR(self: _typing.Self) -> _typing.Any:
         # Okay, here's a single autoappender for this common operation
         cr = CR()
         self.append(cr)
         return cr
 
-    def getReferencedObjIds(self):
+    def getReferencedObjIds(self: _typing.Self) -> _typing.Any:
         ids = []
         for content in self.contents:
             if hasattr(content, "getReferencedObjIds"):
                 ids.extend(content.getReferencedObjIds())
         return ids
 
-    def toLrfContainer(self, lrfWriter, parent):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
         parent.appendLrfTag(LrfTag("pstart", 0))
         for content in self.contents:
             content.toLrfContainer(lrfWriter, parent)
         parent.appendLrfTag(LrfTag("pend"))
 
-    def toElement(self, sourceEncoding):
+    def toElement(self: _typing.Self, sourceEncoding: _typing.Any) -> _typing.Any:
         p = Element("P")
         appendTextElements(p, self.contents, sourceEncoding)
         return p
 
 
 class LrsTextTag(LrsContainer):
-    def __init__(self, text, validContents):
+    def __init__(self: _typing.Self, text: _typing.Any, validContents: _typing.Any) -> None:
         LrsContainer.__init__(self, [Text, six_string_types] + validContents)
         if text is not None:
             self.append(text)
 
-    def toLrfContainer(self, lrfWriter, parent):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
         if hasattr(self, "tagName"):
             tagName = self.tagName
         else:
@@ -1720,7 +1723,7 @@ class LrsTextTag(LrsContainer):
 
         parent.appendLrfTag(LrfTag(tagName + "End"))
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         if hasattr(self, "tagName"):
             tagName = self.tagName
         else:
@@ -1732,13 +1735,13 @@ class LrsTextTag(LrsContainer):
 
 
 class LrsSimpleChar1(object):
-    def isEmpty(self):
+    def isEmpty(self: _typing.Self) -> bool:
         for content in self.contents:
             if not content.isEmpty():
                 return False
         return True
 
-    def hasFollowingContent(self):
+    def hasFollowingContent(self: _typing.Self) -> bool:
         foundSelf = False
         for content in self.parent.contents:
             if content == self:
@@ -1750,21 +1753,21 @@ class LrsSimpleChar1(object):
 
 
 class DropCaps(LrsTextTag):
-    def __init__(self, line=1):
+    def __init__(self: _typing.Self, line: int = 1) -> None:
         LrsTextTag.__init__(self, None, [LrsSimpleChar1])
         if int(line) <= 0:
             raise LrsError("A DrawChar must span at least one line.")
         self.line = int(line)
 
-    def isEmpty(self):
+    def isEmpty(self: _typing.Self) -> bool:
         return self.text is None or not self.text.strip()
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         elem = Element("DrawChar", line=str(self.line))
         appendTextElements(elem, self.contents, se)
         return elem
 
-    def toLrfContainer(self, lrfWriter, parent):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
         parent.appendLrfTag(LrfTag("DrawChar", (int(self.line),)))
 
         for content in self.contents:
@@ -1774,11 +1777,11 @@ class DropCaps(LrsTextTag):
 
 
 class Button(LrsObject, LrsContainer):
-    def __init__(self, **settings):
+    def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
         LrsObject.__init__(self, **settings)
         LrsContainer.__init__(self, [PushButton])
 
-    def findJumpToRefs(self):
+    def findJumpToRefs(self: _typing.Self) -> tuple[_typing.Any, ...]:
         for sub1 in self.contents:
             if isinstance(sub1, PushButton):
                 for sub2 in sub1.contents:
@@ -1786,7 +1789,7 @@ class Button(LrsObject, LrsContainer):
                         return sub2.textBlock.objId, sub2.textBlock.parent.objId
         raise LrsError("%s has no PushButton or JumpTo subs" % self.__class__.__name__)
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         (refobj, refpage) = self.findJumpToRefs()
         # print "Button writing JumpTo refobj=", jumpto.refobj, ", and refpage=", jumpto.refpage
         button = LrfObject("Button", self.objId)
@@ -1798,7 +1801,7 @@ class Button(LrsObject, LrsContainer):
         button.appendLrfTag(LrfTag("PushButtonEnd"))
         lrfWriter.append(button)
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         b = self.lrsObjectElement("Button")
 
         for content in self.contents:
@@ -1812,10 +1815,10 @@ class ButtonBlock(Button):
 
 
 class PushButton(LrsContainer):
-    def __init__(self, **settings):
+    def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
         LrsContainer.__init__(self, [JumpTo])
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         b = Element("PushButton")
 
         for content in self.contents:
@@ -1825,14 +1828,14 @@ class PushButton(LrsContainer):
 
 
 class JumpTo(LrsContainer):
-    def __init__(self, textBlock):
+    def __init__(self: _typing.Self, textBlock: _typing.Any) -> None:
         LrsContainer.__init__(self, [])
         self.textBlock = textBlock
 
-    def setTextBlock(self, textBlock):
+    def setTextBlock(self: _typing.Self, textBlock: _typing.Any) -> None:
         self.textBlock = textBlock
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         return Element(
             "JumpTo",
             refpage=str(self.textBlock.parent.objId),
@@ -1844,7 +1847,7 @@ class Plot(LrsSimpleChar1, LrsContainer):
 
     ADJUSTMENT_VALUES = {"center": 1, "baseline": 2, "top": 3, "bottom": 4}
 
-    def __init__(self, obj, xsize=0, ysize=0, adjustment=None):
+    def __init__(self: _typing.Self, obj: _typing.Any, xsize: int = 0, ysize: int = 0, adjustment: _typing.Any = None) -> None:
         LrsContainer.__init__(self, [])
         if obj is not None:
             self.setObj(obj)
@@ -1856,19 +1859,19 @@ class Plot(LrsSimpleChar1, LrsContainer):
             raise LrsError("adjustment must be one of" + six_unicode(Plot.ADJUSTMENT_VALUES.keys()))
         self.adjustment = adjustment
 
-    def setObj(self, obj):
+    def setObj(self: _typing.Self, obj: _typing.Any) -> None:
         if not isinstance(obj, (Image, Button)):
             raise LrsError("Plot elements can only refer to Image or Button elements")
         self.obj = obj
 
-    def getReferencedObjIds(self):
+    def getReferencedObjIds(self: _typing.Self) -> list[_typing.Any]:
         return [self.obj.objId]
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         if self.obj.parent is None:
             parent.append(self.obj)
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         elem = Element(
             "Plot",
             xsize=str(self.xsize),
@@ -1879,7 +1882,7 @@ class Plot(LrsSimpleChar1, LrsContainer):
             elem.set("adjustment", self.adjustment)
         return elem
 
-    def toLrfContainer(self, lrfWriter, parent):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
         adj = self.adjustment if self.adjustment else "bottom"
         params = (
             int(self.xsize),
@@ -1895,14 +1898,14 @@ class Text(LrsContainer):
     A object that represents raw text.  Does not have a toElement.
     """
 
-    def __init__(self, text):
+    def __init__(self: _typing.Self, text: _typing.Any) -> None:
         LrsContainer.__init__(self, [])
         self.text = text
 
-    def isEmpty(self):
+    def isEmpty(self: _typing.Self) -> bool:
         return not self.text or not self.text.strip()
 
-    def toLrfContainer(self, lrfWriter, parent):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
         if self.text:
             if isinstance(self.text, str):
                 parent.appendLrfTag(LrfTag("rawtext", self.text))
@@ -1915,50 +1918,50 @@ class CR(LrsSimpleChar1, LrsContainer):
     A line break (when appended to a Paragraph) or a paragraph break (when appended to a TextBlock).
     """
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         LrsContainer.__init__(self, [])
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         return Element("CR")
 
-    def toLrfContainer(self, lrfWriter, parent):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
         parent.appendLrfTag(LrfTag("CR"))
 
 
 class Italic(LrsSimpleChar1, LrsTextTag):
-    def __init__(self, text=None):
+    def __init__(self: _typing.Self, text: _typing.Any = None) -> None:
         LrsTextTag.__init__(self, text, [LrsSimpleChar1])
 
 
 class Sub(LrsSimpleChar1, LrsTextTag):
-    def __init__(self, text=None):
+    def __init__(self: _typing.Self, text: _typing.Any = None) -> None:
         LrsTextTag.__init__(self, text, [])
 
 
 class Sup(LrsSimpleChar1, LrsTextTag):
-    def __init__(self, text=None):
+    def __init__(self: _typing.Self, text: _typing.Any = None) -> None:
         LrsTextTag.__init__(self, text, [])
 
 
 class NoBR(LrsSimpleChar1, LrsTextTag):
-    def __init__(self, text=None):
+    def __init__(self: _typing.Self, text: _typing.Any = None) -> None:
         LrsTextTag.__init__(self, text, [LrsSimpleChar1])
 
 
 class Space(LrsSimpleChar1, LrsContainer):
-    def __init__(self, xsize=0, x=0):
+    def __init__(self: _typing.Self, xsize: int = 0, x: int = 0) -> None:
         LrsContainer.__init__(self, [])
         if xsize == 0 and x != 0:
             xsize = x
         self.xsize = xsize
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         if self.xsize == 0:
             return
 
         return Element("Space", xsize=str(self.xsize))
 
-    def toLrfContainer(self, lrfWriter, container):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
         if self.xsize != 0:
             container.appendLrfTag(LrfTag("Space", self.xsize))
 
@@ -1968,18 +1971,18 @@ class Box(LrsSimpleChar1, LrsContainer):
     Draw a box around text.  Unfortunately, does not seem to do anything on the PRS-500.
     """
 
-    def __init__(self, linetype="solid"):
+    def __init__(self: _typing.Self, linetype: str = "solid") -> None:
         LrsContainer.__init__(self, [Text, six_string_types])
         if linetype not in LINE_TYPE_ENCODING:
             raise LrsError(linetype + " is not a valid line type")
         self.linetype = linetype
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         e = Element("Box", linetype=self.linetype)
         appendTextElements(e, self.contents, se)
         return e
 
-    def toLrfContainer(self, lrfWriter, container):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
         container.appendLrfTag(LrfTag("Box", self.linetype))
         for content in self.contents:
             content.toLrfContainer(lrfWriter, container)
@@ -1987,7 +1990,7 @@ class Box(LrsSimpleChar1, LrsContainer):
 
 
 class Span(LrsSimpleChar1, LrsContainer):
-    def __init__(self, text=None, **attrs):
+    def __init__(self: _typing.Self, text: _typing.Any = None, **attrs: _typing.Any) -> None:
         LrsContainer.__init__(self, [LrsSimpleChar1, Text, six_string_types])
         if text is not None:
             if isinstance(text, six_string_types):
@@ -1999,7 +2002,7 @@ class Span(LrsSimpleChar1, LrsContainer):
                 raise LrsError("setting %s not allowed on Span" % attrname)
         self.attrs = attrs
 
-    def findCurrentTextStyle(self):
+    def findCurrentTextStyle(self: _typing.Self) -> _typing.Any:
         parent = self.parent
         while 1:
             if parent is None or hasattr(parent, "currentTextStyle"):
@@ -2011,7 +2014,7 @@ class Span(LrsSimpleChar1, LrsContainer):
 
         return parent.currentTextStyle
 
-    def toLrfContainer(self, lrfWriter, container):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
 
         # find the currentTextStyle
         oldTextStyle = self.findCurrentTextStyle()
@@ -2037,7 +2040,7 @@ class Span(LrsSimpleChar1, LrsContainer):
         for name in self.attrs.keys():
             container.appendLrfTag(LrfTag(name, oldTextStyle.attrs[name]))
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         element = Element("Span")
         for (key, value) in self.attrs.items():
             element.set(key, str(value))
@@ -2051,7 +2054,7 @@ class EmpLine(LrsTextTag, LrsSimpleChar1):
     emplinetypes = ["none", "solid", "dotted", "dashed", "double"]
     emplinepositions = ["before", "after"]
 
-    def __init__(self, text=None, emplineposition="before", emplinetype="solid"):
+    def __init__(self: _typing.Self, text: _typing.Any = None, emplineposition: str = "before", emplinetype: str = "solid") -> None:
         LrsTextTag.__init__(self, text, [LrsSimpleChar1])
         if emplineposition not in self.__class__.emplinepositions:
             raise LrsError("emplineposition for an EmpLine must be one of: " + str(self.__class__.emplinepositions))
@@ -2061,7 +2064,7 @@ class EmpLine(LrsTextTag, LrsSimpleChar1):
         self.emplinetype = emplinetype
         self.emplineposition = emplineposition
 
-    def toLrfContainer(self, lrfWriter, parent):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
         parent.appendLrfTag(LrfTag(self.__class__.__name__, (self.emplineposition, self.emplinetype)))
         parent.appendLrfTag(LrfTag("emplineposition", self.emplineposition))
         parent.appendLrfTag(LrfTag("emplinetype", self.emplinetype))
@@ -2070,7 +2073,7 @@ class EmpLine(LrsTextTag, LrsSimpleChar1):
 
         parent.appendLrfTag(LrfTag(self.__class__.__name__ + "End"))
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         element = Element(self.__class__.__name__)
         element.set("emplineposition", self.emplineposition)
         element.set("emplinetype", self.emplinetype)
@@ -2085,10 +2088,10 @@ class Bold(Span):
     but use the word Bold in the LRS.
     """
 
-    def __init__(self, text=None):
+    def __init__(self: _typing.Self, text: _typing.Any = None) -> None:
         Span.__init__(self, text, fontweight=800)
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         e = Element("Bold")
         appendTextElements(e, self.contents, se)
         return e
@@ -2097,7 +2100,7 @@ class Bold(Span):
 class BlockSpace(LrsContainer):
     """Can be appended to a page to move the text point."""
 
-    def __init__(self, xspace=0, yspace=0, x=0, y=0):
+    def __init__(self: _typing.Self, xspace: int = 0, yspace: int = 0, x: int = 0, y: int = 0) -> None:
         LrsContainer.__init__(self, [])
         if xspace == 0 and x != 0:
             xspace = x
@@ -2106,13 +2109,13 @@ class BlockSpace(LrsContainer):
         self.xspace = xspace
         self.yspace = yspace
 
-    def toLrfContainer(self, lrfWriter, container):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
         if self.xspace != 0:
             container.appendLrfTag(LrfTag("xspace", self.xspace))
         if self.yspace != 0:
             container.appendLrfTag(LrfTag("yspace", self.yspace))
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         element = Element("BlockSpace")
 
         if self.xspace != 0:
@@ -2131,7 +2134,7 @@ class CharButton(LrsSimpleChar1, LrsContainer):
     Only text or SimpleChars can be appended to the CharButton.
     """
 
-    def __init__(self, button, text=None):
+    def __init__(self: _typing.Self, button: _typing.Any, text: _typing.Any = None) -> None:
         LrsContainer.__init__(self, [basestring, Text, LrsSimpleChar1])
         self.button = None
         if button != None:
@@ -2140,20 +2143,20 @@ class CharButton(LrsSimpleChar1, LrsContainer):
         if text is not None:
             self.append(text)
 
-    def setButton(self, button):
+    def setButton(self: _typing.Self, button: _typing.Any) -> None:
         if not isinstance(button, (JumpButton, Button)):
             raise LrsError("CharButton button must be a JumpButton or Button")
 
         self.button = button
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         if self.button.parent is None:
             parent.append(self.button)
 
-    def getReferencedObjIds(self):
+    def getReferencedObjIds(self: _typing.Self) -> list[_typing.Any]:
         return [self.button.objId]
 
-    def toLrfContainer(self, lrfWriter, container):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
         container.appendLrfTag(LrfTag("CharButton", self.button.objId))
 
         for content in self.contents:
@@ -2161,14 +2164,14 @@ class CharButton(LrsSimpleChar1, LrsContainer):
 
         container.appendLrfTag(LrfTag("CharButtonEnd"))
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         cb = Element("CharButton", refobj=str(self.button.objId))
         appendTextElements(cb, self.contents, se)
         return cb
 
 
 class Objects(LrsContainer):
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         LrsContainer.__init__(
             self,
             [
@@ -2189,7 +2192,7 @@ class Objects(LrsContainer):
             self.appendHeader
         ) = self.appendFooter = self.appendImageStream = self.appendImage = self.appendImageBlock = self.append
 
-    def getMethods(self):
+    def getMethods(self: _typing.Self) -> list[_typing.Any]:
         return [
             "JumpButton",
             "appendJumpButton",
@@ -2207,45 +2210,45 @@ class Objects(LrsContainer):
             "appendImageBlock",
         ]
 
-    def getSettings(self):
+    def getSettings(self: _typing.Self) -> list[_typing.Any]:
         return []
 
-    def ImageBlock(self, *args, **kwargs):
+    def ImageBlock(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         ib = ImageBlock(*args, **kwargs)
         self.append(ib)
         return ib
 
-    def JumpButton(self, textBlock):
+    def JumpButton(self: _typing.Self, textBlock: _typing.Any) -> _typing.Any:
         b = JumpButton(textBlock)
         self.append(b)
         return b
 
-    def TextBlock(self, *args, **kwargs):
+    def TextBlock(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         tb = TextBlock(*args, **kwargs)
         self.append(tb)
         return tb
 
-    def Header(self, *args, **kwargs):
+    def Header(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         h = Header(*args, **kwargs)
         self.append(h)
         return h
 
-    def Footer(self, *args, **kwargs):
+    def Footer(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         h = Footer(*args, **kwargs)
         self.append(h)
         return h
 
-    def ImageStream(self, *args, **kwargs):
+    def ImageStream(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         i = ImageStream(*args, **kwargs)
         self.append(i)
         return i
 
-    def Image(self, *args, **kwargs):
+    def Image(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         i = Image(*args, **kwargs)
         self.append(i)
         return i
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         o = Element("Objects")
 
         for content in self.contents:
@@ -2253,7 +2256,7 @@ class Objects(LrsContainer):
 
         return o
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         for content in self.contents:
             content.toLrf(lrfWriter)
 
@@ -2265,15 +2268,15 @@ class JumpButton(LrsObject, LrsContainer):
     be eventually appended to a Book (actually, an Object.)
     """
 
-    def __init__(self, textBlock):
+    def __init__(self: _typing.Self, textBlock: _typing.Any) -> None:
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [])
         self.textBlock = textBlock
 
-    def setTextBlock(self, textBlock):
+    def setTextBlock(self: _typing.Self, textBlock: _typing.Any) -> None:
         self.textBlock = textBlock
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         button = LrfObject("Button", self.objId)
         button.appendLrfTag(LrfTag("buttonflags", 0x10))  # pushbutton
         button.appendLrfTag(LrfTag("PushButtonStart"))
@@ -2283,7 +2286,7 @@ class JumpButton(LrsObject, LrsContainer):
         button.appendLrfTag(LrfTag("PushButtonEnd"))
         lrfWriter.append(button)
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         b = self.lrsObjectElement("Button")
         pb = SubElement(b, "PushButton")
         SubElement(
@@ -2302,12 +2305,12 @@ class RuledLine(LrsContainer, LrsAttributes, LrsObject):
 
     defaults = dict(linelength="500", linetype="solid", linewidth="2", linecolor="0x00000000")
 
-    def __init__(self, **settings):
+    def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
         LrsContainer.__init__(self, [])
         LrsAttributes.__init__(self, self.defaults, **settings)
         LrsObject.__init__(self)
 
-    def toLrfContainer(self, lrfWriter, container):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
         a = self.attrs
         container.appendLrfTag(
             LrfTag(
@@ -2316,7 +2319,7 @@ class RuledLine(LrsContainer, LrsAttributes, LrsObject):
             )
         )
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         return Element("RuledLine", self.attrs)
 
 
@@ -2337,20 +2340,20 @@ class HeaderOrFooter(LrsObject, LrsContainer, LrsAttributes):
         bgcolor="0xFF000000",
     )
 
-    def __init__(self, **settings):
+    def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [PutObj])
         LrsAttributes.__init__(self, self.defaults, **settings)
 
-    def put_object(self, obj, x1, y1):
+    def put_object(self: _typing.Self, obj: _typing.Any, x1: _typing.Any, y1: _typing.Any) -> None:
         self.append(PutObj(obj, x1, y1))
 
-    def PutObj(self, *args, **kwargs):
+    def PutObj(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         p = PutObj(*args, **kwargs)
         self.append(p)
         return p
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         hd = LrfObject(self.__class__.__name__, self.objId)
         hd.appendTagDict(self.attrs)
 
@@ -2361,7 +2364,7 @@ class HeaderOrFooter(LrsObject, LrsContainer, LrsAttributes):
         hd.appendLrfTags(stream.getStreamTags(lrfWriter.getSourceEncoding()))
         lrfWriter.append(hd)
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         name = self.__class__.__name__
         labelName = name.lower() + "label"
         hd = self.lrsObjectElement(name, objlabel=labelName)
@@ -2393,7 +2396,7 @@ class Canvas(LrsObject, LrsContainer, LrsAttributes):
         blockrule="block-adjustable",
     )
 
-    def __init__(self, width, height, **settings):
+    def __init__(self: _typing.Self, width: _typing.Any, height: _typing.Any, **settings: _typing.Any) -> None:
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [PutObj])
         LrsAttributes.__init__(self, self.defaults, **settings)
@@ -2403,19 +2406,19 @@ class Canvas(LrsObject, LrsContainer, LrsAttributes):
         self.settings["canvasheight"] = int(height)
         self.settings["canvaswidth"] = int(width)
 
-    def put_object(self, obj, x1, y1):
+    def put_object(self: _typing.Self, obj: _typing.Any, x1: _typing.Any, y1: _typing.Any) -> None:
         self.append(PutObj(obj, x1, y1))
 
-    def toElement(self, source_encoding):
+    def toElement(self: _typing.Self, source_encoding: _typing.Any) -> _typing.Any:
         el = self.lrsObjectElement("Canvas", **self.settings)
         for po in self.contents:
             el.append(po.toElement(source_encoding))
         return el
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         self.toLrfContainer(lrfWriter, lrfWriter)
 
-    def toLrfContainer(self, lrfWriter, container):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
         c = LrfObject("Canvas", self.objId)
         c.appendTagDict(self.settings)
         stream = LrfTagStream(STREAM_COMPRESSED)
@@ -2434,7 +2437,7 @@ class Canvas(LrsObject, LrsContainer, LrsAttributes):
         container.addLrfObject(c.objId)
         lrfWriter.append(c)
 
-    def has_text(self):
+    def has_text(self: _typing.Self) -> _typing.Any:
         return bool(self.contents)
 
 
@@ -2443,23 +2446,23 @@ class PutObj(LrsContainer):
     PutObj holds other objects that are drawn on a Canvas or Header.
     """
 
-    def __init__(self, content, x1=0, y1=0):
+    def __init__(self: _typing.Self, content: _typing.Any, x1: int = 0, y1: int = 0) -> None:
         LrsContainer.__init__(self, [TextBlock, ImageBlock])
         self.content = content
         self.x1 = int(x1)
         self.y1 = int(y1)
 
-    def setContent(self, content):
+    def setContent(self: _typing.Self, content: _typing.Any) -> None:
         self.content = content
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         if self.content.parent is None:
             parent.append(self.content)
 
-    def toLrfContainer(self, lrfWriter, container):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
         container.appendLrfTag(LrfTag("PutObj", (self.x1, self.y1, self.content.objId)))
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         el = Element("PutObj", x1=str(self.x1), y1=str(self.y1), refobj=str(self.content.objId))
         return el
 
@@ -2471,7 +2474,7 @@ class ImageStream(LrsObject, LrsContainer):
 
     VALID_ENCODINGS = ["JPEG", "GIF", "BMP", "PNG"]
 
-    def __init__(self, file=None, encoding=None, comment=None):
+    def __init__(self: _typing.Self, file: _typing.Any = None, encoding: _typing.Any = None, comment: _typing.Any = None) -> None:
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [])
         _checkExists(file)
@@ -2496,7 +2499,7 @@ class ImageStream(LrsObject, LrsContainer):
 
         self.encoding = encoding
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         imageFile = file(self.filename, "rb")
         imageData = imageFile.read()
         imageFile.close()
@@ -2510,7 +2513,7 @@ class ImageStream(LrsObject, LrsContainer):
         isObj.appendLrfTags(stream.getStreamTags())
         lrfWriter.append(isObj)
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         element = self.lrsObjectElement(
             "ImageStream",
             objlabel="imagestreamlabel",
@@ -2525,7 +2528,7 @@ class Image(LrsObject, LrsContainer, LrsAttributes):
 
     defaults = dict()
 
-    def __init__(self, refstream, x0=0, x1=0, y0=0, y1=0, xsize=0, ysize=0, **settings):
+    def __init__(self: _typing.Self, refstream: _typing.Any, x0: int = 0, x1: int = 0, y0: int = 0, y1: int = 0, xsize: int = 0, ysize: int = 0, **settings: _typing.Any) -> None:
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [])
         LrsAttributes.__init__(self, self.defaults, settings)
@@ -2533,24 +2536,24 @@ class Image(LrsObject, LrsContainer, LrsAttributes):
         self.xsize, self.ysize = int(xsize), int(ysize)
         self.setRefstream(refstream)
 
-    def setRefstream(self, refstream):
+    def setRefstream(self: _typing.Self, refstream: _typing.Any) -> None:
         self.refstream = refstream
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         if self.refstream.parent is None:
             parent.append(self.refstream)
 
-    def getReferencedObjIds(self):
+    def getReferencedObjIds(self: _typing.Self) -> list[_typing.Any]:
         return [self.objId, self.refstream.objId]
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         element = self.lrsObjectElement("Image", **self.attrs)
         element.set("refstream", str(self.refstream.objId))
         for name in ["x0", "y0", "x1", "y1", "xsize", "ysize"]:
             element.set(name, str(getattr(self, name)))
         return element
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         ib = LrfObject("Image", self.objId)
         ib.appendLrfTag(LrfTag("ImageRect", (self.x0, self.y0, self.x1, self.y1)))
         ib.appendLrfTag(LrfTag("ImageSize", (self.xsize, self.ysize)))
@@ -2566,18 +2569,18 @@ class ImageBlock(LrsObject, LrsContainer, LrsAttributes):
     defaults = BlockStyle.baseDefaults.copy()
 
     def __init__(
-        self,
-        refstream,
-        x0="0",
-        y0="0",
-        x1="600",
-        y1="800",
-        xsize="600",
-        ysize="800",
-        blockStyle=BlockStyle(blockrule="block-fixed"),
-        alttext=None,
-        **settings
-    ):
+        self: _typing.Self,
+        refstream: _typing.Any,
+        x0: str = "0",
+        y0: str = "0",
+        x1: str = "600",
+        y1: str = "800",
+        xsize: str = "600",
+        ysize: str = "800",
+        blockStyle: _typing.Any = BlockStyle(blockrule="block-fixed"),
+        alttext: _typing.Any = None,
+        **settings: _typing.Any
+    ) -> None:
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [Text, Image])
         LrsAttributes.__init__(self, self.defaults, **settings)
@@ -2587,27 +2590,27 @@ class ImageBlock(LrsObject, LrsContainer, LrsAttributes):
         self.blockStyle = blockStyle
         self.alttext = alttext
 
-    def setRefstream(self, refstream):
+    def setRefstream(self: _typing.Self, refstream: _typing.Any) -> None:
         self.refstream = refstream
 
-    def appendReferencedObjects(self, parent):
+    def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
         if self.refstream.parent is None:
             parent.append(self.refstream)
 
         if self.blockStyle is not None and self.blockStyle.parent is None:
             parent.append(self.blockStyle)
 
-    def getReferencedObjIds(self):
+    def getReferencedObjIds(self: _typing.Self) -> _typing.Any:
         objects = [self.objId, self.extraId, self.refstream.objId]
         if self.blockStyle is not None:
             objects.append(self.blockStyle.objId)
 
         return objects
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         self.toLrfContainer(lrfWriter, lrfWriter)
 
-    def toLrfContainer(self, lrfWriter, container):
+    def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
         # id really belongs to the outer block
 
         extraId = LrsObject.getNextObjId()
@@ -2632,7 +2635,7 @@ class ImageBlock(LrsObject, LrsContainer, LrsAttributes):
         lrfWriter.append(ib)
         self.extraId = extraId
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         element = self.lrsObjectElement("ImageBlock", **self.attrs)
         element.set("refstream", str(self.refstream.objId))
         for name in ["x0", "y0", "x1", "y1", "xsize", "ysize"]:
@@ -2646,7 +2649,7 @@ class Font(LrsContainer):
     Allows a TrueType file to be embedded in an Lrf.
     """
 
-    def __init__(self, file=None, fontname=None, fontfilename=None, encoding=None):
+    def __init__(self: _typing.Self, file: _typing.Any = None, fontname: _typing.Any = None, fontfilename: _typing.Any = None, encoding: _typing.Any = None) -> None:
         LrsContainer.__init__(self, [])
         try:
             _checkExists(fontfilename)
@@ -2663,7 +2666,7 @@ class Font(LrsContainer):
         self.fontfilename = fontfilename
         self.encoding = encoding
 
-    def toLrf(self, lrfWriter):
+    def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         font = LrfObject("Font", LrsObject.getNextObjId())
         lrfWriter.registerFontId(font.objId)
         font.appendLrfTag(LrfTag("FontFilename", lrfWriter.toUnicode(self.truefile)))
@@ -2674,7 +2677,7 @@ class Font(LrsContainer):
 
         lrfWriter.append(font)
 
-    def toElement(self, se):
+    def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
         element = Element(
             "RegistFont",
             encoding="TTF",

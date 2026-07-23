@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 import os
 import pprint
 import re
@@ -62,13 +65,13 @@ various stages of conversion. The stages are:
 """
 
 
-def walk(path):
+def walk(path: _typing.Any) -> _typing.Iterator[_typing.Any]:
     for root, _, files in os.walk(path):
         for name in files:
             yield os.path.join(root, name)
 
 
-def supported_input_formats():
+def supported_input_formats() -> _typing.Any:
     from LiuXin_alpha.customize.ui import available_input_formats
 
     fmts = available_input_formats()
@@ -82,11 +85,11 @@ class OptionValues(object):
 
 
 class CompositeProgressReporter(object):
-    def __init__(self, global_min, global_max, global_reporter):
+    def __init__(self: _typing.Self, global_min: _typing.Any, global_max: _typing.Any, global_reporter: _typing.Any) -> None:
         self.global_min, self.global_max = global_min, global_max
         self.global_reporter = global_reporter
 
-    def __call__(self, fraction, msg=""):
+    def __call__(self: _typing.Self, fraction: _typing.Any, msg: str = "") -> None:
         global_frac = self.global_min + fraction * (self.global_max - self.global_min)
         self.global_reporter(global_frac, msg)
 
@@ -121,18 +124,18 @@ class Plumber(object):
     ]
 
     def __init__(
-        self,
-        input,
-        output,
-        log,
-        report_progress=DummyReporter(),
-        dummy=False,
-        merge_plugin_recs=True,
-        abort_after_input_dump=False,
-        override_input_metadata=False,
-        for_regex_wizard=False,
-        view_kepub=False,
-    ):
+        self: _typing.Self,
+        input: _typing.Any,
+        output: _typing.Any,
+        log: _typing.Any,
+        report_progress: _typing.Any = DummyReporter(),
+        dummy: bool = False,
+        merge_plugin_recs: bool = True,
+        abort_after_input_dump: bool = False,
+        override_input_metadata: bool = False,
+        for_regex_wizard: bool = False,
+        view_kepub: bool = False,
+    ) -> None:
         """
         :param input: Path to input file.
         :param output: Path to output file/directory
@@ -1044,7 +1047,7 @@ class Plumber(object):
         if merge_plugin_recs:
             self.merge_plugin_recommendations()
 
-    def unarchive(self, path, tdir):
+    def unarchive(self: _typing.Self, path: _typing.Any, tdir: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.customize.ui import available_input_formats
 
         extract(path, tdir)
@@ -1062,7 +1065,7 @@ class Plumber(object):
                     return f, ext
         return self.find_html_index(files)
 
-    def find_html_index(self, files):
+    def find_html_index(self: _typing.Self, files: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Given a list of files, find the most likely root HTML file in the list.
         :param files:
@@ -1081,7 +1084,7 @@ class Plumber(object):
                     return f, os.path.splitext(f)[1].lower()[1:]
         return html_files[-1], os.path.splitext(html_files[-1])[1].lower()[1:]
 
-    def get_option_by_name(self, name):
+    def get_option_by_name(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         for group in (
             self.input_options,
             self.pipeline_options,
@@ -1092,13 +1095,13 @@ class Plumber(object):
                 if rec.option == name:
                     return rec
 
-    def get_option_help(self, name):
+    def get_option_help(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         rec = self.get_option_by_name(name)
         class_help = getattr(rec, "help", None)
         if class_help is not None:
             return class_help.replace("%default", str(rec.recommended_value))
 
-    def merge_plugin_recommendations(self):
+    def merge_plugin_recommendations(self: _typing.Self) -> None:
         for source in (self.input_plugin, self.output_plugin):
             for name, val, level in source.recommendations:
                 rec = self.get_option_by_name(name)
@@ -1106,7 +1109,7 @@ class Plumber(object):
                     rec.recommended_value = val
                     rec.level = level
 
-    def merge_ui_recommendations(self, recommendations):
+    def merge_ui_recommendations(self: _typing.Self, recommendations: _typing.Any) -> None:
         """
         Merge recommendations from the UI. As long as the UI recommendation
         level is >= the baseline recommended level, the UI value is used,
@@ -1120,7 +1123,7 @@ class Plumber(object):
                 rec.recommended_value = val
                 rec.level = level
 
-    def opts_to_mi(self, mi):
+    def opts_to_mi(self: _typing.Self, mi: _typing.Any) -> None:
         from LiuXin_alpha.metadata.utils import string_to_authors
 
         for x in self.metadata_option_names:
@@ -1147,7 +1150,7 @@ class Plumber(object):
                         continue
                 setattr(mi, x, val)
 
-    def download_cover(self, url):
+    def download_cover(self: _typing.Self, url: _typing.Any) -> _typing.Any:
         """
         If the cover is store at a url download it from the url.
         :param url:
@@ -1166,7 +1169,7 @@ class Plumber(object):
         img.convert("RGB").save(pt.name)
         return pt.name
 
-    def read_user_metadata(self):
+    def read_user_metadata(self: _typing.Self) -> None:
         """
         Read all metadata specified by the user. Command line options override
         metadata from a specified OPF file.
@@ -1195,7 +1198,7 @@ class Plumber(object):
             mi.cover = None
         self.user_metadata = mi
 
-    def setup_options(self):
+    def setup_options(self: _typing.Self) -> None:
         """
         Setup the `self.opts` object.
         """
@@ -1213,7 +1216,7 @@ class Plumber(object):
         self.opts.conversion_edge = self.conversion_edge
         self.opts.conversion_edge_name = self.conversion_edge.name
 
-        def set_profile(profiles, which):
+        def set_profile(profiles: _typing.Any, which: _typing.Any) -> None:
             attr = which + "_profile"
             sval = getattr(self.opts, attr)
             for x in profiles():
@@ -1244,7 +1247,7 @@ class Plumber(object):
             except:
                 self.log.exception("Failed to get resolved conversion options")
 
-    def flush(self):
+    def flush(self: _typing.Self) -> None:
         """
         Flush the buffers on sys.stdout and sys.stderr
         :return:
@@ -1255,13 +1258,13 @@ class Plumber(object):
         except:
             pass
 
-    def dump_oeb(self, oeb, out_dir):
+    def dump_oeb(self: _typing.Self, oeb: _typing.Any, out_dir: _typing.Any) -> None:
         from LiuXin_alpha.file_formats.oeb.writer import OEBWriter
 
         w = OEBWriter(pretty_print=self.opts.pretty_print)
         w(oeb, out_dir)
 
-    def dump_input(self, ret, output_dir):
+    def dump_input(self: _typing.Self, ret: _typing.Any, output_dir: _typing.Any) -> None:
         out_dir = os.path.join(self.opts.debug_pipeline, "input")
         if isinstance(ret, six_string_types):
             shutil.copytree(output_dir, out_dir)
@@ -1281,7 +1284,7 @@ class Plumber(object):
 
         self.log.info("Input debug saved to:", out_dir)
 
-    def run(self):
+    def run(self: _typing.Self) -> None:
         """
         Run the conversion pipeline
         """
@@ -1566,21 +1569,21 @@ class Plumber(object):
 regex_wizard_callback = None
 
 
-def set_regex_wizard_callback(f):
+def set_regex_wizard_callback(f: _typing.Any) -> None:
     global regex_wizard_callback
     regex_wizard_callback = f
 
 
 def create_oebbook(
-    log,
-    path_or_stream,
-    opts,
-    reader=None,
-    encoding="utf-8",
-    populate=True,
-    for_regex_wizard=False,
-    specialize=None,
-):
+    log: _typing.Any,
+    path_or_stream: _typing.Any,
+    opts: _typing.Any,
+    reader: _typing.Any = None,
+    encoding: str = "utf-8",
+    populate: bool = True,
+    for_regex_wizard: bool = False,
+    specialize: _typing.Any = None,
+) -> _typing.Any:
     """
     Create an oebbook
     :param log:

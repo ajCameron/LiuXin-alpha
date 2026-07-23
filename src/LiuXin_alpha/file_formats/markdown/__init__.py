@@ -1,4 +1,7 @@
 from __future__ import unicode_literals, absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Python Markdown
@@ -92,7 +95,7 @@ class Markdown(object):
         "!",
     ]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
         """
         Creates a new Markdown instance.
 
@@ -157,7 +160,7 @@ class Markdown(object):
         )
         self.reset()
 
-    def build_parser(self):
+    def build_parser(self: _typing.Self) -> _typing.Any:
         """Build the parser from the various parts."""
         self.preprocessors = build_preprocessors(self)
         self.parser = build_block_parser(self)
@@ -166,7 +169,7 @@ class Markdown(object):
         self.postprocessors = build_postprocessors(self)
         return self
 
-    def registerExtensions(self, extensions, configs):
+    def registerExtensions(self: _typing.Self, extensions: _typing.Any, configs: _typing.Any) -> _typing.Any:
         """
         Register extensions with this instance of Markdown.
 
@@ -190,7 +193,7 @@ class Markdown(object):
 
         return self
 
-    def build_extension(self, ext_name, configs=None):
+    def build_extension(self: _typing.Self, ext_name: _typing.Any, configs: _typing.Any = None) -> _typing.Any:
         """Build extension by name, then return the module.
 
         The extension name may contain arguments as part of the string in the
@@ -238,12 +241,12 @@ class Markdown(object):
             e.args = (message,) + e.args[1:]
             raise
 
-    def registerExtension(self, extension):
+    def registerExtension(self: _typing.Self, extension: _typing.Any) -> _typing.Any:
         """This gets called by the extension"""
         self.registeredExtensions.append(extension)
         return self
 
-    def reset(self):
+    def reset(self: _typing.Self) -> _typing.Any:
         """
         Resets all state variables so that we can start with a new text.
         """
@@ -256,7 +259,7 @@ class Markdown(object):
 
         return self
 
-    def set_output_format(self, format):
+    def set_output_format(self: _typing.Self, format: _typing.Any) -> _typing.Any:
         """Set the output format for the class instance."""
         self.output_format = format.lower()
         try:
@@ -272,7 +275,7 @@ class Markdown(object):
             raise
         return self
 
-    def convert(self, source):
+    def convert(self: _typing.Self, source: _typing.Any) -> _typing.Any:
         """
         Convert markdown to serialized XHTML or HTML.
 
@@ -345,7 +348,7 @@ class Markdown(object):
 
         return output.strip()
 
-    def convertFile(self, input=None, output=None, encoding=None):
+    def convertFile(self: _typing.Self, input: _typing.Any = None, output: _typing.Any = None, encoding: _typing.Any = None) -> _typing.Any:
         """Converts a markdown file and returns the HTML as a unicode string.
 
         Decodes the file using the provided encoding (defaults to utf-8),
@@ -419,7 +422,7 @@ markdownFromFile().
 """
 
 
-def markdown(text, *args, **kwargs):
+def markdown(text: _typing.Any, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     """Convert a markdown string to HTML and return HTML as a unicode string.
 
     This is a shortcut function for `Markdown` class to cover the most
@@ -438,7 +441,7 @@ def markdown(text, *args, **kwargs):
     return md.convert(text)
 
 
-def markdownFromFile(*args, **kwargs):
+def markdownFromFile(*args: _typing.Any, **kwargs: _typing.Any) -> None:
     """Read markdown code from a file and write it to a file or a stream.
 
     This is a shortcut function which initializes an instance of Markdown,

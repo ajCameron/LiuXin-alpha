@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import codecs
 import zlib
@@ -21,7 +24,7 @@ __docformat__ = "restructuredtext en"
 try:
     pdf_float = plugins["speedup"][0].pdf_float
 except Exception:
-    def pdf_float(val):
+    def pdf_float(val: _typing.Any) -> _typing.Any:
         return ("%.6f" % float(val)).rstrip("0").rstrip(".")
 
 EOL = b"\n"
@@ -67,13 +70,13 @@ ic = str
 icb = lambda x: str(x).encode("ascii")
 
 
-def fmtnum(o):
+def fmtnum(o: _typing.Any) -> _typing.Any:
     if isinstance(o, float):
         return pdf_float(o)
     return ic(o)
 
 
-def serialize(o, stream):
+def serialize(o: _typing.Any, stream: _typing.Any) -> None:
     if isinstance(o, float):
         stream.write_raw(pdf_float(o).encode("ascii"))
     elif isinstance(o, bool):
@@ -95,7 +98,7 @@ def serialize(o, stream):
 
 
 class Name(unicode):
-    def pdf_serialize(self, stream):
+    def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
         raw = self.encode("ascii", "strict")
         if len(raw) > 126:
             raise ValueError("Name too long: %r" % self)
@@ -108,7 +111,7 @@ class Name(unicode):
         stream.write(b"/" + b"".join(buf))
 
 
-def escape_unbalanced_parantheses(bytestring):
+def escape_unbalanced_parantheses(bytestring: _typing.Any) -> _typing.Any:
     indices = []
     bad = []
     ba = bytearray(bytestring)
@@ -129,7 +132,7 @@ def escape_unbalanced_parantheses(bytestring):
 
 
 class String(unicode):
-    def pdf_serialize(self, stream):
+    def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
         s = self.replace("\\", "\\\\")
         try:
             raw = s.encode("latin1")
@@ -141,14 +144,14 @@ class String(unicode):
 
 
 class UTF16String(unicode):
-    def pdf_serialize(self, stream):
+    def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
         s = self.replace("\\", "\\\\")
         raw = codecs.BOM_UTF16_BE + s.encode("utf-16-be")
         stream.write(b"(" + escape_unbalanced_parantheses(raw) + b")")
 
 
 class Dictionary(dict):
-    def pdf_serialize(self, stream):
+    def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
         stream.write(b"<<" + EOL)
         sorted_keys = sorted(iterkeys(self), key=lambda x: ({"Type": "1", "Subtype": "2"}.get(x, x) + x))
         for k in sorted_keys:
@@ -160,7 +163,7 @@ class Dictionary(dict):
 
 
 class InlineDictionary(Dictionary):
-    def pdf_serialize(self, stream):
+    def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
         stream.write(b"<< ")
         for k, v in iteritems(self):
             serialize(Name(k), stream)
@@ -171,7 +174,7 @@ class InlineDictionary(Dictionary):
 
 
 class Array(list):
-    def pdf_serialize(self, stream):
+    def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
         stream.write(b"[")
         for i, o in enumerate(self):
             if i != 0:
@@ -181,17 +184,17 @@ class Array(list):
 
 
 class Stream(BytesIO):
-    def __init__(self, compress=False):
+    def __init__(self: _typing.Self, compress: bool = False) -> None:
 
         super(Stream, self).__init__()
         # BytesIO.__init__(self)
         self.compress = compress
         self.filters = Array()
 
-    def add_extra_keys(self, d):
+    def add_extra_keys(self: _typing.Self, d: _typing.Any) -> None:
         pass
 
-    def pdf_serialize(self, stream):
+    def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
         raw = self.getvalue()
         dl = len(raw)
         filters = self.filters
@@ -208,29 +211,29 @@ class Stream(BytesIO):
         stream.write(raw)
         stream.write(EOL + b"endstream" + EOL)
 
-    def write_line(self, raw=b""):
+    def write_line(self: _typing.Self, raw: bytes = b"") -> None:
         self.write(raw if isinstance(raw, bytes) else raw.encode("ascii"))
         self.write(EOL)
 
-    def write(self, raw):
+    def write(self: _typing.Self, raw: _typing.Any) -> None:
         super(Stream, self).write(raw if isinstance(raw, bytes) else raw.encode("ascii"))
 
-    def write_raw(self, raw):
+    def write_raw(self: _typing.Self, raw: _typing.Any) -> None:
         BytesIO.write(self, raw)
 
 
 class Reference(object):
-    def __init__(self, num, obj):
+    def __init__(self: _typing.Self, num: _typing.Any, obj: _typing.Any) -> None:
         self.num, self.obj = num, obj
 
-    def pdf_serialize(self, stream):
+    def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
         raw = "%d 0 R" % self.num
         stream.write(raw.encode("ascii"))
 
-    def __repr__(self):
+    def __repr__(self: _typing.Self) -> _typing.Any:
         return "%d 0 R" % self.num
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         return repr(self)
 
 

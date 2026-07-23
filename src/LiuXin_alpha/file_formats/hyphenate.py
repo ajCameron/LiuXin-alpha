@@ -1,4 +1,7 @@
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 """ Hyphenation, using Frank Liang's algorithm.
 
@@ -22,7 +25,11 @@ __version__ = "1.0.20070709"
 
 
 class Hyphenator:
-    def __init__(self, patterns, exceptions=""):
+    def __init__(
+        self: _typing.Self,
+        patterns: str,
+        exceptions: str = "",
+    ) -> None:
         self.tree = {}
         for pattern in patterns.split():
             self._insert_pattern(pattern)
@@ -32,7 +39,7 @@ class Hyphenator:
             # Convert the hyphenated pattern into a point array for use later.
             self.exceptions[ex.replace("-", "")] = [0] + [int(h == "-") for h in re.split(r"[a-z]", ex)]
 
-    def _insert_pattern(self, pattern):
+    def _insert_pattern(self: _typing.Self, pattern: str) -> None:
         # Convert the a pattern like 'a1bc3d4' into a string of chars 'abcd'
         # and a list of points [ 1, 0, 3, 4 ].
         chars = re.sub("[0-9]", "", pattern)
@@ -48,7 +55,7 @@ class Hyphenator:
             t = t[c]
         t[None] = points
 
-    def hyphenate_word(self, word):
+    def hyphenate_word(self: _typing.Self, word: str) -> list[str]:
         """
         Given a word, returns a list of pieces, broken at the possible hyphenation points.
         :param word:

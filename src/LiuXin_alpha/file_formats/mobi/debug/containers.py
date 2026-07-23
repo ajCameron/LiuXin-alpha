@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 from struct import unpack_from
 
@@ -12,7 +15,7 @@ __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class ContainerHeader(object):
-    def __init__(self, data):
+    def __init__(self: _typing.Self, data: _typing.Any) -> None:
         self.ident = data[:4]
         self.record_size, self.type, self.count, self.encoding = unpack_from(b">IHHI", data, 4)
         self.encoding = {
@@ -42,11 +45,11 @@ class ContainerHeader(object):
         self.bytes_after_exth = data[self.header_length + self.title_length :]
         self.null_bytes_after_exth = len(self.bytes_after_exth) - len(self.bytes_after_exth.replace(b"\0", b""))
 
-    def add_hrefs(self, data):
+    def add_hrefs(self: _typing.Self, data: _typing.Any) -> None:
         # kindlegen inserts a trailing | after the last href
         self.hrefs = filter(None, data.decode("utf-8").split("|"))
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         ans = [("*" * 10) + " Container Header " + ("*" * 10)]
         a = ans.append
         a("Record size: %d" % self.record_size)

@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 import os
@@ -15,11 +18,11 @@ __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def guess_type(x):
+def guess_type(x: _typing.Any) -> bool:
     return _guess_type(x)[0] or "application/octet-stream"
 
 
-def setup_cssutils_serialization(tab_width=2):
+def setup_cssutils_serialization(tab_width: int = 2) -> None:
     try:
         import cssutils
     except ModuleNotFoundError:
@@ -31,7 +34,7 @@ def setup_cssutils_serialization(tab_width=2):
     prefs.omitLastSemicolon = False
 
 
-def actual_case_for_name(container, name):
+def actual_case_for_name(container: _typing.Any, name: _typing.Any) -> _typing.Any:
     from LiuXin_alpha.utils.storage.local.filenames import samefile
 
     if not container.exists(name):
@@ -56,7 +59,7 @@ def actual_case_for_name(container, name):
     return "/".join(ans)
 
 
-def corrected_case_for_name(container, name):
+def corrected_case_for_name(container: _typing.Any, name: _typing.Any) -> _typing.Any:
     parts = name.split("/")
     ans = []
     for i, x in enumerate(parts):
@@ -79,11 +82,11 @@ def corrected_case_for_name(container, name):
 
 
 class PositionFinder(object):
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         pat = rb"\n" if isinstance(raw, bytes) else r"\n"
         self.new_lines = tuple(m.start() + 1 for m in re.finditer(pat, raw))
 
-    def __call__(self, pos):
+    def __call__(self: _typing.Self, pos: _typing.Any) -> tuple[_typing.Any, ...]:
         lnum = bisect(self.new_lines, pos)
         try:
             offset = abs(pos - self.new_lines[lnum - 1])
@@ -93,20 +96,20 @@ class PositionFinder(object):
 
 
 class CommentFinder(object):
-    def __init__(self, raw, pat=r"(?s)/\*.*?\*/"):
+    def __init__(self: _typing.Self, raw: _typing.Any, pat: str = r"(?s)/\*.*?\*/") -> None:
         self.starts, self.ends = [], []
         for m in re.finditer(pat, raw):
             start, end = m.span()
             self.starts.append(start), self.ends.append(end)
 
-    def __call__(self, offset):
+    def __call__(self: _typing.Self, offset: _typing.Any) -> bool:
         if not self.starts:
             return False
         q = bisect(self.starts, offset) - 1
         return q >= 0 and self.starts[q] <= offset <= self.ends[q]
 
 
-def link_stylesheets(container, names, sheets, remove=False, mtype="text/css"):
+def link_stylesheets(container: _typing.Any, names: _typing.Any, sheets: _typing.Any, remove: bool = False, mtype: str = "text/css") -> _typing.Any:
     from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML
 
     changed_names = set()
@@ -148,7 +151,7 @@ def link_stylesheets(container, names, sheets, remove=False, mtype="text/css"):
     return changed_names
 
 
-def lead_text(top_elem, num_words=10):
+def lead_text(top_elem: _typing.Any, num_words: int = 10) -> _typing.Any:
     """
     Return the leading text contained in top_elem (including descendants)
     upto a maximum of num_words words. More efficient than using
@@ -161,7 +164,7 @@ def lead_text(top_elem, num_words=10):
     pat = re.compile(r"\s+", flags=re.UNICODE)
     words = []
 
-    def get_text(x, local_attr="text"):
+    def get_text(x: _typing.Any, local_attr: str = "text") -> None:
         ans = getattr(x, local_attr)
         if ans:
             words.extend(filter(None, pat.split(ans)))
@@ -181,46 +184,46 @@ class SimpleCSSRule(object):
     CHARSET_RULE = 2
     STYLE_RULE = 1
 
-    def __init__(self, css_text):
+    def __init__(self: _typing.Self, css_text: _typing.Any) -> None:
         self.cssText = css_text
         stripped = css_text.lstrip().lower()
         self.type = self.CHARSET_RULE if stripped.startswith("@charset") else self.STYLE_RULE
 
 
 class SimpleCSSStyleSheet(object):
-    def __init__(self, text=""):
+    def __init__(self: _typing.Self, text: str = "") -> None:
         self.cssRules = []
         self.cssText = ""
         self.set_css_text(text)
 
-    def _parse_rules(self, text):
+    def _parse_rules(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         matches = re.findall(r"@charset\s+[^;]+;|[^{}]+{[^{}]*}", text, flags=re.I | re.S)
         if not matches:
             stripped = text.strip()
             matches = [stripped] if stripped else []
         return [SimpleCSSRule(x.strip()) for x in matches if x.strip()]
 
-    def set_css_text(self, text):
+    def set_css_text(self: _typing.Self, text: _typing.Any) -> None:
         self.cssText = text or ""
         self.cssRules = self._parse_rules(self.cssText)
 
-    def add(self, rule):
+    def add(self: _typing.Self, rule: _typing.Any) -> None:
         self.cssRules.append(SimpleCSSRule(getattr(rule, "cssText", str(rule))))
         self.cssText = "\n".join(r.cssText for r in self.cssRules)
 
-    def deleteRule(self, index):
+    def deleteRule(self: _typing.Self, index: _typing.Any) -> None:
         del self.cssRules[index]
         self.cssText = "\n".join(r.cssText for r in self.cssRules)
 
 
 def parse_css(
-    data,
-    fname="<string>",
-    is_declaration=False,
-    decode=None,
-    log_level=None,
-    css_preprocessor=None,
-):
+    data: _typing.Any,
+    fname: str = "<string>",
+    is_declaration: bool = False,
+    decode: _typing.Any = None,
+    log_level: _typing.Any = None,
+    css_preprocessor: _typing.Any = None,
+) -> _typing.Any:
     if log_level is None:
         import logging
 
@@ -247,11 +250,11 @@ def parse_css(
     return data
 
 
-def handle_entities(text, func):
+def handle_entities(text: _typing.Any, func: _typing.Any) -> _typing.Any:
     return prepare_string_for_xml(func(replace_entities(text)))
 
 
-def apply_func_to_match_groups(match, func=icu_upper, handle_entities=handle_entities):
+def apply_func_to_match_groups(match: _typing.Any, func: _typing.Any = icu_upper, handle_entities: _typing.Any = handle_entities) -> _typing.Any:
     """
     Apply the specified function to individual groups in the match object (the result of re.search() or
     the whole match if no groups were defined. Returns the replaced string.
@@ -264,7 +267,7 @@ def apply_func_to_match_groups(match, func=icu_upper, handle_entities=handle_ent
     i = 0
     parts, pos = [], match.start()
 
-    def f(text):
+    def f(text: _typing.Any) -> _typing.Any:
         return handle_entities(text, func)
 
     while True:

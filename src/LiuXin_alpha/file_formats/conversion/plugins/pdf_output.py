@@ -3,6 +3,9 @@
 """
 Convert OEB ebook format to PDF.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import glob
 import os
@@ -56,7 +59,7 @@ PAPER_SIZES = [
 
 
 class PDFMetadata(object):  # {{{
-    def __init__(self, mi=None):
+    def __init__(self: _typing.Self, mi: _typing.Any = None) -> None:
         from LiuXin_alpha.utils.calibre import force_unicode
         from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_string
 
@@ -234,14 +237,14 @@ class PDFOutput(OutputFormatPlugin):
         ),
     }
 
-    def _qt_pdf_available(self):
+    def _qt_pdf_available(self: _typing.Self) -> _typing.Any:
         try:
             from LiuXin_alpha.file_formats.pdf import writer as qt_pdf_writer
         except Exception:
             return False
         return bool(getattr(qt_pdf_writer, "_HAS_QT", False))
 
-    def _select_text_writer(self):
+    def _select_text_writer(self: _typing.Self) -> _typing.Any:
         mode = str(getattr(self.opts, "pdf_engine_mode", "auto") or "auto").lower()
         if mode == "qt":
             from LiuXin_alpha.file_formats.pdf.writer import PDFWriter
@@ -259,7 +262,7 @@ class PDFOutput(OutputFormatPlugin):
 
         return HeadlessPDFWriter
 
-    def _select_image_writer(self):
+    def _select_image_writer(self: _typing.Self) -> _typing.Any:
         mode = str(getattr(self.opts, "pdf_engine_mode", "auto") or "auto").lower()
         if mode == "headless":
             raise ConversionError("Headless PDF engine does not support image-collection PDF output yet.")
@@ -269,7 +272,7 @@ class PDFOutput(OutputFormatPlugin):
 
         return ImagePDFWriter
 
-    def convert(self, oeb_book, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
 
         from io import BytesIO
 
@@ -306,7 +309,7 @@ class PDFOutput(OutputFormatPlugin):
             log.debug("Converting input as a text based book...")
             self.convert_text(oeb_book)
 
-    def convert_images(self, images):
+    def convert_images(self: _typing.Self, images: _typing.Any) -> None:
         """
         Convert images into PDF format.
         :param images:
@@ -314,14 +317,14 @@ class PDFOutput(OutputFormatPlugin):
         """
         self.write(self._select_image_writer(), images, None)
 
-    def get_cover_data(self):
+    def get_cover_data(self: _typing.Self) -> None:
         oeb = self.oeb
         if oeb.metadata.cover and six_unicode(oeb.metadata.cover[0]) in oeb.manifest.ids:
             cover_id = six_unicode(oeb.metadata.cover[0])
             item = oeb.manifest.ids[cover_id]
             self.cover_data = item.data
 
-    def handle_embedded_fonts(self):
+    def handle_embedded_fonts(self: _typing.Self) -> None:
         """
         On windows, Qt uses GDI which does not support OpenType (CFF) fonts, so we need to nuke references to OpenType
         fonts.
@@ -374,7 +377,7 @@ class PDFOutput(OutputFormatPlugin):
             for i in sorted(remove, reverse=True):
                 item.data.cssRules.pop(i)
 
-    def convert_text(self, oeb_book):
+    def convert_text(self: _typing.Self, oeb_book: _typing.Any) -> None:
         from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
         writer_cls = self._select_text_writer()
@@ -400,7 +403,7 @@ class PDFOutput(OutputFormatPlugin):
 
             self.write(writer_cls, [s.path for s in opf.spine], getattr(opf, "toc", None))
 
-    def write(self, Writer, items, toc):
+    def write(self: _typing.Self, Writer: _typing.Any, items: _typing.Any, toc: _typing.Any) -> None:
         writer = Writer(self.opts, self.log, cover_data=self.cover_data, toc=toc)
         writer.report_progress = self.report_progress
 
@@ -435,7 +438,7 @@ class PDFOutput(OutputFormatPlugin):
         if close:
             out_stream.close()
 
-    def specialize_css_for_output(self, log, opts, item, stylizer):
+    def specialize_css_for_output(self: _typing.Self, log: _typing.Any, opts: _typing.Any, item: _typing.Any, stylizer: _typing.Any) -> None:
         """
         Qt WebKit (4.8.x) cannot handle font-variant: small-caps. It tries to fake the small caps,
         which is ok, but the faking continues on to subsequent text that should not be in small-caps.
@@ -459,7 +462,7 @@ class PDFOutput(OutputFormatPlugin):
             return
         ws = six_unicode(string.whitespace)
 
-        def fake_small_caps(elem):
+        def fake_small_caps(elem: _typing.Any) -> None:
             spans = []
             for lowercase, textiter in itertools.groupby(elem.text, lambda x: x not in ws and icu_lower(x) == x):
                 text = "".join(textiter)
@@ -474,7 +477,7 @@ class PDFOutput(OutputFormatPlugin):
             elem.text = None
             elem[0:] = spans
 
-        def process_elem(elem, parent_fv=None):
+        def process_elem(elem: _typing.Any, parent_fv: _typing.Any = None) -> None:
             children = tuple(elem)
             style = stylizer.style(elem)
             fv = style.drop("font-variant")

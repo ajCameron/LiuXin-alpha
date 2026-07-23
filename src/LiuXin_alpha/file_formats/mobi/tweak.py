@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import glob
 import os
@@ -19,7 +22,7 @@ try:
     from LiuXin_alpha.utils.ipc.simple_worker import fork_job
 except ModuleNotFoundError:
     # IPC worker module is not ported yet; keep import-time compatibility.
-    def fork_job(*args, **kwargs):
+    def fork_job(*args: _typing.Any, **kwargs: _typing.Any) -> None:
         raise RuntimeError("LiuXin_alpha.utils.ipc.simple_worker is not available in this port.")
 
 __license__ = "GPL v3"
@@ -31,7 +34,7 @@ class BadFormat(ValueError):
     pass
 
 
-def do_explode(path, dest):
+def do_explode(path: _typing.Any, dest: _typing.Any) -> _typing.Any:
     from LiuXin_alpha.file_formats.mobi.reader.mobi6 import MobiReader
     from LiuXin_alpha.file_formats.mobi.reader.mobi8 import Mobi8Reader
 
@@ -49,7 +52,7 @@ def do_explode(path, dest):
     return opf
 
 
-def explode(path, dest, question=lambda x: True):
+def explode(path: _typing.Any, dest: _typing.Any, question: _typing.Callable[..., _typing.Any] = lambda x: True) -> _typing.Any:
     """
     Decompress and prepare a book for tweaking.
     :param path:
@@ -97,7 +100,7 @@ def explode(path, dest, question=lambda x: True):
     return fork_job("LiuXin_alpha.file_formats.mobi.tweak", "do_explode", args=(path, dest), no_output=True)["result"]
 
 
-def set_cover(oeb):
+def set_cover(oeb: _typing.Any) -> None:
     """
     Change the cover for the exploded book in OEB form.
     :param oeb:
@@ -112,7 +115,7 @@ def set_cover(oeb):
         oeb.metadata.add("cover", item.id)
 
 
-def do_rebuild(opf, dest_path):
+def do_rebuild(opf: _typing.Any, dest_path: _typing.Any) -> None:
     from LiuXin_alpha.customize.ui import plugin_for_input_format, plugin_for_output_format
     from LiuXin_alpha.file_formats.conversion.plumber import Plumber, create_oebbook
 
@@ -127,7 +130,7 @@ def do_rebuild(opf, dest_path):
     outp.convert(oeb, dest_path, inp, plumber.opts, default_log)
 
 
-def rebuild(src_dir, dest_path):
+def rebuild(src_dir: _typing.Any, dest_path: _typing.Any) -> None:
     """
     Take the exploded, tweaked, Open EBook and build it back into a mobi file.
     :param src_dir:

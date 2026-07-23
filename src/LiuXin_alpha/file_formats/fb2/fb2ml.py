@@ -3,12 +3,17 @@
 """
 Transform OEB content into FB2 markup
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 import textwrap
 import uuid
+from collections.abc import Iterable
 from base64 import b64encode
 from datetime import datetime
+from typing import Protocol
 
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
@@ -23,7 +28,33 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
-def _convert_to_jpeg(raw_data, quality=70):
+class _Logger(Protocol):
+    def debug(self: _typing.Self, message: object) -> object: ...
+
+    def error(self: _typing.Self, message: object) -> object: ...
+
+    def info(self: _typing.Self, message: object) -> object: ...
+
+    def warn(self: _typing.Self, message: object) -> object: ...
+
+    def log_exception(
+        self: _typing.Self,
+        base: str,
+        exc: BaseException,
+        level: str,
+        *pairs: object,
+    ) -> object: ...
+
+
+class _TocNode(Protocol):
+    href: str
+    nodes: Iterable[_TocNode]
+
+
+def _convert_to_jpeg(
+    raw_data: bytes,
+    quality: int = 70,
+) -> bytes | None:
     """
     Best-effort conversion of image bytes to JPEG.
     Returns converted bytes on success, otherwise None.
@@ -57,23 +88,29 @@ class FB2MLizer(object):
           * Handle a tags.
     """
 
-    def __init__(self, log):
+    def __init__(self: _typing.Self, log: _Logger) -> None:
         self.log = log
+        self.oeb_book: _typing.Any = None
+        self.opts: _typing.Any = None
         self.reset_state()
 
-    def reset_state(self):
+    def reset_state(self: _typing.Self) -> None:
         # Used to ensure text and tags are always within <p> and </p>
         self.in_p = False
         # Mapping of image names. OEB allows for images to have the same name but be stored
         # in different directories. FB2 images are all in a flat layout so we rename all images
         # into a sequential numbering system to ensure there are no collisions between image names.
-        self.image_hrefs = {}
+        self.image_hrefs: dict[str, str] = {}
         # Mapping of toc items and their
-        self.toc = {}
+        self.toc: dict[str, str | dict[str, int] | None] = {}
         # Used to see whether a new <section> needs to be opened
         self.section_level = 0
 
-    def extract_content(self, oeb_book, opts):
+    def extract_content(
+        self: _typing.Self,
+        oeb_book: _typing.Any,
+        opts: _typing.Any,
+    ) -> str:
         self.log.info("Converting XHTML to FB2 markup...")
         self.oeb_book = oeb_book
         self.opts = opts
@@ -86,7 +123,7 @@ class FB2MLizer(object):
 
         return self.fb2mlize_spine()
 
-    def fb2mlize_spine(self):
+    def fb2mlize_spine(self: _typing.Self) -> str:
         """
         Linearilize the document, using the spine as a guide.
         :return:
@@ -105,7 +142,7 @@ class FB2MLizer(object):
         else:
             return '<?xml version="1.0" encoding="UTF-8"?>' + output
 
-    def clean_text(self, text):
+    def clean_text(self: _typing.Self, text: str) -> str:
         # Condense empty paragraphs into a line break.
         text = re.sub(r"(?miu)(<p>\s*</p>\s*){3,}", "<empty-line />", text)
         # Remove empty paragraphs.
@@ -134,7 +171,7 @@ class FB2MLizer(object):
 
         return text
 
-    def fb2_header(self):
+    def fb2_header(self: _typing.Self) -> str:
         from LiuXin_alpha.file_formats.oeb.base import OPF
 
         metadata = dict()
@@ -278,14 +315,14 @@ class FB2MLizer(object):
             % metadata
         )
 
-    def fb2_footer(self):
+    def fb2_footer(self: _typing.Self) -> str:
         """
         Tag to finish out the book
         :return:
         """
         return "\n</FictionBook>"
 
-    def get_cover(self):
+    def get_cover(self: _typing.Self) -> str:
         """
         Retrieve the cover from the OEB and store it in the header.
         :return:
@@ -339,7 +376,7 @@ class FB2MLizer(object):
 
         return ""
 
-    def get_text(self):
+    def get_text(self: _typing.Self) -> str:
         from LiuXin_alpha.file_formats.oeb.base import XHTML
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
@@ -374,7 +411,7 @@ class FB2MLizer(object):
 
         return "".join(text) + "</body>"
 
-    def fb2mlize_images(self):
+    def fb2mlize_images(self: _typing.Self) -> str:
         """
         This function uses the self.image_hrefs dictionary mapping. It is populated by the dump_text function.
         """
@@ -405,25 +442,36 @@ class FB2MLizer(object):
                     self.log.error("Error: Could not include file %s because %s." % (item.href, e))
         return "".join(images)
 
-    def create_flat_toc(self, nodes, level):
+    def create_flat_toc(
+        self: _typing.Self,
+        nodes: Iterable[_TocNode],
+        level: int,
+    ) -> None:
         for item in nodes:
             href, mid, toc_id = item.href.partition("#")
             if not toc_id:
                 self.toc[href] = "page"
             else:
-                if not self.toc.get(href, None):
-                    self.toc[href] = {}
-                self.toc[href][toc_id] = level
+                toc_entries = self.toc.get(href)
+                if not isinstance(toc_entries, dict):
+                    toc_entries = {}
+                    self.toc[href] = toc_entries
+                toc_entries[toc_id] = level
                 self.create_flat_toc(item.nodes, level + 1)
 
-    def ensure_p(self):
+    def ensure_p(
+        self: _typing.Self,
+    ) -> tuple[list[str], list[str]]:
         if self.in_p:
             return [], []
         else:
             self.in_p = True
             return ["<p>"], ["p"]
 
-    def close_open_p(self, tags):
+    def close_open_p(
+        self: _typing.Self,
+        tags: list[str],
+    ) -> tuple[list[str], bool]:
         text = [""]
         added_p = False
 
@@ -446,7 +494,11 @@ class FB2MLizer(object):
 
         return text, added_p
 
-    def handle_simple_tag(self, tag, tags):
+    def handle_simple_tag(
+        self: _typing.Self,
+        tag: str,
+        tags: list[str],
+    ) -> tuple[list[str], list[str]]:
         s_out = []
         s_tags = []
         if tag not in tags:
@@ -457,7 +509,13 @@ class FB2MLizer(object):
             s_tags.append(tag)
         return s_out, s_tags
 
-    def dump_text(self, elem_tree, stylizer, page, tag_stack=None):
+    def dump_text(
+        self: _typing.Self,
+        elem_tree: _typing.Any,
+        stylizer: _typing.Any,
+        page: _typing.Any,
+        tag_stack: list[str] | None = None,
+    ) -> list[str]:
         """
         This function is intended to be used in a recursive manner. dump_text will
         run though all elements in the elem_tree and call itself on each element.
@@ -517,7 +575,7 @@ class FB2MLizer(object):
                     if tag != "body" and hasattr(elem_tree, "text") and elem_tree.text:
                         newlevel = 1
                         self.toc[page.href] = None
-                elif toc_entry and elem_tree.attrib.get("id", None):
+                elif isinstance(toc_entry, dict) and elem_tree.attrib.get("id", None):
                     newlevel = toc_entry.get(elem_tree.attrib.get("id", None), None)
 
                 # Start a new section if necessary
@@ -622,7 +680,10 @@ class FB2MLizer(object):
 
         return fb2_out
 
-    def close_tags(self, tags):
+    def close_tags(
+        self: _typing.Self,
+        tags: list[str],
+    ) -> list[str]:
         text = []
         for tag in tags:
             text.append("</%s>" % tag)

@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 
@@ -18,7 +21,7 @@ class MOBIInput(InputFormatPlugin):
     description = "Convert MOBI files (.mobi, .prc, .azw) to HTML"
     file_types = {"mobi", "prc", "azw", "azw3", "pobi"}
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         if accelerators is None:
             accelerators = {}
         self.is_kf8 = False

@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys
 
 from . import open_for_read
@@ -24,11 +27,11 @@ class OldRtf:
     """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        run_level,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        run_level: _typing.Any,
+    ) -> None:
         """
         Required:
             'file'--file to parse
@@ -76,13 +79,13 @@ class OldRtf:
             "after_pard": self.__after_pard_func,
         }
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         self.__previous_token = ""
         self.__state = "before_body"
         self.__found_new = 0
         self.__ob_group = 0
 
-    def __check_tokens_func(self, line):
+    def __check_tokens_func(self: _typing.Self, line: _typing.Any) -> str:
         if self.__inline_info in self.__allowable:
             if self.__ob_group == self.__base_ob_count:
                 return "old_rtf"
@@ -91,16 +94,16 @@ class OldRtf:
         elif self.__token_info == "cw<pf<par-def___":
             self.__state = "after_pard"
 
-    def __before_body_func(self, line):
+    def __before_body_func(self: _typing.Self, line: _typing.Any) -> None:
         if self.__token_info == "mi<mk<body-open_":
             self.__state = "in_body"
             self.__base_ob_count = self.__ob_group
 
-    def __after_pard_func(self, line):
+    def __after_pard_func(self: _typing.Self, line: _typing.Any) -> None:
         if line[0:2] != "cw":
             self.__state = "in_body"
 
-    def check_if_old_rtf(self):
+    def check_if_old_rtf(self: _typing.Self) -> bool:
         """
         Requires:
             nothing

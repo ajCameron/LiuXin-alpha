@@ -18,6 +18,9 @@
 # Contributor(s):
 #
 
+from __future__ import annotations
+
+import typing as _typing
 import zipfile
 import time
 import sys
@@ -75,7 +78,7 @@ odmimetypes = {
 
 
 class OpaqueObject:
-    def __init__(self, filename, mediatype, content=None):
+    def __init__(self: _typing.Self, filename: _typing.Any, mediatype: _typing.Any, content: _typing.Any = None) -> None:
         self.mediatype = mediatype
         self.filename = filename
         self.content = content
@@ -91,7 +94,7 @@ class OpenDocument:
 
     thumbnail = None
 
-    def __init__(self, mimetype, add_generator=True):
+    def __init__(self: _typing.Self, mimetype: _typing.Any, add_generator: bool = True) -> None:
         self.mimetype = mimetype
         self.childobjects = []
         self._extra = []
@@ -121,7 +124,7 @@ class OpenDocument:
         self.body = Body()
         self.topnode.addElement(self.body)
 
-    def rebuild_caches(self, node=None):
+    def rebuild_caches(self: _typing.Self, node: _typing.Any = None) -> None:
         if node is None:
             node = self.topnode
         self.build_caches(node)
@@ -129,12 +132,12 @@ class OpenDocument:
             if e.nodeType == element.Node.ELEMENT_NODE:
                 self.rebuild_caches(e)
 
-    def clear_caches(self):
+    def clear_caches(self: _typing.Self) -> None:
         self.element_dict = {}
         self._styles_dict = {}
         self._styles_ooo_fix = {}
 
-    def build_caches(self, element):
+    def build_caches(self: _typing.Self, element: _typing.Any) -> None:
         """Called from element.py"""
         if element.qname not in self.element_dict:
             self.element_dict[element.qname] = []
@@ -145,7 +148,7 @@ class OpenDocument:
         if styleref is not None and styleref in self._styles_ooo_fix:
             element.setAttrNS(TEXTNS, "style-name", self._styles_ooo_fix[styleref])
 
-    def __register_stylename(self, element):
+    def __register_stylename(self: _typing.Self, element: _typing.Any) -> None:
         """Register a style. But there are three style dictionaries:
         office:styles, office:automatic-styles and office:master-styles
         Chapter 14
@@ -162,7 +165,7 @@ class OpenDocument:
                 element.setAttrNS(STYLENS, "name", name)
             self._styles_dict[name] = element
 
-    def toXml(self, filename=""):
+    def toXml(self: _typing.Self, filename: str = "") -> _typing.Any:
         xml = StringIO()
         xml.write(_XMLPROLOGUE)
         self.body.toXml(0, xml)
@@ -172,7 +175,7 @@ class OpenDocument:
             with open(filename, "w") as f:
                 f.write(xml.getvalue())
 
-    def xml(self):
+    def xml(self: _typing.Self) -> _typing.Any:
         """Generates the full document as an XML file
         Always written as a bytestream in UTF-8 encoding
         """
@@ -182,7 +185,7 @@ class OpenDocument:
         self.topnode.toXml(0, xml)
         return xml.getvalue()
 
-    def contentxml(self):
+    def contentxml(self: _typing.Self) -> _typing.Any:
         """Generates the content.xml file
         Always written as a bytestream in UTF-8 encoding
         """
@@ -207,7 +210,7 @@ class OpenDocument:
         x.write_close_tag(0, xml)
         return xml.getvalue()
 
-    def __manifestxml(self):
+    def __manifestxml(self: _typing.Self) -> _typing.Any:
         """
         Generates the manifest.xml file
         The self.manifest isn't available unless the document is being saved
@@ -217,7 +220,7 @@ class OpenDocument:
         self.manifest.toXml(0, xml)
         return xml.getvalue()
 
-    def metaxml(self):
+    def metaxml(self: _typing.Self) -> _typing.Any:
         """
         Generates the meta.xml file
         """
@@ -229,7 +232,7 @@ class OpenDocument:
         x.toXml(0, xml)
         return xml.getvalue()
 
-    def settingsxml(self):
+    def settingsxml(self: _typing.Self) -> _typing.Any:
         """
         Generates the settings.xml file
         """
@@ -240,7 +243,7 @@ class OpenDocument:
         x.toXml(0, xml)
         return xml.getvalue()
 
-    def _parseoneelement(self, top, stylenamelist):
+    def _parseoneelement(self: _typing.Self, top: _typing.Any, stylenamelist: _typing.Any) -> _typing.Any:
         """Finds references to style objects in master-styles
         and add the style name to the style list if not already there.
         Recursive
@@ -267,7 +270,7 @@ class OpenDocument:
                 stylenamelist = self._parseoneelement(e, stylenamelist)
         return stylenamelist
 
-    def _used_auto_styles(self, segments):
+    def _used_auto_styles(self: _typing.Self, segments: _typing.Any) -> _typing.Any:
         """Loop through the masterstyles elements, and find the automatic
         styles that are used. These will be added to the automatic-styles
         element in styles.xml
@@ -281,7 +284,7 @@ class OpenDocument:
                 stylelist.append(e)
         return stylelist
 
-    def stylesxml(self):
+    def stylesxml(self: _typing.Self) -> _typing.Any:
         """Generates the styles.xml file"""
         xml = StringIO()
         xml.write(_XMLPROLOGUE)
@@ -300,7 +303,7 @@ class OpenDocument:
         x.write_close_tag(0, xml)
         return xml.getvalue()
 
-    def addPicture(self, filename, mediatype=None, content=None):
+    def addPicture(self: _typing.Self, filename: _typing.Any, mediatype: _typing.Any = None, content: _typing.Any = None) -> _typing.Any:
         """Add a picture
         It uses the same convention as OOo, in that it saves the picture in
         the zipfile in the subdirectory 'Pictures'
@@ -324,7 +327,7 @@ class OpenDocument:
             self.Pictures[manifestfn] = (IS_IMAGE, content, mediatype)
         return manifestfn
 
-    def addPictureFromFile(self, filename, mediatype=None):
+    def addPictureFromFile(self: _typing.Self, filename: _typing.Any, mediatype: _typing.Any = None) -> _typing.Any:
         """Add a picture
         It uses the same convention as OOo, in that it saves the picture in
         the zipfile in the subdirectory 'Pictures'.
@@ -345,7 +348,7 @@ class OpenDocument:
         self.Pictures[manifestfn] = (IS_FILENAME, filename, mediatype)
         return manifestfn
 
-    def addPictureFromString(self, content, mediatype):
+    def addPictureFromString(self: _typing.Self, content: _typing.Any, mediatype: _typing.Any) -> _typing.Any:
         """Add a picture
         It uses the same convention as OOo, in that it saves the picture in
         the zipfile in the subdirectory 'Pictures'. The content variable
@@ -357,7 +360,7 @@ class OpenDocument:
         self.Pictures[manifestfn] = (IS_IMAGE, content, mediatype)
         return manifestfn
 
-    def addThumbnail(self, filecontent=None):
+    def addThumbnail(self: _typing.Self, filecontent: _typing.Any = None) -> None:
         """Add a fixed thumbnail
         The thumbnail in the library is big, so this is pretty useless.
         """
@@ -368,7 +371,7 @@ class OpenDocument:
         else:
             self.thumbnail = filecontent
 
-    def addObject(self, document, objectname=None):
+    def addObject(self: _typing.Self, document: _typing.Any, objectname: _typing.Any = None) -> _typing.Any:
         """Adds an object (subdocument). The object must be an OpenDocument class
         The return value will be the folder in the zipfile the object is stored in
         """
@@ -379,7 +382,7 @@ class OpenDocument:
             document.folder = objectname
         return ".%s" % document.folder
 
-    def _savePictures(self, object, folder):
+    def _savePictures(self: _typing.Self, object: _typing.Any, folder: _typing.Any) -> None:
         hasPictures = False
         for arcname, picturerec in object.Pictures.items():
             what_it_is, fileobj, mediatype = picturerec
@@ -401,7 +404,7 @@ class OpenDocument:
             self._savePictures(subobject, "%sObject %d/" % (folder, subobjectnum))
             subobjectnum += 1
 
-    def __replaceGenerator(self):
+    def __replaceGenerator(self: _typing.Self) -> None:
         """Section 3.1.1: The application MUST NOT export the original identifier
         belonging to the application that created the document.
         """
@@ -410,7 +413,7 @@ class OpenDocument:
                 self.meta.removeChild(m)
         self.meta.addElement(meta.Generator(text=TOOLSVERSION))
 
-    def save(self, outputfile, addsuffix=False):
+    def save(self: _typing.Self, outputfile: _typing.Any, addsuffix: bool = False) -> None:
         """Save the document under the filename.
         If the filename is '-' then save to stdout
         """
@@ -423,14 +426,14 @@ class OpenDocument:
         self.__zipwrite(outputfp)
         outputfp.close()
 
-    def write(self, outputfp):
+    def write(self: _typing.Self, outputfp: _typing.Any) -> None:
         """User API to write the ODF file to an open file descriptor
         Writes the ZIP format
         """
         zipoutputfp = zipfile.ZipFile(outputfp, "w")
         self.__zipwrite(zipoutputfp)
 
-    def __zipwrite(self, outputfp):
+    def __zipwrite(self: _typing.Self, outputfp: _typing.Any) -> None:
         """Write the document to an open file pointer
         This is where the real work is done
         """
@@ -477,7 +480,7 @@ class OpenDocument:
         del self._now
         del self.manifest
 
-    def _saveXmlObjects(self, object, folder):
+    def _saveXmlObjects(self: _typing.Self, object: _typing.Any, folder: _typing.Any) -> None:
         if self == object:
             self.manifest.addElement(manifest.FileEntry(fullpath="/", mediatype=object.mimetype))
         else:
@@ -519,33 +522,33 @@ class OpenDocument:
             subobjectnum += 1
 
     # Document's DOM methods
-    def createElement(self, element):
+    def createElement(self: _typing.Self, element: _typing.Any) -> _typing.Any:
         """Inconvenient interface to create an element, but follows XML-DOM.
         Does not allow attributes as argument, therefore can't check grammar.
         """
         return element(check_grammar=False)
 
-    def createTextNode(self, data):
+    def createTextNode(self: _typing.Self, data: _typing.Any) -> _typing.Any:
         """Method to create a text node"""
         return element.Text(data)
 
-    def createCDATASection(self, data):
+    def createCDATASection(self: _typing.Self, data: _typing.Any) -> _typing.Any:
         """Method to create a CDATA section"""
         # return element.CDATASection(cdata)
         return element.CDATASection(data)
 
-    def getMediaType(self):
+    def getMediaType(self: _typing.Self) -> _typing.Any:
         """Returns the media type"""
         return self.mimetype
 
-    def getStyleByName(self, name):
+    def getStyleByName(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """Finds a style object based on the name"""
         ncname = make_NCName(name)
         if self._styles_dict == {}:
             self.rebuild_caches()
         return self._styles_dict.get(ncname, None)
 
-    def getElementsByType(self, element):
+    def getElementsByType(self: _typing.Self, element: _typing.Any) -> _typing.Any:
         """Gets elements based on the type, which is function from text.py, draw.py etc."""
         obj = element(check_grammar=False)
         if self.element_dict == {}:
@@ -554,7 +557,7 @@ class OpenDocument:
 
 
 # Convenience functions
-def OpenDocumentChart():
+def OpenDocumentChart() -> _typing.Any:
     """Creates a chart document"""
     doc = OpenDocument("application/vnd.oasis.opendocument.chart")
     doc.chart = Chart()
@@ -562,7 +565,7 @@ def OpenDocumentChart():
     return doc
 
 
-def OpenDocumentDrawing():
+def OpenDocumentDrawing() -> _typing.Any:
     """Creates a drawing document"""
     doc = OpenDocument("application/vnd.oasis.opendocument.graphics")
     doc.drawing = Drawing()
@@ -570,7 +573,7 @@ def OpenDocumentDrawing():
     return doc
 
 
-def OpenDocumentImage():
+def OpenDocumentImage() -> _typing.Any:
     """Creates an image document"""
     doc = OpenDocument("application/vnd.oasis.opendocument.image")
     doc.image = Image()
@@ -578,7 +581,7 @@ def OpenDocumentImage():
     return doc
 
 
-def OpenDocumentPresentation():
+def OpenDocumentPresentation() -> _typing.Any:
     """Creates a presentation document"""
     doc = OpenDocument("application/vnd.oasis.opendocument.presentation")
     doc.presentation = Presentation()
@@ -586,7 +589,7 @@ def OpenDocumentPresentation():
     return doc
 
 
-def OpenDocumentSpreadsheet():
+def OpenDocumentSpreadsheet() -> _typing.Any:
     """Creates a spreadsheet document"""
     doc = OpenDocument("application/vnd.oasis.opendocument.spreadsheet")
     doc.spreadsheet = Spreadsheet()
@@ -594,7 +597,7 @@ def OpenDocumentSpreadsheet():
     return doc
 
 
-def OpenDocumentText():
+def OpenDocumentText() -> _typing.Any:
     """Creates a text document"""
     doc = OpenDocument("application/vnd.oasis.opendocument.text")
     doc.text = Text()
@@ -602,7 +605,7 @@ def OpenDocumentText():
     return doc
 
 
-def OpenDocumentTextMaster():
+def OpenDocumentTextMaster() -> _typing.Any:
     """Creates a text master document"""
     doc = OpenDocument("application/vnd.oasis.opendocument.text-master")
     doc.text = Text()
@@ -610,7 +613,7 @@ def OpenDocumentTextMaster():
     return doc
 
 
-def __loadxmlparts(z, manifest, doc, objectpath):
+def __loadxmlparts(z: _typing.Any, manifest: _typing.Any, doc: _typing.Any, objectpath: _typing.Any) -> None:
     from LiuXin_alpha.file_formats.odf.load import LoadParser
     from xml.sax import make_parser, handler
 
@@ -640,7 +643,7 @@ def __loadxmlparts(z, manifest, doc, objectpath):
             pass
 
 
-def load(odffile):
+def load(odffile: _typing.Any) -> _typing.Any:
     """Load an ODF file into memory
     Returns a reference to the structure
     """

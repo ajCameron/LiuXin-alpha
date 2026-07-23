@@ -9,6 +9,9 @@
 # not supported at all.
 
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import LiuXin_alpha.file_formats.markupbase as markupbase
 import re
@@ -58,12 +61,12 @@ class SGMLParser(markupbase.ParserBase):
     # Definition of entities -- derived classes may override
     entity_or_charref = re.compile("&(?:" "([a-zA-Z][-.a-zA-Z0-9]*)|#([0-9]+)" ")(;?)")
 
-    def __init__(self, verbose=0):
+    def __init__(self: _typing.Self, verbose: int = 0) -> None:
         """Initialize and reset this instance."""
         self.verbose = verbose
         self.reset()
 
-    def reset(self):
+    def reset(self: _typing.Self) -> None:
         """Reset this instance. Loses all unprocessed data."""
         self.__starttag_text = None
         self.rawdata = ""
@@ -73,21 +76,21 @@ class SGMLParser(markupbase.ParserBase):
         self.literal = 0
         markupbase.ParserBase.reset(self)
 
-    def setnomoretags(self):
+    def setnomoretags(self: _typing.Self) -> None:
         """Enter literal mode (CDATA) till EOF.
 
         Intended for derived classes only.
         """
         self.nomoretags = self.literal = 1
 
-    def setliteral(self, *args):
+    def setliteral(self: _typing.Self, *args: _typing.Any) -> None:
         """Enter literal mode (CDATA).
 
         Intended for derived classes only.
         """
         self.literal = 1
 
-    def feed(self, data):
+    def feed(self: _typing.Self, data: _typing.Any) -> None:
         """Feed some data to the parser.
 
         Call this as often as you want, with as little or as much text
@@ -98,17 +101,17 @@ class SGMLParser(markupbase.ParserBase):
         self.rawdata = self.rawdata + data
         self.goahead(0)
 
-    def close(self):
+    def close(self: _typing.Self) -> None:
         """Handle the remaining data."""
         self.goahead(1)
 
-    def error(self, message):
+    def error(self: _typing.Self, message: _typing.Any) -> None:
         raise SGMLParseError(message)
 
     # Internal -- handle data as far as reasonable.  May leave state
     # and data to be processed by a subsequent call.  If 'end' is
     # true, force handling all data as if followed by EOF marker.
-    def goahead(self, end):
+    def goahead(self: _typing.Self, end: _typing.Any) -> None:
         rawdata = self.rawdata
         i = 0
         n = len(rawdata)
@@ -224,7 +227,7 @@ class SGMLParser(markupbase.ParserBase):
     _decl_otherchars = "="
 
     # Internal -- parse processing instr, return length or -1 if not terminated
-    def parse_pi(self, i):
+    def parse_pi(self: _typing.Self, i: _typing.Any) -> _typing.Any:
         rawdata = self.rawdata
         if rawdata[i : i + 2] != "<?":
             self.error("unexpected call to parse_pi()")
@@ -236,11 +239,11 @@ class SGMLParser(markupbase.ParserBase):
         j = match.end(0)
         return j - i
 
-    def get_starttag_text(self):
+    def get_starttag_text(self: _typing.Self) -> _typing.Any:
         return self.__starttag_text
 
     # Internal -- handle starttag, return length or -1 if not terminated
-    def parse_starttag(self, i):
+    def parse_starttag(self: _typing.Self, i: _typing.Any) -> _typing.Any:
         self.__starttag_text = None
         start_pos = i
         rawdata = self.rawdata
@@ -301,7 +304,7 @@ class SGMLParser(markupbase.ParserBase):
         return j
 
     # Internal -- convert entity or character reference
-    def _convert_ref(self, match):
+    def _convert_ref(self: _typing.Self, match: _typing.Any) -> _typing.Any:
         if match.group(2):
             return self.convert_charref(match.group(2)) or "&#%s%s" % match.groups()[1:]
         elif match.group(3):
@@ -310,7 +313,7 @@ class SGMLParser(markupbase.ParserBase):
             return "&%s" % match.group(1)
 
     # Internal -- parse endtag
-    def parse_endtag(self, i):
+    def parse_endtag(self: _typing.Self, i: _typing.Any) -> _typing.Any:
         rawdata = self.rawdata
         match = endbracket.search(rawdata, i + 1)
         if not match:
@@ -323,14 +326,14 @@ class SGMLParser(markupbase.ParserBase):
         return j
 
     # Internal -- finish parsing of <tag/data/ (same as <tag>data</tag>)
-    def finish_shorttag(self, tag, data):
+    def finish_shorttag(self: _typing.Self, tag: _typing.Any, data: _typing.Any) -> None:
         self.finish_starttag(tag, [])
         self.handle_data(data)
         self.finish_endtag(tag)
 
     # Internal -- finish processing of start tag
     # Return -1 for unknown tag, 0 for open-only tag, 1 for balanced tag
-    def finish_starttag(self, tag, attrs):
+    def finish_starttag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> int:
         try:
             method = getattr(self, "start_" + tag)
         except AttributeError:
@@ -348,7 +351,7 @@ class SGMLParser(markupbase.ParserBase):
             return 1
 
     # Internal -- finish processing of end tag
-    def finish_endtag(self, tag):
+    def finish_endtag(self: _typing.Self, tag: _typing.Any) -> None:
         if not tag:
             found = len(self.stack) - 1
             if found < 0:
@@ -380,20 +383,20 @@ class SGMLParser(markupbase.ParserBase):
             del self.stack[-1]
 
     # Overridable -- handle start tag
-    def handle_starttag(self, tag, method, attrs):
+    def handle_starttag(self: _typing.Self, tag: _typing.Any, method: _typing.Any, attrs: _typing.Any) -> None:
         method(attrs)
 
     # Overridable -- handle end tag
-    def handle_endtag(self, tag, method):
+    def handle_endtag(self: _typing.Self, tag: _typing.Any, method: _typing.Any) -> None:
         method()
 
     # Example -- report an unbalanced </...> tag.
-    def report_unbalanced(self, tag):
+    def report_unbalanced(self: _typing.Self, tag: _typing.Any) -> None:
         if self.verbose:
             print("*** Unbalanced </" + tag + ">")
             print("*** Stack:", self.stack)
 
-    def convert_charref(self, name):
+    def convert_charref(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """Convert character reference, may be overridden."""
         try:
             n = int(name)
@@ -403,10 +406,10 @@ class SGMLParser(markupbase.ParserBase):
             return
         return self.convert_codepoint(n)
 
-    def convert_codepoint(self, codepoint):
+    def convert_codepoint(self: _typing.Self, codepoint: _typing.Any) -> _typing.Any:
         return chr(codepoint)
 
-    def handle_charref(self, name):
+    def handle_charref(self: _typing.Self, name: _typing.Any) -> None:
         """Handle character reference, no need to override."""
         replacement = self.convert_charref(name)
         if replacement is None:
@@ -417,7 +420,7 @@ class SGMLParser(markupbase.ParserBase):
     # Definition of entities -- derived classes may override
     entitydefs = {"lt": "<", "gt": ">", "amp": "&", "quot": '"', "apos": "'"}
 
-    def convert_entityref(self, name):
+    def convert_entityref(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """Convert entity references.
 
         As an alternative to overriding this method; one can tailor the
@@ -429,7 +432,7 @@ class SGMLParser(markupbase.ParserBase):
         else:
             return
 
-    def handle_entityref(self, name):
+    def handle_entityref(self: _typing.Self, name: _typing.Any) -> None:
         """Handle entity references, no need to override."""
         replacement = self.convert_entityref(name)
         if replacement is None:
@@ -438,59 +441,59 @@ class SGMLParser(markupbase.ParserBase):
             self.handle_data(self.convert_entityref(name))
 
     # Example -- handle data, should be overridden
-    def handle_data(self, data):
+    def handle_data(self: _typing.Self, data: _typing.Any) -> None:
         pass
 
     # Example -- handle comment, could be overridden
-    def handle_comment(self, data):
+    def handle_comment(self: _typing.Self, data: _typing.Any) -> None:
         pass
 
     # Example -- handle declaration, could be overridden
-    def handle_decl(self, decl):
+    def handle_decl(self: _typing.Self, decl: _typing.Any) -> None:
         pass
 
     # Example -- handle processing instruction, could be overridden
-    def handle_pi(self, data):
+    def handle_pi(self: _typing.Self, data: _typing.Any) -> None:
         pass
 
     # To be overridden -- handlers for unknown objects
-    def unknown_starttag(self, tag, attrs):
+    def unknown_starttag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         pass
 
-    def unknown_endtag(self, tag):
+    def unknown_endtag(self: _typing.Self, tag: _typing.Any) -> None:
         pass
 
-    def unknown_charref(self, ref):
+    def unknown_charref(self: _typing.Self, ref: _typing.Any) -> None:
         pass
 
-    def unknown_entityref(self, ref):
+    def unknown_entityref(self: _typing.Self, ref: _typing.Any) -> None:
         pass
 
 
 class TestSGMLParser(SGMLParser):
-    def __init__(self, verbose=0):
+    def __init__(self: _typing.Self, verbose: int = 0) -> None:
         self.testdata = ""
         SGMLParser.__init__(self, verbose)
 
-    def handle_data(self, data):
+    def handle_data(self: _typing.Self, data: _typing.Any) -> None:
         self.testdata = self.testdata + data
         if len(repr(self.testdata)) >= 70:
             self.flush()
 
-    def flush(self):
+    def flush(self: _typing.Self) -> None:
         data = self.testdata
         if data:
             self.testdata = ""
             print("data:{}".format(repr(data)))
 
-    def handle_comment(self, data):
+    def handle_comment(self: _typing.Self, data: _typing.Any) -> None:
         self.flush()
         r = repr(data)
         if len(r) > 68:
             r = r[:32] + "..." + r[-32:]
         print("comment:{}".format(r))
 
-    def unknown_starttag(self, tag, attrs):
+    def unknown_starttag(self: _typing.Self, tag: _typing.Any, attrs: _typing.Any) -> None:
         self.flush()
         if not attrs:
             print("start tag: <" + tag + ">")
@@ -504,28 +507,28 @@ class TestSGMLParser(SGMLParser):
                 )
             print(">")
 
-    def unknown_endtag(self, tag):
+    def unknown_endtag(self: _typing.Self, tag: _typing.Any) -> None:
         self.flush()
         print("end tag: </" + tag + ">")
 
-    def unknown_entityref(self, ref):
+    def unknown_entityref(self: _typing.Self, ref: _typing.Any) -> None:
         self.flush()
         print("*** unknown entity ref: &" + ref + ";")
 
-    def unknown_charref(self, ref):
+    def unknown_charref(self: _typing.Self, ref: _typing.Any) -> None:
         self.flush()
         print("*** unknown char ref: &#" + ref + ";")
 
-    def unknown_decl(self, data):
+    def unknown_decl(self: _typing.Self, data: _typing.Any) -> None:
         self.flush()
         print("*** unknown decl: [" + data + "]")
 
-    def close(self):
+    def close(self: _typing.Self) -> None:
         SGMLParser.close(self)
         self.flush()
 
 
-def test(args=None):
+def test(args: _typing.Any = None) -> None:
     import sys
 
     if args is None:

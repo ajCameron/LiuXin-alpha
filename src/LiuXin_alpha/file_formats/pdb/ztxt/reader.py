@@ -3,6 +3,9 @@
 """
 Read content from ztxt pdb file.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import io
 import struct
@@ -19,7 +22,7 @@ SUPPORTED_VERSION = (1, 40)
 ZTXT_HEADER_RECORD_SIZE = 32
 
 
-def _require_bytes(raw, size, context):
+def _require_bytes(raw: _typing.Any, size: _typing.Any, context: _typing.Any) -> None:
     if len(raw) < size:
         raise zTXTError("Truncated zTXT %s" % context)
 
@@ -30,7 +33,7 @@ class HeaderRecord(object):
     images, and so on in the file. This is used in conjunction with the sections defined in the file header.
     """
 
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         _require_bytes(raw, ZTXT_HEADER_RECORD_SIZE, "header record")
         (self.version,) = struct.unpack(">H", raw[0:2])
         (self.num_records,) = struct.unpack(">H", raw[2:4])
@@ -40,7 +43,7 @@ class HeaderRecord(object):
 
 
 class Reader(FormatReader):
-    def __init__(self, header, stream, log, options):
+    def __init__(self: _typing.Self, header: _typing.Any, stream: _typing.Any, log: _typing.Any, options: _typing.Any) -> None:
         self.stream = stream
         self.log = log
         self.options = options
@@ -73,12 +76,12 @@ class Reader(FormatReader):
         except zlib.error as err:
             raise zTXTError("zTXT decompression failed for section 1: %s" % err) from err
 
-    def section_data(self, number):
+    def section_data(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         if number < 0 or number >= len(self.sections):
             raise zTXTError("zTXT section %i is outside the PDB section table" % number)
         return self.sections[number]
 
-    def decompress_text(self, number):
+    def decompress_text(self: _typing.Self, number: _typing.Any) -> _typing.Any:
         """
         Decompress the text from a particular section.
         :param number:
@@ -91,7 +94,7 @@ class Reader(FormatReader):
         except zlib.error as err:
             raise zTXTError("zTXT decompression failed for section %i: %s" % (number, err)) from err
 
-    def extract_content(self, output_dir):
+    def extract_content(self: _typing.Self, output_dir: _typing.Any) -> _typing.Any:
         """
         Extract the entire file.
         :param output_dir: All files ccontained in this archive will be dumped here.

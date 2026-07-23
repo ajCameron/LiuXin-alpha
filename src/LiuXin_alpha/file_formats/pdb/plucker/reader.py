@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import struct
@@ -25,48 +28,48 @@ except Exception:
         _PILImage = None
 
     class Image(object):
-        def __init__(self):
+        def __init__(self: _typing.Self) -> None:
             self._img = None
             self._quality = 75
 
-        def read(self, path):
+        def read(self: _typing.Self, path: _typing.Any) -> None:
             if _PILImage is None:
                 raise RuntimeError("No image backend is available.")
             self._img = _PILImage.open(path).convert("RGB")
 
         @property
-        def size(self):
+        def size(self: _typing.Self) -> _typing.Any:
             if self._img is None:
                 return 0, 0
             return self._img.size
 
-        def set_compression_quality(self, quality):
+        def set_compression_quality(self: _typing.Self, quality: _typing.Any) -> None:
             self._quality = int(quality)
 
-        def save(self, path):
+        def save(self: _typing.Self, path: _typing.Any) -> None:
             if self._img is None:
                 raise RuntimeError("No image loaded.")
             self._img.save(path, format="JPEG", quality=self._quality)
 
     class _Canvas(object):
-        def __init__(self, width, height):
+        def __init__(self: _typing.Self, width: _typing.Any, height: _typing.Any) -> None:
             if _PILImage is None:
                 raise RuntimeError("No image backend is available.")
             self._img = _PILImage.new("RGB", (int(width), int(height)), "white")
             self._quality = 75
 
-        def compose(self, image, x_off, y_off):
+        def compose(self: _typing.Self, image: _typing.Any, x_off: _typing.Any, y_off: _typing.Any) -> None:
             if getattr(image, "_img", None) is None:
                 raise RuntimeError("No image loaded.")
             self._img.paste(image._img, (int(x_off), int(y_off)))
 
-        def set_compression_quality(self, quality):
+        def set_compression_quality(self: _typing.Self, quality: _typing.Any) -> None:
             self._quality = int(quality)
 
-        def save(self, path):
+        def save(self: _typing.Self, path: _typing.Any) -> None:
             self._img.save(path, format="JPEG", quality=self._quality)
 
-    def create_canvas(width, height):
+    def create_canvas(width: _typing.Any, height: _typing.Any) -> _typing.Any:
         return _Canvas(width, height)
 
 __license__ = "GPL v3"
@@ -103,7 +106,7 @@ SECTION_HEADER_SIZE = 8
 COMPOSITE_IMAGE_HEADER_SIZE = 4
 
 
-def _as_bytes(raw):
+def _as_bytes(raw: _typing.Any) -> _typing.Any:
     if isinstance(raw, bytes):
         return raw
     if isinstance(raw, bytearray):
@@ -113,27 +116,27 @@ def _as_bytes(raw):
     return bytes(raw)
 
 
-def _require_bytes(raw, size, context):
+def _require_bytes(raw: _typing.Any, size: _typing.Any, context: _typing.Any) -> None:
     if len(raw) < size:
         raise PluckerError("Truncated Plucker %s" % context)
 
 
-def _require_slice(raw, offset, size, context):
+def _require_slice(raw: _typing.Any, offset: _typing.Any, size: _typing.Any, context: _typing.Any) -> None:
     if offset < 0 or size < 0 or offset + size > len(raw):
         raise PluckerError("Truncated Plucker %s" % context)
 
 
-def _u16(raw, offset, context):
+def _u16(raw: _typing.Any, offset: _typing.Any, context: _typing.Any) -> _typing.Any:
     _require_slice(raw, offset, 2, context)
     return struct.unpack(">H", raw[offset : offset + 2])[0]
 
 
-def _u32(raw, offset, context):
+def _u32(raw: _typing.Any, offset: _typing.Any, context: _typing.Any) -> _typing.Any:
     _require_slice(raw, offset, 4, context)
     return struct.unpack(">I", raw[offset : offset + 4])[0]
 
 
-def _byte(raw, offset, context):
+def _byte(raw: _typing.Any, offset: _typing.Any, context: _typing.Any) -> _typing.Any:
     _require_slice(raw, offset, 1, context)
     value = raw[offset]
     return value if isinstance(value, int) else ord(value)
@@ -212,7 +215,7 @@ class HeaderRecord(object):
     Plucker header. PDB record 0.
     """
 
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         raw = _as_bytes(raw)
         _require_bytes(raw, HEADER_RECORD_SIZE, "record 0")
 
@@ -243,7 +246,7 @@ class SectionHeader(object):
     details about the section such as it's uid.
     """
 
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         raw = _as_bytes(raw)
         _require_bytes(raw, SECTION_HEADER_SIZE, "section header")
         self.uid = _u16(raw, 0, "section uid")
@@ -258,7 +261,7 @@ class SectionHeaderText(object):
     Sub header for text records.
     """
 
-    def __init__(self, section_header, raw):
+    def __init__(self: _typing.Self, section_header: _typing.Any, raw: _typing.Any) -> None:
         raw = _as_bytes(raw)
         # The uncompressed size of each paragraph.
         self.sizes = []
@@ -300,7 +303,7 @@ class SectionMetadata(object):
     can be assigned a different encoding.
     """
 
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         raw = _as_bytes(raw)
         self.default_encoding = "latin-1"
         self.exceptional_uid_encodings = {}
@@ -360,7 +363,7 @@ class SectionText(object):
     Text data. Stores a text section header and the PHTML.
     """
 
-    def __init__(self, section_header, raw):
+    def __init__(self: _typing.Self, section_header: _typing.Any, raw: _typing.Any) -> None:
         raw = _as_bytes(raw)
         self.header = SectionHeaderText(section_header, raw)
         self.data = raw[section_header.paragraphs * 4 :]
@@ -371,7 +374,7 @@ class SectionCompositeImage(object):
     A composite image consists of a a 2D array of rows and columns. The entries in the array are uid's.
     """
 
-    def __init__(self, raw):
+    def __init__(self: _typing.Self, raw: _typing.Any) -> None:
         raw = _as_bytes(raw)
         _require_bytes(raw, COMPOSITE_IMAGE_HEADER_SIZE, "composite image header")
         self.columns = _u16(raw, 0, "composite image columns")
@@ -417,7 +420,7 @@ class Reader(FormatReader):
           * DATATYPE_EXT_ANCHOR(_COMPRESSED)
     """
 
-    def __init__(self, header, stream, log, options):
+    def __init__(self: _typing.Self, header: _typing.Any, stream: _typing.Any, log: _typing.Any, options: _typing.Any) -> None:
         self.stream = stream
         self.log = log
         self.options = options
@@ -490,7 +493,7 @@ class Reader(FormatReader):
 
         self.mi = get_metadata(stream, False)
 
-    def _validate_composite_image_references(self):
+    def _validate_composite_image_references(self: _typing.Self) -> None:
         for composite_uid, num in self.uid_composite_image_section_number.items():
             _section_header, section_data = self.sections[num]
             for row in section_data.layout:
@@ -500,7 +503,7 @@ class Reader(FormatReader):
                             "Plucker composite image %s references missing image uid %s" % (composite_uid, image_uid)
                         )
 
-    def extract_content(self, output_dir):
+    def extract_content(self: _typing.Self, output_dir: _typing.Any) -> _typing.Any:
         # Each text record is independent (unless the continuation
         # value is set in the previous record). Put each converted
         # text recored into a separate file. We will reference the
@@ -622,7 +625,7 @@ class Reader(FormatReader):
 
         return oeb
 
-    def decompress_phtml(self, data):
+    def decompress_phtml(self: _typing.Self, data: _typing.Any) -> _typing.Any:
         try:
             if self.header_record.compression == 2:
                 if self.owner_id:
@@ -636,11 +639,11 @@ class Reader(FormatReader):
             raise PluckerError("Plucker PHTML decompression failed: %s" % err) from err
         raise PluckerError("Unsupported Plucker compression type %i" % self.header_record.compression)
 
-    def _validate_phtml_image_uid(self, uid):
+    def _validate_phtml_image_uid(self: _typing.Self, uid: _typing.Any) -> None:
         if uid not in self.uid_image_section_number and uid not in self.uid_composite_image_section_number:
             raise PluckerError("Plucker PHTML references missing image uid %s" % uid)
 
-    def process_phtml(self, d, paragraph_offsets=None):
+    def process_phtml(self: _typing.Self, d: _typing.Any, paragraph_offsets: _typing.Any = None) -> _typing.Any:
         d = _as_bytes(d)
 
         if paragraph_offsets is None:
@@ -914,7 +917,7 @@ class Reader(FormatReader):
 
         return html
 
-    def get_text_uid_encoding(self, uid):
+    def get_text_uid_encoding(self: _typing.Self, uid: _typing.Any) -> _typing.Any:
         # Return the user sepcified input encoding,
         # otherwise return the alternate encoding specified for the uid,
         # otherwise retur the default encoding for the document.

@@ -1,4 +1,7 @@
 from __future__ import unicode_literals
+from __future__ import annotations
+
+import typing as _typing
 
 # -*- coding: utf-8 -*-
 
@@ -82,7 +85,7 @@ AUXILIARY GLOBAL FUNCTIONS
 """
 
 
-def isBlockLevel(tag):
+def isBlockLevel(tag: _typing.Any) -> _typing.Any:
     """Check if the tag is a block level HTML tag."""
     if isinstance(tag, string_type):
         return BLOCK_LEVEL_ELEMENTS.match(tag)
@@ -103,7 +106,7 @@ class AtomicString(text_type):
 
 
 class Processor(object):
-    def __init__(self, markdown_instance=None):
+    def __init__(self: _typing.Self, markdown_instance: _typing.Any = None) -> None:
         if markdown_instance:
             self.markdown = markdown_instance
 
@@ -114,12 +117,12 @@ class HtmlStash(object):
     in the beginning and replace with place-holders.
     """
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         """Create a HtmlStash."""
         self.html_counter = 0  # for counting inline html segments
         self.rawHtmlBlocks = []
 
-    def store(self, html, safe=False):
+    def store(self: _typing.Self, html: _typing.Any, safe: bool = False) -> _typing.Any:
         """
         Saves an HTML segment for later reinsertion.  Returns a
         placeholder string that needs to be inserted into the
@@ -138,9 +141,9 @@ class HtmlStash(object):
         self.html_counter += 1
         return placeholder
 
-    def reset(self):
+    def reset(self: _typing.Self) -> None:
         self.html_counter = 0
         self.rawHtmlBlocks = []
 
-    def get_placeholder(self, key):
+    def get_placeholder(self: _typing.Self, key: _typing.Any) -> _typing.Any:
         return "%swzxhzdk:%d%s" % (STX, key, ETX)

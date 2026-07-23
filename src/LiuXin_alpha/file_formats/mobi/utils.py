@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import string
@@ -34,58 +37,58 @@ except (ImportError, RuntimeError) as e:
     if _FallbackImage is not None:
 
         class Image(_FallbackImage):
-            def load(self, data):
+            def load(self: _typing.Self, data: _typing.Any) -> None:
                 self._src = data
 
-            def set_compression_quality(self, quality):
+            def set_compression_quality(self: _typing.Self, quality: _typing.Any) -> None:
                 self._quality = quality
 
-            def export(self, fmt):
+            def export(self: _typing.Self, fmt: _typing.Any) -> _typing.Any:
                 return self.to_bytes(format=fmt)
 
             @property
-            def size(self):
+            def size(self: _typing.Self) -> tuple[_typing.Any, ...]:
                 meta = self.identify()
                 return meta.get("width") or 0, meta.get("height") or 0
 
             @size.setter
-            def size(self, value):
+            def size(self: _typing.Self, value: _typing.Any) -> None:
                 raise RuntimeError("Image resize is not supported by the fallback magick backend.")
 
-        def save_cover_data_to(data, path, return_data=False):
+        def save_cover_data_to(data: _typing.Any, path: _typing.Any, return_data: bool = False) -> _typing.Any:
             if return_data:
                 return data
             with open(path, "wb") as f:
                 f.write(data)
             return path
 
-        def thumbnail(data, width=60, height=80, compression_quality=90):
+        def thumbnail(data: _typing.Any, width: int = 60, height: int = 80, compression_quality: int = 90) -> tuple[_typing.Any, ...]:
             return width, height, data
 
     else:
 
         class Image(object):
-            def load(self, data):
+            def load(self: _typing.Self, data: _typing.Any) -> None:
                 raise RuntimeError("No magick backend is available.")
 
-            def set_compression_quality(self, quality):
+            def set_compression_quality(self: _typing.Self, quality: _typing.Any) -> None:
                 raise RuntimeError("No magick backend is available.")
 
-            def export(self, fmt):
+            def export(self: _typing.Self, fmt: _typing.Any) -> None:
                 raise RuntimeError("No magick backend is available.")
 
             @property
-            def size(self):
+            def size(self: _typing.Self) -> tuple[_typing.Any, ...]:
                 return 0, 0
 
             @size.setter
-            def size(self, value):
+            def size(self: _typing.Self, value: _typing.Any) -> None:
                 raise RuntimeError("No magick backend is available.")
 
-        def save_cover_data_to(data, path, return_data=False):
+        def save_cover_data_to(data: _typing.Any, path: _typing.Any, return_data: bool = False) -> None:
             raise RuntimeError("No magick backend is available.")
 
-        def thumbnail(data, width=60, height=80, compression_quality=90):
+        def thumbnail(data: _typing.Any, width: int = 60, height: int = 80, compression_quality: int = 90) -> None:
             raise RuntimeError("No magick backend is available.")
 
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
@@ -97,7 +100,7 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 try:
     from LiuXin_alpha.utils.libraries.liuxin_tinycss.color3 import parse_color_string
 except ModuleNotFoundError:
-    def parse_color_string(value):
+    def parse_color_string(value: _typing.Any) -> None:
         return None
 
 __license__ = "GPL v3"
@@ -109,7 +112,7 @@ IMAGE_MAX_SIZE = 10 * 1024 * 1024
 RECORD_SIZE = 0x1000  # 4096 (Text record size (uncompressed))
 
 
-def decode_string(raw, codec="utf-8", ordt_map=""):
+def decode_string(raw: _typing.Any, codec: str = "utf-8", ordt_map: str = "") -> tuple[_typing.Any, ...]:
     if not raw:
         return "", 0
     length = raw[0] if isinstance(raw[0], int) else struct.unpack(">B", raw[0:1])[0]
@@ -120,7 +123,7 @@ def decode_string(raw, codec="utf-8", ordt_map=""):
     return raw.decode(codec), consumed
 
 
-def decode_hex_number(raw, codec="utf-8"):
+def decode_hex_number(raw: _typing.Any, codec: str = "utf-8") -> tuple[_typing.Any, ...]:
     """
     Return a variable length number encoded using hexadecimal encoding. These
     numbers have the first byte which tells the number of bytes that follow.
@@ -135,7 +138,7 @@ def decode_hex_number(raw, codec="utf-8"):
     return int(raw, 16), consumed
 
 
-def encode_string(raw):
+def encode_string(raw: _typing.Any) -> _typing.Any:
     if isinstance(raw, str):
         raw = raw.encode("utf-8")
     ans = bytearray(bytes(raw))
@@ -143,7 +146,7 @@ def encode_string(raw):
     return bytes(ans)
 
 
-def encode_number_as_hex(num):
+def encode_number_as_hex(num: _typing.Any) -> _typing.Any:
     """
     Encode num as a variable length encoded hexadecimal number. Returns the
     bytestring containing the encoded number. These
@@ -160,7 +163,7 @@ def encode_number_as_hex(num):
     return encode_string(num)
 
 
-def encint(value, forward=True):
+def encint(value: _typing.Any, forward: bool = True) -> _typing.Any:
     """
     Some parts of the Mobipocket format encode data as variable-width integers.
     These integers are represented big-endian with 7 bits per byte in bits 1-7.
@@ -200,7 +203,7 @@ def encint(value, forward=True):
     return bytes(byts)
 
 
-def decint(raw, forward=True):
+def decint(raw: _typing.Any, forward: bool = True) -> tuple[_typing.Any, ...]:
     """
     Read a variable width integer from the bytestring or bytearray raw and return the
     integer and the number of bytes read. If forward is True bytes are read
@@ -230,7 +233,7 @@ def decint(raw, forward=True):
     return val, len(byts)
 
 
-def test_decint(num):
+def test_decint(num: _typing.Any) -> None:
     for d in (True, False):
         raw = encint(num, forward=d)
         sz = len(raw)
@@ -238,7 +241,7 @@ def test_decint(num):
             raise ValueError("Failed for num %d, forward=%r: %r != %r" % (num, d, (num, sz), decint(raw, forward=d)))
 
 
-def rescale_image(data, maxsizeb=IMAGE_MAX_SIZE, dimen=None):
+def rescale_image(data: _typing.Any, maxsizeb: _typing.Any = IMAGE_MAX_SIZE, dimen: _typing.Any = None) -> _typing.Any:
     """
     Convert image setting all transparent pixels to white and changing format
     to JPEG. Ensure the resultant image has a byte size less than
@@ -300,7 +303,7 @@ def rescale_image(data, maxsizeb=IMAGE_MAX_SIZE, dimen=None):
     return data
 
 
-def get_trailing_data(record, extra_data_flags):
+def get_trailing_data(record: _typing.Any, extra_data_flags: _typing.Any) -> tuple[_typing.Any, ...]:
     """
     Given a text record as a bytestring and the extra data flags from the MOBI header, return the trailing data as a
     dictionary, mapping bit number to data as bytestring. Also returns the record - all trailing data.
@@ -333,7 +336,7 @@ def get_trailing_data(record, extra_data_flags):
     return data, record
 
 
-def encode_trailing_data(raw):
+def encode_trailing_data(raw: _typing.Any) -> _typing.Any:
     """
     Given some data in the bytestring raw, return a bytestring of the form
 
@@ -357,7 +360,7 @@ def encode_trailing_data(raw):
     return raw + encoded
 
 
-def encode_fvwi(val, flags, flag_size=4):
+def encode_fvwi(val: _typing.Any, flags: _typing.Any, flag_size: int = 4) -> _typing.Any:
     """
     Encode the value val and the flag_size bits from flags as a fvwi. This encoding is
     used in the trailing byte sequences for indexing. Returns encoded
@@ -373,7 +376,7 @@ def encode_fvwi(val, flags, flag_size=4):
     return encint(ans)
 
 
-def decode_fvwi(byts, flag_size=4):
+def decode_fvwi(byts: _typing.Any, flag_size: int = 4) -> tuple[_typing.Any, ...]:
     """
     Decode encoded fvwi. Returns number, flags, consumed
     :param byts:
@@ -388,7 +391,7 @@ def decode_fvwi(byts, flag_size=4):
     return val, flags, consumed
 
 
-def decode_tbs(byts, flag_size=4):
+def decode_tbs(byts: _typing.Any, flag_size: int = 4) -> tuple[_typing.Any, ...]:
     """
     Trailing byte sequences for indexing consists of series of fvwi numbers.
     This function reads the fvwi number and its associated flags. It then uses
@@ -424,7 +427,7 @@ def decode_tbs(byts, flag_size=4):
     return val, extra, consumed
 
 
-def encode_tbs(val, extra, flag_size=4):
+def encode_tbs(val: _typing.Any, extra: _typing.Any, flag_size: int = 4) -> _typing.Any:
     """
     Encode the number val and the extra data in the extra dict as an fvwi. See decode_tbs above.
     :param val:
@@ -446,7 +449,7 @@ def encode_tbs(val, extra, flag_size=4):
     return ans
 
 
-def utf8_text(text):
+def utf8_text(text: _typing.Any) -> _typing.Any:
     """
     Convert a possibly null string to utf-8 bytes, guaranteeing to return a non empty, normalized bytestring.
     :param text:
@@ -462,7 +465,7 @@ def utf8_text(text):
     return text
 
 
-def align_block(raw, multiple=4, pad=b"\0"):
+def align_block(raw: _typing.Any, multiple: int = 4, pad: bytes = b"\0") -> _typing.Any:
     """
     Return raw with enough pad bytes append to ensure its length is a multiple of 4.
     :param raw:
@@ -476,7 +479,7 @@ def align_block(raw, multiple=4, pad=b"\0"):
     return raw + pad * (multiple - extra)
 
 
-def detect_periodical(toc, log=None):
+def detect_periodical(toc: _typing.Any, log: _typing.Any = None) -> bool:
     """
     Detect if the TOC object toc contains a periodical that conforms to the structure required by kindlegen to
     generate a periodical.
@@ -511,7 +514,7 @@ def detect_periodical(toc, log=None):
     return True
 
 
-def count_set_bits(num):
+def count_set_bits(num: _typing.Any) -> _typing.Any:
     if num < 0:
         num = -num
     ans = 0
@@ -521,7 +524,7 @@ def count_set_bits(num):
     return ans
 
 
-def to_base(num, base=32, min_num_digits=None):
+def to_base(num: _typing.Any, base: int = 32, min_num_digits: _typing.Any = None) -> _typing.Any:
     digits = string.digits + string.ascii_uppercase
     sign = 1 if num >= 0 else -1
     if num == 0:
@@ -539,7 +542,7 @@ def to_base(num, base=32, min_num_digits=None):
     return "".join(ans)
 
 
-def mobify_image(data):
+def mobify_image(data: _typing.Any) -> _typing.Any:
     """
     Convert PNG images to GIF as Kindle cannot display some PNG.
     :param data:
@@ -555,7 +558,7 @@ def mobify_image(data):
 
 
 # Font records {{{
-def read_font_record(data, extent=1040):
+def read_font_record(data: _typing.Any, extent: int = 1040) -> _typing.Any:
     """
     Return the font encoded in the MOBI FONT record represented by data.
     The return value in a dict with fields raw_data, font_data, err, ext, headers.
@@ -640,7 +643,7 @@ def read_font_record(data, extent=1040):
     return ans
 
 
-def write_font_record(data, obfuscate=True, compress=True):
+def write_font_record(data: _typing.Any, obfuscate: bool = True, compress: bool = True) -> _typing.Any:
     """
     Write the ttf/otf font represented by data into a font record. See read_font_record() for details on the format of
     the record.
@@ -678,7 +681,7 @@ def write_font_record(data, obfuscate=True, compress=True):
 # }}}
 
 
-def create_text_record(text):
+def create_text_record(text: _typing.Any) -> tuple[_typing.Any, ...]:
     """
     Return a Palmdoc record of size RECORD_SIZE from the text file object.
     In case the record ends in the middle of a multibyte character return
@@ -739,7 +742,7 @@ class CNCX(object):  # {{{
 
     MAX_STRING_LENGTH = 500
 
-    def __init__(self, strings=()):
+    def __init__(self: _typing.Self, strings: tuple[_typing.Any, ...] = ()) -> None:
         self.strings = OrderedDict((s, 0) for s in strings)
 
         self.records = []
@@ -763,26 +766,26 @@ class CNCX(object):  # {{{
         if val:
             self.records.append(align_block(val))
 
-    def __getitem__(self, string):
+    def __getitem__(self: _typing.Self, string: _typing.Any) -> _typing.Any:
         return self.strings[string]
 
-    def __bool__(self):
+    def __bool__(self: _typing.Self) -> _typing.Any:
         return bool(self.records)
 
     __nonzero__ = __bool__
 
-    def __len__(self):
+    def __len__(self: _typing.Self) -> _typing.Any:
         return len(self.records)
 
 
 # }}}
 
 
-def is_guide_ref_start(ref):
+def is_guide_ref_start(ref: _typing.Any) -> bool:
     return ref.title.lower() == "start" or (ref.type and ref.type.lower() in {"start", "other.start", "text"})
 
 
-def convert_color_for_font_tag(val):
+def convert_color_for_font_tag(val: _typing.Any) -> _typing.Any:
     rgba = parse_color_string(six_unicode(val or ""))
     if rgba is None or rgba == "currentColor":
         return val

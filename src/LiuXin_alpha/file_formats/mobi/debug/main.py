@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import shutil
@@ -16,7 +19,7 @@ __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def inspect_mobi(path_or_stream, ddir=None):  # {{{
+def inspect_mobi(path_or_stream: _typing.Any, ddir: _typing.Any = None) -> None:  # {{{
     stream = path_or_stream if hasattr(path_or_stream, "read") else open(path_or_stream, "rb")
     f = MOBIFile(stream)
     if ddir is None:
@@ -45,7 +48,7 @@ def inspect_mobi(path_or_stream, ddir=None):  # {{{
 # }}}
 
 
-def main():
+def main() -> None:
     inspect_mobi(sys.argv[1])
 
 

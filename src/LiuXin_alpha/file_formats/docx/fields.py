@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 
@@ -15,7 +18,7 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class Field(object):
-    def __init__(self, start):
+    def __init__(self: _typing.Self, start: _typing.Any) -> None:
         self.start = start
         self.end = None
         self.contents = []
@@ -23,7 +26,7 @@ class Field(object):
         self.instructions = None
         self.name = None
 
-    def add_instr(self, elem):
+    def add_instr(self: _typing.Self, elem: _typing.Any) -> None:
         raw = elem.text
         if not raw:
             return
@@ -36,7 +39,7 @@ class Field(object):
             self.name, raw = raw.lstrip().partition(" ")[0::2]
         self.buf.append(raw)
 
-    def finalize(self):
+    def finalize(self: _typing.Self) -> None:
         self.instructions = "".join(self.buf)
         del self.buf
 
@@ -59,11 +62,11 @@ scanner = re.Scanner(
 null = object()
 
 
-def parser(name, field_map, default_field_name=None):
+def parser(name: _typing.Any, field_map: _typing.Any, default_field_name: _typing.Any = None) -> _typing.Any:
 
     field_map = dict((x.split(":") for x in field_map.split()))
 
-    def parse(raw, log=None):
+    def parse(raw: _typing.Any, log: _typing.Any = None) -> _typing.Any:
         ans = {}
         last_option = None
         raw = raw.replace("\\\\", "\x01").replace('\\"', "\x02")
@@ -112,13 +115,13 @@ parse_noteref = parser("noteref", "f:footnote h:hyperlink p:position")
 
 
 class Fields(object):
-    def __init__(self, namespace):
+    def __init__(self: _typing.Self, namespace: _typing.Any) -> None:
         self.namespace = namespace
         self.fields = []
         self.index_bookmark_counter = 0
         self.index_bookmark_prefix = "index-"
 
-    def __call__(self, doc, log):
+    def __call__(self: _typing.Self, doc: _typing.Any, log: _typing.Any) -> None:
         all_ids = frozenset(self.namespace.XPath("//*/@w:id")(doc))
         c = 0
         while self.index_bookmark_prefix in all_ids:
@@ -172,7 +175,7 @@ class Fields(object):
                     log.warn("Encountered unknown field: %s, ignoring it." % field.name)
                     unknown_fields.add(field.name)
 
-    def get_runs(self, field):
+    def get_runs(self: _typing.Self, field: _typing.Any) -> _typing.Any:
         all_runs = []
         current_runs = []
         # We only handle spans in a single paragraph being wrapped in <a>
@@ -187,7 +190,7 @@ class Fields(object):
             all_runs.append(current_runs)
         return all_runs
 
-    def parse_hyperlink(self, field, parse_func, log):
+    def parse_hyperlink(self: _typing.Self, field: _typing.Any, parse_func: _typing.Any, log: _typing.Any) -> None:
         # Parse hyperlink fields
         hl = parse_func(field.instructions, log)
         if hl:
@@ -196,7 +199,7 @@ class Fields(object):
             for runs in self.get_runs(field):
                 self.hyperlink_fields.append((hl, runs))
 
-    def parse_ref(self, field, parse_func, log):
+    def parse_ref(self: _typing.Self, field: _typing.Any, parse_func: _typing.Any, log: _typing.Any) -> None:
         ref = parse_func(field.instructions, log)
         dest = ref.get(None, None)
         if dest is not None and "hyperlink" in ref:
@@ -207,7 +210,7 @@ class Fields(object):
 
     parse_noteref = parse_ref
 
-    def parse_xe(self, field, parse_func, log):
+    def parse_xe(self: _typing.Self, field: _typing.Any, parse_func: _typing.Any, log: _typing.Any) -> None:
         # Parse XE fields
         if None in (field.start, field.end):
             return
@@ -216,7 +219,7 @@ class Fields(object):
             # We insert a synthetic bookmark around this index item so that we
             # can link to it later
 
-            def word(x):
+            def word(x: _typing.Any) -> _typing.Any:
                 return self.namespace.expand("w:" + x)
 
             self.index_bookmark_counter += 1
@@ -235,7 +238,7 @@ class Fields(object):
             xe["start_elem"] = field.start
             self.xe_fields.append(xe)
 
-    def parse_index(self, field, parse_func, log):
+    def parse_index(self: _typing.Self, field: _typing.Any, parse_func: _typing.Any, log: _typing.Any) -> None:
         if not field.contents:
             return
         idx = parse_func(field.instructions, log)
@@ -247,7 +250,7 @@ class Fields(object):
 
         self.index_fields.append((idx, blocks))
 
-    def polish_markup(self, object_map):
+    def polish_markup(self: _typing.Self, object_map: _typing.Any) -> None:
         if not self.index_fields:
             return
         rmap = {v: k for k, v in iteritems(object_map)}
@@ -255,11 +258,11 @@ class Fields(object):
             polish_index_markup(idx, [rmap[b] for b in blocks])
 
 
-def test_parse_fields():
+def test_parse_fields() -> None:
     import unittest
 
     class TestParseFields(unittest.TestCase):
-        def test_hyperlink(self):
+        def test_hyperlink(self: _typing.Self) -> None:
             ae = lambda x, y: self.assertEqual(parse_hyperlink(x, None), y)
             ae(r"\l anchor1", {"anchor": "anchor1"})
             ae(r"www.calibre-ebook.com", {"url": "www.calibre-ebook.com"})
@@ -270,13 +273,13 @@ def test_parse_fields():
             ae(r'"c:\\Some Folder"', {"url": "c:\\Some Folder"})
             ae(r"xxxx \y yyyy", {"url": "xxxx"})
 
-        def test_xe(self):
+        def test_xe(self: _typing.Self) -> None:
             ae = lambda x, y: self.assertEqual(parse_xe(x, None), y)
             ae(r'"some name"', {"text": "some name"})
             ae(r"name \b \i", {"text": "name", "bold": None, "italic": None})
             ae(r"xxx \y a", {"text": "xxx", "yomi": "a"})
 
-        def test_index(self):
+        def test_index(self: _typing.Self) -> None:
             ae = lambda x, y: self.assertEqual(parse_index(x, None), y)
             ae(r"", {})
             ae(r"\b \c 1", {"bookmark": None, "columns-per-page": "1"})

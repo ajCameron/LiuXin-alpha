@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import os
 from LiuXin_alpha.file_formats.rtf2xml import copy
 from LiuXin_alpha.utils.ptempfiles import better_mktemp
@@ -23,12 +26,12 @@ class ListNumbers:
     """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         """
         Required:
             'file'
@@ -44,7 +47,7 @@ class ListNumbers:
         self.__copy = copy
         self.__write_to = better_mktemp()
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         initiate values for fix_list_numbers.
         Required:
@@ -63,7 +66,7 @@ class ListNumbers:
             "after_list_text": self.__after_list_text_func,
         }
 
-    def __after_ob_func(self, line):
+    def __after_ob_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Handle the line immediately after an open bracket.
         Required:
@@ -81,7 +84,7 @@ class ListNumbers:
             self.__write_obj.write(line)
             self.__state = "default"
 
-    def __after_list_text_func(self, line):
+    def __after_list_text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Look for an open bracket or a line of text, and then print out the
         self.__list_chunk. Print out the line.
@@ -101,7 +104,7 @@ class ListNumbers:
             self.__list_chunk = ""
         self.__write_obj.write(line)
 
-    def __determine_list_type(self, chunk):
+    def __determine_list_type(self: _typing.Self, chunk: _typing.Any) -> str:
         """
         Determine if the list is ordered or itemized
         """
@@ -126,7 +129,7 @@ class ListNumbers:
         # must be some type of ordered list -- just a guess!
         return "unordered"
 
-    def __list_text_func(self, line):
+    def __list_text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Handle lines that are part of the list text. If the end of the list
         text is found (the closing bracket matches the self.__list_text_ob),
@@ -144,7 +147,7 @@ class ListNumbers:
         if self.__token_info != "cw<pf<par-def___":
             self.__list_chunk = self.__list_chunk + line
 
-    def __default_func(self, line):
+    def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Handle the lines that are not part of any special state. Look for an
         opening bracket. If an open bracket is found, add this line to a
@@ -161,7 +164,7 @@ class ListNumbers:
         else:
             self.__write_obj.write(line)
 
-    def fix_list_numbers(self):
+    def fix_list_numbers(self: _typing.Self) -> None:
         """
         Required:
             nothing

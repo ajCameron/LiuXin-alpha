@@ -4,6 +4,9 @@ Inspect the header of ereader files. This is primarily used for debugging.
 """
 
 from __future__ import print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import struct
 import sys
@@ -16,7 +19,7 @@ __copyright__ = "2009, John Schember <john@nachtimwald.com>"
 __docformat__ = "restructuredtext en"
 
 
-def ereader_header_info(header):
+def ereader_header_info(header: _typing.Any) -> None:
     """
     Prints some basic info about the provided header of the ebook.
     :param header: Header block
@@ -38,7 +41,7 @@ def ereader_header_info(header):
         raise EreaderError("Size mismatch. eReader header record size %i KB is not supported." % len(h0))
 
 
-def pdb_header_info(header):
+def pdb_header_info(header: _typing.Any) -> None:
     print("PDB Header Info:")
     print("")
     print("Identity:        %s" % header.ident)
@@ -47,7 +50,7 @@ def pdb_header_info(header):
     print("")
 
 
-def ereader_header_info132(h0):
+def ereader_header_info132(h0: _typing.Any) -> None:
     print("Ereader Record 0 (Header) Info:")
     print("")
     print("0-2 Version:             %i" % struct.unpack(">H", h0[0:2])[0])
@@ -84,7 +87,7 @@ def ereader_header_info132(h0):
     print("")
 
 
-def ereader_header_info202(h0):
+def ereader_header_info202(h0: _typing.Any) -> None:
     print("Ereader Record 0 (Header) Info:")
     print("")
     print("0-2 Version:             %i" % struct.unpack(">H", h0[0:2])[0])
@@ -117,7 +120,7 @@ def ereader_header_info202(h0):
     print("")
 
 
-def section_lengths(header):
+def section_lengths(header: _typing.Any) -> None:
     print("Section Sizes")
     print("")
 
@@ -131,7 +134,7 @@ def section_lengths(header):
         print("Section %i:   %i %s" % (i, size, message))
 
 
-def main(args=sys.argv):
+def main(args: _typing.Any = sys.argv) -> int:
     if len(args) < 2:
         print("Error: requires input file.")
         return 1

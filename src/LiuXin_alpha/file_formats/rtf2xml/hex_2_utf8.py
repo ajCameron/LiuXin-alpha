@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys, os, io
 
 from LiuXin_alpha.file_formats.rtf2xml import get_char_map, copy
@@ -25,22 +28,22 @@ class Hex2Utf8:
     """
 
     def __init__(
-        self,
-        in_file,
-        area_to_convert,
-        char_file,
-        default_char_map,
-        bug_handler,
-        invalid_rtf_handler,
-        copy=None,
-        temp_dir=None,
-        symbol=None,
-        wingdings=None,
-        caps=None,
-        convert_caps=None,
-        dingbats=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        area_to_convert: _typing.Any,
+        char_file: _typing.Any,
+        default_char_map: _typing.Any,
+        bug_handler: _typing.Any,
+        invalid_rtf_handler: _typing.Any,
+        copy: _typing.Any = None,
+        temp_dir: _typing.Any = None,
+        symbol: _typing.Any = None,
+        wingdings: _typing.Any = None,
+        caps: _typing.Any = None,
+        convert_caps: _typing.Any = None,
+        dingbats: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         """
         Required:
             'file'
@@ -84,21 +87,21 @@ class Hex2Utf8:
         self.__invalid_rtf_handler = invalid_rtf_handler
 
     def update_values(
-        self,
-        file,
-        area_to_convert,
-        char_file,
-        convert_caps,
-        convert_symbol,
-        convert_wingdings,
-        convert_zapf,
-        copy=None,
-        temp_dir=None,
-        symbol=None,
-        wingdings=None,
-        caps=None,
-        dingbats=None,
-    ):
+        self: _typing.Self,
+        file: _typing.Any,
+        area_to_convert: _typing.Any,
+        char_file: _typing.Any,
+        convert_caps: _typing.Any,
+        convert_symbol: _typing.Any,
+        convert_wingdings: _typing.Any,
+        convert_zapf: _typing.Any,
+        copy: _typing.Any = None,
+        temp_dir: _typing.Any = None,
+        symbol: _typing.Any = None,
+        wingdings: _typing.Any = None,
+        caps: _typing.Any = None,
+        dingbats: _typing.Any = None,
+    ) -> None:
         """
         Required:
             'file'
@@ -135,7 +138,7 @@ class Hex2Utf8:
         # self.__convert_wingdings = 0
         # self.__convert_zapf = 0
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Required:
             Nothing
@@ -213,7 +216,7 @@ class Hex2Utf8:
         self.__caps_list = ["false"]
         self.__font_list = ["not-defined"]
 
-    def __hex_text_func(self, line):
+    def __hex_text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             'line' -- the line
@@ -263,24 +266,24 @@ class Hex2Utf8:
                     msg = 'Character "&#x%s;" does not appear to be valid (or is a control character)\n' % token
                     raise self.__bug_handler(msg)
 
-    def __found_body_func(self, line):
+    def __found_body_func(self: _typing.Self, line: _typing.Any) -> None:
         self.__state = "body"
         self.__write_obj.write(line)
 
-    def __body_func(self, line):
+    def __body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         When parsing preamble
         """
         self.__write_obj.write(line)
 
-    def __preamble_func(self, line):
+    def __preamble_func(self: _typing.Self, line: _typing.Any) -> None:
         action = self.__preamble_state_dict.get(self.__token_info)
         if action is not None:
             action(line)
         else:
             self.__write_obj.write(line)
 
-    def __convert_preamble(self):
+    def __convert_preamble(self: _typing.Self) -> None:
         self.__state = "preamble"
         with open_for_write(self.__write_to) as self.__write_obj:
             with open_for_read(self.__file) as read_obj:
@@ -296,7 +299,7 @@ class Hex2Utf8:
         copy_obj.rename(self.__write_to, self.__file)
         os.remove(self.__write_to)
 
-    def __preamble_for_body_func(self, line):
+    def __preamble_for_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- line to parse
@@ -309,7 +312,7 @@ class Hex2Utf8:
             self.__found_body_func(line)
         self.__write_obj.write(line)
 
-    def __body_for_body_func(self, line):
+    def __body_for_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- line to parse
@@ -324,7 +327,7 @@ class Hex2Utf8:
         else:
             self.__write_obj.write(line)
 
-    def __start_font_func(self, line):
+    def __start_font_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- line to parse
@@ -348,7 +351,7 @@ class Hex2Utf8:
             self.__current_dict_name = "default"
             self.__current_dict = self.__def_dict
 
-    def __end_font_func(self, line):
+    def __end_font_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- line to parse
@@ -377,7 +380,7 @@ class Hex2Utf8:
             self.__current_dict_name = "default"
             self.__current_dict = self.__def_dict
 
-    def __start_special_font_func_old(self, line):
+    def __start_special_font_func_old(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- line
@@ -400,7 +403,7 @@ class Hex2Utf8:
             self.__special_fonts_found += 1
             self.__current_dict_name = "Zapf Dingbats"
 
-    def __end_special_font_func(self, line):
+    def __end_special_font_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line --line to parse
@@ -419,7 +422,7 @@ class Hex2Utf8:
             self.__special_fonts_found -= 1
             self.__dict_name = "default"
 
-    def __start_caps_func_old(self, line):
+    def __start_caps_func_old(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- line to parse
@@ -431,7 +434,7 @@ class Hex2Utf8:
         """
         self.__in_caps = 1
 
-    def __start_caps_func(self, line):
+    def __start_caps_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- line to parse
@@ -445,7 +448,7 @@ class Hex2Utf8:
         value = line[17:-1]
         self.__caps_list.append(value)
 
-    def __end_caps_func(self, line):
+    def __end_caps_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- line to parse
@@ -462,7 +465,7 @@ class Hex2Utf8:
                 "Module is hex_2_utf8\n" "method is __end_caps_func\n" "caps list should be more than one?\n"
             )  # self.__in_caps not set
 
-    def __text_func(self, line):
+    def __text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- line to parse
@@ -498,7 +501,7 @@ class Hex2Utf8:
                 text = text.upper()
             self.__write_obj.write("tx<nu<__________<%s\n" % text)
 
-    def __utf_to_caps_func(self, line):
+    def __utf_to_caps_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- line to parse
@@ -513,7 +516,7 @@ class Hex2Utf8:
             utf_text = self.__utf_token_to_caps_func(utf_text)
         self.__write_obj.write("tx<ut<__________<%s\n" % utf_text)
 
-    def __utf_token_to_caps_func(self, char_entity):
+    def __utf_token_to_caps_func(self: _typing.Self, char_entity: _typing.Any) -> _typing.Any:
         """
         Required:
             utf_text -- such as &xxx;
@@ -538,7 +541,7 @@ class Hex2Utf8:
         else:
             return converted
 
-    def __convert_body(self):
+    def __convert_body(self: _typing.Self) -> None:
         self.__state = "body"
         with open_for_read(self.__file) as read_obj:
             with open_for_write(self.__write_to) as self.__write_obj:
@@ -554,7 +557,7 @@ class Hex2Utf8:
         copy_obj.rename(self.__write_to, self.__file)
         os.remove(self.__write_to)
 
-    def convert_hex_2_utf8(self):
+    def convert_hex_2_utf8(self: _typing.Self) -> None:
         self.__initiate_values()
         if self.__area_to_convert == "preamble":
             self.__convert_preamble()

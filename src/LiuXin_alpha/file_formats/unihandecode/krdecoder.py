@@ -4,6 +4,9 @@
 Decode unicode text to an ASCII representation of the text in Korean.
 Based on unidecoder.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 from LiuXin_alpha.file_formats.unihandecode.unidecoder import Unidecoder
 from LiuXin_alpha.file_formats.unihandecode.krcodepoints import CODEPOINTS as HANCODES
@@ -18,6 +21,6 @@ class Krdecoder(Unidecoder):
 
     codepoints = {}
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         self.codepoints = CODEPOINTS
         self.codepoints.update(HANCODES)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import typing as _typing
+
 import re
 
 # lxml 5 split html.clean into a separate package.
@@ -50,21 +52,21 @@ class _FallbackCleaner:
     """
 
     def __init__(
-        self,
+        self: _typing.Self,
         scripts: bool = True,
         style: bool = True,
         links: bool = True,
         comments: bool = True,
         processing_instructions: bool = True,
-        **_ignored,
-    ):
+        **_ignored: _typing.Any,
+    ) -> None:
         self.scripts = scripts
         self.style = style
         self.links = links
         self.comments = comments
         self.processing_instructions = processing_instructions
 
-    def clean_html(self, doc):
+    def clean_html(self: _typing.Self, doc: _typing.Any) -> _typing.Any:
         if self.scripts:
             for elem in list(doc.xpath(".//script")):
                 parent = elem.getparent()

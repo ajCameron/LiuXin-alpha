@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import typing as _typing
+
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
@@ -24,7 +26,7 @@ class AZW4Input(InputFormatPlugin):
     description = "Convert AZW4 to HTML"
     file_types = {"azw4"}
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.azw4.reader import Reader
 
         # AZW4 handling is byte-pattern based and does not need the PDB header.

@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import os
 
 from LiuXin_alpha.file_formats.rtf2xml import copy
@@ -25,17 +28,17 @@ class ReplaceIllegals:
     """
 
     def __init__(
-        self,
-        in_file,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         self.__file = in_file
         self.__copy = copy
         self.__run_level = run_level
         self.__write_to = better_mktemp()
 
-    def replace_illegals(self):
+    def replace_illegals(self: _typing.Self) -> None:
         """ """
         with open_for_read(self.__file) as read_obj:
             with open_for_write(self.__write_to) as write_obj:

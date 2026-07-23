@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
@@ -18,7 +21,7 @@ HTML_TEMPLATE = (
 )
 
 
-def html_encode(s):
+def html_encode(s: _typing.Any) -> _typing.Any:
     s = "" if s is None else str(s)
     return (
         s.replace("&", "&amp;")
@@ -40,7 +43,7 @@ class SNBInput(InputFormatPlugin):
 
     options = set()
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         import uuid
         from lxml import etree
 

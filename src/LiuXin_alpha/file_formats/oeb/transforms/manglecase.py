@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 CSS case-mangling transform.
@@ -36,21 +39,21 @@ class CaseMangler(object):
     """
 
     @classmethod
-    def config(cls, cfg):
+    def config(cls: type[_typing.Self], cfg: _typing.Any) -> _typing.Any:
         return cfg
 
     @classmethod
-    def generate(cls, opts):
+    def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
         return cls()
 
-    def __call__(self, oeb, context):
+    def __call__(self: _typing.Self, oeb: _typing.Any, context: _typing.Any) -> None:
         oeb.logger.info("Applying case-transforming CSS...")
         self.oeb = oeb
         self.opts = context
         self.profile = context.source
         self.mangle_spine()
 
-    def mangle_spine(self):
+    def mangle_spine(self: _typing.Self) -> None:
         """
         Apply the case mangling to ever element in the spine.
         :return:
@@ -70,7 +73,7 @@ class CaseMangler(object):
             stylizer = Stylizer(html, item.href, self.oeb, self.opts, self.profile)
             self.mangle_elem(html.find(XHTML("body")), stylizer)
 
-    def text_transform(self, transform, text):
+    def text_transform(self: _typing.Self, transform: _typing.Any, text: _typing.Any) -> _typing.Any:
         """
         Apply an individual transform to some text.
         :param transform:
@@ -85,7 +88,7 @@ class CaseMangler(object):
             return icu_lower(text)
         return text
 
-    def split_text(self, text):
+    def split_text(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         results = [""]
         isupper = text[0].isupper()
         for char in text:
@@ -96,7 +99,7 @@ class CaseMangler(object):
                 results.append(char)
         return results
 
-    def smallcaps_elem(self, elem, attr):
+    def smallcaps_elem(self: _typing.Self, elem: _typing.Any, attr: _typing.Any) -> None:
         texts = self.split_text(getattr(elem, attr))
         setattr(elem, attr, None)
         last = elem if attr == "tail" else None
@@ -120,7 +123,7 @@ class CaseMangler(object):
                     child.tail = None
                 last = child
 
-    def mangle_elem(self, elem, stylizer):
+    def mangle_elem(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any) -> None:
         """
         Apply mangling to an element.
         :param elem:

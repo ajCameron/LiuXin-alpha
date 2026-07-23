@@ -3,10 +3,16 @@
 """
 Transform OEB content into SNB format
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
-from lxml import etree
+from collections.abc import Sequence
+from typing import Protocol
+
+from lxml import etree  # pyright: ignore[reportMissingImports]
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
@@ -16,7 +22,13 @@ __copyright__ = "2010, Li Fanxi <lifanxi@freemindworld.com>"
 __docformat__ = "restructuredtext en"
 
 
-def ProcessFileName(fileName):
+class _Logger(Protocol):
+    def debug(self: _typing.Self, message: object) -> object: ...
+
+    def info(self: _typing.Self, message: object) -> object: ...
+
+
+def ProcessFileName(fileName: str) -> str:
     """
     Flatten the filepath.
     :param fileName:
@@ -65,10 +77,20 @@ class SNBMLizer(object):
     curSubItem = ""
     #    curText = [ ]
 
-    def __init__(self, log):
+    def __init__(self: _typing.Self, log: _Logger) -> None:
         self.log = log
+        self.oeb_book: _typing.Any = None
+        self.opts: _typing.Any = None
+        self.item: _typing.Any = None
+        self.subitems: Sequence[tuple[str, str]] = ()
 
-    def extract_content(self, oeb_book, item, subitems, opts):
+    def extract_content(
+        self: _typing.Self,
+        oeb_book: _typing.Any,
+        item: _typing.Any,
+        subitems: Sequence[tuple[str, str]],
+        opts: _typing.Any,
+    ) -> dict[str, _typing.Any]:
         self.log.info("Converting XHTML to SNBC...")
         self.oeb_book = oeb_book
         self.opts = opts
@@ -76,7 +98,14 @@ class SNBMLizer(object):
         self.subitems = subitems
         return self.mlize()
 
-    def merge_content(self, old_tree, oeb_book, item, subitems, opts):
+    def merge_content(
+        self: _typing.Self,
+        old_tree: _typing.Any,
+        oeb_book: _typing.Any,
+        item: _typing.Any,
+        subitems: Sequence[tuple[str, str]],
+        opts: _typing.Any,
+    ) -> None:
         newTrees = self.extract_content(oeb_book, item, subitems, opts)
         body = old_tree.find(".//body")
         if body is not None:
@@ -85,7 +114,7 @@ class SNBMLizer(object):
                 for entity in newbody:
                     body.append(entity)
 
-    def mlize(self):
+    def mlize(self: _typing.Self) -> dict[str, _typing.Any]:
         from LiuXin_alpha.file_formats.oeb.base import XHTML
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
@@ -142,7 +171,7 @@ class SNBMLizer(object):
 
         return trees
 
-    def remove_newlines(self, text):
+    def remove_newlines(self: _typing.Self, text: str) -> str:
         self.log.debug("\tRemove newlines for processing...")
         text = text.replace("\r\n", " ")
         text = text.replace("\n", " ")
@@ -150,7 +179,7 @@ class SNBMLizer(object):
 
         return text
 
-    def cleanup_text(self, text):
+    def cleanup_text(self: _typing.Self, text: str) -> str:
         self.log.debug("\tClean up text...")
         # Replace bad characters.
         text = text.replace("\xc2", "")
@@ -216,7 +245,15 @@ class SNBMLizer(object):
 
         return text
 
-    def dump_text(self, subitems, elem, stylizer, end="", pre=False, li=""):
+    def dump_text(
+        self: _typing.Self,
+        subitems: Sequence[tuple[str, str]],
+        elem: _typing.Any,
+        stylizer: _typing.Any,
+        end: str = "",
+        pre: bool = False,
+        li: str = "",
+    ) -> list[str] | tuple[list[str], str]:
         from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace
 
         if not isinstance(elem.tag, six_string_types) or namespace(elem.tag) != XHTML_NS:

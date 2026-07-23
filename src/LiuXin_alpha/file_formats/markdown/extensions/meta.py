@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Meta Data Extension for Python-Markdown
@@ -55,7 +58,7 @@ META_MORE_RE = re.compile(r"^[ ]{4,}(?P<value>.*)")
 class MetaExtension(Extension):
     """Meta-Data extension for Python-Markdown."""
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         """Add MetaPreprocessor to Markdown instance."""
 
         md.preprocessors.add("meta", MetaPreprocessor(md), "_begin")
@@ -64,7 +67,7 @@ class MetaExtension(Extension):
 class MetaPreprocessor(Preprocessor):
     """Get Meta-Data."""
 
-    def run(self, lines):
+    def run(self: _typing.Self, lines: _typing.Any) -> _typing.Any:
         """Parse Meta-Data and store in Markdown.Meta."""
         meta = {}
         key = None
@@ -92,5 +95,5 @@ class MetaPreprocessor(Preprocessor):
         return lines
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return MetaExtension(configs=configs)

@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 import os
+from collections.abc import Collection
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -13,7 +17,7 @@ class RocketBookError(Exception):
     pass
 
 
-def unique_name(name, used_names):
+def unique_name(name: str, used_names: Collection[str]) -> str:
     name = os.path.basename(name)
     if len(name) < 32 and name not in used_names:
         return name

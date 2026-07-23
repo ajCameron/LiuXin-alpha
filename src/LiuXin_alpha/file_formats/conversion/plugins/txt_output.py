@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
+import typing as _typing
 import os
 import shutil
 
@@ -19,7 +22,7 @@ __docformat__ = "restructuredtext en"
 NEWLINE_TYPES = ["system", "unix", "old_mac", "windows"]
 
 
-def _report_context(output_plugin, input_plugin, opts):
+def _report_context(output_plugin: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any) -> _typing.Any:
     edge = getattr(opts, "conversion_edge", None)
     input_format = getattr(input_plugin, "file_type", None) or "oeb"
     source_format = getattr(edge, "source_format", None) or input_format
@@ -33,7 +36,7 @@ def _report_context(output_plugin, input_plugin, opts):
     )
 
 
-def _unencodable_character_counts(text, encoding):
+def _unencodable_character_counts(text: _typing.Any, encoding: _typing.Any) -> _typing.Any:
     counts = {}
     for char in text:
         try:
@@ -43,7 +46,7 @@ def _unencodable_character_counts(text, encoding):
     return counts
 
 
-def _report_output_encoding_replacements(report, unsupported_counts, output_encoding):
+def _report_output_encoding_replacements(report: _typing.Any, unsupported_counts: _typing.Any, output_encoding: _typing.Any) -> None:
     if not unsupported_counts:
         return
     replacement_count = sum(unsupported_counts.values())
@@ -164,7 +167,7 @@ class TXTOutput(OutputFormatPlugin):
         ),
     }
 
-    def convert(self, oeb_book, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         from LiuXin_alpha.file_formats.txt.newlines import specified_newlines, TxtNewlines
         from LiuXin_alpha.file_formats.txt.txtml import TXTMLizer
         from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars
@@ -217,7 +220,7 @@ class TXTZOutput(TXTOutput):
     author = "John Schember"
     file_type = "txtz"
 
-    def convert(self, oeb_book, output_path, input_plugin, opts, log):
+    def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
 
         from lxml import etree
         from LiuXin_alpha.file_formats.oeb.base import OEB_IMAGES

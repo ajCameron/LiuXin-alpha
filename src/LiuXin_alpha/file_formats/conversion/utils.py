@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+from __future__ import annotations
+
+import typing as _typing
 import re
 from math import ceil
 
@@ -18,7 +21,7 @@ __docformat__ = "restructuredtext en"
 
 
 class HeuristicProcessor(object):
-    def __init__(self, extra_opts=None, log=None):
+    def __init__(self: _typing.Self, extra_opts: _typing.Any = None, log: _typing.Any = None) -> None:
         self.log = default_log if log is None else log
         self.html_preprocess_sections = 0
         self.found_indents = 0
@@ -54,13 +57,13 @@ class HeuristicProcessor(object):
         self.common_in_text_endings = r"[\"'—’”,\.!\?\…\)„\w]"
         self.common_in_text_beginnings = r"[\w'\"“‘‛]"
 
-    def is_pdftohtml(self, src):
+    def is_pdftohtml(self: _typing.Self, src: _typing.Any) -> bool:
         return "<!-- created by calibre's pdftohtml -->" in src[:1000]
 
-    def is_abbyy(self, src):
+    def is_abbyy(self: _typing.Self, src: _typing.Any) -> bool:
         return '<meta name="generator" content="ABBYY FineReader' in src[:1000]
 
-    def chapter_head(self, match):
+    def chapter_head(self: _typing.Self, match: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.utils.html2text import html2text
 
         chap = match.group("chap")
@@ -95,7 +98,7 @@ class HeuristicProcessor(object):
                 + "</h3>\n"
             )
 
-    def chapter_break(self, match):
+    def chapter_break(self: _typing.Self, match: _typing.Any) -> _typing.Any:
         chap = match.group("section")
         styles = match.group("styles")
         self.html_preprocess_sections += 1
@@ -107,7 +110,7 @@ class HeuristicProcessor(object):
         )
         return "<" + styles + ' style="page-break-before:always">' + chap
 
-    def analyze_title_matches(self, match):
+    def analyze_title_matches(self: _typing.Self, match: _typing.Any) -> None:
         # chap = match.group('chap')
         title = match.group("title")
         if not title:
@@ -115,7 +118,7 @@ class HeuristicProcessor(object):
         else:
             self.chapters_with_title += 1
 
-    def insert_indent(self, match):
+    def insert_indent(self: _typing.Self, match: _typing.Any) -> _typing.Any:
         pstyle = match.group("formatting")
         tag = match.group("tagtype")
         span = match.group("span")
@@ -135,7 +138,7 @@ class HeuristicProcessor(object):
             else:
                 return "<" + tag + ' style="text-indent:3%">' + span
 
-    def no_markup(self, raw, percent):
+    def no_markup(self: _typing.Self, raw: _typing.Any, percent: _typing.Any) -> bool:
         """
         Detects total marked up line endings in the file. raw is the text to inspect.
         Percent is the minimum percent of line endings which should be marked up to return true.
@@ -161,7 +164,7 @@ class HeuristicProcessor(object):
         # self.log.debug("There must be fewer than " + unicode(min_lns) + " unmarked lines to add markup")
         return min_lns > tot_htm_ends
 
-    def dump(self, raw, where):
+    def dump(self: _typing.Self, raw: _typing.Any, where: _typing.Any) -> None:
         import os
 
         dp = getattr(self.extra_opts, "debug_pipeline", None)
@@ -180,13 +183,13 @@ class HeuristicProcessor(object):
                 with open(os.path.join(odir, name), "wb") as f:
                     f.write(raw.encode("utf-8"))
 
-    def get_word_count(self, html):
+    def get_word_count(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         word_count_text = re.sub(r"(?s)<head[^>]*>.*?</head>", "", html)
         word_count_text = re.sub(r"<[^>]*>", "", word_count_text)
         wordcount = get_wordcount_obj(word_count_text)
         return wordcount.words
 
-    def markup_italicis(self, html):
+    def markup_italicis(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         # self.log.debug("\n\n\nitalicize debugging \n\n\n")
         italicize_words = [
             "Etc.",
@@ -253,7 +256,7 @@ class HeuristicProcessor(object):
 
         return html
 
-    def markup_chapters(self, html, wordcount, blanks_between_paragraphs):
+    def markup_chapters(self: _typing.Self, html: _typing.Any, wordcount: _typing.Any, blanks_between_paragraphs: _typing.Any) -> _typing.Any:
         """
         Searches for common chapter headings throughout the document
         attempts multiple patterns based on likelihood of a match
@@ -390,7 +393,7 @@ class HeuristicProcessor(object):
             ],
         ]
 
-        def recurse_patterns(local_html, analyze):
+        def recurse_patterns(local_html: _typing.Any, analyze: _typing.Any) -> _typing.Any:
             # Start with most typical chapter headings, get more aggressive until one works
             for [
                 chapter_type,
@@ -526,7 +529,7 @@ class HeuristicProcessor(object):
         )
         return html
 
-    def punctuation_unwrap(self, length, content, format):
+    def punctuation_unwrap(self: _typing.Self, length: _typing.Any, content: _typing.Any, format: _typing.Any) -> _typing.Any:
         """
         Unwraps lines based on line length and punctuation
         supports a range of html markup and text files
@@ -544,7 +547,7 @@ class HeuristicProcessor(object):
         :return:
         """
 
-        def style_unwrap(match):
+        def style_unwrap(match: _typing.Any) -> _typing.Any:
             style_close = match.group("style_close")
             style_open = match.group("style_open")
             if style_open and style_close:
@@ -593,7 +596,7 @@ class HeuristicProcessor(object):
 
         return content
 
-    def txt_process(self, match):
+    def txt_process(self: _typing.Self, match: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.txt.processor import (
             convert_basic,
             separate_paragraphs_single_line,
@@ -604,7 +607,7 @@ class HeuristicProcessor(object):
         content = convert_basic(content, epub_split_size_kb=0)
         return content
 
-    def markup_pre(self, html):
+    def markup_pre(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         pre = re.compile(r"<pre>", re.IGNORECASE)
         if len(pre.findall(html)) >= 1:
             self.log.debug("Running Text Processing")
@@ -621,7 +624,7 @@ class HeuristicProcessor(object):
             html = add_markup.sub("</p>\n<p>", html)
         return html
 
-    def arrange_htm_line_endings(self, html):
+    def arrange_htm_line_endings(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         html = re.sub(r"\s*</(?P<tag>p|div)>", r"</\g<tag>>" + "\n", html)
         html = re.sub(
             r"\s*<(?P<tag>p|div)(?P<style>[^>]*)>\s*",
@@ -630,7 +633,7 @@ class HeuristicProcessor(object):
         )
         return html
 
-    def fix_nbsp_indents(self, html):
+    def fix_nbsp_indents(self: _typing.Self, html: _typing.Any) -> _typing.Any:
 
         txtindent_re = r"<(?P<tagtype>p|div)(?P<formatting>[^>]*)>\s*(?P<span>(<span[^>]*>\s*)+)?\s*(\u00a0){2,}"
         try:
@@ -645,7 +648,7 @@ class HeuristicProcessor(object):
             self.log.debug("replaced " + six_unicode(self.found_indents) + " nbsp indents with inline styles")
         return html
 
-    def cleanup_markup(self, html):
+    def cleanup_markup(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         # remove remaining non-breaking spaces
         html_non_break_re_sub_pat = r"\u00a0"
         try:
@@ -691,7 +694,7 @@ class HeuristicProcessor(object):
         self.deleted_nbsps = True
         return html
 
-    def analyze_line_endings(self, html):
+    def analyze_line_endings(self: _typing.Self, html: _typing.Any) -> str:
         """
         determines the type of html line ending used most commonly in a document use before calling docanalysis
         functions
@@ -710,7 +713,7 @@ class HeuristicProcessor(object):
         else:
             return "html"
 
-    def analyze_blanks(self, html):
+    def analyze_blanks(self: _typing.Self, html: _typing.Any) -> bool:
         blanklines = self.blankreg.findall(html)
         lines = self.linereg.findall(html)
         if len(lines) > 1:
@@ -727,7 +730,7 @@ class HeuristicProcessor(object):
             else:
                 return False
 
-    def cleanup_required(self):
+    def cleanup_required(self: _typing.Self) -> bool:
         for option in [
             "unwrap_lines",
             "markup_chapter_headings",
@@ -738,11 +741,11 @@ class HeuristicProcessor(object):
                 return True
         return False
 
-    def merge_blanks(self, html, blanks_count=None):
+    def merge_blanks(self: _typing.Self, html: _typing.Any, blanks_count: _typing.Any = None) -> _typing.Any:
         base_em = 0.5  # Baseline is 1.5em per blank line, 1st line is .5 em css and 1em for the nbsp
         em_per_line = 1.5  # Add another 1.5 em for each additional blank
 
-        def merge_matches(match):
+        def merge_matches(match: _typing.Any) -> _typing.Any:
             to_merge = match.group(0)
             lines = float(len(self.single_blank.findall(to_merge))) - 1.0
             em = base_em + (em_per_line * lines)
@@ -769,7 +772,7 @@ class HeuristicProcessor(object):
         html = self.any_multi_blank.sub(merge_matches, html)
         return html
 
-    def detect_whitespace(self, html):
+    def detect_whitespace(self: _typing.Self, html: _typing.Any) -> _typing.Any:
 
         blanks_around_headings = re.compile(
             r"(?P<initparas>(<(p|div)[^>]*>\s*</(p|div)>\s*){1,}\s*)?(?P<content><h(?P<hnum>\d+)"
@@ -791,7 +794,7 @@ class HeuristicProcessor(object):
             re.IGNORECASE | re.DOTALL,
         )
 
-        def merge_header_whitespace(match):
+        def merge_header_whitespace(match: _typing.Any) -> _typing.Any:
             initblanks = match.group("initparas")
             endblanks = match.group("endparas")
             content = match.group("content")
@@ -817,7 +820,7 @@ class HeuristicProcessor(object):
         html = blanks_around_headings.sub(merge_header_whitespace, html)
         html = blanks_around_scene_breaks.sub(merge_header_whitespace, html)
 
-        def markup_whitespaces(match):
+        def markup_whitespaces(match: _typing.Any) -> _typing.Any:
             blanks = match.group(0)
             blanks = self.blankreg.sub(
                 '\n<p class="whitespace" style="text-align:center; margin-top:0em; ' 'margin-bottom:0em"> </p>',
@@ -831,7 +834,7 @@ class HeuristicProcessor(object):
 
         return html
 
-    def detect_soft_breaks(self, html):
+    def detect_soft_breaks(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         line = r"(?P<initline>" + self.line_open + r"\s*(?P<init_content>.*?)" + self.line_close + r")"
         line_two = (
             r"(?P<line_two>"
@@ -843,7 +846,7 @@ class HeuristicProcessor(object):
         div_break_candidate_pattern = line + r"\s*<div[^>]*>\s*</div>\s*" + line_two
         div_break_candidate = re.compile(r"%s" % div_break_candidate_pattern, re.IGNORECASE | re.UNICODE)
 
-        def convert_div_softbreaks(match):
+        def convert_div_softbreaks(match: _typing.Any) -> _typing.Any:
             init_is_paragraph = self.check_paragraph(match.group("init_content"))
             line_two_is_paragraph = self.check_paragraph(match.group("line_two_content"))
 
@@ -870,7 +873,7 @@ class HeuristicProcessor(object):
             )
         return html
 
-    def detect_scene_breaks(self, html):
+    def detect_scene_breaks(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         scene_break_regex = (
             self.line_open
             + r"(?!("
@@ -884,7 +887,7 @@ class HeuristicProcessor(object):
         html = scene_breaks.sub(self.scene_break_open + r"\g<break>" + "</p>", html)
         return html
 
-    def markup_user_break(self, replacement_break):
+    def markup_user_break(self: _typing.Self, replacement_break: _typing.Any) -> _typing.Any:
         """
         Takes string a user supplies and wraps it in markup that will be centered with
         appropriate margins.  <hr> and <img> tags are allowed.  If the user specifies
@@ -940,7 +943,7 @@ class HeuristicProcessor(object):
 
         return scene_break
 
-    def check_paragraph(self, content):
+    def check_paragraph(self: _typing.Self, content: _typing.Any) -> bool:
         content = re.sub(r"\s*</?span[^>]*>\s*", "", content)
         if re.match(r".*[\"'.!?:]$", content):
             # print "detected this as a paragraph"
@@ -948,7 +951,7 @@ class HeuristicProcessor(object):
         else:
             return False
 
-    def abbyy_processor(self, html):
+    def abbyy_processor(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         abbyy_line = re.compile(
             r'((?P<linestart><p\sstyle="(?P<styles>[^"]*?);?">)(?P<content>.*?)'
             r"(?P<lineend></p>)|(?P<image><img[^>]*>))",
@@ -959,7 +962,7 @@ class HeuristicProcessor(object):
         self.previous_was_paragraph = False
         html = re.sub(r"</?a[^>]*>", "", html)
 
-        def convert_styles(match):
+        def convert_styles(match: _typing.Any) -> _typing.Any:
             # print "raw styles are: "+match.group('styles')
             content = match.group("content")
             # print "raw content is: "+match.group('content')
@@ -1068,7 +1071,7 @@ class HeuristicProcessor(object):
         html = abbyy_line.sub(convert_styles, html)
         return html
 
-    def __call__(self, html):
+    def __call__(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         self.log.debug("*********  Heuristic processing HTML  *********")
         # Count the words in the document to estimate how many chapters to look for and whether
         # other types of processing are attempted

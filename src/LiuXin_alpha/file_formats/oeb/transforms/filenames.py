@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+from __future__ import annotations
+
+import typing as _typing
 import posixpath
 
 from lxml import etree
@@ -22,11 +25,11 @@ class RenameFiles(object):  # {{{
     and manifest are not touched by this transform.
     """
 
-    def __init__(self, rename_map, renamed_items_map=None):
+    def __init__(self: _typing.Self, rename_map: _typing.Any, renamed_items_map: _typing.Any = None) -> None:
         self.rename_map = rename_map
         self.renamed_items_map = renamed_items_map
 
-    def __call__(self, oeb, opts):
+    def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any) -> None:
         import cssutils
 
         self.log = oeb.logger
@@ -54,7 +57,7 @@ class RenameFiles(object):  # {{{
         if self.oeb.toc:
             self.fix_toc_entry(self.oeb.toc)
 
-    def fix_toc_entry(self, toc):
+    def fix_toc_entry(self: _typing.Self, toc: _typing.Any) -> None:
         if toc.href:
             href = urlnormalize(toc.href)
             href, frag = urldefrag(href)
@@ -69,7 +72,7 @@ class RenameFiles(object):  # {{{
         for x in toc:
             self.fix_toc_entry(x)
 
-    def url_replacer(self, orig_url):
+    def url_replacer(self: _typing.Self, orig_url: _typing.Any) -> _typing.Any:
         url = urlnormalize(orig_url)
         parts = urlparse(url)
         if parts.scheme:
@@ -97,7 +100,7 @@ class UniqueFilenames(object):  # {{{
     Ensure that every item in the manifest has a unique filename
     """
 
-    def __call__(self, oeb, opts):
+    def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any) -> None:
         self.log = oeb.logger
         self.opts = opts
         self.oeb = oeb
@@ -135,7 +138,7 @@ class UniqueFilenames(object):  # {{{
             renamer = RenameFiles(self.rename_map)
             renamer(oeb, opts)
 
-    def unique_suffix(self, fname):
+    def unique_suffix(self: _typing.Self, fname: _typing.Any) -> _typing.Any:
         base, ext = posixpath.splitext(fname)
         c = 0
         while True:
@@ -155,7 +158,7 @@ class FlatFilenames(object):  # {{{
     Ensure that every item in the manifest has a unique filename without subdirectories.
     """
 
-    def __call__(self, oeb, opts):
+    def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any) -> None:
         self.log = oeb.logger
         self.opts = opts
         self.oeb = oeb

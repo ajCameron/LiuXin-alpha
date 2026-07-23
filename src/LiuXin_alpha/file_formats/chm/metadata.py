@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import typing as _typing
+
 """CHM metadata extraction support."""
 
 import codecs
@@ -21,15 +23,15 @@ __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def _clean(s):
+def _clean(s: _typing.Any) -> _typing.Any:
     return s.replace("\u00a0", " ")
 
 
-def _text_content(elem):
+def _text_content(elem: _typing.Any) -> _typing.Any:
     return "".join(elem.itertext()).strip() if elem is not None else ""
 
 
-def _metadata_from_table(soup, searchfor):
+def _metadata_from_table(soup: _typing.Any, searchfor: _typing.Any) -> _typing.Any:
     for td in soup.xpath("//td"):
         td_text = _clean(_text_content(td))
         if not re.search(searchfor, td_text, flags=re.I):
@@ -48,7 +50,7 @@ def _metadata_from_table(soup, searchfor):
     return None
 
 
-def _metadata_from_span(soup, searchfor):
+def _metadata_from_span(soup: _typing.Any, searchfor: _typing.Any) -> _typing.Any:
     for span in soup.xpath("//span[@class]"):
         klass = span.attrib.get("class", "")
         if re.search(searchfor, klass, flags=re.I):
@@ -56,7 +58,7 @@ def _metadata_from_span(soup, searchfor):
     return None
 
 
-def _get_authors(soup):
+def _get_authors(soup: _typing.Any) -> _typing.Any:
     aut = _metadata_from_span(soup, r"author") or _metadata_from_table(soup, r"^\s*by\s*:?\s+")
     ans = [_("Unknown")]
     if aut is not None:
@@ -64,15 +66,15 @@ def _get_authors(soup):
     return ans
 
 
-def _get_publisher(soup):
+def _get_publisher(soup: _typing.Any) -> bool:
     return _metadata_from_span(soup, "imprint") or _metadata_from_table(soup, "publisher")
 
 
-def _get_isbn(soup):
+def _get_isbn(soup: _typing.Any) -> bool:
     return _metadata_from_span(soup, "isbn") or _metadata_from_table(soup, "isbn")
 
 
-def _get_comments(soup):
+def _get_comments(soup: _typing.Any) -> str | None:
     date = _metadata_from_span(soup, "cwdate") or _metadata_from_table(soup, "pub date")
     pages = _metadata_from_span(soup, "pages") or _metadata_from_table(soup, "pages")
     try:
@@ -86,7 +88,7 @@ def _get_comments(soup):
     return None
 
 
-def _get_cover(soup, rdr):
+def _get_cover(soup: _typing.Any, rdr: _typing.Any) -> _typing.Any:
     ans = None
     try:
         for img in soup.xpath("//img[@alt][@src]"):
@@ -135,7 +137,7 @@ def _get_cover(soup, rdr):
     return ans
 
 
-def get_metadata_from_reader(rdr, calibre=False):
+def get_metadata_from_reader(rdr: _typing.Any, calibre: bool = False) -> _typing.Any:
     """Get metadata from a CHM reader instance."""
     try:
         raw = rdr.get_home()
@@ -180,7 +182,7 @@ def get_metadata_from_reader(rdr, calibre=False):
     return mi
 
 
-def get_metadata(stream):
+def get_metadata(stream: _typing.Any) -> _typing.Any:
     with TemporaryFile("_chm_metadata.chm") as fname:
         with open(fname, "wb") as f:
             f.write(stream.read())

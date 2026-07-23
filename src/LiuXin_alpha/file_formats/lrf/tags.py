@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import typing as _typing
 import struct
 
 from LiuXin_alpha.file_formats.lrf import LRFParseError
@@ -186,7 +189,7 @@ class Tag(object):
         if temp is not None:
             name_map[key] = temp
 
-    def __init__(self, stream):
+    def __init__(self: _typing.Self, stream: _typing.Any) -> None:
         self.offset = stream.tell()
         tag_id = struct.unpack("<BB", stream.read(2))
         if tag_id[1] != 0xF5:
@@ -203,7 +206,7 @@ class Tag(object):
         else:
             self.contents = stream.read(size)
 
-    def __str__(self):
+    def __str__(self: _typing.Self) -> _typing.Any:
         s = "Tag %04X " % self.id
         if self.name:
             s += self.name
@@ -211,38 +214,38 @@ class Tag(object):
         return s
 
     @property
-    def byte(self):
+    def byte(self: _typing.Self) -> _typing.Any:
         if len(self.contents) != 1:
             raise LRFParseError("Bad parameter for tag ID: %04X" % self.id)
         return struct.unpack("<B", self.contents)[0]
 
     @property
-    def word(self):
+    def word(self: _typing.Self) -> _typing.Any:
         if len(self.contents) != 2:
             raise LRFParseError("Bad parameter for tag ID: %04X" % self.id)
         return struct.unpack("<H", self.contents)[0]
 
     @property
-    def sword(self):
+    def sword(self: _typing.Self) -> _typing.Any:
         if len(self.contents) != 2:
             raise LRFParseError("Bad parameter for tag ID: %04X" % self.id)
         return struct.unpack("<h", self.contents)[0]
 
     @property
-    def dword(self):
+    def dword(self: _typing.Self) -> _typing.Any:
         if len(self.contents) != 4:
             raise LRFParseError("Bad parameter for tag ID: %04X" % self.id)
         return struct.unpack("<I", self.contents)[0]
 
-    def dummy_parser(self, stream):
+    def dummy_parser(self: _typing.Self, stream: _typing.Any) -> None:
         raise LRFParseError("Unknown tag at %08X" % stream.tell())
 
     @classmethod
-    def string_parser(self, stream):
+    def string_parser(self: _typing.Self, stream: _typing.Any) -> _typing.Any:
         size = struct.unpack("<H", stream.read(2))[0]
         return stream.read(size).decode("utf-16-le", "replace")
 
-    def type_one_parser(self, stream):
+    def type_one_parser(self: _typing.Self, stream: _typing.Any) -> _typing.Any:
         cnt = struct.unpack("<H", stream.read(2))[0]
         res = []
         while cnt > 0:
@@ -250,7 +253,7 @@ class Tag(object):
             cnt -= 1
         return res
 
-    def tag_78_parser(self, stream):
+    def tag_78_parser(self: _typing.Self, stream: _typing.Any) -> _typing.Any:
         pos = stream.tell()
         res = list()
         res.append(struct.unpack("<I", stream.read(4))[0])

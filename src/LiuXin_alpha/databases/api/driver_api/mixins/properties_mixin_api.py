@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+from collections.abc import Mapping
 from typing import Optional, Iterable, Iterator, Any
 
 from LiuXin_alpha.databases.column_metadata import (
@@ -8,6 +9,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnMergePolicy,
     ColumnMetadata,
     ColumnNormalizationProfile,
+    ColumnOptions,
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
@@ -193,6 +195,40 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         validation_profile: ColumnValidationProfile,
     ) -> None:
         """Persist the validation profile for one column."""
+
+    @abc.abstractmethod
+    def direct_get_formatting_options(
+        self,
+        table: str,
+        column: str,
+    ) -> ColumnOptions:
+        """Return immutable value-formatting hints for one column."""
+
+    @abc.abstractmethod
+    def direct_set_formatting_options(
+        self,
+        table: str,
+        column: str,
+        formatting_options: Mapping[str, object],
+    ) -> None:
+        """Persist value-formatting hints for one column."""
+
+    @abc.abstractmethod
+    def direct_get_display_options(
+        self,
+        table: str,
+        column: str,
+    ) -> ColumnOptions:
+        """Return immutable surface-display hints for one column."""
+
+    @abc.abstractmethod
+    def direct_set_display_options(
+        self,
+        table: str,
+        column: str,
+        display_options: Mapping[str, object],
+    ) -> None:
+        """Persist surface-display hints for one column."""
 
     @abc.abstractmethod
     def direct_set_case_sensitivity(

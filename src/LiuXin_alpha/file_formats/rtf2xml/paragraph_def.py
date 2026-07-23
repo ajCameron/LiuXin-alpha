@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import sys, os
 
 from LiuXin_alpha.file_formats.rtf2xml import copy, border_parse
@@ -54,13 +57,13 @@ class ParagraphDef:
     """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        default_font,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        default_font: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         """
         Required:
             'file'--file to parse
@@ -79,7 +82,7 @@ class ParagraphDef:
         self.__run_level = run_level
         self.__write_to = better_mktemp()
 
-    def __initiate_values(self):
+    def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
         """
@@ -307,7 +310,7 @@ class ParagraphDef:
             "mi<mk<lst-txbeg_": self.__stop_block_func,
         }
 
-    def __before_1st_para_def_func(self, line):
+    def __before_1st_para_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line -- line to parse
@@ -322,13 +325,13 @@ class ParagraphDef:
         else:
             self.__write_obj.write(line)
 
-    def __found_para_def_func(self):
+    def __found_para_def_func(self: _typing.Self) -> None:
         self.__state = "collect_tokens"
         # not exactly right--have to reset the dictionary--give it default
         # values
         self.__reset_dict()
 
-    def __collect_tokens_func(self, line):
+    def __collect_tokens_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Required:
             line --line to parse
@@ -360,13 +363,13 @@ class ParagraphDef:
                 if token:
                     self.__att_val_dict[token] = line[20:-1]
 
-    def __tab_stop_func(self, line):
+    def __tab_stop_func(self: _typing.Self, line: _typing.Any) -> None:
         """ """
         self.__att_val_dict["tabs"] += "%s:" % self.__tab_type
         self.__att_val_dict["tabs"] += "%s;" % line[20:-1]
         self.__tab_type = "left"
 
-    def __tab_type_func(self, line):
+    def __tab_type_func(self: _typing.Self, line: _typing.Any) -> None:
         """ """
         type = self.__tab_type_dict.get(self.__token_info)
         if type is not None:
@@ -376,7 +379,7 @@ class ParagraphDef:
                 msg = "no entry for %s\n" % self.__token_info
                 raise self.__bug_handler(msg)
 
-    def __tab_leader_func(self, line):
+    def __tab_leader_func(self: _typing.Self, line: _typing.Any) -> None:
         """ """
         leader = self.__tab_type_dict.get(self.__token_info)
         if leader is not None:
@@ -386,13 +389,13 @@ class ParagraphDef:
                 msg = "no entry for %s\n" % self.__token_info
                 raise self.__bug_handler(msg)
 
-    def __tab_bar_func(self, line):
+    def __tab_bar_func(self: _typing.Self, line: _typing.Any) -> None:
         """ """
         # self.__att_val_dict['tabs-bar'] += '%s:' % line[20:-1]
         self.__att_val_dict["tabs"] += "bar:%s;" % (line[20:-1])
         self.__tab_type = "left"
 
-    def __parse_border(self, line):
+    def __parse_border(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to parse
@@ -405,7 +408,7 @@ class ParagraphDef:
         border_dict = self.__border_obj.parse_border(line)
         self.__att_val_dict.update(border_dict)
 
-    def __para_def_in_para_def_func(self, line):
+    def __para_def_in_para_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to parse
@@ -419,7 +422,7 @@ class ParagraphDef:
         self.__state = "collect_tokens"
         self.__reset_dict()
 
-    def __end_para_def_func(self, line):
+    def __end_para_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             Nothing
@@ -435,7 +438,7 @@ class ParagraphDef:
         self.__write_obj.write(line)
         self.__state = "in_paragraphs"
 
-    def __start_para_after_def_func(self, line):
+    def __start_para_after_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             Nothing
@@ -452,7 +455,7 @@ class ParagraphDef:
         self.__write_obj.write(line)
         self.__state = "in_paragraphs"
 
-    def __after_para_def_func(self, line):
+    def __after_para_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line to parse
@@ -470,7 +473,7 @@ class ParagraphDef:
         else:
             self.__write_obj.write(line)
 
-    def __in_paragraphs_func(self, line):
+    def __in_paragraphs_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --current line
@@ -485,7 +488,7 @@ class ParagraphDef:
         else:
             self.__write_obj.write(line)
 
-    def __found_para_end_func(self, line):
+    def __found_para_end_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line to print out
@@ -499,7 +502,7 @@ class ParagraphDef:
         self.__state = "after_para_end"
         self.__write_obj.write(line)
 
-    def __after_para_end_func(self, line):
+    def __after_para_end_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line to output
@@ -523,7 +526,7 @@ class ParagraphDef:
         if action:
             action(line)
 
-    def __continue_block_func(self, line):
+    def __continue_block_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --line to print out
@@ -541,7 +544,7 @@ class ParagraphDef:
 
     # found a new paragraph definition after an end of a paragraph
 
-    def __new_para_def_func(self, line):
+    def __new_para_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line -- line to output
@@ -558,7 +561,7 @@ class ParagraphDef:
 
     # after a paragraph and found reason to stop this block
 
-    def __stop_block_func(self, line):
+    def __stop_block_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         Requires:
             line --(shouldn't be here?)
@@ -573,7 +576,7 @@ class ParagraphDef:
         self.__write_para_def_end_func()
         self.__state = "after_para_def"
 
-    def __write_para_def_end_func(self):
+    def __write_para_def_end_func(self: _typing.Self) -> None:
         """
         Requires:
             nothing
@@ -595,7 +598,7 @@ class ParagraphDef:
         if "caps" in keys:
             self.__write_obj.write("mi<mk<caps-end__\n")
 
-    def __get_num_of_style(self):
+    def __get_num_of_style(self: _typing.Self) -> None:
         """
         Requires:
             nothing
@@ -624,7 +627,7 @@ class ParagraphDef:
         if new_style:
             self.__write_body_styles()
 
-    def __write_body_styles(self):
+    def __write_body_styles(self: _typing.Self) -> None:
         style_string = ""
         style_string += "mi<tg<empty-att_<paragraph-style-in-body"
         style_string += "<name>%s" % self.__att_val_dict["name"]
@@ -641,7 +644,7 @@ class ParagraphDef:
         style_string += "\n"
         self.__body_style_strings.append(style_string)
 
-    def __write_para_def_beg(self):
+    def __write_para_def_beg(self: _typing.Self) -> None:
         """
         Requires:
             nothing
@@ -698,12 +701,12 @@ class ParagraphDef:
             value = self.__att_val_dict["caps"]
             self.__write_obj.write("mi<mk<caps______<%s\n" % value)
 
-    def __empty_table_element_func(self, line):
+    def __empty_table_element_func(self: _typing.Self, line: _typing.Any) -> None:
         self.__write_obj.write("mi<mk<in-table__\n")
         self.__write_obj.write(line)
         self.__state = "after_para_def"
 
-    def __reset_dict(self):
+    def __reset_dict(self: _typing.Self) -> None:
         """
         Requires:
             nothing
@@ -724,7 +727,7 @@ class ParagraphDef:
         self.__att_val_dict["tabs-bar"] = ""
         self.__att_val_dict["tabs"] = ""
 
-    def make_paragraph_def(self):
+    def make_paragraph_def(self: _typing.Self) -> _typing.Any:
         """
         Requires:
             nothing

@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import sys
@@ -20,7 +23,7 @@ __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 IMPORTABLE = {"htm", "xhtml", "html", "xhtm", "docx"}
 
 
-def auto_fill_manifest(container):
+def auto_fill_manifest(container: _typing.Any) -> None:
     manifest_id_map = container.manifest_id_map
     manifest_name_map = {v: k for k, v in iteritems(manifest_id_map)}
 
@@ -36,7 +39,7 @@ def auto_fill_manifest(container):
             manifest_id_map[mitem.get("id")] = name
 
 
-def import_book_as_epub(srcpath, destpath, log=default_log):
+def import_book_as_epub(srcpath: _typing.Any, destpath: _typing.Any, log: _typing.Any = default_log) -> None:
     from LiuXin_alpha.file_formats.conversion.plumber import Plumber
     from LiuXin_alpha.file_formats.epub import initialize_container
 

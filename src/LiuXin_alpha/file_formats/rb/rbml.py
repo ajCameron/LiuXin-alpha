@@ -3,8 +3,13 @@
 """
 Transform OEB content into RB compatible markup.
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import re
+from collections.abc import MutableMapping
+from typing import Protocol
 
 from LiuXin_alpha.file_formats.rb import unique_name
 
@@ -58,19 +63,39 @@ STYLES = [
 ]
 
 
+class _Logger(Protocol):
+    def debug(self: _typing.Self, message: object) -> object: ...
+
+    def info(self: _typing.Self, message: object) -> object: ...
+
+    def warn(self: _typing.Self, message: object) -> object: ...
+
+    def warning(self: _typing.Self, message: object) -> object: ...
+
+
 class RBMLizer(object):
-    def __init__(self, log, name_map=None):
+    def __init__(
+        self: _typing.Self,
+        log: _Logger,
+        name_map: MutableMapping[str, str] | None = None,
+    ) -> None:
         self.log = log
         self.name_map = {} if name_map is None else name_map
-        self.link_hrefs = {}
+        self.link_hrefs: dict[str, str] = {}
+        self.oeb_book: _typing.Any = None
+        self.opts: _typing.Any = None
 
-    def extract_content(self, oeb_book, opts):
+    def extract_content(
+        self: _typing.Self,
+        oeb_book: _typing.Any,
+        opts: _typing.Any,
+    ) -> str:
         self.log.info("Converting XHTML to RB markup...")
         self.oeb_book = oeb_book
         self.opts = opts
         return self.mlize_spine()
 
-    def mlize_spine(self):
+    def mlize_spine(self: _typing.Self) -> str:
         self.link_hrefs = {}
         output = ["<HTML><HEAD><TITLE></TITLE></HEAD><BODY>"]
         output.append(self.get_cover_page())
@@ -84,7 +109,7 @@ class RBMLizer(object):
         output = self.clean_text(output)
         return output
 
-    def get_cover_page(self):
+    def get_cover_page(self: _typing.Self) -> str:
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
         from LiuXin_alpha.file_formats.oeb.base import XHTML
 
@@ -107,7 +132,7 @@ class RBMLizer(object):
                 output += "".join(self.dump_text(item.data.find(XHTML("body")), stylizer, item))
         return output
 
-    def get_toc(self):
+    def get_toc(self: _typing.Self) -> str:
         toc = [""]
         if self.opts.inline_toc:
             self.log.debug("Generating table of contents...")
@@ -122,7 +147,7 @@ class RBMLizer(object):
             toc.append("</UL>")
         return "".join(toc)
 
-    def get_text(self):
+    def get_text(self: _typing.Self) -> str:
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
         from LiuXin_alpha.file_formats.oeb.base import XHTML
 
@@ -134,17 +159,21 @@ class RBMLizer(object):
             output += self.dump_text(item.data.find(XHTML("body")), stylizer, item)
         return "".join(output)
 
-    def add_page_anchor(self, page):
+    def add_page_anchor(self: _typing.Self, page: _typing.Any) -> str:
         return self.get_anchor(page, "")
 
-    def get_anchor(self, page, aid):
+    def get_anchor(
+        self: _typing.Self,
+        page: _typing.Any,
+        aid: str,
+    ) -> str:
         aid = "%s#%s" % (page.href, aid)
         if aid not in self.link_hrefs.keys():
             self.link_hrefs[aid] = "calibre_link-%s" % len(self.link_hrefs.keys())
         aid = self.link_hrefs[aid]
         return '<A NAME="%s"></A>' % aid
 
-    def clean_text(self, text):
+    def clean_text(self: _typing.Self, text: str) -> str:
         # Remove anchors that do not have links
         anchors = set(re.findall(r'(?<=<A NAME=").+?(?="></A>)', text))
         links = set(re.findall(r'(?<=<A HREF="#).+?(?=">)', text))
@@ -153,7 +182,13 @@ class RBMLizer(object):
 
         return text
 
-    def dump_text(self, elem, stylizer, page, tag_stack=None):
+    def dump_text(
+        self: _typing.Self,
+        elem: _typing.Any,
+        stylizer: _typing.Any,
+        page: _typing.Any,
+        tag_stack: list[str] | None = None,
+    ) -> list[str]:
         from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace
         if tag_stack is None:
             tag_stack = []
@@ -238,7 +273,10 @@ class RBMLizer(object):
 
         return text
 
-    def close_tags(self, tags):
+    def close_tags(
+        self: _typing.Self,
+        tags: list[str],
+    ) -> list[str]:
         text = [""]
         for i in range(0, len(tags)):
             tag = tags.pop()

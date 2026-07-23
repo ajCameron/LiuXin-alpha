@@ -1,4 +1,7 @@
 from __future__ import with_statement
+from __future__ import annotations
+
+import typing as _typing
 
 """
 Convert an ODT file into a Open Ebook
@@ -21,7 +24,7 @@ class ODTInput(InputFormatPlugin):
     description = "Convert ODT (OpenOffice) files to HTML"
     file_types = {"odt"}
 
-    def convert(self, stream, options, file_ext, log, accelerators):
+    def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         from LiuXin_alpha.file_formats.odt.input import Extract
 
         return Extract()(stream, choose_conversion_workdir("_odt_input"), log)

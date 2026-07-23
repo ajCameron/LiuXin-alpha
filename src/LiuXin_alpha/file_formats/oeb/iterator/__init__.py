@@ -2,6 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 import os
 import re
@@ -15,7 +18,7 @@ __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def is_supported(path):
+def is_supported(path: _typing.Any) -> bool:
     """
     Is the file in the list of formats which can be converted to html?
     :param path:
@@ -29,11 +32,11 @@ def is_supported(path):
 
 
 class UnsupportedFormatError(Exception):
-    def __init__(self, fmt):
+    def __init__(self: _typing.Self, fmt: _typing.Any) -> None:
         Exception.__init__(self, _("%s format books are not supported") % fmt.upper())
 
 
-def EbookIterator(*args, **kwargs):
+def EbookIterator(*args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     """
     For backwards compatibility
     :param args:
@@ -45,7 +48,7 @@ def EbookIterator(*args, **kwargs):
     return EbookIterator(*args, **kwargs)
 
 
-def get_preprocess_html(path_to_ebook, output=None):
+def get_preprocess_html(path_to_ebook: _typing.Any, output: _typing.Any = None) -> None:
     """
     Return an html version of the book before pre-process has been run.
     :param path_to_ebook:

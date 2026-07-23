@@ -5,6 +5,9 @@ modules (indirectly, for htmllib as well).  It has no documented
 public API and should not be used directly.
 
 """
+from __future__ import annotations
+
+import typing as _typing
 
 import re
 
@@ -25,18 +28,18 @@ class ParserBase:
     """Parser base class which provides some common support methods used
     by the SGML/HTML and XHTML parsers."""
 
-    def __init__(self):
+    def __init__(self: _typing.Self) -> None:
         if self.__class__ is ParserBase:
             raise RuntimeError("markupbase.ParserBase must be subclassed")
 
-    def error(self, message):
+    def error(self: _typing.Self, message: _typing.Any) -> None:
         raise NotImplementedError("subclasses of ParserBase must override error()")
 
-    def reset(self):
+    def reset(self: _typing.Self) -> None:
         self.lineno = 1
         self.offset = 0
 
-    def getpos(self):
+    def getpos(self: _typing.Self) -> tuple[_typing.Any, ...]:
         """Return current line number and offset."""
         return self.lineno, self.offset
 
@@ -44,7 +47,7 @@ class ParserBase:
     # called for each piece of data exactly once, in order -- in other
     # words the concatenation of all the input strings to this
     # function should be exactly the entire input.
-    def updatepos(self, i, j):
+    def updatepos(self: _typing.Self, i: _typing.Any, j: _typing.Any) -> _typing.Any:
         if i >= j:
             return j
         rawdata = self.rawdata
@@ -60,7 +63,7 @@ class ParserBase:
     _decl_otherchars = ""
 
     # Internal -- parse declaration (for use by subclasses).
-    def parse_declaration(self, i):
+    def parse_declaration(self: _typing.Self, i: _typing.Any) -> _typing.Any:
         # This is some sort of declaration; in "HTML as
         # deployed," this should only be the document type
         # declaration ("<!DOCTYPE html...>").
@@ -137,7 +140,7 @@ class ParserBase:
 
     # Internal -- parse a marked section
     # Override this to handle MS-word extension syntax <![if word]>content<![endif]>
-    def parse_marked_section(self, i, report=1):
+    def parse_marked_section(self: _typing.Self, i: _typing.Any, report: int = 1) -> _typing.Any:
         rawdata = self.rawdata
         assert rawdata[i : i + 3] == "<![", "unexpected call to parse_marked_section()"
         sectName, j = self._scan_name(i + 3, i)
@@ -159,7 +162,7 @@ class ParserBase:
         return match.end(0)
 
     # Internal -- parse comment, return length or -1 if not terminated
-    def parse_comment(self, i, report=1):
+    def parse_comment(self: _typing.Self, i: _typing.Any, report: int = 1) -> _typing.Any:
         rawdata = self.rawdata
         if rawdata[i : i + 4] != "<!--":
             self.error("unexpected call to parse_comment()")
@@ -173,7 +176,7 @@ class ParserBase:
 
     # Internal -- scan past the internal subset in a <!DOCTYPE declaration,
     # returning the index just past any whitespace following the trailing ']'.
-    def _parse_doctype_subset(self, i, declstartpos):
+    def _parse_doctype_subset(self: _typing.Self, i: _typing.Any, declstartpos: _typing.Any) -> _typing.Any:
         rawdata = self.rawdata
         n = len(rawdata)
         j = i
@@ -239,7 +242,7 @@ class ParserBase:
         return -1
 
     # Internal -- scan past <!ELEMENT declarations
-    def _parse_doctype_element(self, i, declstartpos):
+    def _parse_doctype_element(self: _typing.Self, i: _typing.Any, declstartpos: _typing.Any) -> _typing.Any:
         name, j = self._scan_name(i, declstartpos)
         if j == -1:
             return -1
@@ -250,7 +253,7 @@ class ParserBase:
         return -1
 
     # Internal -- scan past <!ATTLIST declarations
-    def _parse_doctype_attlist(self, i, declstartpos):
+    def _parse_doctype_attlist(self: _typing.Self, i: _typing.Any, declstartpos: _typing.Any) -> _typing.Any:
         rawdata = self.rawdata
         name, j = self._scan_name(i, declstartpos)
         c = rawdata[j : j + 1]
@@ -307,7 +310,7 @@ class ParserBase:
                 return j + 1
 
     # Internal -- scan past <!NOTATION declarations
-    def _parse_doctype_notation(self, i, declstartpos):
+    def _parse_doctype_notation(self: _typing.Self, i: _typing.Any, declstartpos: _typing.Any) -> _typing.Any:
         name, j = self._scan_name(i, declstartpos)
         if j < 0:
             return j
@@ -330,7 +333,7 @@ class ParserBase:
                     return j
 
     # Internal -- scan past <!ENTITY declarations
-    def _parse_doctype_entity(self, i, declstartpos):
+    def _parse_doctype_entity(self: _typing.Self, i: _typing.Any, declstartpos: _typing.Any) -> _typing.Any:
         rawdata = self.rawdata
         if rawdata[i : i + 1] == "%":
             j = i + 1
@@ -366,7 +369,7 @@ class ParserBase:
 
     # Internal -- scan a name token and the new position and the token, or
     # return -1 if we've reached the end of the buffer.
-    def _scan_name(self, i, declstartpos):
+    def _scan_name(self: _typing.Self, i: _typing.Any, declstartpos: _typing.Any) -> tuple[_typing.Any, ...]:
         rawdata = self.rawdata
         n = len(rawdata)
         if i == n:
@@ -383,5 +386,5 @@ class ParserBase:
             self.error("expected name token at %r" % rawdata[declstartpos : declstartpos + 20])
 
     # To be overridden -- handlers for unknown objects
-    def unknown_decl(self, data):
+    def unknown_decl(self: _typing.Self, data: _typing.Any) -> None:
         pass

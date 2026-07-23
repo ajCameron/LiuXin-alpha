@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import annotations
+
+import typing as _typing
 
 """
 HeaderID Extension for Python-Markdown
@@ -89,14 +92,14 @@ logger = logging.getLogger("MARKDOWN")
 IDCOUNT_RE = re.compile(r"^(.*)_([0-9]+)$")
 
 
-def slugify(value, separator):
+def slugify(value: _typing.Any, separator: _typing.Any) -> _typing.Any:
     """Slugify a string, to make it URL friendly."""
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore")
     value = re.sub(r"[^\w\s-]", "", value.decode("ascii")).strip().lower()
     return re.sub(r"[%s\s]+" % separator, separator, value)
 
 
-def unique(id, ids):
+def unique(id: _typing.Any, ids: _typing.Any) -> _typing.Any:
     """Ensure id is unique in set of ids. Append '_1', '_2'... if not"""
     while id in ids or not id:
         m = IDCOUNT_RE.match(id)
@@ -108,7 +111,7 @@ def unique(id, ids):
     return id
 
 
-def itertext(elem):
+def itertext(elem: _typing.Any) -> _typing.Iterator[_typing.Any]:
     """Loop through all children and return text only.
 
     Reimplements method of same name added to ElementTree in Python 2.7
@@ -128,7 +131,7 @@ class HeaderIdTreeprocessor(Treeprocessor):
 
     IDs = set()
 
-    def run(self, doc):
+    def run(self: _typing.Self, doc: _typing.Any) -> None:
         start_level, force_id = self._get_meta()
         slugify = self.config["slugify"]
         sep = self.config["separator"]
@@ -146,7 +149,7 @@ class HeaderIdTreeprocessor(Treeprocessor):
                         level = 6
                     elem.tag = "h%d" % level
 
-    def _get_meta(self):
+    def _get_meta(self: _typing.Self) -> tuple[_typing.Any, ...]:
         """Return meta data suported by this ext as a tuple"""
         level = int(self.config["level"]) - 1
         force = self._str2bool(self.config["forceid"])
@@ -157,7 +160,7 @@ class HeaderIdTreeprocessor(Treeprocessor):
                 force = self._str2bool(self.md.Meta["header_forceid"][0])
         return level, force
 
-    def _str2bool(self, s, default=False):
+    def _str2bool(self: _typing.Self, s: _typing.Any, default: bool = False) -> _typing.Any:
         """Convert a string to a booleen value."""
         s = str(s)
         if s.lower() in ["0", "f", "false", "off", "no", "n"]:
@@ -168,7 +171,7 @@ class HeaderIdTreeprocessor(Treeprocessor):
 
 
 class HeaderIdExtension(Extension):
-    def __init__(self, configs):
+    def __init__(self: _typing.Self, configs: _typing.Any) -> None:
         # set defaults
         self.config = {
             "level": ["1", "Base level for headers."],
@@ -180,7 +183,7 @@ class HeaderIdExtension(Extension):
         for key, value in configs:
             self.setConfig(key, value)
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
         md.registerExtension(self)
         self.processor = HeaderIdTreeprocessor()
         self.processor.md = md
@@ -192,9 +195,9 @@ class HeaderIdExtension(Extension):
             # insert after 'prettify' treeprocessor.
             md.treeprocessors.add("headerid", self.processor, ">prettify")
 
-    def reset(self):
+    def reset(self: _typing.Self) -> None:
         self.processor.IDs = set()
 
 
-def makeExtension(configs=None):
+def makeExtension(configs: _typing.Any = None) -> _typing.Any:
     return HeaderIdExtension(configs=configs)

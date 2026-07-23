@@ -10,6 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+from __future__ import annotations
+
+import typing as _typing
 import os
 from LiuXin_alpha.file_formats.rtf2xml import copy
 from LiuXin_alpha.utils.ptempfiles import better_mktemp
@@ -27,13 +30,13 @@ class TableInfo:
     """
 
     def __init__(
-        self,
-        in_file,
-        bug_handler,
-        table_data,
-        copy=None,
-        run_level=1,
-    ):
+        self: _typing.Self,
+        in_file: _typing.Any,
+        bug_handler: _typing.Any,
+        table_data: _typing.Any,
+        copy: _typing.Any = None,
+        run_level: int = 1,
+    ) -> None:
         """
         Required:
             'file'--file to parse
@@ -53,7 +56,7 @@ class TableInfo:
         self.__write_to = better_mktemp()
         # self.__write_to = 'table_info.data'
 
-    def insert_info(self):
+    def insert_info(self: _typing.Self) -> None:
         """ """
         read_obj = open_for_read(self.__file)
         self.__write_obj = open_for_write(self.__write_to)

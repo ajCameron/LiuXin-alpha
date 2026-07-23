@@ -2,6 +2,9 @@
 # vim:fileencoding=utf-8
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
+
+import typing as _typing
 
 try:
     from cssutils.css import CSSRule
@@ -40,7 +43,7 @@ class InvalidFont(BaseError):
     HELP = _("This font could not be processed. It most likely will" " not work in an ebook reader, either")
 
 
-def fix_property(prop, css_name, font_name):
+def fix_property(prop: _typing.Any, css_name: _typing.Any, font_name: _typing.Any) -> _typing.Any:
     changed = False
     ff = prop.propertyValue
     for i in memory_range(ff.length):
@@ -51,7 +54,7 @@ def fix_property(prop, css_name, font_name):
     return changed
 
 
-def fix_declaration(style, css_name, font_name):
+def fix_declaration(style: _typing.Any, css_name: _typing.Any, font_name: _typing.Any) -> _typing.Any:
     changed = False
     for x in ("font-family", "font"):
         prop = style.getProperty(x)
@@ -60,7 +63,7 @@ def fix_declaration(style, css_name, font_name):
     return changed
 
 
-def fix_sheet(sheet, css_name, font_name):
+def fix_sheet(sheet: _typing.Any, css_name: _typing.Any, font_name: _typing.Any) -> _typing.Any:
     changed = False
     for rule in sheet.cssRules:
         if rule.type in (CSSRule.FONT_FACE_RULE, CSSRule.STYLE_RULE):
@@ -73,7 +76,7 @@ class FontAliasing(BaseError):
 
     level = WARN
 
-    def __init__(self, font_name, css_name, name, line):
+    def __init__(self: _typing.Self, font_name: _typing.Any, css_name: _typing.Any, name: _typing.Any, line: _typing.Any) -> None:
         BaseError.__init__(
             self,
             _("The CSS font-family name {0} does not match the actual " "font name {1}").format(css_name, font_name),
@@ -89,7 +92,7 @@ class FontAliasing(BaseError):
         self.INDIVIDUAL_FIX = _("Change the font name {0} to {1} everywhere").format(css_name, font_name)
         self.font_name, self.css_name = font_name, css_name
 
-    def __call__(self, container):
+    def __call__(self: _typing.Self, container: _typing.Any) -> _typing.Any:
         changed = False
         for name, mt in iteritems(container.mime_map):
             if mt in OEB_STYLES:
@@ -118,7 +121,7 @@ class FontAliasing(BaseError):
         return changed
 
 
-def check_fonts(container):
+def check_fonts(container: _typing.Any) -> _typing.Any:
     if not _HAS_FONT_UTILS:
         return []
 
