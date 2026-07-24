@@ -10,8 +10,7 @@ from LiuXin_alpha.catalog.write import (
     CatalogTableValueLinkWriter,
     LinkUpdate,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_view_api import CacheViewSpec
-from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_view import SchemaBackedCacheView
+from LiuXin_alpha.caches import Cache
 from LiuXin_alpha.databases.macro_types import LinkValue
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
@@ -169,42 +168,43 @@ def test_cache_plugin_unicode_contract_reads_scalar_and_relation_values(contract
 def test_cache_api_creates_writers_and_reconciles_scalar_writes(
     contract_cache,
 ) -> None:
-    cache = contract_cache
+    cache = Cache.from_storage(contract_cache)
     writer = cache.create_writer("books", "title")
 
     assert isinstance(writer, CatalogColumnWriter)
     planned = writer.build_one_update(1, "planned")
     assert planned.values == {1: "planned"}
     assert writer.apply_update(planned) == {1: "planned"}
-    assert cache.get_cached_value(1, "title") == "planned"
+    assert cache.get("books", 1).value["title"] == "planned"
     assert cache.write_one("books", "title", 1, _UPDATED_TITLE) == {
         1: _UPDATED_TITLE
     }
-    assert cache.get_cached_value(1, "title") == _UPDATED_TITLE
+    assert cache.get("books", 1).value["title"] == _UPDATED_TITLE
 
     writer.write_one(2, "writer-bound update")
-    assert cache.get_cached_value(2, "title") == "writer-bound update"
+    assert cache.get("books", 2).value["title"] == "writer-bound update"
 
     cache.write("books", "title", {1: "bulk update"})
-    assert cache.get_cached_value(1, "title") == "bulk update"
+    assert cache.get("books", 1).value["title"] == "bulk update"
 
 
 def test_cache_bound_writer_rejects_use_after_cache_detach(
     contract_cache,
     unicode_contract_db: FakeDB,
 ) -> None:
-    writer = contract_cache.create_writer("books", "title")
+    cache = Cache.from_storage(contract_cache)
+    writer = cache.create_writer("books", "title")
     before = unicode_contract_db._rows_by_table["books"][0]["title"]
 
     assert contract_cache.detach_db() is unicode_contract_db
-    with pytest.raises(RuntimeError, match="cache is detached"):
+    with pytest.raises(RuntimeError, match="closed, detached"):
         writer.write_one(1, "must not be written")
 
     assert unicode_contract_db._rows_by_table["books"][0]["title"] == before
 
 
 def test_cache_api_reconciles_owned_one_to_one_writes(contract_cache) -> None:
-    cache = contract_cache
+    cache = Cache.from_storage(contract_cache)
     writer = cache.create_writer("books", "path")
 
     assert isinstance(writer, CatalogOwnedRowOneToOneWriter)
@@ -216,19 +216,19 @@ def test_cache_api_reconciles_owned_one_to_one_writes(contract_cache) -> None:
     )
 
     assert result[1][0].secondary_id == 10
-    assert cache.get_field("books.covers.path").get_value_from_src_id(1) == (
+    assert cache.storage.get_field("books.covers.path").get_value_from_src_id(1) == (
         "/covers/cache-api-updated.jpg"
     )
 
     assert writer.write_one(1, None) == {1: ()}
-    assert cache.get_field("books.covers.path").get_value_from_src_id(1) is None
+    assert cache.storage.get_field("books.covers.path").get_value_from_src_id(1) is None
 
 
 def test_cache_api_reconciles_shared_link_bulk_and_single_writes(
     contract_cache,
     unicode_contract_db: FakeDB,
 ) -> None:
-    cache = contract_cache
+    cache = Cache.from_storage(contract_cache)
     writer = cache.create_writer("books", "tag_name")
 
     assert isinstance(writer, CatalogTableValueLinkWriter)
@@ -248,7 +248,7 @@ def test_cache_api_reconciles_shared_link_bulk_and_single_writes(
     assert len(unicode_contract_db._rows_by_table["tags"]) == before
 
     cache.write_one("books", "tag_name", 1, "new cache API tag")
-    field = cache.get_field("books.tags.tag_name")
+    field = cache.storage.get_field("books.tags.tag_name")
     assert tuple(field.get_values_from_src_id(1)) == ("new cache API tag",)
 
     cache.write(
@@ -256,7 +256,7 @@ def test_cache_api_reconciles_shared_link_bulk_and_single_writes(
         "tag_name",
         additions={1: _TAG_1},
     )
-    assert set(cache.get_field("books.tags.tag_name").get_values_from_src_id(1)) == {
+    assert set(cache.storage.get_field("books.tags.tag_name").get_values_from_src_id(1)) == {
         "new cache API tag",
         _TAG_1,
     }
@@ -338,7 +338,8 @@ def typed_writer_cache(cache_plugin_name: str):
 
 
 def test_cache_api_preserves_live_link_type_guards(typed_writer_cache) -> None:
-    cache, database = typed_writer_cache
+    storage, database = typed_writer_cache
+    cache = Cache.from_storage(storage)
     writer = cache.create_writer("typed_books", "tag_name")
 
     with pytest.raises(ValueError, match="does not exist in allowed-types"):
@@ -359,7 +360,7 @@ def test_cache_api_preserves_live_link_type_guards(typed_writer_cache) -> None:
 
     assert result[1][0].link_type == "reviewer"
     assert tuple(
-        cache.get_field(
+        cache.storage.get_field(
             "typed_books.typed_tags.tag_name"
         ).get_values_from_src_id(1)
     ) == ("Ada",)
@@ -371,7 +372,7 @@ def test_cache_api_preserves_live_link_type_guards(typed_writer_cache) -> None:
     )
     assert typed_result[1][0].link_type == "reviewer"
     assert tuple(
-        cache.get_field(
+        cache.storage.get_field(
             "typed_books.typed_tags.tag_name"
         ).get_values_from_src_id(1)
     ) == ("Grace",)
@@ -518,16 +519,6 @@ def test_cache_plugin_row_helpers_and_defaults(contract_cache) -> None:
     ) == ("missing", "missing")
 
 
-def test_cache_plugin_view_reads_through_cache_value_helpers(contract_cache) -> None:
-    view = SchemaBackedCacheView(
-        contract_cache,
-        CacheViewSpec(name="books", base_table="books"),
-    )
-
-    assert view.value_for(1, "title") == _BOOK_TITLE_NFD
-    assert view.row_values_for_id(1) == (1, _BOOK_TITLE_NFD, "A-α")
-
-
 def test_cache_plugin_fresh_reads_follow_declared_live_read_capability(
     contract_cache,
     unicode_contract_db: FakeDB,
@@ -564,14 +555,9 @@ def test_cache_plugin_held_objects_follow_declared_live_child_capability(
     cache = contract_cache
     books_table = cache.get_main_table("books")
     cover_path_field = cache.get_field("books.covers.path")
-    view = SchemaBackedCacheView(
-        cache,
-        CacheViewSpec(name="books", base_table="books"),
-    )
 
     assert books_table.has_id(3) is False
     assert cover_path_field.get_value_from_src_id(1) == _COVER_PATH_1
-    assert view.value_for(1, "title") == _BOOK_TITLE_NFD
 
     unicode_contract_db.driver_wrapper.update_column("books", 1, "title", _UPDATED_TITLE)
     unicode_contract_db.driver_wrapper.update_column("covers", 10, "path", _LIVE_COVER_PATH)
@@ -583,13 +569,9 @@ def test_cache_plugin_held_objects_follow_declared_live_child_capability(
         assert books_table.has_id(3) is True
         assert books_table.get_row_snapshot(3)["title"] == _NEW_BOOK_TITLE
         assert cover_path_field.get_value_from_src_id(1) == _LIVE_COVER_PATH
-        assert view.value_for(1, "title") == _UPDATED_TITLE
-        assert view.row_values_for_id(1) == (1, _UPDATED_TITLE, "A-α")
     else:
         assert books_table.has_id(3) is False
         assert cover_path_field.get_value_from_src_id(1) == _COVER_PATH_1
-        assert view.value_for(1, "title") == _BOOK_TITLE_NFD
-        assert view.row_values_for_id(1) == (1, _BOOK_TITLE_NFD, "A-α")
 
 
 def test_cache_plugin_vectorized_helper_surface_follows_declared_capabilities(

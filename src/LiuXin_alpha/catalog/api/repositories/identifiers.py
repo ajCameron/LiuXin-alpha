@@ -6,7 +6,7 @@ Enables finding
 
 from __future__ import annotations
 
-from typing import Protocol, Sequence, runtime_checkable
+from typing import Mapping, Protocol, Sequence, runtime_checkable
 
 from ..common import EntityId, IdentifierCandidate, MatchResult, RowMapping, WemiLevel
 from .base import BaseRepositoryAPI
@@ -71,11 +71,51 @@ class IdentifierRepositoryAPI(BaseRepositoryAPI, Protocol):
         :return: Assigned identifier row ID.
         """
 
+    def link_to_agent(
+        self,
+        *,
+        identifier_id: EntityId,
+        agent_id: EntityId,
+        priority: int | None = None,
+    ) -> EntityId:
+        """
+        Assign an identifier to an Agent, copying an already-owned row.
+
+        :param identifier_id:
+        :param agent_id:
+        :param priority:
+        :return: Assigned identifier row ID.
+        """
+
     def list_for_wemi(self, *, level: WemiLevel, entity_id: EntityId) -> Sequence[RowMapping]:
         """
         Return identifiers linked to a WEMI entity.
 
         :param level:
         :param entity_id:
+        :return:
+        """
+
+    def replace_for_wemi(
+        self,
+        *,
+        level: WemiLevel,
+        entity_id: EntityId,
+        identifiers: Mapping[str, str],
+    ) -> Mapping[str, EntityId]:
+        """
+        Replace the complete identifier mapping for a WEMI entity.
+
+        :param level:
+        :param entity_id:
+        :param identifiers:
+        :return: Assigned IDs keyed by normalized scheme.
+        """
+
+    def list_for_agent(self, agent_id: EntityId) -> Sequence[RowMapping]:
+        """
+        Return identifiers owned by an Agent.
+
+        :param agent_id:
         :return:
         """

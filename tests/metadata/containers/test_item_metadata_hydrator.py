@@ -1,11 +1,22 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
 import pytest
 
+from LiuXin_alpha.caches import (
+    CacheAPI,
+    CacheCapabilities,
+    CacheConsistency,
+    CacheLookup,
+    CacheLookupStatus,
+    CacheQuery,
+    CacheQueryResult,
+    CacheRecord,
+    CacheState,
+)
 from LiuXin_alpha.databases.column_metadata import (
     ColumnMetadata,
     default_column_metadata,
@@ -462,6 +473,162 @@ class FakeStorageCache:
                     payload[secondary_link_column] = value
                     break
         return payload
+
+
+class FakeCacheFacade(CacheAPI):
+    """Modern facade-shaped wrapper used by the cache hydrator unit test."""
+
+    def __init__(self, storage: FakeStorageCache) -> None:
+        self.storage = storage
+        self.database = storage.db
+
+    @property
+    def state(self) -> CacheState:
+        return CacheState.READY
+
+    @property
+    def generation(self) -> int:
+        return 1
+
+    @property
+    def capabilities(self) -> CacheCapabilities:
+        return CacheCapabilities(
+            consistency=CacheConsistency.SNAPSHOT,
+            live_child_objects=False,
+            vectorized_helpers=False,
+        )
+
+    def load(self) -> None:
+        return None
+
+    def reload(self) -> None:
+        return None
+
+    def clear(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+    def table_columns(self) -> Mapping[str, tuple[str, ...]]:
+        return {
+            str(table_name): tuple(
+                str(column) for column in table.column_headings
+            )
+            for table_name, table in self.storage.main_tables.items()
+        }
+
+    def get(self, table: str, row_id: int) -> CacheLookup[CacheRecord]:
+        table_cache = self.storage.main_tables.get(str(table))
+        snapshot = (
+            table_cache._rows.get(int(row_id))
+            if table_cache is not None
+            else None
+        )
+        if snapshot is None:
+            return CacheLookup(
+                CacheLookupStatus.MISS,
+                None,
+                True,
+                self.generation,
+            )
+        return CacheLookup(
+            CacheLookupStatus.HIT,
+            CacheRecord(str(table), int(row_id), snapshot),
+            True,
+            self.generation,
+        )
+
+    def query(self, query: CacheQuery) -> CacheQueryResult:
+        table_cache = self.storage.main_tables[str(query.table)]
+        records = []
+        for row_id, snapshot in table_cache._rows.items():
+            if any(
+                snapshot.get(predicate.field) != predicate.value
+                for predicate in query.predicates
+            ):
+                continue
+            records.append(CacheRecord(query.table, row_id, snapshot))
+        total = len(records)
+        end = None if query.limit is None else query.offset + query.limit
+        return CacheQueryResult(
+            tuple(records[query.offset:end]),
+            total,
+            query.offset,
+            query.limit,
+            True,
+            self.generation,
+        )
+
+    def link_records(
+        self,
+        source_table: str,
+        source_id: int,
+        target_table: str,
+        *,
+        type_filter: str | None = None,
+    ) -> tuple[CacheRecord, ...]:
+        rows = self.storage.get_link_table(
+            source_table,
+            target_table,
+        ).get_link_rows_for_src(
+            int(source_id),
+            require_ordering=True,
+            type_filter=type_filter,
+        )
+        return tuple(
+            CacheRecord("link", -(index + 1), row)
+            for index, row in enumerate(rows)
+        )
+
+    def related(
+        self,
+        source_table: str,
+        source_ids: Iterable[int],
+        target_table: str,
+        *,
+        type_filter: str | None = None,
+    ) -> CacheQueryResult:
+        secondary_id_column = self.database.driver_wrapper.get_id_column(
+            target_table
+        )
+        secondary_link_column = self.database.driver_wrapper.get_link_column(
+            source_table,
+            target_table,
+            secondary_id_column,
+        )
+        records: list[CacheRecord] = []
+        for source_id in source_ids:
+            for link in self.link_records(
+                source_table,
+                int(source_id),
+                target_table,
+                type_filter=type_filter,
+            ):
+                target_id = int(link[secondary_link_column])
+                lookup = self.get(target_table, target_id)
+                if lookup.value is not None:
+                    records.append(lookup.value)
+        return CacheQueryResult(
+            tuple(records),
+            len(records),
+            0,
+            None,
+            True,
+            self.generation,
+        )
+
+    def invalidate(self, **_kwargs: Any) -> None:
+        return None
+
+    def create_writer(self, *_args: Any, **_kwargs: Any) -> Any:
+        raise NotImplementedError
+
+    def write(self, *_args: Any, **_kwargs: Any) -> Mapping[Any, Any]:
+        raise NotImplementedError
+
+    def write_one(self, *_args: Any, **_kwargs: Any) -> Mapping[Any, Any]:
+        raise NotImplementedError
 
 
 def _build_fake_database() -> FakeDatabase:
@@ -1158,7 +1325,7 @@ def test_liuxin_wemi_metadata_hydrator_builds_complete_item_slice() -> None:
 def test_liuxin_wemi_metadata_hydrator_can_read_from_loaded_cache_source() -> None:
     db = _build_fake_database()
     cache_source = CacheMetadataReadSource(
-        FakeStorageCache(db),
+        FakeCacheFacade(FakeStorageCache(db)),
         allow_database_fallback=False,
     )
 

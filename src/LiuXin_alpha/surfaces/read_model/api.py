@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+from LiuXin_alpha.caches.api import CacheQuery, CacheSort
 from LiuXin_alpha.metadata.read_sources import metadata_read_source_from
 from LiuXin_alpha.surfaces.api import ReadModelHostApi
 from LiuXin_alpha.surfaces.images import ImageBackend
@@ -86,6 +87,31 @@ class ReadModelBackend:
 
     def search_rows(self, table: str, column: str, value: object) -> list[object]:
         return self._search_rows(table, column, value)
+
+    def _cache_query(self, query: CacheQuery):
+        query_cache = getattr(self.read_source, "query_cache", None)
+        if not callable(query_cache):
+            return None
+        try:
+            return query_cache(query)
+        except Exception:
+            return None
+
+    def _cache_sort_field(self, table: str) -> Optional[str]:
+        preferred = getattr(self.host, "_preferred_summary_fields", None)
+        candidates = (
+            tuple(preferred(table))
+            if callable(preferred)
+            else ()
+        )
+        try:
+            columns = set(self.read_source.get_column_headings(table))
+        except Exception:
+            columns = set()
+        return next(
+            (str(field) for field in candidates if str(field) in columns),
+            None,
+        )
 
     def _interlinked_rows(self, row, secondary_table: str) -> list[object]:
         try:
@@ -246,11 +272,66 @@ class ReadModelBackend:
     def work_rows(self, *, sorted_by: str) -> list[object]:
         if not self._table_exists("works"):
             return []
+        id_column = self.host._id_column("works") or "work_id"
+        sort_field = (
+            id_column
+            if sorted_by == "recent"
+            else self._cache_sort_field("works")
+        )
+        if sort_field is not None:
+            result = self._cache_query(
+                CacheQuery(
+                    table="works",
+                    sort=(
+                        CacheSort(
+                            sort_field,
+                            ascending=sorted_by != "recent",
+                        ),
+                    ),
+                )
+            )
+            if result is not None and result.complete:
+                return list(result.records)
         rows = self._all_rows("works")
         if sorted_by == "recent":
-            id_column = self.host._id_column("works") or "work_id"
             return sorted(rows, key=lambda row: int(_row_value(row, id_column) or 0), reverse=True)
         return sorted(rows, key=lambda row: self.host._row_primary_text("works", row).lower())
+
+    def work_page(
+        self,
+        *,
+        sorted_by: str,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[object], int]:
+        """Return one ordered work page without materializing every cached row."""
+
+        if not self._table_exists("works"):
+            return [], 0
+        id_column = self.host._id_column("works") or "work_id"
+        sort_field = (
+            id_column
+            if sorted_by == "recent"
+            else self._cache_sort_field("works")
+        )
+        if sort_field is not None:
+            result = self._cache_query(
+                CacheQuery(
+                    table="works",
+                    sort=(
+                        CacheSort(
+                            sort_field,
+                            ascending=sorted_by != "recent",
+                        ),
+                    ),
+                    offset=max(0, int(offset)),
+                    limit=max(0, int(limit)),
+                )
+            )
+            if result is not None and result.complete:
+                return list(result.records), int(result.total_count)
+        rows = self.work_rows(sorted_by=sorted_by)
+        return rows[offset : offset + limit], len(rows)
 
     def works_for_linked_entity(self, table: str, raw_row_id: str) -> list[object]:
         if not self._table_exists(table):
@@ -662,7 +743,29 @@ class ReadModelBackend:
 
         results: list[dict[str, object]] = []
         for table in tables:
-            for row in self._all_rows(str(table)):
+            search_columns_getter = getattr(
+                self.host,
+                "_search_candidate_columns",
+                None,
+            )
+            text_fields = (
+                tuple(str(value) for value in search_columns_getter(str(table)))
+                if callable(search_columns_getter)
+                else ()
+            )
+            cached = self._cache_query(
+                CacheQuery(
+                    table=str(table),
+                    text=needle,
+                    text_fields=text_fields,
+                )
+            )
+            candidate_rows = (
+                list(cached.records)
+                if cached is not None and cached.complete
+                else self._all_rows(str(table))
+            )
+            for row in candidate_rows:
                 entry = entry_builder(str(table), row, needle)
                 if entry is not None:
                     results.append(entry)

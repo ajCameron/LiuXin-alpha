@@ -239,7 +239,7 @@ def _database_read_source(
             )
         )
 
-    resolved_cache = _loaded_storage_cache(
+    resolved_cache = _loaded_cache(
         database,
         cache=cache,
         cache_type=cache_type,
@@ -252,7 +252,7 @@ def _database_read_source(
     )
 
 
-def _loaded_storage_cache(
+def _loaded_cache(
     database: Any,
     *,
     cache: Any,
@@ -260,24 +260,19 @@ def _loaded_storage_cache(
     cache_kwargs: Mapping[str, Any] | None,
 ) -> Any:
     if cache is None:
-        from LiuXin_alpha.caches import create_storage_cache
+        from LiuXin_alpha.caches import create_cache
 
-        resolved_cache = create_storage_cache(
+        return create_cache(
             database,
             cache_type,
             **dict(cache_kwargs or {}),
         )
-        read = getattr(resolved_cache, "read", None)
-        if callable(read):
-            read()
-        return resolved_cache
 
-    read = getattr(cache, "read", None)
-    is_loaded = getattr(cache, "is_loaded", True)
-    is_initialized = getattr(cache, "is_initialized", True)
-    if callable(read) and (is_loaded is False or is_initialized is False):
-        read()
-    return cache
+    from LiuXin_alpha.caches import Cache, CacheAPI
+
+    if isinstance(cache, CacheAPI):
+        return cache
+    return Cache.from_storage(cache)
 
 
 def _metadata_as_kind(metadata: Any, kind: MetadataObjectKind | str) -> Any:

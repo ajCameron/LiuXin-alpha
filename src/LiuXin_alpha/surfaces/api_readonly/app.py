@@ -240,14 +240,17 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
             sort = "recent" if sort == "recent" else "title"
             limit = _coerce_int((query.get("limit") or [None])[0], default=self.config.default_page_size, minimum=1, maximum=self.config.max_page_size)
             offset = _coerce_int((query.get("offset") or [None])[0], default=0, minimum=0)
-            rows = self.read_model.work_rows(sorted_by=sort)
-            visible = rows[offset : offset + limit]
+            visible, total = self.read_model.work_page(
+                sorted_by=sort,
+                limit=limit,
+                offset=offset,
+            )
             return self._json_response(
                 {
                     "kind": "works",
                     "sort": sort,
                     "items": [self._work_summary_payload(row) for row in visible],
-                    "pagination": self._pagination_payload(base_path="/api/works", total=len(rows), limit=limit, offset=offset, query_values={"sort": sort}),
+                    "pagination": self._pagination_payload(base_path="/api/works", total=total, limit=limit, offset=offset, query_values={"sort": sort}),
                 }
             )
         if len(parts) == 3:

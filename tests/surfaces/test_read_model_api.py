@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from LiuXin_alpha.caches import create_storage_cache
+from LiuXin_alpha.caches import Cache, create_storage_cache
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata.read_sources import CacheMetadataReadSource
@@ -372,6 +372,7 @@ def test_read_model_can_use_cache_read_source_without_database_fallback(
 
         cache = create_storage_cache(db, "schema_backed")
         cache.read()
+        cache = Cache.from_storage(cache)
         read_source = CacheMetadataReadSource(
             cache,
             database=db,

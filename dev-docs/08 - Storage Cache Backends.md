@@ -1,6 +1,6 @@
 # Storage Cache Backends
 
-The storage cache layer sits between the live database and higher-level views.
+Storage cache plugins sit underneath the modern composed `Cache` facade.
 
 Its job is to expose:
 
@@ -8,14 +8,40 @@ Its job is to expose:
 - cached link-table objects
 - storage-facing field objects built on top of those tables
 
-This is lower-level than any browse/search/interface cache.
-It is concerned with storage-shaped values and relations, not presentation.
+This is lower-level than structured application queries. It is concerned with
+storage-shaped values and relations, not presentation, sorting, paging, or
+search policy.
+
+## Application entry point
+
+Application code should construct the composed facade:
+
+```python
+from LiuXin_alpha.caches import CacheQuery, CacheSort, create_cache
+
+cache = create_cache(db, "schema_backed")
+page = cache.query(
+    CacheQuery(
+        table="works",
+        sort=(CacheSort("work_canonical_title"),),
+        limit=25,
+    )
+)
+```
+
+`create_cache()` loads its storage plugin by default. It exposes lifecycle
+state, generation, immutable table/column introspection, exact lookup,
+structured queries, relationship traversal, explicit invalidation, and
+Catalog-delegating writes.
+
+`create_storage_cache()` remains the low-level plugin-development seam. Its
+result intentionally has no Catalog writer API.
 
 ## Current plugin model
 
 The storage cache is now plugin-backed.
 
-Code that wants a specific backend should go through:
+Plugin tests or backend development that wants a raw backend can use:
 
 ```python
 from LiuXin_alpha.caches import create_storage_cache
@@ -29,8 +55,6 @@ Current builtin plugins are:
 - `schema_backed`
 - `database_backed`
 - `numpy_vectorized`
-
-`StorageCache` still points at the default `schema_backed` implementation.
 
 If code needs to branch on backend semantics, it should prefer declared
 capabilities over class-name checks:
@@ -132,6 +156,26 @@ The intended rule of thumb is:
 - `database_backed` when freshness against external mutation matters more than speed
 - `numpy_vectorized` when read-heavy paths need a faster backend and snapshot semantics are acceptable
 
+## Query and miss semantics
+
+All built-in backends implement the same typed query contract:
+
+- exact equality preserves original stored values and Unicode forms;
+- free-text indexes use NFKC plus casefold without rewriting stored values;
+- relationship constraints use cached link topology;
+- sorting is deterministic and places nulls last;
+- paging reports total count before slicing; and
+- records and results are immutable snapshots.
+
+The core cache never silently delegates a miss to the database. Exact lookups
+report hit or miss plus completeness; queries report completeness. An
+application adapter may explicitly fall back only for an unavailable or
+incomplete operation. A known miss in a complete snapshot is final.
+
+The old mutable `CacheView` contract has been removed. Query specifications and
+results are immutable; UI selection and navigation state belong above the
+cache.
+
 ## Read-only surface startup
 
 The read-only web, Calibre-style web, JSON API, and OPDS surfaces can serve
@@ -158,8 +202,9 @@ The cache backend defaults to `schema_backed` and can be selected explicitly:
 scripts/run_api_readonly.sh --database /path/to/library.sqlite --metadata-read-source cache --cache-type schema_backed
 ```
 
-By default, cache read-source misses fall back to the live database. Disable
-that fallback when testing snapshot behavior:
+By default, unavailable cache operations may fall back to the live database.
+Known misses in a complete cache do not. Disable all fallback when testing
+strict snapshot behavior:
 
 ```bash
 scripts/run_opds_readonly.sh --database /path/to/library.sqlite --metadata-read-source cache --no-cache-db-fallback
@@ -177,6 +222,10 @@ At minimum, a backend should make clear:
 - whether it adds fast paths or only changes semantics
 
 Backends should implement the storage cache API rather than teaching callers to depend on backend-specific internals.
+
+Every backend must provide complete common query behavior. Capabilities
+describe consistency and optimized operators, not whether a caller receives
+correct results.
 
 ## Testing rule for future backends
 

@@ -363,6 +363,14 @@ cache is detached or attached to a different database, the old writer rejects
 application before persistence. `cache.catalog` is the public compatibility
 alias for the attached `cache.db` handle.
 
+For application and library code with an attached cache, this cache-aware API
+is the preferred read and write entry point. Reads can use cache-owned rows,
+relationships, and indexes; writes flow downward through the normal Catalog
+API and reconcile cache state only after success. Catalog remains independently
+usable for cacheless or controlled maintenance work and never calls upward
+into a cache. The complete ownership, result, failure, and legacy-scope
+contract is in [Modern Catalog and cache boundary](catalog-cache-boundary.md).
+
 ## Scalar-field boundary
 
 Same-table scalar column updates are not link updates. `CatalogColumnWriter`

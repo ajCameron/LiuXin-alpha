@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 from LiuXin_alpha import metadata as metadata_facade
-from LiuXin_alpha.caches import create_storage_cache
+from LiuXin_alpha.caches import Cache, create_storage_cache
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.metadata.containers import (
     LazyLiuXinWEMIMetadataHydrator,
@@ -200,6 +200,7 @@ def _metadata_snapshot(metadata: Any) -> dict[str, Any]:
 def _cache_metadata(db: Any, item_id: int) -> Any:
     cache = create_storage_cache(db, "schema_backed")
     cache.read()
+    cache = Cache.from_storage(cache)
     cache_source = CacheMetadataReadSource(
         cache,
         database=db,

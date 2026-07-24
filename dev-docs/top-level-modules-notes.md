@@ -16,13 +16,23 @@ Put another way: `databases` should answer “what is stored, and how do we read
 
 `databases` should contain the raw storage-facing **réalité [reality]** of the system: drivers, schema introspection, rows, table APIs, link-table APIs, and low-level update objects. It is the home of persistence concerns such as SQL structure, link cardinality, row creation, and backend-specific behaviour. These APIs should be as close to storage truth as possible, even when wrapped in object-oriented interfaces.
 
-This means `databases` should not own higher-level browsing or projection behaviour. A database row is not a cache view row. A database table is not a cache field. A SQL view is not a `CacheView`. Keeping these distinctions **nettes [clean]** matters, because otherwise the storage layer becomes responsible for semantics that are really consequences of in-memory modelling.
+This means `databases` should not own higher-level browsing or projection
+behaviour. A database row is not a `CacheRecord`. A database table is not a
+cache field. A SQL view is not a `CacheQueryResult`. Keeping these distinctions
+**nettes [clean]** matters, because otherwise the storage layer becomes
+responsible for semantics that are really consequences of in-memory modelling.
 
 ## What belongs in `cache`
 
-The `cache` module should own the semantic in-memory **machinerie [machinery]** that sits above raw storage. This includes field objects, field registries, cache views, projections, filtered/ordered id sets, search restrictions, refresh/invalidation behaviour, and other structures that present persisted data in a stable and useful form.
+The `cache` module should own the semantic in-memory **machinerie [machinery]** that sits above raw storage. This includes field objects, field registries, immutable query specifications and results, projections, filtered/ordered id sets, search indexes, refresh/invalidation behaviour, and other structures that present persisted data in a stable and useful form.
 
-A cache view, for example, is not a database view. It is a stateful **projection [projection]** over cached data: an ordered set of ids plus field access and filter/sort/search behaviour. That makes it a cache concern, not a database concern. Likewise, fields in cache are semantic accessors over data, not just lightly disguised link-table wrappers. Treating `cache` as its own module gives these concepts a proper **maison [home]**.
+A cache query result is not a database view. It is an immutable **projection
+[projection]** over one cache generation: ordered IDs plus projected values,
+completeness, count, and paging metadata. Mutable UI selection and navigation
+state is deliberately kept outside the storage backend. Likewise, fields in
+cache are semantic accessors over data, not just lightly disguised link-table
+wrappers. Treating `cache` as its own module gives these concepts a proper
+**maison [home]**.
 
 ## What belongs in `library`
 
@@ -42,7 +52,10 @@ This rule matters more than the module names themselves. A top-level `cache` mod
 
 ## Naming notes
 
-`CacheView` is a useful base name because it distinguishes this concept from a database view immediately. That distinction will become more important as more specialised view types are introduced later. A likely family might include `CacheView` as the common base, with more specific implementations layered on top for filtered, materialised, mutable, or search-result views.
+The modern public names are `CacheQuery`, `CacheQueryResult`, and
+`CacheRecord`. Queries describe work, results belong to one cache generation,
+and records are immutable projections. If stateful views return later, they
+should compose these contracts instead of becoming storage-backend APIs.
 
 The same naming principle applies elsewhere: names in `databases` should describe storage-facing concepts, names in `cache` should describe semantic in-memory concepts, and names in `library` should describe caller-facing concepts. Keeping those names **honnêtes [honest]** will help keep the boundaries honest too.
 
@@ -58,7 +71,7 @@ A sensible rough layout would be:
   - link tables
 - `cache/`
   - fields/
-  - views/
+  - query/
   - projections/
   - registries/
   - invalidation/

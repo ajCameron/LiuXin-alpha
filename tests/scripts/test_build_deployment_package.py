@@ -105,7 +105,7 @@ def test_build_deployment_package_writes_tarball_with_generated_helpers(tmp_path
     assert f"{prefix}/deploy/postgres_remote_setup.sh" in names
     assert f"{prefix}/deployment_manifest.json" in names
     assert f"{prefix}/src/LiuXin_alpha/__init__.py" in names
-    assert f"{prefix}/docs/development/postgresql-backend.md" in names
+    assert f"{prefix}/dev-docs/postgresql-backend.md" in names
     assert f"{prefix}/LiuXin_alpha_data/private.db" not in names
     assert f"{prefix}/tests/test_example.py" not in names
 
@@ -118,8 +118,11 @@ def _write_minimal_repo(repo: Path) -> None:
     (repo / "scripts").mkdir()
     (repo / "scripts" / "create_venv.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
     (repo / "scripts" / "run_postgres_live_smoke.py").write_text("", encoding="utf-8")
-    (repo / "docs" / "development").mkdir(parents=True)
-    (repo / "docs" / "development" / "postgresql-backend.md").write_text("# PostgreSQL\n", encoding="utf-8")
+    (repo / "dev-docs").mkdir()
+    (repo / "dev-docs" / "postgresql-backend.md").write_text(
+        "# PostgreSQL\n",
+        encoding="utf-8",
+    )
     (repo / "tests").mkdir()
     (repo / "tests" / "test_example.py").write_text("", encoding="utf-8")
     (repo / "LiuXin_alpha_data").mkdir()

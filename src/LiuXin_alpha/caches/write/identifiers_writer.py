@@ -52,7 +52,15 @@ class IdentifiersWrite(BaseWriter):
         :return:
         """
         table = field.table
+        catalog = Catalog(db)
         for book_id, ids in iteritems(book_id_val_map):
+            # Storage owns validation and transactionality. Do not advance the
+            # in-memory cache until the authoritative replacement succeeds.
+            catalog.identifiers.replace_for_wemi(
+                level="work",
+                entity_id=book_id,
+                identifiers=ids,
+            )
 
             # If the book does not currently have an entry in the ids cache, add it
             if book_id not in table.book_col_map:
@@ -70,10 +78,5 @@ class IdentifiersWrite(BaseWriter):
                 if key not in table.col_book_map:
                     table.col_book_map[key] = set()
                 table.col_book_map[key].add(book_id)
-            Catalog(db).identifiers.replace_for_wemi(
-                level="work",
-                entity_id=book_id,
-                identifiers=ids,
-            )
 
         return set(book_id_val_map)

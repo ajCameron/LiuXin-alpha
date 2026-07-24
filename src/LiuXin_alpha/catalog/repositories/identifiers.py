@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import ClassVar, Mapping, Sequence
 
-from ..api.common import EntityId, IdentifierCandidate, MatchResult, RowMapping, WemiLevel
+from ..api.common import (
+    CatalogMutationError,
+    EntityId,
+    IdentifierCandidate,
+    MatchResult,
+    RowMapping,
+    WemiLevel,
+)
 from .base import BaseRepository, WEMI_TABLES
 
 
@@ -211,12 +218,20 @@ class IdentifierRepository(BaseRepository):
         if not isinstance(identifiers, Mapping):
             raise TypeError("identifiers must be a string mapping")
         candidates: list[IdentifierCandidate] = []
+        normalised_schemes: set[str] = set()
         for scheme, value in identifiers.items():
             if not isinstance(scheme, str) or not scheme.strip():
                 raise TypeError("identifier schemes must be non-empty strings")
             if not isinstance(value, str) or not value.strip():
                 raise TypeError("identifier values must be non-empty strings")
-            candidates.append(self.normalise(IdentifierCandidate(scheme, value)))
+            candidate = self.normalise(IdentifierCandidate(scheme, value))
+            if candidate.identifier_type in normalised_schemes:
+                raise CatalogMutationError(
+                    "identifiers contain a duplicate normalized scheme: "
+                    f"{candidate.identifier_type!r}"
+                )
+            normalised_schemes.add(candidate.identifier_type)
+            candidates.append(candidate)
 
         with self._macros.transaction():
             existing_ids = {

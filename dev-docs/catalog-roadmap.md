@@ -1,6 +1,6 @@
 # Catalog roadmap
 
-Status: active, 2026-07-22.
+Status: active, 2026-07-24.
 
 Catalog is fit for its core semantic-persistence purpose. The remaining work is
 an ordered hardening and consolidation programme rather than completion of an
@@ -24,17 +24,24 @@ unfinished facade.
    paths, with characterization coverage and a guard against new production
    callers. The completed contract, caller map, and evidence live in
    `catalog-legacy-mutation-migration.md`.
-3. **Search and field-metadata ownership.** Move Calibre-cache search to its
-   compatibility owner or replace it with a repository-backed catalog search
-   service. Consolidate the duplicated field-metadata implementations behind
-   one mapping contract.
-4. **Database startup and test performance.** Profile full FRBR generation,
+3. **Modern Catalog/cache boundary — adopted, 2026-07-24.** With an attached
+   modern storage cache, application and library reads and writes should prefer
+   the cache facade. Cache writes delegate to Catalog for authoritative
+   semantic persistence and reconcile only after success; Catalog never calls
+   upward into cache state. The complete contract is in
+   `catalog-cache-boundary.md`.
+4. **Calibre compatibility ownership.** Move Calibre-cache search and the
+   remaining compatibility cache implementations under `utils`. Consolidate
+   duplicated field-metadata implementations behind one mapping contract.
+   Compatibility relocation must preserve the modern
+   `cache -> Catalog -> database` direction.
+5. **Database startup and test performance.** Profile full FRBR generation,
    aggregate-view construction, and schema introspection. Retain correctness
    while making catalog development and example startup predictable.
-5. **Graph retrieval policy.** Keep deterministic WEMI-path bundles as the
+6. **Graph retrieval policy.** Keep deterministic WEMI-path bundles as the
    default, then decide whether catalog needs an explicit full-graph query or
    caller-supplied path selection policy.
-6. **Repository-wide static boundary.** Preserve catalog's isolated strict
+7. **Repository-wide static boundary.** Preserve catalog's isolated strict
    type-clean surface while reducing the legacy import graph that prevents the
    configured whole-project checks from being meaningful gates.
 

@@ -24,20 +24,7 @@ from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.link_tables.
 from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.single_table import (
     SchemaBackedMainTableCache,
 )
-from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_view import (
-    SchemaBackedCacheView,
-    SchemaBackedCacheViewRow,
-)
-
-StorageCache = SchemaBackedStorageCache
-StorageCacheMainTable = SchemaBackedMainTableCache
-StorageCacheField = SchemaBackedSameTableField
-StorageCacheLinkTable = SchemaBackedLinkTable
-StorageCacheView = SchemaBackedCacheView
-
 __all__ = [
-    "SchemaBackedCacheView",
-    "SchemaBackedCacheViewRow",
     "SchemaBackedLinkTable",
     "SchemaBackedMainTableCache",
     "SchemaBackedManyManyField",
@@ -46,9 +33,4 @@ __all__ = [
     "SchemaBackedSameTableField",
     "SchemaBackedStorageCache",
     "SchemaBackedTwoTableOneOneField",
-    "StorageCache",
-    "StorageCacheField",
-    "StorageCacheLinkTable",
-    "StorageCacheMainTable",
-    "StorageCacheView",
 ]

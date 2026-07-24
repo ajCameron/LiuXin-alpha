@@ -8,7 +8,7 @@ kept modular before more features accumulate.
 
 Detailed staged implementation plan:
 
-- `docs/development/tkinter-gui-implementation-plan.md`
+- [Tkinter GUI implementation plan](tkinter-gui-implementation-plan.md)
 
 ## Goals
 

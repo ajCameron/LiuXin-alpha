@@ -4,7 +4,8 @@ This note records the current direction for the file-format unicode and
 malformed-input hardening work. The tests should keep using reusable fixtures
 and helpers so the same corpus can later drive conversion-matrix coverage.
 
-Format-specific durable notes now live under `docs/development/file-formats/`.
+Format-specific durable notes now live under
+[file-formats](file-formats/).
 Use one folder per format once the format has enough behavior, edge cases, or
 security policy to need a local contract. ODT, EPUB, DOCX, and HTMLZ now have
 dedicated format dossiers. Comic CBZ/CBC now has a dedicated format dossier as

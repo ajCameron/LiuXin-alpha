@@ -6,8 +6,6 @@ of reaching into ``cache_plugins.schema_backed``.
 """
 
 from LiuXin_alpha.caches.cache_plugins.schema_backed import (
-    SchemaBackedCacheView,
-    SchemaBackedCacheViewRow,
     SchemaBackedLinkTable,
     SchemaBackedMainTableCache,
     SchemaBackedManyManyField,
@@ -16,16 +14,9 @@ from LiuXin_alpha.caches.cache_plugins.schema_backed import (
     SchemaBackedSameTableField,
     SchemaBackedStorageCache,
     SchemaBackedTwoTableOneOneField,
-    StorageCache,
-    StorageCacheField,
-    StorageCacheLinkTable,
-    StorageCacheMainTable,
-    StorageCacheView,
 )
 
 __all__ = [
-    "SchemaBackedCacheView",
-    "SchemaBackedCacheViewRow",
     "SchemaBackedLinkTable",
     "SchemaBackedMainTableCache",
     "SchemaBackedManyManyField",
@@ -34,9 +25,4 @@ __all__ = [
     "SchemaBackedSameTableField",
     "SchemaBackedStorageCache",
     "SchemaBackedTwoTableOneOneField",
-    "StorageCache",
-    "StorageCacheField",
-    "StorageCacheLinkTable",
-    "StorageCacheMainTable",
-    "StorageCacheView",
 ]

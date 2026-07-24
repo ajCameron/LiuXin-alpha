@@ -2,7 +2,8 @@
 """
 The StorageCache is responsible for storage of raw data values.
 
-If you want to know about sortability and so forth, you want an InterfaceCache
+Application-facing sort, filter, search, and projection behavior is exposed by
+the composed ``CacheAPI`` rather than this storage plugin contract.
 """
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
@@ -51,26 +52,11 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api import (
     TableTypes,
     null,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_view_api import (
-    CacheViewAPI,
-    CacheViewColumnSpec,
-    CacheViewRowAPI,
-    CacheViewSortSpec,
-    CacheViewSpec,
-    CacheViewState,
-)
-
 __all__ = [
     "CacheOneOneInSameTableFieldAPI",
     "CacheOneOneInSameTableFieldUniqueAPI",
     "CacheOneOneInTwoTableFieldAPI",
     "CacheOneOneInTwoTableFieldUniqueAPI",
-    "CacheViewAPI",
-    "CacheViewColumnSpec",
-    "CacheViewRowAPI",
-    "CacheViewSortSpec",
-    "CacheViewSpec",
-    "CacheViewState",
     "FieldBasicInterfaceAPI",
     "FieldKey",
     "LinkTableKey",

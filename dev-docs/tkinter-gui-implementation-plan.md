@@ -2,7 +2,7 @@
 
 This is the staged plan for turning the Tkinter GUI spike into an operational
 LiuXin desktop surface. It complements
-`docs/development/tkinter-gui-architecture.md`.
+[Tkinter GUI architecture](tkinter-gui-architecture.md).
 
 The key boundary is:
 

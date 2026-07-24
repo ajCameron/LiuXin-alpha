@@ -142,17 +142,17 @@ class TkGuiSession:
             self._close_storage_cache()
             resolved_cache = None
         if resolved_cache is None:
-            from LiuXin_alpha.caches import create_storage_cache
+            from LiuXin_alpha.caches import create_cache
 
-            resolved_cache = create_storage_cache(
+            resolved_cache = create_cache(
                 self.database,
                 cache_type,
             )
-        read = getattr(resolved_cache, "read", None)
-        is_loaded = getattr(resolved_cache, "is_loaded", True)
-        is_initialized = getattr(resolved_cache, "is_initialized", True)
-        if callable(read) and (is_loaded is False or is_initialized is False):
-            read()
+        else:
+            from LiuXin_alpha.caches import Cache, CacheAPI
+
+            if not isinstance(resolved_cache, CacheAPI):
+                resolved_cache = Cache.from_storage(resolved_cache)
         resolved = CacheMetadataReadSource(
             resolved_cache,
             database=self.database,

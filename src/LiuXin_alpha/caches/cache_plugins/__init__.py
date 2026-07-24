@@ -21,8 +21,6 @@ from LiuXin_alpha.caches.cache_plugins.registry import (
     register_cache_plugin,
 )
 from LiuXin_alpha.caches.cache_plugins.schema_backed import (
-    SchemaBackedCacheView,
-    SchemaBackedCacheViewRow,
     SchemaBackedLinkTable,
     SchemaBackedMainTableCache,
     SchemaBackedManyManyField,
@@ -31,11 +29,6 @@ from LiuXin_alpha.caches.cache_plugins.schema_backed import (
     SchemaBackedSameTableField,
     SchemaBackedStorageCache,
     SchemaBackedTwoTableOneOneField,
-    StorageCache,
-    StorageCacheField,
-    StorageCacheLinkTable,
-    StorageCacheMainTable,
-    StorageCacheView,
 )
 
 __all__ = [
@@ -43,8 +36,6 @@ __all__ = [
     "DatabaseBackedStorageCache",
     "NumpyVectorizedStorageCache",
     "StorageCacheCapabilities",
-    "SchemaBackedCacheView",
-    "SchemaBackedCacheViewRow",
     "SchemaBackedLinkTable",
     "SchemaBackedMainTableCache",
     "SchemaBackedManyManyField",
@@ -53,11 +44,6 @@ __all__ = [
     "SchemaBackedSameTableField",
     "SchemaBackedStorageCache",
     "SchemaBackedTwoTableOneOneField",
-    "StorageCache",
-    "StorageCacheField",
-    "StorageCacheLinkTable",
-    "StorageCacheMainTable",
-    "StorageCacheView",
     "create_storage_cache",
     "get_cache_plugin_capabilities",
     "get_cache_plugin_location",

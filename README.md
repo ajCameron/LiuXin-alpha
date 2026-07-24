@@ -34,7 +34,7 @@ smoke coverage across the rest of the project—run:
 ```
 
 The runner also exposes `database` and `smoke` streams; omitting `--stream`
-still runs the full suite. See `docs/development/test-streams.md` for the
+still runs the full suite. See `dev-docs/test-streams.md` for the
 selection and maintenance rules.
 
 The full-suite helper also expects this repo-local venv:
@@ -60,5 +60,5 @@ For large-library work, install the `postgres` extra and follow the PostgreSQL
 setup/check/smoke runbook:
 
 ```text
-docs/development/postgresql-backend.md
+dev-docs/postgresql-backend.md
 ```

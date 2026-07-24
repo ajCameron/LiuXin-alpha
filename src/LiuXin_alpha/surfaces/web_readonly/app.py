@@ -9,6 +9,7 @@ import mimetypes
 import posixpath
 import re
 import sys
+import unicodedata
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -38,6 +39,10 @@ def _search_terms(value: object) -> list[str]:
     if not text:
         return []
     return [one for one in re.split(r"\s+", text) if one]
+
+
+def _normalized_search_text(value: object) -> str:
+    return unicodedata.normalize("NFKC", str(value or "")).casefold()
 
 
 def _coerce_int(raw: Optional[str], *, default: int, minimum: int = 0, maximum: Optional[int] = None) -> int:
@@ -714,15 +719,16 @@ class ReadOnlyWebApplication:
         return snippet
 
     def _global_search_entry(self, table: str, row, query_text: str) -> Optional[dict[str, object]]:
-        needle = str(query_text or "").strip().lower()
+        needle = _normalized_search_text(str(query_text or "").strip())
         terms = _search_terms(query_text)
+        normalized_terms = [_normalized_search_text(term) for term in terms]
         if not needle:
             return None
 
         primary_text = self._row_primary_text(table, row)
         summary_text = self._row_label(table, row)
-        primary_lower = primary_text.lower()
-        summary_lower = summary_text.lower()
+        primary_lower = _normalized_search_text(primary_text)
+        summary_lower = _normalized_search_text(summary_text)
 
         score = self._table_search_bonus(table)
         match_column = ""
@@ -732,26 +738,26 @@ class ReadOnlyWebApplication:
         if primary_lower == needle:
             score += 500
             found = True
-        elif any(primary_lower == term.lower() for term in terms):
+        elif any(primary_lower == term for term in normalized_terms):
             score += 420
             found = True
         elif primary_lower.startswith(needle):
             score += 360
             found = True
-        elif all(term.lower() in primary_lower for term in terms):
+        elif all(term in primary_lower for term in normalized_terms):
             score += 300
             found = True
         elif needle in primary_lower:
             score += 260
             found = True
-        elif any(term.lower() in primary_lower for term in terms):
+        elif any(term in primary_lower for term in normalized_terms):
             score += 220
             found = True
 
         if summary_lower == needle:
             score += 180
             found = True
-        elif all(term.lower() in summary_lower for term in terms):
+        elif all(term in summary_lower for term in normalized_terms):
             score += 120
             found = True
             snippet_source = summary_text
@@ -762,7 +768,7 @@ class ReadOnlyWebApplication:
 
         for index, column in enumerate(self._search_candidate_columns(table)):
             text = self._stringify_detail_value(_row_value(row, column))
-            lowered = text.lower()
+            lowered = _normalized_search_text(text)
             if not lowered:
                 continue
             column_score = None
@@ -770,11 +776,11 @@ class ReadOnlyWebApplication:
                 column_score = 200 - index
             elif lowered.startswith(needle):
                 column_score = 150 - index
-            elif all(term.lower() in lowered for term in terms):
+            elif all(term in lowered for term in normalized_terms):
                 column_score = 110 - index
             elif needle in lowered:
                 column_score = 90 - index
-            elif any(term.lower() in lowered for term in terms):
+            elif any(term in lowered for term in normalized_terms):
                 column_score = 60 - index
             if column_score is None:
                 continue
@@ -2784,13 +2790,10 @@ def build_metadata_read_source(
             )
         )
 
-    from LiuXin_alpha.caches import create_storage_cache
+    from LiuXin_alpha.caches import create_cache
     from LiuXin_alpha.metadata.read_sources import CacheMetadataReadSource
 
-    cache = create_storage_cache(db, str(cache_type or "schema_backed"))
-    read = getattr(cache, "read", None)
-    if callable(read):
-        read()
+    cache = create_cache(db, str(cache_type or "schema_backed"))
     return CacheMetadataReadSource(
         cache,
         database=db,

@@ -1,6 +1,21 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from typing import Any
+
+import pytest
+
+from LiuXin_alpha.caches import (
+    CacheAPI,
+    CacheCapabilities,
+    CacheConsistency,
+    CacheLookup,
+    CacheLookupStatus,
+    CacheQuery,
+    CacheQueryResult,
+    CacheRecord,
+    CacheState,
+)
 
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata import (
@@ -196,9 +211,11 @@ class _CacheLinkTable:
         ]
 
 
-class _Cache:
+class _Cache(CacheAPI):
     def __init__(self, database: _Database) -> None:
+        self.database = database
         self.db = database
+        self.storage = self
         self.reloaded = False
         self.main_tables = {
             table: _CacheMainTable(database, table)
@@ -224,6 +241,138 @@ class _Cache:
     def reload(self) -> None:
         self.reloaded = True
 
+    def clear(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+    def table_columns(self) -> Mapping[str, tuple[str, ...]]:
+        return {
+            str(table_name): tuple(
+                str(column) for column in table.column_headings
+            )
+            for table_name, table in self.main_tables.items()
+        }
+
+    @property
+    def state(self) -> CacheState:
+        return CacheState.READY
+
+    @property
+    def generation(self) -> int:
+        return 1
+
+    @property
+    def capabilities(self) -> CacheCapabilities:
+        return CacheCapabilities(
+            consistency=CacheConsistency.SNAPSHOT,
+            live_child_objects=False,
+            vectorized_helpers=False,
+        )
+
+    def get(self, table: str, row_id: int) -> CacheLookup[CacheRecord]:
+        table_cache = self.main_tables.get(str(table))
+        if table_cache is None or int(row_id) not in table_cache.row_ids:
+            return CacheLookup(
+                CacheLookupStatus.MISS,
+                None,
+                True,
+                self.generation,
+            )
+        return CacheLookup(
+            CacheLookupStatus.HIT,
+            CacheRecord(
+                str(table),
+                int(row_id),
+                table_cache.get_row_snapshot(int(row_id)),
+            ),
+            True,
+            self.generation,
+        )
+
+    def query(self, query: CacheQuery) -> CacheQueryResult:
+        table_cache = self.main_tables[str(query.table)]
+        records = []
+        for row_id in table_cache.row_ids:
+            snapshot = table_cache.get_row_snapshot(row_id)
+            if any(
+                snapshot.get(predicate.field) != predicate.value
+                for predicate in query.predicates
+            ):
+                continue
+            records.append(CacheRecord(query.table, row_id, snapshot))
+        total = len(records)
+        end = None if query.limit is None else query.offset + query.limit
+        return CacheQueryResult(
+            tuple(records[query.offset:end]),
+            total,
+            query.offset,
+            query.limit,
+            True,
+            self.generation,
+        )
+
+    def related(
+        self,
+        source_table: str,
+        source_ids: Iterable[int],
+        target_table: str,
+        *,
+        type_filter: str | None = None,
+    ) -> CacheQueryResult:
+        del type_filter
+        secondary_column = self.database.driver_wrapper.get_link_column(
+            source_table,
+            target_table,
+            self.database.driver_wrapper.get_id_column(target_table),
+        )
+        ids = []
+        for source_id in source_ids:
+            for link in self.link_tables[
+                (str(source_table), str(target_table))
+            ].get_link_rows_for_src(int(source_id)):
+                ids.append(int(link[secondary_column]))
+        records = tuple(
+            self.get(target_table, row_id).value
+            for row_id in ids
+            if self.get(target_table, row_id).value is not None
+        )
+        return CacheQueryResult(records, len(records), 0, None, True, self.generation)
+
+    def link_records(
+        self,
+        source_table: str,
+        source_id: int,
+        target_table: str,
+        *,
+        type_filter: str | None = None,
+    ) -> tuple[CacheRecord, ...]:
+        del type_filter
+        return tuple(
+            CacheRecord("links", -(index + 1), row)
+            for index, row in enumerate(
+                self.link_tables[
+                    (str(source_table), str(target_table))
+                ].get_link_rows_for_src(int(source_id))
+            )
+        )
+
+    def load(self) -> None:
+        return None
+
+    def invalidate(self, **_kwargs: Any) -> None:
+        return None
+
+    def create_writer(self, *_args: Any, **_kwargs: Any) -> Any:
+        raise NotImplementedError
+
+    def write(self, *_args: Any, **_kwargs: Any) -> Mapping[Any, Any]:
+        raise NotImplementedError
+
+    def write_one(self, *_args: Any, **_kwargs: Any) -> Mapping[Any, Any]:
+        raise NotImplementedError
+
     def get_main_table(self, table: str) -> _CacheMainTable:
         return self.main_tables[str(table)]
 
@@ -231,7 +380,7 @@ class _Cache:
         return self.link_tables[(str(primary_table), str(secondary_table))]
 
 
-def _database_with_cached_snapshot() -> tuple[_Database, _Cache]:
+def _database_with_cached_snapshot() -> tuple[_Database, CacheAPI]:
     database = _Database()
     database.add_row("works", {"work_id": 1, "work_title": "Cached Book"})
     database.add_row("tags", {"tag_id": 3, "tag": "Cached Tag"})
@@ -310,3 +459,10 @@ def test_cache_read_source_contract_serves_cache_snapshot_without_fallback() -> 
 
     assert source.refresh() is True
     assert cache.reloaded is True
+
+
+def test_cache_read_source_rejects_a_different_fallback_database() -> None:
+    _database, cache = _database_with_cached_snapshot()
+
+    with pytest.raises(ValueError, match="cache and fallback database must match"):
+        CacheMetadataReadSource(cache, database=_Database())

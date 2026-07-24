@@ -299,9 +299,13 @@ that broader baseline is a separate repository programme and should not be
 misrepresented as catalog work.
 
 Search and field metadata remain physically located under `catalog` for
-compatibility. Their reproduced Python 3 failures are fixed and tested, but a
-future ownership cleanup may move Calibre-cache search and consolidate the two
-field-metadata implementations without changing the semantic facade.
+compatibility. Their reproduced Python 3 failures are fixed and tested. The
+modern ownership decision is now recorded in
+`catalog-cache-boundary.md`: Calibre-cache search moves with the remaining
+Calibre compatibility code under `utils`, while modern cache reads, indexes,
+invalidation, and reconciliation remain owned by `StorageCacheAPI`. Any future
+repository-backed Catalog search service would be a separate semantic query
+API rather than the owner of Calibre cache state.
 
 The compatibility packages are deprecated rather than deleted because current
 library/cache initialization still imports them. They must not receive new

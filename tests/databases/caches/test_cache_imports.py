@@ -18,27 +18,32 @@ class TestCacheImportAPIs:
 
     def test_storage_cache_plugin_imports(self) -> None:
         from LiuXin_alpha.caches import (
+            Cache,
+            CacheAPI,
+            CacheQuery,
             DatabaseBackedStorageCache,
             FieldBasicInterfaceAPI,
             NumpyVectorizedStorageCache,
             SchemaBackedStorageCache,
-            StorageCache,
             StorageCacheAPI,
             StorageCacheBaseTableAPI,
             StorageCacheCapabilities,
             StorageCacheSingleTableAPI,
             TableTypes,
+            create_cache,
             create_storage_cache,
             get_cache_plugin_capabilities,
             get_registered_cache_plugin_names,
             load_cache_plugin,
         )
 
-        assert StorageCache is SchemaBackedStorageCache
+        assert issubclass(Cache, CacheAPI)
+        assert CacheQuery is not None
+        assert callable(create_cache)
         assert StorageCacheAPI is not None
-        assert callable(StorageCacheAPI.create_writer)
-        assert callable(StorageCacheAPI.write)
-        assert callable(StorageCacheAPI.write_one)
+        assert not hasattr(StorageCacheAPI, "create_writer")
+        assert not hasattr(StorageCacheAPI, "write")
+        assert not hasattr(StorageCacheAPI, "write_one")
         assert StorageCacheBaseTableAPI is not None
         assert StorageCacheSingleTableAPI is not None
         assert FieldBasicInterfaceAPI is not None
@@ -89,13 +94,15 @@ class TestCacheImportAPIs:
             is NumpyVectorizedStorageCache.numpy_available()
         )
 
-    def test_cache_api_contract_root_exports_storage_contracts(self) -> None:
+    def test_cache_api_contract_root_exports_modern_and_storage_contracts(self) -> None:
         import LiuXin_alpha.caches.api as cache_api
         import LiuXin_alpha.caches.api.storage_cache_api as storage_cache_api
 
         expected = {
-            "CacheViewAPI",
-            "CacheViewSpec",
+            "CacheAPI",
+            "CacheQuery",
+            "CacheQueryResult",
+            "CacheRecord",
             "FieldBasicInterfaceAPI",
             "ManyToManyFieldAPI",
             "RelationFieldBasicInterfaceAPI",
@@ -107,7 +114,7 @@ class TestCacheImportAPIs:
             "TableTypes",
         }
 
-        assert cache_api.__all__ == storage_cache_api.__all__
+        assert set(storage_cache_api.__all__) < set(cache_api.__all__)
         assert expected <= set(cache_api.__all__)
         for name in expected:
             assert hasattr(cache_api, name), f"caches.api is missing {name}"
@@ -222,13 +229,7 @@ class TestCacheImportAPIs:
         from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.single_table import (
             SchemaBackedMainTableCache as CanonicalSchemaBackedMainTableCache,
         )
-        from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_view import (
-            SchemaBackedCacheView as CanonicalSchemaBackedCacheView,
-            SchemaBackedCacheViewRow as CanonicalSchemaBackedCacheViewRow,
-        )
         from LiuXin_alpha.caches.schema_backed import (
-            SchemaBackedCacheView as PublicSchemaBackedCacheView,
-            SchemaBackedCacheViewRow as PublicSchemaBackedCacheViewRow,
             SchemaBackedLinkTable as PublicSchemaBackedLinkTable,
             SchemaBackedMainTableCache as PublicSchemaBackedMainTableCache,
             SchemaBackedManyManyField as PublicSchemaBackedManyManyField,
@@ -237,16 +238,9 @@ class TestCacheImportAPIs:
             SchemaBackedSameTableField as PublicSchemaBackedSameTableField,
             SchemaBackedStorageCache as PublicSchemaBackedStorageCache,
             SchemaBackedTwoTableOneOneField as PublicSchemaBackedTwoTableOneOneField,
-            StorageCache as PublicStorageCache,
-            StorageCacheField as PublicStorageCacheField,
-            StorageCacheLinkTable as PublicStorageCacheLinkTable,
-            StorageCacheMainTable as PublicStorageCacheMainTable,
-            StorageCacheView as PublicStorageCacheView,
         )
 
         assert PublicSchemaBackedStorageCache is CanonicalSchemaBackedStorageCache
-        assert PublicSchemaBackedCacheView is CanonicalSchemaBackedCacheView
-        assert PublicSchemaBackedCacheViewRow is CanonicalSchemaBackedCacheViewRow
         assert PublicSchemaBackedMainTableCache is CanonicalSchemaBackedMainTableCache
         assert PublicSchemaBackedLinkTable is CanonicalSchemaBackedLinkTable
         assert PublicSchemaBackedSameTableField is CanonicalSchemaBackedSameTableField
@@ -254,8 +248,3 @@ class TestCacheImportAPIs:
         assert PublicSchemaBackedOneManyField is CanonicalSchemaBackedOneManyField
         assert PublicSchemaBackedManyOneField is CanonicalSchemaBackedManyOneField
         assert PublicSchemaBackedManyManyField is CanonicalSchemaBackedManyManyField
-        assert PublicStorageCache is CanonicalSchemaBackedStorageCache
-        assert PublicStorageCacheField is CanonicalSchemaBackedSameTableField
-        assert PublicStorageCacheLinkTable is CanonicalSchemaBackedLinkTable
-        assert PublicStorageCacheMainTable is CanonicalSchemaBackedMainTableCache
-        assert PublicStorageCacheView is CanonicalSchemaBackedCacheView

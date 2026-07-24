@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import tracemalloc
 
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
@@ -28,7 +29,7 @@ for candidate in (str(REPO_ROOT), str(SRC_ROOT)):
     if candidate not in sys.path:
         sys.path.insert(0, candidate)
 
-from LiuXin_alpha.caches import create_storage_cache  # noqa: E402
+from LiuXin_alpha.caches import Cache, CacheQuery, CacheSort, create_storage_cache  # noqa: E402
 from LiuXin_alpha.surfaces.web_readonly.app import _open_database  # noqa: E402
 
 
@@ -46,6 +47,9 @@ DEFAULT_SCENARIOS = (
     "reload_relation_field",
     "numpy_scalar_arrays",
     "numpy_relation_arrays",
+    "facade_exact_lookup_loop",
+    "facade_sorted_page",
+    "facade_text_search",
 )
 
 
@@ -308,14 +312,21 @@ def _create_cache(db: Any, cache_type: str) -> Any:
 
 def _scenario_load_cache(database_path: Path, cache_type: str) -> dict[str, object]:
     with _open_benchmark_database(database_path) as db:
-        cache = _create_cache(db, cache_type)
-        cache.read()
-        return {
-            "cache_type": cache_type,
-            "main_tables": len(tuple(cache.iter_main_tables())),
-            "fields": len(tuple(cache.iter_fields())),
-            "vectorized_helpers": bool(cache.capabilities.vectorized_helpers),
-        }
+        tracemalloc.start()
+        try:
+            cache = _create_cache(db, cache_type)
+            cache.read()
+            current_bytes, peak_bytes = tracemalloc.get_traced_memory()
+            return {
+                "cache_type": cache_type,
+                "main_tables": len(tuple(cache.iter_main_tables())),
+                "fields": len(tuple(cache.iter_fields())),
+                "vectorized_helpers": bool(cache.capabilities.vectorized_helpers),
+                "traced_current_bytes": current_bytes,
+                "traced_peak_bytes": peak_bytes,
+            }
+        finally:
+            tracemalloc.stop()
 
 
 def _scenario_reload_cache(cache: Any, cache_type: str) -> dict[str, object]:
@@ -484,6 +495,72 @@ def _scenario_numpy_relation_arrays(cache: Any, probe: RelationProbe, cache_type
     }
 
 
+def _scenario_facade_exact_lookup_loop(
+    facade: Cache,
+    probe: ScalarProbe,
+    cache_type: str,
+) -> dict[str, object]:
+    hits = 0
+    for owner_id in probe.owner_ids:
+        if facade.get(probe.table_name, owner_id).is_hit:
+            hits += 1
+    return {
+        "cache_type": cache_type,
+        "table_name": probe.table_name,
+        "count": len(probe.owner_ids),
+        "hits": hits,
+    }
+
+
+def _scenario_facade_sorted_page(
+    facade: Cache,
+    probe: ScalarProbe,
+    cache_type: str,
+) -> dict[str, object]:
+    result = facade.query(
+        CacheQuery(
+            table=probe.table_name,
+            sort=(CacheSort(probe.column_name),),
+            limit=50,
+        )
+    )
+    return {
+        "cache_type": cache_type,
+        "table_name": probe.table_name,
+        "returned": len(result.records),
+        "total_count": result.total_count,
+    }
+
+
+def _scenario_facade_text_search(
+    facade: Cache,
+    cache: Any,
+    probe: ScalarProbe,
+    cache_type: str,
+) -> dict[str, object]:
+    sample_value = cache.get_cached_value(
+        probe.owner_ids[0],
+        probe.field_key,
+        default_value="",
+    )
+    term = str(sample_value).strip()[:8] or "a"
+    result = facade.query(
+        CacheQuery(
+            table=probe.table_name,
+            text=term,
+            text_fields=(probe.column_name,),
+            limit=50,
+        )
+    )
+    return {
+        "cache_type": cache_type,
+        "table_name": probe.table_name,
+        "term_length": len(term),
+        "returned": len(result.records),
+        "total_count": result.total_count,
+    }
+
+
 def _skip_result(cache_type: str, scenario_name: str, reason: str) -> dict[str, object]:
     return {
         "name": "{}.{}".format(cache_type, scenario_name),
@@ -505,6 +582,7 @@ def _build_scenarios(
     cache: Any,
     probes: CacheProbeSet,
 ) -> dict[str, Callable[[], dict[str, object]]]:
+    facade = Cache.from_storage(cache)
     scenarios: dict[str, Callable[[], dict[str, object]]] = {
         "load_cache": lambda: _scenario_load_cache(database_path, cache_type),
         "reload_cache": lambda: _scenario_reload_cache(cache, cache_type),
@@ -516,6 +594,9 @@ def _build_scenarios(
         scenarios["main_table_row_snapshot_loop"] = lambda: _scenario_main_table_row_snapshot_loop(cache, probes.scalar, cache_type)
         scenarios["reload_main_table"] = lambda: _scenario_reload_main_table(cache, probes.scalar, cache_type)
         scenarios["reload_scalar_field"] = lambda: _scenario_reload_scalar_field(cache, probes.scalar, cache_type)
+        scenarios["facade_exact_lookup_loop"] = lambda: _scenario_facade_exact_lookup_loop(facade, probes.scalar, cache_type)
+        scenarios["facade_sorted_page"] = lambda: _scenario_facade_sorted_page(facade, probes.scalar, cache_type)
+        scenarios["facade_text_search"] = lambda: _scenario_facade_text_search(facade, cache, probes.scalar, cache_type)
     if probes.relation_single is not None:
         scenarios["relation_single_get_value_loop"] = lambda: _scenario_relation_single_get_value_loop(cache, probes.relation_single, cache_type)
     if probes.relation_multi is not None:

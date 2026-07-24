@@ -38,7 +38,7 @@ REQUIRED_DEPLOYMENT_PATHS = (
     Path("src/LiuXin_alpha/surfaces/cli/postgres.py"),
     Path("scripts/create_venv.sh"),
     Path("scripts/run_postgres_live_smoke.py"),
-    Path("docs/development/postgresql-backend.md"),
+    Path("dev-docs/postgresql-backend.md"),
 )
 
 DEFAULT_EXCLUDED_TOP_LEVEL = {
@@ -237,7 +237,7 @@ def build_source_metadata(
             "cli_module": "LiuXin_alpha.surfaces.cli",
         },
         "postgres": {
-            "runbook": "docs/development/postgresql-backend.md",
+            "runbook": "dev-docs/postgresql-backend.md",
             "live_smoke": "scripts/run_postgres_live_smoke.py",
             "generated_helpers": [
                 "deploy/remote_install.sh",
@@ -780,7 +780,7 @@ deploy/postgres_remote_setup.sh \\
   --runtime-url postgresql://liuxin_runtime@localhost/liuxin
 ```
 
-See `docs/development/postgresql-backend.md` for the longer runbook.
+See `dev-docs/postgresql-backend.md` for the longer runbook.
 """
 
 

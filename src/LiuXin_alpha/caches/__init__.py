@@ -1,18 +1,40 @@
-"""Public root surface for storage-cache access.
+"""Public root surface for modern cache access.
 
-Import backend-neutral helpers from here. For the default schema-backed backend,
-prefer :mod:`LiuXin_alpha.caches.schema_backed` instead of reaching into
-``cache_plugins`` internals.
+Ordinary callers should construct :class:`Cache` with :func:`create_cache`.
+Storage plugins remain available through the plugin registry for backend
+development and focused tests.
 """
 
 from LiuXin_alpha.caches.api import (
+    CacheAPI,
+    CacheCapabilities,
+    CacheClosedError,
+    CacheConsistency,
+    CacheDirtyError,
+    CacheError,
+    CacheFilterOperator,
+    CacheLookup,
+    CacheLookupStatus,
+    CacheNotReadyError,
+    CachePredicate,
+    CacheQuery,
+    CacheQueryResult,
+    CacheRecord,
+    CacheReconciliationError,
+    CacheRelation,
+    CacheSort,
+    CacheState,
     FieldBasicInterfaceAPI,
     StorageCacheCapabilities,
     StorageCacheAPI,
     StorageCacheBaseTableAPI,
     StorageCacheSingleTableAPI,
     TableTypes,
+    UnknownCacheFieldError,
+    UnknownCacheTableError,
+    UnsupportedCacheQueryError,
 )
+from LiuXin_alpha.caches.cache import Cache, create_cache
 from LiuXin_alpha.caches.cache_plugins import (
     create_storage_cache,
     get_cache_plugin_capabilities,
@@ -28,8 +50,6 @@ from LiuXin_alpha.caches.cache_plugins.numpy_vectorized import (
     NumpyVectorizedStorageCache,
 )
 from LiuXin_alpha.caches.schema_backed import (
-    SchemaBackedCacheView,
-    SchemaBackedCacheViewRow,
     SchemaBackedLinkTable,
     SchemaBackedMainTableCache,
     SchemaBackedManyManyField,
@@ -38,18 +58,30 @@ from LiuXin_alpha.caches.schema_backed import (
     SchemaBackedSameTableField,
     SchemaBackedStorageCache,
     SchemaBackedTwoTableOneOneField,
-    StorageCache,
-    StorageCacheField,
-    StorageCacheLinkTable,
-    StorageCacheMainTable,
-    StorageCacheView,
 )
 
 __all__ = [
+    "Cache",
+    "CacheAPI",
+    "CacheCapabilities",
+    "CacheClosedError",
+    "CacheConsistency",
+    "CacheDirtyError",
+    "CacheError",
+    "CacheFilterOperator",
+    "CacheLookup",
+    "CacheLookupStatus",
+    "CacheNotReadyError",
+    "CachePredicate",
+    "CacheQuery",
+    "CacheQueryResult",
+    "CacheRecord",
+    "CacheReconciliationError",
+    "CacheRelation",
+    "CacheSort",
+    "CacheState",
     "DatabaseBackedStorageCache",
     "NumpyVectorizedStorageCache",
-    "SchemaBackedCacheView",
-    "SchemaBackedCacheViewRow",
     "SchemaBackedLinkTable",
     "SchemaBackedMainTableCache",
     "SchemaBackedManyManyField",
@@ -58,18 +90,17 @@ __all__ = [
     "SchemaBackedSameTableField",
     "SchemaBackedStorageCache",
     "SchemaBackedTwoTableOneOneField",
-    "StorageCache",
     "StorageCacheAPI",
     "StorageCacheBaseTableAPI",
     "StorageCacheCapabilities",
-    "StorageCacheField",
-    "StorageCacheLinkTable",
-    "StorageCacheMainTable",
     "StorageCacheSingleTableAPI",
-    "StorageCacheView",
     "TableTypes",
+    "UnknownCacheFieldError",
+    "UnknownCacheTableError",
+    "UnsupportedCacheQueryError",
     "FieldBasicInterfaceAPI",
     "create_storage_cache",
+    "create_cache",
     "get_cache_plugin_capabilities",
     "get_cache_plugin_location",
     "get_registered_cache_plugin_names",
