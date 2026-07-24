@@ -71,7 +71,9 @@ class AgentMatcher:
             if isinstance(decoded, list):
                 return tuple(item for item in decoded if isinstance(item, str))
         return tuple(
-            part.strip() for part in re.split(r"[;|\n]", value) if part.strip()
+            part.strip()
+            for part in re.split(r"\(#BREAK#\)|[;|\n]", value)
+            if part.strip()
         )
 
     def _row_names(self, row: RowMapping) -> tuple[tuple[str, object], ...]:

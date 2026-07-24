@@ -1,10 +1,33 @@
 # Working Memory Index
 
-Updated: 2026-07-22
+Updated: 2026-07-24
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [catalog-unicode-operations-2026-07-24.md](catalog-unicode-operations-2026-07-24.md)
+  Uses the fresh 53.07% full-tree rerun to add twelve real-database Unicode and
+  hostile-text Catalog operation contracts; raises the selected live operation
+  set to 87% combined coverage, repairs three Agent alias-path defects, and
+  records a green 490-test Catalog regression.
+
+- [coverage-triage-2026-07-23.md](coverage-triage-2026-07-23.md)
+  Coverage-driven testing tranches: triages the valid 52.24% combined baseline;
+  raises search, field operators, ICU fallback, field metadata, acquisition,
+  image, and StorageManager boundaries to targeted 100%; raises SquashFS
+  reconciliation to 95% combined; repairs five defects; and calls for a fresh
+  full-tree coverage run before ranking the next tranche.
+
+- [repository-hygiene-2026-07-23.md](repository-hygiene-2026-07-23.md)
+  Completed repository-hygiene pass: enforce cross-platform LF checkout policy,
+  register the existing data gitlink, remove verified line-ending drift, and
+  establish a fresh post-merge test baseline.
+
+- [catalog-legacy-mutation-migration-2026-07-23.md](catalog-legacy-mutation-migration-2026-07-23.md)
+  Completed migration away from the legacy Catalog mutation facades.
+  Production allowlists are empty; preserved implementations are frozen
+  reference and characterization code only.
 
 - [catalog-matching-policy-2026-07-22.md](catalog-matching-policy-2026-07-22.md)
   Completed evidence-based matching policy for WEMI, Agents, curated and raw

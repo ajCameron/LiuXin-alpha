@@ -154,10 +154,15 @@ class DateSearch:
             return matches
 
         relop = self.operators["="][-1]
-        for k, op in iteritems(self.operators):
+        for k, op in sorted(
+            iteritems(self.operators),
+            key=lambda item: len(item[0]),
+            reverse=True,
+        ):
             if query.startswith(k):
                 p, relop = op
                 query = query[p:]
+                break
 
         if query in self.local_today:
             qd = now()

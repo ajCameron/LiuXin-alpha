@@ -355,8 +355,7 @@ class Parser(SearchQueryParser):  # {{{
         return field.iter_searchable_values(get_metadata, candidates)
 
     def iter_searchable_values(self, *args, **kwargs):
-        for x in ():
-            yield x, set()
+        return iter(())
 
     def parse(self, *args, **kwargs):
         self.virtual_field_used = False

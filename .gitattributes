@@ -1,5 +1,5 @@
-# Default: normalize text files in Git.
-* text=auto
+# Default: normalize text files in Git and check them out as LF on every OS.
+* text=auto eol=lf
 
 # Keep source and config files consistently LF across Windows/WSL.
 *.py text eol=lf

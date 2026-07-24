@@ -282,7 +282,18 @@ class StorageManager(StorageManagerAPI):
         if store_container.store_uuid is not None:
             self._containers_by_uuid.pop(str(store_container.store_uuid), None)
 
-        dead_ids = [store_id for store_id, identifier in self._store_ids.items() if identifier == str(store_ref)]
+        dead_identifiers = {
+            str(store_ref),
+            str(store_container.store_name),
+            str(store_container.store_url),
+        }
+        if store_container.store_uuid is not None:
+            dead_identifiers.add(str(store_container.store_uuid))
+        dead_ids = [
+            store_id
+            for store_id, identifier in self._store_ids.items()
+            if identifier in dead_identifiers
+        ]
         for store_id in dead_ids:
             self._store_ids.pop(store_id, None)
 
@@ -689,10 +700,6 @@ class StorageManager(StorageManagerAPI):
             option_kwargs["respect_robots"] = self._to_boolish(wget_policy.get("respect_robots"), default=True)
         if "user_agent" in wget_policy:
             option_kwargs["user_agent"] = self._coerce_optional_str(wget_policy.get("user_agent"))
-        if "max_html_bytes" in wget_policy:
-            max_html_bytes = self._to_int(wget_policy.get("max_html_bytes"))
-            if max_html_bytes is not None:
-                option_kwargs["max_html_bytes"] = max(1024, max_html_bytes)
         if not option_kwargs:
             return None
         from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import WgetBackendOptions

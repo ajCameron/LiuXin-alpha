@@ -71,10 +71,15 @@ class NumericSearch:  # {{{
 
         else:
             relop = None
-            for k, op in iteritems(self.operators):
+            for k, op in sorted(
+                iteritems(self.operators),
+                key=lambda item: len(item[0]),
+                reverse=True,
+            ):
                 if query.startswith(k):
                     p, relop = op
                     query = query[p:]
+                    break
             if relop is None:
                 p, relop = self.operators["="]
 

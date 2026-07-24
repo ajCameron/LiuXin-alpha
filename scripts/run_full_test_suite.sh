@@ -29,6 +29,9 @@ usage() {
     cat <<'EOF'
 Usage: scripts/run_full_test_suite.sh [options] [-- <extra pytest args>]
 
+Pytest reports each test result as it completes so long-running suites show
+continuous progress in both the terminal and the artifact log.
+
 Options:
   --run-id <name>          Artifact run id (default: full-suite-<timestamp>)
   --workers <n|auto>       Pytest xdist worker count (default: auto)
@@ -60,6 +63,34 @@ EOF
 print_cmd() {
     printf '%q ' "$@"
     printf '\n'
+}
+
+run_with_heartbeat() {
+    local label="$1"
+    shift
+    local started_seconds=${SECONDS}
+    local heartbeat_pid
+    local status=0
+
+    (
+        while sleep 30; do
+            printf '[%s] %s still running (%ss elapsed)\n' \
+                "$(date -Is)" \
+                "${label}" \
+                "$((SECONDS - started_seconds))"
+        done
+    ) &
+    heartbeat_pid=$!
+
+    if "$@"; then
+        status=0
+    else
+        status=$?
+    fi
+
+    kill "${heartbeat_pid}" 2>/dev/null || true
+    wait "${heartbeat_pid}" 2>/dev/null || true
+    return "${status}"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -166,12 +197,13 @@ fi
 PIP_UPGRADE_CMD=("${VENV_PYTHON}" -m pip install -U pip)
 PIP_INSTALL_CMD=("${VENV_PYTHON}" -m pip install -e ".[test,search]")
 PYTEST_CMD=(
-    "${VENV_PYTHON}" -m pytest tests
+    "${VENV_PYTHON}" -u -m pytest tests
     -n "${WORKERS}"
     --dist "${DIST_MODE}"
     --json-report
     --json-report-file "${REPORT_FILE}"
     --color=yes
+    -v
     -ra
 )
 TK_PREFLIGHT_CMD=(
@@ -179,7 +211,7 @@ TK_PREFLIGHT_CMD=(
     $'import tkinter as tk\nroot = tk.Tk()\nroot.withdraw()\nroot.destroy()\nprint("tkinter smoke preflight ok")'
 )
 TK_PYTEST_CMD=(
-    "${VENV_PYTHON}" -m pytest
+    "${VENV_PYTHON}" -u -m pytest
     tests/surfaces/test_tkinter_gui.py::test_tkinter_gui_real_tk_smoke_renders_fake_backend
     -q
     --color=yes
@@ -297,7 +329,7 @@ if [[ ${SKIP_INSTALL} -eq 0 && ${CREATE_VENV} -eq 0 ]]; then
 fi
 
 if [[ ${ONLY_TK_SMOKE} -eq 0 ]]; then
-    "${PYTEST_CMD[@]}"
+    run_with_heartbeat "pytest full suite" "${PYTEST_CMD[@]}"
 fi
 
 if [[ ${RUN_TK_SMOKE} -eq 1 ]]; then
@@ -309,5 +341,5 @@ available.
 EOF
         exit 1
     fi
-    "${TK_PYTEST_CMD[@]}"
+    run_with_heartbeat "Tkinter smoke test" "${TK_PYTEST_CMD[@]}"
 fi

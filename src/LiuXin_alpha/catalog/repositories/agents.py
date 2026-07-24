@@ -60,12 +60,34 @@ class AgentRepository(BaseRepository):
             if value is None:
                 continue
             alias = str(value).strip()
-            key = alias.casefold()
+            key = normalise_text(alias)
             if not alias or key in seen:
                 continue
             seen.add(key)
             result.append(alias)
         return cls._ALIAS_SEPARATOR.join(result) or None
+
+    @classmethod
+    def _normalise_alias_input(cls, data: RowInput) -> dict[str, object]:
+        """Normalize either public or storage-shaped Agent alias input."""
+
+        if not isinstance(data, Mapping):
+            raise TypeError("repository data must be a mapping")
+        payload = dict(data)
+        for key in ("aliases", "agent_aliases"):
+            if key in payload:
+                payload[key] = cls.normalise_aliases(payload[key])
+        return payload
+
+    def create(self, data: RowInput) -> EntityId:
+        """Create an Agent with aliases in their stable storage form."""
+
+        return super().create(self._normalise_alias_input(data))
+
+    def update(self, entity_id: EntityId, data: RowInput) -> None:
+        """Update an Agent while retaining the alias input contract."""
+
+        super().update(entity_id, self._normalise_alias_input(data))
 
     def create_person(
         self,

@@ -37,20 +37,20 @@ def force_to_bool(val: Any) -> Optional[bool]:
     :param val:
     :return:
     """
-    if isinstance(val, (str, unicode_literals)):
-        try:
-            val = icu_lower(val)
-            if not val:
-                val = None
-            elif val in [_("yes"), _("checked"), "true", "yes", "checked"]:
-                val = True
-            elif val in [_("no"), _("unchecked"), "false", "no", "unchecked"]:
-                val = False
-            else:
-                val = bool(int(val))
-        except:
-            val = None
-    return val
+    if not isinstance(val, string_types):
+        return None if val is None else bool(val)
+
+    try:
+        normalized = icu_lower(val)
+        if not normalized:
+            return None
+        if normalized in [_("yes"), _("checked"), "true", "yes", "checked"]:
+            return True
+        if normalized in [_("no"), _("unchecked"), "false", "no", "unchecked"]:
+            return False
+        return bool(int(normalized))
+    except (TypeError, ValueError):
+        return None
 
 
 _fuzzy_title_patterns = None

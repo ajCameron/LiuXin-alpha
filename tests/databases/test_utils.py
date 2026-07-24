@@ -1,12 +1,10 @@
 """Tests for LiuXin_alpha.databases.utils.
 
-Covers fuzzy_title, fuzzy_title_patterns, find_identical_books,
-get_link_table_name, _get_next_series_num_for_list, and _get_series_values.
+Covers boolean coercion, fuzzy-title matching, identical-book discovery,
+link-table naming, and series value/index helpers.
 
-Note: force_to_bool and cleanup_tags have pre-existing bugs in the Python 3
-port (isinstance with unicode_literals/_Feature, and str.decode() call via a
-broken isbytestring implementation) and are tested separately to document the
-known failure modes.
+``cleanup_tags`` still has a separate pre-existing Python 3 compatibility
+boundary around byte-string handling.
 """
 from __future__ import annotations
 
@@ -15,10 +13,44 @@ import pytest
 from LiuXin_alpha.databases.utils import (
     _get_next_series_num_for_list,
     _get_series_values,
+    force_to_bool,
     fuzzy_title,
     fuzzy_title_patterns,
     get_link_table_name,
 )
+
+
+# ---------------------------------------------------------------------------
+# force_to_bool
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, None),
+        (False, False),
+        (True, True),
+        (0, False),
+        (1, True),
+        (2, True),
+        ("", None),
+        ("0", False),
+        ("1", True),
+        ("false", False),
+        ("no", False),
+        ("unchecked", False),
+        ("true", True),
+        ("yes", True),
+        ("checked", True),
+        ("not-a-bool", None),
+    ],
+)
+def test_force_to_bool_handles_typed_and_text_values(
+    value: object,
+    expected: object,
+) -> None:
+    assert force_to_bool(value) == expected
 
 
 # ---------------------------------------------------------------------------
