@@ -7,8 +7,8 @@ the text, markup, RTF, and PML unicode/malformed-input work.
 
 Durable docs:
 
-- `docs/development/file-format-unicode-conversion.md`
-- `docs/development/file-formats/odt/README.md`
+- `dev-docs/file-format-unicode-conversion.md`
+- `dev-docs/file-formats/odt/README.md`
 
 ## Scope
 
@@ -34,8 +34,8 @@ behavior:
   before generating partial output.
 - Added bounded archive preflight checks for member count, per-member expanded
   size, total expanded size, and suspicious compression ratios.
-- Added `docs/development/file-formats/odt/README.md` and
-  `docs/development/file-formats/README.md` so future file-format work can keep
+- Added `dev-docs/file-formats/odt/README.md` and
+  `dev-docs/file-formats/README.md` so future file-format work can keep
   one durable folder per format.
 - Documented the future guarded override direction: trusted modes may raise
   bounded archive budgets, but must not bypass path traversal, unreadable ZIP,

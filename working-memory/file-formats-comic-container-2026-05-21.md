@@ -20,8 +20,8 @@ for a later pass because it does not share the ZIP preflight path.
   `src/LiuXin_alpha/file_formats/conversion/plugins/comic_input.py`.
 - Updated the existing modernized glue test to use a minimal valid ZIP-backed
   fake CBZ now that direct CBZ input is preflighted.
-- Added durable docs in `docs/development/file-formats/comic/README.md`.
-- Updated `docs/development/file-format-unicode-conversion.md` to include
+- Added durable docs in `dev-docs/file-formats/comic/README.md`.
+- Updated `dev-docs/file-format-unicode-conversion.md` to include
   comic CBZ/CBC in the container-format direction.
 
 ## Fixture Contract

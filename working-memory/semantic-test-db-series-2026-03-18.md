@@ -25,23 +25,23 @@ Live names:
 
 These are imported builder modules under:
 
-- [metadata_rich_db_0.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/metadata_rich_db_0.py)
-- [metadata_rich_db_1.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/metadata_rich_db_1.py)
-- [stores_assets_db_0.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/stores_assets_db_0.py)
-- [stores_assets_db_1.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/stores_assets_db_1.py)
-- [images_covers_db_0.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/images_covers_db_0.py)
-- [images_covers_db_1.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/images_covers_db_1.py)
-- [custom_columns_populated_db_0.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/custom_columns_populated_db_0.py)
-- [custom_columns_populated_db_1.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/custom_columns_populated_db_1.py)
-- [identifiers_db_0.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/identifiers_db_0.py)
-- [identifiers_db_1.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/identifiers_db_1.py)
-- [pathological_relations_db_0.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/pathological_relations_db_0.py)
-- [weird_data_db_0.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/weird_data_db_0.py)
+- [metadata_rich_db_0.py](../tests/support/test_databases/metadata_rich_db_0.py)
+- [metadata_rich_db_1.py](../tests/support/test_databases/metadata_rich_db_1.py)
+- [stores_assets_db_0.py](../tests/support/test_databases/stores_assets_db_0.py)
+- [stores_assets_db_1.py](../tests/support/test_databases/stores_assets_db_1.py)
+- [images_covers_db_0.py](../tests/support/test_databases/images_covers_db_0.py)
+- [images_covers_db_1.py](../tests/support/test_databases/images_covers_db_1.py)
+- [custom_columns_populated_db_0.py](../tests/support/test_databases/custom_columns_populated_db_0.py)
+- [custom_columns_populated_db_1.py](../tests/support/test_databases/custom_columns_populated_db_1.py)
+- [identifiers_db_0.py](../tests/support/test_databases/identifiers_db_0.py)
+- [identifiers_db_1.py](../tests/support/test_databases/identifiers_db_1.py)
+- [pathological_relations_db_0.py](../tests/support/test_databases/pathological_relations_db_0.py)
+- [weird_data_db_0.py](../tests/support/test_databases/weird_data_db_0.py)
 
 ## Resource-Manager Change
 
 The imported-builder path in
-[tests/support/test_resources_manager.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_resources_manager.py)
+[tests/support/test_resources_manager.py](../tests/support/test_resources_manager.py)
 was fixed in two ways:
 
 - default prefixes now prefer `tests.support.test_databases`
@@ -312,7 +312,7 @@ Current shape:
 ## Validation
 
 Targeted contracts landed in
-[test_test_resources_manager.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/test_test_resources_manager.py):
+[test_test_resources_manager.py](../tests/databases/test_test_resources_manager.py):
 
 - imported provider resolution for the new semantic DBs
 - availability filtering for supported entrypoint modules only

@@ -4,7 +4,7 @@ Branch: `metadata-wemi-multiparent-contracts`
 
 PR: `#56` - https://github.com/ajCameron/LiuXin-alpha/pull/56
 
-Durable doc: `docs/development/metadata-wemi-container-hardening.md`
+Durable doc: `dev-docs/metadata-wemi-container-hardening.md`
 
 ## Context
 

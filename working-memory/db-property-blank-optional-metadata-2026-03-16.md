@@ -5,7 +5,7 @@ Date: 2026-03-16
 ## What Landed
 
 - Added a collected alpha-native contract:
-  - [test_property_blank_optional_metadata_profiles.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_property_blank_optional_metadata_profiles.py)
+  - [test_property_blank_optional_metadata_profiles.py](../tests/support/test_databases/test_db_properties/test_property_blank_optional_metadata_profiles.py)
 
 ## Scope
 

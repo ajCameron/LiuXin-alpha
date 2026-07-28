@@ -4,7 +4,7 @@ Date: 2026-03-16
 
 ## Purpose
 
-- Turn the high-level [folder-stores-rewrite-plan-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/folder-stores-rewrite-plan-2026-03-16.md) into a concrete replacement checklist.
+- Turn the high-level [folder-stores-rewrite-plan-2026-03-16.md](folder-stores-rewrite-plan-2026-03-16.md) into a concrete replacement checklist.
 - Each legacy input is mapped to one of:
   - already covered in alpha
   - needs targeted replacement tests
@@ -15,7 +15,7 @@ Date: 2026-03-16
 ### 1. Generic driver baseline
 
 Legacy source:
-- [self_test.py](/home/blackjane/LiuXin-master/LiuXin-master/src/LiuXin_tests/folder_stores/drivers/generic_driver_tests/self_test.py)
+- `upstream/src/LiuXin_tests/folder_stores/drivers/generic_driver_tests/self_test.py`
 
 Legacy behaviors:
 - store startup succeeds
@@ -25,12 +25,12 @@ Legacy behaviors:
 - scratch file loading smoke
 
 Current alpha coverage:
-- [test_on_disk_existing_managed_drive.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/store_backend_plugins/on_disk_existing_managed/test_on_disk_existing_managed_drive.py)
-- [test_on_disk_unmanaged_drive.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/store_backend_plugins/on_disk_unmanaged_drive/test_on_disk_unmanaged_drive.py)
-- [test_on_disk_unmanaged_location.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/store_backend_plugins/on_disk_unmanaged_drive/test_on_disk_unmanaged_location.py)
-- [test_location_contract.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/location/test_location_contract.py)
-- [test_location_glob_and_iter.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/location/test_location_glob_and_iter.py)
-- [test_location_security_and_bounds.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/location/test_location_security_and_bounds.py)
+- [test_on_disk_existing_managed_drive.py](../tests/storage/store_backend_plugins/on_disk_existing_managed/test_on_disk_existing_managed_drive.py)
+- [test_on_disk_unmanaged_drive.py](../tests/storage/store_backend_plugins/on_disk_unmanaged_drive/test_on_disk_unmanaged_drive.py)
+- [test_on_disk_unmanaged_location.py](../tests/storage/store_backend_plugins/on_disk_unmanaged_drive/test_on_disk_unmanaged_location.py)
+- [test_location_contract.py](../tests/storage/location/test_location_contract.py)
+- [test_location_glob_and_iter.py](../tests/storage/location/test_location_glob_and_iter.py)
+- [test_location_security_and_bounds.py](../tests/storage/location/test_location_security_and_bounds.py)
 
 Decision:
 - `covered` for the modern storage model
@@ -43,8 +43,8 @@ Notes:
 ### 2. On-disk store health/marker checks
 
 Legacy sources:
-- [test_store.py](/home/blackjane/LiuXin-master/LiuXin-master/src/LiuXin/folder_stores/drivers/on_disk/test_store.py)
-- [test_store.py](/home/blackjane/LiuXin-master/LiuXin-master/src/LiuXin/folder_stores/drivers/on_disk_flat/test_store.py)
+- `upstream/src/LiuXin/folder_stores/drivers/on_disk/test_store.py`
+- `upstream/src/LiuXin/folder_stores/drivers/on_disk_flat/test_store.py`
 
 Legacy behaviors:
 - check store type
@@ -53,9 +53,9 @@ Legacy behaviors:
 - seek moved stores by plausible paths
 
 Current alpha coverage:
-- [test_on_disk_existing_managed_drive.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/store_backend_plugins/on_disk_existing_managed/test_on_disk_existing_managed_drive.py)
-- [test_on_disk_unmanaged_drive.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/store_backend_plugins/on_disk_unmanaged_drive/test_on_disk_unmanaged_drive.py)
-- [test_storage_manager_impl.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/api/test_storage_manager_impl.py)
+- [test_on_disk_existing_managed_drive.py](../tests/storage/store_backend_plugins/on_disk_existing_managed/test_on_disk_existing_managed_drive.py)
+- [test_on_disk_unmanaged_drive.py](../tests/storage/store_backend_plugins/on_disk_unmanaged_drive/test_on_disk_unmanaged_drive.py)
+- [test_storage_manager_impl.py](../tests/storage/api/test_storage_manager_impl.py)
 
 Decision:
 - split
@@ -76,7 +76,7 @@ Rationale:
 ### 3. On-disk-flat `writebytes` matrix
 
 Legacy source:
-- [writebytes_detailed_test.py](/home/blackjane/LiuXin-master/LiuXin-master/src/LiuXin_tests/folder_stores/drivers/on_disk_flat/writebytes_detailed_test.py)
+- `upstream/src/LiuXin_tests/folder_stores/drivers/on_disk_flat/writebytes_detailed_test.py`
 
 Legacy behaviors:
 - write bytes into root
@@ -88,9 +88,9 @@ Legacy behaviors:
 - allow creation into non-existing file targets
 
 Current alpha partial coverage:
-- [test_on_disk_existing_managed_drive.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/store_backend_plugins/on_disk_existing_managed/test_on_disk_existing_managed_drive.py)
-- [test_location_filesystem_ops_more.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/location/test_location_filesystem_ops_more.py)
-- [test_location_filesystem_rename_replace_more.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/location/test_location_filesystem_rename_replace_more.py)
+- [test_on_disk_existing_managed_drive.py](../tests/storage/store_backend_plugins/on_disk_existing_managed/test_on_disk_existing_managed_drive.py)
+- [test_location_filesystem_ops_more.py](../tests/storage/location/test_location_filesystem_ops_more.py)
+- [test_location_filesystem_rename_replace_more.py](../tests/storage/location/test_location_filesystem_rename_replace_more.py)
 
 Decision:
 - `needs targeted replacement tests`
@@ -113,7 +113,7 @@ Reason:
 ### 4. Zip-backed store validity/read behavior
 
 Legacy source:
-- [test_store.py](/home/blackjane/LiuXin-master/LiuXin-master/src/LiuXin/folder_stores/drivers/zip/test_store.py)
+- `upstream/src/LiuXin/folder_stores/drivers/zip/test_store.py`
 
 Legacy behaviors:
 - archive exists
@@ -123,8 +123,8 @@ Legacy behaviors:
 - read archive contents through store abstraction
 
 Current alpha analog:
-- [test_squashfs_readonly_storage_backend.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/store_backend_plugins/squashfs_readonly/test_squashfs_readonly_storage_backend.py)
-- [test_squashfs_db_sync.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/reconcile/test_squashfs_db_sync.py)
+- [test_squashfs_readonly_storage_backend.py](../tests/storage/store_backend_plugins/squashfs_readonly/test_squashfs_readonly_storage_backend.py)
+- [test_squashfs_db_sync.py](../tests/storage/reconcile/test_squashfs_db_sync.py)
 
 Decision:
 - split
@@ -149,7 +149,7 @@ Rationale:
 ### 5. Cover-cache path utilities
 
 Legacy source:
-- [utils_test.py](/home/blackjane/LiuXin-master/LiuXin-master/src/LiuXin_tests/folder_stores/cover_cache/on_disk/utils_test.py)
+- `upstream/src/LiuXin_tests/folder_stores/cover_cache/on_disk/utils_test.py`
 
 Legacy behaviors:
 - theoretical cover name/path generation
@@ -157,11 +157,11 @@ Legacy behaviors:
 - raising on missing cache entries
 
 Current alpha seams:
-- [test_images_api.py](/home/blackjane/LiuXin-alpha-wsl/tests/surfaces/test_images_api.py)
-- [test_web_calibre_readonly.py](/home/blackjane/LiuXin-alpha-wsl/tests/surfaces/test_web_calibre_readonly.py)
-- [test_metadata_files_and_covers.py](/home/blackjane/LiuXin-alpha-wsl/tests/metadata/containers/calibre_like_book_metadata/test_metadata_files_and_covers.py)
+- [test_images_api.py](../tests/surfaces/test_images_api.py)
+- [test_web_calibre_readonly.py](../tests/surfaces/test_web_calibre_readonly.py)
+- [test_metadata_files_and_covers.py](../tests/metadata/containers/calibre_like_book_metadata/test_metadata_files_and_covers.py)
 - legacy runtime still references cover-cache machinery in:
-  - [backend.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/databases/backend.py)
+  - `src/LiuXin_alpha/databases/backend.py`
 
 Decision:
 - `defer: no live alpha implementation to test directly`
@@ -173,7 +173,7 @@ Reason:
 - if current cover-cache naming/path semantics are not a public contract anymore, retire the old test shape
 
 Recommended next decision:
-- [cover-cache-triage-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/cover-cache-triage-2026-03-16.md)
+- [cover-cache-triage-2026-03-16.md](cover-cache-triage-2026-03-16.md)
 - only add focused tests if a real current implementation or replacement seam exists
 
 ## Priority Order
@@ -187,7 +187,7 @@ Recommended next decision:
 
 ### Implemented now
 
-- [test_on_disk_existing_managed_write_contract.py](/home/blackjane/LiuXin-alpha-wsl/tests/storage/store_backend_plugins/on_disk_existing_managed/test_on_disk_existing_managed_write_contract.py)
+- [test_on_disk_existing_managed_write_contract.py](../tests/storage/store_backend_plugins/on_disk_existing_managed/test_on_disk_existing_managed_write_contract.py)
   - writes new bytes at store root
   - writes text inside an existing nested directory
   - rejects writing to a directory path

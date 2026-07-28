@@ -2,13 +2,13 @@
 
 ## Context
 
-Stage 6 of `dev-docs/conversion_pipeline_todo.md` is to create the durable
+Stage 6 of `dev-docs/conversion_pipeline/conversion_pipeline_todo.md` is to create the durable
 format/pipeline sign-off table after the first conversion report, edge model,
 shared archive preflight, and Stage 5 format-tail work landed.
 
 Durable table:
 
-- `dev-docs/conversion_pipeline_signoff.md`
+- `dev-docs/conversion_pipeline/conversion_pipeline_signoff.md`
 
 ## What Changed
 

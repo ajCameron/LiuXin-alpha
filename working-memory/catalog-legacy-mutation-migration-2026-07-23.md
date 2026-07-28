@@ -34,4 +34,4 @@ current Catalog contracts; they are not an alternative extension surface.
 - both preserved reference entry points remain present and importable.
 
 The durable contract and detailed caller map are in
-`docs/development/catalog-legacy-mutation-migration.md`.
+`dev-docs/catalog-legacy-mutation-migration.md`.

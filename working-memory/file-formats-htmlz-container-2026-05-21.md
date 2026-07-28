@@ -18,8 +18,8 @@ references are optional enrichment.
   `tests/file_formats/htmlz/test_htmlz_malformed_hostile.py`.
 - Hardened `HTMLZInput` in
   `src/LiuXin_alpha/file_formats/conversion/plugins/htmlz_input.py`.
-- Added durable docs in `docs/development/file-formats/htmlz/README.md`.
-- Updated `docs/development/file-format-unicode-conversion.md` to include
+- Added durable docs in `dev-docs/file-formats/htmlz/README.md`.
+- Updated `dev-docs/file-format-unicode-conversion.md` to include
   HTMLZ in the container-format direction.
 
 ## Fixture Contract

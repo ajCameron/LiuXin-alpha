@@ -8,7 +8,7 @@ Date: 2026-03-16
   - `test_db_4_properties.py`
   - `test_db_10_properties.py`
 - Added direct guardrail coverage in:
-  - [test_property_rich_content_profiles_are_generic.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_property_rich_content_profiles_are_generic.py)
+  - [test_property_rich_content_profiles_are_generic.py](../tests/support/test_databases/test_db_properties/test_property_rich_content_profiles_are_generic.py)
 
 ## Finding
 

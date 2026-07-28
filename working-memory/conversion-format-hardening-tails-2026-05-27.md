@@ -2,7 +2,7 @@
 
 ## Context
 
-Stage 5 of `dev-docs/conversion_pipeline_todo.md` is the cleanup pass for
+Stage 5 of `dev-docs/conversion_pipeline/conversion_pipeline_todo.md` is the cleanup pass for
 current format-hardening tails before moving to the sign-off table.
 
 ## Stage 5A: PDB Haodoo
@@ -18,9 +18,9 @@ Updated:
 
 - `src/LiuXin_alpha/file_formats/pdb/haodoo/reader.py`
 - `tests/file_formats/pdb/test_pdb_binary_framework.py`
-- `docs/development/file-formats/pdb/README.md`
-- `docs/development/file-format-unicode-conversion.md`
-- `dev-docs/conversion_pipeline_todo.md`
+- `dev-docs/file-formats/pdb/README.md`
+- `dev-docs/file-format-unicode-conversion.md`
+- `dev-docs/conversion_pipeline/conversion_pipeline_todo.md`
 
 Behavior:
 
@@ -73,9 +73,9 @@ Updated:
 - `src/LiuXin_alpha/file_formats/mobi/reader/mobi6.py`
 - `src/LiuXin_alpha/file_formats/mobi/huffcdic.py`
 - `tests/file_formats/mobi/test_mobi_deep_hostile.py`
-- `docs/development/file-formats/mobi/README.md`
-- `docs/development/file-format-unicode-conversion.md`
-- `dev-docs/conversion_pipeline_todo.md`
+- `dev-docs/file-formats/mobi/README.md`
+- `dev-docs/file-format-unicode-conversion.md`
+- `dev-docs/conversion_pipeline/conversion_pipeline_todo.md`
 
 Behavior:
 
@@ -116,10 +116,10 @@ Updated:
 
 - `src/LiuXin_alpha/file_formats/lit/writer.py`
 - `tests/file_formats/lit/test_lit_conversion_unicode_framework.py`
-- `docs/development/file-formats/lit/README.md`
-- `docs/development/file-format-unicode-conversion.md`
+- `dev-docs/file-formats/lit/README.md`
+- `dev-docs/file-format-unicode-conversion.md`
 - `working-memory/file-formats-lit-hostile-hardening-2026-05-22.md`
-- `dev-docs/conversion_pipeline_todo.md`
+- `dev-docs/conversion_pipeline/conversion_pipeline_todo.md`
 
 Behavior:
 

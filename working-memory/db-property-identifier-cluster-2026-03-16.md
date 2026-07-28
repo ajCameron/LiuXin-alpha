@@ -7,7 +7,7 @@ Date: 2026-03-16
 - Reviewed the remaining legacy identifier row:
   - `test_db_20_properties.py`
 - Added direct guardrail coverage in:
-  - [test_property_identifier_profiled_fixture_is_empty.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_property_identifier_profiled_fixture_is_empty.py)
+  - [test_property_identifier_profiled_fixture_is_empty.py](../tests/support/test_databases/test_db_properties/test_property_identifier_profiled_fixture_is_empty.py)
 
 ## Finding
 

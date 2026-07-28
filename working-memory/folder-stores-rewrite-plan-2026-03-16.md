@@ -5,7 +5,7 @@ Date: 2026-03-16
 ## Scope
 
 - This note splits the legacy `folder_stores` work out of the DB-property salvage stream.
-- It covers the original tests classified as `rewrite` in [legacy-test-migration-manifest-2026-03-16.csv](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/legacy-test-migration-manifest-2026-03-16.csv).
+- It covers the original tests classified as `rewrite` in [legacy-test-migration-manifest-2026-03-16.csv](legacy-test-migration-manifest-2026-03-16.csv).
 
 ## Why This Is Separate
 
@@ -15,19 +15,19 @@ Date: 2026-03-16
 
 ## Legacy Inputs
 
-- [src/LiuXin_tests/folder_stores/cover_cache/on_disk/utils_test.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_tests/folder_stores/cover_cache/on_disk/utils_test.py)
-- [src/LiuXin_tests/folder_stores/drivers/generic_driver_tests/self_test.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_tests/folder_stores/drivers/generic_driver_tests/self_test.py)
-- [src/LiuXin_tests/folder_stores/drivers/on_disk_flat/writebytes_detailed_test.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_tests/folder_stores/drivers/on_disk_flat/writebytes_detailed_test.py)
-- [src/LiuXin/folder_stores/drivers/on_disk/test_store.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin/folder_stores/drivers/on_disk/test_store.py)
-- [src/LiuXin/folder_stores/drivers/on_disk_flat/test_store.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin/folder_stores/drivers/on_disk_flat/test_store.py)
-- [src/LiuXin/folder_stores/drivers/zip/test_store.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin/folder_stores/drivers/zip/test_store.py)
+- `src/LiuXin_tests/folder_stores/cover_cache/on_disk/utils_test.py`
+- `src/LiuXin_tests/folder_stores/drivers/generic_driver_tests/self_test.py`
+- `src/LiuXin_tests/folder_stores/drivers/on_disk_flat/writebytes_detailed_test.py`
+- `src/LiuXin/folder_stores/drivers/on_disk/test_store.py`
+- `src/LiuXin/folder_stores/drivers/on_disk_flat/test_store.py`
+- `src/LiuXin/folder_stores/drivers/zip/test_store.py`
 
 ## Rewrite Targets
 
-- [tests/storage/store_backend_plugins](/home/blackjane/LiuXin-alpha-wsl/tests/storage/store_backend_plugins)
-- [tests/storage/api](/home/blackjane/LiuXin-alpha-wsl/tests/storage/api)
-- [tests/storage/reconcile](/home/blackjane/LiuXin-alpha-wsl/tests/storage/reconcile)
-- [tests/library](/home/blackjane/LiuXin-alpha-wsl/tests/library)
+- [tests/storage/store_backend_plugins](../tests/storage/store_backend_plugins)
+- [tests/storage/api](../tests/storage/api)
+- [tests/storage/reconcile](../tests/storage/reconcile)
+- [tests/library](../tests/library)
 
 ## Behavior Buckets
 
@@ -86,4 +86,4 @@ Rewrite seam:
 ## Concrete Checklist
 
 - Detailed replacement mapping now lives in:
-  - [folder-stores-rewrite-checklist-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/folder-stores-rewrite-checklist-2026-03-16.md)
+  - [folder-stores-rewrite-checklist-2026-03-16.md](folder-stores-rewrite-checklist-2026-03-16.md)

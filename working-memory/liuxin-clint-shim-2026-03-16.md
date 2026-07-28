@@ -4,7 +4,7 @@ Date: 2026-03-16
 
 ## What Changed
 
-- Added [liuxin_clint.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/utils/libraries/liuxin_clint.py)
+- Added [liuxin_clint.py](../src/LiuXin_alpha/utils/libraries/liuxin_clint.py)
   - exports:
     - `puts`
     - `colored`
@@ -13,9 +13,9 @@ Date: 2026-03-16
     - otherwise falls back to plain-text output and passthrough coloring
 
 - Repointed direct `clint.textui` imports in:
-  - [utils/terminal.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/utils/terminal.py)
-  - [tests/support/test_databases](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases)
-  - [src/LiuXin_tests](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_tests)
+  - [utils/terminal.py](../src/LiuXin_alpha/utils/terminal.py)
+  - [tests/support/test_databases](../tests/support/test_databases)
+  - [src/LiuXin_tests](../src/LiuXin_tests)
 
 ## Why
 
@@ -27,9 +27,9 @@ Date: 2026-03-16
 ## Validation
 
 - `python3 -m py_compile` passed for:
-  - [liuxin_clint.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/utils/libraries/liuxin_clint.py)
-  - [utils/terminal.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/utils/terminal.py)
-- full `py_compile` over [tests/support/test_databases](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases) passed
+  - [liuxin_clint.py](../src/LiuXin_alpha/utils/libraries/liuxin_clint.py)
+  - [utils/terminal.py](../src/LiuXin_alpha/utils/terminal.py)
+- full `py_compile` over [tests/support/test_databases](../tests/support/test_databases) passed
 - package import check:
   - `PYTHONPATH=src:. python3 -c 'import tests.support.test_databases'`
   - now succeeds
@@ -38,7 +38,7 @@ Date: 2026-03-16
 
 - The next import-time blocker in the legacy DB-support tree is `tqdm`, not `clint`.
 - Example:
-  - importing [test_db_4](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_4/__init__.py) now fails on missing `tqdm`
+  - importing [test_db_4](../tests/support/test_databases/test_db_4/__init__.py) now fails on missing `tqdm`
 
 ## Practical Meaning
 
