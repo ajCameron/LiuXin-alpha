@@ -3,14 +3,31 @@ from __future__ import annotations
 import pytest
 
 from LiuXin_alpha import metadata
+from LiuXin_alpha.caches import CacheState
 from LiuXin_alpha.metadata.containers import (
     LazyLiuXinWEMIMetadata,
     LiuXinWEMIMetadata,
 )
 from tests.metadata.containers.test_item_metadata_hydrator import (
+    FakeCacheFacade,
     FakeStorageCache,
     _build_fake_database,
 )
+
+
+class _InitiallyEmptyCacheFacade(FakeCacheFacade):
+    def __init__(self, storage: FakeStorageCache) -> None:
+        super().__init__(storage)
+        self.load_calls = 0
+        self._state = CacheState.EMPTY
+
+    @property
+    def state(self) -> CacheState:
+        return self._state
+
+    def load(self) -> None:
+        self.load_calls += 1
+        self._state = CacheState.READY
 
 
 def test_metadata_top_level_exports_workflow_facade_without_leaf_containers() -> None:
@@ -63,13 +80,28 @@ def test_metadata_from_database_can_read_from_explicit_cache() -> None:
     wemi_metadata = metadata.cache_metadata_from_database(
         db,
         item_id=1,
-        cache=FakeStorageCache(db),
+        cache=FakeCacheFacade(FakeStorageCache(db)),
         allow_database_fallback=False,
     )
 
     assert isinstance(wemi_metadata, LiuXinWEMIMetadata)
     assert wemi_metadata.title == "Permutation City"
     assert list(wemi_metadata.tags.keys()) == ["Space Opera"]
+
+
+def test_metadata_from_database_loads_an_initially_empty_cache_facade() -> None:
+    db = _build_fake_database()
+    cache = _InitiallyEmptyCacheFacade(FakeStorageCache(db))
+
+    wemi_metadata = metadata.cache_metadata_from_database(
+        db,
+        item_id=1,
+        cache=cache,
+        allow_database_fallback=False,
+    )
+
+    assert wemi_metadata.title == "Permutation City"
+    assert cache.load_calls == 1
 
 
 def test_lazy_metadata_from_database_defers_and_optionally_forces_fields() -> None:
@@ -96,7 +128,7 @@ def test_lazy_metadata_can_read_from_explicit_cache_source() -> None:
     lazy_metadata = metadata.cache_metadata_from_database(
         db,
         item_id=1,
-        cache=FakeStorageCache(db),
+        cache=FakeCacheFacade(FakeStorageCache(db)),
         allow_database_fallback=False,
         lazy=True,
         force_hydrate=("tags", "labels", "identifiers"),

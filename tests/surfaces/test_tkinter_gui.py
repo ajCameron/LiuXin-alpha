@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from LiuXin_alpha.caches import StorageCacheCapabilities
 from LiuXin_alpha.metadata.containers import LiuXinWEMIMetadataHydrator
 from LiuXin_alpha.surfaces.tkinter_gui.app import build_arg_parser, config_from_args
 from LiuXin_alpha.surfaces.tkinter_gui.backend import TkGuiBackend
@@ -75,15 +76,38 @@ class _FakeDatabase:
         self.closed = True
 
 
+class _FakeCacheMainTable:
+    def __init__(self, database: _FakeDatabase, table: str) -> None:
+        self.column_headings = tuple(database.tables[str(table)])
+        self._rows = {
+            int(row.row_id): dict(row.row_dict)
+            for row in database.rows[str(table)]
+        }
+        self.row_ids = tuple(sorted(self._rows))
+
+    def get_row_snapshot(self, row_id: int) -> dict[str, object]:
+        return dict(self._rows[int(row_id)])
+
+
 class _FakeStorageCache:
     is_loaded = False
     is_initialized = False
-    main_tables: dict[str, object] = {}
 
-    def __init__(self) -> None:
+    def __init__(self, database: _FakeDatabase) -> None:
+        self.db = database
+        self.main_tables = {
+            table: _FakeCacheMainTable(database, table)
+            for table in database.tables
+        }
+        self.link_tables: dict[tuple[str, str], object] = {}
+        self.fields: dict[str, object] = {}
         self.read_calls = 0
         self.reload_calls = 0
         self.closed = False
+
+    @property
+    def capabilities(self) -> StorageCacheCapabilities:
+        return StorageCacheCapabilities()
 
     def read(self) -> None:
         self.read_calls += 1
@@ -98,6 +122,13 @@ class _FakeStorageCache:
     def assert_ready(self) -> None:
         if not self.is_loaded or not self.is_initialized:
             raise RuntimeError("cache not ready")
+
+    def clear(self) -> None:
+        self.is_loaded = False
+        self.is_initialized = False
+
+    def get_main_table(self, table: str) -> _FakeCacheMainTable:
+        return self.main_tables[str(table)]
 
     def close(self) -> None:
         self.closed = True
@@ -226,7 +257,7 @@ def test_tkinter_session_exposes_core_runtime_and_proxies() -> None:
 
 def test_tkinter_session_configures_cache_read_source() -> None:
     db = _FakeDatabase()
-    cache = _FakeStorageCache()
+    cache = _FakeStorageCache(db)
     session = TkGuiSession.from_database(
         db,
         config=TkGuiConfig(
@@ -238,7 +269,7 @@ def test_tkinter_session_configures_cache_read_source() -> None:
     )
 
     assert cache.read_calls == 1
-    assert session.storage_cache is cache
+    assert session.storage_cache.storage is cache
     assert session.read_source is not None
     assert session.metadata_read_source is session.read_source
     assert session.read_source_status_text() == "source cache:schema_backed with DB fallback"
@@ -260,7 +291,7 @@ def test_tkinter_session_configures_cache_read_source() -> None:
 
 def test_tkinter_session_selects_cache_read_source_after_open() -> None:
     db = _FakeDatabase()
-    cache = _FakeStorageCache()
+    cache = _FakeStorageCache(db)
     session = TkGuiSession.from_database(
         db,
         config=TkGuiConfig(database=Path("library.sqlite")),
@@ -269,7 +300,7 @@ def test_tkinter_session_selects_cache_read_source_after_open() -> None:
     assert session.read_source_status_text() == "source direct"
     assert session.select_read_source(mode="cache", cache_type="schema_backed", cache=cache) is True
     assert cache.read_calls == 1
-    assert session.storage_cache is cache
+    assert session.storage_cache.storage is cache
     assert session.storage_cache_type == "schema_backed"
     assert session.read_source_status_text() == "source cache:schema_backed with DB fallback"
     assert session.select_read_source(mode="cache", cache_type="schema_backed", cache=cache) is False
