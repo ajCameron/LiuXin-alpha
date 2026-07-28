@@ -85,12 +85,12 @@ ranges, decompression payloads, and image/resource names in many places.
 
 Added:
 
-- `docs/development/file-formats/pdb/README.md`
+- `dev-docs/file-formats/pdb/README.md`
 
 Updated:
 
-- `docs/development/file-formats/README.md`
-- `docs/development/file-format-unicode-conversion.md`
+- `dev-docs/file-formats/README.md`
+- `dev-docs/file-format-unicode-conversion.md`
 
 The PDB dossier records entry points, registered subformats, binary input
 contract, subformat boundaries, unicode coverage, hostile gaps, salvage/report

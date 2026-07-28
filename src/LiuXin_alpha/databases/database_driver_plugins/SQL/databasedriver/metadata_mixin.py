@@ -377,11 +377,17 @@ class MetadataMethodMixin:
         :return:
         """
         stmt = "SELECT `database_metadata_unique_id` FROM `database_metadata`"
-        conn = self.get_connection()
+        conn = getattr(self, "conn", None)
+        owns_connection = conn is None
+        if conn is None:
+            conn = self.get_connection()
         unique_ids = []
-        for row in conn.execute(stmt):
-            unique_ids.append(row[0])
-        conn.close()
+        try:
+            for row in conn.execute(stmt):
+                unique_ids.append(row[0])
+        finally:
+            if owns_connection:
+                conn.close()
         if len(unique_ids) == 0:
             return None
         elif len(unique_ids) == 1:

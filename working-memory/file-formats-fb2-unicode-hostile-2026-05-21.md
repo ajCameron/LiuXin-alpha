@@ -22,8 +22,8 @@ malformed XML behavior, and output serialization boundaries.
   metadata/manifest helpers for output-format tests.
 - Hardened `FB2Input` in
   `src/LiuXin_alpha/file_formats/conversion/plugins/fb2_input.py`.
-- Added durable docs in `docs/development/file-formats/fb2/README.md`.
-- Updated `docs/development/file-format-unicode-conversion.md` to include FB2
+- Added durable docs in `dev-docs/file-formats/fb2/README.md`.
+- Updated `dev-docs/file-format-unicode-conversion.md` to include FB2
   in the XML/input-output hardening direction.
 
 ## Fixture Contract

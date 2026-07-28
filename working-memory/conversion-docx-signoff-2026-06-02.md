@@ -3,7 +3,7 @@
 ## Decision
 
 DOCX is signed off for the current input/container conversion scope in
-`dev-docs/conversion_pipeline_signoff.md`.
+`dev-docs/conversion_pipeline/conversion_pipeline_signoff.md`.
 
 The signed-off scope includes:
 
@@ -23,7 +23,7 @@ The signed-off scope includes:
 
 Durable docs reviewed:
 
-- `docs/development/file-formats/docx/README.md`
+- `dev-docs/file-formats/docx/README.md`
 - `working-memory/file-formats-docx-container-2026-05-21.md`
 
 Focused validation:

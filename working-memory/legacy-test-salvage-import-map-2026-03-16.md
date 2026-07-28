@@ -4,12 +4,12 @@ Date: 2026-03-16
 
 ## Outputs
 
-- detailed CSV: [legacy-test-salvage-import-rewrite-map-2026-03-16.csv](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/legacy-test-salvage-import-rewrite-map-2026-03-16.csv)
+- detailed CSV: [legacy-test-salvage-import-rewrite-map-2026-03-16.csv](legacy-test-salvage-import-rewrite-map-2026-03-16.csv)
 
 ## Scope
 
 - Imported namespace audit for:
-  - [tests/support/test_databases](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases)
+  - [tests/support/test_databases](../tests/support/test_databases)
 - Focus:
   - all remaining `LiuXin_tests...` imports that keep the support tree coupled to the duplicate legacy tree
 
@@ -121,12 +121,12 @@ Reason:
 - recommended rewrite:
   - import `build_test_db` from the same package
 - reason:
-  - [test_db_1/__init__.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_1/__init__.py) already defines `build_test_db`
+  - [test_db_1/__init__.py](../tests/support/test_databases/test_db_1/__init__.py) already defines `build_test_db`
   - this is a stale namespace reference, not a missing helper
 
 ## Important Constraint
 
-- [tests/test_constants.py](/home/blackjane/LiuXin-alpha-wsl/tests/test_constants.py) is unrelated
+- [tests/test_constants.py](../tests/test_constants.py) is unrelated
 - do not reuse it for the legacy DB-support constants
 - its purpose is testing the main constants module, not hosting support data
 

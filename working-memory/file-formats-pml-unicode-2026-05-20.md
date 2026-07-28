@@ -7,7 +7,7 @@ framework work and uses the shared file-format fixtures from
 `tests/support/file_format_unicode.py`, `file_format_conversion.py`, and
 `file_format_oeb.py`.
 
-Durable doc: `docs/development/file-format-unicode-conversion.md`.
+Durable doc: `dev-docs/file-format-unicode-conversion.md`.
 
 ## Scope
 

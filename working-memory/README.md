@@ -32,6 +32,13 @@ Examples:
 - `rpc-cutover-2026-03-11.md`
 - `sync-debug-2026-03-11.md`
 
+## Links
+
+- Link to files in `working-memory/` with paths relative to the note.
+- Refer to canonical project files with repository-relative paths such as
+  `dev-docs/catalog-roadmap.md`.
+- Do not commit machine-specific checkout paths.
+
 ## Rule of thumb
 
 Keep each note compact and task-shaped:

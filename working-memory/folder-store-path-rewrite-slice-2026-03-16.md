@@ -20,8 +20,8 @@ Date: 2026-03-16
 
 ### 1. Support DB builders
 
-- [test_db_4/__init__.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_4/__init__.py)
-- [test_db_11/__init__.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_11/__init__.py)
+- [test_db_4/__init__.py](../tests/support/test_databases/test_db_4/__init__.py)
+- [test_db_11/__init__.py](../tests/support/test_databases/test_db_11/__init__.py)
 
 These still assign:
 - `folder_store_path`
@@ -32,15 +32,15 @@ That is the real active runtime seam inside alpha support code.
 ### 2. Support property corpus
 
 Examples:
-- [common_db_properties.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/common_db_properties.py)
-- [test_db_6_properties.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_db_6_properties.py)
-- [test_db_18_properties.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_db_18_properties.py)
-- [test_db_19_properties.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_db_19_properties.py)
-- [test_db_21_properties.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_db_21_properties.py)
-- [test_db_22_properties.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_db_22_properties.py)
-- [test_db_23_properties.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_db_23_properties.py)
-- [test_db_24_properties.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_db_24_properties.py)
-- [test_db_25_properties.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_db_25_properties.py)
+- [common_db_properties.py](../tests/support/test_databases/test_db_properties/common_db_properties.py)
+- [test_db_6_properties.py](../tests/support/test_databases/test_db_properties/test_db_6_properties.py)
+- [test_db_18_properties.py](../tests/support/test_databases/test_db_properties/test_db_18_properties.py)
+- [test_db_19_properties.py](../tests/support/test_databases/test_db_properties/test_db_19_properties.py)
+- [test_db_21_properties.py](../tests/support/test_databases/test_db_properties/test_db_21_properties.py)
+- [test_db_22_properties.py](../tests/support/test_databases/test_db_properties/test_db_22_properties.py)
+- [test_db_23_properties.py](../tests/support/test_databases/test_db_properties/test_db_23_properties.py)
+- [test_db_24_properties.py](../tests/support/test_databases/test_db_properties/test_db_24_properties.py)
+- [test_db_25_properties.py](../tests/support/test_databases/test_db_properties/test_db_25_properties.py)
 
 These are not the next rewrite target by themselves.
 
@@ -54,10 +54,10 @@ Meaning:
 
 ### 3. Shared macro surface
 
-- [macros.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/databases/api/macros.py)
-- [__init__.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/databases/database_driver_plugins/SQL/macros/__init__.py)
+- `src/LiuXin_alpha/databases/api/macros.py`
+- [__init__.py](../src/LiuXin_alpha/databases/database_driver_plugins/SQL/macros/__init__.py)
 - direct test now exists:
-  - [test_macros_folder_store_path.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/api/test_macros_folder_store_path.py)
+  - [test_macros_folder_store_path.py](../tests/databases/api/test_macros_folder_store_path.py)
 
 This surface is now covered enough to stop guessing about it.
 

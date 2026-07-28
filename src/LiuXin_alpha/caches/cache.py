@@ -176,6 +176,22 @@ class Cache(CacheAPI):
             self._state = CacheState.READY
             self._advance_generation()
 
+    def reload_data(self) -> None:
+        """Refresh cached values while retaining the established schema graph."""
+
+        with self._lock:
+            self._assert_open()
+            reload_data = getattr(self.storage, "reload_data", None)
+            if callable(reload_data):
+                reload_data()
+            else:
+                self.storage.reload()
+            self._dirty_tables.clear()
+            self._dirty_links.clear()
+            self._dirty_fields.clear()
+            self._state = CacheState.READY
+            self._advance_generation()
+
     def clear(self) -> None:
         with self._lock:
             self._assert_open()

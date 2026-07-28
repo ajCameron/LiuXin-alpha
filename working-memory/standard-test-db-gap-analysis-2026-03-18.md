@@ -22,7 +22,7 @@ In practice the live alpha resource-manager path currently provides:
 This was partly an intentional simplification, and partly an infrastructure gap:
 
 - `ImportedModuleDatabaseProvider` is in the provider chain
-  - [test_resources_manager.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_resources_manager.py#L294)
+  - [test_resources_manager.py](../tests/support/test_resources_manager.py#L294)
 - and the default import prefixes now include `tests.support.test_databases`
   - with `tests._support.test_databases` left as fallback-only compatibility
 - imported modules are now only advertised/resolved if they expose a supported

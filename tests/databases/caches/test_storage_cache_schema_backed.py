@@ -96,6 +96,30 @@ def schema_backed_cache(_schema_backed_cache_db: FakeDB) -> SchemaBackedStorageC
     return create_loaded_test_cache(_schema_backed_cache_db, "schema_backed")
 
 
+def test_invalidation_marks_dependencies_without_eager_reload(
+    schema_backed_cache: SchemaBackedStorageCache,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    covers = schema_backed_cache.main_tables["covers"]
+    original_reload = covers.reload
+    reloads: list[str] = []
+
+    def tracked_reload(db) -> None:
+        reloads.append("covers")
+        original_reload(db)
+
+    monkeypatch.setattr(covers, "reload", tracked_reload)
+
+    schema_backed_cache.invalidate_table("covers")
+    schema_backed_cache.invalidate_link_table("books", "covers")
+
+    assert reloads == []
+
+    schema_backed_cache.get_field("books.covers.path")
+
+    assert reloads == ["covers"]
+
+
 @pytest.fixture()
 def many_one_schema_backed_cache() -> SchemaBackedStorageCache:
     books = make_table(

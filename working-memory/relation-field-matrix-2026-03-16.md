@@ -9,7 +9,7 @@ Replace the old legacy cache field self-tests for relation-backed fields with ac
 ## Implemented
 
 New active test file:
-- [test_calibre_cache_07_relation_field_semantics.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/caches/test_calibre_cache_07_relation_field_semantics.py)
+- [test_calibre_cache_07_relation_field_semantics.py](../tests/databases/caches/test_calibre_cache_07_relation_field_semantics.py)
 
 It covers the cache-facing adapter behavior for:
 - `CalibreOneToManyField`
@@ -44,10 +44,10 @@ Targeted file:
 - `15 passed`
 
 Active Batch A + Batch B bundle:
-- [test_calibre_cache_06_custom_column_semantics.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/caches/test_calibre_cache_06_custom_column_semantics.py)
-- [test_calibre_cache_07_relation_field_semantics.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/caches/test_calibre_cache_07_relation_field_semantics.py)
-- [test_calibre_emulation_d1_custom_columns_introspection.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/database_calibre_emultation/test_calibre_emulation_d1_custom_columns_introspection.py)
-- [test_calibre_emulation_d2_custom_values.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/database_calibre_emultation/test_calibre_emulation_d2_custom_values.py)
+- [test_calibre_cache_06_custom_column_semantics.py](../tests/databases/caches/test_calibre_cache_06_custom_column_semantics.py)
+- [test_calibre_cache_07_relation_field_semantics.py](../tests/databases/caches/test_calibre_cache_07_relation_field_semantics.py)
+- [test_calibre_emulation_d1_custom_columns_introspection.py](../tests/databases/database_calibre_emultation/test_calibre_emulation_d1_custom_columns_introspection.py)
+- [test_calibre_emulation_d2_custom_values.py](../tests/databases/database_calibre_emultation/test_calibre_emulation_d2_custom_values.py)
 - result: `39 passed`
 
 ## Manifest Effect

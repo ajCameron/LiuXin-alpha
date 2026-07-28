@@ -69,10 +69,16 @@ class SchemaBackedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
         db = _ensure_db(self._db, db)
         self._db = db
         table = self.in_table
-        self._ids_values_map = {
-            row_id: table.get_row_snapshot(row_id).get(self.column_name)
-            for row_id in table.row_ids
-        }
+        # The table cache already owns a column index. Re-reading and
+        # deep-copying every complete row once per field makes cache startup
+        # quadratic in the number of columns for wide schema tables.
+        self._ids_values_map = dict(
+            zip(
+                table.row_ids,
+                table.get_values_for(self.column_name),
+                strict=True,
+            )
+        )
 
     def _table_cache(self) -> SchemaBackedMainTableCache:
         return cast(SchemaBackedMainTableCache, self.in_table)

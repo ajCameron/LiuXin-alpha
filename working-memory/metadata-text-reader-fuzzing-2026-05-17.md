@@ -28,7 +28,7 @@ fallbacks and sanitization rather than strict rejection.
     text bucket
 - Shared malformed-input corpus now has text-like safety cases for TXT, HTML
   and plain PML, plus registry assertions for the text-like reader set.
-- Durable policy doc updated in `docs/development/malformed-input-fuzzing.md`.
+- Durable policy doc updated in `dev-docs/malformed-input-fuzzing.md`.
 
 ## Validation
 

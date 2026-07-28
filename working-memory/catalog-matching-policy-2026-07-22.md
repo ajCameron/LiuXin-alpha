@@ -5,7 +5,7 @@ Status: complete
 
 ## Objective
 
-Implement the policy in `docs/development/catalog-matching-policy.md` without
+Implement the policy in `dev-docs/catalog-matching-policy.md` without
 breaking the existing `candidates()`, `best()`, `exact()`, repository
 `match()`, and `match_or_create()` entry points.
 

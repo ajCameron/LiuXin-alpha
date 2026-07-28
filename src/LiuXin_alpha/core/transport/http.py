@@ -1,10 +1,4 @@
-"""Minimal HTTP transport for `CoreRuntime`.
-
-Phase-2 scaffold:
-- start/stop daemon lifecycle
-- JSON RPC for command/query envelopes
-- long-poll event stream endpoint
-"""
+"""HTTP command/query and long-poll event transport for `CoreRuntime`."""
 
 from __future__ import annotations
 
@@ -15,12 +9,14 @@ import urllib.parse
 
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from LiuXin_alpha.core.commands import CoreCommand
+from LiuXin_alpha.core.errors import core_error_details
 from LiuXin_alpha.core.events import CoreEvent
 from LiuXin_alpha.core.queries import CoreQuery
 from LiuXin_alpha.core.runtime import CoreRuntime
+from LiuXin_alpha.core.wire import to_wire
 
 
 class CoreHttpDaemon:
@@ -41,7 +37,7 @@ class CoreHttpDaemon:
 
         self._server: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
-        self._unsubscribe = None
+        self._unsubscribe: Callable[[], None] | None = None
 
         self._event_lock = threading.Condition()
         self._event_sequence = 0
@@ -105,8 +101,9 @@ class CoreHttpDaemon:
             server_version = "LiuXinCoreHTTP/0.1"
             protocol_version = "HTTP/1.1"
 
-            def log_message(self, fmt: str, *args: object) -> None:
+            def log_message(self, format: str, *args: object) -> None:
                 # Keep transport tests deterministic and quiet.
+                del format, args
                 return
 
             def _send_json(self, status: int, payload: dict[str, Any]) -> None:
@@ -118,6 +115,22 @@ class CoreHttpDaemon:
                 self.end_headers()
                 self.wfile.write(data)
                 self.wfile.flush()
+
+            def _send_core_error(
+                self,
+                status: int,
+                exc: BaseException,
+            ) -> None:
+                code, details = core_error_details(exc)
+                self._send_json(
+                    status,
+                    {
+                        "ok": False,
+                        "error": str(exc),
+                        "error_code": code,
+                        "error_details": to_wire(details),
+                    },
+                )
 
             def _read_json_body(self) -> dict[str, Any]:
                 raw_length = self.headers.get("Content-Length", "0").strip()
@@ -184,7 +197,10 @@ class CoreHttpDaemon:
                     try:
                         result = daemon.runtime.execute_query(CoreQuery(name="health")).result
                     except Exception as exc:
-                        self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
+                        self._send_core_error(
+                            HTTPStatus.INTERNAL_SERVER_ERROR,
+                            exc,
+                        )
                         return
                     self._send_json(HTTPStatus.OK, {"ok": True, "result": result})
                     return
@@ -199,7 +215,10 @@ class CoreHttpDaemon:
                     try:
                         result = daemon.runtime.execute_query(CoreQuery(name="api.describe", payload=payload)).result
                     except Exception as exc:
-                        self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
+                        self._send_core_error(
+                            HTTPStatus.INTERNAL_SERVER_ERROR,
+                            exc,
+                        )
                         return
                     self._send_json(HTTPStatus.OK, {"ok": True, "result": result})
                     return
@@ -228,46 +247,57 @@ class CoreHttpDaemon:
 
                 if rel_path == "/rpc/query":
                     try:
-                        query_name = str(body.get("name", "")).strip() or "invoke"
+                        query_name = str(body.get("name", "")).strip()
+                        if not query_name:
+                            raise ValueError("Query name cannot be blank.")
                         payload = body.get("payload", {})
                         query_id = body.get("query_id")
                         correlation_id = body.get("correlation_id")
-                        envelope_kwargs: dict[str, Any] = {
+                        query_envelope_kwargs: dict[str, Any] = {
                             "name": query_name,
                             "payload": dict(payload if isinstance(payload, dict) else {}),
                         }
                         if query_id is not None:
-                            envelope_kwargs["query_id"] = str(query_id)
+                            query_envelope_kwargs["query_id"] = str(query_id)
                         if correlation_id is not None:
-                            envelope_kwargs["correlation_id"] = str(correlation_id)
-                        envelope = CoreQuery(**envelope_kwargs)
+                            query_envelope_kwargs["correlation_id"] = str(correlation_id)
+                        query_envelope = CoreQuery(**query_envelope_kwargs)
                     except Exception as exc:
                         self._send_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Bad query payload: {}".format(exc)})
                         return
 
                     try:
-                        result = daemon.runtime.execute_query(envelope)
+                        query_result = daemon.runtime.execute_query(
+                            query_envelope
+                        )
                     except Exception as exc:
-                        self._send_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
+                        self._send_core_error(HTTPStatus.BAD_REQUEST, exc)
                         return
-                    self._send_json(HTTPStatus.OK, dataclasses.asdict(result))
+                    self._send_json(
+                        HTTPStatus.OK,
+                        dataclasses.asdict(query_result),
+                    )
                     return
 
                 if rel_path == "/rpc/command":
                     try:
-                        command_name = str(body.get("name", "")).strip() or "invoke"
+                        command_name = str(body.get("name", "")).strip()
+                        if not command_name:
+                            raise ValueError("Command name cannot be blank.")
                         payload = body.get("payload", {})
                         command_id = body.get("command_id")
                         correlation_id = body.get("correlation_id")
-                        envelope_kwargs: dict[str, Any] = {
+                        command_envelope_kwargs: dict[str, Any] = {
                             "name": command_name,
                             "payload": dict(payload if isinstance(payload, dict) else {}),
                         }
                         if command_id is not None:
-                            envelope_kwargs["command_id"] = str(command_id)
+                            command_envelope_kwargs["command_id"] = str(command_id)
                         if correlation_id is not None:
-                            envelope_kwargs["correlation_id"] = str(correlation_id)
-                        envelope = CoreCommand(**envelope_kwargs)
+                            command_envelope_kwargs["correlation_id"] = str(correlation_id)
+                        command_envelope = CoreCommand(
+                            **command_envelope_kwargs
+                        )
                     except Exception as exc:
                         self._send_json(
                             HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Bad command payload: {}".format(exc)}
@@ -275,11 +305,16 @@ class CoreHttpDaemon:
                         return
 
                     try:
-                        result = daemon.runtime.execute_command(envelope)
+                        command_result = daemon.runtime.execute_command(
+                            command_envelope
+                        )
                     except Exception as exc:
-                        self._send_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
+                        self._send_core_error(HTTPStatus.BAD_REQUEST, exc)
                         return
-                    self._send_json(HTTPStatus.OK, dataclasses.asdict(result))
+                    self._send_json(
+                        HTTPStatus.OK,
+                        dataclasses.asdict(command_result),
+                    )
                     return
 
                 self._send_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Unknown endpoint."})
@@ -360,9 +395,14 @@ class CoreHttpDaemon:
         self.start()
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(
+        self,
+        exc_type: Any,
+        exc: Any,
+        tb: Any,
+    ) -> None:
+        del exc_type, exc, tb
         self.stop()
-        return False
 
 
 __all__ = ["CoreHttpDaemon"]

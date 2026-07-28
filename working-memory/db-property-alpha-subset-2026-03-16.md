@@ -6,18 +6,18 @@ Date: 2026-03-16
 
 - Alpha-native live-schema normalization for the legacy DB-property support corpus.
 - This now spans all `26` support classes under:
-  - [test_db_properties](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties)
+  - [test_db_properties](../tests/support/test_databases/test_db_properties)
 
 ## What Landed
 
-- Shared alpha-facing live-schema declarations in [common_db_properties.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/common_db_properties.py):
+- Shared alpha-facing live-schema declarations in [common_db_properties.py](../tests/support/test_databases/test_db_properties/common_db_properties.py):
   - `alpha_focus_tables`
   - `alpha_focus_table_columns`
   - `alpha_database_version_required_substrings`
 - Per-DB row-count declarations:
   - `alpha_focus_row_counts`
 - Collected live-schema contract:
-  - [test_property_alpha_schema_subset.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_property_alpha_schema_subset.py)
+  - [test_property_alpha_schema_subset.py](../tests/support/test_databases/test_db_properties/test_property_alpha_schema_subset.py)
 
 ## Contract Shape
 

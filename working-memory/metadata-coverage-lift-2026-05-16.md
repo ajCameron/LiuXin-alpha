@@ -118,7 +118,7 @@ test corpus is deterministic.
 
 Durable docs:
 
-- `docs/development/malformed-input-fuzzing.md`
+- `dev-docs/malformed-input-fuzzing.md`
 
 Follow-up direction:
 

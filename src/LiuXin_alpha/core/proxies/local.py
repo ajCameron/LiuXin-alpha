@@ -2,13 +2,75 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
-from LiuXin_alpha.core.commands import CoreCommand
+from LiuXin_alpha.core.api import CoreAPI
+from LiuXin_alpha.core.commands import CoreCommand, CoreCommandResult
 from LiuXin_alpha.core.dispatch import looks_like_write_method
+from LiuXin_alpha.core.events import CoreEvent
 from LiuXin_alpha.core.proxies.jobs import JobStatesArg, JobsProxyABC, normalize_job_states_arg
-from LiuXin_alpha.core.queries import CoreQuery
+from LiuXin_alpha.core.queries import CoreQuery, CoreQueryResult
 from LiuXin_alpha.core.runtime import CoreRuntime
+
+
+def _require_mapping(value: Any, *, operation: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise TypeError("{} result must be a mapping.".format(operation))
+    return value
+
+
+class LocalCoreClient(CoreAPI):
+    """Thin in-process client implementing the same contract as RPC access."""
+
+    def __init__(self, runtime: CoreRuntime) -> None:
+        self._runtime = runtime
+
+    @property
+    def core_uuid(self) -> str:
+        return self._runtime.core_uuid
+
+    @property
+    def core_version(self) -> str:
+        return self._runtime.core_version
+
+    @property
+    def api_version(self) -> str:
+        return self._runtime.api_version
+
+    def execute_command(
+        self,
+        command: CoreCommand,
+    ) -> CoreCommandResult:
+        return self._runtime.execute_command(command)
+
+    def execute_query(
+        self,
+        query: CoreQuery,
+    ) -> CoreQueryResult:
+        return self._runtime.execute_query(query)
+
+    def describe_api(
+        self,
+        *,
+        include_targets: bool = True,
+        target: str | None = None,
+    ) -> dict[str, Any]:
+        return self._runtime.describe_api(
+            include_targets=include_targets,
+            target=target,
+        )
+
+    def subscribe(
+        self,
+        callback: Callable[[CoreEvent], None],
+    ) -> Callable[[], None]:
+        return self._runtime.subscribe(callback)
+
+    def shutdown(self) -> int:
+        return self._runtime.shutdown()
+
+
+LocalCoreProxy = LocalCoreClient
 
 
 class _LocalTargetProxy:
@@ -58,7 +120,10 @@ class _LocalTargetProxy:
             kwargs=kwargs,
         )
 
-    def __getattr__(self, method_name: str):
+    def __getattr__(
+        self,
+        method_name: str,
+    ) -> Callable[..., Any]:
         def _caller(*args: Any, **kwargs: Any) -> Any:
             return self.call(method_name, *args, **kwargs)
 
@@ -101,22 +166,34 @@ class LocalJobsProxy(JobsProxyABC):
         if limit is not None:
             payload["limit"] = int(limit)
         envelope = CoreQuery(name="jobs.list", payload=payload)
-        return self._runtime.execute_query(envelope).result
+        return _require_mapping(
+            self._runtime.execute_query(envelope).result,
+            operation="jobs.list",
+        )
 
     def get(self, job_id: str) -> Mapping[str, Any]:
         envelope = CoreQuery(name="jobs.get", payload={"job_id": self.normalize_job_id(job_id)})
-        return self._runtime.execute_query(envelope).result
+        return _require_mapping(
+            self._runtime.execute_query(envelope).result,
+            operation="jobs.get",
+        )
 
     def wait(self, job_id: str, *, timeout_s: float | None = None) -> Mapping[str, Any]:
         payload: dict[str, Any] = {"job_id": self.normalize_job_id(job_id)}
         if timeout_s is not None:
             payload["timeout_s"] = float(timeout_s)
         envelope = CoreQuery(name="jobs.wait", payload=payload)
-        return self._runtime.execute_query(envelope).result
+        return _require_mapping(
+            self._runtime.execute_query(envelope).result,
+            operation="jobs.wait",
+        )
 
     def cancel(self, job_id: str) -> Mapping[str, Any]:
         envelope = CoreCommand(name="jobs.cancel", payload={"job_id": self.normalize_job_id(job_id)})
-        return self._runtime.execute_command(envelope).result
+        return _require_mapping(
+            self._runtime.execute_command(envelope).result,
+            operation="jobs.cancel",
+        )
 
 
 class LocalLibraryProxy(_LocalTargetProxy):
@@ -124,6 +201,7 @@ class LocalLibraryProxy(_LocalTargetProxy):
 
     def __init__(self, runtime: CoreRuntime) -> None:
         super().__init__(runtime=runtime, target="library")
+        self.core = LocalCoreClient(runtime)
         self.database = LocalDatabaseProxy(runtime)
         self.storage = LocalStorageProxy(runtime)
         self.jobs = LocalJobsProxy(runtime)
@@ -138,11 +216,27 @@ class LocalLibraryProxy(_LocalTargetProxy):
 
     def health(self) -> Mapping[str, Any]:
         envelope = CoreQuery(name="health")
-        return self._runtime.execute_query(envelope).result
+        return _require_mapping(
+            self._runtime.execute_query(envelope).result,
+            operation="health",
+        )
 
     def describe_api(self, *, include_targets: bool = True, target: str | None = None) -> Mapping[str, Any]:
         payload: dict[str, Any] = {"include_targets": bool(include_targets)}
         if target is not None:
             payload["target"] = str(target)
         envelope = CoreQuery(name="api.describe", payload=payload)
-        return self._runtime.execute_query(envelope).result
+        return _require_mapping(
+            self._runtime.execute_query(envelope).result,
+            operation="api.describe",
+        )
+
+
+__all__ = [
+    "LocalCoreClient",
+    "LocalCoreProxy",
+    "LocalLibraryProxy",
+    "LocalDatabaseProxy",
+    "LocalStorageProxy",
+    "LocalJobsProxy",
+]

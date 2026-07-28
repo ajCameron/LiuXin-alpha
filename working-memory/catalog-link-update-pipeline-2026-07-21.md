@@ -186,7 +186,7 @@ ids, then applies replacement and incremental deletion/addition data through
 The incomplete catalog-only base/cardinality writer hierarchy has been retired;
 the live cache writers remain untouched. The accepted replacement boundary and
 rebuild sequence are documented in
-`docs/development/catalog-link-writer-architecture.md` and the active handoff
+`dev-docs/catalog-link-writer-architecture.md` and the active handoff
 is `working-memory/catalog-writer-reset-2026-07-21.md`.
 
 An abstract `CatalogLinkWriter` now exists over this normalized seam with
@@ -249,5 +249,5 @@ additions call separately committed `ensure_table_value()` operations during
 `build_update()`. Cardinality is checked only afterwards. The complete
 raw-value writer call can therefore commit destination rows before rejecting
 or failing the link update. See
-`docs/development/catalog-fitness-review.md` for the package-wide review and
+`dev-docs/catalog-fitness-review.md` for the package-wide review and
 the required combined transaction boundary.

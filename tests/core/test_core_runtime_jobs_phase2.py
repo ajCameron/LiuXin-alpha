@@ -120,11 +120,64 @@ def run(seconds):
         manager.shutdown(wait=True, cancel_pending=True)
 
 
+def test_core_runtime_jobs_expose_result_and_bounded_log_content() -> None:
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    try:
+        runtime = _build_runtime_with_manager(manager)
+        source = """
+def run():
+    print("core-program-job-log")
+    return {"answer": 42}
+"""
+        job_id = manager.submit(
+            JobRequest(
+                module_name=source,
+                function_name="run",
+                module_is_source_code=True,
+            ),
+            no_output=False,
+            label="result-and-log",
+        )
+        result = runtime.query(
+            "jobs.result",
+            {"job_id": job_id, "timeout_s": 2.0},
+        )
+        assert result["execution"]["ok"] is True
+        assert result["execution"]["result"] == {"answer": 42}
+
+        log = runtime.query(
+            "jobs.log.read",
+            {"job_id": job_id, "offset": 0, "max_bytes": 1024},
+        )
+        assert log["available"] is True
+        assert log["eof"] is True
+        assert "core-program-job-log" in log["text"]
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+
 def test_core_runtime_jobs_get_unknown_job_raises_dispatch_error() -> None:
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
     try:
         runtime = _build_runtime_with_manager(manager)
         with pytest.raises(CoreHandlerError):
             runtime.execute_query(CoreQuery(name="jobs.get", payload={"job_id": "does-not-exist"}))
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+
+def test_core_runtime_jobs_list_rejects_unknown_state() -> None:
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    try:
+        runtime = _build_runtime_with_manager(manager)
+        with pytest.raises(CoreHandlerError) as caught:
+            runtime.execute_query(
+                CoreQuery(
+                    name="jobs.list",
+                    payload={"states": ["running", "not-a-state"]},
+                )
+            )
+        assert caught.value.code == "dispatch_error"
+        assert "not-a-state" in str(caught.value)
     finally:
         manager.shutdown(wait=True, cancel_pending=True)

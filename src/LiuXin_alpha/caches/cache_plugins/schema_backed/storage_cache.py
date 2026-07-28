@@ -111,6 +111,22 @@ class SchemaBackedStorageCache(StorageCacheAPI):
     def reload(self, db: Any = None) -> None:
         self.read(db=db)
 
+    def reload_data(self, db: Any = None) -> None:
+        """Reload row/link/field values without rebuilding the schema graph."""
+
+        db = self._require_db(db)
+        if not self.main_tables or not self._field_objects:
+            self.read(db=db)
+            return
+        self.initialize_tables(db)
+        self.initialize_fields(db)
+        self._stale_main_tables.clear()
+        self._stale_link_tables.clear()
+        self._stale_fields.clear()
+        self._stale_ids.clear()
+        self._is_loaded = True
+        self._is_initialized = True
+
     def clear(self) -> None:
         self.main_tables = {}
         self.link_tables = {}
@@ -141,7 +157,11 @@ class SchemaBackedStorageCache(StorageCacheAPI):
 
     def read_tables(self, db: Any = None) -> None:
         db = self._require_db(db)
-        schema = db.driver_wrapper.get_schema_spec(force_refresh=True)
+        # Row-data reloads are the common path after Core writes. The database
+        # driver invalidates its derived schema cache when the schema changes,
+        # so forcing a full relation/inflection rebuild on every data
+        # reconciliation is both redundant and extremely expensive.
+        schema = db.driver_wrapper.get_schema_spec(force_refresh=False)
         self._schema = schema
         self.main_tables = {
             table_name: SchemaBackedMainTableCache(spec, db)
@@ -512,7 +532,13 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         self,
         table: Union[str, StorageCacheSingleTableAPI],
     ) -> None:
-        table_name = self.get_main_table(table).table
+        table_name = (
+            table.table
+            if isinstance(table, StorageCacheSingleTableAPI)
+            else str(table)
+        )
+        if table_name not in self.main_tables:
+            raise KeyError(table_name)
         self._stale_main_tables.add(table_name)
 
     def invalidate_link_table(
@@ -521,8 +547,28 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         dst_table: Union[str, StorageCacheSingleTableAPI],
         table_type: Optional[TableTypes] = None,
     ) -> None:
-        table = self.get_link_table(src_table, dst_table, table_type=table_type)
-        self._stale_link_tables.add((table.primary_table, table.secondary_table))
+        src_name = (
+            src_table.table
+            if isinstance(src_table, StorageCacheSingleTableAPI)
+            else str(src_table)
+        )
+        dst_name = (
+            dst_table.table
+            if isinstance(dst_table, StorageCacheSingleTableAPI)
+            else str(dst_table)
+        )
+        key = (src_name, dst_name)
+        table = self.link_tables[key]
+        if table_type is not None and table.table_type != table_type:
+            raise KeyError(
+                f"Link table {src_name!r}->{dst_name!r} is "
+                f"{table.table_type}, not {table_type}"
+            )
+        # Invalidation must only mark state. Calling the freshness-aware
+        # accessors here can reload a previously invalidated destination table
+        # while a catalog transaction is still open, clearing its stale marker
+        # before the committed row is visible to the cache connection.
+        self._stale_link_tables.add(key)
 
     def invalidate_field(
         self,
@@ -536,7 +582,13 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         table: Union[str, StorageCacheSingleTableAPI],
         ids: Iterable[int],
     ) -> None:
-        table_name = self.get_main_table(table).table
+        table_name = (
+            table.table
+            if isinstance(table, StorageCacheSingleTableAPI)
+            else str(table)
+        )
+        if table_name not in self.main_tables:
+            raise KeyError(table_name)
         self._stale_ids[table_name].update(int(row_id) for row_id in ids)
         self._stale_main_tables.add(table_name)
 

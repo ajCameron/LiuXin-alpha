@@ -80,21 +80,44 @@ class SQLBaseDriver:
 
         :return:
         """
-        self.tables = None
-        self.tables_and_columns = None
-        self.categorized_tables = None
-        self.all_column_names = set()
+        schema_changed = True
+        schema_version = getattr(self, "direct_get_schema_version", None)
+        cached_schema_version = getattr(
+            self,
+            "_schema_version_cached",
+            None,
+        )
+        if callable(schema_version) and cached_schema_version is not None:
+            try:
+                current_schema_version = schema_version()
+                schema_changed = (
+                    current_schema_version is None
+                    or current_schema_version != cached_schema_version
+                )
+            except Exception:
+                schema_changed = True
+
+        if schema_changed:
+            self.tables = None
+            self.tables_and_columns = None
+            self.categorized_tables = None
+            self.all_column_names = set()
 
         self.locations = None
 
         # Schema mutations can leave wrapper-side derived caches stale when callers use the raw driver API.
-        try:
-            driver_wrapper = getattr(self.db, "driver_wrapper", None)
-            clear_derived = getattr(driver_wrapper, "_clear_derived_schema_caches", None)
-            if clear_derived is not None:
-                clear_derived()
-        except Exception:
-            pass
+        if schema_changed:
+            try:
+                driver_wrapper = getattr(self.db, "driver_wrapper", None)
+                clear_derived = getattr(
+                    driver_wrapper,
+                    "_clear_derived_schema_caches",
+                    None,
+                )
+                if clear_derived is not None:
+                    clear_derived()
+            except Exception:
+                pass
 
         try:
             self.db.refresh_db_metadata()

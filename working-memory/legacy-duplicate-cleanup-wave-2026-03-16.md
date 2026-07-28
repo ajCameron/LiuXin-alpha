@@ -29,7 +29,7 @@ Deleted the covered duplicate legacy property files from `src/LiuXin_tests/test_
 - `test_db_25_properties.py`
 
 Updated the legacy package shim in:
-- [__init__.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_tests/test_databases/test_db_properties/__init__.py)
+- [__init__.py](../src/LiuXin_tests/test_databases/test_db_properties/__init__.py)
 
 That package now:
 - delegates covered rows to the authoritative alpha support copies under `tests/support/test_databases/test_db_properties`
@@ -40,17 +40,17 @@ That package now:
 Removed more duplicate support plumbing from the same subtree:
 
 - deleted duplicate base file:
-  - [common_db_properties.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_tests/test_databases/test_db_properties/common_db_properties.py)
+  - `src/LiuXin_tests/test_databases/test_db_properties/common_db_properties.py`
 
 Rewired the remaining local rewrite property modules to use the authoritative shared base in:
-- [common_db_properties.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/common_db_properties.py)
+- [common_db_properties.py](../tests/support/test_databases/test_db_properties/common_db_properties.py)
 
 Updated stale builder helper imports in:
-- [test_db_4/__init__.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_tests/test_databases/test_db_4/__init__.py)
-- [test_db_11/__init__.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_tests/test_databases/test_db_11/__init__.py)
+- [test_db_4/__init__.py](../src/LiuXin_tests/test_databases/test_db_4/__init__.py)
+- [test_db_11/__init__.py](../src/LiuXin_tests/test_databases/test_db_11/__init__.py)
 
 Those now point at:
-- [objects.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/_legacy/objects.py)
+- [objects.py](../tests/support/test_databases/_legacy/objects.py)
 
 ## Why This Slice
 
