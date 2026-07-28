@@ -35,6 +35,16 @@ class DummyDatabase:
 
 def test_catalog_facade_imports_and_instantiates() -> None:
     catalog = Catalog(DummyDatabase())
+    assert catalog.add.db is catalog.db
+    assert catalog.ensure.db is catalog.db
+    assert catalog.apply.db is catalog.db
+    assert catalog.intralink.db is catalog.db
+    assert catalog.add.ensure is catalog.ensure
+    assert catalog.add.apply is catalog.apply
+    assert catalog.ensure.add is catalog.add
+    assert catalog.apply.add is catalog.add
+    assert catalog.apply.ensure is catalog.ensure
+    assert callable(catalog.add.work)
     assert catalog.works is catalog.repositories.works
     assert catalog.expressions is catalog.repositories.expressions
     assert catalog.manifestations is catalog.repositories.manifestations
@@ -58,6 +68,11 @@ def test_api_dataclasses_are_lightweight() -> None:
 def test_catalog_matches_protocol_shape() -> None:
     catalog = Catalog(DummyDatabase())
     assert isinstance(catalog, CatalogAPI)
+    assert isinstance(catalog, CatalogMetadataToolsAPI)
+    assert isinstance(catalog.add, AddAPI)
+    assert isinstance(catalog.ensure, EnsureAPI)
+    assert isinstance(catalog.apply, ApplyAPI)
+    assert isinstance(catalog.intralink, IntralinkerAPI)
     assert isinstance(catalog.mutations, CatalogMutationsAPI)
     assert callable(catalog.create_writer)
     assert callable(catalog.write)

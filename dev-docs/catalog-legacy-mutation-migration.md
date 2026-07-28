@@ -8,18 +8,20 @@ Production mutation code enters through `Catalog`: repositories own ordinary
 entity persistence, coordinated mutations own operations spanning several
 entities or tables, and normalized writers own declared relationships.
 
-`catalog_macros` and `metadata_tools` are preserved in place as frozen
-reference implementations. They contain useful direct-SQL approaches that may
-later inform faster implementations. Preserving them does not make them an
-alternative public API: new production callers and new behavior are forbidden.
+`catalog_macros` is preserved in place as a frozen reference implementation.
+The row-oriented `metadata_tools` implementations are also retained without
+new behavior, but `Catalog` is their one authorized production composition
+root. It exposes their `Add`, `Ensure`, `Apply`, and `Intralinker` helpers as
+`catalog.add`, `catalog.ensure`, `catalog.apply`, and `catalog.intralink`.
 
-No production caller outside the preserved legacy packages now imports them or
-obtains their `Add`, `Ensure`, `Apply`, or `Intralinker` helpers indirectly.
-The reference code and its characterisation tests remain in place.
+No production caller outside `Catalog` imports these implementations or
+obtains them indirectly from database/library objects. The reference code and
+its characterisation tests remain in place.
 
 ## Boundaries
 
-- Legacy code is reference and compatibility code, not the owner of new
+- The row-oriented helpers are compatibility code exposed only through
+  `Catalog`; repositories and coordinated mutations remain the owners of new
   catalog semantics.
 - Existing behavior is migrated behind a repository, coordinated mutation, or
   normalized writer before its caller changes.
@@ -57,8 +59,8 @@ The reference code and its characterisation tests remain in place.
 3. Migrate cache writers in terms of the normalized link-writer contracts.
 4. Migrate library and metadata-SQL operations in coherent transactional
    slices, retaining characterization coverage throughout.
-5. Remove runtime helper injection from the database/library objects and empty
-   the production allowlist.
+5. Remove runtime helper injection from the database/library objects and limit
+   the production allowlist to the Catalog composition root.
 6. Retain the legacy sources and tests as an explicitly non-live reference
    area for subsequent SQL optimization work.
 
@@ -80,7 +82,8 @@ Each slice must prove:
 
 Completion evidence:
 
-- the production direct-import and indirect-facade allowlists are both empty;
+- the production direct-import allowlist contains only `Catalog`, while the
+  indirect database-facade allowlist remains empty;
 - the full Catalog suite passes (`396 passed`);
 - the full storage-cache suite passes (`115 passed`, with six explicitly
   disabled legacy-Calibre suites skipped);

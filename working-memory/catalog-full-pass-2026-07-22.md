@@ -59,8 +59,9 @@ transaction, so the complete call is now all-or-nothing.
 
 - Treat `Catalog` repositories and normalized writers as the only extension
   points for new catalog persistence.
-- Treat `catalog_macros` and `metadata_tools` as migration-only compatibility
-  packages; do not add features there.
+- Treat `catalog_macros` and `metadata_tools` as compatibility packages; do not
+  add semantics there. `Catalog` is the sole supported composition root for
+  the retained `add`, `ensure`, `apply`, and `intralink` helpers.
 - A bundle is one deterministic path through a many-to-many graph, not a full
   graph export.
 - Logical title IDs equal WEMI entity IDs. Identifier assignment copies an

@@ -29,7 +29,7 @@ from LiuXin_alpha.catalog.api.metadata_tools_api.intralinker_api import Intralin
 
 @runtime_checkable
 class CatalogMetadataToolsAPI(Protocol):
-    """Grouped metadata tool API exposed by legacy database/library backends."""
+    """Grouped metadata tool API exposed directly by the Catalog facade."""
 
     add: AddAPI
     ensure: EnsureAPI

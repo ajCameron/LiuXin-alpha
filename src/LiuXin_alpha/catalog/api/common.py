@@ -37,11 +37,15 @@ MatchEvidenceKind: TypeAlias = Literal[
 
 
 class CatalogError(RuntimeError):
-    """Base error for catalog-layer failures."""
+    """
+    Base error for catalog-layer failures.
+    """
 
 
 class CatalogNotFoundError(CatalogError, KeyError):
-    """Raised when a required catalog entity cannot be found."""
+    """
+    Raised when a required catalog entity cannot be found.
+    """
 
 
 class CatalogMutationError(CatalogError):
@@ -89,7 +93,9 @@ class DatabaseHandle(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class MetadataCandidate:
-    """Generic candidate object for matching or creation."""
+    """
+    Generic candidate object for matching or creation.
+    """
 
     data: RowMapping
     source: str | None = None
@@ -196,14 +202,21 @@ class MatchResult:
 
     @property
     def requires_resolution(self) -> bool:
-        """Return whether automation must stop for caller intervention."""
+        """
+        Return whether automation must stop for caller intervention.
+
+        :return:
+        """
 
         return self.decision in {"ambiguous", "conflict"}
 
 
+# Todo: WEMIBundle is better English?
 @dataclass(frozen=True, slots=True)
 class WemiBundle:
-    """A coherent slice through Work / Expression / Manifestation / Item metadata."""
+    """
+    A coherent slice through Work / Expression / Manifestation / Item metadata.
+    """
 
     work: RowMapping | None = None
     expression: RowMapping | None = None

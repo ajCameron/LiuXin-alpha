@@ -18,7 +18,9 @@ REFERENCE_PATHS = (
     SOURCE_ROOT / "catalog" / "catalog_macros.py",
     SOURCE_ROOT / "catalog" / "metadata_tools" / "__init__.py",
 )
-ALLOWED_PRODUCTION_IMPORTS: set[tuple[str, str]] = set()
+ALLOWED_PRODUCTION_IMPORTS: set[tuple[str, str]] = {
+    ("catalog/catalog.py", "LiuXin_alpha.catalog.metadata_tools"),
+}
 ALLOWED_INDIRECT_FACADE_REFERENCES: set[tuple[str, int, str]] = set()
 
 
@@ -97,7 +99,7 @@ def test_legacy_mutation_reference_sources_are_preserved() -> None:
 
 
 def test_legacy_mutation_production_import_allowlist_only_changes_deliberately() -> None:
-    """Reject new production dependencies on either frozen legacy surface."""
+    """Permit only the Catalog composition root to import metadata helpers."""
 
     assert _production_imports() == ALLOWED_PRODUCTION_IMPORTS
 

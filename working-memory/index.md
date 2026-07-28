@@ -1,6 +1,6 @@
 # Working Memory Index
 
-Updated: 2026-07-24
+Updated: 2026-07-25
 
 Start here for active handoff notes. This index should stay short.
 
@@ -25,9 +25,9 @@ Start here for active handoff notes. This index should stay short.
   establish a fresh post-merge test baseline.
 
 - [catalog-legacy-mutation-migration-2026-07-23.md](catalog-legacy-mutation-migration-2026-07-23.md)
-  Completed migration away from the legacy Catalog mutation facades.
-  Production allowlists are empty; preserved implementations are frozen
-  reference and characterization code only.
+  Completed migration away from database/library mutation facades. `Catalog`
+  is now the sole authorized composition root for the retained `add`, `ensure`,
+  `apply`, and `intralink` helpers.
 
 - [catalog-matching-policy-2026-07-22.md](catalog-matching-policy-2026-07-22.md)
   Completed evidence-based matching policy for WEMI, Agents, curated and raw

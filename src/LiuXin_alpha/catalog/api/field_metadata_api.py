@@ -34,7 +34,9 @@ _DefaultT = TypeVar("_DefaultT")
 
 
 class FieldMetadataEntry(TypedDict, total=False):
-    """Known keys used by calibre-compatible field metadata records."""
+    """
+    Known keys used by calibre-compatible field metadata records.
+    """
 
     table: NotRequired[str | None]
     table_id: NotRequired[str]
@@ -64,7 +66,9 @@ class FieldMetadataEntry(TypedDict, total=False):
 
 
 class SerializedFieldMetadataState(TypedDict):
-    """Serialized state accepted by the field metadata deserializer."""
+    """
+    Serialized state accepted by the field metadata deserializer.
+    """
 
     custom_fields: MutableMapping[str, FieldMetadataRecord]
     user_categories: MutableMapping[str, FieldMetadataRecord]
@@ -74,7 +78,9 @@ class SerializedFieldMetadataState(TypedDict):
 
 
 class FieldMetadataGetterAPI(Protocol):
-    """Typed shape of ``FieldMetadata.get``."""
+    """
+    Typed shape of ``FieldMetadata.get``.
+    """
 
     @overload
     def __call__(self, key: str, /) -> FieldMetadataRecord | None:

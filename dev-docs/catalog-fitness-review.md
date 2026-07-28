@@ -242,7 +242,7 @@ abstract hooks on `BaseCatalogWriter`, `CatalogValueWriter`, and
 | Atomic shared-value writing | Pass | Build is pure. Destination lookup/creation, combined cardinality validation, and link replacement occur inside one transaction; deletion remains find-only. |
 | Search and field metadata | Pass | Python 2 mapping calls and the undefined debug branch are removed, restricted all-field search no longer hides arbitrary failures, and both field-metadata implementations expose truthful mapping behavior. |
 | Public protocols and static scope | Pass with repository caveat | Protocol composition/signatures match the concrete facade, nested runtime checks pass, catalog is in the configured strict scopes, and isolated strict mypy passes all 63 selected catalog modules. Repository-wide mypy/basedpyright remain red on imported legacy code; see notes below. |
-| Legacy mutation boundary | Pass | `catalog_macros` and `metadata_tools` are explicitly deprecated, direct commits were removed from catalog helpers, and new code is directed to repositories or normalized writers. |
+| Compatibility mutation boundary | Pass | `Catalog` is the sole production composition root for the retained `add`, `ensure`, `apply`, and `intralink` tools. Database/library facades remain removed, direct commits were removed from catalog helpers, and new semantics are directed to repositories or normalized writers. |
 | Explicit ownership | Pass | `StorageLinkSpec.destination_owned` is independent of cardinality. The factory uses owned-row behavior only when declared or explicitly overridden, and rejects owned plural links. |
 
 ### Durable behavior contracts
@@ -307,7 +307,7 @@ invalidation, and reconciliation remain owned by `StorageCacheAPI`. Any future
 repository-backed Catalog search service would be a separate semantic query
 API rather than the owner of Calibre cache state.
 
-The compatibility packages are deprecated rather than deleted because current
-library/cache initialization still imports them. They must not receive new
-features. Migration can proceed caller by caller now that the repository and
-normalized-writer paths are concrete.
+The compatibility packages remain in place. Database/library initialization no
+longer imports or injects their facades; `Catalog` alone composes the retained
+row-oriented metadata tools. They must not receive new semantics, which belong
+behind repository, coordinated-mutation, or normalized-writer contracts.

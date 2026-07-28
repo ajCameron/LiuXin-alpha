@@ -15,6 +15,7 @@ from LiuXin_alpha.catalog.matching import (
     CatalogMatching,
     MatchingPolicy,
 )
+from LiuXin_alpha.catalog.metadata_tools import Add, Apply, Ensure, Intralinker
 from LiuXin_alpha.catalog.repositories import (
     AgentRepository,
     AnnotationRepository,
@@ -84,7 +85,7 @@ class Catalog:
 
     This object is where callers should enter the catalog layer. It should remain
     a composition root, not a God object: substantive behavior belongs in the
-    repository, matcher, retrieval, and mutation modules.
+    metadata-tool, repository, matcher, retrieval, and mutation modules.
     """
 
     def __init__(
@@ -103,6 +104,19 @@ class Catalog:
         if not isinstance(matching_policy, MatchingPolicy):
             raise TypeError("matching_policy must be a MatchingPolicy")
         self.db = db
+        metadata_db = cast(Any, db)
+        self.add = Add(database=metadata_db)
+        self.ensure = Ensure(database=metadata_db)
+        self.apply = Apply(database=metadata_db)
+        self.intralink = Intralinker(database=metadata_db)
+
+        # Keep internal collaboration on the same Catalog-owned instances.
+        self.add.ensure = self.ensure
+        self.add.apply = self.apply
+        self.ensure.add = self.add
+        self.apply.add = self.add
+        self.apply.ensure = self.ensure
+
         self.repositories = CatalogRepositories(
             works=WorkRepository(db),
             expressions=ExpressionRepository(db),

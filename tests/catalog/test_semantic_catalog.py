@@ -7,7 +7,15 @@ import uuid
 import pytest
 
 from LiuXin_alpha.catalog import Catalog
-from LiuXin_alpha.catalog.api import IdentifierCandidate, MetadataCandidate
+from LiuXin_alpha.catalog.api import (
+    AddAPI,
+    ApplyAPI,
+    CatalogMetadataToolsAPI,
+    EnsureAPI,
+    IdentifierCandidate,
+    IntralinkerAPI,
+    MetadataCandidate,
+)
 from LiuXin_alpha.catalog.api.catalog import CatalogAPI
 from LiuXin_alpha.catalog.api.matching_api import (
     AgentMatcherAPI,
@@ -32,6 +40,27 @@ from LiuXin_alpha.catalog.api.retrieval import CatalogRetrievalAPI
 
 def _token(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4()}"
+
+
+def test_catalog_metadata_tools_are_composed_and_live(db) -> None:
+    catalog = Catalog(db)
+
+    assert isinstance(catalog, CatalogMetadataToolsAPI)
+    assert isinstance(catalog.add, AddAPI)
+    assert isinstance(catalog.ensure, EnsureAPI)
+    assert isinstance(catalog.apply, ApplyAPI)
+    assert isinstance(catalog.intralink, IntralinkerAPI)
+    assert catalog.add.ensure is catalog.ensure
+    assert catalog.add.apply is catalog.apply
+    assert catalog.ensure.add is catalog.add
+    assert catalog.apply.add is catalog.add
+    assert catalog.apply.ensure is catalog.ensure
+
+    title = _token("catalog-add-work")
+    work = catalog.add.work(work_title=title)
+
+    assert work["work_title"] == title
+    assert catalog.works.require(work.row_id)["work_title"] == title
 
 
 def test_catalog_repositories_round_trip_real_wemi_schema(db) -> None:

@@ -10,7 +10,9 @@ from .projections import ProjectionAPI
 
 @runtime_checkable
 class CatalogRetrievalAPI(Protocol):
-    """Grouped retrieval API exposed by the catalog facade."""
+    """
+    Grouped retrieval API exposed by the catalog facade.
+    """
 
     bundles: BundleRetrieverAPI
     projections: ProjectionAPI

@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from LiuXin_alpha.catalog.api.metadata_tools_api import CatalogMetadataToolsAPI
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
@@ -26,12 +28,13 @@ if TYPE_CHECKING:
 
 
 @runtime_checkable
-class CatalogAddinsAPI(Protocol):
+class CatalogAddinsAPI(CatalogMetadataToolsAPI, Protocol):
     """
     Top-level catalog facade.
 
-    API shape mirrors `LiuXin_alpha.catalog` module shape: repositories, matching,
-    retrieval, and mutations are separate areas behind one convenience object.
+    API shape mirrors `LiuXin_alpha.catalog` module shape: metadata tools,
+    repositories, matching, retrieval, and mutations are separate areas behind
+    one convenience object.
     """
 
     repositories: "CatalogRepositoriesAPI"
@@ -73,6 +76,7 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
 
         ...
 
+    # Todo: Might be a good idea to cache this writer....
     def write_one(
         self,
         src_table: str,
@@ -84,7 +88,18 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         destination_owned: bool | None = None,
         **kwargs: Any,
     ) -> "Mapping[SrcTableID, object]":
-        """Create a writer and apply one source/value instruction."""
+        """
+        Create a writer and apply one source/value instruction.
+
+        :param src_table:
+        :param dst_column:
+        :param src_id:
+        :param dst_value:
+        :param force_refresh:
+        :param destination_owned:
+        :param kwargs:
+        :return:
+        """
 
         ...
 
@@ -92,7 +107,12 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         self,
         update: "LinkUpdate",
     ) -> "Mapping[SrcTableID, tuple[LinkRow, ...]]":
-        """Apply a normalized link update through this catalog's database."""
+        """
+        Apply a normalized link update through this catalog's database.
+
+        :param update:
+        :return:
+        """
 
         ...
 
@@ -100,7 +120,12 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         self,
         update: "CatalogColumnUpdate[object]",
     ) -> "Mapping[SrcTableID, object]":
-        """Apply a normalized same-table column update."""
+        """
+        Apply a normalized same-table column update.
+
+        :param update:
+        :return:
+        """
 
         ...
 
@@ -108,6 +133,11 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         self,
         update: "CatalogOwnedRowUpdate[object]",
     ) -> "Mapping[SrcTableID, tuple[LinkRow, ...]]":
-        """Apply a normalized owned one-to-one destination-row update."""
+        """
+        Apply a normalized owned one-to-one destination-row update.
+
+        :param update:
+        :return:
+        """
 
         ...

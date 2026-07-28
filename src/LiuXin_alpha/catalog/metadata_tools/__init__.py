@@ -1,9 +1,9 @@
-"""Frozen compatibility facade for legacy row-oriented metadata tools.
+"""Catalog facade helpers for row-oriented metadata tools.
 
-Existing library and driver initialization paths still compose ``Add`` and
-``Ensure`` from here. New code should enter through :class:`Catalog`; this
-package remains reference material for future direct-SQL implementations and
-must not gain new callers or behavior.
+The top-level :class:`~LiuXin_alpha.catalog.Catalog` facade composes these
+helpers and exposes them as ``catalog.add``, ``catalog.ensure``,
+``catalog.apply``, and ``catalog.intralink``. Direct imports remain supported
+for compatibility and characterization tests.
 """
 
 # Standard functions for making objects, checking that those objects don't already exist using the standardization
@@ -17,6 +17,8 @@ from LiuXin_alpha.catalog.legacy_versions import LEGACY_METADATA_TOOLS_VERSION
 __md_tools_version__ = LEGACY_METADATA_TOOLS_VERSION
 
 from LiuXin_alpha.catalog.metadata_tools.add import Add
+from LiuXin_alpha.catalog.metadata_tools.apply import Apply
 from LiuXin_alpha.catalog.metadata_tools.ensure import Ensure
+from LiuXin_alpha.catalog.metadata_tools.intralinker import Intralinker
 
-__all__ = ["Add", "Ensure"]
+__all__ = ["Add", "Apply", "Ensure", "Intralinker"]
