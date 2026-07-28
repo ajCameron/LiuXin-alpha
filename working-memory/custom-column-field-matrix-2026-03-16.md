@@ -6,7 +6,7 @@ Context:
 - Alpha already had the same behavior spread across schema/bootstrap/emulation tests, but the value round-trip coverage was still fragmented.
 
 What changed:
-- Rewrote [test_calibre_emulation_d2_custom_values.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/database_calibre_emultation/test_calibre_emulation_d2_custom_values.py) into a compact parameterized matrix on the live Calibre-emulation seam.
+- Rewrote [test_calibre_emulation_d2_custom_values.py](../tests/databases/database_calibre_emultation/test_calibre_emulation_d2_custom_values.py) into a compact parameterized matrix on the live Calibre-emulation seam.
 - The new matrix covers single-value custom columns for:
   - `text`
   - `bool`

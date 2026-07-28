@@ -7,8 +7,8 @@ Date: 2026-03-16
 First promotion slice for the `salvage_existing` DB-property corpus is now in place.
 
 Added:
-- support registry in [tests/support/test_databases/test_db_properties/__init__.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/__init__.py)
-- collected contract in [test_property_support_registry.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_property_support_registry.py)
+- support registry in [tests/support/test_databases/test_db_properties/__init__.py](../tests/support/test_databases/test_db_properties/__init__.py)
+- collected contract in [test_property_support_registry.py](../tests/support/test_databases/test_db_properties/test_property_support_registry.py)
 
 Validation:
 - `tests/support/test_databases/test_db_properties/test_property_support_registry.py`

@@ -149,10 +149,12 @@ class TkGuiSession:
                 cache_type,
             )
         else:
-            from LiuXin_alpha.caches import Cache, CacheAPI
+            from LiuXin_alpha.caches import Cache, CacheAPI, CacheState
 
             if not isinstance(resolved_cache, CacheAPI):
                 resolved_cache = Cache.from_storage(resolved_cache)
+            if resolved_cache.state == CacheState.EMPTY:
+                resolved_cache.load()
         resolved = CacheMetadataReadSource(
             resolved_cache,
             database=self.database,

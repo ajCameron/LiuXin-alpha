@@ -12,12 +12,12 @@ does not give us a clean way to sign pipeline behavior off as done.
 
 Added:
 
-- `dev-docs/conversion_pipeline_todo.md`
+- `dev-docs/conversion_pipeline/conversion_pipeline_todo.md`
 
 Updated:
 
 - `dev-docs/global_todo.md`
-- `docs/development/file-format-unicode-conversion.md`
+- `dev-docs/file-format-unicode-conversion.md`
 
 ## Current Decision
 

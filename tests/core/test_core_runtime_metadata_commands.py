@@ -63,6 +63,10 @@ def test_core_runtime_metadata_write_appends_tags_and_emits_write_event() -> Non
 
     assert result["changed"] is True
     assert result["fields"] == ["tags"]
+    assert result["cache"] == {
+        "configured": False,
+        "reconciled": False,
+    }
     assert _metadata_tags(db) == ["Space Opera", "core-command-tag"]
 
     write_events = [event for event in events if event.event_type == "write.completed"]

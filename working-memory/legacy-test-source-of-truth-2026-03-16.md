@@ -4,7 +4,7 @@ Date: 2026-03-16
 
 ## Decision
 
-- The only living test tree should be inside [LiuXin-alpha-wsl](/home/blackjane/LiuXin-alpha-wsl).
+- The only living test tree should be inside [LiuXin-alpha-wsl](..).
 - Legacy tests from the original LiuXin repo should be:
   - ported or rewritten into alpha if they still matter
   - then deleted from the duplicate in-repo legacy copy once the alpha version exists
@@ -22,17 +22,17 @@ Date: 2026-03-16
 
 ### DB property salvage
 
-- [tests/support/test_databases](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases) is the authoritative alpha-side support tree.
+- [tests/support/test_databases](../tests/support/test_databases) is the authoritative alpha-side support tree.
 - Once the DB-property corpus is promoted into collected alpha contracts or otherwise stabilized, the duplicate `src/LiuXin_tests/test_databases` copy should be deleted.
 
 ### `folder_stores`
 
 - Legacy `folder_stores` tests are not salvage targets.
 - Their behavior should be rewritten into current storage tests under:
-  - [tests/storage/store_backend_plugins](/home/blackjane/LiuXin-alpha-wsl/tests/storage/store_backend_plugins)
-  - [tests/storage/api](/home/blackjane/LiuXin-alpha-wsl/tests/storage/api)
-  - [tests/storage/reconcile](/home/blackjane/LiuXin-alpha-wsl/tests/storage/reconcile)
-  - [tests/library](/home/blackjane/LiuXin-alpha-wsl/tests/library)
+  - [tests/storage/store_backend_plugins](../tests/storage/store_backend_plugins)
+  - [tests/storage/api](../tests/storage/api)
+  - [tests/storage/reconcile](../tests/storage/reconcile)
+  - [tests/library](../tests/library)
 - After rewrite or retirement decisions are made, the duplicate legacy copies should be deleted from alpha.
 
 ## Non-Goal

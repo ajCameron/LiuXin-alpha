@@ -3,7 +3,7 @@
 ## Decision
 
 FB2/FBZ is signed off for the current format scope in
-`dev-docs/conversion_pipeline_signoff.md`.
+`dev-docs/conversion_pipeline/conversion_pipeline_signoff.md`.
 
 The signed-off scope includes:
 
@@ -19,7 +19,7 @@ The signed-off scope includes:
 
 Durable docs reviewed:
 
-- `docs/development/file-formats/fb2/README.md`
+- `dev-docs/file-formats/fb2/README.md`
 - `working-memory/file-formats-fb2-unicode-hostile-2026-05-21.md`
 - `working-memory/file-formats-fbz-hardening-2026-05-22.md`
 

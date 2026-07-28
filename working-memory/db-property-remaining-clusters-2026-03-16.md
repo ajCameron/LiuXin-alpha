@@ -57,7 +57,7 @@ Current finding:
 Status:
 
 - partly replaced by:
-  - [test_property_blank_optional_metadata_profiles.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_property_blank_optional_metadata_profiles.py)
+  - [test_property_blank_optional_metadata_profiles.py](../tests/support/test_databases/test_db_properties/test_property_blank_optional_metadata_profiles.py)
 - no additional rows can be honestly moved yet
 
 ## Cluster 2: Large Synthetic Rich-Content Maps

@@ -232,8 +232,7 @@ def test_frbr_generator_create_new_database_smoke(tmp_path: pathlib.Path) -> Non
 
         policy_document = (
             pathlib.Path(__file__).resolve().parents[2]
-            / "docs"
-            / "development"
+            / "dev-docs"
             / "column-metadata.md"
         ).read_text(encoding="utf-8")
         for table, column in DISPLAY_COLUMNS:

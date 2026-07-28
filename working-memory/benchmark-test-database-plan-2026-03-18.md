@@ -56,9 +56,9 @@ the ordinary `test_db_0..25` compatibility corpus.
   - custom `--books/--folders/--files` builds
 - The new benchmark scripts compile and run against live named fixtures.
 - A first combined JSON baseline report now exists under:
-  - [benchmark-baseline-2026-03-18.json](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/test-results/benchmark-baseline-2026-03-18.json)
+  - [benchmark-baseline-2026-03-18.json](test-results/benchmark-baseline-2026-03-18.json)
 - A markdown summary can now be generated from the JSON report with:
-  - [summarize_benchmark_report.py](/home/blackjane/LiuXin-alpha-wsl/scripts/summarize_benchmark_report.py)
+  - [summarize_benchmark_report.py](../scripts/summarize_benchmark_report.py)
 
 ## Use
 

@@ -29,6 +29,11 @@ from LiuXin_alpha.metadata.read_sources import (
     metadata_read_source_from,
 )
 from LiuXin_alpha.metadata.utils import fmt_sidx
+from LiuXin_alpha.metadata.write_workflows import (
+    metadata_write_report_summary,
+    normalize_metadata_write_field,
+    write_wemi_metadata_values,
+)
 
 
 MetadataDatabaseSource = Literal["database", "cache"]
@@ -268,11 +273,15 @@ def _loaded_cache(
             **dict(cache_kwargs or {}),
         )
 
-    from LiuXin_alpha.caches import Cache, CacheAPI
+    from LiuXin_alpha.caches import Cache, CacheAPI, CacheState
 
     if isinstance(cache, CacheAPI):
-        return cache
-    return Cache.from_storage(cache)
+        resolved_cache = cache
+    else:
+        resolved_cache = Cache.from_storage(cache)
+    if resolved_cache.state == CacheState.EMPTY:
+        resolved_cache.load()
+    return resolved_cache
 
 
 def _metadata_as_kind(metadata: Any, kind: MetadataObjectKind | str) -> Any:
@@ -332,6 +341,9 @@ __all__ = [
     "metadata_read_source_from",
     "metadata_to_opf_bytes",
     "metadata_to_opf_file",
+    "metadata_write_report_summary",
+    "normalize_metadata_write_field",
     "update_opf_bytes",
     "update_opf_file",
+    "write_wemi_metadata_values",
 ]

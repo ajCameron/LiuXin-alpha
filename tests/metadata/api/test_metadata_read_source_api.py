@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 
@@ -9,12 +11,16 @@ from LiuXin_alpha.caches import (
     CacheAPI,
     CacheCapabilities,
     CacheConsistency,
+    CacheFilterOperator,
     CacheLookup,
     CacheLookupStatus,
     CacheQuery,
     CacheQueryResult,
     CacheRecord,
     CacheState,
+    UnknownCacheFieldError,
+    UnknownCacheTableError,
+    UnsupportedCacheQueryError,
 )
 
 from LiuXin_alpha.databases.row import Row
@@ -466,3 +472,487 @@ def test_cache_read_source_rejects_a_different_fallback_database() -> None:
 
     with pytest.raises(ValueError, match="cache and fallback database must match"):
         CacheMetadataReadSource(cache, database=_Database())
+
+
+def test_database_read_source_forwards_the_entire_hydrator_surface() -> None:
+    database, _cache = _database_with_cached_snapshot()
+    source = DatabaseMetadataReadSource(database)
+    work_row = source.get_row_from_id("works", 1)
+
+    assert work_row is not None
+    assert source.get_tables(force_refresh=True) == ["works", "tags"]
+    assert source.get_tables_and_columns() == database.driver_wrapper._tables
+    assert source.get_column_headings("works") == {"work_id", "work_title"}
+    assert [row["work_title"] for row in source.search(
+        "works",
+        "work_title",
+        "Live Book",
+    )] == ["Live Book"]
+    assert source.get_interlink_rows(work_row, "tags") == [
+        {
+            "tag_work_link_work_id": 1,
+            "tag_work_link_tag_id": 3,
+        }
+    ]
+    assert [row["tag"] for row in source.get_interlinked_rows(
+        work_row,
+        "tags",
+        type_filter="ignored-by-this-schema",
+    )] == ["Cached Tag"]
+
+    database.sentinel_attribute = object()
+    assert source.sentinel_attribute is database.sentinel_attribute
+
+    with pytest.raises(ValueError, match="requires a database"):
+        DatabaseMetadataReadSource(None)
+
+
+def test_cache_read_source_constructor_and_schema_discovery_are_strict() -> None:
+    database, cache = _database_with_cached_snapshot()
+
+    with pytest.raises(ValueError, match="requires a cache facade"):
+        CacheMetadataReadSource(None)
+    with pytest.raises(TypeError, match="requires CacheAPI"):
+        CacheMetadataReadSource(object())  # type: ignore[arg-type]
+
+    detached_cache = _Cache(database)
+    detached_cache.database = None
+    with pytest.raises(ValueError, match="requires an attached database"):
+        CacheMetadataReadSource(detached_cache)
+
+    cache.table_columns = Mock(
+        return_value={
+            "works": ("work_id", "work_title"),
+            "cache_only": ("cache_id",),
+        }
+    )
+    database.get_tables = Mock(return_value=["works", "tags", "database_only"])
+    database.get_tables_and_columns = Mock(
+        return_value={
+            "works": ("database_work_id",),
+            "tags": ("tag_id", "tag"),
+            "database_only": ("database_only_id",),
+        }
+    )
+    source = CacheMetadataReadSource(cache)
+
+    assert source.database is database
+    assert source.get_tables(force_refresh=True) == (
+        "cache_only",
+        "database_only",
+        "tags",
+        "works",
+    )
+    assert source.get_tables_and_columns() == {
+        "works": ("work_id", "work_title"),
+        "cache_only": ("cache_id",),
+        "tags": ("tag_id", "tag"),
+        "database_only": ("database_only_id",),
+    }
+    assert source.get_column_headings("works") == {"work_id", "work_title"}
+    assert source.get_column_headings("tags") == {"tag_id", "tag"}
+    database.get_tables.assert_called_once_with(force_refresh=False)
+
+    no_fallback = CacheMetadataReadSource(
+        cache,
+        allow_database_fallback=False,
+    )
+    assert no_fallback.get_tables() == ("cache_only", "works")
+    assert no_fallback.get_tables_and_columns() == {
+        "works": ("work_id", "work_title"),
+        "cache_only": ("cache_id",),
+    }
+    assert no_fallback.get_column_headings("tags") == set()
+
+    database.get_tables = Mock(side_effect=RuntimeError("schema offline"))
+    database.get_tables_and_columns = Mock(
+        side_effect=RuntimeError("schema offline")
+    )
+    assert source.get_tables() == ("cache_only", "works")
+    assert source.get_tables_and_columns() == {
+        "works": ("work_id", "work_title"),
+        "cache_only": ("cache_id",),
+    }
+
+
+def test_cache_exact_lookup_distinguishes_hits_complete_misses_and_gaps() -> None:
+    database, cache = _database_with_cached_snapshot()
+    database_lookup = Mock(wraps=database.get_row_from_id)
+    database.get_row_from_id = database_lookup
+    source = CacheMetadataReadSource(cache)
+
+    cached_row = source.get_row_from_id("works", 1)
+
+    assert cached_row is not None
+    assert cached_row["work_title"] == "Cached Book"
+    assert cached_row.db is source
+    assert cached_row.read_only is True
+    database_lookup.assert_not_called()
+
+    cache.get = Mock(
+        return_value=CacheLookup(
+            CacheLookupStatus.MISS,
+            None,
+            True,
+            cache.generation,
+        )
+    )
+    assert source.get_row_from_id("works", 2) is None
+    database_lookup.assert_not_called()
+
+    cache.get = Mock(
+        return_value=CacheLookup(
+            CacheLookupStatus.MISS,
+            None,
+            False,
+            cache.generation,
+        )
+    )
+    live_row = source.get_row_from_id("works", 2)
+    assert live_row is not None
+    assert live_row["work_title"] == "Live Book"
+    database_lookup.assert_called_once_with("works", 2)
+
+    database_lookup.reset_mock()
+    no_fallback = CacheMetadataReadSource(
+        cache,
+        allow_database_fallback=False,
+    )
+    assert no_fallback.get_row_from_id("works", 2) is None
+    database_lookup.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        UnknownCacheFieldError("uncached field"),
+        UnknownCacheTableError("uncached table"),
+        UnsupportedCacheQueryError("unsupported lookup"),
+    ],
+)
+@pytest.mark.parametrize("allow_fallback", [False, True])
+def test_cache_exact_lookup_falls_back_only_for_declared_cache_gaps(
+    error: Exception,
+    allow_fallback: bool,
+) -> None:
+    database, cache = _database_with_cached_snapshot()
+    database_lookup = Mock(wraps=database.get_row_from_id)
+    database.get_row_from_id = database_lookup
+    cache.get = Mock(side_effect=error)
+    source = CacheMetadataReadSource(
+        cache,
+        allow_database_fallback=allow_fallback,
+    )
+
+    result = source.get_row_from_id("works", 2)
+
+    if allow_fallback:
+        assert result is not None
+        assert result["work_title"] == "Live Book"
+        database_lookup.assert_called_once_with("works", 2)
+    else:
+        assert result is None
+        database_lookup.assert_not_called()
+
+
+def test_cache_exact_lookup_does_not_hide_unexpected_backend_failures() -> None:
+    database, cache = _database_with_cached_snapshot()
+    cache.get = Mock(side_effect=RuntimeError("corrupt cache page"))
+    source = CacheMetadataReadSource(cache)
+
+    with pytest.raises(RuntimeError, match="corrupt cache page"):
+        source.get_row_from_id("works", 1)
+
+
+def test_complete_empty_cache_queries_are_authoritative_and_structured() -> None:
+    database, cache = _database_with_cached_snapshot()
+    database.get_all_rows = Mock(wraps=database.get_all_rows)
+    database.get_record_count = Mock(wraps=database.get_record_count)
+    database.search = Mock(wraps=database.search)
+    complete_empty = CacheQueryResult(
+        (),
+        0,
+        0,
+        None,
+        True,
+        cache.generation,
+    )
+    cache.query = Mock(return_value=complete_empty)
+    source = CacheMetadataReadSource(cache)
+
+    assert source.get_all_rows("works", iterator_return=True) == ()
+    assert source.get_record_count("works") == 0
+    assert source.search("works", "work_title", "Live Book") == ()
+
+    database.get_all_rows.assert_not_called()
+    database.get_record_count.assert_not_called()
+    database.search.assert_not_called()
+
+    all_query, count_query, search_query = [
+        call.args[0] for call in cache.query.call_args_list
+    ]
+    assert all_query == CacheQuery(table="works")
+    assert count_query.table == "works"
+    assert count_query.limit == 0
+    assert search_query.predicates[0].field == "work_title"
+    assert search_query.predicates[0].operator is CacheFilterOperator.EQ
+    assert search_query.predicates[0].value == "Live Book"
+    assert search_query.sort[0].field == "work_id"
+
+    explicit_query = CacheQuery(table="tags", limit=0)
+    assert source.query_cache(explicit_query) is complete_empty
+    assert cache.query.call_args.args == (explicit_query,)
+
+
+def test_incomplete_queries_use_one_explicit_fallback_policy() -> None:
+    database, cache = _database_with_cached_snapshot()
+    incomplete = CacheQueryResult(
+        (
+            CacheRecord(
+                "works",
+                1,
+                {"work_id": 1, "work_title": "Stale Cached Book"},
+            ),
+        ),
+        99,
+        0,
+        None,
+        False,
+        cache.generation,
+    )
+    cache.query = Mock(return_value=incomplete)
+    source = CacheMetadataReadSource(cache)
+
+    assert [row["work_title"] for row in source.get_all_rows("works")] == [
+        "Cached Book",
+        "Live Book",
+    ]
+    assert source.get_record_count("works") == 2
+    assert [row["work_title"] for row in source.search(
+        "works",
+        "work_title",
+        "Live Book",
+    )] == ["Live Book"]
+
+    no_fallback = CacheMetadataReadSource(
+        cache,
+        allow_database_fallback=False,
+    )
+    assert [row["work_title"] for row in no_fallback.get_all_rows("works")] == [
+        "Stale Cached Book"
+    ]
+    assert no_fallback.get_record_count("works") == 99
+    assert [row["work_title"] for row in no_fallback.search(
+        "works",
+        "work_title",
+        "does-not-matter-to-the-fake",
+    )] == ["Stale Cached Book"]
+
+
+@pytest.mark.parametrize(
+    ("operation", "error"),
+    [
+        ("all", UnknownCacheTableError("uncached table")),
+        ("all", UnsupportedCacheQueryError("unsupported scan")),
+        ("count", UnknownCacheTableError("uncached table")),
+        ("count", UnsupportedCacheQueryError("unsupported count")),
+        ("search", UnknownCacheFieldError("uncached field")),
+        ("search", UnknownCacheTableError("uncached table")),
+        ("search", UnsupportedCacheQueryError("unsupported predicate")),
+    ],
+)
+@pytest.mark.parametrize("allow_fallback", [False, True])
+def test_query_operations_fall_back_only_for_their_documented_cache_gaps(
+    operation: str,
+    error: Exception,
+    allow_fallback: bool,
+) -> None:
+    database, cache = _database_with_cached_snapshot()
+    cache.query = Mock(side_effect=error)
+    source = CacheMetadataReadSource(
+        cache,
+        allow_database_fallback=allow_fallback,
+    )
+
+    if operation == "all":
+        result: Any = source.get_all_rows("works")
+        expected_without_fallback: Any = ()
+    elif operation == "count":
+        result = source.get_record_count("works")
+        expected_without_fallback = 0
+    else:
+        result = source.search("works", "work_title", "Live Book")
+        expected_without_fallback = ()
+
+    if not allow_fallback:
+        assert result == expected_without_fallback
+    elif operation == "all":
+        assert [row["work_title"] for row in result] == [
+            "Cached Book",
+            "Live Book",
+        ]
+    elif operation == "count":
+        assert result == 2
+    else:
+        assert [row["work_title"] for row in result] == ["Live Book"]
+
+
+@pytest.mark.parametrize("operation", ["all", "count", "search"])
+def test_query_operations_propagate_unexpected_cache_failures(
+    operation: str,
+) -> None:
+    database, cache = _database_with_cached_snapshot()
+    cache.query = Mock(side_effect=RuntimeError("cache invariant broken"))
+    source = CacheMetadataReadSource(cache)
+
+    with pytest.raises(RuntimeError, match="cache invariant broken"):
+        if operation == "all":
+            source.get_all_rows("works")
+        elif operation == "count":
+            source.get_record_count("works")
+        else:
+            source.search("works", "work_title", "Cached Book")
+
+
+def test_link_record_reads_distinguish_empty_unavailable_and_broken() -> None:
+    database, cache = _database_with_cached_snapshot()
+    source = CacheMetadataReadSource(cache)
+    primary = SimpleNamespace(table="works", row_id=1)
+    idless = SimpleNamespace(table="works", row_id=None)
+    database_links = Mock(wraps=database.get_interlink_rows)
+    database.get_interlink_rows = database_links
+
+    cache.link_records = Mock()
+    assert source.get_interlink_rows(idless, "tags") == ()
+    cache.link_records.assert_not_called()
+
+    cache.link_records.return_value = (
+        CacheRecord(
+            "tag_work_links",
+            -1,
+            {"work_id": 1, "work_title": "Materialized link record"},
+        ),
+    )
+    rows = source.get_interlink_rows(primary, "tags")
+    assert [row["work_title"] for row in rows] == ["Materialized link record"]
+    assert rows[0].db is source
+    database_links.assert_not_called()
+
+    cache.link_records.return_value = ()
+    assert source.get_interlink_rows(primary, "tags") == ()
+    database_links.assert_not_called()
+
+    cache.link_records.side_effect = KeyError("link table is not cached")
+    assert source.get_interlink_rows(primary, "tags") == [
+        {
+            "tag_work_link_work_id": 1,
+            "tag_work_link_tag_id": 3,
+        }
+    ]
+    database_links.assert_called_once_with(
+        primary_row=primary,
+        secondary_table="tags",
+    )
+
+    database_links.reset_mock()
+    no_fallback = CacheMetadataReadSource(
+        cache,
+        allow_database_fallback=False,
+    )
+    assert no_fallback.get_interlink_rows(primary, "tags") == ()
+    database_links.assert_not_called()
+
+    cache.link_records.side_effect = RuntimeError("bad link index")
+    with pytest.raises(RuntimeError, match="bad link index"):
+        source.get_interlink_rows(primary, "tags")
+
+
+def test_related_reads_preserve_type_filters_and_completeness() -> None:
+    database, cache = _database_with_cached_snapshot()
+    source = CacheMetadataReadSource(cache)
+    target = SimpleNamespace(table="works", row_id=1)
+    idless = SimpleNamespace(table="works", row_id=None)
+    database_related = Mock(wraps=database.get_interlinked_rows)
+    database.get_interlinked_rows = database_related
+    complete = CacheQueryResult(
+        (
+            CacheRecord(
+                "tags",
+                3,
+                {"tag_id": 3, "tag": "Cache-only relation"},
+            ),
+        ),
+        1,
+        0,
+        None,
+        True,
+        cache.generation,
+    )
+    cache.related = Mock(return_value=complete)
+
+    assert source.get_interlinked_rows(idless, "tags") == ()
+    cache.related.assert_not_called()
+
+    rows = source.get_interlinked_rows(
+        target,
+        "tags",
+        type_filter="primary",
+    )
+    assert [row["tag"] for row in rows] == ["Cache-only relation"]
+    cache.related.assert_called_once_with(
+        "works",
+        (1,),
+        "tags",
+        type_filter="primary",
+    )
+    database_related.assert_not_called()
+
+    cache.related.return_value = CacheQueryResult(
+        complete.records,
+        1,
+        0,
+        None,
+        False,
+        cache.generation,
+    )
+    assert [row["tag"] for row in source.get_interlinked_rows(
+        target,
+        "tags",
+        type_filter="primary",
+    )] == ["Cached Tag"]
+    database_related.assert_called_once_with(
+        target_row=target,
+        secondary_table="tags",
+        type_filter="primary",
+    )
+
+    database_related.reset_mock()
+    no_fallback = CacheMetadataReadSource(
+        cache,
+        allow_database_fallback=False,
+    )
+    assert [row["tag"] for row in no_fallback.get_interlinked_rows(
+        target,
+        "tags",
+        type_filter="primary",
+    )] == ["Cache-only relation"]
+    database_related.assert_not_called()
+
+    cache.related.side_effect = KeyError("relation is not cached")
+    assert [row["tag"] for row in source.get_interlinked_rows(
+        target,
+        "tags",
+        type_filter="secondary",
+    )] == ["Cached Tag"]
+
+    database_related.reset_mock()
+    assert no_fallback.get_interlinked_rows(
+        target,
+        "tags",
+        type_filter="secondary",
+    ) == ()
+    database_related.assert_not_called()
+
+    cache.related.side_effect = RuntimeError("corrupt relation index")
+    with pytest.raises(RuntimeError, match="corrupt relation index"):
+        source.get_interlinked_rows(target, "tags")

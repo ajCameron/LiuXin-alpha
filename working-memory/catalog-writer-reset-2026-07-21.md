@@ -13,7 +13,7 @@ A new minimal `BaseCatalogWriter` now reuses the old name but none of the old
 implementation. It owns the bulk and single-pair build-then-apply lifecycles.
 
 The replacement architecture is recorded in
-`docs/development/catalog-link-writer-architecture.md`.
+`dev-docs/catalog-link-writer-architecture.md`.
 
 ## Stable footing retained
 
@@ -155,7 +155,7 @@ An invalid or later-failing request can therefore leave newly created,
 unlinked destination rows. Statements above that describe shared-value update
 construction as non-writing or the complete workflow as all-or-nothing are
 superseded by this correction. The durable finding and acceptance criterion
-are recorded in `docs/development/catalog-fitness-review.md`.
+are recorded in `dev-docs/catalog-fitness-review.md`.
 
 ## Verification
 

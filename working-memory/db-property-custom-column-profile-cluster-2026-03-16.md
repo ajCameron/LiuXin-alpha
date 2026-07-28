@@ -11,7 +11,7 @@ Date: 2026-03-16
   - `test_db_24_properties.py`
   - `test_db_25_properties.py`
 - Added direct guardrail coverage in:
-  - [test_property_empty_custom_column_profiles.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_property_empty_custom_column_profiles.py)
+  - [test_property_empty_custom_column_profiles.py](../tests/support/test_databases/test_db_properties/test_property_empty_custom_column_profiles.py)
 
 ## Finding
 
@@ -40,9 +40,9 @@ Reason:
 
 - the current fixture profile is now pinned by the new empty-profile guardrail
 - the actual current custom-column semantics are already covered on active alpha seams:
-  - [test_calibre_emulation_d1_custom_columns_introspection.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/database_calibre_emultation/test_calibre_emulation_d1_custom_columns_introspection.py)
-  - [test_calibre_emulation_d2_custom_values.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/database_calibre_emultation/test_calibre_emulation_d2_custom_values.py)
-  - [test_calibre_cache_06_custom_column_semantics.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/caches/test_calibre_cache_06_custom_column_semantics.py)
+  - [test_calibre_emulation_d1_custom_columns_introspection.py](../tests/databases/database_calibre_emultation/test_calibre_emulation_d1_custom_columns_introspection.py)
+  - [test_calibre_emulation_d2_custom_values.py](../tests/databases/database_calibre_emultation/test_calibre_emulation_d2_custom_values.py)
+  - [test_calibre_cache_06_custom_column_semantics.py](../tests/databases/caches/test_calibre_cache_06_custom_column_semantics.py)
 - that is a better replacement than pretending the removed old fixture inventories are still salvageable
 
 ## Validation

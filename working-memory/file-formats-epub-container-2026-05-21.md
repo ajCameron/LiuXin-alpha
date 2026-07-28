@@ -11,8 +11,8 @@ unicode paths, and hostile archive behavior.
 
 Durable docs:
 
-- `docs/development/file-format-unicode-conversion.md`
-- `docs/development/file-formats/epub/README.md`
+- `dev-docs/file-format-unicode-conversion.md`
+- `dev-docs/file-formats/epub/README.md`
 
 ## Plan
 

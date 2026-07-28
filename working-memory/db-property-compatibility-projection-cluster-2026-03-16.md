@@ -11,7 +11,7 @@ Date: 2026-03-16
   - `test_db_16_properties.py`
   - `test_db_17_properties.py`
 - Added direct guardrail coverage in:
-  - [test_property_compatibility_projection_profiles.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_property_compatibility_projection_profiles.py)
+  - [test_property_compatibility_projection_profiles.py](../tests/support/test_databases/test_db_properties/test_property_compatibility_projection_profiles.py)
 
 ## Finding
 

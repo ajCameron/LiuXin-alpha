@@ -9,7 +9,7 @@ Date: 2026-03-16
   - `test_db_19_properties.py`
   - `test_db_21_properties.py`
 - Added direct guardrail coverage in:
-  - [test_property_profiled_fixtures_do_not_materialize_legacy_secondary_uuid_cluster.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_property_profiled_fixtures_do_not_materialize_legacy_secondary_uuid_cluster.py)
+  - [test_property_profiled_fixtures_do_not_materialize_legacy_secondary_uuid_cluster.py](../tests/support/test_databases/test_db_properties/test_property_profiled_fixtures_do_not_materialize_legacy_secondary_uuid_cluster.py)
 
 ## Finding
 

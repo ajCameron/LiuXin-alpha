@@ -9,8 +9,8 @@ paths, and hostile archive behavior.
 
 Durable docs:
 
-- `docs/development/file-format-unicode-conversion.md`
-- `docs/development/file-formats/docx/README.md`
+- `dev-docs/file-format-unicode-conversion.md`
+- `dev-docs/file-formats/docx/README.md`
 
 ## Plan
 
@@ -88,11 +88,11 @@ The fifth slice adds hostile archive preflight before extraction:
 
 The sixth slice adds durable DOCX format docs:
 
-- `docs/development/file-formats/docx/README.md` records converter entry points,
+- `dev-docs/file-formats/docx/README.md` records converter entry points,
   fixture locations, archive/package contract, current budgets, guarded
   override policy, unicode coverage, hostile corpus, and salvage/reporting
   direction
-- `docs/development/file-format-unicode-conversion.md` now records DOCX as the
+- `dev-docs/file-format-unicode-conversion.md` now records DOCX as the
   third archive/XML container pass after ODT and EPUB
 - DOCX has no silent salvage mode today; future recovery should be opt-in,
   bounded, and report relaxed checks, selected package relationships, skipped

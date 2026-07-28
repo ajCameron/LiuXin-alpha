@@ -2,6 +2,9 @@
 
 Date: 2026-03-15
 
+Historical first slice. Superseded by
+[core-api-completion-2026-07-25.md](core-api-completion-2026-07-25.md).
+
 Built on top of:
 - main repo commit `d4ffd1a` (`Fix full-suite regressions and align fixture/contracts`)
 - green full-suite baseline from `/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/test-results/full-suite-2026-03-15-001736.json`

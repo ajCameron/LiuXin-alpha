@@ -12,7 +12,7 @@ It adds a small non-gated replacement test file instead of extending the legacy
 ## Landed
 
 - new active test file:
-  - [test_calibre_cache_06_custom_column_semantics.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/caches/test_calibre_cache_06_custom_column_semantics.py)
+  - [test_calibre_cache_06_custom_column_semantics.py](../tests/databases/caches/test_calibre_cache_06_custom_column_semantics.py)
 
 ## What It Covers
 
