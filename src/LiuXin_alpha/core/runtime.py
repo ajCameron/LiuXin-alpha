@@ -1,8 +1,6 @@
-"""Phase-1 core runtime scaffold.
+"""Transport-neutral Core application runtime and composition root."""
 
-The runtime is transport-agnostic and can be hosted directly in-process or by a
-daemon wrapper.
-"""
+# pyright: reportImportCycles=false
 
 from __future__ import annotations
 
@@ -10,7 +8,7 @@ import inspect
 import threading
 import uuid
 
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional, cast
 
 from LiuXin_alpha.core.api import CoreAPI
 from LiuXin_alpha.core.commands import CoreCommand, CoreCommandResult
@@ -22,11 +20,18 @@ from LiuXin_alpha.core.description import (
     CoreTargetDescription,
 )
 from LiuXin_alpha.core.dispatch import looks_like_write_method
-from LiuXin_alpha.core.errors import CoreDispatchError, CoreHandlerError, CoreShutdownError
+from LiuXin_alpha.core.errors import (
+    CoreDispatchError,
+    CoreHandlerError,
+    CoreShutdownError,
+    core_error_details,
+)
 from LiuXin_alpha.core.events import CoreEvent, make_core_event
 from LiuXin_alpha.core.queries import CoreQuery, CoreQueryResult
+from LiuXin_alpha.core.services import CoreServices
+from LiuXin_alpha.core.wire import to_wire
 from LiuXin_alpha.utils.jobs import JobRequest, default_job_manager
-from LiuXin_alpha.utils.jobs.manager import JobManagerAPI
+from LiuXin_alpha.utils.jobs.manager import JobManagerAPI, JobState
 
 
 CommandHandler = Callable[["CoreRuntime", CoreCommand], Any]
@@ -42,14 +47,54 @@ class CoreRuntime(CoreAPI):
         *,
         library: Any,
         core_uuid: Optional[str] = None,
-        core_version: str = "0.1.0-phase1",
+        core_version: str = "2.0.0",
+        api_version: str = "2.0",
         job_manager: JobManagerAPI | None = None,
+        catalog: Any | None = None,
+        cache: Any | None = None,
+        cache_type: str | None = None,
+        cache_kwargs: Mapping[str, Any] | None = None,
+        read_source: Any | None = None,
+        preferences: Any | None = None,
+        library_preferences: Any | None = None,
+        field_metadata: Any | None = None,
+        maintenance: Any | None = None,
+        cache_allow_database_fallback: bool = True,
+        close_cache_on_shutdown: bool | None = None,
+        close_library_on_shutdown: bool = False,
+        close_job_manager_on_shutdown: bool | None = None,
     ) -> None:
-        self._library = library
+        self._services = CoreServices(
+            library=library,
+            catalog=catalog,
+            cache=cache,
+            cache_type=cache_type,
+            cache_kwargs=cache_kwargs,
+            read_source=read_source,
+            preferences=preferences,
+            library_preferences=library_preferences,
+            field_metadata=field_metadata,
+            maintenance=maintenance,
+            cache_allow_database_fallback=cache_allow_database_fallback,
+            close_cache_on_shutdown=close_cache_on_shutdown,
+            close_library_on_shutdown=close_library_on_shutdown,
+        )
+        self._library = self._services.library
         self._core_uuid = str(core_uuid or uuid.uuid4())
         self._core_version = str(core_version)
+        self._api_version = str(api_version)
         self._shutdown = False
-        self._job_manager: JobManagerAPI = job_manager if job_manager is not None else default_job_manager()
+        owns_job_manager = job_manager is None
+        self._job_manager: JobManagerAPI = (
+            job_manager
+            if job_manager is not None
+            else default_job_manager()
+        )
+        if close_job_manager_on_shutdown is None:
+            close_job_manager_on_shutdown = owns_job_manager
+        self._close_job_manager_on_shutdown = bool(
+            close_job_manager_on_shutdown
+        )
 
         self._command_handlers: dict[str, CommandHandler] = {}
         self._query_handlers: dict[str, QueryHandler] = {}
@@ -57,7 +102,8 @@ class CoreRuntime(CoreAPI):
         self._query_descriptions: dict[str, CoreEndpointDescription] = {}
         self._event_subscribers: list[EventSubscriber] = []
 
-        # Write-path serialization.
+        # SQLite-backed runtimes may be reached from HTTP request threads.
+        # Serialize every handler against the shared local service graph.
         self._command_lock = threading.RLock()
         # Protects handler and subscriber maps.
         self._state_lock = threading.RLock()
@@ -237,6 +283,23 @@ class CoreRuntime(CoreAPI):
             ),
             tags=("jobs",),
         )
+        from LiuXin_alpha.core.application_api import install_application_api
+
+        self._application_api = install_application_api(self)
+        from LiuXin_alpha.core.program_api import install_program_api
+
+        self._program_api = install_program_api(self)
+        from LiuXin_alpha.core.storage_graph_api import install_storage_graph_api
+
+        self._storage_graph_api = install_storage_graph_api(self)
+        from LiuXin_alpha.core.browse_api import install_browse_api
+
+        self._browse_api = install_browse_api(self)
+        from LiuXin_alpha.core.database_semantics_api import (
+            install_database_semantics_api,
+        )
+
+        self._database_semantics_api = install_database_semantics_api(self)
 
     @property
     def core_uuid(self) -> str:
@@ -247,9 +310,43 @@ class CoreRuntime(CoreAPI):
         return self._core_version
 
     @property
+    def api_version(self) -> str:
+        return self._api_version
+
+    @property
     def library(self) -> Any:
         """Expose hosted library object for local call paths."""
         return self._library
+
+    @property
+    def services(self) -> CoreServices:
+        """Services composed and lifecycle-managed by this Core."""
+
+        return self._services
+
+    @property
+    def database(self) -> Any:
+        """Canonical database owned by the hosted library."""
+
+        return self.services.database
+
+    @property
+    def catalog(self) -> Any:
+        """Core-owned semantic Catalog facade."""
+
+        return self.services.catalog
+
+    @property
+    def cache(self) -> Any | None:
+        """Optional modern cache facade selected for this Core."""
+
+        return self.services.cache
+
+    @property
+    def read_source(self) -> Any:
+        """Core-selected database or cache metadata read source."""
+
+        return self.services.read_source
 
     @property
     def job_manager(self) -> JobManagerAPI:
@@ -264,8 +361,23 @@ class CoreRuntime(CoreAPI):
         if self._shutdown:
             return 0
         self._shutdown = True
+        try:
+            self.services.close()
+        finally:
+            if self._close_job_manager_on_shutdown:
+                self.job_manager.shutdown(
+                    wait=False,
+                    cancel_pending=True,
+                )
         self.emit_event("core.shutdown", {"reason": "explicit"})
         return 0
+
+    def __enter__(self) -> "CoreRuntime":
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        del exc_type, exc, tb
+        self.shutdown()
 
     @staticmethod
     def _doc_summary(obj: Any) -> str:
@@ -385,6 +497,7 @@ class CoreRuntime(CoreAPI):
             try:
                 result = handler(self, command)
             except Exception as exc:
+                error_code, error_details = core_error_details(exc)
                 self.emit_event(
                     "command.failed",
                     {
@@ -394,7 +507,35 @@ class CoreRuntime(CoreAPI):
                         "correlation_id": command.correlation_id,
                     },
                 )
-                raise CoreHandlerError("Command handler failed for {!r}: {}".format(token, exc)) from exc
+                raise CoreHandlerError(
+                    "Command handler failed for {!r}: {}".format(token, exc),
+                    code=error_code,
+                    details=error_details,
+                ) from exc
+        with self._state_lock:
+            description = self._command_descriptions.get(token)
+        if description is not None and description.transport_stable:
+            try:
+                result = to_wire(result)
+            except Exception as exc:
+                error_code, error_details = core_error_details(exc)
+                self.emit_event(
+                    "command.failed",
+                    {
+                        "command_id": command.command_id,
+                        "name": token,
+                        "error": str(exc),
+                        "correlation_id": command.correlation_id,
+                    },
+                )
+                raise CoreHandlerError(
+                    "Command result serialization failed for {!r}: {}".format(
+                        token,
+                        exc,
+                    ),
+                    code=error_code,
+                    details=error_details,
+                ) from exc
 
         write_payload = self._write_completed_payload(token, command)
         if write_payload is not None:
@@ -422,6 +563,24 @@ class CoreRuntime(CoreAPI):
                 if item_id is not None:
                     payload["item_id"] = item_id
             return payload
+        if str(token).startswith(
+            (
+                "catalog.",
+                "admin.",
+                "storage.",
+                "cache.",
+                "read-source.",
+                "database.",
+                "schema.",
+                "preferences.",
+                "custom-fields.",
+                "ingest.",
+                "conversion.",
+                "backup.",
+                "maintenance.",
+            )
+        ):
+            return payload
         if str(token) != "invoke":
             return None
         try:
@@ -445,10 +604,31 @@ class CoreRuntime(CoreAPI):
         if handler is None:
             raise CoreDispatchError("Unknown query handler: {!r}".format(query.name))
 
-        try:
-            result = handler(self, query)
-        except Exception as exc:
-            raise CoreHandlerError("Query handler failed for {!r}: {}".format(token, exc)) from exc
+        with self._command_lock:
+            try:
+                result = handler(self, query)
+            except Exception as exc:
+                error_code, error_details = core_error_details(exc)
+                raise CoreHandlerError(
+                    "Query handler failed for {!r}: {}".format(token, exc),
+                    code=error_code,
+                    details=error_details,
+                ) from exc
+        with self._state_lock:
+            description = self._query_descriptions.get(token)
+        if description is not None and description.transport_stable:
+            try:
+                result = to_wire(result)
+            except Exception as exc:
+                error_code, error_details = core_error_details(exc)
+                raise CoreHandlerError(
+                    "Query result serialization failed for {!r}: {}".format(
+                        token,
+                        exc,
+                    ),
+                    code=error_code,
+                    details=error_details,
+                ) from exc
 
         return CoreQueryResult(
             ok=True,
@@ -600,6 +780,8 @@ class CoreRuntime(CoreAPI):
         payload: dict[str, Any] = {
             "core_uuid": self.core_uuid,
             "core_version": self.core_version,
+            "api_version": self.api_version,
+            "services": self.services.describe(),
             "commands": commands,
             "queries": queries,
         }
@@ -691,14 +873,16 @@ class CoreRuntime(CoreAPI):
         )
 
     def _execute_metadata_write(self, payload: Mapping[str, Any]) -> dict[str, Any]:
-        from LiuXin_alpha.surfaces.metadata_write_bridge import write_wemi_metadata_values
+        from LiuXin_alpha.metadata.write_workflows import (
+            write_wemi_metadata_values,
+        )
 
         if "item_id" not in payload:
             raise CoreDispatchError("Metadata write payload missing `item_id`.")
         values = payload.get("values")
         if not isinstance(values, Mapping):
             raise CoreDispatchError("Metadata write payload `values` must be an object.")
-        return write_wemi_metadata_values(
+        result = write_wemi_metadata_values(
             self.library.database,
             item_id=int(payload["item_id"]),
             values=dict(values),
@@ -708,6 +892,15 @@ class CoreRuntime(CoreAPI):
             target_level=str(payload.get("target_level") or "work"),
             mark_dirty=bool(payload.get("mark_dirty", True)),
         )
+        if bool(result.get("changed", False)):
+            return self.services.reconcile(result)
+        return {
+            **result,
+            "cache": {
+                "configured": self.services.cache is not None,
+                "reconciled": False,
+            },
+        }
 
     def _handle_shutdown_command(self, runtime: "CoreRuntime", command: CoreCommand) -> int:
         del runtime, command
@@ -722,7 +915,9 @@ class CoreRuntime(CoreAPI):
         return {
             "core_uuid": self.core_uuid,
             "core_version": self.core_version,
+            "api_version": self.api_version,
             "shutdown": self.is_shutdown,
+            "services": self.services.describe(),
             "registered_command_handlers": sorted(self._command_handlers.keys()),
             "registered_query_handlers": sorted(self._query_handlers.keys()),
         }
@@ -803,24 +998,44 @@ class CoreRuntime(CoreAPI):
         return job_id
 
     @staticmethod
-    def _normalize_job_states(payload: Mapping[str, Any]) -> set[str] | None:
+    def _normalize_job_states(
+        payload: Mapping[str, Any],
+    ) -> set[JobState] | None:
         raw_states = payload.get("states", payload.get("state", None))
         if raw_states is None:
             return None
-        values: set[str] = set()
+        raw_values: set[str] = set()
         if isinstance(raw_states, str):
             for part in raw_states.replace(";", ",").split(","):
                 token = part.strip().lower()
                 if token:
-                    values.add(token)
-            return values
-        if isinstance(raw_states, (list, tuple, set)):
+                    raw_values.add(token)
+        elif isinstance(raw_states, (list, tuple, set)):
             for part in raw_states:
                 token = str(part).strip().lower()
                 if token:
-                    values.add(token)
-            return values
-        raise CoreDispatchError("`states` must be a string or sequence of strings.")
+                    raw_values.add(token)
+        else:
+            raise CoreDispatchError(
+                "`states` must be a string or sequence of strings."
+            )
+        allowed = {
+            "pending",
+            "running",
+            "succeeded",
+            "failed",
+            "timed_out",
+            "aborted",
+            "cancelled",
+        }
+        invalid = raw_values - allowed
+        if invalid:
+            raise CoreDispatchError(
+                "Unknown job states: {}.".format(
+                    ", ".join(sorted(invalid))
+                )
+            )
+        return {cast(JobState, value) for value in raw_values}
 
     @staticmethod
     def _normalize_optional_limit(payload: Mapping[str, Any], *, key: str = "limit") -> int | None:

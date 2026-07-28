@@ -272,7 +272,11 @@ class DatabaseDriver(
         sqlite3.enable_callback_tracebacks(True)
 
         try:
-            conn = SQLite_Connection(self.database_path, detect_types=sqlite3.PARSE_DECLTYPES)
+            conn = SQLite_Connection(
+                self.database_path,
+                detect_types=sqlite3.PARSE_DECLTYPES,
+                check_same_thread=False,
+            )
 
             # Aggregator allows sets of unicode to be stored directly as the result of queries
             conn.create_aggregate("pyset", 1, PySetAggregate)
