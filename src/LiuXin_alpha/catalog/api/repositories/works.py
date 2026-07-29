@@ -13,7 +13,13 @@ class WorkRepositoryAPI(BaseRepositoryAPI, Protocol):
     """Storage and lookup API for Work-level metadata."""
 
     def find_by_title(self, title: str, *, limit: int = 20) -> Sequence[RowMapping]:
-        """Find works whose title data matches the supplied string."""
+        """
+        Find works whose title data matches the supplied string.
+
+        :param title:
+        :param limit:
+        :return:
+        """
 
     # Todo: Regex titles match?
     # Todo: Find by creators, with roll
@@ -27,4 +33,9 @@ class WorkRepositoryAPI(BaseRepositoryAPI, Protocol):
         """
 
     def match_or_create(self, candidate: MetadataCandidate) -> EntityId:
-        """Return a matched work id, or create a new work."""
+        """
+        Return a matched work id, or create a new work.
+
+        :param candidate:
+        :return:
+        """

@@ -18,7 +18,8 @@ class ExactEntityRepositoryAPI(BaseRepositoryAPI, Protocol):
         *,
         use_policy: bool = False,
     ) -> MatchResult:
-        """Return an exact-default identity decision.
+        """
+        Return an exact-default identity decision.
 
         :param candidate: Candidate entity metadata.
         :param use_policy: Permit approximate matching after exact matching fails.
@@ -27,8 +28,10 @@ class ExactEntityRepositoryAPI(BaseRepositoryAPI, Protocol):
 
         ...
 
+    # Todo: We can probably do better than object for value
     def exact(self, value: object, **scope: object) -> MatchResult:
-        """Return the exact decision for a scalar identity value.
+        """
+        Return the exact decision for a scalar identity value.
 
         :param value: Scalar identity value.
         :param scope: Optional public scope aliases.
@@ -38,7 +41,8 @@ class ExactEntityRepositoryAPI(BaseRepositoryAPI, Protocol):
         ...
 
     def resolve(self, value: object, **scope: object) -> RowMapping | None:
-        """Return one uniquely exact row.
+        """
+        Return one uniquely exact row.
 
         :param value: Scalar identity value.
         :param scope: Optional public scope aliases.
@@ -53,7 +57,8 @@ class ExactEntityRepositoryAPI(BaseRepositoryAPI, Protocol):
         *,
         use_policy: bool = False,
     ) -> EntityId:
-        """Reuse a permitted match or create on a genuine non-match.
+        """
+        Reuse a permitted match or create on a genuine non-match.
 
         :param candidate: Candidate entity metadata.
         :param use_policy: Permit explicitly requested approximate reuse.

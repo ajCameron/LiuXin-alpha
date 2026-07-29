@@ -10,10 +10,25 @@ from .exact_entity import ExactEntityRepositoryAPI
 
 @runtime_checkable
 class NoteRepositoryAPI(ExactEntityRepositoryAPI, Protocol):
-    """Storage and linking API for WEMI notes."""
+    """
+    Storage and linking API for WEMI notes.
+    """
 
     def add_for_wemi(self, *, level: WemiLevel, entity_id: EntityId, data: RowInput) -> EntityId:
-        """Create a note and link it to a WEMI entity."""
+        """
+        Create a note and link it to a WEMI entity.
+
+        :param level:
+        :param entity_id:
+        :param data:
+        :return:
+        """
 
     def list_for_wemi(self, *, level: WemiLevel, entity_id: EntityId) -> Sequence[RowMapping]:
-        """Return notes linked to a WEMI entity."""
+        """
+        Return notes linked to a WEMI entity.
+
+        :param level:
+        :param entity_id:
+        :return:
+        """

@@ -11,7 +11,9 @@ from .base import BaseRepositoryAPI
 
 @runtime_checkable
 class ItemIdentifierRepositoryAPI(BaseRepositoryAPI, Protocol):
-    """Store and exactly resolve Item-scoped identifier observations."""
+    """
+    Store and exactly resolve Item-scoped identifier observations.
+    """
 
     def match(
         self,
@@ -19,7 +21,8 @@ class ItemIdentifierRepositoryAPI(BaseRepositoryAPI, Protocol):
         *,
         item_id: EntityId | None = None,
     ) -> MatchResult:
-        """Return an exact observed identifier decision.
+        """
+        Return an exact observed identifier decision.
 
         :param candidate: Identifier to normalize and compare.
         :param item_id: Optional owning Item ID.
@@ -50,7 +53,8 @@ class ItemIdentifierRepositoryAPI(BaseRepositoryAPI, Protocol):
         item_id: EntityId,
         candidate: IdentifierCandidate,
     ) -> EntityId:
-        """Reuse an exact observation on one Item or create it there.
+        """
+        Reuse an exact observation on one Item or create it there.
 
         :param item_id: Existing Item which owns the observation.
         :param candidate: Identifier observation to normalize and persist.
@@ -60,7 +64,8 @@ class ItemIdentifierRepositoryAPI(BaseRepositoryAPI, Protocol):
         ...
 
     def list_for_item(self, item_id: EntityId) -> Sequence[RowMapping]:
-        """Return identifier observations owned by one Item.
+        """
+        Return identifier observations owned by one Item.
 
         :param item_id: Existing Item ID.
         :return: ID-ordered observed identifier rows.

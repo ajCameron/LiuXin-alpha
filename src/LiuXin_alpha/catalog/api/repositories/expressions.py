@@ -27,7 +27,12 @@ class ExpressionRepositoryAPI(BaseRepositoryAPI, Protocol):
         """
 
     def list_works(self, expression_id: EntityId) -> Sequence[RowMapping]:
-        """Return Works linked to an Expression."""
+        """
+        Return Works linked to an Expression.
+
+        :param expression_id:
+        :return:
+        """
 
     def match(self, work_id: EntityId, candidate: MetadataCandidate) -> MatchResult:
         """
