@@ -1,6 +1,6 @@
 # Core Application API
 
-Status: complete whole-program boundary with a basic local implementation
+Status: complete whole-program boundary and consolidated application interfaces
 API version: `2.0`
 Updated: 2026-07-28
 
@@ -92,7 +92,7 @@ The tables below summarize the required v2 program boundary.
 | Assets and policies | resource describe/list/get/CRUD, asset detail/policy assignment, policy assessment/planning/violations under `storage.*` |
 | Ingest | `ingest.formats`, `ingest.disk.start`, `ingest.remote-html.start` |
 | Conversion | `conversion.formats`, `conversion.options`, `conversion.start` |
-| Backup | `backup.plan`, workflow list/get/save/start, and `backup.squashfs.start` |
+| Backup | `backup.plan`, workflow list/get/save/start, `backup.squashfs.start`, `backup.squashfs.publish-store.start`, and `backup.squashfs.publish-files.start` |
 | Maintenance | `maintenance.status`, `maintenance.duplicates.find`, `maintenance.run`, `maintenance.clean`, `maintenance.merge` |
 
 Explicit raw row and relation mutations remain available under `admin.*`.
@@ -202,16 +202,35 @@ owned by Core.
 composition, testing, and compatibility. They are not members of
 `CoreClientAPI` and must not become interface dependencies.
 
-Interface consolidation should now:
+The application-interface consolidation is complete. Native and Calibre-shaped
+web, JSON API, OPDS, acquisition/image delivery, read-write web, terminal, Tk,
+SquashFS CLI, and maintained surface runner scripts all receive one
+`CoreClientAPI`. Each accepts either local composition through `--database` or
+an existing daemon through `--core-endpoint` where it has a command-line entry
+point. The same interface model and wire records are used in both modes.
 
-1. inject one `CoreClientAPI` into every web, terminal, Tk, OPDS, acquisition,
-   and automation entry point;
-2. replace direct subsystem access and generic `invoke` calls with stable
-   names from `api.describe`;
-3. use `capabilities.list` for compatibility and dependency-aware feature
-   exposure;
-4. keep presentation-only state, formatting, and protocol response construction
-   in the interface.
+`surfaces.core.SurfaceCoreSession` is the only application composition seam.
+It owns locally created runtimes, borrows remote clients, and encloses
+caller-supplied legacy Database objects for compatibility tests and older
+embedding code. Those compatibility constructors do not make the Database
+available to surface behavior.
+
+Production surface modules are checked by an AST boundary test which rejects
+owned-subsystem imports and generic `invoke` calls. The narrow exceptions are:
+
+- the PostgreSQL CLI, which provisions or diagnoses the database service before
+  an application Core can exist;
+- pure Calibre metadata rendering helpers and thumbnail value/error types,
+  which perform presentation-only work and do not retain subsystem services.
+
+Development-only fixture generators, subsystem benchmarks, build scripts, and
+backend diagnostics are outside the application-interface boundary. Maintained
+application automation, including `benchmark_surface_paths.py`, goes through
+Core.
+
+Interfaces use `capabilities.list` for compatibility and dependency-aware
+feature exposure, and keep presentation state, formatting, and protocol
+response construction outside Core.
 
 A streaming transport can later optimize large byte transfers without changing
 the application-level acquisition or storage operations.

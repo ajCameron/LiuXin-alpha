@@ -432,8 +432,9 @@ def test_read_model_discovers_images_and_resolves_targets(driver_spec, tmp_path:
 
         assert len(image_rows) == 1
         assert int(image_rows[0]["image_id"]) == image_id
-        assert resolved is not None
-        assert resolved.mode == "local"
-        assert resolved.location.endswith("cover.png")
+        assert resolved is None
+        stored = backend.resolve_storage_image(image_row)
+        assert stored is not None
+        assert stored.as_bytes() == image_path.read_bytes()
         assert backend.image_content_type(image_row) == "image/png"
         assert b"Asset Book" in placeholder

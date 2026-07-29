@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import mimetypes
 import posixpath
@@ -13,12 +14,17 @@ from email.parser import BytesParser
 from email.policy import default as email_policy_default
 from io import BytesIO
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any, Optional
 from urllib.parse import parse_qs, quote, unquote, urlencode
 from wsgiref.simple_server import make_server
 
-from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.core import CoreClientAPI
+from LiuXin_alpha.surfaces.core import (
+    CoreRow,
+    add_core_client_arguments,
+    open_surface_core_from_args,
+)
 from LiuXin_alpha.surfaces.web_readonly.app import (
     ReadOnlyWebApplication,
     ReadOnlyWebConfig,
@@ -26,15 +32,26 @@ from LiuXin_alpha.surfaces.web_readonly.app import (
     _build_query_string,
     _coerce_int,
     _escape,
-    _open_database,
     _row_value,
     _short_text,
 )
-from LiuXin_alpha.library.library import Library
-from LiuXin_alpha.storage.store_manager import StorageManager
 
 
 _REQUEST_NOTICE: ContextVar[Optional[dict[str, str]]] = ContextVar("web_readwrite_request_notice", default=None)
+
+_STORE_BACKEND_KINDS = (
+    "ftp_readonly",
+    "native_html_readonly",
+    "on_disk_calibre_like",
+    "on_disk_existing_managed_drive",
+    "on_disk_existing_unmanaged_drive",
+    "on_disk_flat",
+    "rclone_http_readonly",
+    "single_file_sqlite",
+    "squashfs_build",
+    "squashfs_readonly",
+    "wget_html_readonly",
+)
 
 
 @dataclass(frozen=True)
@@ -42,6 +59,12 @@ class ReadWriteWebConfig(ReadOnlyWebConfig):
     title: str = "LiuXin Read-Write Web"
     port: int = 8084
     write_banner: str = "Experimental local-first write surface. Not hardened for public internet exposure."
+
+
+@dataclass(frozen=True)
+class _CoreLinkReport:
+    changed: bool = True
+    errors: tuple[str, ...] = ()
 
 
 class ReadWriteWebApplication(ReadOnlyWebApplication):
@@ -304,9 +327,13 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         },
     }
 
-    def __init__(self, db: Database, *, config: Optional[ReadWriteWebConfig] = None) -> None:
-        super().__init__(db, config=config or ReadWriteWebConfig())
-        self.library = Library(database=db, close_database_on_close=False)
+    def __init__(
+        self,
+        core: CoreClientAPI,
+        *,
+        config: Optional[ReadWriteWebConfig] = None,
+    ) -> None:
+        super().__init__(core, config=config or ReadWriteWebConfig())
 
     def handle_request(self, environ) -> _Response:
         method = str(environ.get("REQUEST_METHOD", "GET") or "GET").upper()
@@ -708,17 +735,9 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         return None
 
     def _is_trigger_locked_table(self, table: str) -> bool:
-        try:
-            conn = getattr(getattr(self.db.driver_wrapper, "driver", None), "conn", None)
-            if conn is None:
-                return False
-            row = conn.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='trigger' AND name = ? LIMIT 1;",
-                ("block_insert_on_{}".format(str(table)),),
-            ).fetchone()
-            return row is not None
-        except Exception:
-            return False
+        # The bootstrap version table is schema-owned reference data.  Driver
+        # trigger inspection is intentionally unavailable across Core/RPC.
+        return str(table) == "database_version"
 
     def _editable_columns(self, table: str) -> list[str]:
         if not self._is_writable_table(table):
@@ -764,7 +783,7 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
                 ("pseudonym", "pseudonym"),
             ]
         if str(table) == "stores" and lowered == "store_kind":
-            return [(kind, kind) for kind in sorted(StorageManager._STORE_BACKEND_IMPORTS)]
+            return [(kind, kind) for kind in _STORE_BACKEND_KINDS]
         if str(table) == "stores" and lowered == "store_access_protocol":
             return [
                 ("", "Unset"),
@@ -1259,7 +1278,13 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         return table, row
 
     def _storage_key_for_stored_file(self, *, store_row, stored_file) -> str:
-        file_url = str(getattr(stored_file, "file_url", "") or "").strip()
+        if isinstance(stored_file, Mapping):
+            store_key = str(stored_file.get("store_key") or "").strip()
+            if store_key:
+                return store_key
+            file_url = str(stored_file.get("file_url") or "").strip()
+        else:
+            file_url = str(getattr(stored_file, "file_url", "") or "").strip()
         if not file_url:
             return ""
         root_uri = str(_row_value(store_row, "store_root_uri") or "").strip()
@@ -1464,11 +1489,19 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         if raw_mime_type and raw_mime_type.lower() != "application/octet-stream":
             metadata["file_mime_type"] = raw_mime_type
 
-        stored_file = self.library.add_file(
-            bytes(upload.get("bytes") or b""),
-            metadata=metadata,
-            preferred_store=preferred_store,
+        put_result = self.core.command(
+            "storage.file.put",
+            {
+                "content_base64": base64.b64encode(
+                    bytes(upload.get("bytes") or b"")
+                ).decode("ascii"),
+                "metadata": metadata,
+                "preferred_store": preferred_store,
+            },
         )
+        if not isinstance(put_result, Mapping):
+            raise TypeError("storage.file.put returned an invalid result.")
+        stored_file = put_result.get("location", {})
 
         mime_type = str(metadata.get("file_mime_type") or "").strip()
         if not mime_type:
@@ -1493,7 +1526,11 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
             value = self._coerce_form_value(str(form.get(optional_column, "") or ""), column=optional_column, current_value=None, for_create=True)
             if value is not None:
                 file_payload[optional_column] = value
-        return Row.from_idless_row_dict(self.db, row_dict=file_payload, table="files")
+        receipt = self.model.create_row("files", file_payload)
+        record = receipt.get("record")
+        if not isinstance(record, Mapping):
+            raise TypeError("admin.row.create did not return a file record.")
+        return self.model.row_from_record(record)
 
     def _create_item_chain_for_work_upload(self, *, work_row, form: dict[str, str], fallback_label: str):
         expression_payload: dict[str, object] = {
@@ -1502,20 +1539,13 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         expression_language = self._coerce_form_value(str(form.get("expression_language_id", "") or ""), column="expression_language_id", current_value=None, for_create=True)
         if expression_language is not None:
             expression_payload["expression_language_id"] = expression_language
-        expression_row = Row.from_idless_row_dict(self.db, row_dict=expression_payload, table="expressions")
-        self.db.interlink_rows(primary_row=work_row, secondary_row=expression_row)
-
         manifestation_payload: dict[str, object] = {
             "manifestation_format_detail": str(form.get("manifestation_format_detail") or Path(fallback_label).suffix.lstrip(".").upper() or "upload").strip() or "upload",
         }
         manifestation_carrier = str(form.get("manifestation_carrier_type", "") or "").strip()
         if manifestation_carrier:
             manifestation_payload["manifestation_carrier_type"] = manifestation_carrier
-        manifestation_row = Row.from_idless_row_dict(self.db, row_dict=manifestation_payload, table="manifestations")
-        self.db.interlink_rows(primary_row=expression_row, secondary_row=manifestation_row)
-
         item_payload: dict[str, object] = {
-            "item_manifestation_id": int(_row_value(manifestation_row, "manifestation_id") or 0),
             "item_source": str(form.get("item_source") or "web_upload"),
             "item_source_name": str(form.get("item_source_name") or fallback_label),
         }
@@ -1525,7 +1555,38 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         item_location = str(form.get("item_location", "") or "").strip()
         if item_location:
             item_payload["item_location"] = item_location
-        item_row = Row.from_idless_row_dict(self.db, row_dict=item_payload, table="items")
+        result = self.core.command(
+            "catalog.wemi.create",
+            {
+                "work": {},
+                "expression": expression_payload,
+                "manifestation": manifestation_payload,
+                "items": [item_payload],
+                "origin": "web_upload",
+                "work_id": int(work_row.row_id),
+            },
+        )
+        if not isinstance(result, Mapping):
+            raise TypeError("catalog.wemi.create returned an invalid result.")
+        expression_row = self.model.row(
+            "expressions",
+            int(result["expression_id"]),
+        )
+        manifestation_row = self.model.row(
+            "manifestations",
+            int(result["manifestation_id"]),
+        )
+        item_ids = result.get("item_ids", ())
+        if (
+            expression_row is None
+            or manifestation_row is None
+            or not isinstance(item_ids, list)
+            or not item_ids
+        ):
+            raise RuntimeError("Core did not return the created WEMI chain.")
+        item_row = self.model.row("items", int(item_ids[0]))
+        if item_row is None:
+            raise RuntimeError("Core did not return the created item.")
         return expression_row, manifestation_row, item_row
 
     def _render_grouped_row_form(
@@ -1842,31 +1903,26 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         link_type: Any,
         extra_values: dict[str, Any],
     ):
-        from LiuXin_alpha.surfaces.metadata_write_bridge import write_wemi_metadata_relation_link
-
-        return write_wemi_metadata_relation_link(
-            self.db,
-            target_row=primary_row,
-            relation_table=secondary_table,
-            relation_row=secondary_row,
-            priority=priority,
-            link_type=link_type,
-            extra_values=extra_values,
+        normalized_priority = (
+            None
+            if priority in (None, "", "not_set", "highest")
+            else int(priority)
         )
+        self.model.link(
+            primary_row,
+            secondary_row,
+            priority=normalized_priority,
+            link_type=link_type,
+            values=extra_values,
+        )
+        return _CoreLinkReport()
 
     def _metadata_relation_notice_message(self, *, action: str, item_name: str, report: Any) -> str:
-        from LiuXin_alpha.surfaces.metadata_write_bridge import metadata_write_report_summary
-
-        return "{} {} via metadata writer ({})".format(
-            action,
-            item_name,
-            metadata_write_report_summary(report),
-        )
+        del report
+        return "{} {}.".format(action, item_name)
 
     def _refresh_read_source_after_write(self) -> bool:
-        from LiuXin_alpha.surfaces.write_refresh import refresh_metadata_read_source_after_write
-
-        return refresh_metadata_read_source_after_write(self)
+        return self.model.refresh()
 
     @staticmethod
     def _with_cache_refresh_note(message: str, *, refreshed: bool) -> str:
@@ -2142,7 +2198,7 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         except Exception:
             return self._render_layout(title="Bad row id", body_html="<section class='panel'><h2>Invalid row id</h2></section>")
         try:
-            impact = self.library.describe_row_delete_impact(table=table, row_id=row_id)
+            impact = self.model.delete_impact(table, row_id)
         except Exception as exc:
             return self._render_layout(title="Delete failed", body_html="<section class='panel'><h2>Delete preview failed</h2><p class='danger'>{}</p></section>".format(_escape(exc)))
 
@@ -2210,7 +2266,11 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         if not payload:
             return self._html_response(self._render_new_row_page(table, error_text="No writable values were provided.", values=form), status="400 Bad Request")
         try:
-            row = Row.from_idless_row_dict(self.db, row_dict=payload, table=table)
+            receipt = self.model.create_row(table, payload)
+            record = receipt.get("record")
+            if not isinstance(record, Mapping):
+                raise TypeError("Core did not return the created row.")
+            row = self.model.row_from_record(record)
         except Exception as exc:
             return self._html_response(self._render_new_row_page(table, error_text=str(exc), values=form), status="400 Bad Request")
         read_source_refreshed = self._refresh_read_source_after_write()
@@ -2239,7 +2299,7 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         except Exception as exc:
             return self._html_response(self._render_edit_row_page(table, raw_row_id, error_text=str(exc), values=form), status="400 Bad Request")
         try:
-            self.library.update_row_fields(table=table, row_id=row_id, updates=updates)
+            self.model.update_row(table, row_id, updates)
         except Exception as exc:
             return self._html_response(self._render_edit_row_page(table, raw_row_id, error_text=str(exc), values=form), status="400 Bad Request")
         read_source_refreshed = self._refresh_read_source_after_write()
@@ -2260,7 +2320,7 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         except Exception:
             return self._html_response(self._render_delete_row_page(table, raw_row_id, error_text="Invalid row id."), status="400 Bad Request")
         try:
-            self.library.delete_row(table=table, row_id=row_id)
+            self.model.delete_row(table, row_id)
         except Exception as exc:
             return self._html_response(self._render_delete_row_page(table, raw_row_id, error_text=str(exc)), status="400 Bad Request")
         read_source_refreshed = self._refresh_read_source_after_write()
@@ -2324,7 +2384,13 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
             )
 
         try:
-            self.library.refresh_storage(startup_on_add=False, clear_existing=True)
+            self.core.command(
+                "storage.refresh",
+                {
+                    "startup_on_add": False,
+                    "clear_existing": True,
+                },
+            )
         except Exception as exc:
             return self._html_response(
                 self._render_file_upload_page(error_text="Storage bootstrap failed: {}".format(exc), values=form, context_table=context_table, raw_row_id=raw_row_id),
@@ -2513,7 +2579,11 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
                 status="400 Bad Request",
             )
         try:
-            secondary_row = Row.from_idless_row_dict(self.db, row_dict=payload, table=secondary_table)
+            receipt = self.model.create_row(secondary_table, payload)
+            record = receipt.get("record")
+            if not isinstance(record, Mapping):
+                raise TypeError("Core did not return the created linked row.")
+            secondary_row = self.model.row_from_record(record)
         except Exception as exc:
             return self._html_response(self._render_row_page(table, raw_row_id, write_error_text=str(exc)), status="400 Bad Request")
 
@@ -2610,7 +2680,7 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
                 anchor=self._interlink_anchor(secondary_table),
             )
         try:
-            self.library.update_row_fields(table=link_table, row_id=link_row_id, updates=updates)
+            self.model.update_row(link_table, link_row_id, updates)
         except Exception as exc:
             return self._html_response(self._render_row_page(table, raw_row_id, write_error_text=str(exc)), status="400 Bad Request")
         spec = self._link_section_spec(str(primary_row.table), secondary_table, link_table)
@@ -2653,7 +2723,7 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
                 status="400 Bad Request",
             )
         try:
-            self.library.delete_row(table=link_table, row_id=link_row_id)
+            self.model.delete_row(link_table, link_row_id)
         except Exception as exc:
             return self._html_response(self._render_row_page(table, raw_row_id, write_error_text=str(exc)), status="400 Bad Request")
         spec = self._link_section_spec(str(primary_row.table), secondary_table, link_table)
@@ -2672,7 +2742,7 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the LiuXin read-write web interface.")
-    parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
+    add_core_client_arguments(parser)
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
     parser.add_argument("--host", default=ReadWriteWebConfig.host, help="Bind host. Default: 127.0.0.1")
     parser.add_argument("--port", type=int, default=ReadWriteWebConfig.port, help="Bind port. Default: 8084")
@@ -2696,8 +2766,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         expose_database_path=bool(args.expose_database_path),
         enable_file_downloads=not bool(args.no_file_downloads),
     )
-    with _open_database(database_path=str(args.database), db_type=str(args.db_type)) as db:
-        app = ReadWriteWebApplication(db, config=config)
+    with open_surface_core_from_args(
+        args,
+        enable_storage_manager=True,
+        enable_maintenance=False,
+    ) as core_session:
+        app = ReadWriteWebApplication(core_session.client, config=config)
         url = "http://{}:{}/".format(config.host, config.port)
         sys.stdout.write("Serving read-write web interface on {}\n".format(url))
         sys.stdout.flush()

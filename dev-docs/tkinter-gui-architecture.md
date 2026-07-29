@@ -1,10 +1,9 @@
 # Tkinter GUI Architecture
 
-This note describes the intended architecture for a LiuXin desktop GUI built
-with Python's standard-library `tkinter` toolkit. The current `tkinter_gui`
-branch should be treated as a viability spike: it proves that a read-only table
-browser can run against the LiuXin database, but the production shape should be
-kept modular before more features accumulate.
+This note describes the implemented architecture for LiuXin's desktop GUI,
+built with Python's standard-library `tkinter` toolkit. The non-visual backend
+uses the same transport-neutral Core boundary as the web, terminal, API, and
+OPDS interfaces.
 
 Detailed staged implementation plan:
 
@@ -14,8 +13,7 @@ Detailed staged implementation plan:
 
 - Provide a practical desktop surface for browsing and later editing a LiuXin
   database.
-- Reuse existing database, read-model, cache, metadata hydrator, and write-back
-  paths instead of creating GUI-only behavior.
+- Reuse stable named Core operations instead of creating GUI-only data paths.
 - Keep the non-visual logic testable in CI without a graphical display.
 - Keep database and metadata work off the Tk main thread when it can block.
 - Start with a small read-only browser, then layer metadata editing and
@@ -80,38 +78,34 @@ behavior, split it into the modules above.
 
 ### Launcher
 
-`__main__.py` and CLI parsing should stay small:
+`__main__.py` and CLI parsing stay small:
 
-- parse `--database`, `--db-type`, `--page-size`, and runtime flags
+- parse exactly one of `--database` or `--core-endpoint`, plus page and runtime
+  flags
 - build a `TkGuiConfig`
 - create `tk.Tk()`
 - run the app
 - close resources during shutdown
 
-The launch command should be:
+Local and daemon-backed launch commands are:
 
 ```bash
 PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.tkinter_gui --database path/to/library.test_db
+PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.tkinter_gui --core-endpoint http://127.0.0.1:8765
 ```
 
 ### Session
 
-The session must not import `tkinter`.
+The session does not import `tkinter`. It owns one `SurfaceCoreSession`, one
+`CoreClientAPI`, and presentation-safe Core model/database views. In local mode
+the shared session composes and owns `CoreRuntime`; in daemon mode it borrows a
+`RemoteCoreClient`. GUI behavior cannot reach Database, Library, Catalog,
+Cache, storage, job-manager, or runtime implementation objects.
 
-It owns the process resources behind one open GUI database:
-
-- `Database`
-- `Library(database=db, close_database_on_close=False)`
-- `CoreRuntime`
-- `LocalLibraryProxy`, including database and jobs child proxies
-- optional read-model/cache/read-source objects
-
-The session owns read-source selection. It can expose either a direct database
-metadata read source or a cache-backed metadata read source with database
-fallback. The GUI can still use these read sources for fast browsing, but write
-and operational features should be routed through the session's core runtime.
-Closing the session must shut down the runtime, close any attached storage
-cache, close the library, and close the database.
+Read-source selection is a Core startup concern. Changing it requires reopening
+the local database or reconfiguring the daemon rather than swapping subsystem
+objects underneath an active GUI. Closing the GUI closes only the resources
+owned by its `SurfaceCoreSession`.
 
 ### Backend
 
@@ -124,10 +118,11 @@ It owns read-oriented LiuXin operations:
 - search table rows
 - produce row labels and detail fields
 - hydrate metadata for rows with `item_id`
-- switch between direct and cache-backed metadata read sources
+- report the Core/read-source configuration selected at startup
 
-This layer is the main CI test target. It should be possible to test with fake
-database objects and real fixture databases without opening a window.
+This layer is the main CI test target. It is tested with fake Core clients,
+locally composed fixture databases, and the RPC client without opening a
+window.
 
 ### State
 
@@ -138,7 +133,7 @@ The state layer should be a small set of dataclasses representing:
 - selected row
 - current page offset and page size
 - active search column and text
-- read-source mode, such as direct database or cache
+- the read-source mode selected when Core was opened
 - current task status
 - dirty/write state once editing exists
 
@@ -152,7 +147,7 @@ They should avoid direct database calls.
 
 Recommended first set:
 
-- Database toolbar: database path, open, reload, source mode.
+- Database/Core toolbar: local path or daemon endpoint, open, and reload.
 - Table sidebar: filterable table list.
 - Row grid: current table rows, paging, search controls.
 - Inspector: selected raw row fields.
@@ -177,8 +172,7 @@ The controller should be the only layer that knows how the pieces are wired.
 
 Potentially slow operations should run through a small task runner:
 
-- open database
-- load cache snapshot
+- open local or remote Core
 - page large tables
 - hydrate metadata
 - write metadata
@@ -193,13 +187,13 @@ A simple standard-library approach is enough:
 
 Never update Tk widgets directly from worker threads.
 
-The LiuXin `Database` object is not thread-safe, so database-backed GUI work
-should use a serial worker by default. This keeps the Tk event loop responsive
-without letting two background tasks touch the same database connection at once.
+GUI Core calls use a serial worker by default. This keeps the Tk event loop
+responsive and matches the runtime's serialized access to its composed
+database graph.
 
-## First Usable GUI Slice
+## Implemented GUI Slice
 
-The first production slice should stay read-only:
+The current slice provides:
 
 - open an existing LiuXin database
 - show a filterable table list
@@ -221,8 +215,8 @@ After the read-only slice is stable:
 - richer metadata inspector with structured W/E/M/I sections
 - metadata edit forms for tags, labels, genres, series, identifiers, notes, and
   comments
-- write-back through the metadata writer/report bridge
-- write refresh hooks for cache/read-source freshness
+- richer semantic write-back operations and conflict presentation
+- explicit daemon-side cache/read-source administration
 - OPF import/export tools
 - storage/file panels for files, stores, and locator results
 - job/status panels for long-running operations

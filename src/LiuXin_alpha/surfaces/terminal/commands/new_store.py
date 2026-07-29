@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
-from LiuXin_alpha.library.library import Library
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 
@@ -220,16 +219,11 @@ class NewStoreWizardCommand(TerminalCommandAPI):
 
     @staticmethod
     def _refresh_storage_manager(browser):
-        if hasattr(browser, "supports_core_commands") and bool(browser.supports_core_commands()):
-            return browser.execute_core_command(
-                "invoke",
-                payload={
-                    "target": "library",
-                    "method": "refresh_storage",
-                    "kwargs": {"clear_existing": True},
-                },
-            )
-        return NewStoreWizardCommand._local_library(browser).refresh_storage(clear_existing=True)
+        result = browser.execute_core_command(
+            "storage.refresh",
+            payload={"clear_existing": True},
+        )
+        return (result or {}).get("report", result)
 
     def _prompt_store_kind(self, browser) -> _StoreKindPreset:
         browser.emit("Available store kinds:")
@@ -377,36 +371,22 @@ class NewStoreWizardCommand(TerminalCommandAPI):
         }
         return payload
 
-    @staticmethod
-    def _local_library(browser) -> Library:
-        return Library(database=browser.db, close_database_on_close=False)
-
     def _find_existing_store(self, browser, *, root_uri: str, store_name: str):
-        if hasattr(browser, "supports_core_queries") and bool(browser.supports_core_queries()):
-            return browser.execute_core_query(
-                "invoke",
-                payload={
-                    "target": "library",
-                    "method": "find_existing_store",
-                    "kwargs": {
-                        "root_uri": root_uri,
-                        "store_name": store_name,
-                    },
-                },
-            )
-        return self._local_library(browser).find_existing_store(root_uri=root_uri, store_name=store_name)
+        for column, value in (
+            ("store_root_uri", root_uri),
+            ("store_name", store_name),
+        ):
+            rows = browser.db.search("stores", column, value)
+            if rows:
+                return rows[0]
+        return None
 
     def _save_store_row(self, browser, *, store_payload: dict[str, Any]):
-        if hasattr(browser, "supports_core_commands") and bool(browser.supports_core_commands()):
-            return browser.execute_core_command(
-                "invoke",
-                payload={
-                    "target": "library",
-                    "method": "save_store_row",
-                    "kwargs": {"store_payload": dict(store_payload)},
-                },
-            )
-        return self._local_library(browser).save_store_row(store_payload=store_payload)
+        result = browser.execute_core_command(
+            "storage.store.save",
+            payload={"store": dict(store_payload)},
+        )
+        return (result or {}).get("store", result)
 
     @staticmethod
     def _store_row_id(store_row) -> Optional[int]:

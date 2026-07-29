@@ -50,7 +50,9 @@ class TkGuiApplication:
         self._closing = False
         self._busy_tasks: set[str] = set()
 
-        self.database_var = tk.StringVar(value=str(config.database))
+        self.database_var = tk.StringVar(
+            value=str(config.core_endpoint or config.database or "")
+        )
         self.status_var = tk.StringVar(value="Ready")
         self.table_filter_var = tk.StringVar(value="")
         self.search_column_var = tk.StringVar(value="")
@@ -64,7 +66,7 @@ class TkGuiApplication:
         self._build_widgets()
         self._update_control_state()
         self.task_runner.start_polling()
-        if self.backend is None:
+        if self.backend is None and config.database is not None:
             self.open_database(Path(config.database))
         else:
             self.refresh_tables()
@@ -254,6 +256,8 @@ class TkGuiApplication:
         old_backend = self.backend
         config = TkGuiConfig(
             database=Path(database_path),
+            core_endpoint=None,
+            core_timeout=self.config.core_timeout,
             db_type=self.config.db_type,
             title=self.config.title,
             page_size=self.config.page_size,

@@ -16,7 +16,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence, TextIO
 
-from LiuXin_alpha.databases.database import Database
+from LiuXin_alpha.core import CoreClientAPI
+from LiuXin_alpha.surfaces.core import (
+    CoreDatabaseView,
+    CoreSurfaceModel,
+    SurfaceCoreSession,
+    add_core_client_arguments,
+    coerce_surface_core,
+    open_surface_core_from_args,
+)
 from LiuXin_alpha.surfaces.metadata_facets import resolve_tag_or_label_table_token
 from LiuXin_alpha.surfaces.terminal.commands import TerminalCommandAPI, build_default_commands
 from LiuXin_alpha.surfaces.terminal.plugins import TerminalLifecyclePluginAPI
@@ -54,44 +62,6 @@ def _default_history_file_path() -> Path:
     else:
         base = Path.home() / ".local" / "state"
     return base / "liuxin_alpha" / "terminal_history"
-
-
-def _build_default_core_runtime(db: Database, *, job_manager):
-    """
-    Build an in-process core runtime around the active browser database.
-
-    This keeps write-path command routing local and low-latency while enforcing
-    the "writes go through core" boundary for commands that opt in.
-    """
-    from LiuXin_alpha.core.runtime import CoreRuntime
-    from LiuXin_alpha.library.library import Library
-
-    library = Library(database=db, close_database_on_close=False)
-    return CoreRuntime(library=library, job_manager=job_manager)
-
-
-def _open_database(
-    *,
-    database_path: str,
-    db_type: str,
-    create_if_missing: bool = True,
-    enable_storage_manager: bool = False,
-    enable_maintenance: bool = False,
-    repair_bootstrap_rows: bool = False,
-) -> Database:
-    db_path = Path(database_path).expanduser()
-    should_create = bool(create_if_missing and not db_path.exists())
-    if should_create:
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-    return Database(
-        metadata={"database_path": str(db_path)},
-        db_type=db_type,
-        create=should_create,
-        backup=False,
-        enable_storage_manager=bool(enable_storage_manager),
-        enable_maintenance=bool(enable_maintenance),
-        repair_bootstrap_rows=bool(repair_bootstrap_rows),
-    )
 
 
 def _truncate(value: object, *, width: int = 80) -> str:
@@ -521,8 +491,8 @@ def create_database_from_wizard(config: DatabaseCreationWizardConfig) -> Path:
     """Create a database using wizard-provided configuration."""
     db_path = config.database_path.expanduser()
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    with Database(
-        metadata={"database_path": str(db_path)},
+    with SurfaceCoreSession.open(
+        database_path=db_path,
         db_type=config.db_type,
         create=True,
         backup=bool(config.backup_existing),
@@ -560,7 +530,7 @@ class TextDatabaseBrowser:
 
     def __init__(
         self,
-        db: Database,
+        core: CoreClientAPI | Any,
         *,
         page_size: int = 20,
         input: Optional[TextIO] = None,
@@ -568,27 +538,22 @@ class TextDatabaseBrowser:
         history_file: Optional[str | Path] = None,
         lifecycle_plugins: Optional[Sequence[TerminalLifecyclePluginAPI]] = None,
         job_manager=None,
-        core_runtime=None,
         metadata_read_source: Any = None,
     ) -> None:
-        self.db = db
-        self.metadata_read_source = metadata_read_source
+        core, compatibility_session = coerce_surface_core(
+            core,
+            job_manager=job_manager,
+            read_source=metadata_read_source,
+        )
+        self._compatibility_core_session = compatibility_session
+        self.core = core
+        self.model = CoreSurfaceModel(core)
+        self.db = CoreDatabaseView(core, model=self.model)
+        self.metadata_read_source = metadata_read_source or self.model
         self.page_size = max(1, int(page_size))
         self.input = input or sys.stdin
         self.output = output or sys.stdout
         self.job_manager = job_manager if job_manager is not None else default_job_manager()
-        self._core_runtime = core_runtime
-        self._owns_core_runtime = False
-        self._core_runtime_init_error: Optional[str] = None
-        if self._core_runtime is None:
-            try:
-                self._core_runtime = _build_default_core_runtime(db, job_manager=self.job_manager)
-                self._owns_core_runtime = True
-            except Exception as exc:
-                # Core wiring is best-effort here; browser remains fully usable.
-                self._core_runtime = None
-                self._owns_core_runtime = False
-                self._core_runtime_init_error = _summarize_exception(exc)
         self.current_table: Optional[str] = None
         self.window: Optional[_BrowseWindow] = None
         self._commands: dict[str, TerminalCommandAPI] = {}
@@ -1028,11 +993,6 @@ class TextDatabaseBrowser:
         self._closed = True
         self._shutdown_reason = str(reason)
         self._save_command_history()
-        if self._owns_core_runtime and self._core_runtime is not None:
-            try:
-                self._core_runtime.shutdown()
-            except Exception:
-                pass
         errors: list[str] = []
         for plugin in reversed(self._lifecycle_plugins):
             plugin_name = getattr(plugin, "name", plugin.__class__.__name__)
@@ -1044,6 +1004,8 @@ class TextDatabaseBrowser:
             self._write("WARNING: lifecycle shutdown errors:")
             for err in errors:
                 self._write("  {}".format(err))
+        if self._compatibility_core_session is not None:
+            self._compatibility_core_session.close()
 
     def request_shutdown(self, reason: str) -> None:
         """Mark preferred shutdown reason for this browser session."""
@@ -1139,6 +1101,38 @@ class TextDatabaseBrowser:
         metadata = getattr(self.db, "metadata", {}) or {}
         return str(metadata.get("database_path", ""))
 
+    def resolve_language_id(self, value: object) -> int | None:
+        """Resolve a language token without leaving the Core read boundary."""
+
+        token = str(value or "").strip()
+        if not token or not self.model.table_exists("languages"):
+            return None
+        if token.isdigit():
+            row = self.model.row("languages", int(token))
+            return None if row is None else int(token)
+        columns = [
+            column
+            for column in self.model.columns("languages")
+            if column != self.model.id_column("languages")
+            and "language" in column.lower()
+        ]
+        for column in columns:
+            matches = self.model.search(
+                "languages",
+                column,
+                token,
+            )
+            if matches and matches[0].row_id is not None:
+                return int(matches[0].row_id)
+        lowered = token.casefold()
+        for row in self.model.rows("languages"):
+            if any(
+                lowered == str(row.get(column) or "").casefold()
+                for column in columns
+            ) and row.row_id is not None:
+                return int(row.row_id)
+        return None
+
     def emit(self, text: str, *, end: str = "\n") -> None:
         """Public output sink for command implementations."""
         self._write(text, end=end)
@@ -1151,27 +1145,19 @@ class TextDatabaseBrowser:
 
     def supports_core_commands(self) -> bool:
         """Whether this browser can dispatch write commands through core runtime."""
-        return self._core_runtime is not None
+        return True
 
     def supports_core_queries(self) -> bool:
         """Whether this browser can dispatch read queries through core runtime."""
-        return self._core_runtime is not None
+        return True
 
     def core_runtime_status_summary(self) -> str:
         """Summarize core runtime availability for status surfaces."""
-        if self._core_runtime is not None:
-            return "core: enabled"
-        if self._core_runtime_init_error:
-            return "core: local-only | {}".format(_truncate_text(self._core_runtime_init_error, width=120))
-        return "core: local-only"
+        return "core: enabled"
 
     def core_runtime_startup_warning(self) -> Optional[str]:
         """User-facing startup warning for core runtime bootstrap failures."""
-        if not self._core_runtime_init_error:
-            return None
-        return "Core runtime unavailable; using local-only mode. {}".format(
-            _truncate_text(self._core_runtime_init_error, width=160)
-        )
+        return None
 
     def execute_core_command(self, name: str, *, payload: Optional[dict[str, object]] = None):
         """
@@ -1179,15 +1165,7 @@ class TextDatabaseBrowser:
 
         Raises a user-facing error when core runtime is unavailable.
         """
-        if self._core_runtime is None:
-            raise RuntimeError("Core runtime is not available for this browser session.")
-        from LiuXin_alpha.core.commands import CoreCommand
-
-        envelope = CoreCommand(
-            name=str(name),
-            payload=dict(payload or {}),
-        )
-        return self._core_runtime.execute_command(envelope).result
+        return self.core.command(str(name), dict(payload or {}))
 
     def execute_core_query(self, name: str, *, payload: Optional[dict[str, object]] = None):
         """
@@ -1195,15 +1173,7 @@ class TextDatabaseBrowser:
 
         Raises a user-facing error when core runtime is unavailable.
         """
-        if self._core_runtime is None:
-            raise RuntimeError("Core runtime is not available for this browser session.")
-        from LiuXin_alpha.core.queries import CoreQuery
-
-        envelope = CoreQuery(
-            name=str(name),
-            payload=dict(payload or {}),
-        )
-        return self._core_runtime.execute_query(envelope).result
+        return self.core.query(str(name), dict(payload or {}))
 
     def supports_job_output_panel(self) -> bool:
         """Whether this browser can route one job log stream to a dedicated panel."""
@@ -2503,7 +2473,7 @@ class TextDatabaseBrowser:
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the text browser entry point."""
     parser = argparse.ArgumentParser(description="LiuXin text browser")
-    parser.add_argument("--database", required=True, help="Path to LiuXin database")
+    add_core_client_arguments(parser, database_help="Path to LiuXin database")
     parser.add_argument("--db-type", default="SQLite", help="Database backend type (default: SQLite)")
     parser.add_argument(
         "--create-new-db",
@@ -2580,7 +2550,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run_windowed_text_browser(
-    db: Database,
+    core: CoreClientAPI,
     *,
     page_size: int = 20,
     history_file: Optional[str | Path] = None,
@@ -2599,7 +2569,7 @@ def run_windowed_text_browser(
         telemetry_panel_height=max(4, int(telemetry_panel_height)),
     )
     return run_windowed_browser(
-        db,
+        core,
         page_size=page_size,
         history_file=history_file,
         config=config,
@@ -2616,6 +2586,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         db_type = args.db_type
 
         if args.create_new_db:
+            if args.core_endpoint:
+                raise ValueError(
+                    "--create-new-db cannot be combined with --core-endpoint."
+                )
             wizard_config = run_database_creation_wizard(
                 default_database_path=database_path,
                 default_db_type=db_type,
@@ -2628,17 +2602,28 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             database_path = str(created_path)
             db_type = wizard_config.db_type
 
-        with _open_database(
-            database_path=database_path,
-            db_type=db_type,
-            create_if_missing=not bool(args.no_create_if_missing),
+        if database_path is not None:
+            db_path = Path(database_path).expanduser()
+            create_if_missing = bool(
+                not args.no_create_if_missing and not db_path.exists()
+            )
+            if create_if_missing:
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            create_if_missing = False
+
+        args.database = database_path
+        args.db_type = db_type
+        with open_surface_core_from_args(
+            args,
+            create=create_if_missing,
             enable_storage_manager=bool(args.enable_storage_manager),
             enable_maintenance=bool(args.enable_maintenance),
             repair_bootstrap_rows=bool(args.repair_bootstrap_rows),
-        ) as db:
+        ) as core_session:
             if args.command:
                 shell = TextDatabaseBrowser(
-                    db,
+                    core_session.client,
                     page_size=args.page_size,
                     output=sys.stdout,
                     history_file=args.history_file,
@@ -2647,7 +2632,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
             if args.ui_mode == "windowed":
                 return run_windowed_text_browser(
-                    db,
+                    core_session.client,
                     page_size=args.page_size,
                     history_file=args.history_file,
                     status_refresh_s=args.windowed_status_refresh_s,
@@ -2657,7 +2642,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 )
 
             shell = TextDatabaseBrowser(
-                db,
+                core_session.client,
                 page_size=args.page_size,
                 output=sys.stdout,
                 history_file=args.history_file,

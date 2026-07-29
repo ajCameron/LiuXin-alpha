@@ -27,6 +27,14 @@ class _FakeDriverWrapper:
             "tags": "tag_id",
         }.get(table, f"{table}_id")
 
+    def is_view(self, table: str) -> bool:
+        del table
+        return False
+
+    def get_interlinked_tables(self, table: str):
+        del table
+        return []
+
 
 class _FakeRow:
     def __init__(self, table: str, row_dict: dict[str, object]) -> None:
@@ -37,6 +45,8 @@ class _FakeRow:
 
 class _FakeDatabase:
     driver_wrapper = _FakeDriverWrapper()
+    type = "SQLite"
+    metadata = {"database_path": "library.sqlite"}
 
     def __init__(self) -> None:
         self.closed = False
@@ -57,6 +67,13 @@ class _FakeDatabase:
     def get_tables_and_columns(self):
         return dict(self.tables)
 
+    def get_tables(self, force_refresh: bool = False):
+        del force_refresh
+        return tuple(self.tables)
+
+    def get_column_headings(self, table: str):
+        return tuple(self.tables[str(table)])
+
     def get_record_count(self, table: str) -> int:
         return len(self.rows[str(table)])
 
@@ -71,6 +88,17 @@ class _FakeDatabase:
             for row in self.rows[str(table)]
             if needle in str(row.row_dict.get(str(column), "")).lower()
         ]
+
+    def get_row_from_id(self, table: str, row_id: int):
+        id_column = self.driver_wrapper.get_id_column(table)
+        return next(
+            (
+                row
+                for row in self.rows[str(table)]
+                if int(row.row_dict[id_column]) == int(row_id)
+            ),
+            None,
+        )
 
     def close(self) -> None:
         self.closed = True
@@ -232,7 +260,7 @@ def test_tkinter_backend_closes_database() -> None:
     assert db.closed is True
 
 
-def test_tkinter_session_exposes_core_runtime_and_proxies() -> None:
+def test_tkinter_session_exposes_only_core_contract() -> None:
     db = _FakeDatabase()
     session = TkGuiSession.from_database(
         db,
@@ -245,14 +273,18 @@ def test_tkinter_session_exposes_core_runtime_and_proxies() -> None:
     assert health["shutdown"] is False
     assert "health" in health["registered_query_handlers"]
     assert "api.describe" in {entry["name"] for entry in describe["queries"]}
-    assert session.library_proxy.health()["shutdown"] is False
-    assert session.invoke_query(target="database", method="get_record_count", args=("items",)) == 2
+    assert not hasattr(session, "library_proxy")
+    assert not hasattr(session, "invoke_query")
+    assert session.execute_query(
+        "rows.query",
+        {"table": "items", "limit": 0},
+    )["total_count"] == 2
 
     session.close()
 
     assert session.closed is True
-    assert session.core_runtime.is_shutdown is True
-    assert db.closed is True
+    assert session.core_session.runtime.is_shutdown is True
+    assert db.closed is False
 
 
 def test_tkinter_session_configures_cache_read_source() -> None:
@@ -269,9 +301,8 @@ def test_tkinter_session_configures_cache_read_source() -> None:
     )
 
     assert cache.read_calls == 1
-    assert session.storage_cache.storage is cache
     assert session.read_source is not None
-    assert session.metadata_read_source is session.read_source
+    assert session.metadata_read_source is session.model
     assert session.read_source_status_text() == "source cache:schema_backed with DB fallback"
 
     backend = TkGuiBackend.from_session(session)
@@ -279,14 +310,13 @@ def test_tkinter_session_configures_cache_read_source() -> None:
     assert backend.read_source_status_text() == "source cache:schema_backed with DB fallback"
     assert backend.refresh_read_source() is True
     assert cache.reload_calls == 1
-    assert backend.configure_read_source(mode="direct") is True
-    assert session.read_source_status_text() == "source direct"
-    assert cache.closed is True
+    with pytest.raises(RuntimeError, match="requires reopening"):
+        backend.configure_read_source(mode="direct")
 
     session.close()
 
-    assert cache.closed is True
-    assert db.closed is True
+    assert cache.closed is False
+    assert db.closed is False
 
 
 def test_tkinter_session_selects_cache_read_source_after_open() -> None:
@@ -298,18 +328,18 @@ def test_tkinter_session_selects_cache_read_source_after_open() -> None:
     )
 
     assert session.read_source_status_text() == "source direct"
-    assert session.select_read_source(mode="cache", cache_type="schema_backed", cache=cache) is True
-    assert cache.read_calls == 1
-    assert session.storage_cache.storage is cache
-    assert session.storage_cache_type == "schema_backed"
-    assert session.read_source_status_text() == "source cache:schema_backed with DB fallback"
-    assert session.select_read_source(mode="cache", cache_type="schema_backed", cache=cache) is False
-    assert cache.read_calls == 1
+    with pytest.raises(RuntimeError, match="requires reopening"):
+        session.select_read_source(
+            mode="cache",
+            cache_type="schema_backed",
+            cache=cache,
+        )
+    assert cache.read_calls == 0
 
     session.close()
 
-    assert cache.closed is True
-    assert db.closed is True
+    assert cache.closed is False
+    assert db.closed is False
 
 
 def test_tkinter_backend_can_wrap_core_session() -> None:
@@ -327,7 +357,7 @@ def test_tkinter_backend_can_wrap_core_session() -> None:
     backend.close()
 
     assert session.closed is True
-    assert db.closed is True
+    assert db.closed is False
 
 
 def test_tkinter_backend_writes_metadata_through_core_session() -> None:

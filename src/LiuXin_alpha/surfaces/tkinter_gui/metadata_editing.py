@@ -7,15 +7,24 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-from LiuXin_alpha.surfaces.metadata_write_bridge import normalize_metadata_write_field
-
-
 METADATA_EDIT_FIELDS = ("tags", "labels", "genre", "series", "identifiers")
+_METADATA_FIELD_ALIASES = {
+    "tag": "tags",
+    "tags": "tags",
+    "label": "labels",
+    "labels": "labels",
+    "genre": "genre",
+    "genres": "genre",
+    "series": "series",
+    "identifier": "identifiers",
+    "identifiers": "identifiers",
+}
 
 
 def parse_metadata_edit_payload(field: str, text: str) -> tuple[str, dict[str, Any]]:
     """Return a normalized write field and core metadata.write values payload."""
-    field_name = normalize_metadata_write_field(field)
+    normalized = str(field).strip().lower().replace("-", "_")
+    field_name = _METADATA_FIELD_ALIASES.get(normalized, normalized)
     if field_name not in METADATA_EDIT_FIELDS:
         raise ValueError("Metadata field {!r} is not editable in the Tk GUI.".format(field))
     if field_name == "identifiers":

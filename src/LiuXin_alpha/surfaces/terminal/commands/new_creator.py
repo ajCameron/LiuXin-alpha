@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.metadata.constants import CREATOR_TYPES
 from LiuXin_alpha.metadata.utils import author_to_author_sort
-from LiuXin_alpha.utils.language_tools import best_effort_language_id
 
 
 def _clean_optional(value: str) -> Optional[str]:
@@ -115,25 +113,21 @@ class NewCreatorWizardCommand(TerminalCommandAPI):
         ]
         language_ids = []
         if creator_language is not None:
-            language_id = best_effort_language_id(
-                browser.db,
-                creator_language,
-                default=None,
-                strict=False,
-            )
+            language_id = browser.resolve_language_id(creator_language)
             if language_id is None:
                 raise ValueError("Creator language could not be resolved.")
             language_ids.append(int(language_id))
 
-        catalog = Catalog(browser.db)
-        creator_id = catalog.agents.create_person(
-            {
+        result = browser.execute_core_command(
+            "catalog.agent.create-person",
+            payload={
+                "data": {
                 "name": creator_name,
                 "sort_name": creator_sort,
                 "aliases": aliases,
                 "note": "\n".join(note_lines),
-            },
-            details={
+                },
+                "details": {
                 "human_agent_given_name": name_parts[0] if name_parts else None,
                 "human_agent_middle_name": (
                     " ".join(name_parts[1:-1]) if len(name_parts) > 2 else None
@@ -143,12 +137,13 @@ class NewCreatorWizardCommand(TerminalCommandAPI):
                 "human_agent_birth_date": creator_birth_date,
                 "human_agent_death_date": creator_death_date,
                 "human_agent_biography": creator_bio,
+                },
+                "identifiers": identifiers,
+                "language_ids": language_ids,
+                "notes": [creator_bio] if creator_bio is not None else [],
             },
-            identifiers=identifiers,
-            language_ids=language_ids,
-            notes=[creator_bio] if creator_bio is not None else (),
         )
-        creator_row = catalog.agents.require(creator_id)
+        creator_row = dict(result["agent"])
 
         browser.emit(
             "Creator created: agent_id={} canonical_name={!r}".format(

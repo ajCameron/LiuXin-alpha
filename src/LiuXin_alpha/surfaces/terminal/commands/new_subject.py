@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.metadata.standardization import make_title_search_term
 
@@ -101,11 +100,11 @@ class NewSubjectWizardCommand(TerminalCommandAPI):
             elif "subject_parent" in columns:
                 row_dict["subject_parent"] = parent_row.row_id
 
-        subject_row = Row.from_idless_row_dict(
-            browser.db,
-            row_dict=row_dict,
-            table="subjects",
+        result = browser.execute_core_command(
+            "catalog.entity.create",
+            payload={"repository": "subjects", "data": row_dict},
         )
+        subject_row = dict(result["entity"])
 
         browser.emit(
             "Subject created: subject_id={} subject={!r}".format(

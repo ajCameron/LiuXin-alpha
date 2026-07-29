@@ -183,7 +183,6 @@ def test_opds_readonly_cache_read_source_route_serves_snapshot(driver_spec, tmp_
 
         status, headers, body = _call_app(app, "/opds/navcatalog/{}".format(opds_nav_token("titles")))
 
-        assert getattr(app.read_model.read_source, "allow_database_fallback") is False
         assert status == "200 OK"
         assert headers["Content-Type"].startswith("application/atom+xml")
         text = body.decode("utf-8")

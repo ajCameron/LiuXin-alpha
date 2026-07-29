@@ -19,7 +19,14 @@ from urllib.parse import parse_qs, quote, unquote, urljoin
 from wsgiref.simple_server import make_server
 from wsgiref.util import FileWrapper
 
-from LiuXin_alpha.databases.database import Database
+from LiuXin_alpha.core import CoreClientAPI
+from LiuXin_alpha.surfaces.core import (
+    CoreDatabaseView,
+    CoreSurfaceModel,
+    add_core_client_arguments,
+    coerce_surface_core,
+    open_surface_core_from_args,
+)
 
 
 def _escape(value: object) -> str:
@@ -113,6 +120,20 @@ class _ResolvedFileTarget:
     download_name: str
 
 
+@dataclass(frozen=True)
+class _CoreStoredFile:
+    model: CoreSurfaceModel
+    kind: str
+    resource_id: int
+
+    def as_bytes(self) -> bytes:
+        _resource, payload = self.model.acquisition_read(
+            self.kind,
+            self.resource_id,
+        )
+        return payload
+
+
 @dataclass
 class _Response:
     status: str
@@ -147,21 +168,29 @@ class ReadOnlyWebApplication:
 
     def __init__(
         self,
-        db: Database,
+        core: CoreClientAPI | Any,
         *,
         config: Optional[ReadOnlyWebConfig] = None,
-        read_source: Any = None,
+        model: CoreSurfaceModel | None = None,
+        read_source: Any | None = None,
     ) -> None:
-        self.db = db
         self.config = config or ReadOnlyWebConfig()
-        resolved_read_source = read_source
-        if resolved_read_source is None:
-            resolved_read_source = build_metadata_read_source(
-                db,
-                source=self.config.metadata_read_source,
-                cache_type=self.config.metadata_cache_type,
-                allow_database_fallback=self.config.metadata_cache_allow_database_fallback,
-            )
+        core, compatibility_session = coerce_surface_core(
+            core,
+            read_source=read_source,
+            cache_type=(
+                self.config.metadata_cache_type
+                if self.config.metadata_read_source == "cache"
+                else None
+            ),
+            cache_allow_database_fallback=(
+                self.config.metadata_cache_allow_database_fallback
+            ),
+        )
+        self._compatibility_core_session = compatibility_session
+        self.core = core
+        self.model = model or CoreSurfaceModel(core)
+        self.db = CoreDatabaseView(core, model=self.model)
         from LiuXin_alpha.surfaces.images import ImageBackend
         from LiuXin_alpha.surfaces.read_model import ReadModelBackend
 
@@ -169,8 +198,12 @@ class ReadOnlyWebApplication:
         self.read_model = ReadModelBackend(
             self,
             images=self.images,
-            read_source=resolved_read_source,
+            model=self.model,
         )
+
+    def close(self) -> None:
+        if self._compatibility_core_session is not None:
+            self._compatibility_core_session.close()
 
     def __call__(self, environ, start_response):
         response = self.handle_request(environ)
@@ -299,7 +332,7 @@ class ReadOnlyWebApplication:
         )
 
     def _all_tables(self) -> list[str]:
-        return sorted(str(table) for table in self.db.get_tables())
+        return list(self.model.table_names())
 
     @staticmethod
     def _table_category(table: str) -> str:
@@ -389,17 +422,14 @@ class ReadOnlyWebApplication:
         return str(table) in set(self._all_tables())
 
     def _id_column(self, table: str) -> Optional[str]:
-        columns = list(self.db.get_column_headings(table))
+        columns = list(self.model.columns(table))
         if not columns:
             return None
-        for column in columns:
-            if str(column).endswith("_id"):
-                return str(column)
-        return str(columns[0])
+        return self.model.id_column(table)
 
     def _visible_columns(self, table: str) -> list[str]:
         result: list[str] = []
-        for column in self.db.get_column_headings(table):
+        for column in self.model.columns(table):
             name = str(column)
             lowered = name.lower()
             if any(lowered.endswith(suffix) for suffix in self.config.hidden_column_suffixes):
@@ -1063,7 +1093,10 @@ class ReadOnlyWebApplication:
     def _ordered_related_tables(self, row) -> list[str]:
         table = str(getattr(row, "table", "") or "")
         try:
-            candidate_tables = list(getattr(row, "linkable_tables", None) or self.db.driver_wrapper.get_interlinked_tables(table))
+            candidate_tables = list(
+                getattr(row, "linkable_tables", None)
+                or self.model.related_tables(table)
+            )
         except Exception:
             candidate_tables = []
         return sorted(
@@ -1748,7 +1781,19 @@ class ReadOnlyWebApplication:
         db_hint = ""
         if self.config.expose_database_path:
             try:
-                db_hint = "<p class='meta'>database={}</p>".format(_escape(self.db.db_path))
+                info = self.core.query("database.info")
+                metadata = (
+                    info.get("metadata", {})
+                    if isinstance(info, dict)
+                    else {}
+                )
+                db_hint = "<p class='meta'>database={}</p>".format(
+                    _escape(
+                        metadata.get("database_path", "")
+                        if isinstance(metadata, dict)
+                        else ""
+                    )
+                )
             except Exception:
                 db_hint = ""
         return """<!doctype html>
@@ -2496,45 +2541,24 @@ class ReadOnlyWebApplication:
     def _resolve_file_target(self, file_row) -> Optional[_ResolvedFileTarget]:
         if not self.config.enable_file_downloads:
             return None
-        row = self._row_dict("files", file_row)
+        file_id = _row_value(file_row, "file_id")
+        if file_id in (None, ""):
+            return None
         file_name = self._download_name_for_file_row(file_row)
-
-        direct_local_candidates = [row.get("file_original_path"), row.get("file_path")]
-        for candidate in direct_local_candidates:
-            text = str(candidate or "").strip()
-            if not text:
-                continue
-            path = Path(text)
-            if path.is_file():
-                return _ResolvedFileTarget(mode="local", location=str(path), download_name=file_name)
-
-        direct_url_candidates = [row.get("file_source"), row.get("file_original_path")]
-        for candidate in direct_url_candidates:
-            text = str(candidate or "").strip()
-            if text.startswith(("http://", "https://")):
-                return _ResolvedFileTarget(mode="redirect", location=text, download_name=file_name)
-
-        storage_key = str(row.get("file_storage_key") or "").strip()
-        store_id = row.get("file_store_id", None)
-        if storage_key and store_id not in (None, ""):
-            try:
-                store_row = self.db.get_row_from_id("stores", int(store_id))
-            except Exception:
-                store_row = None
-            if store_row is not None:
-                root_uri = str(_row_value(store_row, "store_root_uri") or "").strip()
-                access_protocol = str(_row_value(store_row, "store_access_protocol") or "").strip().lower()
-                if root_uri.startswith(("http://", "https://")):
-                    base = root_uri if root_uri.endswith("/") else root_uri + "/"
-                    return _ResolvedFileTarget(mode="redirect", location=urljoin(base, storage_key), download_name=file_name)
-                if root_uri.startswith("file://"):
-                    local_root = Path(root_uri[7:])
-                else:
-                    local_root = Path(root_uri) if root_uri else None
-                if local_root is not None and (access_protocol in {"", "file", "local"} or local_root.is_absolute()):
-                    candidate = local_root / storage_key
-                    if candidate.is_file():
-                        return _ResolvedFileTarget(mode="local", location=str(candidate), download_name=file_name)
+        try:
+            resolved = self.model.acquisition_resolve(
+                "legacy-file",
+                int(file_id),
+            )
+        except Exception:
+            return None
+        delivery = str(resolved.get("delivery") or "")
+        if delivery == "redirect":
+            return _ResolvedFileTarget(
+                mode="redirect",
+                location=str(resolved.get("location") or ""),
+                download_name=str(resolved.get("name") or file_name),
+            )
         return None
 
     def _download_name_for_file_row(self, file_row) -> str:
@@ -2548,56 +2572,42 @@ class ReadOnlyWebApplication:
         return metadata
 
     def _refresh_storage_manager(self) -> bool:
-        bootstrap = getattr(self.db, "bootstrap_storage_manager", None)
-        if not callable(bootstrap):
-            return False
         try:
-            bootstrap(startup_on_add=False, clear_existing=True)
-        except TypeError:
-            try:
-                bootstrap(clear_existing=True)
-            except Exception:
-                return False
+            result = self.core.command(
+                "storage.refresh",
+                {"startup_on_add": False, "clear_existing": True},
+            )
         except Exception:
             return False
-        return getattr(self.db, "storage", None) is not None
+        return bool(result)
 
     def _resolve_storage_file(self, file_row):
         if not self.config.enable_file_downloads:
             return None
-
-        metadata = self._storage_lookup_metadata(file_row)
-        should_refresh = bool(metadata.get("file_store_id") not in (None, ""))
-        storage = getattr(self.db, "storage", None)
-
-        for attempt in range(2 if should_refresh else 1):
-            if storage is None and not self._refresh_storage_manager():
-                storage = getattr(self.db, "storage", None)
-                if storage is None:
-                    continue
-            else:
-                storage = getattr(self.db, "storage", None)
-
-            if storage is None:
-                continue
-
-            try:
-                return storage.locate_file(metadata=metadata)
-            except Exception:
-                pass
-
-            if attempt == 0 and should_refresh:
-                self._refresh_storage_manager()
-                storage = getattr(self.db, "storage", None)
-
-        return None
+        file_id = _row_value(file_row, "file_id")
+        if file_id in (None, ""):
+            return None
+        try:
+            resolved = self.model.acquisition_resolve(
+                "legacy-file",
+                int(file_id),
+            )
+        except Exception:
+            return None
+        if not bool(resolved.get("readable", False)):
+            return None
+        return _CoreStoredFile(
+            model=self.model,
+            kind="legacy-file",
+            resource_id=int(file_id),
+        )
 
     def _serve_file_download(self, raw_file_id: str, environ) -> _Response:
         try:
             file_id = int(str(raw_file_id).strip())
         except Exception:
             return self._text_response("400 Bad Request", "Invalid file id.\n", content_type="text/plain")
-        row = self.db.get_row_from_id("files", file_id)
+        row = self.read_model.row_by_id("files", file_id)
         if row is None:
             return self._text_response("404 Not Found", "File row not found.\n", content_type="text/plain")
         download_name = self._download_name_for_file_row(row)
@@ -2621,7 +2631,13 @@ class ReadOnlyWebApplication:
                     )
             except FileNotFoundError:
                 pass
-            except Exception:
+            except Exception as exc:
+                if getattr(exc, "code", "") == "acquisition_unavailable":
+                    return self._text_response(
+                        "501 Not Implemented",
+                        "The backing store does not support direct downloads for this file.\n",
+                        content_type="text/plain",
+                    )
                 return self._text_response(
                     "502 Bad Gateway",
                     "The backing store failed while retrieving this file.\n",
@@ -2640,7 +2656,7 @@ class ReadOnlyWebApplication:
             file_id = int(str(raw_file_id).strip())
         except Exception:
             return self._text_response("400 Bad Request", "Invalid file id.\n", content_type="text/plain")
-        row = self.db.get_row_from_id("files", file_id)
+        row = self.read_model.row_by_id("files", file_id)
         if row is None:
             return self._text_response("404 Not Found", "File row not found.\n", content_type="text/plain")
 
@@ -2679,7 +2695,13 @@ class ReadOnlyWebApplication:
                     )
             except FileNotFoundError:
                 pass
-            except Exception:
+            except Exception as exc:
+                if getattr(exc, "code", "") == "acquisition_unavailable":
+                    return self._text_response(
+                        "501 Not Implemented",
+                        "The backing store does not support inline preview for this file.\n",
+                        content_type="text/plain",
+                    )
                 return self._text_response(
                     "502 Bad Gateway",
                     "The backing store failed while previewing this file.\n",
@@ -2747,7 +2769,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=metadata_read_source_help_epilog("PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.web_readonly"),
     )
-    parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
+    add_core_client_arguments(parser)
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
     add_metadata_read_source_arguments(parser)
     parser.add_argument("--host", default=ReadOnlyWebConfig.host, help="Bind host. Default: 127.0.0.1")
@@ -2760,45 +2782,24 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _open_database(*, database_path: str, db_type: str) -> Database:
-    db_path = Path(database_path).expanduser()
-    return Database(
-        metadata={"database_path": str(db_path)},
-        db_type=db_type,
-        create=False,
-        backup=False,
-        enable_storage_manager=False,
-        enable_maintenance=False,
-        repair_bootstrap_rows=False,
-    )
-
-
 def build_metadata_read_source(
-    db: Database,
+    core: CoreClientAPI,
     *,
     source: str = "database",
     cache_type: str = "schema_backed",
     allow_database_fallback: bool = True,
-):
+) -> CoreSurfaceModel:
     normalized_source = str(source or "database").strip().lower()
-    if normalized_source in {"database", "db"}:
-        return None
-    if normalized_source not in {"cache", "storage_cache"}:
+    if normalized_source not in {"database", "db", "cache", "storage_cache"}:
         raise ValueError(
             "Unknown metadata read source {!r}. Expected 'database' or 'cache'.".format(
                 source,
             )
         )
-
-    from LiuXin_alpha.caches import create_cache
-    from LiuXin_alpha.metadata.read_sources import CacheMetadataReadSource
-
-    cache = create_cache(db, str(cache_type or "schema_backed"))
-    return CacheMetadataReadSource(
-        cache,
-        database=db,
-        allow_database_fallback=allow_database_fallback,
-    )
+    # Cache selection belongs to local Core composition. Remote callers query
+    # whichever read source the daemon owns.
+    del cache_type, allow_database_fallback
+    return CoreSurfaceModel(core)
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -2814,8 +2815,19 @@ def main(argv: Optional[list[str]] = None) -> int:
         enable_file_downloads=not bool(args.no_file_downloads),
         **metadata_read_source_config_kwargs(args),
     )
-    with _open_database(database_path=str(args.database), db_type=str(args.db_type)) as db:
-        app = ReadOnlyWebApplication(db, config=config)
+    cache_type = (
+        str(args.cache_type)
+        if str(args.metadata_read_source) == "cache"
+        else None
+    )
+    with open_surface_core_from_args(
+        args,
+        cache_type=cache_type,
+        cache_allow_database_fallback=not bool(args.no_cache_db_fallback),
+        enable_storage_manager=True,
+        enable_maintenance=False,
+    ) as core_session:
+        app = ReadOnlyWebApplication(core_session.client, config=config)
         url = "http://{}:{}/".format(config.host, config.port)
         sys.stdout.write("Serving read-only web UI on {}\n".format(url))
         sys.stdout.flush()

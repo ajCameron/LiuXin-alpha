@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 
@@ -117,9 +116,11 @@ class NewManifestationWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Manifestation wizard canceled.")
 
-        catalog = Catalog(browser.db)
-        manifestation_id = catalog.manifestations.create(
-            {
+        result = browser.execute_core_command(
+            "catalog.entity.create",
+            payload={
+                "repository": "manifestations",
+                "data": {
                 "manifestation_subtitle": manifestation_subtitle,
                 "manifestation_carrier_type": manifestation_carrier_type,
                 "manifestation_format_detail": manifestation_format_detail,
@@ -131,10 +132,11 @@ class NewManifestationWizardCommand(TerminalCommandAPI):
                 "manifestation_runtime_minutes": manifestation_runtime_minutes,
                 "manifestation_region_code": manifestation_region_code,
                 "manifestation_status": manifestation_status,
-                "manifestation_note": manifestation_note,
-            }
+                    "manifestation_note": manifestation_note,
+                },
+            },
         )
-        manifestation_row = catalog.manifestations.require(manifestation_id)
+        manifestation_row = dict(result["entity"])
 
         browser.emit(
             "Manifestation created: manifestation_id={} format={!r}".format(

@@ -255,7 +255,6 @@ def test_web_calibre_readonly_cache_read_source_detail_routes_serve_snapshot(dri
             "/ajax/books?ids={},{}".format(cached_id, uncached_id),
         )
 
-        assert getattr(app.read_model.read_source, "allow_database_fallback") is False
         assert status == "200 OK"
         payload = json.loads(body.decode("utf-8"))
         assert sorted(payload) == [str(cached_id)]

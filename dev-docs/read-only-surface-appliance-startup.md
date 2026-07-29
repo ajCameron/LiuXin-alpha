@@ -27,12 +27,23 @@ all default to `8080`.
    bash scripts/create_venv.sh
    ```
 
-3. Pick the database path and bind host:
+3. Pick the Core source and bind host. A standalone process can compose Core
+   from a database:
 
    ```bash
    export LIUXIN_DB=/path/to/library.sqlite
    export LIUXIN_HOST=127.0.0.1
    ```
+
+   Alternatively, point every surface at one running Core daemon:
+
+   ```bash
+   export LIUXIN_CORE=http://127.0.0.1:8765
+   export LIUXIN_HOST=127.0.0.1
+   ```
+
+   In the commands below, replace `--database "$LIUXIN_DB"` with
+   `--core-endpoint "$LIUXIN_CORE"` for that deployment.
 
    Use `0.0.0.0` only when the appliance firewall or reverse proxy is already
    controlling access.

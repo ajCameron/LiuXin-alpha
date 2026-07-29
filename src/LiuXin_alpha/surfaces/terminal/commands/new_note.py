@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 
@@ -50,11 +49,14 @@ class NewNoteWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Note wizard canceled.")
 
-        note_row = Row.from_idless_row_dict(
-            browser.db,
-            row_dict={"note": note_text},
-            table="notes",
+        result = browser.execute_core_command(
+            "catalog.entity.create",
+            payload={
+                "repository": "notes",
+                "data": {"note": note_text},
+            },
         )
+        note_row = dict(result["entity"])
         browser.emit(
             "Note created: note_id={} note={!r}".format(
                 note_row["note_id"],

@@ -235,7 +235,6 @@ def test_web_readonly_cache_read_source_cli_options_serve_snapshot(driver_spec, 
 
         status, _headers, body = _call_app(app, "/search?global_q=Title&search_table=works")
 
-        assert getattr(app.read_model.read_source, "allow_database_fallback") is False
         assert status == "200 OK"
         text = body.decode("utf-8")
         assert "Cached Web" in text

@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
-from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.surfaces.metadata_facets import (
     build_tag_row_payload,
     preferred_tag_table,
     search_tag_rows,
-)
-from LiuXin_alpha.surfaces.metadata_write_bridge import (
-    metadata_write_report_summary,
-    write_wemi_metadata_relation_link,
 )
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.surfaces.terminal.commands.link import _resolve_table_token
@@ -121,7 +116,7 @@ def _parse_target_rows(browser, args: list[str], *, usage: str):
         target_ids = _expand_id_selector(args[1])
         consumed = 2
 
-    target_rows: list[tuple[int, Row]] = []
+    target_rows: list[tuple[int, object]] = []
     missing_ids: list[int] = []
     for target_id in target_ids:
         target_row = browser.db.get_row_from_id(target_table, target_id)
@@ -139,6 +134,17 @@ def _parse_target_rows(browser, args: list[str], *, usage: str):
     return target_table, target_rows, consumed
 
 
+def _create_row(browser, table: str, values: dict[str, object]):
+    result = browser.execute_core_command(
+        "admin.row.create",
+        payload={"table": table, "values": values},
+    )
+    record = (result or {}).get("record")
+    if record is None:
+        raise RuntimeError("Core did not return the created row.")
+    return browser.model.row_from_record(record)
+
+
 def _resolve_or_create_note_row(browser, note_text: str, *, create: bool):
     tables = set(browser.db.get_tables())
     if "notes" not in tables:
@@ -148,11 +154,7 @@ def _resolve_or_create_note_row(browser, note_text: str, *, create: bool):
         return "notes", rows[0]
     if not create:
         return None
-    row = Row.from_idless_row_dict(
-        browser.db,
-        row_dict={"note": note_text},
-        table="notes",
-    )
+    row = _create_row(browser, "notes", {"note": note_text})
     return "notes", row
 
 
@@ -169,7 +171,7 @@ def _resolve_or_create_tag_row(browser, tag_text: str, *, create: bool):
 
     columns = set(browser.db.get_column_headings(table))
     row_dict = build_tag_row_payload(table, columns, tag_text)
-    row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table=table)
+    row = _create_row(browser, table, row_dict)
     return table, row
 
 
@@ -202,7 +204,7 @@ def _resolve_or_create_genre_row(browser, genre_text: str, *, create: bool):
         row_dict["genre_sort"] = genre_sort
     if "genre_phash" in columns:
         row_dict["genre_phash"] = genre_phash
-    row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="genres")
+    row = _create_row(browser, "genres", row_dict)
     return "genres", row
 
 
@@ -235,7 +237,7 @@ def _resolve_or_create_subject_row(browser, subject_text: str, *, create: bool):
         row_dict["subject_sort"] = subject_sort
     if "subject_phash" in columns:
         row_dict["subject_phash"] = subject_phash
-    row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="subjects")
+    row = _create_row(browser, "subjects", row_dict)
     return "subjects", row
 
 
@@ -325,7 +327,7 @@ def _resolve_or_create_series_row(browser, series_text: str, *, create: bool):
         row_dict["series_name_norm"] = series_name_norm
     if "series_phash" in columns:
         row_dict["series_phash"] = series_phash
-    row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="series")
+    row = _create_row(browser, "series", row_dict)
     return "series", row
 
 
@@ -398,14 +400,20 @@ def _parse_on_options_and_value_tokens(raw_tokens: list[str]) -> tuple[bool, lis
 def _rollback_on_bulk_changes(
     browser,
     *,
-    created_link_rows: list[Row],
-    created_source_rows: list[Row],
+    created_link_rows: list[object],
+    created_source_rows: list[object],
 ) -> list[str]:
     errors: list[str] = []
 
     for link_row in reversed(created_link_rows):
         try:
-            browser.db.delete(link_row)
+            browser.execute_core_command(
+                "admin.row.delete",
+                payload={
+                    "table": str(link_row.table),
+                    "row_id": int(link_row.row_id),
+                },
+            )
         except Exception as exc:
             errors.append("link rollback failed for {}:{} ({})".format(link_row.table, link_row.row_id, exc))
 
@@ -424,7 +432,13 @@ def _rollback_on_bulk_changes(
         if has_links:
             continue
         try:
-            browser.db.delete(source_row)
+            browser.execute_core_command(
+                "admin.row.delete",
+                payload={
+                    "table": str(source_row.table),
+                    "row_id": int(source_row.row_id),
+                },
+            )
         except Exception as exc:
             errors.append("source rollback failed for {}:{} ({})".format(source_row.table, source_row.row_id, exc))
 
@@ -440,7 +454,7 @@ def _link_one_value(
     source_table: str,
     source_row,
     kind_label: str,
-) -> tuple[bool, Optional[Row]]:
+) -> tuple[bool, Optional[object]]:
     source_id_column = browser.db.driver_wrapper.get_id_column(source_table)
     source_id = source_row[source_id_column]
 
@@ -467,43 +481,20 @@ def _link_one_value(
         )
         return False, None
 
-    report = write_wemi_metadata_relation_link(
-        browser.db,
-        target_row=target_row,
-        relation_table=source_table,
-        relation_row=source_row,
+    browser.execute_core_command(
+        "admin.relation.link",
+        payload={
+            "table": source_table,
+            "row_id": int(source_row.row_id),
+            "related_table": target_table,
+            "related_row_id": int(target_row.row_id),
+        },
     )
-    if report is not None:
-        errors = list(getattr(report, "errors", []) or [])
-        if errors:
-            raise ValueError("; ".join(str(error) for error in errors))
-        if not bool(getattr(report, "changed", False)):
-            browser.emit(
-                "{} not changed: {}={} -> {}:{} ({})".format(
-                    kind_label.capitalize(),
-                    source_id_column,
-                    source_id,
-                    target_table,
-                    target_id,
-                    metadata_write_report_summary(report),
-                )
-            )
-            return False, None
-
-        link_row = _find_interlink_row(browser, source_row=source_row, target_row=target_row)
-        browser.emit(
-            "{} linked: {}={} -> {}:{} (metadata writer; {})".format(
-                kind_label.capitalize(),
-                source_id_column,
-                source_id,
-                target_table,
-                target_id,
-                metadata_write_report_summary(report),
-            )
-        )
-        return True, link_row
-
-    link_row = browser.db.interlink_rows(primary_row=source_row, secondary_row=target_row)
+    link_row = _find_interlink_row(
+        browser,
+        source_row=source_row,
+        target_row=target_row,
+    )
     browser.emit(
         "{} linked: {}={} -> {}:{}".format(
             kind_label.capitalize(),
@@ -516,7 +507,7 @@ def _link_one_value(
     return True, link_row
 
 
-def _find_interlink_row(browser, *, source_row, target_row) -> Optional[Row]:
+def _find_interlink_row(browser, *, source_row, target_row) -> Optional[object]:
     for primary_row, secondary_row in ((source_row, target_row), (target_row, source_row)):
         try:
             link_row = browser.db.get_interlink_row(
@@ -555,8 +546,8 @@ class _OnBaseCommand(TerminalCommandAPI):
                 raise ValueError("Value cannot be blank.")
             values = [value]
 
-        created_link_rows: list[Row] = []
-        created_source_rows: list[Row] = []
+        created_link_rows: list[object] = []
+        created_source_rows: list[object] = []
         seen_created_sources: set[tuple[str, int]] = set()
         errors: list[str] = []
 

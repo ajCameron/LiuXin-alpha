@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.surfaces.metadata_facets import (
     preferred_tag_table,
     search_tag_rows,
@@ -85,13 +84,15 @@ class NewTagWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Tag wizard canceled.")
 
-        catalog = Catalog(browser.db)
         if tag_table == "tags":
             tag_data = {"text": tag_text, "phash": tag_norm}
             if description is not None and "tag_description" in set(browser.db.get_column_headings("tags")):
                 tag_data["description"] = description
-            tag_id = catalog.tags.create(tag_data)
-            tag_row = catalog.tags.require(tag_id)
+            result = browser.execute_core_command(
+                "catalog.entity.create",
+                payload={"repository": "tags", "data": tag_data},
+            )
+            tag_row = dict(result["entity"])
             browser.emit(
                 "Tag created: tag_id={} tag={!r}".format(
                     tag_row["tag_id"],
@@ -105,8 +106,11 @@ class NewTagWizardCommand(TerminalCommandAPI):
             label_data = {"text": tag_text, "normalized": tag_norm}
             if description is not None and "label_description" in columns:
                 label_data["description"] = description
-            label_id = catalog.labels.create(label_data)
-            tag_row = catalog.labels.require(label_id)
+            result = browser.execute_core_command(
+                "catalog.entity.create",
+                payload={"repository": "labels", "data": label_data},
+            )
+            tag_row = dict(result["entity"])
             browser.emit(
                 "Tag created: label_id={} label_text={!r}".format(
                     tag_row["label_id"],

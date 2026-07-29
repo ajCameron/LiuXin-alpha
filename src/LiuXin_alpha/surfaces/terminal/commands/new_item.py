@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.metadata.ebook_metadata_tools import to_epoch_ms
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
@@ -138,9 +137,11 @@ class NewItemWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Item wizard canceled.")
 
-        catalog = Catalog(browser.db)
-        item_id = catalog.items.create(
-            {
+        result = browser.execute_core_command(
+            "catalog.entity.create",
+            payload={
+                "repository": "items",
+                "data": {
                 "item_manifestation_id": item_manifestation_id,
                 "item_flags": item_flags,
                 "item_type": item_type,
@@ -155,10 +156,11 @@ class NewItemWizardCommand(TerminalCommandAPI):
                 "item_acquired_date": item_acquired_date,
                 "item_acquired_price_minor": item_acquired_price_minor,
                 "item_lifecycle_status": item_lifecycle_status,
-                "item_condition": item_condition,
-            }
+                    "item_condition": item_condition,
+                },
+            },
         )
-        item_row = catalog.items.require(item_id)
+        item_row = dict(result["entity"])
 
         browser.emit(
             "Item created: item_id={} inventory_code={!r}".format(

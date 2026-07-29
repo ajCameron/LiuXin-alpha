@@ -8,7 +8,6 @@ import json
 from typing import Optional
 
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
-from LiuXin_alpha.storage.reconcile import register_existing_disk_as_unmanaged_store
 
 
 @dataclasses.dataclass(frozen=True)
@@ -174,20 +173,36 @@ class IngestDiskCommand(TerminalCommandAPI):
 
     def execute(self, browser, args: list[str]) -> bool:
         options = _parse_ingest_disk_options(args, usage=self.usage)
-        report = register_existing_disk_as_unmanaged_store(
-            browser.db,
-            disk_path=options.disk_path,
-            store_name=options.store_name,
-            ebook_extensions=options.ebook_extensions,
-            source_label=options.source_label,
-            compute_hash=options.compute_hash,
-            follow_symlinks=options.follow_symlinks,
-            attach_store_links=options.attach_store_links,
-            refresh_storage_manager=options.refresh_storage_manager,
+        submitted = browser.execute_core_command(
+            "ingest.disk.start",
+            payload={
+                "disk_path": options.disk_path,
+                "store_name": options.store_name,
+                "ebook_extensions": options.ebook_extensions,
+                "source_label": options.source_label,
+                "compute_hash": options.compute_hash,
+                "follow_symlinks": options.follow_symlinks,
+                "attach_store_links": options.attach_store_links,
+                "refresh_storage_manager": options.refresh_storage_manager,
+                "label": "terminal ingest disk",
+            },
         )
+        job_id = str((submitted or {}).get("job_id") or "")
+        if not job_id:
+            raise RuntimeError("Core did not return an ingest job id.")
+        completed = browser.execute_core_query(
+            "jobs.result",
+            payload={"job_id": job_id, "timeout_s": None},
+        )
+        execution = dict((completed or {}).get("execution", {}) or {})
+        if not bool(execution.get("ok", False)):
+            raise RuntimeError(
+                str(execution.get("error") or "Ingest job failed.")
+            )
+        report = dict(execution.get("result", {}) or {})
 
         if options.json_output:
-            browser.emit(json.dumps(report.to_dict(), ensure_ascii=False, sort_keys=True, indent=2))
+            browser.emit(json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2))
             return True
 
         browser.emit_detail_sections(
@@ -195,35 +210,36 @@ class IngestDiskCommand(TerminalCommandAPI):
                 (
                     "Store",
                     [
-                        ("store_id", report.store_row_id),
-                        ("store_name", report.store_name),
-                        ("store_root_uri", report.store_root_uri),
+                        ("store_id", report.get("store_row_id", "")),
+                        ("store_name", report.get("store_name", "")),
+                        ("store_root_uri", report.get("store_root_uri", "")),
                     ],
                 ),
                 (
                     "Results",
                     [
-                        ("scanned_files", report.scanned_files),
-                        ("ebook_candidates", report.ebook_candidates),
-                        ("skipped_non_ebook_files", report.skipped_non_ebook_files),
-                        ("inserted_files", report.inserted_files),
-                        ("updated_files", report.updated_files),
-                        ("unchanged_files", report.unchanged_files),
-                        ("linked_files", report.linked_files),
-                        ("errors", len(report.errors)),
+                        ("scanned_files", report.get("scanned_files", 0)),
+                        ("ebook_candidates", report.get("ebook_candidates", 0)),
+                        ("skipped_non_ebook_files", report.get("skipped_non_ebook_files", 0)),
+                        ("inserted_files", report.get("inserted_files", 0)),
+                        ("updated_files", report.get("updated_files", 0)),
+                        ("unchanged_files", report.get("unchanged_files", 0)),
+                        ("linked_files", report.get("linked_files", 0)),
+                        ("errors", len(report.get("errors", ()) or ())),
                     ],
                 ),
             ],
             title="Ingest completed:",
             max_cell_width=120,
         )
-        if report.errors:
-            preview_count = min(5, len(report.errors))
+        errors = list(report.get("errors", ()) or ())
+        if errors:
+            preview_count = min(5, len(errors))
             browser.emit("")
             browser.emit("Error preview")
-            browser.emit(browser.render_table(["error"], [[error] for error in report.errors[:preview_count]], max_cell_width=120))
-            if len(report.errors) > preview_count:
-                browser.emit("... {} more".format(len(report.errors) - preview_count))
+            browser.emit(browser.render_table(["error"], [[error] for error in errors[:preview_count]], max_cell_width=120))
+            if len(errors) > preview_count:
+                browser.emit("... {} more".format(len(errors) - preview_count))
         return True
 
 

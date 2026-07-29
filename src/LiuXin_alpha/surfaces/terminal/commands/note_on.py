@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.errors import DatabaseIntegrityError
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.surfaces.terminal.commands.link import _split_row_ref
 
@@ -75,23 +73,30 @@ class NoteOnCommand(TerminalCommandAPI):
         if candidate_notes:
             note_row = candidate_notes[0]
         else:
-            note_row = Row.from_idless_row_dict(
-                browser.db,
-                row_dict={"note": note_text},
-                table="notes",
+            result = browser.execute_core_command(
+                "catalog.entity.create",
+                payload={
+                    "repository": "notes",
+                    "data": {"note": note_text},
+                },
             )
+            note_row = browser.db.get_row_from_id(
+                "notes",
+                int(result["entity_id"]),
+            )
+            if note_row is None:
+                raise RuntimeError("Core did not return the created note row.")
 
-        try:
-            browser.db.interlink_rows(primary_row=note_row, secondary_row=target_row, priority=0)
-        except DatabaseIntegrityError:
-            browser.emit(
-                "Note already linked: note_id={} -> {}:{}".format(
-                    note_row["note_id"],
-                    target_table,
-                    target_id,
-                )
-            )
-            return True
+        browser.execute_core_command(
+            "admin.relation.link",
+            payload={
+                "table": "notes",
+                "row_id": int(note_row.row_id),
+                "related_table": target_table,
+                "related_row_id": int(target_row.row_id),
+                "priority": 0,
+            },
+        )
 
         browser.emit(
             "Note linked: note_id={} -> {}:{}".format(

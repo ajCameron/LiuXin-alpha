@@ -15,6 +15,7 @@ pytest.importorskip(
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.core import workflow_jobs as core_workflow_jobs
 from LiuXin_alpha.surfaces.terminal.commands import DEFAULT_COMMAND_CLASSES
 from LiuXin_alpha.surfaces.terminal.commands import db as db_command_module
 from LiuXin_alpha.surfaces.terminal.commands import off as off_commands
@@ -259,8 +260,12 @@ def test_text_browser_main_windowed_mode_dispatches(driver_spec, tmp_path: Path,
     history_path = tmp_path / "windowed_history.txt"
     observed: dict[str, object] = {}
 
-    def _fake_run_windowed(db, **kwargs):
-        observed["database_path"] = str(getattr(db, "metadata", {}).get("database_path", ""))
+    def _fake_run_windowed(core, **kwargs):
+        observed["database_path"] = str(
+            core.query("database.info")
+            .get("metadata", {})
+            .get("database_path", "")
+        )
         observed.update(kwargs)
         return 17
 
@@ -2042,7 +2047,7 @@ def test_text_browser_sync_store_background_submits_job(driver_spec, tmp_path: P
         captured_kwargs.update(kwargs)
         return {"store_row_id": 1, "inserted_files": 1, "errors": []}
 
-    monkeypatch.setattr(sync_command_module, "run_sync_store_job", _fake_run_sync_store_job)
+    monkeypatch.setattr(core_workflow_jobs, "run_sync_store_job", _fake_run_sync_store_job)
 
     try:
         with Database(
@@ -2095,7 +2100,7 @@ def test_text_browser_sync_store_background_job_panel_attaches(driver_spec, tmp_
         captured_kwargs.update(kwargs)
         return {"store_row_id": 1, "inserted_files": 1, "errors": []}
 
-    monkeypatch.setattr(sync_command_module, "run_sync_store_job", _fake_run_sync_store_job)
+    monkeypatch.setattr(core_workflow_jobs, "run_sync_store_job", _fake_run_sync_store_job)
 
     try:
         with Database(
@@ -2177,7 +2182,7 @@ def test_text_browser_sync_store_background_forwards_wget_incremental_flag(drive
         captured_kwargs.update(kwargs)
         return {"store_row_id": 1, "inserted_files": 1, "errors": []}
 
-    monkeypatch.setattr(sync_command_module, "run_sync_store_job", _fake_run_sync_store_job)
+    monkeypatch.setattr(core_workflow_jobs, "run_sync_store_job", _fake_run_sync_store_job)
 
     try:
         with Database(
@@ -2209,6 +2214,16 @@ def test_text_browser_sync_store_background_forwards_wget_incremental_flag(drive
         manager.shutdown(wait=True, cancel_pending=True)
 
     assert captured_kwargs.get("crawler_incremental_db_writes") is False
+
+
+def test_sync_store_parser_preserves_separate_dash_prefixed_wget_arg() -> None:
+    options = sync_command_module._parse_sync_store_options(
+        ["4", "--wget-arg", "--timeout=5"],
+        usage=sync_command_module.SyncStoreCommand.usage,
+    )
+
+    assert options.store_ref == "4"
+    assert options.wget_args == ("--timeout=5",)
 
 
 def test_text_browser_sync_store_background_rejects_json_mode(driver_spec, tmp_path: Path) -> None:
@@ -2723,7 +2738,7 @@ def test_text_browser_sync_store_background_native_submits_job(driver_spec, tmp_
         captured_kwargs.update(kwargs)
         return {"store_row_id": 1, "inserted_files": 1, "errors": []}
 
-    monkeypatch.setattr(sync_command_module, "run_sync_store_job", _fake_run_sync_store_job)
+    monkeypatch.setattr(core_workflow_jobs, "run_sync_store_job", _fake_run_sync_store_job)
 
     try:
         with Database(

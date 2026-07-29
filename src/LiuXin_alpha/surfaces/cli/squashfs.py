@@ -3,43 +3,76 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Mapping, Optional
 
-from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.surfaces.cli.postgres import build_postgres_parser
-from LiuXin_alpha.storage.reconcile import (
-    publish_open_squashfs_store,
-    publish_squashfs_archive_from_file_ids,
+from LiuXin_alpha.surfaces.core import (
+    CoreRow,
+    CoreSurfaceModel,
+    add_core_client_arguments,
+    open_surface_core_from_args,
 )
 
 
-def _open_database(*, database_path: str, db_type: str) -> Database:
-    return Database(
-        metadata={"database_path": str(Path(database_path).expanduser())},
-        db_type=db_type,
-        create=False,
-        backup=False,
-    )
-
-
-def _print_publish_report(report, *, as_json: bool) -> None:
+def _print_publish_report(report: Mapping[str, Any], *, as_json: bool) -> None:
     if as_json:
-        print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
+        print(json.dumps(dict(report), ensure_ascii=False, indent=2, sort_keys=True))
         return
 
-    print("Store: {} ({})".format(report.store_name, report.store_root_uri))
-    print("Store row id: {}".format(report.store_row_id))
-    print("Designated files: {}".format(report.designated_files))
-    print("Packed files: {}".format(report.packed_files))
-    print("Verified files: {}".format(report.verified_files))
-    print("Duplicated files: {}".format(report.duplicated_files))
-    print("Skipped existing duplicates: {}".format(report.skipped_existing_duplicates))
-    print("Hash mismatches: {}".format(len(report.hash_mismatches)))
-    print("Errors: {}".format(len(report.errors)))
-    if report.duration_seconds is not None:
-        print("Duration (seconds): {:.3f}".format(report.duration_seconds))
+    print("Store: {} ({})".format(report.get("store_name", ""), report.get("store_root_uri", "")))
+    print("Store row id: {}".format(report.get("store_row_id", "")))
+    print("Designated files: {}".format(report.get("designated_files", 0)))
+    print("Packed files: {}".format(report.get("packed_files", 0)))
+    print("Verified files: {}".format(report.get("verified_files", 0)))
+    print("Duplicated files: {}".format(report.get("duplicated_files", 0)))
+    print("Skipped existing duplicates: {}".format(report.get("skipped_existing_duplicates", 0)))
+    print("Hash mismatches: {}".format(len(report.get("hash_mismatches", ()) or ())))
+    print("Errors: {}".format(len(report.get("errors", ()) or ())))
+    duration_seconds = report.get("duration_seconds")
+    if duration_seconds is not None:
+        print("Duration (seconds): {:.3f}".format(float(duration_seconds)))
+
+
+def _run_job(core, operation: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+    submitted = core.command(operation, dict(payload))
+    if not isinstance(submitted, Mapping):
+        raise RuntimeError("Core job submission did not return an object.")
+    job_id = str(submitted.get("job_id") or "")
+    if not job_id:
+        raise RuntimeError("Core job submission did not return a job id.")
+
+    while True:
+        job = core.query("jobs.get", {"job_id": job_id})
+        if not isinstance(job, Mapping):
+            raise RuntimeError("Core jobs.get did not return an object.")
+        job_info = job.get("job")
+        if not isinstance(job_info, Mapping):
+            raise RuntimeError("Core jobs.get did not return job details.")
+        if str(job_info.get("state") or "") in {
+            "succeeded",
+            "failed",
+            "cancelled",
+            "timed_out",
+        }:
+            break
+        time.sleep(0.1)
+
+    completed = core.query(
+        "jobs.result",
+        {"job_id": job_id, "timeout_s": 0.0},
+    )
+    execution = dict(completed.get("execution", {}) or {})
+    if not bool(execution.get("ok", False)):
+        raise RuntimeError(
+            str(execution.get("traceback") or "Core job failed.")
+        )
+    result = execution.get("result")
+    if not isinstance(result, Mapping):
+        raise RuntimeError("Core job result did not return an object.")
+    return dict(result)
 
 
 def _collect_file_ids(args: argparse.Namespace) -> list[int]:
@@ -67,21 +100,24 @@ def _collect_file_ids(args: argparse.Namespace) -> list[int]:
 
 
 def cmd_publish_store(args: argparse.Namespace) -> int:
-    with _open_database(database_path=args.database, db_type=args.db_type) as db:
-        report = publish_open_squashfs_store(
-            db,
-            store_id=int(args.store_id),
-            output_archive=args.output_archive,
-            compression=args.compression,
-            deterministic=bool(args.deterministic),
-            force=bool(args.force),
-            duplicate_verified_files=bool(args.duplicate_verified_files),
-            strict=bool(args.strict),
-            refresh_storage_manager=not bool(args.no_refresh_storage_manager),
+    with open_surface_core_from_args(args) as session:
+        report = _run_job(
+            session.client,
+            "backup.squashfs.publish-store.start",
+            {
+                "store_id": int(args.store_id),
+                "output_archive": args.output_archive,
+                "compression": args.compression,
+                "deterministic": bool(args.deterministic),
+                "force": bool(args.force),
+                "duplicate_verified_files": bool(args.duplicate_verified_files),
+                "strict": bool(args.strict),
+                "refresh_storage_manager": not bool(args.no_refresh_storage_manager),
+            },
         )
 
     _print_publish_report(report, as_json=bool(args.json))
-    if (args.fail_on_report_errors or args.strict) and report.errors:
+    if (args.fail_on_report_errors or args.strict) and report.get("errors"):
         return 2
     return 0
 
@@ -91,26 +127,29 @@ def cmd_publish_from_ids(args: argparse.Namespace) -> int:
     if not file_ids:
         raise ValueError("No file ids supplied. Use --file-id and/or --file-ids-file.")
 
-    with _open_database(database_path=args.database, db_type=args.db_type) as db:
-        report = publish_squashfs_archive_from_file_ids(
-            db,
-            file_ids=file_ids,
-            archive_path=args.archive,
-            store_name=args.store_name,
-            compression=args.compression,
-            deterministic=bool(args.deterministic),
-            force=bool(args.force),
-            strict=bool(args.strict),
-            refresh_storage_manager=not bool(args.no_refresh_storage_manager),
+    with open_surface_core_from_args(args) as session:
+        report = _run_job(
+            session.client,
+            "backup.squashfs.publish-files.start",
+            {
+                "file_ids": file_ids,
+                "archive": args.archive,
+                "store_name": args.store_name,
+                "compression": args.compression,
+                "deterministic": bool(args.deterministic),
+                "force": bool(args.force),
+                "strict": bool(args.strict),
+                "refresh_storage_manager": not bool(args.no_refresh_storage_manager),
+            },
         )
 
     _print_publish_report(report, as_json=bool(args.json))
-    if (args.fail_on_report_errors or args.strict) and report.errors:
+    if (args.fail_on_report_errors or args.strict) and report.get("errors"):
         return 2
     return 0
 
 
-def _file_payload(file_row) -> dict[str, object]:
+def _file_payload(file_row: CoreRow) -> dict[str, object]:
     return {
         "file_id": int(file_row["file_id"]),
         "file_store_id": file_row["file_store_id"],
@@ -122,24 +161,24 @@ def _file_payload(file_row) -> dict[str, object]:
 
 
 def _build_provenance_payload(
-    db: Database,
+    model: CoreSurfaceModel,
     *,
     store_id: Optional[int],
     file_id: Optional[int],
 ) -> dict[str, object]:
-    tables = set(db.get_tables())
+    tables = set(model.table_names())
     if "file_derivations" not in tables:
         raise ValueError("Database does not contain `file_derivations` table.")
     if store_id is None and file_id is None:
         raise ValueError("Provide at least one filter: --store-id and/or --file-id.")
 
-    derivations = db.get_all_rows("file_derivations", iterator_return=False)
-    file_cache: dict[int, object] = {}
+    derivations = model.rows("file_derivations")
+    file_cache: dict[int, CoreRow | None] = {}
 
-    def get_file_row(target_file_id: int):
+    def get_file_row(target_file_id: int) -> CoreRow | None:
         row = file_cache.get(target_file_id)
         if row is None:
-            row = db.get_row_from_id("files", int(target_file_id))
+            row = model.row("files", int(target_file_id))
             file_cache[target_file_id] = row
         return row
 
@@ -183,9 +222,9 @@ def _build_provenance_payload(
 
 
 def cmd_provenance(args: argparse.Namespace) -> int:
-    with _open_database(database_path=args.database, db_type=args.db_type) as db:
+    with open_surface_core_from_args(args) as session:
         payload = _build_provenance_payload(
-            db,
+            CoreSurfaceModel(session.client),
             store_id=int(args.store_id) if args.store_id is not None else None,
             file_id=int(args.file_id) if args.file_id is not None else None,
         )
@@ -225,7 +264,7 @@ def build_squashfs_parser(subparsers: argparse._SubParsersAction) -> None:
         "publish-store",
         help="Publish an already-designated open SquashFS store by store id.",
     )
-    publish_store.add_argument("--database", required=True, help="Path to LiuXin database.")
+    add_core_client_arguments(publish_store)
     publish_store.add_argument("--db-type", default="SQLite", help="Database backend type (default: SQLite).")
     publish_store.add_argument("--store-id", required=True, type=int, help="Open SquashFS store row id.")
     publish_store.add_argument(
@@ -261,7 +300,7 @@ def build_squashfs_parser(subparsers: argparse._SubParsersAction) -> None:
         "publish-from-ids",
         help="Designate file ids and publish SquashFS archive in one command.",
     )
-    publish_from_ids.add_argument("--database", required=True, help="Path to LiuXin database.")
+    add_core_client_arguments(publish_from_ids)
     publish_from_ids.add_argument("--db-type", default="SQLite", help="Database backend type (default: SQLite).")
     publish_from_ids.add_argument("--archive", required=True, help="Output archive path (.squashfs/.sqfs).")
     publish_from_ids.add_argument("--store-name", default=None, help="Optional open store name override.")
@@ -298,7 +337,7 @@ def build_squashfs_parser(subparsers: argparse._SubParsersAction) -> None:
         "provenance",
         help="Inspect file provenance edges (file_derivations) for a store and/or file.",
     )
-    provenance.add_argument("--database", required=True, help="Path to LiuXin database.")
+    add_core_client_arguments(provenance)
     provenance.add_argument("--db-type", default="SQLite", help="Database backend type (default: SQLite).")
     provenance.add_argument("--store-id", type=int, default=None, help="Filter by store id.")
     provenance.add_argument("--file-id", type=int, default=None, help="Filter by file id.")

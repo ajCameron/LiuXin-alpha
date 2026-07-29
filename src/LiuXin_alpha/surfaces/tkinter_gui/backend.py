@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import json
 
 from typing import Any, Mapping, TYPE_CHECKING
 
@@ -39,7 +40,6 @@ class TkGuiBackend:
         self.db = db
         self.session = session
         self._tables_and_columns: dict[str, tuple[str, ...]] | None = None
-        self._hydrator: Any | None = None
 
     @classmethod
     def open_database(cls, config: TkGuiConfig) -> "TkGuiBackend":
@@ -50,7 +50,7 @@ class TkGuiBackend:
 
     @classmethod
     def from_session(cls, session: "TkGuiSession") -> "TkGuiBackend":
-        return cls(session.read_source or session.database, session=session)
+        return cls(session.database, session=session)
 
     def close(self) -> None:
         if self.session is not None:
@@ -82,9 +82,8 @@ class TkGuiBackend:
         if self.session is None:
             return False
         refreshed = self.session.refresh_read_source()
-        self.db = self.session.read_source or self.session.database
+        self.db = self.session.database
         self._tables_and_columns = None
-        self._hydrator = None
         return bool(refreshed)
 
     def configure_read_source(
@@ -101,9 +100,8 @@ class TkGuiBackend:
             cache_type=cache_type,
             allow_database_fallback=allow_database_fallback,
         )
-        self.db = self.session.read_source or self.session.database
+        self.db = self.session.database
         self._tables_and_columns = None
-        self._hydrator = None
         return bool(changed)
 
     def tables_and_columns(self) -> dict[str, tuple[str, ...]]:
@@ -265,12 +263,19 @@ class TkGuiBackend:
         if item_id is None:
             return "No item_id is available for this row."
         try:
-            if self._hydrator is None:
-                from LiuXin_alpha.metadata.containers import LazyLiuXinWEMIMetadataHydrator
-
-                self._hydrator = LazyLiuXinWEMIMetadataHydrator(self.db)
-            metadata = self._hydrator.get_liuxin_wemi_metadata(item_id=item_id)
-            return str(metadata)
+            if self.session is None:
+                raise RuntimeError("Core session is unavailable.")
+            metadata = self.session.execute_query(
+                "metadata.get",
+                {"item_id": item_id},
+            )
+            return json.dumps(
+                metadata,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+                default=str,
+            )
         except Exception as exc:
             return f"Could not hydrate metadata for item_id {item_id}: {exc}"
 
@@ -296,9 +301,8 @@ class TkGuiBackend:
             kind=kind,
             replace=replace,
         )
-        self.db = self.session.read_source or self.session.database
+        self.db = self.session.database
         self._tables_and_columns = None
-        self._hydrator = None
         return result
 
     def replace_metadata_field_for_row(

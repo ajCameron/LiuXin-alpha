@@ -12,15 +12,18 @@ from typing import Optional
 from urllib.parse import parse_qs, quote, unquote
 from wsgiref.simple_server import make_server
 
-from LiuXin_alpha.databases.database import Database
+from LiuXin_alpha.core import CoreClientAPI
 from LiuXin_alpha.surfaces.catalog.api import CalibreCatalogBackend
+from LiuXin_alpha.surfaces.core import (
+    add_core_client_arguments,
+    open_surface_core_from_args,
+)
 from LiuXin_alpha.surfaces.web_readonly.app import (
     ReadOnlyWebApplication,
     ReadOnlyWebConfig,
     _Response,
     _build_query_string,
     _coerce_int,
-    _open_database,
     _row_value,
     add_metadata_read_source_arguments,
     metadata_read_source_help_epilog,
@@ -37,8 +40,8 @@ class ApiReadOnlyConfig(ReadOnlyWebConfig):
 class ApiReadOnlyApplication(ReadOnlyWebApplication):
     """Stable JSON read model over the shared browse/catalog helpers."""
 
-    def __init__(self, db: Database, *, config: Optional[ApiReadOnlyConfig] = None) -> None:
-        super().__init__(db, config=config or ApiReadOnlyConfig())
+    def __init__(self, core: CoreClientAPI, *, config: Optional[ApiReadOnlyConfig] = None) -> None:
+        super().__init__(core, config=config or ApiReadOnlyConfig())
         self.catalog = CalibreCatalogBackend(self, read_model=self.read_model)
 
     def handle_request(self, environ) -> _Response:
@@ -384,7 +387,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=metadata_read_source_help_epilog("PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.api_readonly"),
     )
-    parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
+    add_core_client_arguments(parser)
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
     add_metadata_read_source_arguments(parser)
     parser.add_argument("--host", default=ApiReadOnlyConfig.host, help="Bind host. Default: 127.0.0.1")
@@ -408,8 +411,19 @@ def main(argv: Optional[list[str]] = None) -> int:
         enable_file_downloads=not bool(args.no_file_downloads),
         **metadata_read_source_config_kwargs(args),
     )
-    with _open_database(database_path=str(args.database), db_type=str(args.db_type)) as db:
-        app = ApiReadOnlyApplication(db, config=config)
+    cache_type = (
+        str(args.cache_type)
+        if str(args.metadata_read_source) == "cache"
+        else None
+    )
+    with open_surface_core_from_args(
+        args,
+        cache_type=cache_type,
+        cache_allow_database_fallback=not bool(args.no_cache_db_fallback),
+        enable_storage_manager=True,
+        enable_maintenance=False,
+    ) as core_session:
+        app = ApiReadOnlyApplication(core_session.client, config=config)
         url = "http://{}:{}/api".format(config.host, config.port)
         sys.stdout.write("Serving read-only JSON API on {}\n".format(url))
         sys.stdout.flush()

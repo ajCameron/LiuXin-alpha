@@ -699,34 +699,45 @@ class CoreApplicationAPI:
     def _schema_for_table(
         runtime: "CoreRuntime",
         table: str,
+        *,
+        include_relations: bool = True,
     ) -> dict[str, Any]:
         source = runtime.services.read_source
         database = runtime.services.database
         wrapper = database.driver_wrapper
         columns = [str(value) for value in source.get_column_headings(table)]
-        id_column: str | None
-        try:
-            id_column = str(wrapper.get_id_column(table))
-        except Exception:
-            id_column = None
         try:
             is_view = bool(wrapper.is_view(table))
         except Exception:
             is_view = False
-        try:
-            related_tables = sorted(
-                str(value)
-                for value in wrapper.get_interlinked_tables(table)
-                if str(value) != table
-            )
-        except Exception:
-            related_tables = []
+        id_column: str | None = None
+        obvious_ids = [
+            column
+            for column in columns
+            if column == "id" or column.endswith("_id")
+        ]
+        if obvious_ids:
+            try:
+                id_column = str(wrapper.get_id_column(table))
+            except Exception:
+                id_column = obvious_ids[0]
+        related_tables: list[str] = []
+        if include_relations:
+            try:
+                related_tables = sorted(
+                    str(value)
+                    for value in wrapper.get_interlinked_tables(table)
+                    if str(value) != table
+                )
+            except Exception:
+                related_tables = []
         return {
             "name": table,
             "columns": columns,
             "id_column": id_column,
             "is_view": is_view,
             "related_tables": related_tables,
+            "relations_included": include_relations,
         }
 
     def schema_tables(
@@ -743,7 +754,11 @@ class CoreApplicationAPI:
         )
         return {
             "tables": [
-                self._schema_for_table(runtime, table)
+                self._schema_for_table(
+                    runtime,
+                    table,
+                    include_relations=False,
+                )
                 for table in tables
             ],
             "count": len(tables),
@@ -763,7 +778,11 @@ class CoreApplicationAPI:
         }
         if table not in tables:
             raise CoreDispatchError("Unknown readable table: {!r}.".format(table))
-        return self._schema_for_table(runtime, table)
+        return self._schema_for_table(
+            runtime,
+            table,
+            include_relations=True,
+        )
 
     @staticmethod
     def _row_record(
@@ -987,7 +1006,27 @@ class CoreApplicationAPI:
         spec: Any,
     ) -> dict[str, Any]:
         source = runtime.services.read_source
-        rows = list(source.get_all_rows(spec.table, iterator_return=False))
+        schema = self._schema_for_table(
+            runtime,
+            str(spec.table),
+            include_relations=False,
+        )
+        if schema.get("id_column") is None:
+            # Identifier-less lookup views cannot be materialized as Database
+            # Row objects because their values are intentionally non-unique.
+            # Keep that driver quirk inside Core and return wire records.
+            rows = list(
+                runtime.services.database.driver_wrapper.get_all_rows(
+                    spec.table
+                )
+            )
+        else:
+            rows = list(
+                source.get_all_rows(
+                    spec.table,
+                    iterator_return=False,
+                )
+            )
 
         if spec.relation is not None:
             related_ids: set[int] = set()

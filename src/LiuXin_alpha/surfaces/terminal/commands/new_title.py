@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort, to_epoch_ms
 
@@ -200,9 +199,10 @@ class NewTitleWizardCommand(TerminalCommandAPI):
 
         publication_year = _extract_year(title_pub_date)
         copyright_date = title_copyright_date or title_pub_date
-        catalog = Catalog(browser.db)
-        created = catalog.mutations.writer.create_wemi_stack(
-            work={
+        created = browser.execute_core_command(
+            "catalog.wemi.create",
+            payload={
+                "work": {
                 "work_title": title,
                 "work_canonical_title": title,
                 "work_sort_title": title_sort_value,
@@ -213,8 +213,8 @@ class NewTitleWizardCommand(TerminalCommandAPI):
                 "work_original_copyright_date": copyright_date,
                 "work_wikipedia_link": title_wikipedia,
                 "work_discovery_note": title_source,
-            },
-            expression={
+                },
+                "expression": {
                 "expression_subtitle": None,
                 "expression_title_override": None,
                 "expression_type": None,
@@ -225,8 +225,8 @@ class NewTitleWizardCommand(TerminalCommandAPI):
                 "expression_original_copyright_date": copyright_date,
                 "expression_wordcount": title_wordcount,
                 "expression_fiction_length_category": title_fiction_length_category,
-            },
-            manifestation={
+                },
+                "manifestation": {
                 "manifestation_subtitle": None,
                 "manifestation_carrier_type": _guess_carrier_type(format_detail),
                 "manifestation_format_detail": format_detail,
@@ -234,15 +234,16 @@ class NewTitleWizardCommand(TerminalCommandAPI):
                 "manifestation_pub_date": title_pub_date,
                 "manifestation_status": None,
                 "manifestation_note": None,
+                },
+                "items": items,
+                "origin": title_source,
             },
-            items=items,
-            origin=title_source,
         )
 
         browser.emit("Title created:")
-        browser.emit("  work_id={}".format(created.work_id))
-        browser.emit("  expression_id={}".format(created.expression_id))
-        browser.emit("  manifestation_id={}".format(created.manifestation_id))
+        browser.emit("  work_id={}".format(created["work_id"]))
+        browser.emit("  expression_id={}".format(created["expression_id"]))
+        browser.emit("  manifestation_id={}".format(created["manifestation_id"]))
         browser.emit("  items_created={}".format(len(created.item_ids)))
         browser.emit("  title_work_id={}".format(created.work_id))
 

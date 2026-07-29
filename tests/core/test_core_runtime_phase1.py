@@ -342,9 +342,9 @@ def test_core_runtime_library_delete_impact_reports_direct_references(tmp_path) 
 
 
 def test_core_runtime_sync_store_start_submits_job(monkeypatch) -> None:
-    sync_command_module = pytest.importorskip(
-        "LiuXin_alpha.surfaces.terminal.commands.sync",
-        reason="Terminal command package is not exposed under surfaces/ in this checkout.",
+    sync_job_module = pytest.importorskip(
+        "LiuXin_alpha.core.workflow_jobs",
+        reason="Core workflow jobs are not exposed in this checkout.",
     )
 
     @dataclass
@@ -366,7 +366,7 @@ def test_core_runtime_sync_store_start_submits_job(monkeypatch) -> None:
         captured.update(kwargs)
         return {"ok": True, "inserted_files": 1}
 
-    monkeypatch.setattr(sync_command_module, "run_sync_store_job", _fake_run_sync_store_job)
+    monkeypatch.setattr(sync_job_module, "run_sync_store_job", _fake_run_sync_store_job)
 
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
     try:

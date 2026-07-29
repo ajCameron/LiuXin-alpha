@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.metadata.ebook_metadata_tools import to_epoch_ms
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
-from LiuXin_alpha.utils.language_tools import best_effort_language_id
 
 
 def _clean_optional(value: str) -> Optional[str]:
@@ -146,9 +144,11 @@ class NewExpressionWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Expression wizard canceled.")
 
-        catalog = Catalog(browser.db)
-        expression_id = catalog.expressions.create(
-            {
+        result = browser.execute_core_command(
+            "catalog.entity.create",
+            payload={
+                "repository": "expressions",
+                "data": {
                 "expression_subtitle": expression_subtitle,
                 "expression_title_override": expression_title_override,
                 "expression_type": expression_type,
@@ -159,7 +159,7 @@ class NewExpressionWizardCommand(TerminalCommandAPI):
                 "expression_original_copyright_date": expression_original_copyright_date,
                 "expression_flags": ",".join(expression_flags) or None,
                 "expression_language_id": (
-                    best_effort_language_id(browser.db, expression_language)
+                    browser.resolve_language_id(expression_language)
                     if expression_language is not None
                     else None
                 ),
@@ -169,10 +169,11 @@ class NewExpressionWizardCommand(TerminalCommandAPI):
                 "expression_cut_type": expression_cut_type,
                 "expression_nominal_duration_seconds": expression_nominal_duration_seconds,
                 "expression_status": expression_status,
-                "expression_origin_note": expression_origin_note,
-            }
+                    "expression_origin_note": expression_origin_note,
+                },
+            },
         )
-        expression_row = catalog.expressions.require(expression_id)
+        expression_row = dict(result["entity"])
 
         browser.emit(
             "Expression created: expression_id={} label={!r}".format(

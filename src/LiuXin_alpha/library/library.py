@@ -56,6 +56,8 @@ class Library:
         enable_storage_manager: bool = True,
         strict_storage_manager_bootstrap: bool = False,
         storage_startup_on_add: bool = False,
+        enable_maintenance: bool = True,
+        repair_bootstrap_rows: bool = True,
         close_database_on_close: Optional[bool] = None,
     ) -> None:
         if database is None and database_path is None:
@@ -76,6 +78,8 @@ class Library:
                 enable_storage_manager=enable_storage_manager,
                 strict_storage_manager_bootstrap=strict_storage_manager_bootstrap,
                 storage_startup_on_add=storage_startup_on_add,
+                enable_maintenance=enable_maintenance,
+                repair_bootstrap_rows=repair_bootstrap_rows,
             )
             self._owns_database = True
         else:

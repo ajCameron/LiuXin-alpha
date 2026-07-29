@@ -23,7 +23,10 @@ def shell_join(parts: list[str]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the LiuXin read-write web surface from the repo-local virtualenv.")
-    parser.add_argument("--database", required=True, help="Database path to open")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--database", help="Database path to open")
+    source.add_argument("--core-endpoint", help="Existing LiuXin Core daemon endpoint")
+    parser.add_argument("--core-timeout", type=float, default=10.0)
     parser.add_argument("--db-type", default="sqlite", help="Database driver type (default: sqlite)")
     parser.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8084, help="Bind port (default: 8084)")
@@ -50,8 +53,6 @@ def main(argv: list[str] | None = None) -> int:
         str(python_exe),
         "-m",
         "LiuXin_alpha.surfaces.web_readwrite",
-        "--database",
-        str(args.database),
         "--db-type",
         str(args.db_type),
         "--host",
@@ -61,6 +62,17 @@ def main(argv: list[str] | None = None) -> int:
         "--title",
         str(args.title),
     ]
+    if args.core_endpoint:
+        cmd.extend(
+            [
+                "--core-endpoint",
+                str(args.core_endpoint),
+                "--core-timeout",
+                str(args.core_timeout),
+            ]
+        )
+    else:
+        cmd.extend(["--database", str(args.database)])
     if args.expose_database_path:
         cmd.append("--expose-database-path")
     if args.no_file_downloads:

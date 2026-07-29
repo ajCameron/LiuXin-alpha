@@ -30,9 +30,10 @@ for candidate in (str(REPO_ROOT), str(SRC_ROOT)):
         sys.path.insert(0, candidate)
 
 from LiuXin_alpha.surfaces.api_readonly.app import ApiReadOnlyApplication  # noqa: E402
+from LiuXin_alpha.surfaces.core import SurfaceCoreSession  # noqa: E402
 from LiuXin_alpha.surfaces.opds.api import encode_compat_token, opds_nav_token  # noqa: E402
 from LiuXin_alpha.surfaces.opds_readonly.app import OpdsReadOnlyApplication  # noqa: E402
-from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication, _open_database  # noqa: E402
+from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -90,10 +91,15 @@ def run_surface_path_benchmarks(
         ) as handle:
             if progress is not None:
                 progress("resolved database source={} path={}".format(handle.source, handle.db_path))
-            with _open_database(database_path=str(handle.db_path), db_type="sqlite") as db:
-                web_app = ReadOnlyWebApplication(db)
-                api_app = ApiReadOnlyApplication(db)
-                opds_app = OpdsReadOnlyApplication(db)
+            with SurfaceCoreSession.open(
+                database_path=str(handle.db_path),
+                db_type="sqlite",
+                enable_maintenance=False,
+                repair_bootstrap_rows=False,
+            ) as core_session:
+                web_app = ReadOnlyWebApplication(core_session.client)
+                api_app = ApiReadOnlyApplication(core_session.client)
+                opds_app = OpdsReadOnlyApplication(core_session.client)
 
                 work_rows = web_app.read_model.work_rows(sorted_by="title")
                 if not work_rows:

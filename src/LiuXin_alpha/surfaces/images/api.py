@@ -3,12 +3,17 @@ from __future__ import annotations
 import mimetypes
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional
-from urllib.parse import urljoin
 
 from LiuXin_alpha.surfaces.api import ImageHostApi
-from LiuXin_alpha.surfaces.web_readonly.app import _ResolvedFileTarget, _escape, _row_value, _short_text
+from LiuXin_alpha.surfaces.core import CoreSurfaceModel
+from LiuXin_alpha.surfaces.web_readonly.app import (
+    _CoreStoredFile,
+    _ResolvedFileTarget,
+    _escape,
+    _row_value,
+    _short_text,
+)
 
 
 @dataclass
@@ -37,7 +42,7 @@ class ImageBackend:
                 if read_model is not None:
                     manifestation_rows = read_model.interlinked_rows(expression_row, "manifestations")
                 else:
-                    manifestation_rows = list(self.host.db.get_interlinked_rows(target_row=expression_row, secondary_table="manifestations"))
+                    manifestation_rows = []
             except Exception:
                 manifestation_rows = []
             for manifestation_row in manifestation_rows:
@@ -48,7 +53,7 @@ class ImageBackend:
                     if read_model is not None:
                         item_rows = read_model.search_rows("items", "item_manifestation_id", manifestation_id)
                     else:
-                        item_rows = list(self.host.db.search("items", "item_manifestation_id", manifestation_id))
+                        item_rows = []
                 except Exception:
                     item_rows = []
                 for item_row in item_rows:
@@ -59,7 +64,7 @@ class ImageBackend:
                         if read_model is not None:
                             discovered_image_rows = read_model.search_rows("images", "image_item_id", item_id)
                         else:
-                            discovered_image_rows = list(self.host.db.search("images", "image_item_id", item_id))
+                            discovered_image_rows = []
                     except Exception:
                         discovered_image_rows = []
                     for image_row in discovered_image_rows:
@@ -94,69 +99,48 @@ class ImageBackend:
         return metadata
 
     def resolve_storage_image(self, image_row):
-        metadata = self.image_storage_lookup_metadata(image_row)
-        should_refresh = bool(metadata.get("image_store_id") not in (None, ""))
-        storage = getattr(self.host.db, "storage", None)
-        for attempt in range(2 if should_refresh else 1):
-            if storage is None and not self.host._refresh_storage_manager():
-                storage = getattr(self.host.db, "storage", None)
-                if storage is None:
-                    continue
-            else:
-                storage = getattr(self.host.db, "storage", None)
-            if storage is None:
-                continue
-            try:
-                return storage.locate_file(metadata=metadata)
-            except Exception:
-                pass
-            if attempt == 0 and should_refresh:
-                self.host._refresh_storage_manager()
-                storage = getattr(self.host.db, "storage", None)
-        return None
+        image_id = _row_value(image_row, "image_id")
+        if image_id in (None, ""):
+            return None
+        model = self._model()
+        try:
+            resolved = model.acquisition_resolve("image", int(image_id))
+        except Exception:
+            return None
+        if not bool(resolved.get("readable", False)):
+            return None
+        return _CoreStoredFile(
+            model=model,
+            kind="image",
+            resource_id=int(image_id),
+        )
 
     def resolve_image_target(self, image_row) -> Optional[_ResolvedFileTarget]:
-        row = self.host._row_dict("images", image_row)
+        image_id = _row_value(image_row, "image_id")
+        if image_id in (None, ""):
+            return None
         image_name = self.image_download_name(image_row)
-        direct_local_candidates = [row.get("image_original_path"), row.get("image_path")]
-        for candidate in direct_local_candidates:
-            text = str(candidate or "").strip()
-            if not text:
-                continue
-            path = Path(text)
-            if path.is_file():
-                return _ResolvedFileTarget(mode="local", location=str(path), download_name=image_name)
-        direct_url_candidates = [row.get("image_source"), row.get("image_original_path")]
-        for candidate in direct_url_candidates:
-            text = str(candidate or "").strip()
-            if text.startswith(("http://", "https://")):
-                return _ResolvedFileTarget(mode="redirect", location=text, download_name=image_name)
-        storage_key = str(row.get("image_storage_key") or "").strip()
-        store_id = row.get("image_store_id", None)
-        if storage_key and store_id not in (None, ""):
-            try:
-                read_model = getattr(self.host, "read_model", None)
-                if read_model is not None:
-                    store_row = read_model.row_by_id("stores", int(store_id))
-                else:
-                    store_row = self.host.db.get_row_from_id("stores", int(store_id))
-            except Exception:
-                store_row = None
-            if store_row is not None:
-                root_uri = str(_row_value(store_row, "store_root_uri") or "").strip()
-                access_protocol = str(_row_value(store_row, "store_access_protocol") or "").strip().lower()
-                if root_uri.startswith(("http://", "https://")):
-                    base = root_uri if root_uri.endswith("/") else root_uri + "/"
-                    return _ResolvedFileTarget(mode="redirect", location=urljoin(base, storage_key), download_name=image_name)
-                if root_uri.startswith("file://"):
-                    local_root = Path(root_uri[7:])
-                else:
-                    local_root = Path(root_uri) if root_uri else None
-                if local_root is not None and (access_protocol in {"", "file", "local"} or local_root.is_absolute()):
-                    candidate = local_root / storage_key
-                    if candidate.is_file():
-                        return _ResolvedFileTarget(mode="local", location=str(candidate), download_name=image_name)
+        try:
+            resolved = self._model().acquisition_resolve(
+                "image",
+                int(image_id),
+            )
+        except Exception:
+            return None
+        if str(resolved.get("delivery") or "") == "redirect":
+            return _ResolvedFileTarget(
+                mode="redirect",
+                location=str(resolved.get("location") or ""),
+                download_name=str(resolved.get("name") or image_name),
+            )
         return None
+
+    def _model(self) -> CoreSurfaceModel:
+        read_model = getattr(self.host, "read_model", None)
+        model = getattr(read_model, "model", None)
+        if isinstance(model, CoreSurfaceModel):
+            return model
+        return CoreSurfaceModel(self.host.core)
 
     def work_image_row(self, work_row) -> Optional[object]:
         related = self.host._related_rows_by_table(work_row)
