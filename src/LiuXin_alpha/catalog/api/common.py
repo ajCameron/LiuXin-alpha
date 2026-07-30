@@ -1,8 +1,22 @@
-"""Shared catalog API types.
+"""Shared values returned and accepted by the semantic Catalog API.
 
-Keep these deliberately lightweight. The catalog API should be usable before the
-final metadata dataclasses are settled, and can be tightened later as the domain
-model stabilises.
+Repositories deliberately accept mappings rather than schema-specific
+dataclasses.  Public aliases such as ``{"title": "Frankenstein"}`` are
+normalized by the concrete repository; returned mappings use actual database
+column names such as ``work_title``.
+
+Matching is non-boolean. A :class:`MatchResult` distinguishes a safe match, a
+genuine non-match, an ambiguity, and contradictory evidence::
+
+    result = catalog.matching.works.best(
+        MetadataCandidate({"title": "Frankenstein"})
+    )
+    if result.is_match:
+        work = catalog.works.require(result.entity_id)
+    elif result.requires_resolution:
+        present_choices(result.alternatives, result.evidence)
+    else:
+        work_id = catalog.works.create({"title": "Frankenstein"})
 """
 
 from __future__ import annotations
@@ -37,23 +51,35 @@ MatchEvidenceKind: TypeAlias = Literal[
 
 
 class CatalogError(RuntimeError):
-    """
-    Base error for catalog-layer failures.
+    """Base error for caller-visible Catalog failures.
+
+    Catch a narrower subclass when recovery differs between absence, rejected
+    mutation, ambiguity, and contradictory identity evidence.
     """
 
 
 class CatalogNotFoundError(CatalogError, KeyError):
-    """
-    Raised when a required catalog entity cannot be found.
+    """Raised by ``repository.require(id)`` when the entity is absent.
+
+    Use ``repository.get(id)`` when absence is an expected outcome. The missing
+    table/entity and ID are retained in the exception message.
     """
 
 
 class CatalogMutationError(CatalogError):
-    """Raised when a catalog mutation is rejected by policy or validation."""
+    """Raised when a mutation violates schema, ownership, or policy rules.
+
+    Semantic mutation helpers use transactions, so this error normally means
+    the coordinated operation was rejected or rolled back.
+    """
 
 
 class CatalogMatchError(CatalogError):
-    """Base error for catalog identity decisions which require intervention."""
+    """Base error when ``match_or_create`` cannot automate identity safely.
+
+    The unresolved :class:`MatchResult` is available as :attr:`result`, so a
+    caller can show alternatives and evidence without repeating the match.
+    """
 
     def __init__(self, message: str, result: "MatchResult") -> None:
         """Store the unresolved match result with the error.
@@ -68,11 +94,19 @@ class CatalogMatchError(CatalogError):
 
 
 class CatalogAmbiguousMatchError(CatalogMatchError):
-    """Raised when several entities remain plausible matches."""
+    """Raised when several entities remain plausible matches.
+
+    ``error.result.alternatives`` contains their IDs and
+    ``error.result.evidence`` explains why they qualified.
+    """
 
 
 class CatalogMatchConflictError(CatalogMatchError):
-    """Raised when decisive matching evidence contradicts itself."""
+    """Raised when decisive matching evidence points to conflicting entities.
+
+    Do not automatically choose one alternative or create a new entity; inspect
+    ``error.result.evidence`` and resolve the conflicting source data.
+    """
 
 
 class DatabaseHandle(Protocol):
@@ -93,8 +127,19 @@ class DatabaseHandle(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class MetadataCandidate:
-    """
-    Generic candidate object for matching or creation.
+    """Candidate row used by repositories and metadata matchers.
+
+    ``data`` contains public aliases or storage columns. ``source`` describes
+    provenance (for example ``"opf"`` or ``"manual"``). ``hints`` carries
+    structured, non-persisted evidence understood by a matcher.
+
+    Example::
+
+        candidate = MetadataCandidate(
+            {"title": "Frankenstein", "original_year": 1818},
+            source="opf",
+            hints={"identifiers": {"isbn13": "9780141439471"}},
+        )
     """
 
     data: RowMapping
@@ -104,7 +149,20 @@ class MetadataCandidate:
 
 @dataclass(frozen=True, slots=True)
 class IdentifierCandidate:
-    """Identifier candidate used for ISBNs, URNs, URLs, Calibre ids, etc."""
+    """Scheme-aware identifier candidate.
+
+    ``normalised_value`` is normally left as ``None`` by callers; the
+    Identifier repository fills it according to ``identifier_type``.  Scheme
+    aliases and punctuation are normalized before comparison.
+
+    Example::
+
+        candidate = IdentifierCandidate(
+            identifier_type="ISBN-13",
+            value="978-0-14-143947-1",
+            source="publisher metadata",
+        )
+    """
 
     identifier_type: str
     value: str
@@ -115,7 +173,12 @@ class IdentifierCandidate:
 
 @dataclass(frozen=True, slots=True)
 class MatchEvidence:
-    """One normalized observation used to make a match decision."""
+    """One normalized observation contributing to an identity decision.
+
+    ``score`` is normalized to ``0.0..1.0`` and ``weight`` expresses the
+    policy importance of the field. Decisive identifier or conflict evidence
+    can determine the outcome independently of weaker approximate evidence.
+    """
 
     field: str
     kind: MatchEvidenceKind
@@ -155,7 +218,22 @@ class MatchEvidence:
 
 @dataclass(frozen=True, slots=True)
 class MatchResult:
-    """Explained identity decision returned by catalog matchers."""
+    """Explained identity decision returned by Catalog matchers.
+
+    Do not treat ``entity_id is None`` as permission to create.  Creation is
+    safe only for ``decision == "no_match"``.  ``ambiguous`` and ``conflict``
+    require intervention; repository ``match_or_create`` methods raise
+    :class:`CatalogAmbiguousMatchError` or
+    :class:`CatalogMatchConflictError` for those outcomes.
+
+    Example::
+
+        decision = catalog.matching.works.best(candidate)
+        if decision.is_match:
+            selected_id = decision.entity_id
+        elif decision.requires_resolution:
+            choices = decision.alternatives
+    """
 
     entity_id: EntityId | None
     confidence: float
@@ -196,17 +274,13 @@ class MatchResult:
 
     @property
     def is_match(self) -> bool:
-        """Return whether one entity was safely selected."""
+        """Return whether policy safely selected exactly one entity."""
 
         return self.decision == "match" and self.entity_id is not None
 
     @property
     def requires_resolution(self) -> bool:
-        """
-        Return whether automation must stop for caller intervention.
-
-        :return:
-        """
+        """Return whether ambiguity or conflict requires intervention."""
 
         return self.decision in {"ambiguous", "conflict"}
 
@@ -214,8 +288,15 @@ class MatchResult:
 # Todo: WEMIBundle is better English?
 @dataclass(frozen=True, slots=True)
 class WemiBundle:
-    """
-    A coherent slice through Work / Expression / Manifestation / Item metadata.
+    """A coherent Work/Expression/Manifestation/Item metadata slice.
+
+    A retriever follows one deterministic path through the requested root.
+    ``for_item`` walks upward; broader roots choose the first relationship in
+    repository priority/ID order at each lower level. Bundles are convenient
+    coherent slices, not exhaustive descendant trees.
+
+    Attached collections are plain row mappings. Relationship-specific
+    metadata may be present under ``"_catalog_link"``.
     """
 
     work: RowMapping | None = None

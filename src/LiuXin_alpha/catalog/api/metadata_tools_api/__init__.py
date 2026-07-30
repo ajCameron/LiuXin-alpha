@@ -1,4 +1,20 @@
-"""Metadata tool API contracts for the catalog layer."""
+"""Compatibility contracts for Catalog helpers that operate on database Rows.
+
+These helpers predate the mapping/ID-oriented repository API and remain useful
+when a workflow already holds ``RowAPI`` objects:
+
+``add``
+    Create concrete metadata or WEMI rows.
+``ensure``
+    Resolve conventional value rows, creating when absent.
+``apply``
+    Link metadata rows/values to an existing resource row.
+``intralink``
+    Relate two rows from the same metadata family.
+
+New code which does not need Row objects should generally prefer
+``catalog.repositories`` and ``catalog.mutations``.
+"""
 
 from __future__ import annotations
 
@@ -29,7 +45,18 @@ from LiuXin_alpha.catalog.api.metadata_tools_api.intralinker_api import Intralin
 
 @runtime_checkable
 class CatalogMetadataToolsAPI(Protocol):
-    """Grouped metadata tool API exposed directly by the Catalog facade."""
+    """Row-oriented metadata helpers exposed directly by Catalog.
+
+    Example::
+
+        work_row = catalog.add.work(work_title="Frankenstein")
+        author_row = catalog.ensure.creator_blind("Mary Shelley")
+        catalog.apply.creator(
+            resource_row=work_row,
+            creator_row=author_row,
+            creator_role="author",
+        )
+    """
 
     add: AddAPI
     ensure: EnsureAPI

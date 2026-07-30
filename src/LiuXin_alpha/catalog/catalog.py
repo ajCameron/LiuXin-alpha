@@ -1,6 +1,4 @@
-"""
-Top-level catalog facade implementation scaffold.
-"""
+"""Concrete composition root for LiuXin's metadata-aware Catalog API."""
 
 from __future__ import annotations
 
@@ -54,8 +52,10 @@ if TYPE_CHECKING:
 
 @dataclass(slots=True)
 class CatalogRepositories:
-    """
-    Grouped repository implementations exposed by `Catalog.repositories`.
+    """Grouped repository implementations exposed by ``Catalog.repositories``.
+
+    Catalog also exposes each member as a convenience property, so
+    ``catalog.repositories.works is catalog.works``.
     """
 
     works: WorkRepository
@@ -80,12 +80,31 @@ class CatalogRepositories:
 
 
 class Catalog:
-    """
-    Metadata-aware facade over a raw database handle.
+    """Metadata-aware facade over an open LiuXin database.
 
     This object is where callers should enter the catalog layer. It should remain
     a composition root, not a God object: substantive behavior belongs in the
     metadata-tool, repository, matcher, retrieval, and mutation modules.
+
+    Use repositories for entity CRUD/relationships, ``matching`` for
+    side-effect-free identity decisions, ``retrieval`` for WEMI bundles and
+    projections, and ``mutations`` for coordinated writes.
+
+    Example::
+
+        from LiuXin_alpha.catalog import Catalog
+        from LiuXin_alpha.catalog.api import MetadataCandidate
+
+        catalog = Catalog(db)
+        work_id = catalog.works.match_or_create(
+            MetadataCandidate({
+                "title": "Frankenstein",
+                "original_year": 1818,
+            })
+        )
+        work = catalog.works.require(work_id)
+
+    ``Catalog`` borrows ``db``; closing the Catalog does not close the database.
     """
 
     def __init__(
@@ -94,12 +113,16 @@ class Catalog:
         *,
         matching_policy: MatchingPolicy = DEFAULT_MATCHING_POLICY,
     ) -> None:
-        """
-        Constructor.
+        """Compose every Catalog service over one borrowed database.
 
-        :param db: Database handle used by catalog services.
+        All repositories share ``matching_policy`` so grouped matchers and
+        repository convenience methods make the same identity decisions.
+
+        :param db: Open database handle used by all Catalog services. It must
+            provide portable macros and driver schema discovery.
         :param matching_policy: Identity policy shared by repository and grouped
             matching entry points.
+        :return: ``None``.
         """
         if not isinstance(matching_policy, MatchingPolicy):
             raise TypeError("matching_policy must be a MatchingPolicy")
@@ -189,6 +212,11 @@ class Catalog:
         :param force_refresh: Refresh schema discovery before construction.
         :param destination_owned: Optional one-to-one ownership override.
         :return: Concrete catalog writer for the resolved storage shape.
+
+        Example::
+
+            writer = catalog.create_writer("works", "work_canonical_title")
+            writer.write_one(work_id, "Frankenstein; or, The Modern Prometheus")
         """
 
         return create_catalog_writer(
@@ -222,6 +250,14 @@ class Catalog:
         :param destination_owned: Optional one-to-one ownership override.
         :param kwargs: Keyword arguments for the concrete writer.
         :return: Concrete writer result mapping.
+
+        Example::
+
+            catalog.write(
+                "works",
+                "work_canonical_title",
+                {work_id: "Frankenstein; or, The Modern Prometheus"},
+            )
         """
 
         writer = self.create_writer(
@@ -254,6 +290,15 @@ class Catalog:
         :param destination_owned: Optional one-to-one ownership override.
         :param kwargs: Options for the concrete writer, including link type.
         :return: Concrete writer result mapping without unwrapping it.
+
+        Example::
+
+            catalog.write_one(
+                "works",
+                "work_canonical_title",
+                work_id,
+                "Frankenstein; or, The Modern Prometheus",
+            )
         """
 
         writer = self.create_writer(
@@ -311,44 +356,32 @@ class Catalog:
 
     @property
     def works(self) -> WorkRepository:
-        """
-        Convenience alias for `catalog.repositories.works`.
-        """
+        """Return ``catalog.repositories.works``."""
         return self.repositories.works
 
     @property
     def expressions(self) -> ExpressionRepository:
-        """
-        Convenience alias for `catalog.repositories.expressions`.
-        """
+        """Return ``catalog.repositories.expressions``."""
         return self.repositories.expressions
 
     @property
     def manifestations(self) -> ManifestationRepository:
-        """
-        Convenience alias for `catalog.repositories.manifestations`.
-        """
+        """Return ``catalog.repositories.manifestations``."""
         return self.repositories.manifestations
 
     @property
     def items(self) -> ItemRepository:
-        """
-        Convenience alias for `catalog.repositories.items`.
-        """
+        """Return ``catalog.repositories.items``."""
         return self.repositories.items
 
     @property
     def agents(self) -> AgentRepository:
-        """
-        Convenience alias for `catalog.repositories.agents`.
-        """
+        """Return ``catalog.repositories.agents``."""
         return self.repositories.agents
 
     @property
     def identifiers(self) -> IdentifierRepository:
-        """
-        Convenience alias for `catalog.repositories.identifiers`.
-        """
+        """Return ``catalog.repositories.identifiers``."""
         return self.repositories.identifiers
 
     @property

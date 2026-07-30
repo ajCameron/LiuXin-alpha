@@ -2,6 +2,9 @@
 
 Status: implementation complete and verified, 2026-07-22.
 
+Practical facade/repository examples and matching semantics are documented in
+the [Catalog API usage guide](catalog-api-usage.md).
+
 ## Review-time verdict
 
 The catalog package is not yet fit for its complete declared purpose as the

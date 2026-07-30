@@ -10,7 +10,11 @@ from ..common import IdentifierCandidate, MatchResult
 
 @runtime_checkable
 class ItemIdentifierMatcherAPI(Protocol):
-    """Exactly match scheme-aware identifier observations."""
+    """Exactly match scheme-aware identifier observations on Items.
+
+    Pass ``item_id`` to distinguish an observation on one Item from identical
+    values observed on other copies.
+    """
 
     def candidates(
         self,
@@ -24,7 +28,7 @@ class ItemIdentifierMatcherAPI(Protocol):
         :param candidate: Identifier to normalize and compare.
         :param item_id: Optional owning Item ID.
         :param limit: Maximum observations to return.
-        :return: Exact observations ordered by storage ID.
+        :return: Exact observation decisions ordered by storage ID.
         """
 
         ...
@@ -39,7 +43,7 @@ class ItemIdentifierMatcherAPI(Protocol):
 
         :param candidate: Identifier to normalize and compare.
         :param item_id: Optional owning Item ID.
-        :return: Explained exact match or no-match result.
+        :return: First stable exact observation or no-match result.
         """
 
         ...
@@ -54,9 +58,17 @@ class ItemIdentifierMatcherAPI(Protocol):
         """Return the exact observed decision for a value and scheme.
 
         :param candidate_str: Identifier value to match.
-        :param id_type: Identifier scheme.
+        :param id_type: Identifier scheme or supported alias.
         :param item_id: Optional owning Item ID.
         :return: Explained exact match or no-match result.
+
+        Example::
+
+            result = catalog.matching.item_identifiers.exact(
+                "vendor-record-42",
+                "source-id",
+                item_id=item_id,
+            )
         """
 
         ...

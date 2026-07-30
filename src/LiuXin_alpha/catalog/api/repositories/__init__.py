@@ -1,5 +1,16 @@
-"""
-Repository API contracts for catalog entities.
+"""Repository contracts for Catalog entities and their relationships.
+
+Use repositories for direct entity persistence, deterministic relationship
+traversal, and convenience identity operations::
+
+    work_id = catalog.repositories.works.create({"title": "Frankenstein"})
+    expression_id = catalog.expressions.match_or_create(
+        work_id,
+        MetadataCandidate({"language_id": english_id}),
+    )
+
+The shorter attributes on ``Catalog`` and the grouped attributes under
+``catalog.repositories`` refer to the same repository instances.
 """
 
 from __future__ import annotations
@@ -28,6 +39,11 @@ class CatalogRepositoriesAPI(Protocol):
 
     The attributes deliberately compose repository protocols instead of
     inheriting them: the group is not itself a Work, Agent, or Note repository.
+
+    WEMI repositories represent the bibliographic chain. Agent, Identifier,
+    Title, and Note repositories own their corresponding relationships.
+    Exact-entity repositories cover reusable value entities such as tags,
+    genres, languages, and ratings.
     """
 
     works: WorkRepositoryAPI

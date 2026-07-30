@@ -11,34 +11,56 @@ FingerprintSubject: TypeAlias = RowAPI | Mapping[str, Any]
 
 @runtime_checkable
 class GenerateBookFingerprintAPI(Protocol):
-    """Callable API for book fingerprint generation."""
+    """Generate comparison tokens from a compatibility book row or mapping.
+
+    The database supplies linked title/creator context needed by the generator.
+    """
 
     def __call__(self, db: DatabaseAPI, book_row: FingerprintSubject) -> set[str]:
-        """Generate a fingerprint for a book-like row."""
+        """Return normalized identity tokens for a book-like row/mapping.
+
+        Fingerprints are comparison aids, not durable cryptographic hashes.
+        """
         ...
 
 
 @runtime_checkable
 class GenerateTitleFingerprintAPI(Protocol):
-    """Callable API for title fingerprint generation."""
+    """Generate comparison tokens for a title and its intralinked title family.
+
+    Use the single-title callable when related title variants must be excluded.
+    """
 
     def __call__(self, db: DatabaseAPI, title_row: RowAPI) -> set[str]:
-        """Generate a fingerprint for a title row and its intralinked titles."""
+        """Return normalized tokens from a title and its intralinked titles."""
         ...
 
 
 @runtime_checkable
 class GenerateOneTitleFingerprintAPI(Protocol):
-    """Callable API for single title fingerprint generation."""
+    """Generate comparison tokens for exactly one title row.
+
+    This callable does not include aliases or other intralinked title variants.
+    """
 
     def __call__(self, db: DatabaseAPI, title_row: RowAPI) -> set[str]:
-        """Generate a fingerprint for one title row."""
+        """Return normalized comparison tokens for exactly one title row."""
         ...
 
 
 @runtime_checkable
 class FingerprintToolsAPI(Protocol):
-    """Module-like object exposing metadata fingerprint functions."""
+    """Module-like group of compatibility fingerprint callables.
+
+    Fingerprints are normalized token sets used as matching evidence, not
+    cryptographic digests or stable public identifiers.
+
+    Example::
+
+        tokens = fingerprint_tools.generate_book_fingerprint(db, book_row)
+        if "frankenstein" in tokens:
+            ...
+    """
 
     generate_book_fingerprint: GenerateBookFingerprintAPI
     generate_title_fingerprint: GenerateTitleFingerprintAPI
