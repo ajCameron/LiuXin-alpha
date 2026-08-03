@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.metadata.standardization import make_title_search_term, standardize_genre
 
@@ -125,11 +124,11 @@ class NewGenreWizardCommand(TerminalCommandAPI):
         if genre_full is not None and "genre_full" in columns:
             row_dict["genre_full"] = genre_full
 
-        genre_row = Row.from_idless_row_dict(
-            browser.db,
-            row_dict=row_dict,
-            table="genres",
+        result = browser.execute_core_command(
+            "catalog.entity.create",
+            payload={"repository": "genres", "data": row_dict},
         )
+        genre_row = dict(result["entity"])
 
         browser.emit(
             "Genre created: genre_id={} genre={!r}".format(

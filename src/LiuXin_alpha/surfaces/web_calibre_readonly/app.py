@@ -7,15 +7,21 @@ import json
 import posixpath
 import sys
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import parse_qs, quote, unquote
 from wsgiref.simple_server import make_server
 
-from LiuXin_alpha.databases.database import Database
+from LiuXin_alpha.core import CoreClientAPI
 from LiuXin_alpha.surfaces.acquisition.api import AcquisitionCompatApi
 from LiuXin_alpha.surfaces.catalog.api import CalibreCatalogBackend, PLACEHOLDER_PNG
+from LiuXin_alpha.surfaces.core import (
+    CoreSurfaceModel,
+    add_core_client_arguments,
+    open_surface_core_from_args,
+)
 from LiuXin_alpha.surfaces.opds.api import (
     OpdsApi,
     decode_compat_token,
@@ -30,7 +36,6 @@ from LiuXin_alpha.surfaces.web_readonly.app import (
     _build_query_string,
     _coerce_int,
     _escape,
-    _open_database,
     _row_value,
     _short_text,
     add_metadata_read_source_arguments,
@@ -518,15 +523,15 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
 
     def __init__(
         self,
-        db: Database,
+        core: CoreClientAPI,
         *,
         config: Optional[CalibreReadOnlyWebConfig] = None,
-        read_source: Any = None,
+        model: CoreSurfaceModel | None = None,
     ) -> None:
         super().__init__(
-            db,
+            core,
             config=config or CalibreReadOnlyWebConfig(),
-            read_source=read_source,
+            model=model,
         )
         self.catalog = CalibreCatalogBackend(self, read_model=self.read_model, images=self.images)
         self.acquisition_api = AcquisitionCompatApi(self)
@@ -609,8 +614,18 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
 
     def _render_layout(self, *, title: str, body_html: str) -> str:
         if self.config.expose_database_path:
+            info = self.core.query("database.info")
+            metadata = (
+                info.get("metadata", {})
+                if isinstance(info, Mapping)
+                else {}
+            )
             db_hint = "<p class='meta'>database: <code>{}</code></p>".format(
-                _escape(self.db.metadata.get("database_path", ""))
+                _escape(
+                    metadata.get("database_path", "")
+                    if isinstance(metadata, Mapping)
+                    else ""
+                )
             )
         else:
             db_hint = ""
@@ -1590,7 +1605,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=metadata_read_source_help_epilog("PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.web_calibre_readonly"),
     )
-    parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
+    add_core_client_arguments(parser)
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
     add_metadata_read_source_arguments(parser)
     parser.add_argument("--host", default=CalibreReadOnlyWebConfig.host, help="Bind host. Default: 127.0.0.1")
@@ -1618,9 +1633,20 @@ def main(argv: Optional[list[str]] = None) -> int:
         enable_file_downloads=not bool(args.no_file_downloads),
         **metadata_read_source_config_kwargs(args),
     )
-    with _open_database(database_path=str(args.database), db_type=str(args.db_type)) as db:
+    cache_type = (
+        str(args.cache_type)
+        if str(args.metadata_read_source) == "cache"
+        else None
+    )
+    with open_surface_core_from_args(
+        args,
+        cache_type=cache_type,
+        cache_allow_database_fallback=not bool(args.no_cache_db_fallback),
+        enable_storage_manager=True,
+        enable_maintenance=False,
+    ) as core_session:
         app = CalibreReadOnlyWebApplication(
-            db,
+            core_session.client,
             config=config,
         )
         url = "http://{}:{}/".format(config.host, config.port)

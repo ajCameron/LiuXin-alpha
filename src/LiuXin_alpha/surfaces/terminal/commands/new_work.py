@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort, to_epoch_ms
-from LiuXin_alpha.utils.language_tools import best_effort_language_id
 
 
 def _clean_optional(value: str) -> Optional[str]:
@@ -114,9 +112,11 @@ class NewWorkWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Work wizard canceled.")
 
-        catalog = Catalog(browser.db)
-        work_id = catalog.works.create(
-            {
+        result = browser.execute_core_command(
+            "catalog.entity.create",
+            payload={
+                "repository": "works",
+                "data": {
                 "work_title": work_title,
                 "work_canonical_title": work_canonical_title,
                 "work_sort_title": work_sort_title,
@@ -124,7 +124,7 @@ class NewWorkWizardCommand(TerminalCommandAPI):
                 "work_type": work_type,
                 "work_medium": work_medium,
                 "work_original_language_id": (
-                    best_effort_language_id(browser.db, work_original_language)
+                    browser.resolve_language_id(work_original_language)
                     if work_original_language is not None
                     else None
                 ),
@@ -134,10 +134,11 @@ class NewWorkWizardCommand(TerminalCommandAPI):
                 "work_is_fiction": work_is_fiction,
                 "work_audience": work_audience,
                 "work_completion_status": work_completion_status,
-                "work_discovery_note": work_discovery_note,
-            }
+                    "work_discovery_note": work_discovery_note,
+                },
+            },
         )
-        work_row = catalog.works.require(work_id)
+        work_row = dict(result["entity"])
 
         browser.emit(
             "Work created: work_id={} title={!r}".format(

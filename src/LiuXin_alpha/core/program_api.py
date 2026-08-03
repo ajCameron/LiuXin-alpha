@@ -404,6 +404,8 @@ _PROGRAM_AREAS: dict[str, tuple[str, ...]] = {
         "backup.workflow.save",
         "backup.workflow.start",
         "backup.squashfs.start",
+        "backup.squashfs.publish-store.start",
+        "backup.squashfs.publish-files.start",
     ),
     "maintenance": (
         "maintenance.status",
@@ -425,6 +427,8 @@ _CONDITIONAL_OPERATIONS: dict[str, str] = {
     "conversion.start": "Requires the input/output format plugins and any external tools they use.",
     "backup.workflow.start": "Requires a path-backed database and tools required by the workflow kind.",
     "backup.squashfs.start": "Requires a path-backed database and the configured mksquashfs executable.",
+    "backup.squashfs.publish-store.start": "Requires a path-backed database and the configured mksquashfs executable.",
+    "backup.squashfs.publish-files.start": "Requires a path-backed database and the configured mksquashfs executable.",
 }
 
 
@@ -975,6 +979,38 @@ class CoreProgramAPI:
                 _field("verify_after_build", field_type="boolean"),
                 _field("cleanup_staging_after_success", field_type="boolean"),
                 _field("staging_root", field_type="string|null"),
+            ),
+            tags=("backup", "storage", "jobs", "write"),
+        )
+        command(
+            "backup.squashfs.publish-store.start",
+            self.backup_squashfs_publish_store_start,
+            summary="Submit publication of one designated open SquashFS store.",
+            payload_fields=(
+                _field("store_id", required=True, field_type="integer"),
+                _field("output_archive", field_type="string|null"),
+                _field("compression", field_type="string"),
+                _field("deterministic", field_type="boolean"),
+                _field("force", field_type="boolean"),
+                _field("duplicate_verified_files", field_type="boolean"),
+                _field("strict", field_type="boolean"),
+                _field("refresh_storage_manager", field_type="boolean"),
+            ),
+            tags=("backup", "storage", "jobs", "write"),
+        )
+        command(
+            "backup.squashfs.publish-files.start",
+            self.backup_squashfs_publish_files_start,
+            summary="Submit designation and publication of file ids to a SquashFS archive.",
+            payload_fields=(
+                _field("file_ids", required=True, field_type="array"),
+                _field("archive", required=True, field_type="string"),
+                _field("store_name", field_type="string|null"),
+                _field("compression", field_type="string"),
+                _field("deterministic", field_type="boolean"),
+                _field("force", field_type="boolean"),
+                _field("strict", field_type="boolean"),
+                _field("refresh_storage_manager", field_type="boolean"),
             ),
             tags=("backup", "storage", "jobs", "write"),
         )
@@ -2865,6 +2901,79 @@ class CoreProgramAPI:
                 "staging_root": payload.get("staging_root"),
             },
             default_label="squashfs backup",
+        )
+
+    @staticmethod
+    def backup_squashfs_publish_store_start(
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        payload = _payload(command)
+        output_archive = payload.get("output_archive")
+        return _job_submit(
+            runtime,
+            payload,
+            function_name="run_publish_open_squashfs_store_job",
+            kwargs={
+                "database_path": _database_path(runtime),
+                "db_type": _database_type(runtime),
+                "store_id": _required_int(payload, "store_id"),
+                "output_archive": (
+                    None
+                    if output_archive in (None, "")
+                    else str(output_archive)
+                ),
+                "compression": str(payload.get("compression") or "zstd"),
+                "deterministic": bool(payload.get("deterministic", False)),
+                "force": bool(payload.get("force", False)),
+                "duplicate_verified_files": bool(
+                    payload.get("duplicate_verified_files", True)
+                ),
+                "strict": bool(payload.get("strict", False)),
+                "refresh_storage_manager": bool(
+                    payload.get("refresh_storage_manager", True)
+                ),
+            },
+            default_label="publish SquashFS store",
+        )
+
+    @staticmethod
+    def backup_squashfs_publish_files_start(
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        payload = _payload(command)
+        raw_file_ids = payload.get("file_ids")
+        if not isinstance(raw_file_ids, Sequence) or isinstance(
+            raw_file_ids,
+            (str, bytes),
+        ):
+            raise CoreDispatchError("`file_ids` must be an array.")
+        file_ids = [int(cast(Any, value)) for value in raw_file_ids]
+        if not file_ids:
+            raise CoreDispatchError("`file_ids` must not be empty.")
+        store_name = payload.get("store_name")
+        return _job_submit(
+            runtime,
+            payload,
+            function_name="run_publish_squashfs_files_job",
+            kwargs={
+                "database_path": _database_path(runtime),
+                "db_type": _database_type(runtime),
+                "file_ids": file_ids,
+                "archive": _required_text(payload, "archive"),
+                "store_name": (
+                    None if store_name in (None, "") else str(store_name)
+                ),
+                "compression": str(payload.get("compression") or "zstd"),
+                "deterministic": bool(payload.get("deterministic", False)),
+                "force": bool(payload.get("force", False)),
+                "strict": bool(payload.get("strict", False)),
+                "refresh_storage_manager": bool(
+                    payload.get("refresh_storage_manager", True)
+                ),
+            },
+            default_label="publish SquashFS files",
         )
 
     @staticmethod

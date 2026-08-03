@@ -25,7 +25,9 @@ def coerce_positive_int(
 
 @dataclass(frozen=True)
 class TkGuiConfig:
-    database: Path
+    database: Path | None = None
+    core_endpoint: str | None = None
+    core_timeout: float = 10.0
     db_type: str = "sqlite"
     title: str = "LiuXin"
     page_size: int = 100

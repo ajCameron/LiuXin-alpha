@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+from collections.abc import Mapping
 
 from LiuXin_alpha.surfaces.api import AcquisitionHostApi, SurfaceResponseAPI
+from LiuXin_alpha.surfaces.core import CoreSurfaceModel
 
 
-def _coerce_payload_bytes(payload) -> bytes:
-    if isinstance(payload, str):
-        return payload.encode("utf-8")
+def _coerce_payload_bytes(payload: object) -> bytes:
+    """Normalize presentation byte payloads retained by compatibility tests."""
+
     if isinstance(payload, bytes):
         return payload
-    return bytes(payload)
+    if isinstance(payload, str):
+        return payload.encode("utf-8")
+    if isinstance(payload, (bytearray, memoryview)):
+        return bytes(payload)
+    raise TypeError("Acquisition payload must be bytes-like or text.")
 
 
 def _cover_dimensions(*, suffix: str, query: dict[str, list[str]], thumb: bool) -> tuple[int, int]:
@@ -43,37 +48,63 @@ def _cover_dimensions(*, suffix: str, query: dict[str, list[str]], thumb: bool) 
 class AcquisitionCompatApi:
     host: AcquisitionHostApi
 
+    def __post_init__(self) -> None:
+        self.model = CoreSurfaceModel(self.host.core)
+
+    def _work(self, work_id: int) -> object | None:
+        result = self.host.core.query(
+            "browse.work",
+            {"work_id": int(work_id)},
+        )
+        return result.get("work") if isinstance(result, Mapping) else None
+
+    @staticmethod
+    def _records(result: object, key: str) -> list[Mapping[str, object]]:
+        raw = result.get(key, ()) if isinstance(result, Mapping) else ()
+        if not isinstance(raw, list):
+            return []
+        return [value for value in raw if isinstance(value, Mapping)]
+
     def serve_cover_or_thumb(self, raw_book_id: str, *, query: dict[str, list[str]], environ, thumb: bool) -> SurfaceResponseAPI:
         row_id, suffix = self.host.acquisition_split_book_token(raw_book_id)
         if row_id is None:
             return self.host.acquisition_text_response("400 Bad Request", "Invalid book id.\n", content_type="text/plain")
-        work_row = self.host.acquisition_work_row(row_id)
+        work_row = self._work(row_id)
         if work_row is None:
             return self.host.acquisition_text_response("404 Not Found", "Book row not found.\n", content_type="text/plain")
 
-        image_row = self.host.acquisition_work_image_row(work_row)
-        if image_row is not None:
-            stored_file = self.host.acquisition_resolve_storage_image(image_row)
-            if stored_file is not None:
+        covers_result = self.host.core.query(
+            "acquisition.cover",
+            {"work_id": int(row_id)},
+        )
+        for cover in self._records(covers_result, "covers"):
+            cover_id = cover.get("id")
+            resolution = cover.get("resolution", {})
+            if cover_id is None or not isinstance(resolution, Mapping):
+                continue
+            if bool(resolution.get("readable")):
                 try:
+                    _resource, payload = self.model.acquisition_read(
+                        "image",
+                        int(cover_id),
+                    )
                     return self.host.acquisition_bytes_response(
-                        _coerce_payload_bytes(stored_file.as_bytes()),
-                        download_name=self.host.acquisition_image_download_name(image_row),
+                        payload,
+                        download_name=str(cover.get("name") or "cover.bin"),
                         disposition="inline",
-                        content_type_override=self.host.acquisition_image_content_type(image_row),
+                        content_type_override=str(
+                            cover.get("mime_type")
+                            or "application/octet-stream"
+                        ),
                     )
                 except Exception:
                     pass
-            target = self.host.acquisition_resolve_image_target(image_row)
-            if target is not None:
-                if target.mode == "redirect":
-                    return self.host.acquisition_redirect_response(target.location)
-                return self.host.acquisition_file_response(
-                    Path(target.location),
-                    download_name=target.download_name,
-                    environ=environ,
-                    disposition="inline",
-                    content_type_override=self.host.acquisition_image_content_type(image_row),
+            if (
+                str(resolution.get("delivery") or "") == "redirect"
+                and resolution.get("location")
+            ):
+                return self.host.acquisition_redirect_response(
+                    str(resolution["location"])
                 )
 
         width, height = _cover_dimensions(suffix=suffix, query=query, thumb=thumb)
@@ -92,19 +123,45 @@ class AcquisitionCompatApi:
         row_id, _suffix = self.host.acquisition_split_book_token(raw_book_id)
         if row_id is None:
             return self.host.acquisition_text_response("400 Bad Request", "Invalid book id.\n", content_type="text/plain")
-        work_row = self.host.acquisition_work_row(row_id)
+        work_row = self._work(row_id)
         if work_row is None:
             return self.host.acquisition_text_response("404 Not Found", "Book row not found.\n", content_type="text/plain")
 
-        related_rows_by_table = self.host.acquisition_related_rows_by_table(work_row)
-        file_rows = self.host.acquisition_work_file_rows(related_rows_by_table)
+        formats_result = self.host.core.query(
+            "acquisition.formats",
+            {"work_id": int(row_id)},
+        )
         target_ext = lowered.lstrip(".")
-        for file_row in file_rows:
-            download_name = self.host.acquisition_download_name_for_file_row(file_row)
-            ext = Path(download_name).suffix.lower().lstrip(".")
-            if ext == target_ext:
-                file_id = self.host.acquisition_file_id(file_row)
-                if file_id in (None, ""):
-                    continue
-                return self.host.acquisition_serve_file_download(str(file_id), environ)
+        for record in self._records(formats_result, "formats"):
+            if str(record.get("extension") or "").lower().lstrip(".") != target_ext:
+                continue
+            resource_id = record.get("id")
+            kind = str(record.get("kind") or "")
+            resolution = record.get("resolution", {})
+            if (
+                resource_id in (None, "")
+                or not kind
+                or not isinstance(resolution, Mapping)
+            ):
+                continue
+            if bool(resolution.get("readable")):
+                _resource, payload = self.model.acquisition_read(
+                    kind,
+                    int(resource_id),
+                )
+                return self.host.acquisition_bytes_response(
+                    payload,
+                    download_name=str(record.get("name") or "download.bin"),
+                    content_type_override=str(
+                        record.get("mime_type")
+                        or "application/octet-stream"
+                    ),
+                )
+            if (
+                str(resolution.get("delivery") or "") == "redirect"
+                and resolution.get("location")
+            ):
+                return self.host.acquisition_redirect_response(
+                    str(resolution["location"])
+                )
         return self.host.acquisition_text_response("404 Not Found", "No such format for this book.\n", content_type="text/plain")

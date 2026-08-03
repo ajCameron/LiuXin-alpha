@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 
@@ -131,22 +130,24 @@ class NewPublisherWizardCommand(TerminalCommandAPI):
             if value is not None
         ]
 
-        catalog = Catalog(browser.db)
-        agent_id = catalog.agents.create_organisation(
-            {
+        result = browser.execute_core_command(
+            "catalog.agent.create-organisation",
+            payload={
+                "data": {
                 "name": publisher,
                 "sort_name": publisher_sort,
                 "aliases": aliases,
-            },
-            details={
+                },
+                "details": {
                 "org_agent_website": publisher_website,
                 "org_agent_description": publisher_description,
+                },
+                "parent_id": parent_id,
+                "relation_type": "imprint_of",
+                "identifiers": identifiers,
             },
-            parent_id=parent_id,
-            relation_type="imprint_of",
-            identifiers=identifiers,
         )
-        row = catalog.agents.require(agent_id)
+        row = dict(result["agent"])
 
         browser.emit(
             "Publisher created: agent_id={} canonical_name={!r}".format(

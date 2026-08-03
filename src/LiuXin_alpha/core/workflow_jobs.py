@@ -78,6 +78,165 @@ def run_ingest_disk_job(
     return cast(dict[str, Any], plain)
 
 
+def run_sync_store_job(
+    *,
+    database_path: str,
+    db_type: str,
+    mode: str,
+    store_root_uri: str,
+    store_name: str | None,
+    store_kind: str,
+    source_label: str,
+    ebook_extensions: list[str] | None,
+    compute_hash: bool,
+    capture_hashes: bool,
+    follow_symlinks: bool,
+    attach_store_links: bool,
+    refresh_storage_manager: bool,
+    max_http_requests_per_hour: float | None,
+    rclone_args: tuple[str, ...],
+    crawler_recurse: bool,
+    crawler_max_depth: int | None,
+    crawler_timeout_s: float | None,
+    crawler_no_parent: bool,
+    crawler_span_hosts: bool,
+    crawler_respect_robots: bool,
+    crawler_user_agent: str | None,
+    wget_no_verbose: bool,
+    wget_args: tuple[str, ...],
+    crawler_incremental_db_writes: bool = True,
+    progress_output: bool = True,
+    progress_every: int = 100,
+) -> dict[str, Any]:
+    """Reconcile one configured store in an importable Core worker."""
+
+    from LiuXin_alpha.ingest import (
+        register_native_html_readonly_with_database_path,
+        register_wget_html_readonly_with_database_path,
+    )
+    from LiuXin_alpha.storage.reconcile import (
+        register_existing_disk_with_database_path,
+        register_rclone_http_readonly_with_database_path,
+    )
+
+    def progress(event: str, report: Any, details: Mapping[str, Any]) -> None:
+        if not progress_output:
+            return
+        scanned = int(getattr(report, "scanned_files", 0) or 0)
+        observed = int(getattr(report, "crawler_urls_observed", 0) or 0)
+        if event in {"scan", "crawl-observation"}:
+            tick = max(scanned, observed)
+            if tick not in {0, 1} and tick % max(1, int(progress_every)):
+                return
+        if event == "crawl-log":
+            line = str(details.get("line") or "").strip()
+            if line:
+                print("JOB sync: {}".format(line), flush=True)
+            return
+        if event in {"start", "scan", "crawl-observation", "error", "done"}:
+            print(
+                "JOB sync {}: scanned={} candidates={} inserted={} updated={} "
+                "unchanged={} linked={} errors={}".format(
+                    event,
+                    scanned,
+                    int(getattr(report, "ebook_candidates", 0) or 0),
+                    int(getattr(report, "inserted_files", 0) or 0),
+                    int(getattr(report, "updated_files", 0) or 0),
+                    int(getattr(report, "unchanged_files", 0) or 0),
+                    int(getattr(report, "linked_files", 0) or 0),
+                    len(getattr(report, "errors", ()) or ()),
+                ),
+                flush=True,
+            )
+
+    callback = progress if progress_output else None
+    normalized = str(mode or "").strip().lower()
+    if normalized == "rclone":
+        report = register_rclone_http_readonly_with_database_path(
+            database_path=database_path,
+            remote_url=store_root_uri,
+            db_type=db_type,
+            store_name=store_name,
+            store_kind=store_kind,
+            max_http_requests_per_hour=max_http_requests_per_hour,
+            rclone_args=rclone_args,
+            ebook_extensions=ebook_extensions,
+            source_label=source_label,
+            capture_hashes=capture_hashes,
+            attach_store_links=attach_store_links,
+            refresh_storage_manager=refresh_storage_manager,
+            progress_callback=callback,
+        )
+    elif normalized == "wget":
+        report = register_wget_html_readonly_with_database_path(
+            database_path=database_path,
+            remote_url=store_root_uri,
+            db_type=db_type,
+            store_name=store_name,
+            store_kind=store_kind,
+            max_http_requests_per_hour=max_http_requests_per_hour,
+            wget_args=wget_args,
+            timeout_s=crawler_timeout_s,
+            recurse=crawler_recurse,
+            max_depth=crawler_max_depth,
+            no_parent=crawler_no_parent,
+            span_hosts=crawler_span_hosts,
+            respect_robots=crawler_respect_robots,
+            user_agent=crawler_user_agent,
+            no_verbose=wget_no_verbose,
+            ebook_extensions=ebook_extensions,
+            source_label=source_label,
+            attach_store_links=attach_store_links,
+            refresh_storage_manager=refresh_storage_manager,
+            incremental_db_writes=bool(crawler_incremental_db_writes),
+            progress_callback=callback,
+        )
+    elif normalized == "native":
+        report = register_native_html_readonly_with_database_path(
+            database_path=database_path,
+            remote_url=store_root_uri,
+            db_type=db_type,
+            store_name=store_name,
+            store_kind=store_kind,
+            max_http_requests_per_hour=max_http_requests_per_hour,
+            timeout_s=crawler_timeout_s,
+            recurse=crawler_recurse,
+            max_depth=crawler_max_depth,
+            no_parent=crawler_no_parent,
+            span_hosts=crawler_span_hosts,
+            respect_robots=crawler_respect_robots,
+            user_agent=crawler_user_agent,
+            ebook_extensions=ebook_extensions,
+            source_label=source_label,
+            attach_store_links=attach_store_links,
+            refresh_storage_manager=refresh_storage_manager,
+            incremental_db_writes=bool(crawler_incremental_db_writes),
+            progress_callback=callback,
+        )
+    elif normalized == "local":
+        report = register_existing_disk_with_database_path(
+            database_path=database_path,
+            disk_path=store_root_uri,
+            db_type=db_type,
+            store_name=store_name,
+            store_kind=store_kind,
+            ebook_extensions=ebook_extensions,
+            source_label=source_label,
+            compute_hash=compute_hash,
+            follow_symlinks=follow_symlinks,
+            attach_store_links=attach_store_links,
+            refresh_storage_manager=refresh_storage_manager,
+            progress_callback=callback,
+        )
+    else:
+        raise ValueError("Unknown sync mode: {!r}".format(mode))
+
+    plain = _plain(report)
+    if not isinstance(plain, dict):
+        raise TypeError("Sync report did not serialize to an object")
+    return cast(dict[str, Any], plain)
+
+
 def run_ingest_remote_html_job(
     *,
     database_path: str,
@@ -284,6 +443,86 @@ def run_squashfs_backup_job(
     return cast(dict[str, Any], plain)
 
 
+def run_publish_open_squashfs_store_job(
+    *,
+    database_path: str,
+    db_type: str,
+    store_id: int,
+    output_archive: str | None = None,
+    compression: str = "zstd",
+    deterministic: bool = False,
+    force: bool = False,
+    duplicate_verified_files: bool = True,
+    strict: bool = False,
+    refresh_storage_manager: bool = True,
+) -> dict[str, Any]:
+    """Publish one designated open SquashFS store through a Core job."""
+
+    from LiuXin_alpha.library import Library
+
+    plain: Any = None
+    with Library(
+        database_path=database_path,
+        db_type=db_type,
+        create=False,
+        backup=False,
+    ) as library:
+        report = library.publish_open_squashfs_store(
+            store_id=int(store_id),
+            output_archive=output_archive,
+            compression=str(compression),
+            deterministic=bool(deterministic),
+            force=bool(force),
+            duplicate_verified_files=bool(duplicate_verified_files),
+            strict=bool(strict),
+            refresh_storage_manager=bool(refresh_storage_manager),
+        )
+        plain = _plain(report)
+    if not isinstance(plain, dict):
+        raise TypeError("SquashFS publish report did not serialize to an object")
+    return cast(dict[str, Any], plain)
+
+
+def run_publish_squashfs_files_job(
+    *,
+    database_path: str,
+    db_type: str,
+    file_ids: list[int],
+    archive: str,
+    store_name: str | None = None,
+    compression: str = "zstd",
+    deterministic: bool = False,
+    force: bool = False,
+    strict: bool = False,
+    refresh_storage_manager: bool = True,
+) -> dict[str, Any]:
+    """Designate file ids and publish them through one Core job."""
+
+    from LiuXin_alpha.library import Library
+
+    plain: Any = None
+    with Library(
+        database_path=database_path,
+        db_type=db_type,
+        create=False,
+        backup=False,
+    ) as library:
+        report = library.publish_squashfs_archive_from_file_ids(
+            file_ids=[int(value) for value in file_ids],
+            archive_path=str(archive),
+            store_name=store_name,
+            compression=str(compression),
+            deterministic=bool(deterministic),
+            force=bool(force),
+            strict=bool(strict),
+            refresh_storage_manager=bool(refresh_storage_manager),
+        )
+        plain = _plain(report)
+    if not isinstance(plain, dict):
+        raise TypeError("SquashFS publish report did not serialize to an object")
+    return cast(dict[str, Any], plain)
+
+
 def run_persisted_backup_job(
     *,
     database_path: str,
@@ -444,4 +683,7 @@ __all__ = [
     "run_metadata_identify_job",
     "run_persisted_backup_job",
     "run_squashfs_backup_job",
+    "run_publish_open_squashfs_store_job",
+    "run_publish_squashfs_files_job",
+    "run_sync_store_job",
 ]

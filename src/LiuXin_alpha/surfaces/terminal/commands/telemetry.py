@@ -39,11 +39,16 @@ class TelemetryPanelCommand(TerminalCommandAPI):
                 resolved_tables.append(resolved)
 
         snapshot = {}
-        if hasattr(browser.db, "get_write_telemetry_snapshot"):
-            try:
-                snapshot = dict(browser.db.get_write_telemetry_snapshot(recent_limit=5) or {})
-            except Exception:
-                snapshot = {}
+        try:
+            snapshot = dict(
+                browser.execute_core_query(
+                    "database.telemetry",
+                    payload={"recent_limit": 5},
+                )
+                or {}
+            )
+        except Exception:
+            snapshot = {}
 
         current_counts: list[tuple[str, object]] = []
         tracked_tables = resolved_tables

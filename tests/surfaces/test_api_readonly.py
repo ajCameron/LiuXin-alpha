@@ -223,7 +223,6 @@ def test_api_readonly_cache_read_source_route_serves_snapshot(driver_spec, tmp_p
 
         status, _headers, payload = _json(app, "/api/works?sort=title&limit=10")
 
-        assert getattr(app.read_model.read_source, "allow_database_fallback") is False
         assert status == "200 OK"
         assert payload["pagination"]["total"] == 1
         titles = [str(item["title"]) for item in payload["items"]]

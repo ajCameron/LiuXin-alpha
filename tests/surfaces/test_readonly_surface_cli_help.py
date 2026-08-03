@@ -56,7 +56,10 @@ def test_readonly_python_wrapper_help_includes_cache_startup_examples() -> None:
         )
 
         assert completed.returncode == 0, completed.stderr
-        _assert_cache_startup_help(completed.stdout, command=script)
+        _assert_cache_startup_help(
+            completed.stdout,
+            command=script.replace(".sh", ".py"),
+        )
 
 
 def test_readonly_shell_wrapper_help_includes_cache_startup_examples() -> None:
@@ -81,4 +84,7 @@ def test_readonly_shell_wrapper_help_includes_cache_startup_examples() -> None:
         )
 
         assert completed.returncode == 0, completed.stderr
-        _assert_cache_startup_help(completed.stdout, command=script)
+        _assert_cache_startup_help(
+            completed.stdout,
+            command=script.replace(".sh", ".py"),
+        )

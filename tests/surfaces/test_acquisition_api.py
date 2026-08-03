@@ -29,6 +29,80 @@ class _FileRow:
     name: str = "dummy.epub"
 
 
+class _DummyCore:
+    def __init__(self, host: "_DummyHost") -> None:
+        self.host = host
+
+    def query(self, name: str, payload=None):
+        payload = dict(payload or {})
+        if name == "browse.work":
+            return {
+                "work": self.host.work_row
+                if int(payload["work_id"]) == 1
+                else None
+            }
+        if name == "acquisition.cover":
+            if self.host.image_row is None:
+                return {"covers": []}
+            resolution = self._image_resolution()
+            return {
+                "covers": [
+                    {
+                        "kind": "image",
+                        "id": self.host.image_row.image_id,
+                        "name": "cover.png",
+                        "mime_type": "image/png",
+                        "resolution": resolution,
+                    }
+                ]
+            }
+        if name == "acquisition.formats":
+            formats = []
+            for row in self.host.file_rows:
+                if row.file_id is None:
+                    continue
+                formats.append(
+                    {
+                        "kind": "legacy-file",
+                        "id": row.file_id,
+                        "name": row.name,
+                        "extension": Path(row.name).suffix.lstrip("."),
+                        "mime_type": "application/epub+zip",
+                        "resolution": {
+                            "delivery": "core",
+                            "readable": True,
+                        },
+                    }
+                )
+            return {"formats": formats}
+        if name == "acquisition.read":
+            if payload["kind"] == "image":
+                stored = self.host.stored_payload
+                if isinstance(stored, Exception):
+                    raise stored
+                return {
+                    "resource": self._image_resolution(),
+                    "content": b"file" if stored is None else stored,
+                }
+            return {
+                "resource": {"delivery": "core", "readable": True},
+                "content": b"download",
+            }
+        raise AssertionError("Unexpected Core query: {}".format(name))
+
+    def _image_resolution(self) -> dict[str, object]:
+        target = self.host.image_target
+        if target is not None and target.mode == "redirect":
+            return {
+                "delivery": "redirect",
+                "readable": False,
+                "location": target.location,
+            }
+        if self.host.stored_payload is not None or target is not None:
+            return {"delivery": "core", "readable": True}
+        return {"delivery": "unavailable", "readable": False}
+
+
 class _DummyHost:
     def __init__(self) -> None:
         self.work_row = _WorkRow()
@@ -42,6 +116,7 @@ class _DummyHost:
             download_name="cover.png",
         )
         self.placeholder_dimensions: list[tuple[int, int]] = []
+        self.core = _DummyCore(self)
 
     def acquisition_text_response(self, status: str, text: str, *, content_type: str) -> _Response:
         return _Response(status=status, headers=[("Content-Type", content_type)], body=[text.encode("utf-8")])
@@ -143,7 +218,7 @@ def test_acquisition_api_serves_format_download() -> None:
     api = AcquisitionCompatApi(_DummyHost())
     status, headers, body = _decode_response(api.serve_compat_get("epub", "1", {}, {}))
     assert status == "200 OK"
-    assert headers["X-File-Id"] == "7"
+    assert headers["X-Name"] == "dummy.epub"
     assert body == b"download"
 
 
@@ -248,7 +323,6 @@ def test_missing_stored_cover_uses_local_file_target() -> None:
     )
 
     assert status == "200 OK"
-    assert headers["X-Path"] == "/tmp/cover.png"
     assert headers["X-Name"] == "cover.png"
     assert headers["X-Disposition"] == "inline"
     assert body == b"file"
@@ -295,5 +369,5 @@ def test_format_matching_skips_rows_without_file_ids() -> None:
     )
 
     assert status == "200 OK"
-    assert headers["X-File-Id"] == "8"
+    assert headers["X-Name"] == "available.EPUB"
     assert body == b"download"

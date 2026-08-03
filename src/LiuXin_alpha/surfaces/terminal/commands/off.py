@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.surfaces.terminal.commands.on import (
     _parse_on_options_and_value_tokens,
@@ -51,8 +50,16 @@ def _unlink_one_value(
     rows = existing_links if isinstance(existing_links, list) else [existing_links]
     deleted_snapshots: list[dict[str, object]] = []
     for link_row in rows:
-        deleted_snapshots.append(dict(link_row.row_dict))
-        browser.db.delete(link_row)
+        snapshot = dict(link_row.row_dict)
+        snapshot["_table"] = str(link_row.table)
+        deleted_snapshots.append(snapshot)
+        browser.execute_core_command(
+            "admin.row.delete",
+            payload={
+                "table": str(link_row.table),
+                "row_id": int(link_row.row_id),
+            },
+        )
 
     browser.emit(
         "{} unlinked: {}={} -> {}:{} ({} row{})".format(
@@ -72,16 +79,17 @@ def _restore_deleted_link_snapshots(browser, snapshots: list[dict[str, object]])
     errors: list[str] = []
     for snapshot in reversed(snapshots):
         row_dict = dict(snapshot)
-        row_dict.pop("table", None)
-        try:
-            table = browser.db.driver_wrapper.identify_table_from_row_dict(row_dict)
-        except Exception as exc:
-            errors.append("restore failed: could not identify table ({})".format(exc))
+        table = str(row_dict.pop("_table", "") or "")
+        if not table:
+            errors.append("restore failed: missing link table")
             continue
         id_column = browser.db.driver_wrapper.get_id_column(table)
         row_dict.pop(id_column, None)
         try:
-            Row.from_idless_row_dict(browser.db, row_dict=row_dict, table=table)
+            browser.execute_core_command(
+                "admin.row.create",
+                payload={"table": table, "values": row_dict},
+            )
         except Exception as exc:
             errors.append("restore failed for table {} ({})".format(table, exc))
     return errors

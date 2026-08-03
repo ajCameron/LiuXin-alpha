@@ -23,6 +23,8 @@ def create_core(
     enable_storage_manager: bool = True,
     strict_storage_manager_bootstrap: bool = False,
     storage_startup_on_add: bool = False,
+    enable_maintenance: bool = True,
+    repair_bootstrap_rows: bool = True,
     catalog: Any | None = None,
     cache: Any | None = None,
     cache_type: str | None = None,
@@ -60,6 +62,8 @@ def create_core(
             enable_storage_manager=enable_storage_manager,
             strict_storage_manager_bootstrap=strict_storage_manager_bootstrap,
             storage_startup_on_add=storage_startup_on_add,
+            enable_maintenance=enable_maintenance,
+            repair_bootstrap_rows=repair_bootstrap_rows,
         )
     return CoreRuntime(
         library=library,

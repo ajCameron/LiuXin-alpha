@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Callable, Iterable, Optional, Protocol, TypeAlias
+
+from LiuXin_alpha.core import CoreClientAPI
 
 
 SurfaceCategoryItem: TypeAlias = dict[str, object]
@@ -27,7 +28,7 @@ class ResolvedFileTargetAPI(Protocol):
 
 class ImageHostApi(Protocol):
     @property
-    def db(self) -> object: ...
+    def core(self) -> CoreClientAPI: ...
 
     def _related_rows_by_table(self, row: object) -> dict[str, list[object]]: ...
 
@@ -40,7 +41,7 @@ class ImageHostApi(Protocol):
 
 class ReadModelHostApi(Protocol):
     @property
-    def db(self) -> object: ...
+    def core(self) -> CoreClientAPI: ...
 
     @property
     def config(self) -> object: ...
@@ -75,6 +76,9 @@ class CalibreCatalogHostApi(ReadModelHostApi, Protocol):
 
 
 class AcquisitionHostApi(Protocol):
+    @property
+    def core(self) -> CoreClientAPI: ...
+
     def acquisition_text_response(self, status: str, text: str, *, content_type: str) -> SurfaceResponseAPI: ...
 
     def acquisition_bytes_response(
@@ -88,41 +92,9 @@ class AcquisitionHostApi(Protocol):
 
     def acquisition_redirect_response(self, location: str) -> SurfaceResponseAPI: ...
 
-    def acquisition_file_response(
-        self,
-        path: Path,
-        *,
-        download_name: str,
-        environ: object,
-        disposition: str = "attachment",
-        content_type_override: Optional[str] = None,
-    ) -> SurfaceResponseAPI: ...
-
     def acquisition_split_book_token(self, raw_book_id: str) -> tuple[Optional[int], str]: ...
 
-    def acquisition_work_row(self, row_id: int) -> object: ...
-
-    def acquisition_work_image_row(self, work_row: object) -> object: ...
-
-    def acquisition_resolve_storage_image(self, image_row: object) -> object: ...
-
-    def acquisition_resolve_image_target(self, image_row: object) -> Optional[ResolvedFileTargetAPI]: ...
-
-    def acquisition_image_download_name(self, image_row: object) -> str: ...
-
-    def acquisition_image_content_type(self, image_row: object) -> str: ...
-
     def acquisition_placeholder_cover_svg(self, work_row: object, *, width: int, height: int) -> bytes: ...
-
-    def acquisition_related_rows_by_table(self, work_row: object) -> dict[str, list[object]]: ...
-
-    def acquisition_work_file_rows(self, related_rows_by_table: dict[str, list[object]]) -> list[object]: ...
-
-    def acquisition_download_name_for_file_row(self, file_row: object) -> str: ...
-
-    def acquisition_file_id(self, file_row: object) -> object: ...
-
-    def acquisition_serve_file_download(self, raw_file_id: str, environ: object) -> SurfaceResponseAPI: ...
 
 
 class OpdsHostApi(Protocol):

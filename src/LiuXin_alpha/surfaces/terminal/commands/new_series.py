@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.metadata.standardization import make_title_search_term, make_series_phash
 from LiuXin_alpha.metadata.utils import title_sort as generate_title_sort
@@ -141,11 +140,16 @@ class NewSeriesWizardCommand(TerminalCommandAPI):
         if "series_over_author" in columns:
             row_dict["series_over_author"] = int(bool(over_author))
 
-        series_row = Row.from_idless_row_dict(
-            browser.db,
-            row_dict=row_dict,
-            table="series",
+        result = browser.execute_core_command(
+            "catalog.entity.create",
+            payload={"repository": "series", "data": row_dict},
         )
+        series_row = browser.db.get_row_from_id(
+            "series",
+            int(result["entity_id"]),
+        )
+        if series_row is None:
+            raise RuntimeError("Core did not return the created series row.")
 
         if creator_row is not None:
             try:
@@ -153,7 +157,16 @@ class NewSeriesWizardCommand(TerminalCommandAPI):
             except Exception:
                 existing_link = None
             if existing_link is None:
-                browser.db.interlink_rows(primary_row=series_row, secondary_row=creator_row, priority=0)
+                browser.execute_core_command(
+                    "admin.relation.link",
+                    payload={
+                        "table": "series",
+                        "row_id": int(series_row.row_id),
+                        "related_table": str(creator_row.table),
+                        "related_row_id": int(creator_row.row_id),
+                        "priority": 0,
+                    },
+                )
 
         browser.emit(
             "Series created: series_id={} series={!r}".format(

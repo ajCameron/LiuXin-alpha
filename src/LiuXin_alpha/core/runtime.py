@@ -84,7 +84,10 @@ class CoreRuntime(CoreAPI):
         self._core_version = str(core_version)
         self._api_version = str(api_version)
         self._shutdown = False
-        owns_job_manager = job_manager is None
+        # ``default_job_manager()`` is process-global and may be shared by
+        # several direct Core sessions. A runtime must not shut it down merely
+        # because the caller omitted an explicit manager.
+        owns_job_manager = False
         self._job_manager: JobManagerAPI = (
             job_manager
             if job_manager is not None
@@ -1179,7 +1182,7 @@ class CoreRuntime(CoreAPI):
         label = str(payload.get("label", "")).strip() or str(payload.get("job_label", "")).strip() or None
 
         request = JobRequest(
-            module_name="LiuXin_alpha.surfaces.terminal.commands.sync",
+            module_name="LiuXin_alpha.core.workflow_jobs",
             function_name="run_sync_store_job",
             kwargs=sync_kwargs,
         )

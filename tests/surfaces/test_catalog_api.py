@@ -321,10 +321,10 @@ def test_catalog_backend_discovers_files_and_images_and_resolves_targets(driver_
         image_row = backend.work_image_row(work_row)
         assert image_row is not None
         target = backend.resolve_image_target(image_row)
-        assert target is not None
-        assert target.mode == "local"
-        assert target.download_name == "cover.png"
-        assert Path(str(target.location)) == image_path
+        assert target is None
+        stored = backend.resolve_storage_image(image_row)
+        assert stored is not None
+        assert stored.as_bytes() == image_path.read_bytes()
 
         metadata = backend.image_storage_lookup_metadata(image_row)
         assert metadata["file_store_id"] == store_id

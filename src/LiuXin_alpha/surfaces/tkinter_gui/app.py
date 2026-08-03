@@ -7,6 +7,8 @@ import argparse
 from pathlib import Path
 from typing import Optional, Sequence
 
+from LiuXin_alpha.surfaces.core import add_core_client_arguments
+
 from .backend import TkGuiBackend
 from .controller import TkGuiApplication, open_tk_modules
 from .session import TkGuiSession
@@ -16,7 +18,8 @@ from .state import TableSchema, TkGuiConfig, coerce_positive_int
 def run_tkinter_gui(config: TkGuiConfig) -> int:
     tk, _ttk, _filedialog, _messagebox = open_tk_modules()
     root = tk.Tk()
-    app = TkGuiApplication(root, config=config)
+    backend = TkGuiBackend.open_database(config)
+    app = TkGuiApplication(root, config=config, backend=backend)
     try:
         root.mainloop()
     finally:
@@ -26,7 +29,10 @@ def run_tkinter_gui(config: TkGuiConfig) -> int:
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the LiuXin Tkinter GUI.")
-    parser.add_argument("--database", required=True, help="Path to a LiuXin database.")
+    add_core_client_arguments(
+        parser,
+        database_help="Path to a LiuXin database.",
+    )
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite.")
     parser.add_argument("--title", default="LiuXin", help="Window title.")
     parser.add_argument("--page-size", type=int, default=100, help="Rows shown per page.")
@@ -66,7 +72,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def config_from_args(args: argparse.Namespace) -> TkGuiConfig:
     return TkGuiConfig(
-        database=Path(args.database).expanduser(),
+        database=(
+            None
+            if args.database is None
+            else Path(args.database).expanduser()
+        ),
+        core_endpoint=args.core_endpoint,
+        core_timeout=float(args.core_timeout),
         db_type=str(args.db_type),
         title=str(args.title),
         page_size=coerce_positive_int(args.page_size, default=100, maximum=1000),

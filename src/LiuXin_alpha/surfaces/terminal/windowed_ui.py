@@ -14,6 +14,7 @@ import time
 
 from collections import Counter, deque
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 from LiuXin_alpha.surfaces.terminal.job_view import fetch_terminal_job_view, read_terminal_job_log_view
@@ -34,8 +35,8 @@ class WindowedUiConfig:
 class _CursesUiDriver:
     """Low-level curses drawing/input helpers shared by windowed shell methods."""
 
-    def __init__(self, db, *, config: WindowedUiConfig, history_file: Optional[str | Path]) -> None:
-        self.db = db
+    def __init__(self, core, *, config: WindowedUiConfig, history_file: Optional[str | Path]) -> None:
+        self.core = core
         self.config = config
         self.history_file = Path(history_file).expanduser() if history_file else None
 
@@ -938,11 +939,16 @@ class _CursesUiDriver:
             return []
 
         browser = self.browser
-        db = getattr(browser, "db", None)
         snapshot: dict[str, object] = {}
-        if db is not None and hasattr(db, "get_write_telemetry_snapshot"):
+        if browser is not None:
             try:
-                snapshot = dict(db.get_write_telemetry_snapshot(recent_limit=max(2, max_lines)) or {})
+                snapshot = dict(
+                    browser.execute_core_query(
+                        "database.telemetry",
+                        payload={"recent_limit": max(2, max_lines)},
+                    )
+                    or {}
+                )
             except Exception as exc:
                 snapshot = {"recent_events": [], "snapshot_error": self._format_error("telemetry snapshot failed", exc)}
 
@@ -1201,7 +1207,7 @@ class _WindowedTextDatabaseBrowser(TextDatabaseBrowser):
 
 
 def run_windowed_browser(
-    db,
+    core,
     *,
     page_size: int = 20,
     history_file: Optional[str | Path] = None,
@@ -1209,14 +1215,14 @@ def run_windowed_browser(
 ) -> int:
     """Run the split-pane curses UI wrapper around `TextDatabaseBrowser`."""
     ui = _CursesUiDriver(
-        db,
+        core,
         config=config or WindowedUiConfig(),
         history_file=history_file,
     )
 
     def _runner() -> int:
         shell = _WindowedTextDatabaseBrowser(
-            db,
+            core,
             page_size=page_size,
             history_file=history_file,
             ui_driver=ui,

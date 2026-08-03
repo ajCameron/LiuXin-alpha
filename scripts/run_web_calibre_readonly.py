@@ -31,7 +31,10 @@ def main(argv: list[str] | None = None) -> int:
             "  scripts/run_web_calibre_readonly.py --database /path/to/library.sqlite --metadata-read-source cache --no-cache-db-fallback"
         ),
     )
-    parser.add_argument("--database", required=True, help="Database path to open")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--database", help="Database path to open")
+    source.add_argument("--core-endpoint", help="Existing LiuXin Core daemon endpoint")
+    parser.add_argument("--core-timeout", type=float, default=10.0)
     parser.add_argument("--db-type", default="sqlite", help="Database driver type (default: sqlite)")
     parser.add_argument(
         "--metadata-read-source",
@@ -74,8 +77,6 @@ def main(argv: list[str] | None = None) -> int:
         str(python_exe),
         "-m",
         "LiuXin_alpha.surfaces.web_calibre_readonly",
-        "--database",
-        str(args.database),
         "--db-type",
         str(args.db_type),
         "--host",
@@ -85,6 +86,17 @@ def main(argv: list[str] | None = None) -> int:
         "--title",
         str(args.title),
     ]
+    if args.core_endpoint:
+        cmd.extend(
+            [
+                "--core-endpoint",
+                str(args.core_endpoint),
+                "--core-timeout",
+                str(args.core_timeout),
+            ]
+        )
+    else:
+        cmd.extend(["--database", str(args.database)])
     if args.metadata_read_source != "database":
         cmd.extend(["--metadata-read-source", str(args.metadata_read_source)])
     if args.cache_type != "schema_backed":

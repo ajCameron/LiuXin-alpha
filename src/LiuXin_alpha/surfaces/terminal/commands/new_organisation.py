@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
-from LiuXin_alpha.utils.language_tools import best_effort_language_id
 
 
 def _clean_optional(value: str) -> Optional[str]:
@@ -148,12 +146,7 @@ class NewOrganisationWizardCommand(TerminalCommandAPI):
             note = "{}\n{}".format(note, relation_line) if note else relation_line
         language_ids = []
         if organisation_language is not None:
-            language_id = best_effort_language_id(
-                browser.db,
-                organisation_language,
-                default=None,
-                strict=False,
-            )
+            language_id = browser.resolve_language_id(organisation_language)
             if language_id is None:
                 raise ValueError("Organisation language could not be resolved.")
             language_ids.append(int(language_id))
@@ -163,15 +156,16 @@ class NewOrganisationWizardCommand(TerminalCommandAPI):
             else []
         )
 
-        catalog = Catalog(browser.db)
-        agent_id = catalog.agents.create_organisation(
-            {
+        result = browser.execute_core_command(
+            "catalog.agent.create-organisation",
+            payload={
+                "data": {
                 "name": organisation,
                 "sort_name": organisation_sort,
                 "aliases": organisation_aliases or (),
                 "note": note,
-            },
-            details={
+                },
+                "details": {
                 "org_agent_legal_name": organisation_legal_name,
                 "org_agent_trading_name": organisation_trading_name,
                 "org_agent_registration_id": organisation_registration_id,
@@ -181,15 +175,20 @@ class NewOrganisationWizardCommand(TerminalCommandAPI):
                 "org_agent_website": organisation_website,
                 "org_agent_contact_email": organisation_contact_email,
                 "org_agent_description": organisation_description,
+                },
+                "parent_id": parent_id,
+                "relation_type": organisation_relation_type,
+                "relation_note": organisation_relation_note,
+                "identifiers": identifiers,
+                "language_ids": language_ids,
+                "synopses": (
+                    [organisation_synopsis]
+                    if organisation_synopsis is not None
+                    else []
+                ),
             },
-            parent_id=parent_id,
-            relation_type=organisation_relation_type,
-            relation_note=organisation_relation_note,
-            identifiers=identifiers,
-            language_ids=language_ids,
-            synopses=[organisation_synopsis] if organisation_synopsis is not None else (),
         )
-        row = catalog.agents.require(agent_id)
+        row = dict(result["agent"])
 
         browser.emit(
             "Organisation created: agent_id={} canonical_name={!r}".format(

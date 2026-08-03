@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
-from LiuXin_alpha.library.library import Library
 
 
 def _safe_int(value: str) -> Optional[int]:
@@ -162,73 +161,41 @@ def _consume_target_tokens(args: list[str], *, usage: str) -> tuple[str, int, li
     return str(args[0]), row_id, list(args[2:])
 
 
-def _local_library(browser) -> Library:
-    return Library(database=browser.db, close_database_on_close=False)
-
-
 def _fetch_row(browser, *, table: str, row_id: int):
-    if hasattr(browser, "supports_core_queries") and bool(browser.supports_core_queries()):
-        return browser.execute_core_query(
-            "invoke",
-            payload={
-                "target": "library",
-                "method": "get_row",
-                "kwargs": {
-                    "table": table,
-                    "row_id": int(row_id),
-                },
-            },
-        )
-    return _local_library(browser).get_row(table=table, row_id=int(row_id))
+    result = browser.execute_core_query(
+        "rows.get",
+        payload={"table": table, "row_id": int(row_id)},
+    )
+    record = (result or {}).get("record")
+    if record is None:
+        return None
+    values = record.get("values", {}) if isinstance(record, dict) else {}
+    return dict(values) if isinstance(values, dict) else values
 
 
 def _update_row_fields(browser, *, table: str, row_id: int, updates: dict[str, object]):
-    if hasattr(browser, "supports_core_commands") and bool(browser.supports_core_commands()):
-        return browser.execute_core_command(
-            "invoke",
-            payload={
-                "target": "library",
-                "method": "update_row_fields",
-                "kwargs": {
-                    "table": table,
-                    "row_id": int(row_id),
-                    "updates": dict(updates),
-                },
-            },
-        )
-    return _local_library(browser).update_row_fields(table=table, row_id=int(row_id), updates=updates)
+    return browser.execute_core_command(
+        "admin.row.update",
+        payload={
+            "table": table,
+            "row_id": int(row_id),
+            "updates": dict(updates),
+        },
+    )
 
 
 def _delete_row(browser, *, table: str, row_id: int):
-    if hasattr(browser, "supports_core_commands") and bool(browser.supports_core_commands()):
-        return browser.execute_core_command(
-            "invoke",
-            payload={
-                "target": "library",
-                "method": "delete_row",
-                "kwargs": {
-                    "table": table,
-                    "row_id": int(row_id),
-                },
-            },
-        )
-    return _local_library(browser).delete_row(table=table, row_id=int(row_id))
+    return browser.execute_core_command(
+        "admin.row.delete",
+        payload={"table": table, "row_id": int(row_id)},
+    )
 
 
 def _describe_delete_impact(browser, *, table: str, row_id: int):
-    if hasattr(browser, "supports_core_queries") and bool(browser.supports_core_queries()):
-        return browser.execute_core_query(
-            "invoke",
-            payload={
-                "target": "library",
-                "method": "describe_row_delete_impact",
-                "kwargs": {
-                    "table": table,
-                    "row_id": int(row_id),
-                },
-            },
-        )
-    return _local_library(browser).describe_row_delete_impact(table=table, row_id=int(row_id))
+    return browser.execute_core_query(
+        "admin.row.delete-impact",
+        payload={"table": table, "row_id": int(row_id)},
+    )
 
 
 def _emit_delete_preview_samples(browser, *, table: str, count: int, sample_rows) -> None:

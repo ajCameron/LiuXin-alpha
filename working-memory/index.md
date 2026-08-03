@@ -6,12 +6,19 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [core-interface-consolidation-2026-07-28.md](core-interface-consolidation-2026-07-28.md)
+  Completes migration of maintained web, API, OPDS, acquisition, terminal, Tk,
+  SquashFS CLI, and runner automation to the transport-neutral Core client;
+  records the shared composition seam, boundary enforcement, direct/RPC
+  acceptance, and focused verification.
+
 - [core-program-api-audit-2026-07-28.md](core-program-api-audit-2026-07-28.md)
   Completes Core API 2.0 as the full application-facing union of LiuXin
   subsystem APIs: direct/RPC parity, machine-readable capabilities,
   semantic storage/assets, browse/acquisition, identity/tree, preferences,
   custom fields, metadata files/jobs, ingest/conversion, durable backup, and
-  maintenance with explicit dependency conditions.
+  maintenance with explicit dependency conditions. Its requested interface
+  consolidation phase is completed by the note above.
 
 - [core-api-completion-2026-07-25.md](core-api-completion-2026-07-25.md)
   Historical v1 foundation checkpoint, now superseded by the 2026-07-28
@@ -19,8 +26,8 @@ Start here for active handoff notes. This index should stay short.
   transport-neutral client contract, stable named domain/read/storage/admin
   operations, Core-owned Catalog/Cache/read-source composition, structured
   errors and wire DTOs, a repaired cache reconciliation defect, and green real
-  acceptance on both configured drivers. The next phase is interface
-  consolidation.
+  acceptance on both configured drivers. The interface-consolidation phase is
+  now complete.
 
 - [metadata-cache-read-source-coverage-2026-07-25.md](metadata-cache-read-source-coverage-2026-07-25.md)
   Raises the active metadata cache/read-source boundary to targeted 100%

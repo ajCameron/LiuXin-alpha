@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
-from LiuXin_alpha.caches.api import CacheQuery, CacheSort
-from LiuXin_alpha.metadata.read_sources import metadata_read_source_from
 from LiuXin_alpha.surfaces.api import ReadModelHostApi
+from LiuXin_alpha.surfaces.core import CoreRow, CoreSurfaceModel
 from LiuXin_alpha.surfaces.images import ImageBackend
-from LiuXin_alpha.surfaces.metadata_facets import preferred_tag_table
 from LiuXin_alpha.surfaces.web_readonly.app import _ResolvedFileTarget, _escape, _row_value
 
 
@@ -16,59 +14,53 @@ from LiuXin_alpha.surfaces.web_readonly.app import _ResolvedFileTarget, _escape,
 class ReadModelBackend:
     host: ReadModelHostApi
     images: Optional[ImageBackend] = None
-    read_source: Any | None = None
+    model: CoreSurfaceModel | None = None
 
     def __post_init__(self) -> None:
         if self.images is None:
             self.images = ImageBackend(self.host)
-        self.read_source = metadata_read_source_from(self.read_source or self.host.db)
+        if self.model is None:
+            self.model = CoreSurfaceModel(self.host.core)
+
+    @property
+    def read_source(self) -> CoreSurfaceModel:
+        """Compatibility name for the Core-backed surface model."""
+
+        assert self.model is not None
+        return self.model
 
     def refresh_read_source(self) -> bool:
-        refresh = getattr(self.read_source, "refresh", None)
-        if callable(refresh):
-            return bool(refresh())
-        reload_source = getattr(self.read_source, "reload", None)
-        if callable(reload_source):
-            reload_source()
-            return True
-        return False
+        return self.read_source.refresh()
 
     def _table_exists(self, table: str) -> bool:
         try:
-            table_names = {
-                str(name)
-                for name in self.read_source.get_tables(force_refresh=False)
-            }
-            return str(table) in table_names
+            return self.read_source.table_exists(str(table))
         except Exception:
             return self.host._table_exists(table)
 
     def _all_rows(self, table: str) -> list[object]:
         try:
-            return list(self.read_source.get_all_rows(table, iterator_return=False))
+            return list(self.read_source.rows(str(table)))
         except Exception:
-            try:
-                return list(self.host.db.get_all_rows(table, iterator_return=False))
-            except Exception:
-                return []
+            return []
 
     def _get_row_from_id(self, table: str, row_id: int) -> object | None:
         try:
-            return self.read_source.get_row_from_id(table, int(row_id))
+            return self.read_source.row(str(table), int(row_id))
         except Exception:
-            try:
-                return self.host.db.get_row_from_id(table, int(row_id))
-            except Exception:
-                return None
+            return None
 
     def _search_rows(self, table: str, column: str, value: object) -> list[object]:
         try:
-            return list(self.read_source.search(table, column, value))
+            return list(
+                self.read_source.search(
+                    str(table),
+                    str(column),
+                    value,
+                )
+            )
         except Exception:
-            try:
-                return list(self.host.db.search(table, column, value))
-            except Exception:
-                return []
+            return []
 
     def row_by_id(self, table: str, row_id: int) -> object | None:
         return self._get_row_from_id(table, row_id)
@@ -78,24 +70,12 @@ class ReadModelBackend:
 
     def table_record_count(self, table: str) -> int:
         try:
-            return int(self.read_source.get_record_count(table))
+            return self.read_source.record_count(str(table))
         except Exception:
-            try:
-                return int(self.host.db.get_record_count(table))
-            except Exception:
-                return 0
+            return 0
 
     def search_rows(self, table: str, column: str, value: object) -> list[object]:
         return self._search_rows(table, column, value)
-
-    def _cache_query(self, query: CacheQuery):
-        query_cache = getattr(self.read_source, "query_cache", None)
-        if not callable(query_cache):
-            return None
-        try:
-            return query_cache(query)
-        except Exception:
-            return None
 
     def _cache_sort_field(self, table: str) -> Optional[str]:
         preferred = getattr(self.host, "_preferred_summary_fields", None)
@@ -105,7 +85,7 @@ class ReadModelBackend:
             else ()
         )
         try:
-            columns = set(self.read_source.get_column_headings(table))
+            columns = set(self.read_source.columns(table))
         except Exception:
             columns = set()
         return next(
@@ -115,22 +95,30 @@ class ReadModelBackend:
 
     def _interlinked_rows(self, row, secondary_table: str) -> list[object]:
         try:
-            return list(
-                self.read_source.get_interlinked_rows(
-                    target_row=row,
-                    secondary_table=secondary_table,
-                )
-            )
-        except Exception:
-            try:
-                return list(
-                    self.host.db.get_interlinked_rows(
-                        target_row=row,
-                        secondary_table=secondary_table,
-                    )
-                )
-            except Exception:
+            core_row = self._as_core_row(row)
+            if core_row is None:
                 return []
+            records, _links = self.read_source.related(
+                core_row,
+                str(secondary_table),
+            )
+            return list(records)
+        except Exception:
+            return []
+
+    def _as_core_row(self, row: object) -> CoreRow | None:
+        if isinstance(row, CoreRow):
+            return row
+        table = str(getattr(row, "table", "") or "")
+        raw_id = getattr(row, "row_id", None)
+        if table and raw_id not in (None, ""):
+            return self.read_source.row(table, int(raw_id))
+        if isinstance(row, Mapping):
+            for candidate in self.read_source.table_names():
+                id_column = self.read_source.id_column(candidate)
+                if id_column in row and row[id_column] not in (None, ""):
+                    return self.read_source.row(candidate, int(row[id_column]))
+        return None
 
     def interlinked_rows(self, row, secondary_table: str) -> list[object]:
         return self._interlinked_rows(row, secondary_table)
@@ -151,89 +139,65 @@ class ReadModelBackend:
 
     def _work_credit_entries(self, row) -> list[dict[str, object]]:
         entries: list[dict[str, object]] = []
-        if str(getattr(row, "table", "") or "") != "works":
+        core_row = self._as_core_row(row)
+        if core_row is None or core_row.table != "works" or core_row.row_id is None:
             return entries
 
         pretty_role = getattr(self.host, "_pretty_credit_role", None)
-        for linked_table in ("agents", "human_agents", "org_agents"):
-            try:
-                link_table = self.read_source.driver_wrapper.get_link_table_name(
-                    "works",
-                    linked_table,
-                )
-            except Exception:
-                link_table = None
-            if not link_table:
+        result = self.host.core.query(
+            "catalog.agents.list",
+            {"level": "work", "entity_id": core_row.row_id},
+        )
+        raw_agents = (
+            result.get("agents", ())
+            if isinstance(result, Mapping)
+            else ()
+        )
+        for position, raw_agent in enumerate(raw_agents):
+            if not isinstance(raw_agent, Mapping):
                 continue
-            try:
-                link_rows = list(
-                    self.read_source.get_interlink_rows(
-                        primary_row=row,
-                        secondary_table=linked_table,
-                    )
-                )
-            except Exception:
+            values = dict(raw_agent)
+            raw_link = values.pop("_catalog_link", {})
+            link = dict(raw_link) if isinstance(raw_link, Mapping) else {}
+            linked_table = next(
+                (
+                    table
+                    for table in ("agents", "human_agents", "org_agents")
+                    if self.read_source.table_exists(table)
+                    and self.read_source.id_column(table) in values
+                ),
+                "agents",
+            )
+            if not self.read_source.table_exists(linked_table):
                 continue
-            if not link_rows:
-                continue
-
+            row_id = values.get(self.read_source.id_column(linked_table))
+            linked_row = CoreRow(
+                table=linked_table,
+                row_id=None if row_id is None else int(row_id),
+                values=values,
+                linkable_tables=self.read_source.related_tables(linked_table),
+            )
+            role_raw = link.get("type")
+            priority_value = link.get("priority")
             try:
-                secondary_id_column = self.read_source.driver_wrapper.get_id_column(
-                    linked_table,
-                )
-                secondary_link_column = self.read_source.driver_wrapper.get_link_column(
-                    "works",
-                    linked_table,
-                    secondary_id_column,
-                )
+                priority_sort = -int(priority_value)
             except Exception:
-                continue
-
-            try:
-                type_column = self.read_source.driver_wrapper.get_link_column(
-                    "works",
-                    linked_table,
-                    "type",
-                )
-            except Exception:
-                type_column = None
-            try:
-                priority_column = self.read_source.driver_wrapper.get_link_column(
-                    "works",
-                    linked_table,
-                    "priority",
-                )
-            except Exception:
-                priority_column = None
-
-            for position, link_row in enumerate(link_rows):
-                linked_row_id = _row_value(link_row, secondary_link_column)
-                if linked_row_id in (None, ""):
-                    continue
-                linked_row = self._get_row_from_id(linked_table, int(linked_row_id))
-                if linked_row is None:
-                    continue
-                role_raw = _row_value(link_row, type_column) if type_column else None
-                priority_value = _row_value(link_row, priority_column) if priority_column else None
-                try:
-                    priority_sort = -int(priority_value)
-                except Exception:
-                    priority_sort = position
-                role = (
-                    pretty_role(role_raw)
-                    if callable(pretty_role)
-                    else str(role_raw or "Contributors")
-                )
-                entries.append(
-                    {
-                        "table": linked_table,
-                        "row": linked_row,
-                        "role": role,
-                        "role_raw": role_raw,
-                        "priority": priority_value,
-                        "sort_key": (str(role), priority_sort, position),
-                    }
-                )
+                priority_sort = position
+            role = (
+                pretty_role(role_raw)
+                if callable(pretty_role)
+                else str(role_raw or "Contributors")
+            )
+            entries.append(
+                {
+                    "table": linked_table,
+                    "row": linked_row,
+                    "role": role,
+                    "role_raw": role_raw,
+                    "priority": priority_value,
+                    "sort_key": (str(role), priority_sort, position),
+                }
+            )
 
         return sorted(entries, key=lambda item: item["sort_key"])
 
@@ -261,7 +225,13 @@ class ReadModelBackend:
         return tables or ["agents"]
 
     def tag_category_table(self) -> Optional[str]:
-        return preferred_tag_table(self.read_source, prefer_populated_tags=True)
+        available = set(self.read_source.table_names())
+        if "tags" in available:
+            if self.table_record_count("tags") > 0 or "labels" not in available:
+                return "tags"
+        if "labels" in available:
+            return "labels"
+        return "tags" if "tags" in available else None
 
     def work_tag_rows(self, related_rows_by_table: dict[str, list[object]]) -> tuple[Optional[str], list[object]]:
         tag_table = self.tag_category_table()
@@ -279,17 +249,18 @@ class ReadModelBackend:
             else self._cache_sort_field("works")
         )
         if sort_field is not None:
-            result = self._cache_query(
-                CacheQuery(
-                    table="works",
+            try:
+                result = self.read_source.query_rows(
+                    "works",
                     sort=(
-                        CacheSort(
-                            sort_field,
-                            ascending=sorted_by != "recent",
-                        ),
+                        {
+                            "field": sort_field,
+                            "ascending": sorted_by != "recent",
+                        },
                     ),
                 )
-            )
+            except Exception:
+                result = None
             if result is not None and result.complete:
                 return list(result.records)
         rows = self._all_rows("works")
@@ -315,19 +286,20 @@ class ReadModelBackend:
             else self._cache_sort_field("works")
         )
         if sort_field is not None:
-            result = self._cache_query(
-                CacheQuery(
-                    table="works",
+            try:
+                result = self.read_source.query_rows(
+                    "works",
                     sort=(
-                        CacheSort(
-                            sort_field,
-                            ascending=sorted_by != "recent",
-                        ),
+                        {
+                            "field": sort_field,
+                            "ascending": sorted_by != "recent",
+                        },
                     ),
                     offset=max(0, int(offset)),
                     limit=max(0, int(limit)),
                 )
-            )
+            except Exception:
+                result = None
             if result is not None and result.complete:
                 return list(result.records), int(result.total_count)
         rows = self.work_rows(sorted_by=sorted_by)
@@ -753,16 +725,17 @@ class ReadModelBackend:
                 if callable(search_columns_getter)
                 else ()
             )
-            cached = self._cache_query(
-                CacheQuery(
-                    table=str(table),
+            try:
+                queried = self.read_source.query_rows(
+                    str(table),
                     text=needle,
                     text_fields=text_fields,
                 )
-            )
+            except Exception:
+                queried = None
             candidate_rows = (
-                list(cached.records)
-                if cached is not None and cached.complete
+                list(queried.records)
+                if queried is not None and queried.complete
                 else self._all_rows(str(table))
             )
             for row in candidate_rows:
