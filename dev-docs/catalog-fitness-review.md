@@ -2,6 +2,9 @@
 
 Status: implementation complete and verified, 2026-07-22.
 
+Practical facade/repository examples and matching semantics are documented in
+the [Catalog API usage guide](catalog-api-usage.md).
+
 ## Review-time verdict
 
 The catalog package is not yet fit for its complete declared purpose as the
@@ -236,7 +239,7 @@ abstract hooks on `BaseCatalogWriter`, `CatalogValueWriter`, and
 | Schema-accurate WEMI traversal | Pass | Work/Expression and Expression/Manifestation use discovered many-to-many links; Manifestation/Item uses `item_manifestation_id`. Both directions are covered. |
 | Real title and identifier storage | Pass | Titles update their owning WEMI columns rather than the read-only `titles` view. Identifiers use entity-owned rows in `entity_identifiers`. |
 | Deterministic matching | Pass | Work, Agent, curated and raw Item Identifier, WEMI, and exact-default value-entity matchers expose stable explained decisions. Tags, Labels, Genres, Subjects, Series, Languages, Ratings, Comments, Synopses, Notes, and Annotations default to exact matching; approximate value policy is explicit opt-in. |
-| Coherent retrieval | Pass | Bundles select a deterministic WEMI path and aggregate deduplicated Agents, identifiers, titles, notes, and relationship metadata. Projections remain display-neutral. |
+| Coherent retrieval | Pass | Bundles select a deterministic WEMI path, hierarchy retrieval exposes generic immediate adjacency, and bounded Work graphs retain every selected descendant edge while reporting truncated levels. Projections remain display-neutral. |
 | Mutation validation | Pass | Policy and repository validation reject invalid levels, IDs, self-merges, absent rows, malformed attachment groups, unknown columns, and invalid relationship roles before persistence escapes the transaction. |
 | Atomic attachment and merge | Pass | Both enter one portable outer transaction. Merge transfers WEMI relationships, Agents, notes, identifiers, and Manifestation-owned Items before deleting the source. Target relationship metadata wins when an identity already exists. |
 | Atomic shared-value writing | Pass | Build is pure. Destination lookup/creation, combined cardinality validation, and link replacement occur inside one transaction; deletion remains find-only. |
@@ -260,6 +263,12 @@ selects the first. Relationship rows remain available through `_catalog_link`
 metadata and the bundle's `links` collection so consumers can make a richer
 selection later without changing persistence semantics.
 
+Callers which need breadth use `retrieval.hierarchy` for one adjacent step or
+`retrieval.graph.for_work` for a bounded full-descendant graph. Graph limits
+apply independently to Expressions, Manifestations, and Items; the returned
+`truncated_levels` makes partial results explicit. Both read models are plain,
+transport-safe values exposed through the Core direct/RPC boundary.
+
 Ordered relationship creation assigns the next available source-side priority
 when callers omit one. During a merge, an already-existing target relationship
 is authoritative for type, priority, and extras; this avoids inventing a new
@@ -279,13 +288,18 @@ result.
 
 ### Verification evidence
 
-- `python3 -m pytest -q tests/catalog`: latest full catalog run, 391 passed in
-  825.07 seconds, including the extended entity-matching policy.
+- `python3 -m pytest -q tests/catalog`: latest full catalog run, 584 passed in
+  190.34 seconds across the configured database drivers, including the
+  convenience API and Core-ready graph values.
+- `python3 -m pytest -q tests/core`: 71 passed in 100.01 seconds, including
+  direct/HTTP parity for WEMI linking, graph/hierarchy retrieval, metadata
+  replacement, identifier projection, and Annotation listing.
 - `python3 -m pytest -q tests/catalog/test_additional_entity_matching.py tests/catalog/test_matching_policy.py tests/catalog/test_semantic_catalog.py tests/catalog/test_catalog_imports.py`: 84 passed in 127.42 seconds.
 - `python3 -m pytest -q tests/catalog/test_semantic_catalog.py tests/catalog/test_field_metadata_and_search.py`: 16 passed in 89.39 seconds on the final semantic implementation.
 - `python3 -m pytest -q tests/databases/api/test_portable_macros.py tests/databases/api/test_macros_api_signature_parity.py`: 23 passed and one PostgreSQL-shaped SQLite limitation skipped in 9.41 seconds.
 - `python3 -m pytest -q tests/databases/api/test_portable_macros_real_db.py`: 8 passed in 30.91 seconds across SQLite and APSW.
-- Focused strict mypy with imported legacy modules skipped: no issues in 63 catalog source files.
+- Focused strict mypy with imported legacy modules skipped: no issues in 81
+  Catalog source files.
 - Catalog compilation, runtime protocol checks, the no-executable-SQL AST guard, and `git diff --check` pass.
 
 ## Notes after implementation

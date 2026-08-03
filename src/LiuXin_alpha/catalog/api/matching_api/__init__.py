@@ -1,5 +1,16 @@
-"""
-Matching API contracts for catalog entities.
+"""Read-only identity-decision contracts for Catalog entities.
+
+Matching never writes. Each matcher returns :class:`MatchResult`, preserving
+the difference between no match, ambiguity, and conflict::
+
+    decision = catalog.matching.works.best(candidate)
+    if decision.is_match:
+        use(decision.entity_id)
+    elif decision.requires_resolution:
+        ask_user(decision.alternatives, decision.evidence)
+
+Repository ``match_or_create`` methods build on these decisions and create only
+for a genuine no-match.
 """
 
 # Todo: Worth thinking about where file and storage related db ops should live...
@@ -21,8 +32,15 @@ from LiuXin_alpha.catalog.api.matching_api.work_matcher import WorkMatcherAPI
 
 @runtime_checkable
 class CatalogMatchingAPI(Protocol):
-    """
-    Grouped matching API exposed by the catalog facade.
+    """Grouped, mutation-free matching API exposed by Catalog.
+
+    Works, Agents, curated Identifiers, and observed Item identifiers have
+    specialized matchers. Reusable value entities share exact-default matchers.
+
+    Example::
+
+        decision = catalog.matching.works.best(candidate)
+        exact_tag = catalog.matching.tags.exact("gothic")
     """
 
     works: WorkMatcherAPI
@@ -44,8 +62,14 @@ class CatalogMatchingAPI(Protocol):
     def for_entity(self, entity_name: str) -> ExactEntityMatcherAPI:
         """Return an exact-default matcher by entity or table name.
 
-        :param entity_name: Singular or plural entity name.
+        :param entity_name: Singular/plural public entity name or table name,
+            for example ``"tag"`` or ``"languages"``.
         :return: Configured exact-default matcher.
+        :raises KeyError: If no exact-default matcher is registered.
+
+        Example::
+
+            result = catalog.matching.for_entity("tags").exact("gothic")
         """
 
         ...

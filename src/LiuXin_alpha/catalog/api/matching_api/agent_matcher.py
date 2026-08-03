@@ -10,14 +10,18 @@ from ..common import MetadataCandidate, MatchResult
 
 @runtime_checkable
 class AgentMatcherAPI(Protocol):
-    """Match incoming metadata candidates to Agents without mutation."""
+    """Match Agent names/aliases without mutating the Catalog.
+
+    Exact canonical-name or alias evidence is preferred. Approximate matching
+    is used only when enabled by the configured policy.
+    """
 
     def candidates(self, candidate: MetadataCandidate, *, limit: int = 20) -> Sequence[MatchResult]:
         """Return exact policy-qualified Agent candidates.
 
         :param candidate: Candidate Agent metadata and structured hints.
         :param limit: Maximum candidates to return.
-        :return: Qualified candidates ordered by evidence and confidence.
+        :return: Qualified Agent decisions ordered deterministically.
         """
 
         ...
@@ -35,7 +39,11 @@ class AgentMatcherAPI(Protocol):
         """Apply the final policy to an Agent name string.
 
         :param candidate_str: Agent name to normalize and match.
-        :return: Exact match, no-match, or ambiguity result.
+        :return: Exact normalized-name match, no-match, or ambiguity result.
+
+        Example::
+
+            result = catalog.matching.agents.exact("Mary Shelley")
         """
 
         ...

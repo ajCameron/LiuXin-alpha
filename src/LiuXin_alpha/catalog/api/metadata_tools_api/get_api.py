@@ -18,7 +18,18 @@ SeriesGetterResult: TypeAlias = (
 
 @runtime_checkable
 class BackendGetterAPI(Protocol):
-    """Convenience metadata read helpers for linked resource rows."""
+    """Read linked metadata from a database resource ``RowAPI``.
+
+    ``all=False`` returns one preferred/first result; ``all=True`` returns a
+    list. ``rows=True`` returns database rows, while ``rows=False`` projects
+    scalar values where the helper supports them.
+
+    Example::
+
+        comment_rows = getter.comment(work_row, all=True)
+        comment_text = getter.comment(work_row, all=True, rows=False)
+        series_links = getter.series(work_row, all=True)
+    """
 
     db: DatabaseAPI
 
@@ -44,7 +55,11 @@ class BackendGetterAPI(Protocol):
         all: bool = False,
         rows: bool = True,
     ) -> RowAPI | list[RowAPI] | list[str] | None:
-        """Return comment rows or comment values linked to a resource."""
+        """Return linked Comments according to ``all``/``rows`` mode.
+
+        With ``all=False, rows=False`` the legacy helper returns ``None`` rather
+        than a single scalar; request ``all=True`` for comment text values.
+        """
         ...
 
     @overload
@@ -89,7 +104,28 @@ class BackendGetterAPI(Protocol):
         all: bool = False,
         rows: bool = True,
     ) -> SeriesGetterResult:
-        """Return series links and series rows or values for a resource."""
+        """Return linked Series together with their series-position metadata.
+
+        ``all=False`` selects the preferred first link; ``all=True`` returns
+        every linked Series. With ``rows=True``, each result pairs the Series
+        row with its link/index row. With ``rows=False``, it projects legacy
+        scalar values instead. The single scalar form retains its link row as
+        the second tuple member for compatibility.
+
+        :param resource_row: Database row whose linked Series are requested.
+        :param all: Return all links instead of the preferred first link.
+        :param rows: Return database rows rather than projected values.
+        :return: One pair, a list of pairs, or ``None`` according to the mode.
+
+        Example::
+
+            first_series, index_link = getter.series(work_row)
+            series_values = getter.series(
+                work_row,
+                all=True,
+                rows=False,
+            )
+        """
         ...
 
     @overload
@@ -114,7 +150,28 @@ class BackendGetterAPI(Protocol):
         all: bool = False,
         rows: bool = True,
     ) -> RowAPI | list[RowAPI] | list[str] | None:
-        """Return synopsis rows or synopsis values linked to a resource."""
+        """Return linked Synopsis rows or projected text.
+
+        ``all=False`` returns the preferred first row (or ``None``);
+        ``all=True`` returns a list. Text projection is only available in the
+        all-results form: the legacy ``all=False, rows=False`` combination
+        returns ``None``.
+
+        :param resource_row: Database row whose linked Synopses are requested.
+        :param all: Return all linked Synopses instead of the preferred first.
+        :param rows: Return database rows; with ``all=True``, ``False`` returns
+            Synopsis strings.
+        :return: A row, list of rows, list of strings, or ``None`` by mode.
+
+        Example::
+
+            synopsis_rows = getter.synopsis(work_row, all=True)
+            synopsis_texts = getter.synopsis(
+                work_row,
+                all=True,
+                rows=False,
+            )
+        """
         ...
 
 

@@ -11,7 +11,12 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class IdentifierMatcherAPI(Protocol):
-    """Match identifiers after scheme-specific normalization."""
+    """Match curated identifiers after scheme-specific normalization.
+
+    An Identifier can be copied into several owner-scoped rows. Consequently
+    ``candidates`` may return multiple storage rows for the same logical
+    scheme/value, while ``best`` selects the first stable row.
+    """
 
     def candidates(
         self,
@@ -23,7 +28,7 @@ class IdentifierMatcherAPI(Protocol):
 
         :param candidate: Identifier to normalize and compare.
         :param limit: Maximum stored rows to return.
-        :return: Exact identifier rows ordered by storage ID.
+        :return: Explained exact matches ordered by storage ID.
         """
 
         ...
@@ -32,7 +37,7 @@ class IdentifierMatcherAPI(Protocol):
         """Return the first stored copy of an exact logical identifier.
 
         :param candidate: Identifier to normalize and compare.
-        :return: Explained exact match or no-match result.
+        :return: First stable exact row or a no-match result.
         """
 
         ...
@@ -41,8 +46,15 @@ class IdentifierMatcherAPI(Protocol):
         """Return the exact decision for an identifier value and scheme.
 
         :param candidate_str: Identifier value to match.
-        :param id_type: Identifier scheme.
+        :param id_type: Identifier scheme or supported alias.
         :return: Explained exact match or no-match result.
+
+        Example::
+
+            result = catalog.matching.identifiers.exact(
+                "978-0-14-143947-1",
+                "isbn13",
+            )
         """
 
         ...

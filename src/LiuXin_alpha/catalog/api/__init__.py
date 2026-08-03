@@ -1,4 +1,24 @@
-"""Public API contracts for the catalog layer."""
+"""Public contracts and value objects for LiuXin's Catalog layer.
+
+Import the concrete facade from :mod:`LiuXin_alpha.catalog`; import candidates,
+results, errors, and protocols from here::
+
+    from LiuXin_alpha.catalog import Catalog
+    from LiuXin_alpha.catalog.api import (
+        CatalogAPI,
+        IdentifierCandidate,
+        MetadataCandidate,
+    )
+
+    catalog: CatalogAPI = Catalog(db)
+    work_id = catalog.works.match_or_create(
+        MetadataCandidate({"title": "Frankenstein"})
+    )
+
+The semantic entry points are repositories, matching, retrieval, and mutations.
+Field-metadata and ``add``/``ensure``/``apply`` protocols describe maintained
+compatibility surfaces used by older Row-oriented workflows.
+"""
 
 from .catalog import CatalogAPI
 from .common import (
@@ -8,6 +28,7 @@ from .common import (
     CatalogMatchError,
     CatalogMutationError,
     CatalogNotFoundError,
+    CreatedWemiStack,
     EntityId,
     IdentifierCandidate,
     MatchDecision,
@@ -17,7 +38,10 @@ from .common import (
     MetadataCandidate,
     RowInput,
     RowMapping,
+    WemiAdjacency,
     WemiBundle,
+    WemiDirection,
+    WemiGraph,
     WemiLevel,
 )
 from .field_metadata_api import (
@@ -62,6 +86,7 @@ __all__ = [
     "CatalogMutationError",
     "CatalogMutationsAPI",
     "CatalogNotFoundError",
+    "CreatedWemiStack",
     "EnsureAPI",
     "EntityId",
     "FieldMetadataAPI",
@@ -88,6 +113,9 @@ __all__ = [
     "RowInput",
     "RowMapping",
     "SerializedFieldMetadataState",
+    "WemiAdjacency",
     "WemiBundle",
+    "WemiDirection",
+    "WemiGraph",
     "WemiLevel",
 ]

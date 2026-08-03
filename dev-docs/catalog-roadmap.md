@@ -1,6 +1,6 @@
 # Catalog roadmap
 
-Status: active, 2026-07-24.
+Status: active, 2026-07-30.
 
 Catalog is fit for its core semantic-persistence purpose. The remaining work is
 an ordered hardening and consolidation programme rather than completion of an
@@ -38,9 +38,12 @@ unfinished facade.
 5. **Database startup and test performance.** Profile full FRBR generation,
    aggregate-view construction, and schema introspection. Retain correctness
    while making catalog development and example startup predictable.
-6. **Graph retrieval policy.** Keep deterministic WEMI-path bundles as the
-   default, then decide whether catalog needs an explicit full-graph query or
-   caller-supplied path selection policy.
+6. **Graph retrieval policy — complete, 2026-07-30.** Deterministic WEMI-path
+   bundles remain the default coherent-slice read. Callers which need breadth
+   now use explicit immediate hierarchy traversal or a bounded full-descendant
+   Work graph. Graph results preserve every selected structural edge and report
+   exactly which levels were truncated by caller limits; the same contract is
+   exposed through Core direct and RPC clients.
 7. **Repository-wide static boundary.** Preserve catalog's isolated strict
    type-clean surface while reducing the legacy import graph that prevents the
    configured whole-project checks from being meaningful gates.

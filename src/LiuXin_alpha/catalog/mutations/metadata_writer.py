@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from contextlib import nullcontext
-from dataclasses import dataclass
 from typing import Any, cast
 
 from LiuXin_alpha.databases.macro_types import LinkValue
 
 from ..api.common import (
     CatalogMutationError,
+    CreatedWemiStack,
     DatabaseHandle,
     EntityId,
     IdentifierCandidate,
@@ -21,16 +21,6 @@ from ..api.common import (
 )
 from ..repositories.base import WEMI_TABLES
 from .mutation_policy import MutationPolicy
-
-
-@dataclass(frozen=True, slots=True)
-class CreatedWemiStack:
-    """IDs created by one coordinated WEMI-stack mutation."""
-
-    work_id: EntityId
-    expression_id: EntityId
-    manifestation_id: EntityId
-    item_ids: tuple[EntityId, ...] = ()
 
 
 class MetadataWriter:
@@ -216,6 +206,198 @@ class MetadataWriter:
             result[origin_column] = origin
         return result
 
+    @staticmethod
+    def _validate_wemi_edge(
+        parent_level: WemiLevel,
+        child_level: WemiLevel,
+    ) -> tuple[str, str]:
+        pairs = {
+            ("work", "expression"): ("works", "expressions"),
+            ("expression", "manifestation"): (
+                "expressions",
+                "manifestations",
+            ),
+            ("manifestation", "item"): ("manifestations", "items"),
+        }
+        try:
+            return pairs[(parent_level, child_level)]
+        except KeyError as error:
+            raise CatalogMutationError(
+                "WEMI relationships must join adjacent parent/child levels"
+            ) from error
+
+    def link_wemi(
+        self,
+        *,
+        parent_level: WemiLevel,
+        parent_id: EntityId,
+        child_level: WemiLevel,
+        child_id: EntityId,
+        primary: bool | None = None,
+        priority: int | None = None,
+        origin: str | None = None,
+    ) -> Mapping[str, object]:
+        """Atomically link two existing adjacent WEMI entities."""
+
+        parent_table, child_table = self._validate_wemi_edge(
+            parent_level,
+            child_level,
+        )
+        if primary is not None and not isinstance(primary, bool):
+            raise TypeError("primary must be a boolean or None")
+        if priority is not None and (
+            not isinstance(priority, int) or isinstance(priority, bool)
+        ):
+            raise TypeError("priority must be an integer or None")
+        if origin is not None and not isinstance(origin, str):
+            raise TypeError("origin must be a string or None")
+        repository = self.repositories.works
+        with self.db.macros.transaction():
+            repository._require_table_row(parent_table, parent_id)
+            repository._require_table_row(child_table, child_id)
+            if child_level == "item":
+                if primary is False:
+                    raise CatalogMutationError(
+                        "an Item's sole Manifestation relationship is primary"
+                    )
+                if priority is not None or origin is not None:
+                    raise CatalogMutationError(
+                        "Manifestation-to-Item ownership has no link metadata"
+                    )
+                self.repositories.items.update(
+                    child_id,
+                    {"item_manifestation_id": parent_id},
+                )
+                return {
+                    "parent_level": parent_level,
+                    "parent_id": parent_id,
+                    "child_level": child_level,
+                    "child_id": child_id,
+                    "link": {"storage": "foreign_key", "primary": True},
+                }
+
+            spec = repository._link_spec(parent_table, child_table)
+            rows = self.db.macros.get_link_rows(spec, parent_id)
+            writable = {
+                column.name
+                for column in spec.extra_link_columns
+                if not column.is_primary_key
+            }
+            primary_column = next(
+                (name for name in writable if name.endswith("_primary")),
+                None,
+            )
+            if primary_column is None:
+                raise CatalogMutationError(
+                    f"{parent_table}-to-{child_table} link has no primary marker"
+                )
+            existing = next(
+                (row for row in rows if row.secondary_id == child_id),
+                None,
+            )
+            if primary is None:
+                if existing is not None and primary_column in existing.extra:
+                    primary = bool(existing.extra[primary_column])
+                else:
+                    primary = not any(
+                        bool(row.extra.get(primary_column)) for row in rows
+                    )
+            if primary:
+                for row in rows:
+                    if row.secondary_id == child_id:
+                        continue
+                    if row.extra.get(primary_column):
+                        self.db.macros.upsert_link(
+                            spec,
+                            parent_id,
+                            LinkValue(
+                                row.secondary_id,
+                                link_type=row.link_type,
+                                priority=row.priority,
+                                extra={primary_column: 0},
+                            ),
+                        )
+            link = repository._link(
+                parent_table,
+                parent_id,
+                child_table,
+                child_id,
+                priority=priority,
+                extra=self._wemi_link_extra(
+                    parent_table,
+                    child_table,
+                    primary=primary,
+                    origin=origin,
+                ),
+            )
+            return {
+                "parent_level": parent_level,
+                "parent_id": parent_id,
+                "child_level": child_level,
+                "child_id": child_id,
+                "link": repository._link_metadata(link),
+            }
+
+    def unlink_wemi(
+        self,
+        *,
+        parent_level: WemiLevel,
+        parent_id: EntityId,
+        child_level: WemiLevel,
+        child_id: EntityId,
+    ) -> bool:
+        """Atomically unlink two adjacent WEMI entities when related."""
+
+        parent_table, child_table = self._validate_wemi_edge(
+            parent_level,
+            child_level,
+        )
+        repository = self.repositories.works
+        with self.db.macros.transaction():
+            repository._require_table_row(parent_table, parent_id)
+            repository._require_table_row(child_table, child_id)
+            if child_level == "item":
+                item = self.repositories.items.require(child_id)
+                if item.get("item_manifestation_id") != parent_id:
+                    return False
+                self.repositories.items.update(
+                    child_id,
+                    {"item_manifestation_id": None},
+                )
+                return True
+
+            spec = repository._link_spec(parent_table, child_table)
+            rows = self.db.macros.get_link_rows(spec, parent_id)
+            if not any(row.secondary_id == child_id for row in rows):
+                return False
+            writable = {
+                column.name
+                for column in spec.extra_link_columns
+                if not column.is_primary_key
+            }
+            try:
+                writable.discard(
+                    repository._wrapper.get_id_column(spec.link_table)
+                )
+            except Exception:
+                pass
+            desired = [
+                LinkValue(
+                    row.secondary_id,
+                    link_type=row.link_type,
+                    priority=row.priority,
+                    extra={
+                        key: value
+                        for key, value in row.extra.items()
+                        if key in writable
+                    },
+                )
+                for row in rows
+                if row.secondary_id != child_id
+            ]
+            self.db.macros.replace_links(spec, parent_id, desired)
+            return True
+
     def attach_metadata(self, *, level: WemiLevel, entity_id: EntityId, data: RowInput) -> None:
         """Attach direct fields, titles, Agents, identifiers, and notes.
 
@@ -352,6 +534,190 @@ class MetadataWriter:
                 entity_id=entity_id,
                 data=note_data,
             )
+
+    def replace_metadata(
+        self,
+        *,
+        level: WemiLevel,
+        entity_id: EntityId,
+        data: RowInput,
+    ) -> None:
+        """Atomically replace each explicitly supplied semantic metadata group."""
+
+        if not self.policy.can_update(
+            level=level,
+            entity_id=entity_id,
+            data=data,
+        ):
+            raise CatalogMutationError(
+                f"metadata replacement rejected for {level}:{entity_id}"
+            )
+        payload = dict(data)
+        reserved = {
+            "fields",
+            "title",
+            "titles",
+            "agents",
+            "identifiers",
+            "notes",
+            "comments",
+            "synopses",
+        }
+        direct = {
+            key: value for key, value in payload.items() if key not in reserved
+        }
+        fields = payload.get("fields", {})
+        if not isinstance(fields, Mapping):
+            raise CatalogMutationError("fields must be a mapping")
+        direct.update(fields)
+        repository = getattr(self.repositories, f"{level}s")
+        if direct:
+            repository.normalise_input(direct)
+
+        title_supplied = "title" in payload or "titles" in payload
+        title_value: object = payload.get("title")
+        if "titles" in payload:
+            title_values = self._as_sequence(payload["titles"])
+            if "title" in payload:
+                title_values = (title_value, *title_values)
+            if len(title_values) > 1:
+                raise CatalogMutationError(
+                    "logical WEMI title replacement accepts at most one value"
+                )
+            title_value = title_values[0] if title_values else None
+        if title_supplied and title_value is not None and not isinstance(
+            title_value,
+            (str, Mapping),
+        ):
+            raise CatalogMutationError(
+                "title replacement must be a string, mapping, or None"
+            )
+
+        agent_values = (
+            self._as_sequence(payload["agents"])
+            if "agents" in payload
+            else ()
+        )
+        if "agents" in payload:
+            self._preflight_attachments(
+                level=level,
+                entity_id=entity_id,
+                titles=(),
+                agents=agent_values,
+                identifiers=(),
+                notes=(),
+            )
+
+        identifier_values = payload.get("identifiers")
+        if "identifiers" in payload:
+            if identifier_values is None:
+                identifier_values = {}
+            if not isinstance(identifier_values, Mapping):
+                raise CatalogMutationError(
+                    "identifier replacement must be a scheme/value mapping"
+                )
+
+        note_values = (
+            self._as_sequence(payload["notes"])
+            if "notes" in payload
+            else ()
+        )
+        synopsis_values = (
+            self._as_sequence(payload["synopses"])
+            if "synopses" in payload
+            else ()
+        )
+        comment_value = payload.get("comments")
+        if "comments" in payload and comment_value is not None:
+            if isinstance(comment_value, str):
+                comment_value = {"comment": comment_value}
+            elif isinstance(comment_value, Mapping):
+                comment_value = dict(comment_value)
+            else:
+                raise CatalogMutationError(
+                    "comments replacement must be text, a mapping, or None"
+                )
+
+        with self.db.macros.transaction():
+            if title_supplied:
+                self.repositories.titles.replace_for_wemi(
+                    level=level,
+                    entity_id=entity_id,
+                    data=cast(RowInput | str | None, title_value),
+                )
+            # Explicit direct fields are the narrowest instruction and
+            # therefore win if they overlap a semantic group (for example a
+            # Work canonical title supplied alongside ``title``).
+            if direct:
+                repository.update(entity_id, direct)
+            if "agents" in payload:
+                desired_by_role: dict[str, list[EntityId]] = {}
+                for value in agent_values:
+                    record = dict(cast(Mapping[str, Any], value))
+                    role = cast(str, record["role"]).strip()
+                    agent_id = record.get("agent_id")
+                    if agent_id is None:
+                        agent_data = record.get("data")
+                        if agent_data is None:
+                            agent_data = {
+                                key: item
+                                for key, item in record.items()
+                                if key not in {"role", "priority"}
+                            }
+                        agent_id = self.repositories.agents.match_or_create(
+                            MetadataCandidate(cast(RowMapping, agent_data))
+                        )
+                    role_ids = desired_by_role.setdefault(role, [])
+                    if agent_id not in role_ids:
+                        role_ids.append(cast(EntityId, agent_id))
+                existing_roles = {
+                    link.get("type")
+                    for agent in self.repositories.agents.list_for_wemi(
+                        level=level,
+                        entity_id=entity_id,
+                    )
+                    if isinstance(
+                        link := agent.get("_catalog_link"),
+                        Mapping,
+                    )
+                    and isinstance(link.get("type"), str)
+                }
+                for role in sorted(
+                    cast(set[str], existing_roles) | set(desired_by_role)
+                ):
+                    self.repositories.agents.replace_for_wemi(
+                        level=level,
+                        entity_id=entity_id,
+                        role=role,
+                        agent_ids=desired_by_role.get(role, ()),
+                    )
+            if "identifiers" in payload:
+                self.repositories.identifiers.replace_for_wemi(
+                    level=level,
+                    entity_id=entity_id,
+                    identifiers=cast(Mapping[str, str], identifier_values),
+                )
+            if "notes" in payload:
+                self.repositories.notes.replace_for_wemi(
+                    level=level,
+                    entity_id=entity_id,
+                    notes=cast(Sequence[str | RowInput], note_values),
+                )
+            if "comments" in payload:
+                self.repositories.comments.replace_for_wemi(
+                    level=level,
+                    entity_id=entity_id,
+                    data=cast(RowInput | None, comment_value),
+                )
+            if "synopses" in payload:
+                self.repositories.synopses.replace_for_wemi(
+                    level=level,
+                    entity_id=entity_id,
+                    synopses=cast(
+                        Sequence[str | RowInput],
+                        synopsis_values,
+                    ),
+                )
 
     def merge_entities(self, *, level: WemiLevel, source_id: EntityId, target_id: EntityId) -> None:
         """Merge one entity into another while preserving metadata and links."""

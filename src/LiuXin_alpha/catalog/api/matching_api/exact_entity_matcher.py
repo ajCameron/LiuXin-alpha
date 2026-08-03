@@ -10,7 +10,12 @@ from ..common import MatchResult, MetadataCandidate
 
 @runtime_checkable
 class ExactEntityMatcherAPI(Protocol):
-    """Match a configured catalog entity exactly by default."""
+    """Match a configured reusable value entity exactly by default.
+
+    Approximate reuse is deliberately opt-in through ``use_policy=True``.
+    This prevents a near-spelling from silently collapsing two distinct tags,
+    genres, people-facing labels, or notes.
+    """
 
     def candidates(
         self,
@@ -39,7 +44,7 @@ class ExactEntityMatcherAPI(Protocol):
 
         :param candidate: Candidate entity metadata.
         :param use_policy: Permit approximate matching after exact matching fails.
-        :return: Match, no-match, ambiguity, or conflict decision.
+        :return: Final match, no-match, ambiguity, or conflict decision.
         """
 
         ...
@@ -48,8 +53,12 @@ class ExactEntityMatcherAPI(Protocol):
         """Return the exact decision for a scalar identity value.
 
         :param value: Scalar identity value.
-        :param scope: Optional public scope aliases.
+        :param scope: Entity-specific scope aliases such as an owning Item.
         :return: Exact match, no-match, or ambiguity decision.
+
+        Example::
+
+            result = catalog.matching.tags.exact("Gothic")
         """
 
         ...

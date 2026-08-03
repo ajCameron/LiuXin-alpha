@@ -15,18 +15,34 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class ApplyAPI(Protocol):
-    """Helpers that link metadata rows to resource rows."""
+    """Link metadata rows or convenient scalar values to resource rows.
+
+    String/scalar inputs are resolved or created through the Catalog-owned
+    ``ensure``/``add`` helpers before linking. Row inputs are linked directly.
+    Methods return the relevant row where useful; callers should not assume the
+    input row itself was mutated.
+
+    Example::
+
+        catalog.apply.identifier(
+            resource_row=work_row,
+            identifier="Q150827",
+            identifier_type="wikidata",
+            identifier_priority=0,
+        )
+        catalog.apply.tag(["gothic", "science fiction"], work_row)
+    """
 
     db: DatabaseAPI
     add: AddAPI | None
     ensure: EnsureAPI | None
 
     def comments(self, comment: RowAPI | str, resource_row: RowAPI) -> RowAPI:
-        """Apply a comment row or comment text to a resource."""
+        """Resolve/create and link a Comment to ``resource_row``."""
         ...
 
     def cover(self, cover: RowAPI, resource_row: RowAPI) -> RowAPI:
-        """Apply a cover row to a resource."""
+        """Link an existing Cover row to ``resource_row``."""
         ...
 
     def creator(
@@ -36,7 +52,7 @@ class ApplyAPI(Protocol):
         creator_role: str = "authors",
         creator_priority: LinkPriority = "highest",
     ) -> RowAPI:
-        """Apply a creator row to a resource."""
+        """Credit ``creator_row`` on a resource with role and ordering."""
         ...
 
     def genre(
@@ -45,7 +61,7 @@ class ApplyAPI(Protocol):
         genre: RowAPI | str,
         genre_priority: LinkPriority = "highest",
     ) -> RowAPI:
-        """Apply a genre row or genre text to a resource."""
+        """Resolve/create and link a Genre to a resource."""
         ...
 
     def identifier(
@@ -56,7 +72,10 @@ class ApplyAPI(Protocol):
         identifier_priority: LinkPriority = "highest",
         validate_id: bool = True,
     ) -> RowAPI:
-        """Apply an identifier row or identifier text to a resource."""
+        """Resolve/create and link a typed Identifier to a resource.
+
+        ``validate_id`` enables scheme-specific validation where available.
+        """
         ...
 
     def language(
@@ -65,7 +84,7 @@ class ApplyAPI(Protocol):
         resource_row: RowAPI,
         link_type: str | None = None,
     ) -> RowAPI:
-        """Apply a language row or language text to a resource."""
+        """Resolve/create and link a Language with an optional link type."""
         ...
 
     def contained_language(self, language: RowAPI, title_row: RowAPI) -> None:
@@ -81,15 +100,15 @@ class ApplyAPI(Protocol):
         ...
 
     def note(self, note: RowAPI | str, resource: RowAPI) -> RowAPI:
-        """Apply a note row or note text to a resource."""
+        """Resolve/create and link a Note to a resource."""
         ...
 
     def publisher(self, publisher: RowAPI | str, title_row: RowAPI) -> RowAPI:
-        """Apply a publisher row or publisher text to a title row."""
+        """Resolve/create and link a publisher Agent to a title row."""
         ...
 
     def rating(self, rating: RowAPI | int | float, rating_type: str, resource_row: RowAPI) -> RowAPI:
-        """Apply a rating row or rating value to a resource."""
+        """Resolve and link a Rating value of ``rating_type``."""
         ...
 
     def series(
@@ -99,19 +118,19 @@ class ApplyAPI(Protocol):
         resource_row: RowAPI,
         stand: bool = True,
     ) -> tuple[RowAPI, RowAPI]:
-        """Apply a series row or series text to a resource."""
+        """Resolve/create a Series and link it with its index row/value."""
         ...
 
     def subject(self, subject: RowAPI | str, resource_row: RowAPI, stand: bool = True) -> None:
-        """Apply a subject row or subject text to a resource."""
+        """Resolve/create and link a Subject to a resource."""
         ...
 
     def synopsis(self, synopsis: RowAPI | str, resource: RowAPI) -> RowAPI:
-        """Apply a synopsis row or synopsis text to a resource."""
+        """Resolve/create and link a Synopsis to a resource."""
         ...
 
     def tag(self, tag: RowAPI | str | Iterable[str], resource: RowAPI) -> None:
-        """Apply one or more tags to a resource."""
+        """Resolve/create and link one Tag or an iterable of Tag text values."""
         ...
 
 

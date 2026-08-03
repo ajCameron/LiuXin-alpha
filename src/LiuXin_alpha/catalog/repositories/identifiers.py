@@ -198,6 +198,31 @@ class IdentifierRepository(BaseRepository):
             entity_id=entity_id,
         )
 
+    def primary_values_for_wemi(
+        self,
+        *,
+        level: WemiLevel,
+        entity_id: EntityId,
+    ) -> Mapping[str, str]:
+        """Return the primary Identifier value for each normalized scheme."""
+
+        result: dict[str, str] = {}
+        for row in self.list_for_wemi(level=level, entity_id=entity_id):
+            if not row.get("entity_identifier_is_primary"):
+                continue
+            scheme = row.get("entity_identifier_scheme")
+            value = row.get("entity_identifier_value")
+            if not isinstance(scheme, str) or not isinstance(value, str):
+                raise CatalogMutationError(
+                    "primary identifier rows require string scheme and value"
+                )
+            if scheme in result:
+                raise CatalogMutationError(
+                    f"multiple primary identifiers exist for scheme {scheme!r}"
+                )
+            result[scheme] = value
+        return result
+
     def replace_for_wemi(
         self,
         *,

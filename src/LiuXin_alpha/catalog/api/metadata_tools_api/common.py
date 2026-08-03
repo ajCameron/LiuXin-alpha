@@ -1,4 +1,9 @@
-"""Shared types for catalog metadata tool API contracts."""
+"""Shared value types for the Row-oriented metadata helper contracts.
+
+``LinkPriority`` accepts a numeric order, ``"highest"`` for helper-assigned
+precedence, or ``None`` for backend defaults. Date-like values are normalized
+by the concrete helper before persistence.
+"""
 
 from __future__ import annotations
 

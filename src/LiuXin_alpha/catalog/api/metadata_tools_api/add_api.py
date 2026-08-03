@@ -15,7 +15,30 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class AddAPI(Protocol):
-    """Composition root for metadata row creation helpers."""
+    """Create concrete metadata rows and return database ``RowAPI`` objects.
+
+    ``AddAPI`` is intentionally creation-oriented. For exact reuse, prefer
+    ``catalog.ensure`` or a repository's ``match_or_create``. WEMI methods use
+    storage-prefixed keyword names because they map directly onto the current
+    schema.
+
+    Example::
+
+        work = catalog.add.work(
+            work_title="Frankenstein",
+            work_original_year=1818,
+            work_is_fiction=1,
+        )
+        expression = catalog.add.expression(
+            expression_label="1818 English text",
+            expression_language=english_language_id,
+        )
+
+    These calls create rows; they do not automatically link an independently
+    created Work, Expression, and Manifestation. Use repository
+    ``match_or_create`` methods or coordinated mutation helpers when creating a
+    connected graph.
+    """
 
     db: DatabaseAPI
     ensure: EnsureAPI | None
@@ -40,7 +63,13 @@ class AddAPI(Protocol):
         title_datestamp: DateLike | None = None,
         override_title_row: RowAPI | None = None,
     ) -> RowAPI:
-        """Create a legacy title projection or the equivalent WEMI graph."""
+        """Create a legacy title projection or equivalent WEMI title graph.
+
+        ``override_title_row`` reuses a caller-supplied title row instead of
+        inserting another. Source path/name may be one value or a sequence.
+
+        :return: Created or overridden title ``RowAPI``.
+        """
         ...
 
     def book(
@@ -61,7 +90,14 @@ class AddAPI(Protocol):
         book_created_datestamp: DateLike | None = None,
         book_datestamp: DateLike | None = None,
     ) -> RowAPI:
-        """Create or resolve the legacy book projection for a title row."""
+        """Create or resolve the legacy book projection for ``title_row``.
+
+        This compatibility helper translates book-shaped input into current
+        storage. It is not the preferred route for explicit WEMI construction.
+
+        :param title_row: Existing title row returned by :meth:`title`.
+        :return: Resolved book-compatible row.
+        """
         ...
 
     def work(
@@ -85,7 +121,13 @@ class AddAPI(Protocol):
         work_discovery_note: str | None = None,
         work_created_timestamp: DateLike | None = None,
     ) -> RowAPI:
-        """Create a WEMI work row."""
+        """Create a Work row from schema-prefixed values.
+
+        ``work_title`` is required and is the human-readable preferred title.
+        Language may be an existing ID or a value understood by the helper.
+
+        :return: Newly inserted Work ``RowAPI``.
+        """
         ...
 
     def expression(
@@ -109,7 +151,13 @@ class AddAPI(Protocol):
         expression_status: str | None = None,
         expression_origin_note: str | None = None,
     ) -> RowAPI:
-        """Create a WEMI expression row."""
+        """Create an unlinked Expression row.
+
+        Use Expression for language/revision/performance-specific metadata.
+        This method does not choose or link a Work.
+
+        :return: Newly inserted Expression ``RowAPI``.
+        """
         ...
 
     def manifestation(
@@ -128,7 +176,13 @@ class AddAPI(Protocol):
         manifestation_status: str | None = None,
         manifestation_note: str | None = None,
     ) -> RowAPI:
-        """Create a WEMI manifestation row."""
+        """Create an unlinked Manifestation row.
+
+        Use Manifestation for edition/carrier/publication-specific metadata.
+        This method does not choose or link an Expression.
+
+        :return: Newly inserted Manifestation ``RowAPI``.
+        """
         ...
 
     def item(
@@ -149,7 +203,13 @@ class AddAPI(Protocol):
         item_lifecycle_status: str | None = None,
         item_condition: str | None = None,
     ) -> RowAPI:
-        """Create a WEMI item row."""
+        """Create an Item row, optionally assigned to a Manifestation ID.
+
+        Item is the copy/observation level for source, inventory, acquisition,
+        location, lifecycle, and condition data.
+
+        :return: Newly inserted Item ``RowAPI``.
+        """
         ...
 
     def agent(
@@ -168,7 +228,14 @@ class AddAPI(Protocol):
         linked_synopses: Iterable[RowAPI | str] | None = None,
         linked_images: Iterable[RowAPI] | None = None,
     ) -> RowAPI:
-        """Create a generic agent row plus optional sidecar/link rows."""
+        """Create a generic Agent plus optional person/org sidecar and links.
+
+        ``agent_type`` selects the aggregate shape. Sidecar mappings are stored
+        with the Agent; supplied language/note/synopsis/image values are linked
+        during the same high-level operation.
+
+        :return: Newly created Agent ``RowAPI``.
+        """
         ...
 
     def creator(
@@ -193,7 +260,10 @@ class AddAPI(Protocol):
         creator_bio: RowAPI | str | None = None,
         creator_image: RowAPI | None = None,
     ) -> RowAPI:
-        """Create a person agent for a creator."""
+        """Create a person Agent using legacy creator-shaped arguments.
+
+        :return: Newly created person Agent ``RowAPI``.
+        """
         ...
 
     def organisation(
@@ -217,7 +287,10 @@ class AddAPI(Protocol):
         organisation_language: RowAPI | str | int | None = None,
         organisation_synopsis: RowAPI | str | None = None,
     ) -> RowAPI:
-        """Create an organisation agent."""
+        """Create an organisation Agent and optional parent relationship.
+
+        :return: Newly created organisation Agent ``RowAPI``.
+        """
         ...
 
     def organization(
@@ -256,11 +329,14 @@ class AddAPI(Protocol):
         publishr_position: int | str | None = None,
         publisher_full: str | None = None,
     ) -> RowAPI:
-        """Create a publisher as an organisation agent."""
+        """Create a publisher as an organisation Agent.
+
+        :return: Newly created publisher/Agent ``RowAPI``.
+        """
         ...
 
     def comment(self, comment: str) -> RowAPI:
-        """Create a comment row."""
+        """Create a Comment row from non-empty text and return it."""
         ...
 
     def genre(
@@ -273,19 +349,19 @@ class AddAPI(Protocol):
         genre_full: str | None = None,
         genre_datestamp: DateLike | None = None,
     ) -> RowAPI:
-        """Create a genre row."""
+        """Create a Genre row and optional parent relationship."""
         ...
 
     def identifier(self, identifier: str, identifier_type: str) -> RowAPI:
-        """Create or ensure an identifier row."""
+        """Create or ensure a logical Identifier for a scheme/value pair."""
         ...
 
     def language(self, language_name: str, language_code: str) -> RowAPI:
-        """Create a language row."""
+        """Create a Language row with its human name and canonical code."""
         ...
 
     def note(self, note: str) -> RowAPI:
-        """Create a note row."""
+        """Create a Note row from non-empty text and return it."""
         ...
 
     def series(
@@ -299,7 +375,7 @@ class AddAPI(Protocol):
         series_creator: RowAPI | None = None,
         series_note: RowAPI | str | None = None,
     ) -> RowAPI:
-        """Create a series row."""
+        """Create a Series row with optional parent, creator, and note links."""
         ...
 
     def subject(
@@ -308,15 +384,15 @@ class AddAPI(Protocol):
         subject_sort: str | None = None,
         subject_parent: RowAPI | None = None,
     ) -> RowAPI:
-        """Create a subject row."""
+        """Create a Subject row with an optional parent Subject."""
         ...
 
     def synopsis(self, synopsis: str) -> RowAPI:
-        """Create a synopsis row."""
+        """Create a Synopsis row from non-empty text and return it."""
         ...
 
     def tag(self, tag: str, tag_phash: str | None = None) -> RowAPI:
-        """Create a tag row."""
+        """Create a Tag row, optionally retaining a supplied phonetic hash."""
         ...
 
 

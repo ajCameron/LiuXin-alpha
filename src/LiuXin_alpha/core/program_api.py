@@ -321,11 +321,17 @@ _PROGRAM_AREAS: dict[str, tuple[str, ...]] = {
         "catalog.entity.create",
         "catalog.entity.update",
         "catalog.entity.delete",
+        "catalog.graph.get",
         "catalog.hierarchy.list",
+        "catalog.annotations.list",
         "catalog.identifiers.list",
+        "catalog.identifiers.primary-values",
         "catalog.identifiers.replace",
         "catalog.agents.list",
         "catalog.agent.link",
+        "catalog.wemi.link",
+        "catalog.wemi.unlink",
+        "catalog.metadata.replace",
         "catalog.fields.list",
         "catalog.fields.get",
     ),
@@ -550,6 +556,16 @@ class CoreProgramAPI:
             "catalog.identifiers.list",
             self.catalog_identifiers_list,
             summary="List identifiers linked to WEMI or Agent entities.",
+            payload_fields=(
+                _field("level", required=True, field_type="string"),
+                _field("entity_id", required=True, field_type="integer"),
+            ),
+            tags=("catalog", "identifiers", "read"),
+        )
+        query(
+            "catalog.identifiers.primary-values",
+            self.catalog_identifiers_primary_values,
+            summary="Project primary WEMI identifiers by normalized scheme.",
             payload_fields=(
                 _field("level", required=True, field_type="string"),
                 _field("entity_id", required=True, field_type="integer"),
@@ -1387,58 +1403,27 @@ class CoreProgramAPI:
         level = _required_text(payload, "level").lower()
         entity_id = _required_int(payload, "entity_id")
         direction = str(payload.get("direction") or "children").strip().lower()
-        repositories = runtime.catalog.repositories
-        operation: Any
-        result_level: str
         if direction == "children":
-            routes = {
-                "work": ("expressions", "list_for_work", "expression"),
-                "expression": (
-                    "manifestations",
-                    "list_for_expression",
-                    "manifestation",
-                ),
-                "manifestation": ("items", "list_for_manifestation", "item"),
-            }
+            operation = runtime.catalog.retrieval.hierarchy.children
         elif direction == "parents":
-            routes = {
-                "expression": ("expressions", "list_works", "work"),
-                "manifestation": (
-                    "manifestations",
-                    "list_expressions",
-                    "expression",
-                ),
-                "item": ("items", "manifestation_for_item", "manifestation"),
-            }
+            operation = runtime.catalog.retrieval.hierarchy.parents
         else:
             raise CoreDispatchError("`direction` must be `children` or `parents`.")
-        if level not in routes:
+        try:
+            adjacency = operation(level=level, entity_id=entity_id)
+        except ValueError as error:
             raise CoreDispatchError(
                 "No {} WEMI adjacency exists for level {!r}.".format(
                     direction,
                     level,
                 )
-            )
-        repository_name, method_name, result_level = routes[level]
-        repository = getattr(repositories, repository_name)
-        operation = _callable(
-            repository,
-            method_name,
-            area="Catalog hierarchy",
-        )
-        raw = operation(entity_id)
-        if raw is None:
-            rows: list[Any] = []
-        elif isinstance(raw, Mapping) or hasattr(raw, "row_dict"):
-            rows = [_plain(raw)]
-        else:
-            rows = [_plain(item) for item in raw]
+            ) from error
         return {
-            "level": level,
-            "entity_id": entity_id,
-            "direction": direction,
-            "result_level": result_level,
-            "entities": rows,
+            "level": adjacency.level,
+            "entity_id": adjacency.entity_id,
+            "direction": adjacency.direction,
+            "result_level": adjacency.related_level,
+            "entities": [_plain(item) for item in adjacency.entities],
         }
 
     @staticmethod
@@ -1469,6 +1454,27 @@ class CoreProgramAPI:
             "level": level,
             "entity_id": entity_id,
             "identifiers": values,
+            "count": len(values),
+        }
+
+    @staticmethod
+    def catalog_identifiers_primary_values(
+        runtime: "CoreRuntime",
+        query: "CoreQuery",
+    ) -> dict[str, Any]:
+        payload = _payload(query)
+        level = _required_text(payload, "level").lower()
+        entity_id = _required_int(payload, "entity_id")
+        values = (
+            runtime.catalog.repositories.identifiers.primary_values_for_wemi(
+                level=level,
+                entity_id=entity_id,
+            )
+        )
+        return {
+            "level": level,
+            "entity_id": entity_id,
+            "identifiers": dict(values),
             "count": len(values),
         }
 

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.catalog.api.repositories import CATALOG_REPOSITORY_NAMES
 
 if TYPE_CHECKING:
     from LiuXin_alpha.core.commands import CoreCommand
@@ -18,29 +19,7 @@ if TYPE_CHECKING:
     from LiuXin_alpha.core.runtime import CoreRuntime
 
 
-_CATALOG_REPOSITORIES = frozenset(
-    {
-        "works",
-        "expressions",
-        "manifestations",
-        "items",
-        "agents",
-        "identifiers",
-        "item_identifiers",
-        "titles",
-        "notes",
-        "tags",
-        "labels",
-        "genres",
-        "subjects",
-        "series",
-        "languages",
-        "ratings",
-        "comments",
-        "synopses",
-        "annotations",
-    }
-)
+_CATALOG_REPOSITORIES = frozenset(CATALOG_REPOSITORY_NAMES)
 _WEMI_LEVELS = frozenset({"work", "expression", "manifestation", "item"})
 _MATCHABLE_REPOSITORIES = _CATALOG_REPOSITORIES - {"titles"}
 _PARENT_SCOPED_REPOSITORIES = frozenset(
@@ -291,6 +270,18 @@ class CoreApplicationAPI:
             tags=("catalog", "metadata", "read"),
         )
         query(
+            "catalog.graph.get",
+            self.catalog_graph_get,
+            summary="Read a bounded full descendant graph for one Work.",
+            payload_fields=(
+                _field("work_id", required=True, field_type="integer"),
+                _field("max_expressions", field_type="integer"),
+                _field("max_manifestations", field_type="integer"),
+                _field("max_items", field_type="integer"),
+            ),
+            tags=("catalog", "wemi", "read"),
+        )
+        query(
             "catalog.item.summary",
             self.catalog_item_summary,
             summary="Read a compact display-neutral Catalog Item summary.",
@@ -321,6 +312,17 @@ class CoreApplicationAPI:
                 _field("role", field_type="string|null"),
             ),
             tags=("catalog", "agents", "read"),
+        )
+        query(
+            "catalog.annotations.list",
+            self.catalog_annotations_list,
+            summary="List Item-scoped Annotations with optional filters.",
+            payload_fields=(
+                _field("item_id", required=True, field_type="integer"),
+                _field("user_id", field_type="integer|null"),
+                _field("kind", field_type="string|null"),
+            ),
+            tags=("catalog", "annotations", "read"),
         )
         query(
             "metadata.get",
@@ -478,9 +480,47 @@ class CoreApplicationAPI:
             tags=("catalog", "wemi", "write"),
         )
         command(
+            "catalog.wemi.link",
+            self.catalog_wemi_link,
+            summary="Link two existing adjacent WEMI entities.",
+            payload_fields=(
+                _field("parent_level", required=True, field_type="string"),
+                _field("parent_id", required=True, field_type="integer"),
+                _field("child_level", required=True, field_type="string"),
+                _field("child_id", required=True, field_type="integer"),
+                _field("primary", field_type="boolean|null"),
+                _field("priority", field_type="integer|null"),
+                _field("origin", field_type="string|null"),
+            ),
+            tags=("catalog", "wemi", "write"),
+        )
+        command(
+            "catalog.wemi.unlink",
+            self.catalog_wemi_unlink,
+            summary="Unlink two existing adjacent WEMI entities.",
+            payload_fields=(
+                _field("parent_level", required=True, field_type="string"),
+                _field("parent_id", required=True, field_type="integer"),
+                _field("child_level", required=True, field_type="string"),
+                _field("child_id", required=True, field_type="integer"),
+            ),
+            tags=("catalog", "wemi", "write"),
+        )
+        command(
             "catalog.metadata.attach",
             self.catalog_metadata_attach,
             summary="Atomically attach structured metadata to a WEMI entity.",
+            payload_fields=(
+                _field("level", required=True, field_type="string"),
+                _field("entity_id", required=True, field_type="integer"),
+                _field("data", required=True, field_type="object"),
+            ),
+            tags=("catalog", "metadata", "write"),
+        )
+        command(
+            "catalog.metadata.replace",
+            self.catalog_metadata_replace,
+            summary="Atomically replace selected semantic metadata groups.",
             payload_fields=(
                 _field("level", required=True, field_type="string"),
                 _field("entity_id", required=True, field_type="integer"),
@@ -647,7 +687,13 @@ class CoreApplicationAPI:
             "repository",
             choices=_CATALOG_REPOSITORIES,
         )
-        return getattr(runtime.services.catalog.repositories, name)
+        repositories = runtime.services.catalog.repositories
+        resolver = getattr(repositories, "for_name", None)
+        if callable(resolver):
+            return resolver(name)
+        # Lightweight alternate Core test/composition adapters may predate the
+        # registry convenience while still exposing the declared attributes.
+        return getattr(repositories, name)
 
     @staticmethod
     def _array(
@@ -1252,6 +1298,40 @@ class CoreApplicationAPI:
         )
         return retriever(entity_id)
 
+    def catalog_graph_get(
+        self,
+        runtime: "CoreRuntime",
+        query: "CoreQuery",
+    ) -> Any:
+        payload = _payload(query)
+        max_expressions = _optional_int(
+            payload,
+            "max_expressions",
+            default=100,
+            minimum=0,
+        )
+        max_manifestations = _optional_int(
+            payload,
+            "max_manifestations",
+            default=500,
+            minimum=0,
+        )
+        max_items = _optional_int(
+            payload,
+            "max_items",
+            default=1000,
+            minimum=0,
+        )
+        assert max_expressions is not None
+        assert max_manifestations is not None
+        assert max_items is not None
+        return runtime.services.catalog.retrieval.graph.for_work(
+            _required_int(payload, "work_id"),
+            max_expressions=max_expressions,
+            max_manifestations=max_manifestations,
+            max_items=max_items,
+        )
+
     def catalog_item_summary(
         self,
         runtime: "CoreRuntime",
@@ -1303,6 +1383,37 @@ class CoreApplicationAPI:
                     else str(payload.get("role"))
                 ),
             )
+        }
+
+    def catalog_annotations_list(
+        self,
+        runtime: "CoreRuntime",
+        query: "CoreQuery",
+    ) -> dict[str, Any]:
+        payload = _payload(query)
+        item_id = _required_int(payload, "item_id")
+        user_id = _optional_int(
+            payload,
+            "user_id",
+            default=None,
+            minimum=0,
+        )
+        kind = payload.get("kind")
+        if kind is not None and not isinstance(kind, str):
+            raise CoreDispatchError("`kind` must be a string or null.")
+        annotations = (
+            runtime.services.catalog.repositories.annotations.list_for_item(
+                item_id,
+                user_id=user_id,
+                kind=kind,
+            )
+        )
+        return {
+            "item_id": item_id,
+            "user_id": user_id,
+            "kind": kind,
+            "annotations": list(annotations),
+            "count": len(annotations),
         }
 
     @staticmethod
@@ -1591,6 +1702,77 @@ class CoreApplicationAPI:
         }
         return self._semantic_receipt(runtime, receipt)
 
+    def catalog_wemi_link(
+        self,
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        payload = _payload(command)
+        raw_primary = payload.get("primary")
+        if raw_primary is not None and not isinstance(raw_primary, bool):
+            raise CoreDispatchError("`primary` must be a boolean or null.")
+        receipt = runtime.services.catalog.mutations.writer.link_wemi(
+            parent_level=_required_text(
+                payload,
+                "parent_level",
+                choices=_WEMI_LEVELS,
+            ),
+            parent_id=_required_int(payload, "parent_id"),
+            child_level=_required_text(
+                payload,
+                "child_level",
+                choices=_WEMI_LEVELS,
+            ),
+            child_id=_required_int(payload, "child_id"),
+            primary=raw_primary,
+            priority=_optional_int(
+                payload,
+                "priority",
+                default=None,
+            ),
+            origin=(
+                None
+                if payload.get("origin") is None
+                else str(payload["origin"])
+            ),
+        )
+        return self._semantic_receipt(runtime, dict(receipt))
+
+    def catalog_wemi_unlink(
+        self,
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        payload = _payload(command)
+        parent_level = _required_text(
+            payload,
+            "parent_level",
+            choices=_WEMI_LEVELS,
+        )
+        parent_id = _required_int(payload, "parent_id")
+        child_level = _required_text(
+            payload,
+            "child_level",
+            choices=_WEMI_LEVELS,
+        )
+        child_id = _required_int(payload, "child_id")
+        unlinked = runtime.services.catalog.mutations.writer.unlink_wemi(
+            parent_level=parent_level,
+            parent_id=parent_id,
+            child_level=child_level,
+            child_id=child_id,
+        )
+        return self._semantic_receipt(
+            runtime,
+            {
+                "parent_level": parent_level,
+                "parent_id": parent_id,
+                "child_level": child_level,
+                "child_id": child_id,
+                "unlinked": unlinked,
+            },
+        )
+
     def catalog_metadata_attach(
         self,
         runtime: "CoreRuntime",
@@ -1614,6 +1796,32 @@ class CoreApplicationAPI:
                 "level": level,
                 "entity_id": entity_id,
                 "attached": True,
+            },
+        )
+
+    def catalog_metadata_replace(
+        self,
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        payload = _payload(command)
+        level = _required_text(
+            payload,
+            "level",
+            choices=_WEMI_LEVELS,
+        )
+        entity_id = _required_int(payload, "entity_id")
+        runtime.services.catalog.mutations.writer.replace_metadata(
+            level=level,
+            entity_id=entity_id,
+            data=_mapping(payload, "data"),
+        )
+        return self._semantic_receipt(
+            runtime,
+            {
+                "level": level,
+                "entity_id": entity_id,
+                "replaced": True,
             },
         )
 
