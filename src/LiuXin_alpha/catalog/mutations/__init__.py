@@ -7,8 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..api.common import DatabaseHandle
-from .metadata_writer import CreatedWemiStack, MetadataWriter
+from ..api.common import CreatedWemiStack, DatabaseHandle
+from .metadata_writer import MetadataWriter
 from .mutation_policy import MutationPolicy
 
 

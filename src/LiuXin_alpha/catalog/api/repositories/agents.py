@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Protocol, Sequence, runtime_checkable
+from collections.abc import Mapping, Sequence
+from typing import Protocol, runtime_checkable
 
-from LiuXin_alpha.catalog.api.common import EntityId, MetadataCandidate, MatchResult, RowMapping, WemiLevel
+from LiuXin_alpha.catalog.api.common import (
+    EntityId,
+    MetadataCandidate,
+    MatchResult,
+    RowInput,
+    RowMapping,
+    WemiLevel,
+)
 from LiuXin_alpha.catalog.api.repositories.base import BaseRepositoryAPI
 
 
@@ -32,6 +40,43 @@ class AgentRepositoryAPI(BaseRepositoryAPI, Protocol):
             priority=1,
         )
     """
+
+    def create_person(
+        self,
+        data: RowInput,
+        *,
+        details: RowInput | None = None,
+        identifiers: Sequence[Mapping[str, object]] = (),
+        language_ids: Sequence[EntityId] = (),
+        notes: Sequence[str | RowInput] = (),
+    ) -> EntityId:
+        """Atomically create a person Agent and subtype metadata.
+
+        :param data: Core Agent values.
+        :param details: Optional ``human_agents`` subtype values.
+        :param identifiers: Identifier records to assign.
+        :param language_ids: Existing native-language IDs to link.
+        :param notes: Text or Note payloads to create and link.
+        :return: New Agent ID.
+        """
+
+    def create_organisation(
+        self,
+        data: RowInput,
+        *,
+        details: RowInput | None = None,
+        parent_id: EntityId | None = None,
+        relation_type: str = "imprint_of",
+        relation_note: str | None = None,
+        identifiers: Sequence[Mapping[str, object]] = (),
+        language_ids: Sequence[EntityId] = (),
+        notes: Sequence[str | RowInput] = (),
+        synopses: Sequence[str | RowInput] = (),
+    ) -> EntityId:
+        """Atomically create an organisation and its related metadata.
+
+        :return: New organisation Agent ID.
+        """
 
     def resolve(self, *, name: str, role: str | None = None) -> RowMapping | None:
         """
@@ -62,6 +107,22 @@ class AgentRepositoryAPI(BaseRepositoryAPI, Protocol):
         :raises CatalogAmbiguousMatchError: If multiple Agents remain plausible.
         :raises CatalogMatchConflictError: If decisive evidence conflicts.
         """
+
+    def match_or_create_person(
+        self,
+        candidate: MetadataCandidate,
+        *,
+        details: RowInput | None = None,
+    ) -> EntityId:
+        """Match a person or atomically create its complete aggregate."""
+
+    def match_or_create_organisation(
+        self,
+        candidate: MetadataCandidate,
+        *,
+        details: RowInput | None = None,
+    ) -> EntityId:
+        """Match an organisation or atomically create its aggregate."""
 
     def link_to_wemi(
         self,
@@ -95,4 +156,18 @@ class AgentRepositoryAPI(BaseRepositoryAPI, Protocol):
         :param entity_id: Existing entity ID.
         :return: Priority-ordered Agent mappings with role/priority data in
             ``"_catalog_link"``.
+        """
+
+    def replace_for_wemi(
+        self,
+        *,
+        level: WemiLevel,
+        entity_id: EntityId,
+        role: str,
+        agent_ids: Sequence[EntityId],
+    ) -> None:
+        """Replace one role-scoped ordered credit set.
+
+        Credits with other roles remain unchanged. An empty ``agent_ids``
+        sequence clears the selected role.
         """

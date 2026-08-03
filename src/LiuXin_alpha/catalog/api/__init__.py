@@ -28,6 +28,7 @@ from .common import (
     CatalogMatchError,
     CatalogMutationError,
     CatalogNotFoundError,
+    CreatedWemiStack,
     EntityId,
     IdentifierCandidate,
     MatchDecision,
@@ -37,7 +38,10 @@ from .common import (
     MetadataCandidate,
     RowInput,
     RowMapping,
+    WemiAdjacency,
     WemiBundle,
+    WemiDirection,
+    WemiGraph,
     WemiLevel,
 )
 from .field_metadata_api import (
@@ -82,6 +86,7 @@ __all__ = [
     "CatalogMutationError",
     "CatalogMutationsAPI",
     "CatalogNotFoundError",
+    "CreatedWemiStack",
     "EnsureAPI",
     "EntityId",
     "FieldMetadataAPI",
@@ -108,6 +113,9 @@ __all__ = [
     "RowInput",
     "RowMapping",
     "SerializedFieldMetadataState",
+    "WemiAdjacency",
     "WemiBundle",
+    "WemiDirection",
+    "WemiGraph",
     "WemiLevel",
 ]

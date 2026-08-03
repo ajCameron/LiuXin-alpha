@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, ClassVar, Sequence, cast
 
 from ..api.common import CatalogMutationError, EntityId, RowInput, RowMapping, WemiLevel
@@ -122,6 +123,42 @@ class TitleRepository(BaseRepository):
     def preferred_for_wemi(self, *, level: WemiLevel, entity_id: EntityId) -> RowMapping | None:
         titles = self.list_for_wemi(level=level, entity_id=entity_id)
         return titles[0] if titles else None
+
+    def clear_for_wemi(self, *, level: WemiLevel, entity_id: EntityId) -> None:
+        """Clear every title-bearing column owned by one WEMI entity."""
+
+        if level not in WEMI_TABLES:
+            raise ValueError(f"unknown WEMI level: {level!r}")
+        columns = self._TITLE_COLUMNS[level]
+        if not columns:
+            raise CatalogMutationError("Items do not own title columns")
+        repository = getattr(self.repositories, f"{level}s")
+        repository.update(entity_id, {column: None for column in columns})
+
+    def replace_for_wemi(
+        self,
+        *,
+        level: WemiLevel,
+        entity_id: EntityId,
+        data: RowInput | str | None,
+    ) -> EntityId | None:
+        """Replace all logical title values, or clear them with ``None``."""
+
+        with self._macros.transaction():
+            self.clear_for_wemi(level=level, entity_id=entity_id)
+            if data is None:
+                return None
+            if isinstance(data, str):
+                payload: RowInput = {"title": data}
+            elif isinstance(data, Mapping):
+                payload = dict(data)
+            else:
+                raise TypeError("title data must be a string, mapping, or None")
+            return self.add_for_wemi(
+                level=level,
+                entity_id=entity_id,
+                data=payload,
+            )
 
 
 __all__ = ["TitleRepository"]

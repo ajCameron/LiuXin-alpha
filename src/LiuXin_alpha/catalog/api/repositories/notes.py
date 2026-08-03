@@ -45,3 +45,15 @@ class NoteRepositoryAPI(ExactEntityRepositoryAPI, Protocol):
         :return: Linked Note mappings with ``"_catalog_link"`` metadata, or an
             empty sequence when the schema has no such relationship.
         """
+
+    def replace_for_wemi(
+        self,
+        *,
+        level: WemiLevel,
+        entity_id: EntityId,
+        notes: Sequence[str | RowInput],
+    ) -> tuple[EntityId, ...]:
+        """Replace every linked Note, clearing with an empty sequence.
+
+        :return: Newly linked Note IDs in caller order.
+        """

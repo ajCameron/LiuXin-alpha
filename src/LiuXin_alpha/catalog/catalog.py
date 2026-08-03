@@ -78,6 +78,41 @@ class CatalogRepositories:
     synopses: SynopsisRepository
     annotations: AnnotationRepository
 
+    def for_name(self, repository_name: str) -> Any:
+        """Return a repository by validated singular or plural public name."""
+
+        if not isinstance(repository_name, str):
+            raise TypeError("repository_name must be a string")
+        normalized = repository_name.strip().casefold().replace("-", "_")
+        aliases = {
+            "work": "works",
+            "expression": "expressions",
+            "manifestation": "manifestations",
+            "item": "items",
+            "agent": "agents",
+            "identifier": "identifiers",
+            "item_identifier": "item_identifiers",
+            "title": "titles",
+            "note": "notes",
+            "tag": "tags",
+            "label": "labels",
+            "genre": "genres",
+            "subject": "subjects",
+            "language": "languages",
+            "rating": "ratings",
+            "comment": "comments",
+            "synopsis": "synopses",
+            "annotation": "annotations",
+        }
+        normalized = aliases.get(normalized, normalized)
+        from LiuXin_alpha.catalog.api.repositories import (
+            CATALOG_REPOSITORY_NAMES,
+        )
+
+        if normalized not in CATALOG_REPOSITORY_NAMES:
+            raise KeyError(f"unknown Catalog repository: {repository_name!r}")
+        return getattr(self, normalized)
+
 
 class Catalog:
     """Metadata-aware facade over an open LiuXin database.

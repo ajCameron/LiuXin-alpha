@@ -117,6 +117,18 @@ class IdentifierRepositoryAPI(BaseRepositoryAPI, Protocol):
         :return: Identifier rows in stable ID order.
         """
 
+    def primary_values_for_wemi(
+        self,
+        *,
+        level: WemiLevel,
+        entity_id: EntityId,
+    ) -> Mapping[str, str]:
+        """Project primary identifiers as normalized scheme/value pairs.
+
+        Historical non-primary rows remain available through
+        :meth:`list_for_wemi`.
+        """
+
     def replace_for_wemi(
         self,
         *,

@@ -336,7 +336,10 @@ def test_core_describes_complete_named_application_api() -> None:
         "catalog.agent.create-person",
         "catalog.agent.create-organisation",
         "catalog.wemi.create",
+        "catalog.wemi.link",
+        "catalog.wemi.unlink",
         "catalog.metadata.attach",
+        "catalog.metadata.replace",
         "catalog.metadata.merge",
         "catalog.field.write",
         "catalog.field.write-one",
@@ -368,9 +371,11 @@ def test_core_describes_complete_named_application_api() -> None:
         "catalog.entity.get",
         "catalog.entity.list",
         "catalog.bundle.get",
+        "catalog.graph.get",
         "catalog.item.summary",
         "catalog.match",
         "catalog.agent.resolve",
+        "catalog.annotations.list",
         "metadata.get",
         "metadata.opf.export",
         "cache.status",
@@ -950,4 +955,147 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
             },
         )["record"] is None
     finally:
+        runtime.shutdown()
+
+
+def test_catalog_conveniences_have_direct_and_rpc_parity(db) -> None:
+    """New Catalog conveniences retain one transport-stable Core contract."""
+
+    runtime = CoreRuntime(
+        library=Library(
+            database=db,
+            close_database_on_close=False,
+        ),
+    )
+    daemon = None
+    title = "Core convenience {}".format(uuid.uuid4().hex)
+    try:
+        stack = runtime.command(
+            "catalog.wemi.create",
+            {
+                "work": {"title": title},
+                "expression": {"label": "Primary expression"},
+                "manifestation": {"subtitle": "Primary manifestation"},
+                "items": [{"inventory_code": uuid.uuid4().hex}],
+            },
+        )
+        expression = runtime.command(
+            "catalog.entity.create",
+            {
+                "repository": "expressions",
+                "data": {"label": "RPC expression"},
+            },
+        )
+        annotation = runtime.command(
+            "catalog.entity.create",
+            {
+                "repository": "annotations",
+                "data": {
+                    "item_id": stack["item_ids"][0],
+                    "user_id": 23,
+                    "kind": "highlight",
+                    "anchor_type": "offset",
+                    "anchor_start": "4",
+                    "source": "core-convenience-test",
+                },
+            },
+        )
+        runtime.command(
+            "catalog.metadata.replace",
+            {
+                "level": "work",
+                "entity_id": stack["work_id"],
+                "data": {
+                    "identifiers": {
+                        "doi": "10.1000/core-convenience",
+                    },
+                    "notes": ["Written through direct Core"],
+                },
+            },
+        )
+
+        daemon = CoreHttpDaemon(
+            runtime,
+            endpoint_namespace="catalog-conveniences",
+        )
+        daemon.start()
+        remote = RemoteCoreClient(endpoint=daemon.base_url)
+        linked = remote.command(
+            "catalog.wemi.link",
+            {
+                "parent_level": "work",
+                "parent_id": stack["work_id"],
+                "child_level": "expression",
+                "child_id": expression["entity_id"],
+                "primary": True,
+                "origin": "rpc",
+            },
+        )
+        assert linked["child_id"] == expression["entity_id"]
+        assert linked["cache"] == {
+            "configured": False,
+            "reconciled": False,
+        }
+
+        graph_payload = {
+            "work_id": stack["work_id"],
+            "max_expressions": 10,
+            "max_manifestations": 10,
+            "max_items": 10,
+        }
+        assert remote.query("catalog.graph.get", graph_payload) == (
+            runtime.query("catalog.graph.get", graph_payload)
+        )
+        assert remote.query(
+            "catalog.hierarchy.list",
+            {
+                "level": "work",
+                "entity_id": stack["work_id"],
+                "direction": "children",
+            },
+        ) == runtime.query(
+            "catalog.hierarchy.list",
+            {
+                "level": "work",
+                "entity_id": stack["work_id"],
+                "direction": "children",
+            },
+        )
+        primary_payload = {
+            "level": "work",
+            "entity_id": stack["work_id"],
+        }
+        assert remote.query(
+            "catalog.identifiers.primary-values",
+            primary_payload,
+        ) == runtime.query(
+            "catalog.identifiers.primary-values",
+            primary_payload,
+        )
+        annotations = remote.query(
+            "catalog.annotations.list",
+            {
+                "item_id": stack["item_ids"][0],
+                "user_id": 23,
+                "kind": "highlight",
+            },
+        )
+        assert annotations["count"] == 1
+        assert annotations["annotations"][0]["annotation_id"] == (
+            annotation["entity_id"]
+        )
+
+        unlinked = remote.command(
+            "catalog.wemi.unlink",
+            {
+                "parent_level": "work",
+                "parent_id": stack["work_id"],
+                "child_level": "expression",
+                "child_id": expression["entity_id"],
+            },
+        )
+        assert unlinked["unlinked"] is True
+    finally:
+        if daemon is not None:
+            daemon.stop()
         runtime.shutdown()

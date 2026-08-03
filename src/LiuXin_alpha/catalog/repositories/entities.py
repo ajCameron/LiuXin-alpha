@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import ClassVar
 
+from LiuXin_alpha.databases.macro_types import LinkValue
+
 from ..api.common import EntityId, RowInput, RowMapping, WemiLevel
 from ..matching.entity_specs import (
     ANNOTATION_SPEC,
@@ -210,6 +212,44 @@ class SynopsisRepository(ExactEntityRepository):
             raise ValueError(f"unknown WEMI level: {level!r}")
         return self._linked_rows(WEMI_TABLES[level], entity_id, self.table_name)
 
+    def replace_for_wemi(
+        self,
+        *,
+        level: WemiLevel,
+        entity_id: EntityId,
+        synopses: Sequence[str | RowInput],
+    ) -> tuple[EntityId, ...]:
+        """Replace all Synopses attached to one WEMI entity atomically."""
+
+        if level not in WEMI_TABLES:
+            raise ValueError(f"unknown WEMI level: {level!r}")
+        if not isinstance(synopses, Sequence) or isinstance(
+            synopses,
+            (str, bytes),
+        ):
+            raise TypeError("synopses must be a sequence of strings or mappings")
+        payloads: list[RowInput] = []
+        for synopsis in synopses:
+            if isinstance(synopsis, str):
+                payloads.append({"synopsis": synopsis})
+            elif isinstance(synopsis, Mapping):
+                payloads.append(dict(synopsis))
+            else:
+                raise TypeError(
+                    "synopses must contain only strings or mappings"
+                )
+        table = WEMI_TABLES[level]
+        self._require_table_row(table, entity_id)
+        spec = self._link_spec(table, self.table_name)
+        with self._macros.transaction():
+            synopsis_ids = tuple(self.create(payload) for payload in payloads)
+            self._macros.replace_links(
+                spec,
+                entity_id,
+                (LinkValue(synopsis_id) for synopsis_id in synopsis_ids),
+            )
+        return synopsis_ids
+
 
 class AnnotationRepository(ExactEntityRepository):
     """Exactly inspect item-scoped Annotations without global reuse."""
@@ -218,6 +258,31 @@ class AnnotationRepository(ExactEntityRepository):
     id_column = ANNOTATION_SPEC.id_column
     input_aliases: ClassVar[Mapping[str, str]] = ANNOTATION_SPEC.input_aliases
     match_spec = ANNOTATION_SPEC
+
+    def list_for_item(
+        self,
+        item_id: EntityId,
+        *,
+        user_id: EntityId | None = None,
+        kind: str | None = None,
+    ) -> Sequence[RowMapping]:
+        """Return stable Item-scoped Annotations with optional filters."""
+
+        self._require_table_row("items", item_id)
+        where: dict[str, object] = {"annotation_item_id": item_id}
+        if user_id is not None:
+            self._validate_entity_id(user_id)
+            where["annotation_user_id"] = user_id
+        if kind is not None:
+            if not isinstance(kind, str) or not kind.strip():
+                raise ValueError("kind must be a non-empty string or None")
+            where["annotation_kind"] = kind.strip()
+        rows = self._macros.get_rows(
+            self.table_name,
+            where=where,
+            order_by=(self.id_column,),
+        )
+        return tuple(self._as_mapping(row) for row in rows)
 
 
 __all__ = [

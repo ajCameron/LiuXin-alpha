@@ -10,6 +10,8 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 from .bundles import BundleRetrieverAPI
+from .graph import WemiGraphRetrieverAPI
+from .hierarchy import HierarchyRetrieverAPI
 from .projections import ProjectionAPI
 
 
@@ -24,7 +26,15 @@ class CatalogRetrievalAPI(Protocol):
     """
 
     bundles: BundleRetrieverAPI
+    graph: WemiGraphRetrieverAPI
+    hierarchy: HierarchyRetrieverAPI
     projections: ProjectionAPI
 
 
-__all__ = ["BundleRetrieverAPI", "CatalogRetrievalAPI", "ProjectionAPI"]
+__all__ = [
+    "BundleRetrieverAPI",
+    "CatalogRetrievalAPI",
+    "HierarchyRetrieverAPI",
+    "ProjectionAPI",
+    "WemiGraphRetrieverAPI",
+]

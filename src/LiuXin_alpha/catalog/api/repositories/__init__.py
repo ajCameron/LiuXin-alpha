@@ -18,7 +18,9 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 from LiuXin_alpha.catalog.api.repositories.agents import AgentRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.annotations import AnnotationRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.base import BaseRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.comments import CommentRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.expressions import ExpressionRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.exact_entity import ExactEntityRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.identifiers import IdentifierRepositoryAPI
@@ -28,8 +30,31 @@ from LiuXin_alpha.catalog.api.repositories.item_identifiers import (
 )
 from LiuXin_alpha.catalog.api.repositories.manifestations import ManifestationRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.notes import NoteRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.synopses import SynopsisRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.titles import TitleRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.works import WorkRepositoryAPI
+
+CATALOG_REPOSITORY_NAMES = (
+    "works",
+    "expressions",
+    "manifestations",
+    "items",
+    "agents",
+    "identifiers",
+    "item_identifiers",
+    "titles",
+    "notes",
+    "tags",
+    "labels",
+    "genres",
+    "subjects",
+    "series",
+    "languages",
+    "ratings",
+    "comments",
+    "synopses",
+    "annotations",
+)
 
 
 @runtime_checkable
@@ -62,15 +87,24 @@ class CatalogRepositoriesAPI(Protocol):
     series: ExactEntityRepositoryAPI
     languages: ExactEntityRepositoryAPI
     ratings: ExactEntityRepositoryAPI
-    comments: ExactEntityRepositoryAPI
-    synopses: ExactEntityRepositoryAPI
-    annotations: ExactEntityRepositoryAPI
+    comments: CommentRepositoryAPI
+    synopses: SynopsisRepositoryAPI
+    annotations: AnnotationRepositoryAPI
+
+    def for_name(self, repository_name: str) -> BaseRepositoryAPI:
+        """Return a registered repository by singular or plural public name.
+
+        :raises KeyError: If the normalized name is not a Catalog repository.
+        """
 
 
 __all__ = [
     "AgentRepositoryAPI",
+    "AnnotationRepositoryAPI",
     "BaseRepositoryAPI",
+    "CATALOG_REPOSITORY_NAMES",
     "CatalogRepositoriesAPI",
+    "CommentRepositoryAPI",
     "ExpressionRepositoryAPI",
     "ExactEntityRepositoryAPI",
     "IdentifierRepositoryAPI",
@@ -78,6 +112,7 @@ __all__ = [
     "ItemIdentifierRepositoryAPI",
     "ManifestationRepositoryAPI",
     "NoteRepositoryAPI",
+    "SynopsisRepositoryAPI",
     "TitleRepositoryAPI",
     "WorkRepositoryAPI",
 ]

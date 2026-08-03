@@ -49,7 +49,9 @@ if TYPE_CHECKING:
     from LiuXin_alpha.catalog.api.mutations_api import CatalogMutationsAPI
     from LiuXin_alpha.catalog.api.repositories import (
         AgentRepositoryAPI,
+        AnnotationRepositoryAPI,
         CatalogRepositoriesAPI,
+        CommentRepositoryAPI,
         ExactEntityRepositoryAPI,
         ExpressionRepositoryAPI,
         IdentifierRepositoryAPI,
@@ -57,6 +59,7 @@ if TYPE_CHECKING:
         ItemRepositoryAPI,
         ManifestationRepositoryAPI,
         NoteRepositoryAPI,
+        SynopsisRepositoryAPI,
         TitleRepositoryAPI,
         WorkRepositoryAPI,
     )
@@ -127,9 +130,9 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
     series: "ExactEntityRepositoryAPI"
     languages: "ExactEntityRepositoryAPI"
     ratings: "ExactEntityRepositoryAPI"
-    comments: "ExactEntityRepositoryAPI"
-    synopses: "ExactEntityRepositoryAPI"
-    annotations: "ExactEntityRepositoryAPI"
+    comments: "CommentRepositoryAPI"
+    synopses: "SynopsisRepositoryAPI"
+    annotations: "AnnotationRepositoryAPI"
 
     def create_writer(
         self,

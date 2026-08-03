@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from ..common import CreatedWemiStack
 from .metadata_writer import MetadataWriterAPI
 from .mutation_policy import MutationPolicyAPI
 
@@ -20,4 +21,9 @@ class CatalogMutationsAPI(Protocol):
     policy: MutationPolicyAPI
 
 
-__all__ = ["CatalogMutationsAPI", "MetadataWriterAPI", "MutationPolicyAPI"]
+__all__ = [
+    "CatalogMutationsAPI",
+    "CreatedWemiStack",
+    "MetadataWriterAPI",
+    "MutationPolicyAPI",
+]

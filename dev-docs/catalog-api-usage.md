@@ -25,8 +25,9 @@ Closing or discarding `catalog` does not close `db`.
 | Read/create/update/delete one entity family | `catalog.works`, `catalog.items`, etc. |
 | Decide identity without writing | `catalog.matching` |
 | Read a coherent WEMI slice | `catalog.retrieval.bundles` |
+| Read immediate WEMI adjacency or a bounded descendant graph | `catalog.retrieval.hierarchy`, `catalog.retrieval.graph` |
 | Build a display-neutral summary/title | `catalog.retrieval.projections` |
-| Attach several kinds of metadata or merge entities | `catalog.mutations.writer` |
+| Create/link WEMI entities or attach/replace several metadata groups | `catalog.mutations.writer` |
 | Check whether a semantic mutation is eligible | `catalog.mutations.policy` |
 | Perform a schema-driven field/link write | `catalog.create_writer`, `write`, `write_one` |
 | Work with legacy database `Row` objects | `catalog.add`, `ensure`, `apply`, `intralink` |
@@ -37,6 +38,17 @@ The convenience properties and grouped repositories are identical objects:
 assert catalog.works is catalog.repositories.works
 assert catalog.identifiers is catalog.repositories.identifiers
 ```
+
+Code which receives a repository name dynamically should use the validated
+registry rather than `getattr`:
+
+```python
+repository = catalog.repositories.for_name("work")
+assert repository is catalog.works
+```
+
+Both singular and plural public names are accepted. Unknown names raise
+`KeyError`.
 
 ## WEMI levels
 
@@ -93,6 +105,44 @@ item_id = catalog.items.match_or_create(
 The contextual methods create and link only when the decision is a genuine
 non-match. They return an existing ID on a safe match and raise on ambiguity or
 conflict.
+
+When the caller already knows that all rows are new, one operation creates a
+complete path and returns every ID:
+
+```python
+created = catalog.mutations.writer.create_wemi_stack(
+    work={"title": "Frankenstein"},
+    expression={"label": "1818 English text"},
+    manifestation={"edition_statement": "First edition"},
+    items=[{"inventory_code": "COPY-0001"}],
+    origin="manual-import",
+)
+```
+
+Existing adjacent WEMI rows can be related without reaching into link-table
+details:
+
+```python
+receipt = catalog.mutations.writer.link_wemi(
+    parent_level="work",
+    parent_id=work_id,
+    child_level="expression",
+    child_id=expression_id,
+    primary=True,
+    origin="curation",
+)
+removed = catalog.mutations.writer.unlink_wemi(
+    parent_level="work",
+    parent_id=work_id,
+    child_level="expression",
+    child_id=expression_id,
+)
+```
+
+Only Work-to-Expression, Expression-to-Manifestation, and
+Manifestation-to-Item edges are valid. Setting a primary link demotes any
+previous primary at that parent; Item ownership uses its foreign key and does
+not accept priority or origin metadata.
 
 ## Repository inputs and outputs
 
@@ -220,6 +270,28 @@ assigned_id = catalog.identifiers.link_to_wemi(
 An Identifier row has one owner. Assigning an already-owned logical value to a
 different entity copies it so the first owner's row remains intact.
 
+For edit forms and import snapshots, replace and project the complete curated
+mapping directly:
+
+```python
+catalog.identifiers.replace_for_wemi(
+    level="manifestation",
+    entity_id=manifestation_id,
+    identifiers={
+        "isbn13": "978-0-14-143947-1",
+        "doi": "10.1000/example",
+    },
+)
+primary = catalog.identifiers.primary_values_for_wemi(
+    level="manifestation",
+    entity_id=manifestation_id,
+)
+```
+
+The projection is keyed by normalized scheme and retains the caller-facing
+stored value. Historical/non-primary rows remain available through
+`list_for_wemi`.
+
 `catalog.item_identifiers` instead stores raw observations on one Item:
 
 ```python
@@ -261,6 +333,21 @@ note_id = catalog.notes.add_for_wemi(
 )
 ```
 
+Titles, Notes, Synopses, and role-scoped Agent credits also provide explicit
+replacement methods. Empty Note, Synopsis, or Agent ID sequences clear the
+selected relationship set; `None` clears a logical title or owned Comment.
+
+Annotations are always Item-scoped. List them without open-coded table
+predicates:
+
+```python
+highlights = catalog.annotations.list_for_item(
+    item_id,
+    user_id=user_id,
+    kind="highlight",
+)
+```
+
 ## Bundles and projections
 
 An Item has an unambiguous path upward, so its bundle normally contains all
@@ -275,10 +362,39 @@ assert bundle.item["item_id"] == item_id
 ```
 
 A broader root chooses one deterministic path: the first priority/ID-ordered
-relationship at each lower level. It is not an exhaustive descendant tree; use
-repository `list_*` methods when every Expression, Manifestation, or Item is
-needed. Bundles also collect attached Agents, Identifiers, Titles, Notes, and
+relationship at each lower level. It is not an exhaustive descendant tree.
+Bundles also collect attached Agents, Identifiers, Titles, Notes, and
 relationship records from the selected path.
+
+Use hierarchy retrieval for one generic step in either direction:
+
+```python
+children = catalog.retrieval.hierarchy.children(
+    level="work",
+    entity_id=work_id,
+)
+parents = catalog.retrieval.hierarchy.parents(
+    level="item",
+    entity_id=item_id,
+)
+```
+
+Use graph retrieval when every descendant is needed:
+
+```python
+graph = catalog.retrieval.graph.for_work(
+    work_id,
+    max_expressions=100,
+    max_manifestations=500,
+    max_items=1000,
+)
+if graph.truncated_levels:
+    request_another_view(graph.truncated_levels)
+```
+
+The result retains all selected entities and structural edges. Explicit limits
+make it safe for direct and RPC use, and `truncated_levels` prevents callers
+from mistaking a bounded result for a complete Work graph.
 
 Projections make catalog-semantic choices without rendering a UI:
 
@@ -319,6 +435,31 @@ The operation preflights every attachment and runs transactionally. Agent
 entries require a `role`; identifier entries require either `identifier_id` or
 scheme/type plus value.
 
+Use `replace_metadata` when the supplied groups are authoritative snapshots:
+
+```python
+catalog.mutations.writer.replace_metadata(
+    level="work",
+    entity_id=work_id,
+    data={
+        "fields": {"original_year": 1818},
+        "title": "Frankenstein",
+        "agents": [
+            {"agent_id": mary_id, "role": "author"},
+        ],
+        "identifiers": {"wikidata": "Q150827"},
+        "notes": ["First published anonymously."],
+        "comments": {"text": "Curator reviewed"},
+        "synopses": [{"text": "A modern Prometheus story."}],
+    },
+)
+```
+
+Omitted groups remain unchanged. Present empty groups clear their complete
+relationship set. Title replacement clears all title-bearing columns for that
+WEMI level before applying the replacement; explicitly supplied direct
+`fields` are applied last and therefore win if they overlap.
+
 Merging moves supported metadata/relationships to the target and deletes the
 source:
 
@@ -337,6 +478,35 @@ if catalog.mutations.policy.can_merge(
 
 Policy checks are advisory and side-effect-free; writers validate again inside
 their transaction.
+
+## Core direct and RPC operations
+
+Core exposes the same conveniences as named transport-stable operations. The
+same payload works through `CoreRuntime`, `LocalCoreClient`, and
+`RemoteCoreClient`:
+
+```python
+runtime.command(
+    "catalog.metadata.replace",
+    {
+        "level": "work",
+        "entity_id": work_id,
+        "data": {"identifiers": {"wikidata": "Q150827"}},
+    },
+)
+graph = remote.query(
+    "catalog.graph.get",
+    {"work_id": work_id, "max_items": 1000},
+)
+```
+
+The convenience operation names are:
+
+- `catalog.wemi.link` and `catalog.wemi.unlink`
+- `catalog.metadata.replace`
+- `catalog.hierarchy.list` and `catalog.graph.get`
+- `catalog.identifiers.primary-values`
+- `catalog.annotations.list`
 
 ## Generic schema-backed writes
 

@@ -71,3 +71,15 @@ class TitleRepositoryAPI(BaseRepositoryAPI, Protocol):
         :return: Logical title mapping, or ``None`` when all title-bearing
             columns are blank.
         """
+
+    def clear_for_wemi(self, *, level: WemiLevel, entity_id: EntityId) -> None:
+        """Clear every title-bearing column owned by one WEMI entity."""
+
+    def replace_for_wemi(
+        self,
+        *,
+        level: WemiLevel,
+        entity_id: EntityId,
+        data: RowInput | str | None,
+    ) -> EntityId | None:
+        """Replace all logical title values, or clear them with ``None``."""

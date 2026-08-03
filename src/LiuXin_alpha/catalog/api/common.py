@@ -40,6 +40,7 @@ EntityId: TypeAlias = int
 RowMapping: TypeAlias = Mapping[str, Any]
 RowInput: TypeAlias = MutableMapping[str, Any] | Mapping[str, Any]
 WemiLevel: TypeAlias = Literal["work", "expression", "manifestation", "item"]
+WemiDirection: TypeAlias = Literal["children", "parents"]
 MatchDecision: TypeAlias = Literal["match", "no_match", "ambiguous", "conflict"]
 MatchEvidenceKind: TypeAlias = Literal[
     "identifier",
@@ -308,3 +309,51 @@ class WemiBundle:
     titles: Sequence[RowMapping] = ()
     notes: Sequence[RowMapping] = ()
     links: Sequence[RowMapping] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class CreatedWemiStack:
+    """IDs produced by one atomic Work-to-Items creation operation.
+
+    The value is deliberately transport-friendly: Core can return it through
+    either the local or HTTP client without exposing repository objects.
+    """
+
+    work_id: EntityId
+    expression_id: EntityId
+    manifestation_id: EntityId
+    item_ids: tuple[EntityId, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class WemiAdjacency:
+    """One direction of immediate WEMI hierarchy traversal.
+
+    ``entities`` contains only the adjacent level. Relationship metadata
+    remains attached to mappings under ``"_catalog_link"`` when the relation
+    is represented by a link table.
+    """
+
+    level: WemiLevel
+    entity_id: EntityId
+    direction: WemiDirection
+    related_level: WemiLevel
+    entities: tuple[RowMapping, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class WemiGraph:
+    """A bounded, exhaustive-within-limits descendant graph for one Work.
+
+    Unlike :class:`WemiBundle`, this value retains every selected descendant
+    and every selected Work/Expression, Expression/Manifestation, and
+    Manifestation/Item edge. ``truncated_levels`` states exactly where caller
+    limits prevented a complete result.
+    """
+
+    work: RowMapping
+    expressions: tuple[RowMapping, ...] = ()
+    manifestations: tuple[RowMapping, ...] = ()
+    items: tuple[RowMapping, ...] = ()
+    links: tuple[RowMapping, ...] = ()
+    truncated_levels: tuple[WemiLevel, ...] = ()
