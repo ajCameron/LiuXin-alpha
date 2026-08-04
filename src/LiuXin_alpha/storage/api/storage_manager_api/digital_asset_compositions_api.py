@@ -1,4 +1,10 @@
-"""Composite digital asset membership link methods for the storage manager."""
+"""Composite digital asset membership link methods for the storage manager.
+
+Examples:
+    Resolve the ordered members of a composite::
+
+        member_ids = list(manager.get_composite_digital_asset_items(12))
+"""
 
 from __future__ import annotations
 
@@ -15,6 +21,11 @@ if TYPE_CHECKING:
 class CompositeDigitalAssetMembersManagerAPI(abc.ABC):
     """
     Access and update ordered membership links inside composite digital assets.
+
+    Examples:
+        Iterate over the membership rows for composite ``12``::
+
+            links = list(manager.iter_composite_digital_asset_members_links(12))
     """
 
     @abc.abstractmethod
@@ -26,6 +37,11 @@ class CompositeDigitalAssetMembersManagerAPI(abc.ABC):
 
         :param composite_digital_asset_id:
         :return:
+
+        Examples:
+            Preserve database ordering by consuming the returned iterator::
+
+                member_ids = list(manager.get_composite_digital_asset_items(12))
         """
 
     @abc.abstractmethod
@@ -38,6 +54,11 @@ class CompositeDigitalAssetMembersManagerAPI(abc.ABC):
 
         :param link:
         :return:
+
+        Examples:
+            Persist a member link row::
+
+                link = manager.create_composite_digital_asset_member_link(link_row)
         """
 
     @abc.abstractmethod
@@ -50,6 +71,11 @@ class CompositeDigitalAssetMembersManagerAPI(abc.ABC):
 
         :param composite_digital_asset_member_link_id:
         :return:
+
+        Examples:
+            Retrieve membership link ``9``::
+
+                link = manager.get_composite_digital_asset_member_link(9)
         """
 
     @abc.abstractmethod
@@ -62,6 +88,12 @@ class CompositeDigitalAssetMembersManagerAPI(abc.ABC):
 
         :param link:
         :return:
+
+        Examples:
+            Save a changed member position::
+
+                link["composite_digital_asset_digital_asset_link_sequence_number"] = 2
+                link = manager.update_composite_digital_asset_member_link(link)
         """
 
     @abc.abstractmethod
@@ -74,6 +106,11 @@ class CompositeDigitalAssetMembersManagerAPI(abc.ABC):
 
         :param composite_digital_asset_member_link_id:
         :return:
+
+        Examples:
+            Remove membership link ``9``::
+
+                removed = manager.delete_composite_digital_asset_member_link(9)
         """
 
     @abc.abstractmethod
@@ -82,10 +119,15 @@ class CompositeDigitalAssetMembersManagerAPI(abc.ABC):
         composite_digital_asset_id: "CompositeDigitalAssetID",
     ) -> Iterator["CompositeDigitalAssetMemberLinkRow"]:
         """
-        Iterate over the link rows between the composite digital asset and it's members.
+        Iterate over the link rows between the composite digital asset and its members.
 
         :param composite_digital_asset_id:
         :return:
+
+        Examples:
+            Load all membership rows for composite ``12``::
+
+                links = list(manager.iter_composite_digital_asset_members_links(12))
         """
 
     @abc.abstractmethod
@@ -94,8 +136,13 @@ class CompositeDigitalAssetMembersManagerAPI(abc.ABC):
         digital_asset_id: "DigitalAssetID",
     ) -> Iterator["CompositeDigitalAssetMemberLinkRow"]:
         """
-        Iterate over the link rows between a digital asset and it's composite "parents".
+        Iterate over the link rows between a digital asset and its composite parents.
 
         :param digital_asset_id:
         :return:
+
+        Examples:
+            Find every composite containing asset ``42``::
+
+                parents = list(manager.iter_digital_asset_composites(42))
         """

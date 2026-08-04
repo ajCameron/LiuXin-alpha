@@ -1,4 +1,10 @@
-"""Storage policy access/update methods for the storage manager."""
+"""Storage policy access/update methods for the storage manager.
+
+Examples:
+    Assess one asset against its effective policy::
+
+        status = manager.assess_replication(digital_asset_id=42)
+"""
 
 from __future__ import annotations
 
@@ -38,6 +44,14 @@ class StoragePoliciesManagerAPI(abc.ABC):
     In the same way that RAID is not a backup strategy.
     Backups are often cold and offline.
     And ideally, should be hard to destroy.
+
+    Examples:
+        Create and later assign a replication policy::
+
+            record = manager.create_replication_policy(policy)
+            asset = manager.set_digital_asset_policies(
+                42, replication_policy_id=record.replication_policy_id
+            )
     """
 
     @abc.abstractmethod
@@ -48,6 +62,11 @@ class StoragePoliciesManagerAPI(abc.ABC):
         Returning the record of the policy.
         :param policy:
         :return:
+
+        Examples:
+            Persist a value-object policy::
+
+                record = manager.create_replication_policy(policy)
         """
 
     @abc.abstractmethod
@@ -57,6 +76,11 @@ class StoragePoliciesManagerAPI(abc.ABC):
 
         :param replication_policy_id:
         :return:
+
+        Examples:
+            Load policy ``4``::
+
+                record = manager.get_replication_policy(4)
         """
 
     @abc.abstractmethod
@@ -71,6 +95,11 @@ class StoragePoliciesManagerAPI(abc.ABC):
         :param replication_policy_id:
         :param policy:
         :return:
+
+        Examples:
+            Replace the values stored for policy ``4``::
+
+                record = manager.update_replication_policy(4, revised_policy)
         """
 
     @abc.abstractmethod
@@ -79,6 +108,11 @@ class StoragePoliciesManagerAPI(abc.ABC):
         Iterate over all replication policies.
 
         :return:
+
+        Examples:
+            List every persisted replication policy::
+
+                policies = list(manager.iter_replication_policies())
         """
 
     @abc.abstractmethod
@@ -88,6 +122,11 @@ class StoragePoliciesManagerAPI(abc.ABC):
 
         :param policy:
         :return:
+
+        Examples:
+            Persist a cold-backup policy::
+
+                record = manager.create_backup_policy(policy)
         """
 
     @abc.abstractmethod
@@ -97,6 +136,11 @@ class StoragePoliciesManagerAPI(abc.ABC):
 
         :param backup_policy_id:
         :return:
+
+        Examples:
+            Load backup policy ``6``::
+
+                record = manager.get_backup_policy(6)
         """
 
     @abc.abstractmethod
@@ -111,6 +155,11 @@ class StoragePoliciesManagerAPI(abc.ABC):
         :param backup_policy_id:
         :param policy:
         :return:
+
+        Examples:
+            Replace the values stored for backup policy ``6``::
+
+                record = manager.update_backup_policy(6, revised_policy)
         """
 
     @abc.abstractmethod
@@ -119,6 +168,11 @@ class StoragePoliciesManagerAPI(abc.ABC):
         Iterate over all backup policies.
 
         :return:
+
+        Examples:
+            List every persisted backup policy::
+
+                policies = list(manager.iter_backup_policies())
         """
 
     @abc.abstractmethod
@@ -136,6 +190,13 @@ class StoragePoliciesManagerAPI(abc.ABC):
         :param replication_policy_id:
         :param backup_policy_id:
         :return:
+
+        Examples:
+            Assign both policies in one update::
+
+                asset = manager.set_digital_asset_policies(
+                    42, replication_policy_id=4, backup_policy_id=6
+                )
         """
 
     @abc.abstractmethod
@@ -145,22 +206,38 @@ class StoragePoliciesManagerAPI(abc.ABC):
 
         :param digital_asset_id:
         :return:
+
+        Examples:
+            Check whether asset ``42`` needs another replica::
+
+                status = manager.assess_replication(42)
+                needs_copy = not status.meets_target
         """
 
     @abc.abstractmethod
     def iter_badly_replicated_assets(self) -> Iterator["DigitalAssetID"]:
         """
-        Iter assets which do not meet the replication plan.
+        Iterate over assets which do not meet the replication plan.
 
         :return:
+
+        Examples:
+            Queue under-replicated assets for planning::
+
+                asset_ids = list(manager.iter_badly_replicated_assets())
         """
 
     @abc.abstractmethod
     def iter_badly_backed_up_assets(self) -> Iterator["DigitalAssetID"]:
         """
-        Iter assets which do not meet the replication plan.
+        Iterate over assets which do not meet their backup plan.
 
         :return:
+
+        Examples:
+            Find assets requiring a new backup::
+
+                asset_ids = list(manager.iter_badly_backed_up_assets())
         """
 
     @abc.abstractmethod
@@ -170,6 +247,11 @@ class StoragePoliciesManagerAPI(abc.ABC):
 
         :param digital_asset_id:
         :return:
+
+        Examples:
+            Ask which stores could satisfy asset ``42``::
+
+                plan = manager.plan_replication(42)
         """
 
     @abc.abstractmethod
@@ -178,9 +260,17 @@ class StoragePoliciesManagerAPI(abc.ABC):
             un_replication: bool = False,
             un_backed_up: bool = False) -> Iterator["DigitalAssetID"]:
         """
-        Itter over assets which do not have a plan.
+        Iterate over assets which do not have a policy plan.
 
         :param un_replication: If True, iter over the un replicated assets.
         :param un_backed_up: If True, iter over the un backed up assets.
         :return:
+
+        Examples:
+            Find assets missing either kind of plan::
+
+                asset_ids = list(manager.iter_unplanned_assets(
+                    un_replication=True,
+                    un_backed_up=True,
+                ))
         """

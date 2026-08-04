@@ -1,4 +1,11 @@
-"""Open-mode type aliases and async file protocols for storage APIs."""
+"""Open-mode type aliases and async file protocols for storage APIs.
+
+Examples:
+    Annotate helpers that accept only text-reading modes::
+
+        def read_mode(mode: OpenTextModeReading = "r") -> OpenTextModeReading:
+            return mode
+"""
 
 from __future__ import annotations
 
@@ -26,7 +33,14 @@ _Opener: TypeAlias = Callable[[str, int], int]
 
 
 class AsyncTextFile(Protocol):
-    """Protocol for async text file objects returned by location open calls."""
+    """Protocol for async text file objects returned by location open calls.
+
+    Examples:
+        Consume any conforming async text handle::
+
+            async def first_line(file: AsyncTextFile) -> str:
+                return (await file.read()).splitlines()[0]
+    """
     async def __aenter__(self) -> "AsyncTextFile": ...
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> bool | None: ...
     async def read(self, n: int = -1) -> str: ...
@@ -36,7 +50,14 @@ class AsyncTextFile(Protocol):
 
 
 class AsyncBinaryFile(Protocol):
-    """Protocol for async binary file objects returned by location open calls."""
+    """Protocol for async binary file objects returned by location open calls.
+
+    Examples:
+        Consume any conforming async binary handle::
+
+            async def header(file: AsyncBinaryFile) -> bytes:
+                return await file.read(16)
+    """
     async def __aenter__(self) -> "AsyncBinaryFile": ...
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> bool | None: ...
     async def read(self, n: int = -1) -> bytes: ...

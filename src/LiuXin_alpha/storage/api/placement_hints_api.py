@@ -1,4 +1,14 @@
-"""Storage-owned placement hint models and metadata projection helpers."""
+"""Storage-owned placement hint models and metadata projection helpers.
+
+Examples:
+    Supply explicit hints when a caller already knows the desired path::
+
+        hints = ItemStorageHints(
+            title="A Book",
+            primary_agents=("A. Writer",),
+            preferred_folder_tokens=("A. Writer", "A Book"),
+        )
+"""
 
 from __future__ import annotations
 
@@ -20,7 +30,15 @@ MutableStorageHintRecord: TypeAlias = dict[str, StorageHintValue]
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class WorkStorageHints:
-    """Storage-facing projection of work metadata for placement decisions."""
+    """Storage-facing projection of work metadata for placement decisions.
+
+    Examples:
+        Describe a work without exposing its full metadata container::
+
+            hints = WorkStorageHints(
+                work_id=3, title="A Book", primary_agents=("A. Writer",)
+            )
+    """
 
     work_id: int | None = None
     title: str | None = None
@@ -41,12 +59,28 @@ class WorkStorageHints:
     extra: StorageHintRecord = dataclasses.field(default_factory=dict)
 
     def to_mapping(self) -> MutableStorageHintRecord:
+        """Return a mutable dictionary representation of these hints.
+
+        Examples:
+            Pass a plain mapping to a placement rule::
+
+                values = hints.to_mapping()
+                title = values["title"]
+        """
         return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ExpressionStorageHints:
-    """Storage-facing projection of expression metadata for placement decisions."""
+    """Storage-facing projection of expression metadata for placement decisions.
+
+    Examples:
+        Describe a translated expression::
+
+            hints = ExpressionStorageHints(
+                expression_id=5, title="Un livre", language_code="fr"
+            )
+    """
 
     expression_id: int | None = None
     work_id: int | None = None
@@ -61,12 +95,27 @@ class ExpressionStorageHints:
     extra: StorageHintRecord = dataclasses.field(default_factory=dict)
 
     def to_mapping(self) -> MutableStorageHintRecord:
+        """Return a mutable dictionary representation of these hints.
+
+        Examples:
+            Read the projected language through a generic mapping::
+
+                language = hints.to_mapping()["language_code"]
+        """
         return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ManifestationStorageHints:
-    """Storage-facing projection of manifestation metadata for placement decisions."""
+    """Storage-facing projection of manifestation metadata for placement decisions.
+
+    Examples:
+        Describe one EPUB manifestation::
+
+            hints = ManifestationStorageHints(
+                manifestation_id=8, format_detail="EPUB", publication_year=2026
+            )
+    """
 
     manifestation_id: int | None = None
     expression_id: int | None = None
@@ -82,12 +131,29 @@ class ManifestationStorageHints:
     extra: StorageHintRecord = dataclasses.field(default_factory=dict)
 
     def to_mapping(self) -> MutableStorageHintRecord:
+        """Return a mutable dictionary representation of these hints.
+
+        Examples:
+            Feed format detail to a store-selection rule::
+
+                format_detail = hints.to_mapping()["format_detail"]
+        """
         return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ItemStorageHints:
-    """Storage-facing projection of item metadata for placement decisions."""
+    """Storage-facing projection of item metadata for placement decisions.
+
+    Examples:
+        Provide a preferred key for a concrete library item::
+
+            hints = ItemStorageHints(
+                item_id=13,
+                title="A Book",
+                preferred_storage_key="A. Writer/A Book/book.epub",
+            )
+    """
 
     item_id: int | None = None
     manifestation_id: int | None = None
@@ -122,6 +188,13 @@ class ItemStorageHints:
     extra: StorageHintRecord = dataclasses.field(default_factory=dict)
 
     def to_mapping(self) -> MutableStorageHintRecord:
+        """Return a mutable dictionary representation of these hints.
+
+        Examples:
+            Inspect the preferred key without depending on the dataclass type::
+
+                storage_key = hints.to_mapping()["preferred_storage_key"]
+        """
         return dataclasses.asdict(self)
 
 
@@ -135,24 +208,62 @@ StoragePlacementHints: TypeAlias = (
 
 @runtime_checkable
 class StorageHintProvider(Protocol):
-    """Structural storage-side protocol for objects that already provide hints."""
+    """Structural storage-side protocol for objects that already provide hints.
+
+    Examples:
+        Any object with the right method can be passed to ``derive_storage_hints``::
+
+            class ImportRecord:
+                def storage_hints(self):
+                    return ItemStorageHints(title="A Book")
+    """
 
     def storage_hints(self) -> StoragePlacementHints:
-        """Return storage placement hints."""
+        """Return storage placement hints.
+
+        Examples:
+            Project a provider before selecting a destination::
+
+                hints = provider.storage_hints()
+        """
 
 
 @runtime_checkable
 class StorageHintMetadataSource(Protocol):
-    """Structural source that storage can project into placement hints."""
+    """Structural source that storage can project into placement hints.
+
+    Examples:
+        Metadata containers qualify structurally when they expose relation links::
+
+            hints = derive_storage_hints(metadata_container)
+    """
 
     def get_relation_links(self, relation_key: str) -> Iterable[object]:
-        """Return relation links for a metadata relation key."""
+        """Return relation links for a metadata relation key.
+
+        Examples:
+            Storage may request agents while building folder tokens::
+
+                agent_links = list(metadata.get_relation_links("agents"))
+        """
 
 
 def derive_storage_hints(
     metadata: StoragePlacementHints | StorageHintProvider | StorageHintMetadataSource,
 ) -> StoragePlacementHints | None:
-    """Derive storage placement hints from metadata-like objects."""
+    """Derive storage placement hints from metadata-like objects.
+
+    Explicit hint objects are returned unchanged. Providers are asked for their
+    hints, while metadata containers are projected from their entity and
+    relation bundles. Unsupported inputs return ``None``.
+
+    Examples:
+        Derive item hints from a metadata container::
+
+            hints = derive_storage_hints(item_metadata)
+            if hints is not None:
+                folder_tokens = hints.preferred_folder_tokens
+    """
 
     if isinstance(metadata, (WorkStorageHints, ExpressionStorageHints, ManifestationStorageHints, ItemStorageHints)):
         return metadata

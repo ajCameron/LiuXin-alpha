@@ -4,6 +4,14 @@ Policy value objects for the storage manager.
 These objects describe desired state and planner output for storage concerns.
 They deliberately do *not* contain live job state, mutable execution details,
 or backend-specific transfer mechanics.
+
+Examples:
+    Ask for three active copies on separate stores::
+
+        policy = ReplicationPolicy(
+            name="durable-active", min_copies=2, target_copies=3,
+            distinct_by=(DistinctBy.STORE,),
+        )
 """
 
 from __future__ import annotations
@@ -21,6 +29,11 @@ class ReplicationMode(StrEnum):
     This is intentionally broad. More specialised policy families can grow out
     of this later without changing the basic shape of the replication policy
     object itself.
+
+    Examples:
+        Select active, backup, or archival intent::
+
+            mode = ReplicationMode.ARCHIVE
     """
 
     ACTIVE = "active"
@@ -31,6 +44,11 @@ class ReplicationMode(StrEnum):
 class DistinctBy(StrEnum):
     """
     Dimensions across which copies should be kept distinct.
+
+    Examples:
+        Require copies in separate failure domains::
+
+            dimensions = (DistinctBy.FAILURE_DOMAIN,)
     """
 
     STORE = "store"
@@ -45,6 +63,13 @@ class ReplicationPolicy:
 
     This object describes what storage should try to maintain. It should not
     contain live status, chosen store ids, timestamps, or transfer progress.
+
+    Examples:
+        Require two active copies on different stores::
+
+            policy = ReplicationPolicy(
+                name="two-copy", min_copies=2, distinct_by=(DistinctBy.STORE,)
+            )
     """
 
     name: str = "default"
@@ -89,6 +114,11 @@ class ReplicationPolicy:
     def effective_target_copies(self) -> int:
         """
         Target copy count with the defaulting rule applied.
+
+        Examples:
+            An omitted target defaults to the minimum::
+
+                assert ReplicationPolicy(min_copies=2).effective_target_copies == 2
         """
         if self.target_copies is None:
             return self.min_copies
@@ -102,6 +132,13 @@ class BackupPolicy:
 
     This is intentionally similar to `ReplicationPolicy`, but focused on
     recoverable backup copies rather than immediately-available active replicas.
+
+    Examples:
+        Require two verified backup copies::
+
+            policy = BackupPolicy(
+                name="two-backups", min_backup_copies=2, verify_after_write=True
+            )
     """
 
     name: str = "default_backup"
@@ -139,6 +176,12 @@ class BackupPolicy:
     def effective_target_backup_copies(self) -> int:
         """
         Target backup copy count with the defaulting rule applied.
+
+        Examples:
+            An omitted target defaults to the minimum::
+
+                policy = BackupPolicy(min_backup_copies=2)
+                assert policy.effective_target_backup_copies == 2
         """
         if self.target_backup_copies is None:
             return self.min_backup_copies
@@ -150,6 +193,14 @@ class BackupPolicy:
 class ReplicationStatus:
     """
     Snapshot of how one managed digital asset currently relates to a replication policy.
+
+    Examples:
+        Represent a healthy two-copy asset::
+
+            status = ReplicationStatus(
+                "asset-42", "two-copy", copy_count=2,
+                healthy_copy_count=2, meets_minimum=True, meets_target=True,
+            )
     """
 
     digital_asset_identifier: Optional[str]
@@ -184,6 +235,18 @@ class ReplicationStatus:
         *,
         file_identifier: Optional[str] = None,
     ) -> None:
+        """Create a replication assessment snapshot.
+
+        ``file_identifier`` is a compatibility alias for
+        ``digital_asset_identifier``.
+
+        Examples:
+            Older callers may still supply the compatibility name::
+
+                status = ReplicationStatus(
+                    file_identifier="asset-42", policy_name="two-copy"
+                )
+        """
         if policy_name is None:
             raise TypeError("ReplicationStatus requires policy_name.")
         if (
@@ -205,6 +268,13 @@ class ReplicationStatus:
 
     @property
     def file_identifier(self) -> Optional[str]:
+        """Return the compatibility alias for the digital asset identifier.
+
+        Examples:
+            Read an assessment created by an older file-oriented caller::
+
+                assert status.file_identifier == status.digital_asset_identifier
+        """
         return self.digital_asset_identifier
 
 
@@ -213,6 +283,13 @@ class ReplicationStatus:
 class ReplicationPlan:
     """
     Planner output describing the next storage actions needed for one managed digital asset.
+
+    Examples:
+        Plan one new copy on the archive store::
+
+            plan = ReplicationPlan(
+                "asset-42", "two-copy", stores_to_add=("archive",)
+            )
     """
 
     digital_asset_identifier: Optional[str]
@@ -233,6 +310,19 @@ class ReplicationPlan:
         *,
         file_identifier: Optional[str] = None,
     ) -> None:
+        """Create an immutable planner result.
+
+        ``file_identifier`` is a compatibility alias for
+        ``digital_asset_identifier``.
+
+        Examples:
+            Describe both additions and verification work::
+
+                plan = ReplicationPlan(
+                    "asset-42", "two-copy",
+                    stores_to_add=("archive",), stores_to_verify=("main",),
+                )
+        """
         if policy_name is None:
             raise TypeError("ReplicationPlan requires policy_name.")
         if (
@@ -251,6 +341,13 @@ class ReplicationPlan:
 
     @property
     def file_identifier(self) -> Optional[str]:
+        """Return the compatibility alias for the digital asset identifier.
+
+        Examples:
+            Support file-oriented code during migration::
+
+                assert plan.file_identifier == plan.digital_asset_identifier
+        """
         return self.digital_asset_identifier
 
 
@@ -268,7 +365,13 @@ __all__ = [
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicationPolicyRecord:
-    """Persisted replication policy row."""
+    """Persisted replication policy row.
+
+    Examples:
+        Pair a database id with its immutable policy value::
+
+            record = ReplicationPolicyRecord(4, ReplicationPolicy(name="main"))
+    """
 
     replication_policy_id: Optional[int]
     policy: ReplicationPolicy
@@ -276,7 +379,13 @@ class ReplicationPolicyRecord:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupPolicyRecord:
-    """Persisted backup policy row."""
+    """Persisted backup policy row.
+
+    Examples:
+        Pair a database id with its immutable policy value::
+
+            record = BackupPolicyRecord(6, BackupPolicy(name="nightly"))
+    """
 
     backup_policy_id: Optional[int]
     policy: BackupPolicy

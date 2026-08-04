@@ -1,5 +1,10 @@
-"""
-API contracts for file containers exposed by storage backends.
+"""API contracts for file containers exposed by storage backends.
+
+Examples:
+    Use the opener mixin anywhere a built-in-compatible ``open`` is needed::
+
+        with opener.open("book.txt", encoding="utf-8") as file:
+            text = file.read()
 """
 
 from __future__ import annotations
@@ -23,8 +28,13 @@ from LiuXin_alpha.storage.single_file import SingleFileStatus
 
 
 class FileOpenerTypeMixin(abc.ABC):
-    """
-    Typed mirror of Python's built-in `open` signatures.
+    """Typed mirror of Python's built-in ``open`` signatures.
+
+    Examples:
+        Binary modes receive an appropriately typed stream::
+
+            with opener.open("cover.jpg", "rb") as file:
+                header = file.read(16)
     """
 
     @overload
@@ -119,6 +129,14 @@ class FileOpenerTypeMixin(abc.ABC):
     ) -> IO[Any]: ...
 
     def open(self, file: FileDescriptorOrPath, mode: str = "r", **kwargs: Any) -> IO[Any]:
+        """Open a descriptor or path using Python's built-in implementation.
+
+        Examples:
+            Read UTF-8 text::
+
+                with opener.open("book.txt", encoding="utf-8") as file:
+                    text = file.read()
+        """
         import builtins
 
         return builtins.open(file, mode, **kwargs)
@@ -126,10 +144,13 @@ class FileOpenerTypeMixin(abc.ABC):
 
 @dataclasses.dataclass(frozen=True)
 class FileStatus:
-    """
-    LiuXin-level status overlay for one logical file.
+    """LiuXin-level status overlay for one logical file.
+
+    Examples:
+        Represent a file with two protected copies::
+
+            status = FileStatus(copies=2, protected=True)
     """
 
     copies: int = 0
     protected: bool = False
-

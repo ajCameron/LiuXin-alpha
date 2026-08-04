@@ -1,4 +1,10 @@
-"""Item <-> digital asset link methods for the storage manager."""
+"""Item <-> digital asset link methods for the storage manager.
+
+Examples:
+    Find the atomic assets attached to an item::
+
+        links = list(manager.iter_item_digital_asset_links(item_id=7))
+"""
 
 from __future__ import annotations
 
@@ -14,7 +20,20 @@ if TYPE_CHECKING:
 
 
 class ItemDigitalAssetsManagerAPI(abc.ABC):
-    """Access and update semantic links between items and atomic digital assets."""
+    """Access and update semantic links between items and atomic digital assets.
+
+    Examples:
+        Link item ``7`` to asset ``42``::
+
+            link = manager.create_item_digital_asset_link(
+                item_id=7,
+                asset_id=42,
+                priority="highest",
+                link_type="primary_payload",
+                origin="import",
+                primary=True,
+            )
+    """
 
     @abc.abstractmethod
     def create_item_digital_asset_link_from_row(
@@ -27,6 +46,11 @@ class ItemDigitalAssetsManagerAPI(abc.ABC):
         You could also create the row, and then call [row].sync()
         :param link:
         :return:
+
+        Examples:
+            Persist an already populated row::
+
+                link = manager.create_item_digital_asset_link_from_row(link_row)
         """
 
     @abc.abstractmethod
@@ -49,6 +73,13 @@ class ItemDigitalAssetsManagerAPI(abc.ABC):
         :param origin:
         :param primary:
         :return:
+
+        Examples:
+            Attach a cover asset with explicit priority::
+
+                link = manager.create_item_digital_asset_link(
+                    7, 42, 10, "cover", "scanner", primary=False
+                )
         """
 
     @abc.abstractmethod
@@ -61,6 +92,11 @@ class ItemDigitalAssetsManagerAPI(abc.ABC):
 
         :param digital_asset_item_link_id:
         :return:
+
+        Examples:
+            Retrieve link ``5``::
+
+                link = manager.get_item_digital_asset_link(5)
         """
 
     @abc.abstractmethod
@@ -73,6 +109,12 @@ class ItemDigitalAssetsManagerAPI(abc.ABC):
 
         :param link:
         :return:
+
+        Examples:
+            Save changes to a link row::
+
+                link["digital_asset_item_link_primary"] = 1
+                link = manager.update_item_digital_asset_link(link)
         """
 
     @abc.abstractmethod
@@ -82,22 +124,37 @@ class ItemDigitalAssetsManagerAPI(abc.ABC):
 
         :param digital_asset_item_link_id:
         :return:
+
+        Examples:
+            Remove link ``5``::
+
+                removed = manager.delete_item_digital_asset_link(5)
         """
 
     @abc.abstractmethod
     def iter_item_digital_asset_links(self, item_id: "ItemID") -> Iterator["DigitalAssetItemLinkRow"]:
         """
-        Iter over all the link rows between an item and a digital asset.
+        Iterate over all the link rows between an item and a digital asset.
 
         :param item_id:
         :return:
+
+        Examples:
+            List every asset attached to item ``7``::
+
+                links = list(manager.iter_item_digital_asset_links(7))
         """
 
     @abc.abstractmethod
     def iter_digital_asset_item_links(self, digital_asset_id: "DigitalAssetID") -> Iterator["DigitalAssetItemLinkRow"]:
         """
-        Iter over all the assets linked to a digitial item.
+        Iterate over all item links for a digital asset.
 
         :param digital_asset_id:
         :return:
+
+        Examples:
+            Find every item using asset ``42``::
+
+                links = list(manager.iter_digital_asset_item_links(42))
         """
