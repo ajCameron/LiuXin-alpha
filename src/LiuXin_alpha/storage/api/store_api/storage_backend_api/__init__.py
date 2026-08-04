@@ -1,3 +1,12 @@
+"""Combined compatibility contract for raw store operations.
+
+Examples:
+    Legacy backend implementations satisfy the composed API::
+
+        def inventory(backend: StoreBackendAPI):
+            return list(backend.true_files())
+"""
+
 from __future__ import annotations
 
 from LiuXin_alpha.storage.api.store_api.storage_backend_api.storage_backend_file_add_mixin import \
@@ -26,4 +35,9 @@ class StoreBackendAPI(
     - read from archives
     - read from remote FTP servers
     e.t.c.
+
+    Examples:
+        Read one location without using database integration::
+
+            location = backend.get_file("authors/book.epub")
     """

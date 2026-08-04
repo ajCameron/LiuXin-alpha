@@ -3,6 +3,13 @@
 This contract is intentionally narrow: orchestration of store containers plus
 location/file routing. Richer replica/policy manager contracts can sit beside
 it instead of being forced into every concrete manager immediately.
+
+Examples:
+    Construct the concrete manager with an optional database binding::
+
+        from LiuXin_alpha.storage.store_manager import StorageManager
+
+        manager = StorageManager(db=db)
 """
 
 from __future__ import annotations
@@ -23,9 +30,24 @@ class StorageManagerAPI(StoresManagerAPI, StoreFileOrchestrationAPI, abc.ABC):
     This intentionally covers store orchestration plus location/file routing.
     Richer digital-asset, replica, and policy manager contracts can live beside
     it later instead of forcing every concrete manager to fake them now.
+
+    Examples:
+        Use the concrete implementation for normal application code::
+
+            from LiuXin_alpha.storage.store_manager import StorageManager
+
+            manager = StorageManager(stores=[store])
+            location = manager.store_bytes(b"payload")
     """
 
     db: "DatabaseAPI | None"
 
     def __init__(self, db: "DatabaseAPI | None" = None) -> None:
+        """Bind the manager contract to an optional database.
+
+        Examples:
+            A database-free manager can still orchestrate explicit stores::
+
+                manager = ConcreteStorageManager(db=None)
+        """
         self.db = db

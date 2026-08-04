@@ -1,7 +1,7 @@
 """
 Containers and row helpers for managed digital assets and storage state.
 
-The row heirachy for this part of the database is as follows.
+The row hierarchy for this part of the database is as follows.
 
 Item
  - The bottom end of the WEMI stack - actual items of whatever form
@@ -19,6 +19,11 @@ They are both first class objects in this sense.
 However, Composite assets CANNOT link, directly, to AssetReplicas
 
 ONLY DigitalAssets link to AssetReplicas.
+
+Examples:
+    Load a typed digital-asset row through the inherited row factory::
+
+        asset_row = DigitalAssetRow.from_row_id(db, 42, read_only=True)
 
 """
 
@@ -49,6 +54,11 @@ if TYPE_CHECKING:
 class DigitalAssetRow(FixedTableStorageRow):
     """
     One atomic, byte-bearing managed digital asset row.
+
+    Examples:
+        Load asset ``42`` from the database::
+
+            row = DigitalAssetRow.from_row_id(db, 42)
     """
 
     TABLE_NAME = "digital_assets"
@@ -60,16 +70,26 @@ class DigitalAssetRow(FixedTableStorageRow):
         Get the digital asset ID.
 
         :return:
+
+        Examples:
+            Read the stable asset id::
+
+                asset_id = row.digital_asset_id
         """
         return self[self.ID_COLUMN]
 
     @digital_asset_id.setter
     def digital_asset_id(self, value: Optional["DigitalAssetID"]) -> None:
         """
-        Set the digitial asset ID.
+        Set the digital asset ID.
 
         :param value:
         :return:
+
+        Examples:
+            Bind an id assigned during persistence::
+
+                row.digital_asset_id = 42
         """
         self.primary_id = value
 
@@ -79,6 +99,12 @@ class DigitalAsset:
     Represents a digital asset on the system.
 
     Can be used to query the replica information, and what this asset is linked to.
+
+    Examples:
+        Populate the legacy rich object from a database::
+
+            asset = DigitalAsset()
+            loaded = asset.read(42, db)
     """
     # Underlying row for the class
     digital_asset_row: "DigitalAssetRow"
@@ -100,6 +126,11 @@ class DigitalAsset:
         :param digital_asset_id:
         :param db:
         :return:
+
+        Examples:
+            Load asset ``42`` and its related state::
+
+                loaded = asset.read(42, db)
         """
 
     def add_replica(self, new_replica: "AssetReplica") -> None:
@@ -108,6 +139,11 @@ class DigitalAsset:
 
         :param new_replica:
         :return:
+
+        Examples:
+            Attach a newly persisted replica::
+
+                asset.add_replica(replica)
         """
 
     def update_replication_policy(self, new_replication_policy: "ReplicationPolicy") -> None:
@@ -116,6 +152,11 @@ class DigitalAsset:
 
         :param new_replication_policy:
         :return:
+
+        Examples:
+            Apply a two-copy desired-state policy::
+
+                asset.update_replication_policy(ReplicationPolicy(min_copies=2))
         """
 
     def replication_policy_satisfied(self) -> bool:
@@ -123,21 +164,47 @@ class DigitalAsset:
         Check to see if we've satisfied the replication policy.
 
         :return:
+
+        Examples:
+            Queue remediation when desired state is unmet::
+
+                if not asset.replication_policy_satisfied():
+                    repair_queue.append(asset)
         """
 
 
 class CompositeDigitalAssetRow(FixedTableStorageRow):
-    """One logical multipart assembly of atomic digital assets."""
+    """One logical multipart assembly of atomic digital assets.
+
+    Examples:
+        Load composite ``12``::
+
+            row = CompositeDigitalAssetRow.from_row_id(db, 12)
+    """
 
     TABLE_NAME = "composite_digital_assets"
     ID_COLUMN = "composite_digital_asset_id"
 
     @property
     def composite_digital_asset_id(self) -> Optional["CompositeDigitalAssetID"]:
+        """Return the composite row's primary id.
+
+        Examples:
+            Read the stable composite id::
+
+                composite_id = row.composite_digital_asset_id
+        """
         return self[self.ID_COLUMN]
 
     @composite_digital_asset_id.setter
     def composite_digital_asset_id(self, value: Optional["CompositeDigitalAssetID"]) -> None:
+        """Set the composite row's primary id.
+
+        Examples:
+            Bind an id assigned during persistence::
+
+                row.composite_digital_asset_id = 12
+        """
         self.primary_id = value
 
 
@@ -148,6 +215,12 @@ class CompositeDigitalAsset:
 
     Composite assets are composed of DigitalAssets.
     They can be linked to items, but are also linked to DigitalAssets.
+
+    Examples:
+        Load a composite and inspect its ordered members::
+
+            composite = CompositeDigitalAsset()
+            loaded = composite.read(12, db)
     """
     # Underlying row for the class
     composite_digital_asset_row: "CompositeDigitalAssetRow"
@@ -166,6 +239,11 @@ class CompositeDigitalAsset:
         :param digital_asset_id:
         :param db:
         :return:
+
+        Examples:
+            Populate the object for composite ``12``::
+
+                loaded = composite.read(12, db)
         """
 
     def replication_policy_satisfied(self) -> bool:
@@ -173,12 +251,22 @@ class CompositeDigitalAsset:
         Check to see if we've satisfied the replication policy.
 
         :return:
+
+        Examples:
+            Check every atomic member through the aggregate policy result::
+
+                protected = composite.replication_policy_satisfied()
         """
 
 
 class AssetReplicaRow(FixedTableStorageRow):
     """
     The row for physical copy of one managed digital asset on one store.
+
+    Examples:
+        Load replica ``17``::
+
+            row = AssetReplicaRow.from_row_id(db, 17)
     """
 
     TABLE_NAME = "asset_replicas"
@@ -186,10 +274,24 @@ class AssetReplicaRow(FixedTableStorageRow):
 
     @property
     def asset_replica_id(self) -> Optional["AssetReplicaID"]:
+        """Return the replica row's primary id.
+
+        Examples:
+            Read the stable replica id::
+
+                replica_id = row.asset_replica_id
+        """
         return self[self.ID_COLUMN]
 
     @asset_replica_id.setter
     def asset_replica_id(self, value: Optional["AssetReplicaID"]) -> None:
+        """Set the replica row's primary id.
+
+        Examples:
+            Bind an id assigned during persistence::
+
+                row.asset_replica_id = 17
+        """
         self.primary_id = value
 
     def validate(self) -> None:
@@ -197,6 +299,11 @@ class AssetReplicaRow(FixedTableStorageRow):
         Check the row.
 
         :return:
+
+        Examples:
+            Validate user-supplied replica fields before a write::
+
+                row.validate()
         """
         storage_key = self.row_dict.get("asset_replica_storage_key")
         if storage_key is not None and storage_key == "":
@@ -214,6 +321,11 @@ class AssetReplica:
     Here, at last, the rubber meets the road.
     An actual file, which exists!
     Hopefully even in multiple places.
+
+    Examples:
+        Resolve the physical file behind a populated replica::
+
+            location = replica.get_file()
     """
     asset_replica_row: "AssetReplicaRow"
 
@@ -230,6 +342,11 @@ class AssetReplica:
         Return the underlying file of this AssetReplica.
 
         :return:
+
+        Examples:
+            Read the replica bytes through its location::
+
+                payload = replica.get_file().read_bytes()
         """
 
     def set_file(self, file: "StoreLocationMixinAPI") -> None:
@@ -238,6 +355,11 @@ class AssetReplica:
 
         :param file:
         :return:
+
+        Examples:
+            Associate a newly written location::
+
+                replica.set_file(location)
         """
 
     def check_file(self) -> bool:
@@ -245,6 +367,11 @@ class AssetReplica:
         Go and check that the file actually exists and is readable/hash valid.
 
         :return:
+
+        Examples:
+            Verify the replica before counting it as healthy::
+
+                healthy = replica.check_file()
         """
 
 
@@ -253,6 +380,11 @@ class AssetReplica:
 class DigitalAssetItemLinkRow(FixedTableStorageRow):
     """
     One semantic link from an item to one atomic digital asset.
+
+    Examples:
+        Load item-to-asset link ``5``::
+
+            row = DigitalAssetItemLinkRow.from_row_id(db, 5)
     """
 
     TABLE_NAME = "digital_asset_item_links"
@@ -265,6 +397,11 @@ class DigitalAssetItemLinkRow(FixedTableStorageRow):
         Get the id for the link row.
 
         :return:
+
+        Examples:
+            Read the stable link id::
+
+                link_id = row.digital_asset_item_link_id
         """
         return self[self.ID_COLUMN]
 
@@ -275,6 +412,11 @@ class DigitalAssetItemLinkRow(FixedTableStorageRow):
 
         :param value:
         :return:
+
+        Examples:
+            Bind an id assigned during persistence::
+
+                row.digital_asset_item_link_id = 5
         """
         # Todo: Error if someone tries this after it's been set once.
         self.primary_id = value
@@ -284,6 +426,11 @@ class DigitalAssetItemLinkRow(FixedTableStorageRow):
         Check the row before write.
 
         :return:
+
+        Examples:
+            Reject a negative priority before writing::
+
+                row.validate()
         """
         priority = self.row_dict.get(f"{self.LINK_PREFIX}_priority")
         if priority is not None and priority < 0:
@@ -291,7 +438,13 @@ class DigitalAssetItemLinkRow(FixedTableStorageRow):
 
 
 class CompositeDigitalAssetItemLinkRow(FixedTableStorageRow):
-    """One semantic link from an item to one composite digital asset."""
+    """One semantic link from an item to one composite digital asset.
+
+    Examples:
+        Load item-to-composite link ``8``::
+
+            row = CompositeDigitalAssetItemLinkRow.from_row_id(db, 8)
+    """
 
     TABLE_NAME = "composite_digital_asset_item_links"
     ID_COLUMN = "composite_digital_asset_item_link_id"
@@ -303,16 +456,26 @@ class CompositeDigitalAssetItemLinkRow(FixedTableStorageRow):
         ID of the link row linking the composite asset and an item.
 
         :return:
+
+        Examples:
+            Read the stable link id::
+
+                link_id = row.composite_digital_asset_item_link_id
         """
         return self[self.ID_COLUMN]
 
     @composite_digital_asset_item_link_id.setter
     def composite_digital_asset_item_link_id(self, value: Optional["CompositeDigitalAssetItemLinkID"]) -> None:
         """
-        Set the ID of the link row linkling the composite asset and an item.
+        Set the ID of the link row linking the composite asset and an item.
 
         :param value:
         :return:
+
+        Examples:
+            Bind an id assigned during persistence::
+
+                row.composite_digital_asset_item_link_id = 8
         """
         # Todo: Should, usually, error
         self.primary_id = value
@@ -322,6 +485,11 @@ class CompositeDigitalAssetItemLinkRow(FixedTableStorageRow):
         Check the row before write.
 
         :return:
+
+        Examples:
+            Validate priority before writing::
+
+                row.validate()
         """
         priority = self.row_dict.get(f"{self.LINK_PREFIX}_priority")
         if priority is not None and priority < 0:
@@ -329,7 +497,13 @@ class CompositeDigitalAssetItemLinkRow(FixedTableStorageRow):
 
 
 class CompositeDigitalAssetMemberLinkRow(FixedTableStorageRow):
-    """Ordered membership link from one composite digital asset to one atomic digital asset."""
+    """Ordered membership link from one composite to one atomic digital asset.
+
+    Examples:
+        Load membership link ``9``::
+
+            row = CompositeDigitalAssetMemberLinkRow.from_row_id(db, 9)
+    """
 
     TABLE_NAME = "composite_digital_asset_digital_asset_links"
     ID_COLUMN = "composite_digital_asset_digital_asset_link_id"
@@ -341,6 +515,11 @@ class CompositeDigitalAssetMemberLinkRow(FixedTableStorageRow):
         Get the id for this link row.
 
         :return:
+
+        Examples:
+            Read the stable membership id::
+
+                link_id = row.composite_digital_asset_member_link_id
         """
         return self[self.ID_COLUMN]
 
@@ -351,6 +530,11 @@ class CompositeDigitalAssetMemberLinkRow(FixedTableStorageRow):
 
         :param value:
         :return:
+
+        Examples:
+            Bind an id assigned during persistence::
+
+                row.composite_digital_asset_member_link_id = 9
         """
         self.primary_id = value
 
@@ -359,6 +543,11 @@ class CompositeDigitalAssetMemberLinkRow(FixedTableStorageRow):
         Check the row before write.
 
         :return:
+
+        Examples:
+            Validate sequence and required-member values before writing::
+
+                row.validate()
         """
         composite_id = self.row_dict.get(f"{self.LINK_PREFIX}_composite_digital_asset_id")
         member_id = self.row_dict.get(f"{self.LINK_PREFIX}_digital_asset_id")
@@ -378,6 +567,15 @@ class CompositeDigitalAssetMemberLinkRow(FixedTableStorageRow):
 class DigitalAssetReplicationCluster:
     """
     Informational container describing the physical replicas of one digital asset.
+
+    Examples:
+        Group known locations for policy assessment::
+
+            cluster = DigitalAssetReplicationCluster(
+                digital_asset_id=42,
+                asset_replica_locs={17: location},
+                replication_policy=policy,
+            )
     """
 
     digital_asset_id: "DigitalAssetID"
@@ -396,6 +594,11 @@ class DigitalAssetReplicationCluster:
         Checks the total replication level.
 
         :return:
+
+        Examples:
+            Count the known replicas in the cluster::
+
+                copies = cluster.replication_level
         """
         return len(self.asset_replica_locs)
 
@@ -423,7 +626,13 @@ __all__ = [
 
 
 class StoreOperationalRole(StrEnum):
-    """Broad operator-intent role for a configured store."""
+    """Broad operator-intent role for a configured store.
+
+    Examples:
+        Mark a store as suitable only for cold backups::
+
+            role = StoreOperationalRole.BACKUP
+    """
 
     LIVE = "live"
     MIXED = "mixed"
@@ -434,7 +643,19 @@ class StoreOperationalRole(StrEnum):
 
 @dataclasses.dataclass(slots=True)
 class StoreSpec:
-    """Declarative description of one configured store."""
+    """Declarative description of one configured store.
+
+    Examples:
+        Configure a writable local store::
+
+            spec = StoreSpec(
+                store_id=None,
+                store_uuid="main-store",
+                store_name="main",
+                store_kind="on_disk_existing_managed_drive",
+                store_url="/srv/books",
+            )
+    """
 
     store_id: Optional[int]
     store_uuid: Optional[str]
@@ -466,7 +687,16 @@ class StoreSpec:
 
 @dataclasses.dataclass(slots=True)
 class StoreCheckStatus:
-    """Outcome of store self-check probes."""
+    """Outcome of store self-check probes.
+
+    Examples:
+        Report a read-only store's supported checks explicitly::
+
+            checks = StoreCheckStatus(
+                store_marker_file=True, read=True, write=False, update=False,
+                sundry=True,
+            )
+    """
 
     store_marker_file: bool = False
     read: bool = False
@@ -476,12 +706,28 @@ class StoreCheckStatus:
 
     @property
     def all_ok(self) -> bool:
+        """Return whether every legacy probe flag succeeded.
+
+        Examples:
+            Gate admission of a fully writable store::
+
+                ready = checks.all_ok
+        """
         return self.store_marker_file and self.read and self.update and self.write and self.sundry
 
 
 @dataclasses.dataclass(slots=True)
 class StoreStatus:
-    """Snapshot status for a store."""
+    """Snapshot status for a store.
+
+    Examples:
+        Represent a store that passed a read probe::
+
+            status = StoreStatus(
+                name="main", uuid="store-uuid", url="/srv/books",
+                check_status=StoreCheckStatus(read=True), checked=True,
+            )
+    """
 
     name: str
     uuid: Optional[str]
@@ -499,4 +745,12 @@ class StoreStatus:
 
     @property
     def online(self) -> bool:
+        """Return whether a check ran or a read/write probe succeeded.
+
+        Examples:
+            Exclude offline stores from routing::
+
+                if status.online:
+                    candidates.append(status.name)
+        """
         return bool(self.checked or self.check_status.read or self.check_status.write)

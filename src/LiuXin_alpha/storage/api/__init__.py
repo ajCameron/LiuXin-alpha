@@ -3,6 +3,14 @@
 This module exports the storage contracts that other top-level modules may rely
 on. Internals inside `storage` should prefer direct sibling imports rather than
 importing back through this barrel.
+
+Examples:
+    Import stable public contracts from this package surface::
+
+        from LiuXin_alpha.storage.api import ReplicationPolicy, StoreSpec
+
+        policy = ReplicationPolicy(min_copies=2)
+        spec = StoreSpec(None, "main-uuid", "main", "on_disk_flat", "/srv/books")
 """
 
 from __future__ import annotations

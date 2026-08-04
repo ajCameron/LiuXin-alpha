@@ -1,6 +1,11 @@
 
-"""
-API (ABC) for a generic location object - representing a location inside a store.
+"""Path-like API for a location inside a storage plugin.
+
+Examples:
+    Construct locations through a plugin so they remain store-relative::
+
+        location = plugin.location("authors", "book.epub")
+        payload = location.read_bytes()
 """
 
 from __future__ import annotations
@@ -48,6 +53,15 @@ class LocationCapabilities:
     This is deliberately more granular than a single read-only flag. Tests and
     higher layers can inspect what the location *claims* to allow, then assert
     either success or a loud PermissionError.
+
+    Examples:
+        Advertise a readable but immutable backend::
+
+            capabilities = LocationCapabilities(
+                can_open_write=False, can_open_append=False,
+                can_mkdir=False, can_touch=False, can_unlink=False,
+                can_rmdir=False, can_rename=False, can_replace=False,
+            )
     """
 
     can_stat: bool = True
@@ -65,6 +79,13 @@ class LocationCapabilities:
 
     @property
     def supports_mutation(self) -> bool:
+        """Return whether any advertised operation can mutate storage.
+
+        Examples:
+            Disable edit controls for an immutable location::
+
+                editable = location.location_capabilities.supports_mutation
+        """
         return any((
             self.can_open_write,
             self.can_open_append,
@@ -78,6 +99,14 @@ class LocationCapabilities:
 
     @property
     def read_only(self) -> bool:
+        """Return whether no mutating operation is advertised.
+
+        Examples:
+            Check a location before presenting a delete action::
+
+                if location.location_capabilities.read_only:
+                    hide_delete_button()
+        """
         return not self.supports_mutation
 
 
@@ -105,6 +134,12 @@ class StoreLocationMixinAPI(ABC):
         class MyStorePath(StorePathMixin, pathlib.PurePosixPath): ...
 
     Intended to have a very similar interface to
+
+    Examples:
+        Treat a location much like a store-relative ``pathlib`` path::
+
+            cover = location.parent / "cover.jpg"
+            assert cover.name == "cover.jpg"
     """
 
     _tokens: list[str]
@@ -116,6 +151,11 @@ class StoreLocationMixinAPI(ABC):
         Startup the class - including any tokens for the location.
 
         :param args:
+
+        Examples:
+            Concrete locations receive path tokens and their owning store::
+
+                location = ConcreteLocation("authors", "book.epub", store=plugin)
         """
         # Tokenize like pathlib: allow users to pass 'a/b' or ('a','b') etc.
         # Store Locations are always *relative* to the store root; absolute paths are refused.
@@ -140,7 +180,13 @@ class StoreLocationMixinAPI(ABC):
 
     @property
     def store(self) -> StorePluginAPI:
-        """Backend handle (client/session/repo/etc.)."""
+        """Return the owning backend handle (client/session/repository).
+
+        Examples:
+            Compare ownership before combining locations::
+
+                same_store = first.store is second.store
+        """
         return self._store
 
     @store.setter
@@ -151,18 +197,35 @@ class StoreLocationMixinAPI(ABC):
         Every location is bound to a store - you cannot change this once it's set.
         :param store:
         :return:
+
+        Examples:
+            Construct a new location for another store instead of rebinding::
+
+                other_location = other_store.location(*location.parts)
         """
         raise AttributeError("You cannot change the store.")
 
     @abstractmethod
     def as_store_key(self) -> str:
-        """Canonical key used by the backend (often a POSIX-ish path string)."""
+        """Return the canonical key used by the backend.
+
+        Examples:
+            Persist a backend-relative identifier::
+
+                storage_key = location.as_store_key()
+        """
 
 
     # ---- Path-like semantics (PurePosix-ish) ----
 
     def _pure(self) -> pathlib.PurePosixPath:
-        """Pure, store-relative path view over this Location (POSIX separators)."""
+        """Return the internal pure, store-relative POSIX path view.
+
+        Examples:
+            Public callers normally use ``parts`` or ``as_posix`` instead::
+
+                portable_path = location.as_posix()
+        """
         return pathlib.PurePosixPath(*self._tokens)
 
     # ---- pathlib-esque structural fields (store-relative) ----
@@ -173,6 +236,11 @@ class StoreLocationMixinAPI(ABC):
         Always empty: store-relative Locations have no drive.
 
         Preserved for compatibility with pathlib.Path.
+
+        Examples:
+            Store-relative locations never expose a drive::
+
+                assert location.drive == ""
         """
         return ""
 
@@ -182,6 +250,11 @@ class StoreLocationMixinAPI(ABC):
         Always empty: store-relative Locations have no root.
 
         Preserved for compatibility with pathlib.Path
+
+        Examples:
+            Store-relative locations never expose a root::
+
+                assert location.root == ""
         """
         return ""
 
@@ -189,6 +262,11 @@ class StoreLocationMixinAPI(ABC):
     def anchor(self) -> str:
         """
         Always empty: store-relative Locations have no anchor.
+
+        Examples:
+            Store-relative locations never expose an anchor::
+
+                assert location.anchor == ""
         """
         return ""
 
@@ -199,10 +277,22 @@ class StoreLocationMixinAPI(ABC):
         Currently, always returns False.
         (If True, then we'd need to include the store location details).
         :return:
+
+        Examples:
+            Locations cannot escape their owning store::
+
+                assert not location.is_absolute()
         """
         return False
 
     def is_reserved(self) -> bool:
+        """Return ``False`` because stores have no Windows-reserved names.
+
+        Examples:
+            Portable store keys do not apply the Windows reservation rules::
+
+                assert not location.is_reserved()
+        """
         # "Reserved" is a Windows filesystem notion; a store-relative Location
         # doesn't have this concept.
         return False
@@ -213,33 +303,80 @@ class StoreLocationMixinAPI(ABC):
         Path components as a tuple.
 
         :return:
+
+        Examples:
+            Inspect portable components::
+
+                assert location.parts == ("authors", "book.epub")
         """
         return tuple(self._tokens)
 
     @property
     def name(self) -> str:
+        """Return the final path component.
+
+        Examples:
+            Read the filename portion::
+
+                assert location.name == "book.epub"
+        """
         return self._pure().name
 
     @property
     def suffix(self) -> str:
+        """Return the final filename suffix.
+
+        Examples:
+            Select a parser from the extension::
+
+                assert location.suffix == ".epub"
+        """
         return self._pure().suffix
 
     @property
     def suffixes(self) -> list[str]:
+        """Return every suffix in the final filename.
+
+        Examples:
+            Preserve compound archive suffixes::
+
+                assert archive.suffixes == [".tar", ".gz"]
+        """
         return list(self._pure().suffixes)
 
     @property
     def stem(self) -> str:
+        """Return the final filename without its last suffix.
+
+        Examples:
+            Derive a display label::
+
+                assert location.stem == "book"
+        """
         return self._pure().stem
 
     @property
     def parent(self) -> Self:
+        """Return a location for the immediately enclosing virtual folder.
+
+        Examples:
+            Navigate from a file to its author folder::
+
+                folder = location.parent
+        """
         if not self._tokens:
             return self
         return self.__class__(*self._tokens[:-1], store=self._store)
 
     @property
     def parents(self) -> tuple[Self, ...]:
+        """Return all enclosing locations up to the store root.
+
+        Examples:
+            Inspect the store-relative ancestry::
+
+                ancestors = location.parents
+        """
         out: list[Self] = []
         toks = self._tokens
         for i in range(len(toks) - 1, -1, -1):
@@ -252,6 +389,11 @@ class StoreLocationMixinAPI(ABC):
 
         :param other:
         :return:
+
+        Examples:
+            Append one or more store-relative components::
+
+                cover = folder.joinpath("images", "cover.jpg")
         """
         tokens: list[str] = list(self._tokens)
         for o in other:
@@ -268,12 +410,24 @@ class StoreLocationMixinAPI(ABC):
         return self.__class__(*tokens, store=self._store)
 
     def __truediv__(self, key: StrOrBytesPath) -> Self:
+        """Join a component using ``pathlib``-style ``/`` syntax.
+
+        Examples:
+            Build a child location::
+
+                cover = folder / "cover.jpg"
+        """
         return self.joinpath(key)
 
     def __rtruediv__(self, key: StrOrBytesPath) -> Self:
         """Allow `'a/b' / loc` style composition (pathlib-like).
 
         The left-hand side must be store-relative (no leading `/`).
+
+        Examples:
+            Prefix an existing location::
+
+                archived = "archive" / location
         """
         s = os.fspath(key).decode() if isinstance(key, (bytes, bytearray)) else str(os.fspath(key))
         s = s.replace('\\', '/')
@@ -291,10 +445,24 @@ class StoreLocationMixinAPI(ABC):
         return self.__class__(*toks, store=self._store)
 
     def __bytes__(self) -> bytes:
+        """Return the filesystem-encoded POSIX representation.
+
+        Examples:
+            Pass a location to an API requiring encoded path text::
+
+                encoded = bytes(location)
+        """
         # Mirror pathlib: bytes(path) is the filesystem-encoded string form.
         return os.fsencode(self.as_posix())
 
     def with_stem(self, stem: str) -> Self:
+        """Return a sibling location with a replaced filename stem.
+
+        Examples:
+            Rename while preserving ``.epub``::
+
+                revised = location.with_stem("book-revised")
+        """
         # Python >=3.9: PurePath.with_stem exists.
         p = self._pure()
         if hasattr(p, "with_stem"):
@@ -306,18 +474,46 @@ class StoreLocationMixinAPI(ABC):
         return self.__class__(*newp.parts, store=self._store)
 
     def as_uri(self) -> str:
+        """Raise because an abstract store-relative path has no stable URI.
+
+        Examples:
+            Use ``file_url`` for backend identity instead::
+
+                backend_url = location.file_url
+        """
         # We cannot define a meaningful, portable URI for an abstract store path.
         raise ValueError("Store-relative Locations do not have a stable URI.")
 
     def with_name(self, name: str) -> Self:
+        """Return a sibling location with a new final component.
+
+        Examples:
+            Select a cover beside a book::
+
+                cover = location.with_name("cover.jpg")
+        """
         p = self._pure().with_name(name)
         return self.__class__(*p.parts, store=self._store)
 
     def with_suffix(self, suffix: str) -> Self:
+        """Return a sibling location with a replaced suffix.
+
+        Examples:
+            Derive a sidecar path::
+
+                sidecar = location.with_suffix(".opf")
+        """
         p = self._pure().with_suffix(suffix)
         return self.__class__(*p.parts, store=self._store)
 
     def relative_to(self, other: "StrOrBytesPath | StoreLocationMixinAPI") -> Self:
+        """Return this location relative to a same-store base.
+
+        Examples:
+            Remove a known folder prefix::
+
+                relative = location.relative_to("authors")
+        """
         if isinstance(other, StoreLocationMixinAPI):
             if other.store is not self.store:
                 raise ValueError("Cannot compute relative path across different stores.")
@@ -332,6 +528,13 @@ class StoreLocationMixinAPI(ABC):
         return self.__class__(*rel.parts, store=self._store)
 
     def is_relative_to(self, other: "StrOrBytesPath | StoreLocationMixinAPI") -> bool:
+        """Return whether this location is below a same-store base.
+
+        Examples:
+            Filter an inventory to one virtual folder::
+
+                inside = location.is_relative_to("authors")
+        """
         try:
             self.relative_to(other)
             return True
@@ -339,32 +542,86 @@ class StoreLocationMixinAPI(ABC):
             return False
 
     def match(self, pattern: str) -> bool:
+        """Match the store-relative path against a glob pattern.
+
+        Examples:
+            Select EPUB locations::
+
+                is_epub = location.match("**/*.epub")
+        """
         return self._pure().match(pattern)
 
     def as_posix(self) -> str:
+        """Return a portable POSIX-style relative path.
+
+        Examples:
+            Serialize location structure independently of its backend URL::
+
+                key_text = location.as_posix()
+        """
         return self._pure().as_posix()
 
     def __str__(self) -> str:
+        """Return the POSIX-style relative path.
+
+        Examples:
+            Display a location in a report::
+
+                label = str(location)
+        """
         return self.as_posix()
 
     def __repr__(self) -> str:
+        """Return a concise debug representation.
+
+        Examples:
+            Include a location in structured diagnostics::
+
+                debug_value = repr(location)
+        """
         return f"{self.__class__.__name__}({self.as_posix()!r})"
 
     def __fspath__(self) -> str:
+        """Return the canonical store key for path-protocol consumers.
+
+        Examples:
+            Let ``os.fspath`` obtain backend-compatible text::
+
+                key = os.fspath(location)
+        """
         return self.as_store_key()
 
     @property
     def location_capabilities(self) -> LocationCapabilities:
-        """Advertised capability surface for this concrete Location."""
+        """Return the advertised capability surface for this location.
+
+        Examples:
+            Check write support before opening in mutation mode::
+
+                writable = location.location_capabilities.can_open_write
+        """
         return READ_WRITE_LOCATION_CAPABILITIES
 
     @property
     def file_url(self) -> str:
-        """Canonical backend URL/key for this concrete location."""
+        """Return the canonical backend URL/key for this location.
+
+        Examples:
+            Persist the identifier needed to resolve the file later::
+
+                file_url = location.file_url
+        """
         return self.as_store_key()
 
     @property
     def status(self) -> SingleFileStatus | None:
+        """Return cached file status without performing backend I/O.
+
+        Examples:
+            Use cached metadata when a best-effort display is sufficient::
+
+                cached_status = location.status
+        """
         return getattr(self, "_file_status", None)
 
     def _required_status(self, *, refresh: bool = False) -> SingleFileStatus:
@@ -376,6 +633,13 @@ class StoreLocationMixinAPI(ABC):
         return status
 
     def recheck_status(self) -> SingleFileStatus:
+        """Fetch fresh status from the owning store and cache it.
+
+        Examples:
+            Refresh metadata after an external change::
+
+                status = location.recheck_status()
+        """
         getter = getattr(self.store, "stat", None)
         if not callable(getter):
             raise AttributeError("Store {!r} does not expose stat().".format(self.store))
@@ -385,49 +649,126 @@ class StoreLocationMixinAPI(ABC):
 
     @property
     def uuid(self) -> str | None:
+        """Return the UUID from cached status, if status has been fetched.
+
+        Examples:
+            Read without triggering a backend request::
+
+                cached_uuid = location.uuid
+        """
         status = getattr(self, "_file_status", None)
         return None if status is None else status.uuid
 
     @property
     def cached_size(self) -> int | None:
+        """Return the byte size from cached status, if available.
+
+        Examples:
+            Render a best-effort inventory quickly::
+
+                size = location.cached_size
+        """
         status = getattr(self, "_file_status", None)
         return None if status is None else status.size
 
     @property
     def cached_hash(self) -> str | None:
+        """Return the content hash from cached status, if available.
+
+        Examples:
+            Compare already-fetched metadata without new I/O::
+
+                digest = location.cached_hash
+        """
         status = getattr(self, "_file_status", None)
         return None if status is None else status.hash
 
     @property
     def size(self) -> int:
+        """Refresh status and return the current byte size.
+
+        Examples:
+            Obtain an authoritative size before transfer::
+
+                byte_count = location.size
+        """
         return self._required_status(refresh=True).size
 
     @property
     def hash(self) -> str:
+        """Refresh status and return the current content hash.
+
+        Examples:
+            Verify a location against expected metadata::
+
+                matches = location.hash == expected_hash
+        """
         return self._required_status(refresh=True).hash
 
     @property
     def url(self) -> str:
+        """Return the status URL when cached, otherwise ``file_url``.
+
+        Examples:
+            Use one compatibility property across old and new callers::
+
+                persisted_url = location.url
+        """
         status = getattr(self, "_file_status", None)
         if status is not None:
             return status.url
         return self.file_url
 
     def as_bytes(self) -> bytes:
+        """Read and return the complete file as bytes.
+
+        Examples:
+            Retrieve a small binary payload::
+
+                payload = location.as_bytes()
+        """
         return self.read_bytes()
 
     def as_string(self) -> str:
+        """Read the complete file as replacement-decoded UTF-8 text.
+
+        Examples:
+            Preview a text-like payload safely::
+
+                preview = location.as_string()[:160]
+        """
         return self.read_bytes().decode("utf-8", "replace")
 
     def __eq__(self, other: object) -> bool:
+        """Compare class, owning store identity, and path tokens.
+
+        Examples:
+            Locations built from the same plugin and key compare equal::
+
+                assert plugin.location("a") == plugin.location("a")
+        """
         if not isinstance(other, StoreLocationMixinAPI):
             return NotImplemented
         return (self.__class__ is other.__class__) and (self.store is other.store) and (self._tokens == other._tokens)
 
     def __hash__(self) -> int:
+        """Hash a location by store identity, class, and path tokens.
+
+        Examples:
+            Locations can be used as dictionary keys::
+
+                status_by_location = {location: location.status}
+        """
         return hash((id(self._store), tuple(self._tokens), self.__class__))
 
     def __lt__(self, other: object) -> bool:
+        """Order locations lexically when class and owning store match.
+
+        Examples:
+            Sort a single-store inventory::
+
+                ordered = sorted(plugin.iter_locations())
+        """
         if not isinstance(other, StoreLocationMixinAPI):
             return NotImplemented
         if self.__class__ is not other.__class__ or self.store is not other.store:
@@ -437,88 +778,298 @@ class StoreLocationMixinAPI(ABC):
     # ---- Existence / type checks ----
 
     @abstractmethod
-    def exists(self) -> bool: ...
+    def exists(self) -> bool:
+        """Return whether this location exists.
+
+        Examples:
+            Check before reading an optional file::
+
+                if location.exists():
+                    payload = location.read_bytes()
+        """
+        ...
 
     @abstractmethod
-    async def aexists(self) -> bool: ...
+    async def aexists(self) -> bool:
+        """Asynchronously return whether this location exists.
+
+        Examples:
+            Check a remote location without blocking the event loop::
+
+                if await location.aexists():
+                    payload = await location.aread_bytes()
+        """
+        ...
 
     @abstractmethod
-    def is_file(self) -> bool: ...
+    def is_file(self) -> bool:
+        """Return whether this location is a concrete file.
+
+        Examples:
+            Exclude virtual directories from an inventory::
+
+                files = [child for child in folder.iterdir() if child.is_file()]
+        """
+        ...
 
     @abstractmethod
-    async def ais_file(self) -> bool: ...
+    async def ais_file(self) -> bool:
+        """Asynchronously return whether this location is a file.
+
+        Examples:
+            Inspect a remote child::
+
+                concrete = await child.ais_file()
+        """
+        ...
 
     @abstractmethod
-    def is_dir(self) -> bool: ...
+    def is_dir(self) -> bool:
+        """Return whether this location is a directory-like entry.
+
+        Examples:
+            Recurse only into folders::
+
+                folders = [child for child in root.iterdir() if child.is_dir()]
+        """
+        ...
 
     @abstractmethod
-    async def ais_dir(self) -> bool: ...
+    async def ais_dir(self) -> bool:
+        """Asynchronously return whether this location is a directory.
+
+        Examples:
+            Inspect a remote child::
+
+                folder_like = await child.ais_dir()
+        """
+        ...
 
     # ---- Directory traversal ----
 
     @abstractmethod
-    def iterdir(self) -> Iterator[Self]: ...
+    def iterdir(self) -> Iterator[Self]:
+        """Iterate over direct children of this location.
+
+        Examples:
+            List one virtual directory::
+
+                children = list(folder.iterdir())
+        """
+        ...
 
     @abstractmethod
-    async def aiterdir(self) -> AsyncIterator[Self]: ...
+    async def aiterdir(self) -> AsyncIterator[Self]:
+        """Asynchronously iterate over direct children.
+
+        Examples:
+            Stream children from a remote backend::
+
+                children = [child async for child in folder.aiterdir()]
+        """
+        ...
 
     @abstractmethod
-    def glob(self, pattern: str) -> Iterator[Self]: ...
+    def glob(self, pattern: str) -> Iterator[Self]:
+        """Iterate over locations matching a relative glob pattern.
+
+        Examples:
+            Find EPUBs immediately below a folder::
+
+                epubs = list(folder.glob("*.epub"))
+        """
+        ...
 
     @abstractmethod
-    async def aglob(self, pattern: str) -> AsyncIterator[Self]: ...
+    async def aglob(self, pattern: str) -> AsyncIterator[Self]:
+        """Asynchronously iterate over relative glob matches.
+
+        Examples:
+            Stream EPUB matches from a remote backend::
+
+                epubs = [item async for item in folder.aglob("*.epub")]
+        """
+        ...
 
     @abstractmethod
-    def rglob(self, pattern: str) -> Iterator[Self]: ...
+    def rglob(self, pattern: str) -> Iterator[Self]:
+        """Recursively iterate over locations matching a glob pattern.
+
+        Examples:
+            Inventory every EPUB below the store root::
+
+                epubs = list(root.rglob("*.epub"))
+        """
+        ...
 
     @abstractmethod
-    async def arglob(self, pattern: str) -> AsyncIterator[Self]: ...
+    async def arglob(self, pattern: str) -> AsyncIterator[Self]:
+        """Asynchronously recurse over glob matches.
+
+        Examples:
+            Stream a remote recursive inventory::
+
+                epubs = [item async for item in root.arglob("*.epub")]
+        """
+        ...
 
     # ---- Metadata ----
 
     @abstractmethod
-    def stat(self) -> os.stat_result: ...
+    def stat(self) -> os.stat_result:
+        """Return backend-native stat information for this location.
+
+        Examples:
+            Read the modification time where a backend supplies one::
+
+                modified_at = location.stat().st_mtime
+        """
+        ...
 
     @abstractmethod
-    async def astat(self) -> os.stat_result: ...
+    async def astat(self) -> os.stat_result:
+        """Asynchronously return backend-native stat information.
+
+        Examples:
+            Query a remote size without blocking::
+
+                size = (await location.astat()).st_size
+        """
+        ...
 
     # ---- Mutations ----
 
     @abstractmethod
-    def mkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None: ...
+    def mkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
+        """Create this directory-like location.
+
+        Examples:
+            Create a nested folder on a writable backend::
+
+                folder.mkdir(parents=True, exist_ok=True)
+        """
+        ...
 
     @abstractmethod
-    async def amkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None: ...
+    async def amkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
+        """Asynchronously create this directory-like location.
+
+        Examples:
+            Create a remote nested folder::
+
+                await folder.amkdir(parents=True, exist_ok=True)
+        """
+        ...
 
     @abstractmethod
-    def unlink(self, missing_ok: bool = False) -> None: ...
+    def unlink(self, missing_ok: bool = False) -> None:
+        """Delete this file location.
+
+        Examples:
+            Make cleanup idempotent::
+
+                location.unlink(missing_ok=True)
+        """
+        ...
 
     @abstractmethod
-    async def aunlink(self, missing_ok: bool = False) -> None: ...
+    async def aunlink(self, missing_ok: bool = False) -> None:
+        """Asynchronously delete this file location.
+
+        Examples:
+            Clean up a remote temporary object::
+
+                await location.aunlink(missing_ok=True)
+        """
+        ...
 
     @abstractmethod
-    def rmdir(self) -> None: ...
+    def rmdir(self) -> None:
+        """Remove this empty directory-like location.
+
+        Examples:
+            Remove an empty staging folder::
+
+                staging.rmdir()
+        """
+        ...
 
     @abstractmethod
-    async def armdir(self) -> None: ...
+    async def armdir(self) -> None:
+        """Asynchronously remove this empty directory-like location.
+
+        Examples:
+            Remove a remote staging folder::
+
+                await staging.armdir()
+        """
+        ...
 
     @abstractmethod
-    def rename(self, target: str | os.PathLike[str]) -> Self: ...
+    def rename(self, target: str | os.PathLike[str]) -> Self:
+        """Rename this location and return the destination handle.
+
+        Examples:
+            Rename within a writable store::
+
+                renamed = location.rename("authors/revised.epub")
+        """
+        ...
 
     @abstractmethod
-    async def arename(self, target: str | os.PathLike[str]) -> Self: ...
+    async def arename(self, target: str | os.PathLike[str]) -> Self:
+        """Asynchronously rename this location.
+
+        Examples:
+            Rename a remote object::
+
+                renamed = await location.arename("authors/revised.epub")
+        """
+        ...
 
     @abstractmethod
-    def replace(self, target: str | os.PathLike[str]) -> Self: ...
+    def replace(self, target: str | os.PathLike[str]) -> Self:
+        """Move this location over an existing destination.
+
+        Examples:
+            Atomically promote a staged file when supported::
+
+                final = staged.replace("authors/book.epub")
+        """
+        ...
 
     @abstractmethod
-    async def areplace(self, target: str | os.PathLike[str]) -> Self: ...
+    async def areplace(self, target: str | os.PathLike[str]) -> Self:
+        """Asynchronously replace an existing destination.
+
+        Examples:
+            Promote a remote staged object::
+
+                final = await staged.areplace("authors/book.epub")
+        """
+        ...
 
     @abstractmethod
-    def touch(self, mode: int = 0o666, exist_ok: bool = True) -> None: ...
+    def touch(self, mode: int = 0o666, exist_ok: bool = True) -> None:
+        """Create an empty file or update its timestamp.
+
+        Examples:
+            Create a marker file on a writable backend::
+
+                marker.touch(exist_ok=True)
+        """
+        ...
 
     @abstractmethod
-    async def atouch(self, mode: int = 0o666, exist_ok: bool = True) -> None: ...
+    async def atouch(self, mode: int = 0o666, exist_ok: bool = True) -> None:
+        """Asynchronously create or update an empty file.
+
+        Examples:
+            Create a remote marker::
+
+                await marker.atouch(exist_ok=True)
+        """
+        ...
 
     # ---- I/O (sync) ----
 
@@ -551,7 +1102,14 @@ class StoreLocationMixinAPI(ABC):
         errors: str | None = None,
         newline: str | None = None,
     ) -> IO[Any]:
-        """Return a *sync* file-like object."""
+        """Return a synchronous file-like object.
+
+        Examples:
+            Stream text without reading the entire object::
+
+                with location.open("r", encoding="utf-8") as file:
+                    first_line = file.readline()
+        """
 
     # ---- I/O (async) ----
 
@@ -584,19 +1142,47 @@ class StoreLocationMixinAPI(ABC):
         errors: str | None = None,
         newline: str | None = None,
     ) -> AsyncTextFile | AsyncBinaryFile:
-        """Return an *async* file object supporting `async with` and async read/write."""
+        """Return an async file object supporting ``async with``.
+
+        Examples:
+            Stream bytes from an async-native backend::
+
+                async with location.aopen("rb") as file:
+                    header = await file.read(16)
+        """
 
     # ---- Convenience helpers (sync) ----
 
     def read_bytes(self) -> bytes:
+        """Read and return the complete file as bytes.
+
+        Examples:
+            Load a small binary payload::
+
+                payload = location.read_bytes()
+        """
         with self.open("rb") as f:
             return f.read()
 
     def read_text(self, encoding: str | None = None, errors: str | None = None) -> str:
+        """Read and return the complete file as text.
+
+        Examples:
+            Decode a UTF-8 sidecar file::
+
+                metadata_xml = sidecar.read_text(encoding="utf-8")
+        """
         with self.open("r", encoding=encoding, errors=errors) as f:
             return f.read()
 
     def write_bytes(self, data: bytes) -> int:
+        """Replace this location's contents with bytes.
+
+        Examples:
+            Write a generated thumbnail::
+
+                byte_count = thumbnail.write_bytes(image_bytes)
+        """
         with self.open("wb") as f:
             return f.write(data)
 
@@ -607,20 +1193,48 @@ class StoreLocationMixinAPI(ABC):
         errors: str | None = None,
         newline: str | None = None,
     ) -> int:
+        """Replace this location's contents with text.
+
+        Examples:
+            Write a UTF-8 sidecar document::
+
+                char_count = sidecar.write_text(xml, encoding="utf-8")
+        """
         with self.open("w", encoding=encoding, errors=errors, newline=newline) as f:
             return f.write(data)
 
     # ---- Convenience helpers (async) ----
 
     async def aread_bytes(self) -> bytes:
+        """Asynchronously read the complete file as bytes.
+
+        Examples:
+            Fetch a small remote payload::
+
+                payload = await location.aread_bytes()
+        """
         async with self.aopen("rb") as f:
             return await f.read()
 
     async def aread_text(self, encoding: str | None = None, errors: str | None = None) -> str:
+        """Asynchronously read the complete file as text.
+
+        Examples:
+            Fetch remote UTF-8 metadata::
+
+                text = await location.aread_text(encoding="utf-8")
+        """
         async with self.aopen("r", encoding=encoding, errors=errors) as f:
             return await f.read()
 
     async def awrite_bytes(self, data: bytes) -> int:
+        """Asynchronously replace this location's contents with bytes.
+
+        Examples:
+            Write to an async-native backend::
+
+                byte_count = await location.awrite_bytes(payload)
+        """
         async with self.aopen("wb") as f:
             return await f.write(data)
 
@@ -631,6 +1245,13 @@ class StoreLocationMixinAPI(ABC):
         errors: str | None = None,
         newline: str | None = None,
     ) -> int:
+        """Asynchronously replace this location's contents with text.
+
+        Examples:
+            Write UTF-8 metadata to an async-native backend::
+
+                char_count = await location.awrite_text(text, encoding="utf-8")
+        """
         async with self.aopen("w", encoding=encoding, errors=errors, newline=newline) as f:
             return await f.write(data)
 
@@ -640,6 +1261,12 @@ class _AsyncLoopThread:
     A dedicated event loop running in a background thread.
     Used to synchronously wait on coroutines from sync code without
     nesting event loops.
+
+    Examples:
+        Location adapters share a runner internally::
+
+            runner = _AsyncLoopThread()
+            result = runner.run(async_operation())
     """
     def __init__(self) -> None:
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -676,6 +1303,13 @@ class _AsyncLoopThread:
 class _SyncFileFromAsync:
     """
     A sync file-like wrapper over an async file object + its async context manager.
+
+    Examples:
+        ``AsyncNativePretendSyncLocation.open`` returns this adapter so callers
+        can use a normal context manager::
+
+            with location.open("rb") as file:
+                payload = file.read()
     """
     def __init__(self, runner: _AsyncLoopThread, async_cm: Any, afile: Any) -> None:
         self._runner = runner
@@ -716,6 +1350,11 @@ async def _to_thread(fn: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
 async def _aiter_from_sync_iter(iter_fn: Callable[[], Iterator[T]]) -> AsyncIterator[T]:
     """
     Stream a sync iterator into async without materializing the whole list.
+
+    Examples:
+        Location adapters use the helper behind ``aiterdir``::
+
+            children = [child async for child in _aiter_from_sync_iter(folder.iterdir)]
     """
     loop = asyncio.get_running_loop()
     q: asyncio.Queue[object] = asyncio.Queue()
@@ -749,6 +1388,12 @@ class _AsyncFileFromSync:
     """
     Async file wrapper over a sync file object using to_thread for operations.
     Implements your AsyncTextFile/AsyncBinaryFile Protocol shape.
+
+    Examples:
+        The sync-native adapter exposes this through ``aopen``::
+
+            async with location.aopen("rb") as file:
+                payload = await file.read()
     """
     def __init__(self, f: Any) -> None:
         self._f = f
@@ -776,6 +1421,12 @@ class _AsyncFileFromSync:
 class _AsyncOpenFromSync:
     """
     Async context manager that opens a sync file in a thread, then wraps it.
+
+    Examples:
+        ``SyncNativePretendAsyncLocation.aopen`` constructs this adapter::
+
+            async with location.aopen("r") as file:
+                text = await file.read()
     """
     def __init__(self, opener: Callable[[], Any]) -> None:
         self._opener = opener
@@ -802,6 +1453,12 @@ class AsyncNativePretendSyncLocation(StoreLocationMixinAPI, ABC):
 
     This is the cleanest “async-first but pathlib-ish” bridge that doesn’t rely on
     nested loops or fragile `asyncio.run()` calls.
+
+    Examples:
+        Implement async primitives, then use the derived sync facade::
+
+            assert location.exists()
+            payload = location.read_bytes()
     """
     _runner = _AsyncLoopThread()
 
@@ -907,6 +1564,12 @@ class SyncNativePretendAsyncLocation(StoreLocationMixinAPI):
     Implement the sync methods (exists/stat/open/iterdir/...) natively.
 
     Async methods are derived via asyncio.to_thread + streaming iterator bridge.
+
+    Examples:
+        Implement sync primitives, then use the derived async facade::
+
+            assert await location.aexists()
+            payload = await location.aread_bytes()
     """
 
     # --- you implement these natively ---
@@ -1012,6 +1675,12 @@ class ReadOnlySyncNativePretendAsyncLocation(SyncNativePretendAsyncLocation, ABC
     Subclasses still implement their normal non-mutating filesystem/path view
     methods, but mutation entry points now advertise read-only capabilities and
     fail loudly and consistently.
+
+    Examples:
+        Read-only backends remain readable through both facades::
+
+            payload = location.read_bytes()
+            assert location.location_capabilities.read_only
     """
 
     @property

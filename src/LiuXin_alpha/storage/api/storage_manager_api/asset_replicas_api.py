@@ -1,4 +1,10 @@
-"""Replica access/update methods for the storage manager."""
+"""Replica access/update methods for the storage manager.
+
+Examples:
+    List every replica known to a concrete manager::
+
+        replicas = list(manager.iter_asset_replicas())
+"""
 
 from __future__ import annotations
 
@@ -16,6 +22,11 @@ class AssetReplicasManagerAPI(abc.ABC):
     CRUD-ish access to physical asset replicas.
 
     At this point, we're actually interacting with real (ish) files in real (ish) stores.
+
+    Examples:
+        Concrete storage managers expose this contract directly::
+
+            replicas = list(manager.iter_store_replicas(store_id=3))
     """
 
     @abc.abstractmethod
@@ -25,6 +36,11 @@ class AssetReplicasManagerAPI(abc.ABC):
 
         :param asset_replica:
         :return:
+
+        Examples:
+            Persist an instructional row and retain the assigned id::
+
+                replica = manager.create_asset_replica(replica_row)
         """
 
     @abc.abstractmethod
@@ -34,6 +50,11 @@ class AssetReplicasManagerAPI(abc.ABC):
 
         :param asset_replica_id:
         :return:
+
+        Examples:
+            Load replica ``17``::
+
+                replica = manager.get_asset_replica(17)
         """
 
     @abc.abstractmethod
@@ -43,6 +64,12 @@ class AssetReplicasManagerAPI(abc.ABC):
 
         :param asset_replica:
         :return:
+
+        Examples:
+            Save a changed status on an existing row::
+
+                replica["asset_replica_integrity_status"] = "verified"
+                replica = manager.update_asset_replica(replica)
         """
 
     @abc.abstractmethod
@@ -52,14 +79,24 @@ class AssetReplicasManagerAPI(abc.ABC):
 
         :param asset_replica_id:
         :return:
+
+        Examples:
+            Remove a stale replica record::
+
+                removed = manager.delete_asset_replica(17)
         """
 
     @abc.abstractmethod
     def iter_asset_replicas(self) -> Iterator["AssetReplicaRow"]:
         """
-        Iter over all the asset reolica rows in the database.
+        Iterate over all the asset replica rows in the database.
 
         :return:
+
+        Examples:
+            Materialise the iterator when a snapshot is needed::
+
+                replicas = list(manager.iter_asset_replicas())
         """
 
     @abc.abstractmethod
@@ -69,6 +106,11 @@ class AssetReplicasManagerAPI(abc.ABC):
 
         :param digital_asset_id:
         :return:
+
+        Examples:
+            Inspect every physical copy of asset ``42``::
+
+                replicas = list(manager.iter_digital_asset_replicas(42))
         """
 
     @abc.abstractmethod
@@ -78,4 +120,9 @@ class AssetReplicasManagerAPI(abc.ABC):
 
         :param store_id:
         :return:
+
+        Examples:
+            Inspect the replicas held by store ``3``::
+
+                replicas = list(manager.iter_store_replicas(3))
         """

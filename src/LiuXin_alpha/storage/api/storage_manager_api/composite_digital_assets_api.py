@@ -1,4 +1,10 @@
-"""Composite digital asset access/update methods for the storage manager."""
+"""Composite digital asset access/update methods for the storage manager.
+
+Examples:
+    Iterate over multipart assets through a concrete manager::
+
+        composites = list(manager.iter_composite_digital_assets())
+"""
 
 from __future__ import annotations
 
@@ -12,7 +18,13 @@ if TYPE_CHECKING:
 
 
 class CompositeDigitalAssetsDBManagerAPI(abc.ABC):
-    """CRUD access for logical multipart composite digital assets."""
+    """CRUD access for logical multipart composite digital assets.
+
+    Examples:
+        Fetch an audiobook-like composite by id::
+
+            composite = manager.get_composite_digital_asset(12)
+    """
 
     @abc.abstractmethod
     def create_composite_digital_asset(
@@ -24,6 +36,11 @@ class CompositeDigitalAssetsDBManagerAPI(abc.ABC):
 
         :param composite_digital_asset:
         :return:
+
+        Examples:
+            Persist a newly constructed row::
+
+                composite = manager.create_composite_digital_asset(row)
         """
 
     @abc.abstractmethod
@@ -36,6 +53,11 @@ class CompositeDigitalAssetsDBManagerAPI(abc.ABC):
 
         :param composite_digital_asset_id:
         :return:
+
+        Examples:
+            Retrieve composite ``12``::
+
+                composite = manager.get_composite_digital_asset(12)
         """
 
     @abc.abstractmethod
@@ -48,6 +70,11 @@ class CompositeDigitalAssetsDBManagerAPI(abc.ABC):
 
         :param composite_digital_asset:
         :return:
+
+        Examples:
+            Save changes made to a row::
+
+                composite = manager.update_composite_digital_asset(composite)
         """
 
     @abc.abstractmethod
@@ -57,12 +84,22 @@ class CompositeDigitalAssetsDBManagerAPI(abc.ABC):
 
         :param composite_digital_asset_id:
         :return:
+
+        Examples:
+            Delete composite ``12``::
+
+                removed = manager.delete_composite_digital_asset(12)
         """
 
     @abc.abstractmethod
     def iter_composite_digital_assets(self) -> Iterator["CompositeDigitalAssetRow"]:
         """
-        Iter over the entire composite digital asset table.
+        Iterate over the entire composite digital asset table.
 
         :return:
+
+        Examples:
+            Take a snapshot of all composites::
+
+                composites = list(manager.iter_composite_digital_assets())
         """
