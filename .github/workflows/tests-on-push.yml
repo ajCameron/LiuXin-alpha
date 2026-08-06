@@ -6,6 +6,42 @@ on:
   workflow_dispatch:
 
 jobs:
+  package:
+    name: Build and install package
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Build wheel and source archive
+        run: |
+          python -m pip install --upgrade build pip
+          python -m build
+
+      - name: Verify and install wheel
+        run: |
+          python scripts/verify_wheel.py dist/*.whl
+          python -m pip install dist/*.whl
+          liuxin --help
+          liuxin-cli --help
+          liuxin-storage-audit --help
+
+      - name: Exercise installed SQLite storage audit
+        run: |
+          mkdir -p "$RUNNER_TEMP/liuxin-drive"
+          cp LICENSE "$RUNNER_TEMP/liuxin-drive/sample.epub"
+          liuxin-storage-audit \
+            --database "$RUNNER_TEMP/liuxin-audit.sqlite3" \
+            --disk-root "$RUNNER_TEMP/liuxin-drive" \
+            --store-name package-smoke
+
   smoke:
     if: github.event_name == 'push'
     name: Confidence Tests (push)

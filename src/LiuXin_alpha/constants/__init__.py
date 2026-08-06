@@ -17,6 +17,7 @@ import logging
 
 from LiuXin_alpha.constants.file_extensions import IMAGE_EXTENSIONS, COMPRESSED_FILE_EXTENSIONS, IMAGE_EXTENSIONS_DOTTED
 from LiuXin_alpha.constants.paths import LiuXin_calibre_caches, LiuXin_calibre_config_folder, config_dir, CONFIG_DIR_MODE
+from LiuXin_alpha._version import LIUXIN_NUMERIC_VERSION, __version__
 
 from LiuXin_alpha.utils.logging import LiuXin_print
 
@@ -25,9 +26,6 @@ __license__ = "GPL v3"
 __appname__ = "LiuXin"
 
 from LiuXin_alpha.utils.which_os import iswindows, isosx, isportable
-
-LIUXIN_NUMERIC_VERSION = (0, 0, 8)
-__version__ = ".".join(map(str, LIUXIN_NUMERIC_VERSION))
 
 logger = logging.getLogger(__name__)
 
