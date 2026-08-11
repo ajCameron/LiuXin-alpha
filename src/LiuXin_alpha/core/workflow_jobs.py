@@ -309,7 +309,7 @@ def run_conversion_job(
 
 
 def backup_workflow_spec_from_mapping(payload: Mapping[str, Any]) -> Any:
-    from LiuXin_alpha.storage.api.backup_api import (
+    from LiuXin_alpha.storage.api.workflow_apis.backup_api import (
         BackupSourceKind,
         BackupSourceSpec,
         BackupWorkflowKind,
@@ -400,7 +400,7 @@ def run_squashfs_backup_job(
     """Execute a serializable SquashFS backup workflow specification."""
 
     from LiuXin_alpha.library import Library
-    from LiuXin_alpha.storage.api.backup_api import BackupWorkflowSpec
+    from LiuXin_alpha.storage.api.workflow_apis.backup_api import BackupWorkflowSpec
     from LiuXin_alpha.storage.backup import SquashfsBackupWorkflow
 
     spec: BackupWorkflowSpec = backup_workflow_spec_from_mapping(workflow_spec)
@@ -532,7 +532,7 @@ def run_persisted_backup_job(
     """Resume and checkpoint one database-backed backup workflow."""
 
     from LiuXin_alpha.library import Library
-    from LiuXin_alpha.storage.api.backup_api import BackupWorkflowStatus
+    from LiuXin_alpha.storage.api.workflow_apis.backup_api import BackupWorkflowStatus
     from LiuXin_alpha.storage.backup import (
         BackupArtifactRegistry,
         BackupWorkflowRepository,

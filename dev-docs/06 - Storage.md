@@ -1,3 +1,9 @@
+> [!CAUTION]
+> **Deprecated:** This document describes the previous storage model and is
+> retained only so useful material can be salvaged later. It is not
+> authoritative for the current `storage.api2` design.
+
+---
 
 As with everything else in LiuXin storage aims to be modular and extensible.
 The aim is to be able to handle truly vast amounts of data.
@@ -339,38 +345,35 @@ A plugin should **not** know about:
 
 If code such as ingest or repair wants direct physical-media access, this is the layer it should reuse.
 
-### Location is the file handle
+### Location is the durable address
 
-Concrete file access is now standardized on `Location`.
-A location is:
+Concrete stored objects are identified by an immutable `Location` containing a
+configured Store reference and an opaque Store-owned key. A Location is safe to
+persist on a Replica or workflow, but it is not a file handle, live plugin,
+status cache, or virtual `pathlib.Path`.
 
-- bound to exactly one plugin
-- path-like / pathlib-like
-- the object returned for concrete file access
-
-We do not want a second near-duplicate “single file” abstraction sitting beside it.
+The StorageManager or Store interprets Locations and performs `stat`, reads,
+transactional publication, and deletion. For object-style convenience, the
+manager may return a short-lived `BoundLocation` that delegates those operations
+back to the manager. Bound handles are operational conveniences and must not be
+persisted in place of Locations or grow path traversal and cached state.
 
 ### Dependency direction inside storage
 
-The intended dependency direction is:
-
-- manager -> container -> plugin -> location
-
-Not the other way around.
-Plugins should not import the manager.
-Containers should not become plugin subclasses.
-The public `storage.api` barrel is for external callers; internal storage code should prefer direct sibling imports.
+The intended dependency direction is manager -> configured Store -> Store
+Driver. Plain Location values travel across those boundaries without importing
+or retaining any of them. Drivers should not import the manager, and the public
+API barrel remains an external convenience rather than an internal dependency.
 
 
-## Location capability advertisement
+## Store capability advertisement
 
-Read-only plugins must return read-only `Location` subclasses as well as refusing mutation at the plugin layer.
-A `LocationCapabilities` dataclass is now part of the storage contract so tests and higher layers can inspect
-what a location advertises (`can_open_write`, `can_unlink`, `can_rename`, etc.) instead of guessing from the
-backend type.
-
-This is intentionally stricter than a single boolean. A plugin may be readable but not iterable, or readable and
-iterable but not appendable, and the location capability surface is where that nuance belongs.
+Capabilities belong to the Store/Driver rather than individual Location
+subclasses. `StoreCapabilities` advertises precise primitives such as create,
+replace, delete, atomic publication, range reads, digest authority, inventory
+completeness, and optional native accelerators. Read-only or immutable Stores
+refuse unsupported operations with typed errors; a plain Location makes no
+capability claim of its own.
 
 
 ## Store operational role

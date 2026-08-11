@@ -5,7 +5,7 @@ from pathlib import Path
 
 from tests.storage._mini_db import build_mini_db
 
-from LiuXin_alpha.storage.api.backup_api import BackupSourceKind, BackupSourceSpec, BackupWorkflowKind, BackupWorkflowSpec
+from LiuXin_alpha.storage.api.workflow_apis.backup_api import BackupSourceKind, BackupSourceSpec, BackupWorkflowKind, BackupWorkflowSpec
 from LiuXin_alpha.storage.backup import BackupArtifactRegistry, BackupWorkflowRepository
 
 

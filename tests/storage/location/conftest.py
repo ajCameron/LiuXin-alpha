@@ -18,6 +18,7 @@ from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.o
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_storage_backend import (
     OnDiskExistingManagedStorageBackend,
 )
+from LiuXin_alpha.utils.sync_async import call_in_thread
 
 
 @pytest.fixture(params=[OnDiskExistingManagedStoreLocation, None], name="loc_cls")
@@ -52,22 +53,22 @@ def fs_path(store: OnDiskExistingManagedStorageBackend, *tokens: str) -> pathlib
 
 
 class _AsyncFileWrapper:
-    """Async wrapper around a sync file object using asyncio.to_thread."""
+    """Async wrapper around a sync file object using the shared bridge."""
 
     def __init__(self, f: Any) -> None:
         self._f = f
 
     async def read(self, n: int = -1) -> Any:
-        return await asyncio.to_thread(self._f.read, n)
+        return await call_in_thread(self._f.read, n)
 
     async def write(self, data: Any) -> int:
-        return await asyncio.to_thread(self._f.write, data)
+        return await call_in_thread(self._f.write, data)
 
     async def flush(self) -> None:
-        await asyncio.to_thread(self._f.flush)
+        await call_in_thread(self._f.flush)
 
     async def close(self) -> None:
-        await asyncio.to_thread(self._f.close)
+        await call_in_thread(self._f.close)
 
 
 class _AsyncOpen:
@@ -92,7 +93,7 @@ class _AsyncOpen:
         self._f: Any | None = None
 
     async def __aenter__(self) -> _AsyncFileWrapper:
-        self._f = await asyncio.to_thread(
+        self._f = await call_in_thread(
             self._path.open,
             self._mode,
             self._buffering,
@@ -104,7 +105,7 @@ class _AsyncOpen:
 
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> bool | None:
         if self._f is not None:
-            await asyncio.to_thread(self._f.close)
+            await call_in_thread(self._f.close)
         return None
 
 
@@ -140,25 +141,25 @@ class AsyncOnDiskLocation(AsyncNativePretendSyncLocation):
         return str(self._loc_path)
 
     async def aexists(self) -> bool:
-        return await asyncio.to_thread(self._loc_path.exists)
+        return await call_in_thread(self._loc_path.exists)
 
     async def ais_file(self) -> bool:
-        return await asyncio.to_thread(self._loc_path.is_file)
+        return await call_in_thread(self._loc_path.is_file)
 
     async def ais_dir(self) -> bool:
-        return await asyncio.to_thread(self._loc_path.is_dir)
+        return await call_in_thread(self._loc_path.is_dir)
 
     async def astat(self) -> os.stat_result:
-        return await asyncio.to_thread(self._loc_path.stat)
+        return await call_in_thread(self._loc_path.stat)
 
     async def amkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
-        await asyncio.to_thread(self._loc_path.mkdir, mode=mode, parents=parents, exist_ok=exist_ok)
+        await call_in_thread(self._loc_path.mkdir, mode=mode, parents=parents, exist_ok=exist_ok)
 
     async def aunlink(self, missing_ok: bool = False) -> None:
-        await asyncio.to_thread(self._loc_path.unlink, missing_ok=missing_ok)
+        await call_in_thread(self._loc_path.unlink, missing_ok=missing_ok)
 
     async def armdir(self) -> None:
-        await asyncio.to_thread(self._loc_path.rmdir)
+        await call_in_thread(self._loc_path.rmdir)
 
     async def arename(self, target: str | os.PathLike[str]) -> Self:
         store_root = pathlib.Path(self.store.url).resolve()
@@ -172,7 +173,7 @@ class AsyncOnDiskLocation(AsyncNativePretendSyncLocation):
         # convenience: create parent directories when doing store-relative moves
         target_p.parent.mkdir(parents=True, exist_ok=True)
 
-        new_path = await asyncio.to_thread(self._loc_path.rename, target_p)
+        new_path = await call_in_thread(self._loc_path.rename, target_p)
         rel = new_path.relative_to(store_root)
         return self.__class__(*rel.parts, store=self._store)
 
@@ -187,30 +188,30 @@ class AsyncOnDiskLocation(AsyncNativePretendSyncLocation):
 
         target_p.parent.mkdir(parents=True, exist_ok=True)
 
-        new_path = await asyncio.to_thread(self._loc_path.replace, target_p)
+        new_path = await call_in_thread(self._loc_path.replace, target_p)
         rel = new_path.relative_to(store_root)
         return self.__class__(*rel.parts, store=self._store)
 
     async def atouch(self, mode: int = 0o666, exist_ok: bool = True) -> None:
-        await asyncio.to_thread(self._loc_path.touch, mode=mode, exist_ok=exist_ok)
+        await call_in_thread(self._loc_path.touch, mode=mode, exist_ok=exist_ok)
 
     async def aiterdir(self) -> AsyncIterator[Self]:
         store_root = pathlib.Path(self.store.url).resolve()
-        paths = await asyncio.to_thread(lambda: list(self._loc_path.iterdir()))
+        paths = await call_in_thread(lambda: list(self._loc_path.iterdir()))
         for path in paths:
             rel = path.relative_to(store_root)
             yield self.__class__(*rel.parts, store=self._store)
 
     async def aglob(self, pattern: str) -> AsyncIterator[Self]:
         store_root = pathlib.Path(self.store.url).resolve()
-        paths = await asyncio.to_thread(lambda: list(self._loc_path.glob(pattern)))
+        paths = await call_in_thread(lambda: list(self._loc_path.glob(pattern)))
         for path in paths:
             rel = path.relative_to(store_root)
             yield self.__class__(*rel.parts, store=self._store)
 
     async def arglob(self, pattern: str) -> AsyncIterator[Self]:
         store_root = pathlib.Path(self.store.url).resolve()
-        paths = await asyncio.to_thread(lambda: list(self._loc_path.rglob(pattern)))
+        paths = await call_in_thread(lambda: list(self._loc_path.rglob(pattern)))
         for path in paths:
             rel = path.relative_to(store_root)
             yield self.__class__(*rel.parts, store=self._store)
@@ -248,10 +249,11 @@ def _probe_asyncio_thread_bridge(timeout_seconds: float = 3.0) -> bool:
     probe_code = textwrap.dedent(
         """
         import asyncio
+        from LiuXin_alpha.utils.sync_async import call_in_thread
 
         async def _go() -> None:
-            await asyncio.wait_for(asyncio.to_thread(lambda: 1), timeout=0.5)
-            await asyncio.wait_for(asyncio.to_thread(lambda: 2), timeout=0.5)
+            await asyncio.wait_for(call_in_thread(lambda: 1), timeout=0.5)
+            await asyncio.wait_for(call_in_thread(lambda: 2), timeout=0.5)
 
         asyncio.run(_go())
         """

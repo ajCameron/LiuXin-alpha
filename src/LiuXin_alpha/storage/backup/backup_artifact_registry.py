@@ -18,7 +18,6 @@ import pathlib
 from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases import Row
-from LiuXin_alpha.storage.api.backup_api import BackupSourceSpec
 from LiuXin_alpha.storage.backup.backup_workflow_repository import BackupWorkflowRepository
 
 if TYPE_CHECKING:
