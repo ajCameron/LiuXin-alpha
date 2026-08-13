@@ -391,6 +391,12 @@ entirely lost.
 
 A Digital Asset identifies the bytes that should exist, rather than the place where those bytes happen to be stored.
 
+In the public storage-manager API, a `DigitalAsset` is an immutable domain
+snapshot of that identity. It is not the database row used to persist the
+identity and it is not a container for the byte stream. Repositories privately
+translate database records into domain snapshots; reading a selected Replica
+Location produces the actual bytes.
+
 The expected size and digest form an important part of that identity. 
 A filename alone is not sufficient: two files with the same name may contain different bytes, while files with different
 names may contain identical bytes.
@@ -605,6 +611,12 @@ The Replica does not define the content’s identity.
 Its associated Digital Asset does that. 
 A Replica is one claim about where a copy of the content can be found.
 
+The manager API consequently exposes a `Replica` domain snapshot containing
+its stable ID, Digital Asset ID, Location, operational mode, and latest
+observation. That snapshot is not a database record or a live file handle.
+Record CRUD remains behind `ReplicaRepositoryAPI`, while physical reads and
+writes are routed through the Replica's Location.
+
 ---
 
 ## Replica states
@@ -677,9 +689,12 @@ An unmanaged Store may allow LiuXin to read and catalogue content without granti
 
 ---
 
-# Store backends
+# Storage drivers and Store backends
 
-A **Store Backend**, **Store Driver**, or **Store Plugin** is the code that implements access to a class of Stores.
+A **Storage Driver** is reusable code for accessing one configured byte-storage
+endpoint. A **Store Backend** adapts such a driver to one LiuXin Store. The
+driver may also be used by an import source or temporary workspace, so it is not
+intrinsically tied to a Store database row.
 
 For example:
 
@@ -694,7 +709,8 @@ FTP backend
 └── Store: archive-server-two
 ```
 
-The backend knows how to perform storage operations. The Store holds the configuration for one particular endpoint.
+The driver knows how to perform raw byte operations. The Store holds LiuXin
+configuration and identity for one particular endpoint.
 
 A generic Store interface will normally provide operations equivalent to:
 
@@ -709,9 +725,73 @@ capabilities
 status
 ```
 
-Optional native operations may include server-side copy, move, range reads, checksum calculation, or atomic replacement.
-Higher-level code should use these capabilities when available and fall back to generic read-and-write operations when 
-they are not.
+The mandatory `StorageDriverAPI` core is smaller: address parsing, lifecycle,
+`stat`, and `open_read`. Enumeration, staged writing, deletion, allocation,
+hierarchical address construction, and native accelerators are independent
+capability protocols. This allows immutable, single-object, and import-source
+drivers to expose only operations they genuinely implement.
+
+At the configured Store boundary, all operations address objects with
+`Location`. A `DriverObjectAddress` is meaningful only below that boundary
+inside a `StorageDriverAPI`; a driver-backed Store privately translates between
+the Location's opaque value and its driver's address type. Driver addresses may
+also be used directly by non-Store facilities such as import sources, but must
+not appear in StorageManager, Store, Replica, or workflow contracts.
+
+Driver address types are generic (`StorageDriverAPI[DriverObjectAddressT]`) so
+unlike backend address forms cannot be mixed accidentally. Because a type
+parameter cannot distinguish two configured instances of the same driver, each
+instance also has an injected address checker. The standard scoped checker
+requires both the concrete address subtype and a mandatory
+`address_space_uuid`. That
+UUID identifies whichever configured endpoint owns the address space: a Store,
+import source, or temporary workspace. A Store factory injects the Store UUID
+when constructing a Store/driver pair, and the private Store adapter verifies
+the match.
+
+Persisted driver-relative values are parsed separately from external URIs.
+Endpoint and object URIs are credential-free representations and are never a
+second implicit internal addressing model.
+
+Cross-Store transfer planning is consequently Location-based. Store
+configuration may declare stable host and physical-device UUIDs, allowing the
+StorageManager to distinguish “same host”, “different host”, and “unknown”
+without confusing missing topology metadata with physical separation. The
+manager may then choose an appropriate transfer path. A
+`NativeCopyStorageDriverAPI` operation remains narrower: it copies between two
+object addresses already known to belong to the same driver endpoint and does
+not perform Store discovery or topology policy.
+
+Every raw operation returning object metadata must return the checked address
+that was requested or selected as its destination. Driver utilities and the
+configured Store adapter treat a different returned address as an integrity
+failure. Driver-native copy, move, and digest acceleration is translated by the
+Store adapter rather than merely advertised.
+
+Deletion and conditional deletion are distinct capabilities. A backend may be
+able to remove an object but lack an atomic compare-and-delete operation. Safe
+generic moves therefore require both an advertised `conditional_delete`
+capability and a source version returned by `stat()` before any destination is
+published. Without those guarantees, the operation remains a copy followed by
+separately coordinated deletion rather than pretending to be a race-safe move.
+
+Inventory, when available, returns `DriverObjectEntry` values containing cheap
+native hints, optional size, modified time, digest, and version. Shared
+`DriverObjectHints` attach suggested filename, media type, and native metadata
+to both inventory entries and `stat()` results. A raw driver may report an
+unknown size when the endpoint cannot know it before streaming; a configured
+Store remains stricter and requires an authoritative size. Prefix enumeration
+is a separate advertised capability and must never be silently approximated.
+These values are not bibliographic facts. A legacy importer that requires a
+local filesystem path can use the verified, context-managed
+`storage.utils.driver.materialize_object()` adapter; cross-driver byte movement
+uses `storage.utils.driver.transfer_between_drivers()` and staged publication.
+Backend-native source metadata is not copied automatically between drivers;
+the caller must deliberately translate any portable facts into destination
+metadata.
+Configured-Store conveniences and workflow helpers likewise live under
+`LiuXin_alpha.storage.utils`, leaving `LiuXin_alpha.storage.api` for contracts,
+models, errors, and facade adapters.
 
 ---
 
@@ -749,17 +829,28 @@ Replica address = Store + Location
 
 The same opaque key in two different Stores does not refer to the same Replica.
 
-In the API, a Location is an immutable serializable value containing a Store
-reference and that Store's opaque key. It is not a live backend object, a file
-handle, a status cache, or a virtual `pathlib.Path`. Operations such as `stat`,
-`open_read`, staged publication, and deletion belong to the Store or
-StorageManager that interprets the Location.
+In the API, a Location is an immutable serializable value containing the
+Store's UUID and that Store's opaque key. The UUID is the stable Store identity;
+a database row ID or human-readable Store name may be accepted by a factory,
+but must be resolved before the Location is constructed or persisted. A
+Location is not a live backend object, a file handle, a status cache, or a
+virtual `pathlib.Path`. Operations such as `stat`, `open_read`, staged
+publication, and deletion belong to the Store or StorageManager that interprets
+the Location.
 
 Where object-style ergonomics are useful, the StorageManager may return a
 short-lived `BoundLocation`. That facade pairs a manager with a Location and
 delegates every operation back to the manager. It must not replace the plain
 Location in Replica rows, workflow persistence, messages, or durable APIs, and
 it must not grow path joining, parent traversal, or cached metadata.
+
+The manager may also expose a `LocationFactory` for catalogue-aware resolution.
+For example, `manager.location_factory.from_id(digital_asset_id)` selects one
+currently readable Replica Location for a Digital Asset, while
+`from_replica_id(replica_id)` resolves one exact Replica. The former is a
+policy-bearing lookup, not a claim that a Digital Asset has one permanent
+Location: selection may change as Replica health, availability, and placement
+change.
 
 ---
 

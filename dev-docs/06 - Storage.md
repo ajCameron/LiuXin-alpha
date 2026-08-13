@@ -1,7 +1,7 @@
 > [!CAUTION]
 > **Deprecated:** This document describes the previous storage model and is
 > retained only so useful material can be salvaged later. It is not
-> authoritative for the current `storage.api2` design.
+> authoritative for the current replacement `LiuXin_alpha.storage.api` design.
 
 ---
 
@@ -348,7 +348,7 @@ If code such as ingest or repair wants direct physical-media access, this is the
 ### Location is the durable address
 
 Concrete stored objects are identified by an immutable `Location` containing a
-configured Store reference and an opaque Store-owned key. A Location is safe to
+configured Store UUID and an opaque Store-owned key. A Location is safe to
 persist on a Replica or workflow, but it is not a file handle, live plugin,
 status cache, or virtual `pathlib.Path`.
 

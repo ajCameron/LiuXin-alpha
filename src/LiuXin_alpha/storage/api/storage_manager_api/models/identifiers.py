@@ -1,0 +1,74 @@
+"""Nominal database identifiers used by storage-manager domain objects."""
+
+from typing import NewType
+
+
+DigitalAssetID = NewType("DigitalAssetID", int)
+"""Identifier of one atomic Digital Asset.
+
+Example:
+    >>> DigitalAssetID(7)
+    7
+"""
+
+CompositeDigitalAssetID = NewType("CompositeDigitalAssetID", int)
+"""Identifier of one Composite Digital Asset.
+
+Example:
+    >>> CompositeDigitalAssetID(3)
+    3
+"""
+
+ReplicaID = NewType("ReplicaID", int)
+"""Identifier of one concrete Replica claim.
+
+Example:
+    >>> ReplicaID(12)
+    12
+"""
+
+ItemID = NewType("ItemID", int)
+"""Identifier of one library-facing Item.
+
+Example:
+    >>> ItemID(9)
+    9
+"""
+
+StoreID = NewType("StoreID", int)
+"""Persistence identifier of a configured Store.
+
+``StoreID`` is a repository lookup value, not a ``StoreRef`` and never appears
+inside a durable ``Location``.
+
+Example:
+    >>> StoreID(2)
+    2
+"""
+
+ReplicationPolicyID = NewType("ReplicationPolicyID", int)
+"""Identifier of one stored replication-policy definition.
+
+Example:
+    >>> ReplicationPolicyID(4)
+    4
+"""
+
+BackupPolicyID = NewType("BackupPolicyID", int)
+"""Identifier of one stored backup-policy definition.
+
+Example:
+    >>> BackupPolicyID(5)
+    5
+"""
+
+
+__all__ = [
+    "BackupPolicyID",
+    "CompositeDigitalAssetID",
+    "DigitalAssetID",
+    "ItemID",
+    "ReplicationPolicyID",
+    "ReplicaID",
+    "StoreID",
+]

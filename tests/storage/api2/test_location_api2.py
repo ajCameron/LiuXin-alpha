@@ -10,34 +10,39 @@ import pickle
 
 from collections.abc import Iterator
 from typing import BinaryIO
+from uuid import UUID
 
 import pytest
 
-import LiuXin_alpha.storage.api2 as api2
+import LiuXin_alpha.storage.api as api
 
 
-class _RecordingRouter(api2.StorageRouterAPI):
+PRIMARY_STORE_UUID = UUID("00000000-0000-0000-0000-000000000001")
+ARCHIVE_STORE_UUID = UUID("00000000-0000-0000-0000-000000000002")
+
+
+class _RecordingRouter(api.StorageRouterAPI):
     def __init__(self) -> None:
-        self.payloads: dict[api2.Location, bytes] = {}
+        self.payloads: dict[api.Location, bytes] = {}
         self.calls: list[tuple[object, ...]] = []
         self.available = True
 
     def _require_available(self) -> None:
         if not self.available:
-            raise api2.StoreUnavailable("router is offline")
+            raise api.StoreUnavailable("router is offline")
 
-    def stat(self, location: api2.Location) -> api2.FileInfo:
+    def stat(self, location: api.Location) -> api.FileInfo:
         self._require_available()
         self.calls.append(("stat", location))
         try:
             payload = self.payloads[location]
         except KeyError as error:
-            raise api2.StoreNotFound(location.key) from error
-        return api2.FileInfo(location, len(payload), version=f"v{len(payload)}")
+            raise api.StoreNotFound(location.key) from error
+        return api.FileInfo(location, len(payload), version=f"v{len(payload)}")
 
     def get(
         self,
-        location: api2.Location,
+        location: api.Location,
         *,
         offset: int = 0,
         length: int | None = None,
@@ -47,37 +52,37 @@ class _RecordingRouter(api2.StorageRouterAPI):
         try:
             payload = self.payloads[location][offset:]
         except KeyError as error:
-            raise api2.StoreNotFound(location.key) from error
+            raise api.StoreNotFound(location.key) from error
         if length is not None:
             payload = payload[:length]
         return io.BytesIO(payload)
 
     def put(
         self,
-        location: api2.Location,
+        location: api.Location,
         source: BinaryIO,
         *,
-        mode: api2.WriteMode = api2.WriteMode.CREATE_ONLY,
+        mode: api.WriteMode = api.WriteMode.CREATE_ONLY,
         expected_size: int | None = None,
-        expected_digest: api2.Digest | None = None,
-    ) -> api2.FileInfo:
+        expected_digest: api.Digest | None = None,
+    ) -> api.FileInfo:
         self._require_available()
         self.calls.append(
             ("put", location, mode, expected_size, expected_digest)
         )
         payload = source.read()
         if expected_size is not None and len(payload) != expected_size:
-            raise api2.StoreIntegrityError("size mismatch")
-        if mode is api2.WriteMode.CREATE_ONLY and location in self.payloads:
-            raise api2.StoreAlreadyExists(location.key)
-        if mode is api2.WriteMode.REPLACE and location not in self.payloads:
-            raise api2.StoreNotFound(location.key)
+            raise api.StoreIntegrityError("size mismatch")
+        if mode is api.WriteMode.CREATE_ONLY and location in self.payloads:
+            raise api.StoreAlreadyExists(location.key)
+        if mode is api.WriteMode.REPLACE and location not in self.payloads:
+            raise api.StoreNotFound(location.key)
         self.payloads[location] = payload
-        return api2.FileInfo(location, len(payload), version=f"v{len(payload)}")
+        return api.FileInfo(location, len(payload), version=f"v{len(payload)}")
 
     def delete(
         self,
-        location: api2.Location,
+        location: api.Location,
         *,
         missing_ok: bool = False,
         if_version: str | None = None,
@@ -87,18 +92,18 @@ class _RecordingRouter(api2.StorageRouterAPI):
         if location not in self.payloads:
             if missing_ok:
                 return
-            raise api2.StoreNotFound(location.key)
+            raise api.StoreNotFound(location.key)
         expected_version = f"v{len(self.payloads[location])}"
         if if_version is not None and if_version != expected_version:
-            raise api2.StorePreconditionFailed(location.key)
+            raise api.StorePreconditionFailed(location.key)
         del self.payloads[location]
 
     def iter_locations(
         self,
         *,
-        store_ref: api2.StoreRef | None = None,
-        prefix: api2.Location | None = None,
-    ) -> Iterator[api2.Location]:
+        store_ref: api.StoreRef | None = None,
+        prefix: api.Location | None = None,
+    ) -> Iterator[api.Location]:
         for location in self.payloads:
             if store_ref is not None and location.store_ref != store_ref:
                 continue
@@ -106,29 +111,32 @@ class _RecordingRouter(api2.StorageRouterAPI):
                 continue
             yield location
 
-    def capabilities(self, store_ref: api2.StoreRef) -> api2.StoreCapabilities:
-        return api2.StoreCapabilities(
+    def capabilities(self, store_ref: api.StoreRef) -> api.StoreCapabilities:
+        return api.StoreCapabilities(
             create=True,
             replace=True,
             delete=True,
+            conditional_delete=True,
             atomic_publish=True,
             range_reads=True,
-            authoritative_digest=False,
-            enumeration=api2.EnumerationCompleteness.COMPLETE,
+            stat_digest_authoritative=True,
+            enumeration=api.EnumerationCompleteness.COMPLETE,
         )
 
-    def status(self, store_ref: api2.StoreRef) -> api2.StoreStatus:
-        return api2.StoreStatus(self.available, self.available)
+    def status(self, store_ref: api.StoreRef) -> api.StoreStatus:
+        return api.StoreStatus(self.available, self.available)
 
 
 def test_location_is_an_immutable_serializable_opaque_value() -> None:
-    location = api2.Location("archive", "../opaque//pack:item")
+    location = api.Location(ARCHIVE_STORE_UUID, "../opaque//pack:item")
 
     assert location.key == "../opaque//pack:item"
-    assert hash(location) == hash(api2.Location("archive", "../opaque//pack:item"))
+    assert hash(location) == hash(
+        api.Location(ARCHIVE_STORE_UUID, "../opaque//pack:item")
+    )
     assert pickle.loads(pickle.dumps(location)) == location
-    assert json.loads(json.dumps(dataclasses.asdict(location))) == {
-        "store_ref": "archive",
+    assert json.loads(json.dumps(dataclasses.asdict(location), default=str)) == {
+        "store_ref": str(ARCHIVE_STORE_UUID),
         "key": "../opaque//pack:item",
     }
 
@@ -137,7 +145,7 @@ def test_location_is_an_immutable_serializable_opaque_value() -> None:
 
 
 def test_location_exposes_no_path_file_or_backend_operations() -> None:
-    location = api2.Location("archive", "objects/42")
+    location = api.Location(ARCHIVE_STORE_UUID, "objects/42")
 
     assert not isinstance(location, os.PathLike)
     assert not hasattr(location, "__fspath__")
@@ -160,13 +168,13 @@ def test_location_exposes_no_path_file_or_backend_operations() -> None:
 
 def test_manager_binding_is_lazy_and_keeps_the_plain_location_visible() -> None:
     router = _RecordingRouter()
-    location = api2.Location("primary", "objects/42")
+    location = api.Location(PRIMARY_STORE_UUID, "objects/42")
 
     bound = router.bind(location)
 
-    assert isinstance(bound, api2.BoundLocation)
+    assert isinstance(bound, api.BoundLocation)
     assert bound.location is location
-    assert bound.store_ref == "primary"
+    assert bound.store_ref == PRIMARY_STORE_UUID
     assert bound.key == "objects/42"
     assert router.calls == []
     assert not isinstance(bound, os.PathLike)
@@ -176,7 +184,7 @@ def test_manager_binding_is_lazy_and_keeps_the_plain_location_visible() -> None:
 
 def test_bound_location_delegates_reads_and_never_caches_metadata() -> None:
     router = _RecordingRouter()
-    location = api2.Location("primary", "objects/42")
+    location = api.Location(PRIMARY_STORE_UUID, "objects/42")
     router.payloads[location] = b"first"
     bound = router.bind(location)
 
@@ -197,8 +205,8 @@ def test_bound_location_delegates_reads_and_never_caches_metadata() -> None:
 
 def test_bound_location_preserves_transactional_write_and_delete_arguments() -> None:
     router = _RecordingRouter()
-    location = api2.Location("primary", "objects/42")
-    digest = api2.Digest("sha256", "abc123")
+    location = api.Location(PRIMARY_STORE_UUID, "objects/42")
+    digest = api.Digest("sha256", "abc123")
     bound = router.bind(location)
 
     info = bound.put(
@@ -210,7 +218,7 @@ def test_bound_location_preserves_transactional_write_and_delete_arguments() -> 
 
     replaced = bound.write_bytes(
         b"replacement",
-        mode=api2.WriteMode.REPLACE,
+        mode=api.WriteMode.REPLACE,
         expected_digest=digest,
     )
     assert replaced.size == 11
@@ -220,14 +228,14 @@ def test_bound_location_preserves_transactional_write_and_delete_arguments() -> 
         (
             "put",
             location,
-            api2.WriteMode.CREATE_ONLY,
+            api.WriteMode.CREATE_ONLY,
             4,
             digest,
         ),
         (
             "put",
             location,
-            api2.WriteMode.REPLACE,
+            api.WriteMode.REPLACE,
             11,
             digest,
         ),
@@ -237,25 +245,31 @@ def test_bound_location_preserves_transactional_write_and_delete_arguments() -> 
 
 def test_bound_try_stat_suppresses_only_not_found() -> None:
     router = _RecordingRouter()
-    bound = router.bind(api2.Location("primary", "missing"))
+    bound = router.bind(api.Location(PRIMARY_STORE_UUID, "missing"))
 
     assert bound.try_stat() is None
     assert not bound.exists()
 
     router.available = False
-    with pytest.raises(api2.StoreUnavailable):
+    with pytest.raises(api.StoreUnavailable):
         bound.try_stat()
-    with pytest.raises(api2.StoreUnavailable):
+    with pytest.raises(api.StoreUnavailable):
         bound.exists()
 
 
-def test_location_and_bound_facade_have_segregated_explicit_exports() -> None:
-    from LiuXin_alpha.storage.api2 import location_api
-    from LiuXin_alpha.storage.api2 import storage_manager_api
-    from LiuXin_alpha.storage.api2.storage_manager_api.location_api import BoundLocation
+def test_location_rejects_database_ids_names_and_uuid_strings() -> None:
+    for invalid_store_ref in (7, "primary", str(PRIMARY_STORE_UUID)):
+        with pytest.raises(TypeError, match="UUID"):
+            api.Location(invalid_store_ref, "objects/42")  # type: ignore[arg-type]
 
-    assert location_api.Location is api2.Location
-    assert location_api.StoreRef is api2.StoreRef
+
+def test_location_and_bound_facade_have_segregated_explicit_exports() -> None:
+    from LiuXin_alpha.storage.api import location_api
+    from LiuXin_alpha.storage.api import storage_manager_api
+    from LiuXin_alpha.storage.api.storage_manager_api.location_api import BoundLocation
+
+    assert location_api.Location is api.Location
+    assert location_api.StoreRef is api.StoreRef
     assert location_api.__all__ == ["Location", "StoreRef"]
-    assert storage_manager_api.BoundLocation is BoundLocation is api2.BoundLocation
+    assert storage_manager_api.BoundLocation is BoundLocation is api.BoundLocation
     assert len(storage_manager_api.__all__) == len(set(storage_manager_api.__all__))

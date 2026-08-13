@@ -1,12 +1,9 @@
-"""Storage subsystem public entry points.
+"""Storage subsystem package.
 
-Storage has a strict three-part shape:
-- `StorageManager` orchestrates and chooses stores
-- `StoreContainer` wraps one configured store plus optional DB state
-- `StorePlugin` talks to one physical backend only
-
-The subsystem should expose `Location` objects for concrete file access and keep
-replica/library semantics out of raw plugins.
+The authoritative replacement contracts live in :mod:`LiuXin_alpha.storage.api`.
+Legacy implementation objects remain lazily reachable for the forthcoming
+full-system audit, but they are no longer imported while the new API package is
+being loaded; many still depend on the deliberately removed former contract.
 """
 
 from __future__ import annotations
@@ -14,68 +11,108 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-from LiuXin_alpha.storage.store_container import StoreContainer
-from LiuXin_alpha.storage.backup import (
-    BackupArtifactRegistry,
-    BackupWorkflowRepository,
-    PlannedBackupPack,
-    RegisteredBackupArtifact,
-    SquashfsBackupWorkflow,
-    StoreBackupPlanner,
-    ConsoleReporter,
-    ExistingDriveSquashfsPrototype,
-    IndexedStoreRun,
-    PackExecutionRun,
-    PrototypeRunResult,
-)
-from LiuXin_alpha.storage.errors import (
-    CalibreLikeImplicitOverwriteError,
-    FlatStoreImplicitOverwriteError,
-    ManagedDriveImplicitOverwriteError,
-    SqliteBlobImplicitOverwriteError,
-    SquashfsBuildImplicitOverwriteError,
-    StorageError,
-    StorageImplicitOverwriteError,
-    StorageWriteError,
-)
-from LiuXin_alpha.storage.store_manager import (
-    StorageBootstrapIssue,
-    StorageBootstrapReport,
-    StoreManager,
-    StorageManager,
-)
 
-__all__ = [
-    "StorageManager",
-    "StoreManager",
-    "StorageBootstrapIssue",
-    "StoreContainer",
-    "StorageBootstrapReport",
-    "BackupArtifactRegistry",
-    "BackupWorkflowRepository",
-    "PlannedBackupPack",
-    "RegisteredBackupArtifact",
-    "StoreBackupPlanner",
-    "SquashfsBackupWorkflow",
-    "StorageError",
-    "StorageWriteError",
-    "StorageImplicitOverwriteError",
-    "ManagedDriveImplicitOverwriteError",
-    "CalibreLikeImplicitOverwriteError",
-    "FlatStoreImplicitOverwriteError",
-    "SqliteBlobImplicitOverwriteError",
-    "SquashfsBuildImplicitOverwriteError",
-    "reconcile",
-]
+_LAZY_EXPORTS: dict[str, tuple[str, str]] = {
+    "StorageManager": ("LiuXin_alpha.storage.store_manager", "StorageManager"),
+    "StoreManager": ("LiuXin_alpha.storage.store_manager", "StoreManager"),
+    "StorageBootstrapIssue": (
+        "LiuXin_alpha.storage.store_manager",
+        "StorageBootstrapIssue",
+    ),
+    "StorageBootstrapReport": (
+        "LiuXin_alpha.storage.store_manager",
+        "StorageBootstrapReport",
+    ),
+    "StoreContainer": ("LiuXin_alpha.storage.store_container", "StoreContainer"),
+    "BackupArtifactRegistry": (
+        "LiuXin_alpha.storage.backup",
+        "BackupArtifactRegistry",
+    ),
+    "BackupWorkflowRepository": (
+        "LiuXin_alpha.storage.backup",
+        "BackupWorkflowRepository",
+    ),
+    "PlannedBackupPack": ("LiuXin_alpha.storage.backup", "PlannedBackupPack"),
+    "RegisteredBackupArtifact": (
+        "LiuXin_alpha.storage.backup",
+        "RegisteredBackupArtifact",
+    ),
+    "SquashfsBackupWorkflow": (
+        "LiuXin_alpha.storage.backup",
+        "SquashfsBackupWorkflow",
+    ),
+    "StoreBackupPlanner": ("LiuXin_alpha.storage.backup", "StoreBackupPlanner"),
+    "ConsoleReporter": ("LiuXin_alpha.storage.backup", "ConsoleReporter"),
+    "ExistingDriveSquashfsPrototype": (
+        "LiuXin_alpha.storage.backup",
+        "ExistingDriveSquashfsPrototype",
+    ),
+    "IndexedStoreRun": ("LiuXin_alpha.storage.backup", "IndexedStoreRun"),
+    "PackExecutionRun": ("LiuXin_alpha.storage.backup", "PackExecutionRun"),
+    "PrototypeRunResult": ("LiuXin_alpha.storage.backup", "PrototypeRunResult"),
+    "StorageError": ("LiuXin_alpha.storage.errors", "StorageError"),
+    "StorageWriteError": ("LiuXin_alpha.storage.errors", "StorageWriteError"),
+    "StorageImplicitOverwriteError": (
+        "LiuXin_alpha.storage.errors",
+        "StorageImplicitOverwriteError",
+    ),
+    "ManagedDriveImplicitOverwriteError": (
+        "LiuXin_alpha.storage.errors",
+        "ManagedDriveImplicitOverwriteError",
+    ),
+    "CalibreLikeImplicitOverwriteError": (
+        "LiuXin_alpha.storage.errors",
+        "CalibreLikeImplicitOverwriteError",
+    ),
+    "FlatStoreImplicitOverwriteError": (
+        "LiuXin_alpha.storage.errors",
+        "FlatStoreImplicitOverwriteError",
+    ),
+    "SqliteBlobImplicitOverwriteError": (
+        "LiuXin_alpha.storage.errors",
+        "SqliteBlobImplicitOverwriteError",
+    ),
+    "SquashfsBuildImplicitOverwriteError": (
+        "LiuXin_alpha.storage.errors",
+        "SquashfsBuildImplicitOverwriteError",
+    ),
+}
+
+
+__all__ = ["api", "reconcile", "utils", *_LAZY_EXPORTS]
 
 
 def __getattr__(name: str) -> Any:
-    if name != "reconcile":
-        raise AttributeError("module {!r} has no attribute {!r}".format(__name__, name))
-    module = import_module("LiuXin_alpha.storage.reconcile")
-    globals()[name] = module
-    return module
+    """Load replacement or legacy storage surfaces only when requested.
+
+    Example:
+        >>> api = __getattr__("api")
+        >>> api.__name__
+        'LiuXin_alpha.storage.api'
+    """
+    if name == "api":
+        value: Any = import_module("LiuXin_alpha.storage.api")
+    elif name == "utils":
+        value = import_module("LiuXin_alpha.storage.utils")
+    elif name == "reconcile":
+        value = import_module("LiuXin_alpha.storage.reconcile")
+    else:
+        try:
+            module_name, attribute_name = _LAZY_EXPORTS[name]
+        except KeyError as exc:
+            raise AttributeError(
+                f"module {__name__!r} has no attribute {name!r}"
+            ) from exc
+        value = getattr(import_module(module_name), attribute_name)
+    globals()[name] = value
+    return value
 
 
 def __dir__() -> list[str]:
-    return sorted(list(globals().keys()) + __all__)
+    """Return eager and lazy package attributes for interactive discovery.
+
+    Example:
+        >>> "api" in __dir__()
+        True
+    """
+    return sorted({*globals(), *__all__})
