@@ -1,4 +1,6 @@
-"""Nominal database identifiers used by storage-manager domain objects."""
+"""
+Nominal database identifiers used by storage-manager domain objects.
+"""
 
 from typing import NewType
 
@@ -9,6 +11,14 @@ DigitalAssetID = NewType("DigitalAssetID", int)
 Example:
     >>> DigitalAssetID(7)
     7
+"""
+
+DigitalAssetDerivationID = NewType("DigitalAssetDerivationID", int)
+"""Identifier of one recorded Digital Asset derivation.
+
+Example:
+    >>> DigitalAssetDerivationID(11)
+    11
 """
 
 CompositeDigitalAssetID = NewType("CompositeDigitalAssetID", int)
@@ -35,17 +45,6 @@ Example:
     9
 """
 
-StoreID = NewType("StoreID", int)
-"""Persistence identifier of a configured Store.
-
-``StoreID`` is a repository lookup value, not a ``StoreRef`` and never appears
-inside a durable ``Location``.
-
-Example:
-    >>> StoreID(2)
-    2
-"""
-
 ReplicationPolicyID = NewType("ReplicationPolicyID", int)
 """Identifier of one stored replication-policy definition.
 
@@ -65,10 +64,10 @@ Example:
 
 __all__ = [
     "BackupPolicyID",
+    "DigitalAssetDerivationID",
     "CompositeDigitalAssetID",
     "DigitalAssetID",
     "ItemID",
     "ReplicationPolicyID",
     "ReplicaID",
-    "StoreID",
 ]

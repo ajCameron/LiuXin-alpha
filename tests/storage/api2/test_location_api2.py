@@ -101,7 +101,7 @@ class _RecordingRouter(api.StorageRouterAPI):
     def iter_locations(
         self,
         *,
-        store_ref: api.StoreRef | None = None,
+        store_ref: api.StoreUUID | None = None,
         prefix: api.Location | None = None,
     ) -> Iterator[api.Location]:
         for location in self.payloads:
@@ -111,7 +111,7 @@ class _RecordingRouter(api.StorageRouterAPI):
                 continue
             yield location
 
-    def capabilities(self, store_ref: api.StoreRef) -> api.StoreCapabilities:
+    def capabilities(self, store_ref: api.StoreUUID) -> api.StoreCapabilities:
         return api.StoreCapabilities(
             create=True,
             replace=True,
@@ -123,7 +123,7 @@ class _RecordingRouter(api.StorageRouterAPI):
             enumeration=api.EnumerationCompleteness.COMPLETE,
         )
 
-    def status(self, store_ref: api.StoreRef) -> api.StoreStatus:
+    def status(self, store_ref: api.StoreUUID) -> api.StoreStatus:
         return api.StoreStatus(self.available, self.available)
 
 
@@ -269,7 +269,7 @@ def test_location_and_bound_facade_have_segregated_explicit_exports() -> None:
     from LiuXin_alpha.storage.api.storage_manager_api.location_api import BoundLocation
 
     assert location_api.Location is api.Location
-    assert location_api.StoreRef is api.StoreRef
-    assert location_api.__all__ == ["Location", "StoreRef"]
+    assert location_api.StoreUUID is api.StoreUUID
+    assert location_api.__all__ == ["Location", "StoreUUID"]
     assert storage_manager_api.BoundLocation is BoundLocation is api.BoundLocation
     assert len(storage_manager_api.__all__) == len(set(storage_manager_api.__all__))

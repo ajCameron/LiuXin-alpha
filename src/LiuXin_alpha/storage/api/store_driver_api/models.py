@@ -41,6 +41,9 @@ class DriverObjectAddress:
             Traceback (most recent call last):
             ...
             ValueError: driver object address must not be empty.
+
+
+        :return:
         """
         if not isinstance(self.address_space_uuid, UUID):
             raise TypeError(
@@ -54,11 +57,15 @@ class DriverObjectAddress:
             )
 
     def __str__(self) -> str:
-        """Return the persistable, driver-relative address value.
+        """
+        Return the persistable, driver-relative address value.
 
         Example:
             >>> str(DriverObjectAddress("object-42", UUID(int=1)))
             'object-42'
+
+
+        :return:
         """
         return self.value
 
@@ -71,7 +78,7 @@ DriverObjectAddressInput: TypeAlias = DriverObjectAddressT | str
 
 
 @runtime_checkable
-class DriverObjectAddressChecker(Protocol[DriverObjectAddressT]):
+class DriverObjectAddressCheckerAPI(Protocol[DriverObjectAddressT]):
     """
     Injected runtime validation for one driver's concrete address type.
 
@@ -85,10 +92,15 @@ class DriverObjectAddressChecker(Protocol[DriverObjectAddressT]):
         address: DriverObjectAddressT,
         /,
     ) -> DriverObjectAddressT:
-        """Validate and return an address, or raise a typed storage error.
+        """
+        Validate and return an address, or raise a typed storage error.
 
         Example:
             >>> accepted = checker(address)  # doctest: +SKIP
+
+
+        :param address:
+        :return:
         """
         ...
 
@@ -119,6 +131,9 @@ class ScopedDriverObjectAddressChecker(Generic[DriverObjectAddressT]):
             Traceback (most recent call last):
             ...
             TypeError: address_space_uuid must be a UUID.
+
+
+        :return:
         """
         if not isinstance(self.address_type, type) or not issubclass(
             self.address_type, DriverObjectAddress
@@ -134,7 +149,8 @@ class ScopedDriverObjectAddressChecker(Generic[DriverObjectAddressT]):
         address: DriverObjectAddressT,
         /,
     ) -> DriverObjectAddressT:
-        """Reject an address of another type or configured address space.
+        """
+        Reject an address of another type or configured address space.
 
         Example:
             >>> checker = ScopedDriverObjectAddressChecker(
@@ -144,6 +160,10 @@ class ScopedDriverObjectAddressChecker(Generic[DriverObjectAddressT]):
             Traceback (most recent call last):
             ...
             LiuXin_alpha.storage.api.errors.StorageInvalidAddress: driver object address belongs to another address space.
+
+
+        :param address:
+        :return:
         """
         if not isinstance(address, self.address_type):
             raise StorageInvalidAddress(
@@ -159,7 +179,8 @@ class ScopedDriverObjectAddressChecker(Generic[DriverObjectAddressT]):
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DriverObjectHints:
-    """Non-policy naming, media, and native metadata hints for one object.
+    """
+    Non-policy naming, media, and native metadata hints for one object.
 
     The same value can accompany either authoritative ``stat`` information or
     a cheap inventory entry. These fields describe backend observations; they
@@ -179,13 +200,17 @@ class DriverObjectHints:
     metadata: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
-        """Validate optional strings and unique native metadata keys.
+        """
+        Validate optional strings and unique native metadata keys.
 
         Example:
             >>> DriverObjectHints(suggested_filename="")
             Traceback (most recent call last):
             ...
             ValueError: suggested_filename must not be empty.
+
+
+        :return:
         """
         if self.suggested_filename == "":
             raise ValueError("suggested_filename must not be empty.")
@@ -195,7 +220,7 @@ class DriverObjectHints:
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class DriverFileInfo(Generic[DriverObjectAddressT]):
+class DriverObjectInfo(Generic[DriverObjectAddressT]):
     """
     Best authoritative information available for one driver object.
 
@@ -203,7 +228,7 @@ class DriverFileInfo(Generic[DriverObjectAddressT]):
     reading. It does not mean zero and must never be converted to zero.
 
     Example:
-        >>> info = DriverFileInfo(
+        >>> info = DriverObjectInfo(
         ...     DriverObjectAddress("objects/42", UUID(int=1)), size=4,
         ... )
         >>> info.size
@@ -220,15 +245,19 @@ class DriverFileInfo(Generic[DriverObjectAddressT]):
     )
 
     def __post_init__(self) -> None:
-        """Reject a known negative size while permitting an unknown size.
+        """
+        Reject a known negative size while permitting an unknown size.
 
         Example:
-            >>> DriverFileInfo(
+            >>> DriverObjectInfo(
             ...     DriverObjectAddress("bad", UUID(int=1)), size=-1,
             ... )
             Traceback (most recent call last):
             ...
             ValueError: driver file size must not be negative.
+
+
+        :return:
         """
         if self.size is not None and self.size < 0:
             raise ValueError("driver file size must not be negative.")
@@ -236,15 +265,16 @@ class DriverFileInfo(Generic[DriverObjectAddressT]):
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class DriverObjectEntry(Generic[DriverObjectAddressT]):
-    """One inventory entry with cheap, non-policy discovery hints.
+class DriverInventoryEntry(Generic[DriverObjectAddressT]):
+    """
+    One inventory entry with cheap, non-policy discovery hints.
 
     Drivers should populate fields already returned by their listing API. None
     of them is a bibliographic assertion; import code may use the shared hints
     before opening or materialising bytes. ``size=None`` means unknown.
 
     Example:
-        >>> entry = DriverObjectEntry(
+        >>> entry = DriverInventoryEntry(
         ...     DriverObjectAddress("incoming/42", UUID(int=1)),
         ...     size=4,
         ...     hints=DriverObjectHints(suggested_filename="book.epub"),
@@ -263,15 +293,19 @@ class DriverObjectEntry(Generic[DriverObjectAddressT]):
     )
 
     def __post_init__(self) -> None:
-        """Validate an optional inventory size.
+        """
+        Validate an optional inventory size.
 
         Example:
-            >>> DriverObjectEntry(
+            >>> DriverInventoryEntry(
             ...     DriverObjectAddress("bad", UUID(int=1)), size=-1,
             ... )
             Traceback (most recent call last):
             ...
             ValueError: driver entry size must not be negative.
+
+
+        :return:
         """
         if self.size is not None and self.size < 0:
             raise ValueError("driver entry size must not be negative.")
@@ -279,7 +313,7 @@ class DriverObjectEntry(Generic[DriverObjectAddressT]):
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class DriverConcurrency:
+class DriverConcurrencyCapabilities:
     """
     Conservative concurrency guarantees for one driver instance.
 
@@ -288,8 +322,10 @@ class DriverConcurrency:
     the same instance. Callers should treat false or None values conservatively.
 
     Example:
-        >>> DriverConcurrency(thread_safe=True, concurrent_reads=True)
-        DriverConcurrency(thread_safe=True, concurrent_reads=True, concurrent_writes=False, recommended_parallel_reads=None)
+        >>> DriverConcurrencyCapabilities(
+        ...     thread_safe=True, concurrent_reads=True,
+        ... )
+        DriverConcurrencyCapabilities(thread_safe=True, concurrent_reads=True, concurrent_writes=False, recommended_parallel_reads=None)
     """
 
     thread_safe: bool = False
@@ -302,10 +338,13 @@ class DriverConcurrency:
         Require any parallel-read recommendation to be positive.
 
         Example:
-            >>> DriverConcurrency(recommended_parallel_reads=0)
+            >>> DriverConcurrencyCapabilities(recommended_parallel_reads=0)
             Traceback (most recent call last):
             ...
             ValueError: recommended_parallel_reads must be at least one.
+
+
+        :return:
         """
         if (
             self.recommended_parallel_reads is not None
@@ -330,7 +369,8 @@ class DriverConcurrency:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DriverCapabilities:
-    """Static-ish mechanics inherently supported by a raw driver.
+    """
+    Static-ish mechanics inherently supported by a raw driver.
 
     Boolean mutation flags describe both backend support and the corresponding
     optional protocol. Enumeration uses ``UNAVAILABLE`` when listing is not
@@ -363,12 +403,13 @@ class DriverCapabilities:
     external_uri_parsing: bool = False
     external_uri_rendering: bool = False
     prefix_enumeration: bool = False
-    concurrency: DriverConcurrency = dataclasses.field(
-        default_factory=DriverConcurrency
+    concurrency: DriverConcurrencyCapabilities = dataclasses.field(
+        default_factory=DriverConcurrencyCapabilities
     )
 
     def __post_init__(self) -> None:
-        """Reject capabilities that depend on unavailable base operations.
+        """
+        Reject capabilities that depend on unavailable base operations.
 
         Example:
             >>> DriverCapabilities(
@@ -379,6 +420,9 @@ class DriverCapabilities:
             Traceback (most recent call last):
             ...
             ValueError: prefix_enumeration requires object enumeration.
+
+
+        :return:
         """
         if (
             self.prefix_enumeration
@@ -424,13 +468,17 @@ class DriverStatus:
     details: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
-        """Validate non-negative, internally consistent status counters.
+        """
+        Validate non-negative, internally consistent status counters.
 
         Example:
             >>> DriverStatus(True, True, total_bytes=10, free_bytes=11)
             Traceback (most recent call last):
             ...
             ValueError: free_bytes must not exceed total_bytes.
+
+
+        :return:
         """
         if self.total_bytes is not None and self.total_bytes < 0:
             raise ValueError("total_bytes must not be negative.")
@@ -454,6 +502,10 @@ def _require_unique_metadata(metadata: tuple[tuple[str, str], ...]) -> None:
 
     Example:
         >>> _require_unique_metadata((("kind", "file"),))
+
+
+    :param metadata:
+    :return:
     """
     keys = tuple(key for key, _value in metadata)
     if len(keys) != len(set(keys)):
@@ -461,13 +513,19 @@ def _require_unique_metadata(metadata: tuple[tuple[str, str], ...]) -> None:
 
 
 def _require_aware_datetime(value: datetime | None, field_name: str) -> None:
-    """Reject naive timestamps whose absolute instant is ambiguous.
+    """
+    Reject naive timestamps whose absolute instant is ambiguous.
 
     Example:
         >>> _require_aware_datetime(datetime(2026, 1, 1), "modified_at")
         Traceback (most recent call last):
         ...
         ValueError: modified_at must be timezone-aware.
+
+
+    :param value:
+    :param field_name:
+    :return:
     """
     if value is not None and (
         value.tzinfo is None or value.utcoffset() is None
@@ -477,13 +535,13 @@ def _require_aware_datetime(value: datetime | None, field_name: str) -> None:
 
 __all__ = [
     "DriverCapabilities",
-    "DriverConcurrency",
-    "DriverFileInfo",
+    "DriverConcurrencyCapabilities",
+    "DriverObjectInfo",
     "DriverObjectAddress",
-    "DriverObjectAddressChecker",
+    "DriverObjectAddressCheckerAPI",
     "DriverObjectAddressInput",
     "DriverObjectAddressT",
-    "DriverObjectEntry",
+    "DriverInventoryEntry",
     "DriverObjectHints",
     "DriverStatus",
     "ScopedDriverObjectAddressChecker",

@@ -1,4 +1,6 @@
-"""Resumable backup workflow contract above the storage manager."""
+"""
+Resumable backup workflow contract above the storage manager.
+"""
 
 from __future__ import annotations
 
@@ -9,11 +11,11 @@ from uuid import UUID
 
 from LiuXin_alpha.storage.api.models import Location
 from LiuXin_alpha.storage.api.workflow_api.backup_api.models import (
-    BackupSourceSpec,
+    BackupSourceDeclaration,
     BackupWorkflowKind,
     BackupWorkflowResult,
-    BackupWorkflowResumeState,
-    BackupWorkflowSpec,
+    BackupWorkflowCheckpoint,
+    BackupWorkflowDeclaration,
 )
 from LiuXin_alpha.storage.api.workflow_api.base_api import StorageWorkflowAPI
 
@@ -23,13 +25,14 @@ if TYPE_CHECKING:
 
 class BackupWorkflowAPI(
     StorageWorkflowAPI[
-        BackupWorkflowSpec,
-        BackupWorkflowResumeState,
+        BackupWorkflowDeclaration,
+        BackupWorkflowCheckpoint,
         BackupWorkflowResult,
     ],
     abc.ABC,
 ):
-    """Contract for one resumable backup or archival artifact workflow.
+    """
+    Contract for one resumable backup or archival artifact workflow.
 
     Workflows designate sources, stage verified bytes, seal an artifact,
     optionally register it as a store, record protected presence, and expose a
@@ -46,10 +49,14 @@ class BackupWorkflowAPI(
     @property
     @abc.abstractmethod
     def workflow_kind(self) -> BackupWorkflowKind:
-        """Return the stable backup workflow implementation family.
+        """
+        Return the stable backup workflow implementation family.
 
         Example:
             >>> kind = workflow.workflow_kind  # doctest: +SKIP
+
+
+        :return:
         """
         ...
 
@@ -59,13 +66,19 @@ class BackupWorkflowAPI(
         source_path: str,
         *,
         archive_path: str | None = None,
-    ) -> BackupSourceSpec:
-        """Add a local filesystem source to immutable workflow intent.
+    ) -> BackupSourceDeclaration:
+        """
+        Add a local filesystem source to immutable workflow intent.
 
         Example:
             >>> source = workflow.designate_local_path(  # doctest: +SKIP
             ...     "/incoming/a.epub", archive_path="books/a.epub",
             ... )
+
+
+        :param source_path:
+        :param archive_path:
+        :return:
         """
         ...
 
@@ -75,48 +88,66 @@ class BackupWorkflowAPI(
         source_location: Location,
         *,
         archive_path: str | None = None,
-    ) -> BackupSourceSpec:
-        """Add a managed storage Location to immutable workflow intent.
+    ) -> BackupSourceDeclaration:
+        """
+        Add a managed storage Location to immutable workflow intent.
 
         Example:
             >>> source = workflow.designate_location(  # doctest: +SKIP
             ...     Location(UUID(int=1), "objects/42"),
             ...     archive_path="books/a.epub",
             ... )
+
+
+        :param source_location:
+        :param archive_path:
+        :return:
         """
         ...
 
     @classmethod
     @abc.abstractmethod
-    def from_spec(
+    def from_declaration(
         cls,
-        spec: BackupWorkflowSpec,
+        declaration: BackupWorkflowDeclaration,
         *,
         storage_manager: StorageManagerAPI | None = None,
     ) -> Self:
-        """Construct a fresh concrete workflow from durable intent.
+        """
+        Construct a fresh concrete workflow from durable intent.
 
         Example:
-            >>> workflow = ConcreteWorkflow.from_spec(  # doctest: +SKIP
-            ...     spec, storage_manager=manager,
+            >>> workflow = ConcreteWorkflow.from_declaration(  # doctest: +SKIP
+            ...     declaration, storage_manager=manager,
             ... )
+
+
+        :param declaration:
+        :param storage_manager:
+        :return:
         """
         ...
 
     @classmethod
     @abc.abstractmethod
-    def from_resume_state(
+    def from_checkpoint(
         cls,
-        resume_state: BackupWorkflowResumeState,
+        checkpoint: BackupWorkflowCheckpoint,
         *,
         storage_manager: StorageManagerAPI | None = None,
     ) -> Self:
-        """Reconstruct a concrete workflow from one durable checkpoint.
+        """
+        Reconstruct a concrete workflow from one durable checkpoint.
 
         Example:
-            >>> workflow = ConcreteWorkflow.from_resume_state(  # doctest: +SKIP
-            ...     state, storage_manager=manager,
+            >>> workflow = ConcreteWorkflow.from_checkpoint(  # doctest: +SKIP
+            ...     checkpoint, storage_manager=manager,
             ... )
+
+
+        :param checkpoint:
+        :param storage_manager:
+        :return:
         """
         ...
 

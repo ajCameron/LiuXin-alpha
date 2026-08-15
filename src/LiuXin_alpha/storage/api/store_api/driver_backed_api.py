@@ -1,4 +1,6 @@
-"""Configured-Store bridge over a reusable ``StorageDriverAPI``."""
+"""
+Configured-Store bridge over a reusable ``StorageDriverAPI``.
+"""
 
 from __future__ import annotations
 
@@ -24,12 +26,13 @@ from LiuXin_alpha.storage.api.models import (
     StoreStatus,
     WriteMode,
 )
-from LiuXin_alpha.storage.api.storage_driver_api import (
+from LiuXin_alpha.storage.api.placement_hints_api import StoragePlacementHints
+from LiuXin_alpha.storage.api.store_driver_api import (
     DeletableStorageDriverAPI,
-    DriverFileInfo,
+    DriverObjectInfo,
     DriverObjectAddressT,
     DriverStatus,
-    DriverWriteSession,
+    DriverWriteSessionAPI,
     EnumerableStorageDriverAPI,
     HierarchicalStorageDriverAPI,
     NativeCopyStorageDriverAPI,
@@ -39,11 +42,13 @@ from LiuXin_alpha.storage.api.storage_driver_api import (
     StorageDriverAPI,
     WritableStorageDriverAPI,
 )
-from LiuXin_alpha.storage.api.store_api import StoreAPI, WriteSession
+from LiuXin_alpha.storage.api.store_api.facade_api import StoreAPI
+from LiuXin_alpha.storage.api.store_api.file_api import WriteSessionAPI
 
 
 class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
-    """Translate a raw-driver write session into a routed Store session.
+    """
+    Translate a raw-driver write session into a routed Store session.
 
     Example:
         >>> adapter = _DriverWriteSessionAdapter(store, session)  # doctest: +SKIP
@@ -52,16 +57,23 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
     def __init__(
         self,
         store: DriverBackedStoreAPI[DriverObjectAddressT],
-        session: DriverWriteSession[DriverObjectAddressT],
+        session: DriverWriteSessionAPI[DriverObjectAddressT],
         expected_address: DriverObjectAddressT,
     ) -> None:
-        """Bind a driver session to its configured Store identity.
+        """
+        Bind a driver session to its configured Store identity.
 
         Example:
             >>> adapter = _DriverWriteSessionAdapter(store, session)  # doctest: +SKIP
+
+
+        :param store:
+        :param session:
+        :param expected_address:
+        :return:
         """
         self._store: DriverBackedStoreAPI[DriverObjectAddressT] = store
-        self._session: DriverWriteSession[DriverObjectAddressT] = session
+        self._session: DriverWriteSessionAPI[DriverObjectAddressT] = session
         self._expected_address: DriverObjectAddressT = expected_address
         self._accepted_size: int = 0
 
@@ -71,6 +83,7 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
 
         Example:
             >>> accepted = adapter.write(b"payload")  # doctest: +SKIP
+
 
         :param data:
         :return:
@@ -90,9 +103,10 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
         Example:
             >>> info = adapter.commit()  # doctest: +SKIP
 
+
         :return:
         """
-        info = self._store._driver.require_file_info(
+        info = self._store._driver.require_object_info(
             self._expected_address,
             self._session.commit(),
         )
@@ -107,15 +121,20 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
         Example:
             >>> adapter.abort()  # doctest: +SKIP
 
+
         :return:
         """
         self._session.abort()
 
     def __enter__(self) -> _DriverWriteSessionAdapter[DriverObjectAddressT]:
-        """Enter the underlying session and return this adapter.
+        """
+        Enter the underlying session and return this adapter.
 
         Example:
             >>> entered = adapter.__enter__()  # doctest: +SKIP
+
+
+        :return:
         """
         _ = self._session.__enter__()
         return self
@@ -126,16 +145,24 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        """Forward context exit so abandoned staged state is aborted.
+        """
+        Forward context exit so abandoned staged state is aborted.
 
         Example:
             >>> adapter.__exit__(None, None, None)  # doctest: +SKIP
+
+
+        :param exc_type:
+        :param exc:
+        :param traceback:
+        :return:
         """
         self._session.__exit__(exc_type, exc, traceback)
 
 
 class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
-    """Configured ``StoreAPI`` privately backed by a reusable raw driver.
+    """
+    Configured ``StoreAPI`` privately backed by a reusable raw driver.
 
     The adapter translates global ``Location`` values to private object
     addresses, constrains driver mechanics with Store configuration, and keeps
@@ -144,26 +171,34 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
 
     Example:
         >>> class ConcreteStore(DriverBackedStoreAPI):  # doctest: +SKIP
-        ...     spec = configured_spec
+        ...     configuration = configured_store_configuration
         ...     _driver = concrete_driver
     """
 
     @property
     @abc.abstractmethod
     def _driver(self) -> StorageDriverAPI[DriverObjectAddressT]:
-        """Return the privately owned raw driver.
+        """
+        Return the privately owned raw driver.
 
         Example:
             >>> driver = store._driver  # doctest: +SKIP
+
+
+        :return:
         """
         ...
 
     @property
     def capabilities(self) -> StoreCapabilities:
-        """Translate driver mechanics into configured Store capabilities.
+        """
+        Translate driver mechanics into configured Store capabilities.
 
         Example:
             >>> capabilities = store.capabilities  # doctest: +SKIP
+
+
+        :return:
         """
         raw = self._driver.capabilities
         native_copy = raw.native_copy and isinstance(
@@ -192,7 +227,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             hierarchical_object_addresses=raw.hierarchical_object_addresses,
             prefix_enumeration=raw.prefix_enumeration,
         )
-        if not self.spec.read_only:
+        if not self.configuration.read_only:
             return capabilities
         return dataclasses.replace(
             capabilities,
@@ -203,36 +238,53 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         )
 
     def startup(self) -> StoreStatus:
-        """Start the owned driver and return translated Store status.
+        """
+        Start the owned driver and return translated Store status.
 
         Example:
             >>> status = store.startup()  # doctest: +SKIP
+
+
+        :return:
         """
         return self._effective_status(self._driver.startup())
 
     def probe(self) -> StoreStatus:
-        """Actively probe the owned driver and translate its status.
+        """
+        Actively probe the owned driver and translate its status.
 
         Example:
             >>> status = store.probe()  # doctest: +SKIP
+
+
+        :return:
         """
         return self._effective_status(self._driver.probe())
 
     def status(self, *, refresh: bool = False) -> StoreStatus:
-        """Return current Store status, probing first when requested.
+        """
+        Return current Store status, probing first when requested.
 
         Example:
             >>> status = store.status(refresh=True)  # doctest: +SKIP
+
+
+        :param refresh:
+        :return:
         """
         return self.probe() if refresh else self._effective_status(
             self._driver.status()
         )
 
     def close(self) -> None:
-        """Close the owned raw driver.
+        """
+        Close the owned raw driver.
 
         Example:
             >>> store.close()  # doctest: +SKIP
+
+
+        :return:
         """
         self._driver.close()
 
@@ -242,6 +294,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
 
         Example:
             >>> location = store.location("authors", "book.epub")  # doctest: +SKIP
+
 
         :param tokens:
         :return:
@@ -266,6 +319,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         Example:
             >>> location = store.locate("authors/book.epub")  # doctest: +SKIP
 
+
         :param identifier:
         :return:
         """
@@ -279,6 +333,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         expected_size: int | None = None,
         expected_digest: Digest | None = None,
         name_hint: str | None = None,
+        placement_hints: StoragePlacementHints | None = None,
     ) -> Location:
         """
         Allocate a Store Location through an optional driver allocator.
@@ -286,9 +341,11 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         Example:
             >>> location = store.allocate_location(name_hint="book.epub")  # doctest: +SKIP
 
+
         :param expected_size:
         :param expected_digest:
         :param name_hint:
+        :param placement_hints:
         :return:
         """
         driver = self._driver
@@ -318,12 +375,13 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         Example:
             >>> info = store.stat(location)  # doctest: +SKIP
 
+
         :param location:
         :return:
         """
         address = self._object_address(location)
         return self._file_info(
-            self._driver.require_file_info(address, self._driver.stat(address))
+            self._driver.require_object_info(address, self._driver.stat(address))
         )
 
     def open_read(
@@ -338,6 +396,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
 
         Example:
             >>> source = store.open_read(location, length=20)  # doctest: +SKIP
+
 
         :param location:
         :param offset:
@@ -355,21 +414,24 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         mode: WriteMode = WriteMode.CREATE_ONLY,
         expected_size: int | None = None,
         expected_digest: Digest | None = None,
-    ) -> WriteSession:
+        placement_hints: StoragePlacementHints | None = None,
+    ) -> WriteSessionAPI:
         """
         Begin an optional driver write and adapt its commit metadata.
 
         The returned Store session is a context manager. It deliberately wraps
         the driver session so internal addresses cannot escape and committed
-        ``DriverFileInfo`` becomes routed ``FileInfo``.
+        ``DriverObjectInfo`` becomes routed ``FileInfo``.
 
         Example:
             >>> session = store.begin_write(location, expected_size=4)  # doctest: +SKIP
+
 
         :param location:
         :param mode:
         :param expected_size:
         :param expected_digest:
+        :param placement_hints:
         :return:
         """
         self._require_writable()
@@ -404,10 +466,17 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         *,
         mode: WriteMode = WriteMode.CREATE_ONLY,
     ) -> FileInfo:
-        """Use a driver-native copy when advertised, otherwise stream safely.
+        """
+        Use a driver-native copy when advertised, otherwise stream safely.
 
         Example:
             >>> info = store.copy(source, destination)  # doctest: +SKIP
+
+
+        :param source:
+        :param destination:
+        :param mode:
+        :return:
         """
         self._require_writable()
         driver = self._driver
@@ -429,7 +498,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             mode=mode,
         )
         return self._file_info(
-            driver.require_file_info(destination_address, info)
+            driver.require_object_info(destination_address, info)
         )
 
     def move(
@@ -439,10 +508,17 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         *,
         mode: WriteMode = WriteMode.CREATE_ONLY,
     ) -> FileInfo:
-        """Use a safe driver-native move when advertised, else Store fallback.
+        """
+        Use a safe driver-native move when advertised, else Store fallback.
 
         Example:
             >>> info = store.move(source, destination)  # doctest: +SKIP
+
+
+        :param source:
+        :param destination:
+        :param mode:
+        :return:
         """
         self._require_writable()
         driver = self._driver
@@ -455,7 +531,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             )
         source_address = self._object_address(source)
         destination_address = self._object_address(destination)
-        source_info = driver.require_file_info(
+        source_info = driver.require_object_info(
             source_address,
             driver.stat(source_address),
         )
@@ -469,7 +545,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             if_source_version=source_info.version,
         )
         return self._file_info(
-            driver.require_file_info(destination_address, info)
+            driver.require_object_info(destination_address, info)
         )
 
     def compute_digest(
@@ -479,10 +555,17 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         *,
         chunk_size: int = 1024 * 1024,
     ) -> Digest:
-        """Use a driver-native digest when advertised, otherwise stream.
+        """
+        Use a driver-native digest when advertised, otherwise stream.
 
         Example:
             >>> digest = store.compute_digest(location, "sha256")  # doctest: +SKIP
+
+
+        :param location:
+        :param algorithm:
+        :param chunk_size:
+        :return:
         """
         driver = self._driver
         if not driver.capabilities.native_digest:
@@ -522,6 +605,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         Example:
             >>> store.delete(location, if_version="v3")  # doctest: +SKIP
 
+
         :param location:
         :param missing_ok:
         :param if_version:
@@ -553,10 +637,15 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         *,
         prefix: Location | None = None,
     ) -> Iterator[Location]:
-        """Translate optional rich driver inventory into Locations.
+        """
+        Translate optional rich driver inventory into Locations.
 
         Example:
             >>> locations = list(store.iter_locations())  # doctest: +SKIP
+
+
+        :param prefix:
+        :return:
         """
         driver = self._driver
         if (
@@ -578,7 +667,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
                 f"{driver.driver_kind} does not support prefix enumeration."
             )
         seen: set[DriverObjectAddressT] = set()
-        for entry in enumerable.iter_object_entries(prefix=driver_prefix):
+        for entry in enumerable.iter_inventory(prefix=driver_prefix):
             address = driver.require_canonical_object_address(
                 entry.object_address
             )
@@ -590,10 +679,15 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             yield self._location(address)
 
     def _object_address(self, location: Location) -> DriverObjectAddressT:
-        """Translate a routed Location into a checked private address.
+        """
+        Translate a routed Location into a checked private address.
 
         Example:
             >>> address = store._object_address(location)  # doctest: +SKIP
+
+
+        :param location:
+        :return:
         """
         owned = self.require_location(location)
         return self._require_object_address_space(
@@ -601,10 +695,15 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         )
 
     def _location(self, object_address: DriverObjectAddressT) -> Location:
-        """Pair a checked driver address with this Store's UUID.
+        """
+        Pair a checked driver address with this Store's UUID.
 
         Example:
             >>> location = store._location(address)  # doctest: +SKIP
+
+
+        :param object_address:
+        :return:
         """
         checked = self._require_object_address_space(object_address)
         return Location(self.store_ref, str(checked))
@@ -613,10 +712,15 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         self,
         object_address: DriverObjectAddressT,
     ) -> DriverObjectAddressT:
-        """Require any branded driver address to use this Store's UUID.
+        """
+        Require any branded driver address to use this Store's UUID.
 
         Example:
             >>> checked = store._require_object_address_space(address)  # doctest: +SKIP
+
+
+        :param object_address:
+        :return:
         """
         checked = self._driver.require_canonical_object_address(
             object_address
@@ -630,12 +734,17 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
 
     def _file_info(
         self,
-        info: DriverFileInfo[DriverObjectAddressT],
+        info: DriverObjectInfo[DriverObjectAddressT],
     ) -> FileInfo:
-        """Translate driver-local metadata into routed Store metadata.
+        """
+        Translate driver-local metadata into routed Store metadata.
 
         Example:
             >>> routed = store._file_info(driver_info)  # doctest: +SKIP
+
+
+        :param info:
+        :return:
         """
         if info.size is None:
             raise StoreUnsupportedOperation(
@@ -650,14 +759,19 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         )
 
     def _effective_status(self, status: DriverStatus) -> StoreStatus:
-        """Translate driver status and apply configured read-only state.
+        """
+        Translate driver status and apply configured read-only state.
 
         Example:
             >>> status = store._effective_status(driver_status)  # doctest: +SKIP
+
+
+        :param status:
+        :return:
         """
         return StoreStatus(
             available=status.available,
-            writable=status.writable and not self.spec.read_only,
+            writable=status.writable and not self.configuration.read_only,
             total_bytes=status.total_bytes,
             free_bytes=status.free_bytes,
             object_count=status.object_count,
@@ -668,12 +782,16 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         )
 
     def _require_writable(self) -> None:
-        """Raise when configured Store policy forbids mutation.
+        """
+        Raise when configured Store policy forbids mutation.
 
         Example:
             >>> store._require_writable()  # doctest: +SKIP
+
+
+        :return:
         """
-        if self.spec.read_only:
+        if self.configuration.read_only:
             raise StoreReadOnly(
                 f"configured store {self.store_ref!r} is read-only."
             )
@@ -683,10 +801,16 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         driver: StorageDriverAPI[DriverObjectAddressT],
         mode: WriteMode,
     ) -> None:
-        """Require driver publication support for one collision mode.
+        """
+        Require driver publication support for one collision mode.
 
         Example:
             >>> store._require_write_mode(driver, WriteMode.CREATE_ONLY)  # doctest: +SKIP
+
+
+        :param driver:
+        :param mode:
+        :return:
         """
         supported = {
             WriteMode.CREATE_ONLY: driver.capabilities.create,

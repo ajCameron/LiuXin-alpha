@@ -1,4 +1,6 @@
-"""Small value objects shared by the transactional storage contracts."""
+"""
+Small value objects shared by the transactional storage contracts.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +12,7 @@ from typing import TypeAlias
 from uuid import UUID
 
 
-StoreRef: TypeAlias = UUID
+StoreUUID: TypeAlias = UUID
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -30,17 +32,21 @@ class Location:
         (UUID('12345678-1234-5678-1234-567812345678'), 'books/42/content.epub')
     """
 
-    store_ref: StoreRef
+    store_ref: StoreUUID
     key: str
 
     def __post_init__(self) -> None:
-        """Require a store UUID and reject invalid opaque keys.
+        """
+        Require a store UUID and reject invalid opaque keys.
 
         Example:
             >>> Location(UUID(int=1), "")
             Traceback (most recent call last):
             ...
             ValueError: location key must not be empty.
+
+
+        :return:
         """
 
         if not isinstance(self.store_ref, UUID):
@@ -52,7 +58,8 @@ class Location:
 
 
 class WriteMode(StrEnum):
-    """Publication behavior requested for a staged write.
+    """
+    Publication behavior requested for a staged write.
 
     Example:
         >>> WriteMode.CREATE_ONLY.value
@@ -68,7 +75,8 @@ class WriteMode(StrEnum):
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class Digest:
-    """Cryptographic digest with an explicit algorithm name.
+    """
+    Cryptographic digest with an explicit algorithm name.
 
     Example:
         >>> Digest("SHA256", "A1B2")
@@ -79,11 +87,15 @@ class Digest:
     value: str
 
     def __post_init__(self) -> None:
-        """Normalize the algorithm and value for stable comparisons.
+        """
+        Normalize the algorithm and value for stable comparisons.
 
         Example:
             >>> Digest(" SHA256 ", " AABB ").value
             'aabb'
+
+
+        :return:
         """
 
         algorithm = self.algorithm.strip().lower()
@@ -98,7 +110,8 @@ class Digest:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class FileInfo:
-    """Authoritative information available for one stored object.
+    """
+    Authoritative information available for one stored object.
 
     Example:
         >>> location = Location(UUID(int=1), "objects/answer.bin")
@@ -114,13 +127,17 @@ class FileInfo:
     version: str | None = None
 
     def __post_init__(self) -> None:
-        """Ensure reported object sizes are non-negative.
+        """
+        Ensure reported object sizes are non-negative.
 
         Example:
             >>> FileInfo(Location(UUID(int=1), "bad"), -1)
             Traceback (most recent call last):
             ...
             ValueError: file size must not be negative.
+
+
+        :return:
         """
 
         if self.size < 0:
@@ -129,7 +146,8 @@ class FileInfo:
 
 
 class EnumerationCompleteness(StrEnum):
-    """Whether enumeration describes the backend's entire visible inventory.
+    """
+    Whether enumeration describes the backend's entire visible inventory.
 
     Example:
         >>> EnumerationCompleteness.COMPLETE.value
@@ -143,7 +161,8 @@ class EnumerationCompleteness(StrEnum):
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreCapabilities:
-    """Static-ish operations a backend can inherently provide.
+    """
+    Static-ish operations a backend can inherently provide.
 
     Example:
         >>> capabilities = StoreCapabilities(
@@ -168,11 +187,13 @@ class StoreCapabilities:
     conditional_delete: bool = False
     capacity_reporting: bool = False
     object_address_allocation: bool = False
+    placement_hints: bool = False
     hierarchical_object_addresses: bool = False
     prefix_enumeration: bool = False
 
     def __post_init__(self) -> None:
-        """Reject capabilities that depend on unavailable Store operations.
+        """
+        Reject capabilities that depend on unavailable Store operations.
 
         Example:
             >>> StoreCapabilities(
@@ -183,6 +204,9 @@ class StoreCapabilities:
             Traceback (most recent call last):
             ...
             ValueError: prefix_enumeration requires Store enumeration.
+
+
+        :return:
         """
         if (
             self.prefix_enumeration
@@ -197,7 +221,8 @@ class StoreCapabilities:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreStatus:
-    """Dynamic availability and capacity snapshot for one backend.
+    """
+    Dynamic availability and capacity snapshot for one backend.
 
     Example:
         >>> status = StoreStatus(
@@ -219,13 +244,17 @@ class StoreStatus:
     details: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
-        """Validate non-negative and internally consistent capacity values.
+        """
+        Validate non-negative and internally consistent capacity values.
 
         Example:
             >>> StoreStatus(True, True, total_bytes=10, free_bytes=11)
             Traceback (most recent call last):
             ...
             ValueError: free_bytes must not exceed total_bytes.
+
+
+        :return:
         """
 
         if self.total_bytes is not None and self.total_bytes < 0:
@@ -244,13 +273,19 @@ class StoreStatus:
 
 
 def _require_aware_datetime(value: datetime | None, field_name: str) -> None:
-    """Reject naive timestamps whose absolute instant is ambiguous.
+    """
+    Reject naive timestamps whose absolute instant is ambiguous.
 
     Example:
         >>> _require_aware_datetime(datetime(2026, 1, 1), "checked_at")
         Traceback (most recent call last):
         ...
         ValueError: checked_at must be timezone-aware.
+
+
+    :param value:
+    :param field_name:
+    :return:
     """
     if value is not None and (
         value.tzinfo is None or value.utcoffset() is None
@@ -264,7 +299,7 @@ __all__ = [
     "FileInfo",
     "Location",
     "StoreCapabilities",
-    "StoreRef",
+    "StoreUUID",
     "StoreStatus",
     "WriteMode",
 ]

@@ -15,12 +15,12 @@ from LiuXin_alpha.storage.api.errors import (
     StoreUnsupportedOperation,
 )
 from LiuXin_alpha.storage.api.models import Digest, FileInfo, Location, WriteMode
-from LiuXin_alpha.storage.api.store_api import (
-    DigestingStore,
-    FileStore,
-    NativeCopyStore,
-    NativeMoveStore,
-    WriteSession,
+from LiuXin_alpha.storage.api.store_api.file_api import (
+    DigestingStoreAPI,
+    StoreCoreAPI,
+    NativeCopyStoreAPI,
+    NativeMoveStoreAPI,
+    WriteSessionAPI,
 )
 from LiuXin_alpha.storage.utils.constants import DEFAULT_STORAGE_CHUNK_SIZE
 
@@ -28,7 +28,7 @@ from LiuXin_alpha.storage.utils.constants import DEFAULT_STORAGE_CHUNK_SIZE
 DEFAULT_COPY_CHUNK_SIZE = DEFAULT_STORAGE_CHUNK_SIZE
 
 
-def try_stat(store: FileStore, location: Location) -> FileInfo | None:
+def try_stat(store: StoreCoreAPI, location: Location) -> FileInfo | None:
     """Return ``None`` only when the backend reports genuine absence.
 
     Example:
@@ -41,7 +41,7 @@ def try_stat(store: FileStore, location: Location) -> FileInfo | None:
         return None
 
 
-def exists(store: FileStore, location: Location) -> bool:
+def exists(store: StoreCoreAPI, location: Location) -> bool:
     """Return existence without concealing permission or availability errors.
 
     Example:
@@ -52,7 +52,7 @@ def exists(store: FileStore, location: Location) -> bool:
 
 
 def get(
-    store: FileStore,
+    store: StoreCoreAPI,
     location: Location,
     *,
     offset: int = 0,
@@ -67,7 +67,7 @@ def get(
 
 
 def read_bytes(
-    store: FileStore,
+    store: StoreCoreAPI,
     location: Location,
     *,
     offset: int = 0,
@@ -83,7 +83,7 @@ def read_bytes(
         return source.read()
 
 
-def _write_all(session: WriteSession, data: bytes) -> None:
+def _write_all(session: WriteSessionAPI, data: bytes) -> None:
     """Write all bytes even when a session accepts only partial chunks.
 
     Example:
@@ -102,7 +102,7 @@ def _write_all(session: WriteSession, data: bytes) -> None:
 
 
 def put(
-    store: FileStore,
+    store: StoreCoreAPI,
     location: Location,
     source: BinaryIO,
     *,
@@ -143,7 +143,7 @@ def put(
 
 
 def write_bytes(
-    store: FileStore,
+    store: StoreCoreAPI,
     location: Location,
     data: bytes,
     *,
@@ -167,15 +167,15 @@ def write_bytes(
     )
 
 
-def iter_infos(
-    store: FileStore,
+def iter_file_infos(
+    store: StoreCoreAPI,
     *,
     prefix: Location | None = None,
 ) -> Iterator[FileInfo]:
     """Describe enumerated files without suppressing per-object stat errors.
 
     Example:
-        >>> list(iter_infos(store))  # doctest: +SKIP
+        >>> list(iter_file_infos(store))  # doctest: +SKIP
         [FileInfo(...)]
     """
     for location in store.iter_locations(prefix=prefix):
@@ -183,7 +183,7 @@ def iter_infos(
 
 
 def compute_digest(
-    store: FileStore,
+    store: StoreCoreAPI,
     location: Location,
     algorithm: str = "sha256",
     *,
@@ -198,7 +198,7 @@ def compute_digest(
     """
     if chunk_size < 1:
         raise ValueError("chunk_size must be at least one byte.")
-    if store.capabilities.native_digest and isinstance(store, DigestingStore):
+    if store.capabilities.native_digest and isinstance(store, DigestingStoreAPI):
         return store.compute_digest(location, algorithm)
 
     try:
@@ -220,7 +220,7 @@ def compute_digest(
 
 
 def _copy_fallback(
-    store: FileStore,
+    store: StoreCoreAPI,
     source: Location,
     destination: Location,
     *,
@@ -248,7 +248,7 @@ def _copy_fallback(
 
 
 def copy(
-    store: FileStore,
+    store: StoreCoreAPI,
     source: Location,
     destination: Location,
     *,
@@ -260,7 +260,7 @@ def copy(
         >>> result = copy(store, source, destination)  # doctest: +SKIP
     """
     if store.capabilities.native_copy:
-        if not isinstance(store, NativeCopyStore):
+        if not isinstance(store, NativeCopyStoreAPI):
             raise StoreUnsupportedOperation(
                 "store advertises native_copy but does not implement copy()."
             )
@@ -277,7 +277,7 @@ def copy(
 
 
 def move(
-    store: FileStore,
+    store: StoreCoreAPI,
     source: Location,
     destination: Location,
     *,
@@ -293,7 +293,7 @@ def move(
         >>> result = move(store, source, destination)  # doctest: +SKIP
     """
     if store.capabilities.native_move:
-        if not isinstance(store, NativeMoveStore):
+        if not isinstance(store, NativeMoveStoreAPI):
             raise StoreUnsupportedOperation(
                 "store advertises native_move but does not implement move()."
             )
@@ -326,7 +326,7 @@ __all__ = [
     "copy",
     "exists",
     "get",
-    "iter_infos",
+    "iter_file_infos",
     "move",
     "put",
     "read_bytes",

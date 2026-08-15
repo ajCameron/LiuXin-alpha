@@ -1,4 +1,6 @@
-"""Compact byte router above one or more transactional file stores."""
+"""
+Compact byte router above one or more transactional file stores.
+"""
 
 from __future__ import annotations
 
@@ -13,13 +15,14 @@ from LiuXin_alpha.storage.api.errors import (
     StoreUnsupportedOperation,
 )
 from LiuXin_alpha.storage.api.models import (
-    Digest, FileInfo, Location, StoreCapabilities, StoreRef, StoreStatus, WriteMode,
+    Digest, FileInfo, Location, StoreCapabilities, StoreUUID, StoreStatus, WriteMode,
 )
 from LiuXin_alpha.storage.api.storage_manager_api.location_api import BoundLocation
 
 
 class StorageRouterAPI(abc.ABC):
-    """Small public put/get/stat/delete/list surface over raw stores.
+    """
+    Small public put/get/stat/delete/list surface over raw stores.
 
     The router chooses a configured backend from ``Location.store_ref`` while
     preserving the raw store's typed errors and transactional write semantics.
@@ -32,10 +35,15 @@ class StorageRouterAPI(abc.ABC):
 
     @abc.abstractmethod
     def stat(self, location: Location) -> FileInfo:
-        """Describe one routed object without suppressing backend errors.
+        """
+        Describe one routed object without suppressing backend errors.
 
         Example:
             >>> info = manager.stat(Location(UUID(int=1), "objects/42"))  # doctest: +SKIP
+
+
+        :param location:
+        :return:
         """
         ...
 
@@ -43,12 +51,19 @@ class StorageRouterAPI(abc.ABC):
     def get(
         self, location: Location, *, offset: int = 0, length: int | None = None,
     ) -> BinaryIO:
-        """Open a routed object as a binary, optionally ranged stream.
+        """
+        Open a routed object as a binary, optionally ranged stream.
 
         Example:
             >>> stream = manager.get(  # doctest: +SKIP
             ...     Location(UUID(int=1), "objects/42"), offset=10, length=20,
             ... )
+
+
+        :param location:
+        :param offset:
+        :param length:
+        :return:
         """
         ...
 
@@ -59,7 +74,8 @@ class StorageRouterAPI(abc.ABC):
         expected_size: int | None = None,
         expected_digest: Digest | None = None,
     ) -> FileInfo:
-        """Stream a staged write to the backend selected by the location.
+        """
+        Stream a staged write to the backend selected by the location.
 
         Example:
             >>> import io
@@ -67,6 +83,14 @@ class StorageRouterAPI(abc.ABC):
             ...     Location(UUID(int=1), "objects/42"), io.BytesIO(b"book"),
             ...     expected_size=4,
             ... )
+
+
+        :param location:
+        :param source:
+        :param mode:
+        :param expected_size:
+        :param expected_digest:
+        :return:
         """
         ...
 
@@ -75,7 +99,8 @@ class StorageRouterAPI(abc.ABC):
         self, location: Location, *, missing_ok: bool = False,
         if_version: str | None = None,
     ) -> None:
-        """Delete a routed object with optional idempotence and precondition.
+        """
+        Delete a routed object with optional idempotence and precondition.
 
         Supplying ``if_version`` requests conditional deletion from the
         source Store. Unsupported protection raises
@@ -86,44 +111,67 @@ class StorageRouterAPI(abc.ABC):
             >>> manager.delete(  # doctest: +SKIP
             ...     Location(UUID(int=1), "objects/42"), if_version="v3",
             ... )
+
+
+        :param location:
+        :param missing_ok:
+        :param if_version:
+        :return:
         """
         ...
 
     @abc.abstractmethod
     def iter_locations(
-        self, *, store_ref: StoreRef | None = None,
+        self, *, store_ref: StoreUUID | None = None,
         prefix: Location | None = None,
     ) -> Iterator[Location]:
-        """Enumerate concrete locations across one or all configured stores.
+        """
+        Enumerate concrete locations across one or all configured stores.
 
         Example:
             >>> locations = list(manager.iter_locations(  # doctest: +SKIP
             ...     store_ref=UUID(int=1),
             ...     prefix=Location(UUID(int=1), "objects/"),
             ... ))
+
+
+        :param store_ref:
+        :param prefix:
+        :return:
         """
         ...
 
     @abc.abstractmethod
-    def capabilities(self, store_ref: StoreRef) -> StoreCapabilities:
-        """Return the inherent capabilities of one configured store.
+    def capabilities(self, store_ref: StoreUUID) -> StoreCapabilities:
+        """
+        Return the inherent capabilities of one configured store.
 
         Example:
             >>> capabilities = manager.capabilities(UUID(int=1))  # doctest: +SKIP
+
+
+        :param store_ref:
+        :return:
         """
         ...
 
     @abc.abstractmethod
-    def status(self, store_ref: StoreRef) -> StoreStatus:
-        """Return the current operational status of one configured store.
+    def status(self, store_ref: StoreUUID) -> StoreStatus:
+        """
+        Return the current operational status of one configured store.
 
         Example:
             >>> status = manager.status(UUID(int=1))  # doctest: +SKIP
+
+
+        :param store_ref:
+        :return:
         """
         ...
 
     def bind(self, location: Location) -> BoundLocation:
-        """Return a short-lived operational facade for one durable Location.
+        """
+        Return a short-lived operational facade for one durable Location.
 
         Binding performs no I/O and caches no backend state.  Routing and
         existence errors surface when an operation is invoked on the returned
@@ -133,16 +181,25 @@ class StorageRouterAPI(abc.ABC):
             >>> bound = manager.bind(Location(UUID(int=1), "objects/42"))  # doctest: +SKIP
             >>> bound.location  # doctest: +SKIP
             Location(store_ref=UUID('00000000-0000-0000-0000-000000000001'), key='objects/42')
+
+
+        :param location:
+        :return:
         """
 
         return BoundLocation(self, location)
 
     def try_stat(self, location: Location) -> FileInfo | None:
-        """Return ``None`` only when the routed store reports true absence.
+        """
+        Return ``None`` only when the routed store reports true absence.
 
         Example:
             >>> manager.try_stat(Location(UUID(int=1), "missing")) is None  # doctest: +SKIP
             True
+
+
+        :param location:
+        :return:
         """
         try:
             return self.stat(location)
@@ -150,11 +207,16 @@ class StorageRouterAPI(abc.ABC):
             return None
 
     def exists(self, location: Location) -> bool:
-        """Test routed existence without masking availability or access errors.
+        """
+        Test routed existence without masking availability or access errors.
 
         Example:
             >>> manager.exists(Location(UUID(int=1), "objects/42"))  # doctest: +SKIP
             True
+
+
+        :param location:
+        :return:
         """
 
         return self.try_stat(location) is not None
@@ -162,13 +224,20 @@ class StorageRouterAPI(abc.ABC):
     def read_bytes(
         self, location: Location, *, offset: int = 0, length: int | None = None,
     ) -> bytes:
-        """Read a routed object or range fully into memory.
+        """
+        Read a routed object or range fully into memory.
 
         Example:
             >>> manager.read_bytes(  # doctest: +SKIP
             ...     Location(UUID(int=1), "objects/42"), length=4,
             ... )
             b'book'
+
+
+        :param location:
+        :param offset:
+        :param length:
+        :return:
         """
 
         with self.get(location, offset=offset, length=length) as source:
@@ -179,12 +248,20 @@ class StorageRouterAPI(abc.ABC):
         mode: WriteMode = WriteMode.CREATE_ONLY,
         expected_digest: Digest | None = None,
     ) -> FileInfo:
-        """Write a small in-memory payload with an exact size expectation.
+        """
+        Write a small in-memory payload with an exact size expectation.
 
         Example:
             >>> info = manager.write_bytes(  # doctest: +SKIP
             ...     Location(UUID(int=1), "objects/42"), b"book",
             ... )
+
+
+        :param location:
+        :param data:
+        :param mode:
+        :param expected_digest:
+        :return:
         """
 
         return self.put(
@@ -199,7 +276,8 @@ class StorageRouterAPI(abc.ABC):
         *,
         mode: WriteMode = WriteMode.CREATE_ONLY,
     ) -> FileInfo:
-        """Copy between Locations using a verified streaming fallback.
+        """
+        Copy between Locations using a verified streaming fallback.
 
         Concrete managers may override this method to select a host-local,
         server-side, or other native transfer after consulting Store topology.
@@ -210,6 +288,12 @@ class StorageRouterAPI(abc.ABC):
             >>> info = manager.copy(  # doctest: +SKIP
             ...     source_location, destination_location,
             ... )
+
+
+        :param source:
+        :param destination:
+        :param mode:
+        :return:
         """
 
         source_info = self.stat(source)
@@ -229,7 +313,8 @@ class StorageRouterAPI(abc.ABC):
         *,
         mode: WriteMode = WriteMode.CREATE_ONLY,
     ) -> FileInfo:
-        """Copy between Locations, then conditionally delete the source.
+        """
+        Copy between Locations, then conditionally delete the source.
 
         Concrete managers may override this for a topology-aware native move.
         The generic path publishes and verifies the destination before asking
@@ -242,6 +327,12 @@ class StorageRouterAPI(abc.ABC):
             >>> info = manager.move(  # doctest: +SKIP
             ...     source_location, destination_location,
             ... )
+
+
+        :param source:
+        :param destination:
+        :param mode:
+        :return:
         """
 
         source_info = self.stat(source)
@@ -258,14 +349,20 @@ class StorageRouterAPI(abc.ABC):
         self.delete(source, if_version=source_info.version)
         return result
 
-    def iter_infos(
-        self, *, store_ref: StoreRef | None = None,
+    def iter_file_infos(
+        self, *, store_ref: StoreUUID | None = None,
         prefix: Location | None = None,
     ) -> Iterator[FileInfo]:
-        """Enumerate locations and describe each one with ``stat``.
+        """
+        Enumerate locations and describe each one with ``stat``.
 
         Example:
-            >>> infos = list(manager.iter_infos(store_ref=UUID(int=1)))  # doctest: +SKIP
+            >>> infos = list(manager.iter_file_infos(store_ref=UUID(int=1)))  # doctest: +SKIP
+
+
+        :param store_ref:
+        :param prefix:
+        :return:
         """
 
         for location in self.iter_locations(store_ref=store_ref, prefix=prefix):

@@ -1,4 +1,5 @@
-"""Durable opaque Location values used throughout the storage stack.
+"""
+Durable opaque Location values used throughout the storage stack.
 
 ``Location`` is the persistable address.  Operational facades such as the
 manager's ``BoundLocation`` consume it without changing its value semantics.
@@ -10,7 +11,7 @@ Example:
     'objects/42'
 """
 
-from LiuXin_alpha.storage.api.models import Location, StoreRef
+from LiuXin_alpha.storage.api.models import Location, StoreUUID
 
 
-__all__ = ["Location", "StoreRef"]
+__all__ = ["Location", "StoreUUID"]

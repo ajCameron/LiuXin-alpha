@@ -1,77 +1,105 @@
-"""Replica lifecycle operations above Store byte mechanics."""
+"""
+Replica lifecycle operations above Store byte mechanics.
+"""
 
 import abc
 
 from collections.abc import Iterator
 
-from LiuXin_alpha.storage.api.models import StoreRef
+from LiuXin_alpha.storage.api.models import StoreUUID
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
-    AssetVerificationResult,
+    DigitalAssetVerificationReport,
     DigitalAssetID,
-    Replica,
+    ReplicaRecord,
     ReplicaID,
     ReplicaMode,
-    ReplicaRemovalResult,
-    ReplicaVerificationResult,
+    ReplicaRemovalReport,
+    ReplicaVerificationReport,
 )
 
 
 class ReplicaLifecycleAPI(abc.ABC):
-    """Lifecycle operations for concrete copies of Digital Assets.
+    """
+    Lifecycle operations for concrete copies of Digital Assets.
 
     Replica persistence is an implementation detail behind these operations;
-    callers deal in domain snapshots rather than row-shaped protocols.
+    callers deal in public records rather than row-shaped protocols.
 
     Example:
         >>> def verify(
         ...     manager: ReplicaLifecycleAPI, replica_id: ReplicaID,
-        ... ) -> ReplicaVerificationResult:
+        ... ) -> ReplicaVerificationReport:
         ...     return manager.verify_replica(replica_id)
     """
 
     @abc.abstractmethod
-    def get_replica(self, replica_id: ReplicaID) -> Replica:
-        """Return one Replica snapshot or raise ``ReplicaNotFound``.
+    def get_replica_record(self, replica_id: ReplicaID) -> ReplicaRecord:
+        """
+        Return one Replica record or raise ``ReplicaNotFound``.
 
         Example:
-            >>> replica = manager.get_replica(ReplicaID(12))  # doctest: +SKIP
+            >>> record = manager.get_replica_record(  # doctest: +SKIP
+            ...     ReplicaID(12),
+            ... )
+
+
+        :param replica_id:
+        :return:
         """
         ...
 
     @abc.abstractmethod
-    def iter_replicas(
+    def iter_replica_records(
         self,
         *,
         digital_asset_id: DigitalAssetID | None = None,
-        store_ref: StoreRef | None = None,
+        store_ref: StoreUUID | None = None,
         mode: ReplicaMode | None = None,
-    ) -> Iterator[Replica]:
-        """Iterate over Replica snapshots matching optional filters.
+    ) -> Iterator[ReplicaRecord]:
+        """
+        Iterate over Replica records matching optional filters.
 
         Example:
-            >>> replicas = list(manager.iter_replicas(  # doctest: +SKIP
+            >>> records = list(manager.iter_replica_records(  # doctest: +SKIP
             ...     digital_asset_id=DigitalAssetID(7),
             ...     mode=ReplicaMode.ACTIVE,
             ... ))
+
+
+        :param digital_asset_id:
+        :param store_ref:
+        :param mode:
+        :return:
         """
         ...
 
+    # Todo: Ideally we should have the metadata which was used to place the asset in the first place...
+    # Todo: Possibly store it as a json blob with the DigitalAssetRecord
     @abc.abstractmethod
     def replicate_digital_asset(
         self,
         digital_asset_id: DigitalAssetID,
         *,
-        destination_store: StoreRef | None = None,
+        destination_store_ref: StoreUUID | None = None,
         source_replica_id: ReplicaID | None = None,
         mode: ReplicaMode = ReplicaMode.ACTIVE,
         verify: bool = True,
-    ) -> Replica:
-        """Create, publish, verify, and register another concrete copy.
+    ) -> ReplicaRecord:
+        """
+        Create, publish, verify, and register another concrete copy.
 
         Example:
-            >>> replica = manager.replicate_digital_asset(  # doctest: +SKIP
-            ...     DigitalAssetID(7), destination_store=destination_uuid,
+            >>> replica_record = manager.replicate_digital_asset(  # doctest: +SKIP
+            ...     DigitalAssetID(7), destination_store_ref=destination_uuid,
             ... )
+
+
+        :param digital_asset_id:
+        :param destination_store_ref:
+        :param source_replica_id:
+        :param mode:
+        :param verify:
+        :return:
         """
         ...
 
@@ -81,27 +109,39 @@ class ReplicaLifecycleAPI(abc.ABC):
         replica_id: ReplicaID,
         *,
         calculate_digests: bool = True,
-    ) -> ReplicaVerificationResult:
-        """Compare one concrete copy with its Digital Asset identity.
+    ) -> ReplicaVerificationReport:
+        """
+        Compare one concrete copy with its Digital Asset identity.
 
         Example:
-            >>> result = manager.verify_replica(ReplicaID(12))  # doctest: +SKIP
+            >>> report = manager.verify_replica(ReplicaID(12))  # doctest: +SKIP
+
+
+        :param replica_id:
+        :param calculate_digests:
+        :return:
         """
         ...
 
+    # Todo: We should be able to specify a subset of replicas. It's not clear what behavior passing false produces
     @abc.abstractmethod
     def verify_digital_asset(
         self,
         digital_asset_id: DigitalAssetID,
         *,
         all_replicas: bool = False,
-    ) -> AssetVerificationResult:
-        """Verify enough Replicas, or every Replica, for one Asset.
+    ) -> DigitalAssetVerificationReport:
+        """
+        Verify enough Replicas, or every Replica, for one Asset.
 
         Example:
-            >>> result = manager.verify_digital_asset(  # doctest: +SKIP
+            >>> report = manager.verify_digital_asset(  # doctest: +SKIP
             ...     DigitalAssetID(7), all_replicas=True,
             ... )
+
+        :param digital_asset_id:
+        :param all_replicas:
+        :return:
         """
         ...
 
@@ -112,13 +152,20 @@ class ReplicaLifecycleAPI(abc.ABC):
         *,
         delete_bytes: bool = True,
         retain_tombstone: bool = True,
-    ) -> ReplicaRemovalResult:
-        """Coordinate physical deletion with Replica-domain state mutation.
+    ) -> ReplicaRemovalReport:
+        """
+        Coordinate physical deletion with Replica-domain state mutation.
 
         Example:
-            >>> result = manager.remove_replica(  # doctest: +SKIP
+            >>> report = manager.remove_replica(  # doctest: +SKIP
             ...     ReplicaID(12), retain_tombstone=True,
             ... )
+
+
+        :param replica_id:
+        :param delete_bytes:
+        :param retain_tombstone:
+        :return:
         """
         ...
 
@@ -130,7 +177,8 @@ class ReplicaLifecycleAPI(abc.ABC):
         require_bytes_absent: bool = True,
         if_revision: str | None = None,
     ) -> bool:
-        """Forget a Replica claim without deleting physical bytes.
+        """
+        Forget a Replica claim without deleting physical bytes.
 
         The safe default first requires evidence that the bytes are absent.
 
@@ -138,6 +186,12 @@ class ReplicaLifecycleAPI(abc.ABC):
             >>> forgotten = manager.forget_replica(  # doctest: +SKIP
             ...     ReplicaID(12), require_bytes_absent=True,
             ... )
+
+
+        :param replica_id:
+        :param require_bytes_absent:
+        :param if_revision:
+        :return:
         """
         ...
 

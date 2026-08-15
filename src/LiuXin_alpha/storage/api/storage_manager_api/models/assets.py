@@ -1,4 +1,6 @@
-"""Asset, Replica, ingest, verification, and composite domain values."""
+"""
+Asset, Replica, ingest, verification, and composite domain values.
+"""
 
 from __future__ import annotations
 
@@ -20,7 +22,8 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
 
 
 class ReplicaMode(StrEnum):
-    """Operational purpose of one concrete Replica.
+    """
+    Operational purpose of one concrete Replica.
 
     Example:
         >>> ReplicaMode.BACKUP.value
@@ -36,7 +39,8 @@ class ReplicaMode(StrEnum):
 
 
 class ReplicaState(StrEnum):
-    """Observed or expected availability state of one Replica claim.
+    """
+    Observed or expected availability state of one Replica claim.
 
     Example:
         >>> ReplicaState("verified") is ReplicaState.VERIFIED
@@ -55,7 +59,8 @@ class ReplicaState(StrEnum):
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetMetadata:
-    """Descriptive and technical metadata belonging to a Digital Asset.
+    """
+    Descriptive and technical metadata belonging to a Digital Asset.
 
     These values describe the byte-bearing object, not a database row, Item,
     bibliographic record, or physical Replica.
@@ -74,13 +79,17 @@ class DigitalAssetMetadata:
     attributes: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
-        """Reject empty labels and duplicate extension-attribute names.
+        """
+        Reject empty labels and duplicate extension-attribute names.
 
         Example:
             >>> DigitalAssetMetadata(media_type="")
             Traceback (most recent call last):
             ...
             ValueError: media_type must not be empty when supplied.
+
+
+        :return:
         """
 
         for field_name, value in (
@@ -98,15 +107,18 @@ class DigitalAssetMetadata:
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class DigitalAssetSpec:
-    """Input for declaring a known atomic byte sequence as a Digital Asset.
+class DigitalAssetDeclaration:
+    """
+    Input for declaring a known atomic byte sequence as a Digital Asset.
 
-    A specification has no database identifier or persistence revision. It is
-    therefore not a partially populated record.
+    A declaration has no manager identifier or persistence revision.
+    It is therefore not a partially populated record.
 
     Example:
-        >>> spec = DigitalAssetSpec(4, (Digest("sha256", "abcd"),))
-        >>> spec.size_bytes
+        >>> declaration = DigitalAssetDeclaration(
+        ...     4, (Digest("sha256", "abcd"),),
+        ... )
+        >>> declaration.size_bytes
         4
     """
 
@@ -119,31 +131,37 @@ class DigitalAssetSpec:
     backup_policy_id: BackupPolicyID | None = None
 
     def __post_init__(self) -> None:
-        """Require a non-negative size and at least one unambiguous digest.
+        """
+        Require a non-negative size and at least one unambiguous digest.
 
         Example:
-            >>> DigitalAssetSpec(1, ())
+            >>> DigitalAssetDeclaration(1, ())
             Traceback (most recent call last):
             ...
             ValueError: a Digital Asset requires at least one digest.
+
+
+        :return:
         """
 
         _validate_asset_identity(self.size_bytes, self.digests)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class DigitalAsset:
-    """Immutable domain snapshot identifying one expected byte sequence.
+class DigitalAssetRecord:
+    """
+    Manager-maintained facts about one Digital Asset.
 
-    A Digital Asset is neither its persistence record nor its byte stream.
-    Repositories load and save snapshots; Replicas say where readable copies
-    should exist; ``open_read`` supplies the actual bytes.
+    This record is neither the Digital Asset's byte stream nor a database row.
+    Repositories translate their private persistence representation into this
+    public value; Replica records say where copies should exist and
+    ``open_read`` supplies the actual bytes.
 
     Example:
-        >>> asset = DigitalAsset(
+        >>> record = DigitalAssetRecord(
         ...     DigitalAssetID(7), 4, (Digest("sha256", "abcd"),),
         ... )
-        >>> asset.digital_asset_id
+        >>> record.digital_asset_id
         7
     """
 
@@ -158,13 +176,17 @@ class DigitalAsset:
     revision: str | None = None
 
     def __post_init__(self) -> None:
-        """Validate domain identity and optional optimistic-lock revision.
+        """
+        Validate domain identity and optional optimistic-lock revision.
 
         Example:
-            >>> DigitalAsset(DigitalAssetID(0), 1, (Digest("sha256", "a"),))
+            >>> DigitalAssetRecord(DigitalAssetID(0), 1, (Digest("sha256", "a"),))
             Traceback (most recent call last):
             ...
             ValueError: digital_asset_id must be positive.
+
+
+        :return:
         """
 
         if self.digital_asset_id <= 0:
@@ -176,7 +198,8 @@ class DigitalAsset:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaObservation:
-    """Latest observed physical state for a Replica claim.
+    """
+    Latest observed physical state for a Replica claim.
 
     Expected size and digests remain on the Digital Asset. These values record
     what was actually observed at the Replica's Location.
@@ -197,13 +220,17 @@ class ReplicaObservation:
     failure_reason: str | None = None
 
     def __post_init__(self) -> None:
-        """Validate observation size, digest algorithms, and timestamp.
+        """
+        Validate observation size, digest algorithms, and timestamp.
 
         Example:
             >>> ReplicaObservation(ReplicaState.PRESENT, observed_size_bytes=-1)
             Traceback (most recent call last):
             ...
             ValueError: observed_size_bytes must not be negative.
+
+
+        :return:
         """
 
         if self.observed_size_bytes is not None and self.observed_size_bytes < 0:
@@ -215,14 +242,15 @@ class ReplicaObservation:
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class ReplicaSpec:
-    """Input for registering a concrete copy of a Digital Asset.
+class ReplicaDeclaration:
+    """
+    Input for registering a concrete copy of a Digital Asset.
 
     Example:
-        >>> spec = ReplicaSpec(
+        >>> declaration = ReplicaDeclaration(
         ...     DigitalAssetID(7), Location(UUID(int=1), "objects/7"),
         ... )
-        >>> spec.mode is ReplicaMode.ACTIVE
+        >>> declaration.mode is ReplicaMode.ACTIVE
         True
     """
 
@@ -234,13 +262,19 @@ class ReplicaSpec:
     )
 
     def __post_init__(self) -> None:
-        """Require a positive Digital Asset identifier.
+        """
+        Require a positive Digital Asset identifier.
 
         Example:
-            >>> ReplicaSpec(DigitalAssetID(0), Location(UUID(int=1), "bad"))
+            >>> ReplicaDeclaration(
+            ...     DigitalAssetID(0), Location(UUID(int=1), "bad"),
+            ... )
             Traceback (most recent call last):
             ...
             ValueError: digital_asset_id must be positive.
+
+
+        :return:
         """
 
         if self.digital_asset_id <= 0:
@@ -248,20 +282,21 @@ class ReplicaSpec:
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class Replica:
-    """Immutable domain snapshot of one claimed stored copy.
+class ReplicaRecord:
+    """
+    Manager-maintained claim about one concrete Replica.
 
-    The Replica points to a Digital Asset for expected content identity and to
-    a Location for physical addressing. It is not the bytes and is not an ORM
-    record.
+    The record links a Digital Asset identity to a Location and records the
+    latest physical observation.
+    It is neither the stored bytes nor a database row.
 
     Example:
-        >>> replica = Replica(
+        >>> record = ReplicaRecord(
         ...     ReplicaID(12), DigitalAssetID(7),
         ...     Location(UUID(int=1), "objects/7"), ReplicaMode.ACTIVE,
         ...     ReplicaObservation(ReplicaState.VERIFIED),
         ... )
-        >>> replica.state
+        >>> record.state
         <ReplicaState.VERIFIED: 'verified'>
     """
 
@@ -273,10 +308,11 @@ class Replica:
     revision: str | None = None
 
     def __post_init__(self) -> None:
-        """Validate identifiers and optional optimistic-lock revision.
+        """
+        Validate identifiers and optional optimistic-lock revision.
 
         Example:
-            >>> Replica(
+            >>> ReplicaRecord(
             ...     ReplicaID(0), DigitalAssetID(7),
             ...     Location(UUID(int=1), "bad"), ReplicaMode.ACTIVE,
             ...     ReplicaObservation(ReplicaState.UNVERIFIED),
@@ -284,6 +320,9 @@ class Replica:
             Traceback (most recent call last):
             ...
             ValueError: replica_id must be positive.
+
+
+        :return:
         """
 
         if self.replica_id <= 0:
@@ -295,41 +334,47 @@ class Replica:
 
     @property
     def state(self) -> ReplicaState:
-        """Return the latest observed state of this Replica.
+        """
+        Return the latest observed state of this Replica.
 
         Example:
             >>> replica.state is replica.observation.state  # doctest: +SKIP
             True
+
+
+        :return:
         """
 
         return self.observation.state
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class IngestResult:
-    """Completed result of one recoverable ingest operation.
+class DigitalAssetIngestResult:
+    """
+    Outcome of publishing bytes and registering their manager records.
 
     Store publication and repository persistence cannot form one physical
     transaction. ``operation_id`` lets an implementation resume or reconcile
-    a failure between those boundaries; the returned Asset and Replica are
-    domain snapshots, not database records.
+    a failure between those boundaries.
 
     Example:
-        >>> asset = DigitalAsset(
+        >>> asset_record = DigitalAssetRecord(
         ...     DigitalAssetID(7), 4, (Digest("sha256", "abcd"),),
         ... )
-        >>> replica = Replica(
-        ...     ReplicaID(12), asset.digital_asset_id,
+        >>> replica_record = ReplicaRecord(
+        ...     ReplicaID(12), asset_record.digital_asset_id,
         ...     Location(UUID(int=1), "objects/7"), ReplicaMode.ACTIVE,
         ...     ReplicaObservation(ReplicaState.VERIFIED),
         ... )
-        >>> IngestResult(UUID(int=2), asset, replica, True, True).location.key
+        >>> DigitalAssetIngestResult(
+        ...     UUID(int=2), asset_record, replica_record, True, True,
+        ... ).location.key
         'objects/7'
     """
 
     operation_id: UUID
-    asset: DigitalAsset
-    replica: Replica
+    asset_record: DigitalAssetRecord
+    replica_record: ReplicaRecord
     asset_created: bool
     replica_created: bool
     deduplicated: bool = False
@@ -337,39 +382,53 @@ class IngestResult:
     warnings: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        """Require a UUID and an Asset/Replica pair with matching identity.
+        """
+        Require a UUID and matching Asset and Replica records.
 
         Example:
-            >>> IngestResult(UUID(int=2), asset, replica, True, True)  # doctest: +SKIP
+            >>> DigitalAssetIngestResult(  # doctest: +SKIP
+            ...     UUID(int=2), asset_record, replica_record, True, True,
+            ... )
+
+
+        :return:
         """
 
         if not isinstance(self.operation_id, UUID):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise TypeError("operation_id must be a UUID.")
-        if self.replica.digital_asset_id != self.asset.digital_asset_id:
+        if (
+            self.replica_record.digital_asset_id
+            != self.asset_record.digital_asset_id
+        ):
             raise ValueError("ingested Replica does not belong to the Asset.")
 
     @property
     def location(self) -> Location:
-        """Return the concrete Location carried by the resulting Replica.
+        """
+        Return the concrete Location carried by the resulting Replica.
 
         Example:
-            >>> result.location == result.replica.location  # doctest: +SKIP
+            >>> result.location == result.replica_record.location  # doctest: +SKIP
             True
+
+
+        :return:
         """
 
-        return self.replica.location
+        return self.replica_record.location
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class ReplicaVerificationResult:
-    """Detailed comparison between one Replica and its Digital Asset.
+class ReplicaVerificationReport:
+    """
+    Observed comparison of one Replica with its Digital Asset record.
 
     Example:
-        >>> result = ReplicaVerificationResult(
+        >>> report = ReplicaVerificationReport(
         ...     ReplicaID(12), DigitalAssetID(7), ReplicaState.VERIFIED,
         ...     True, size_matches=True, digest_matches=True,
         ... )
-        >>> result.healthy
+        >>> report.healthy
         True
     """
 
@@ -385,16 +444,20 @@ class ReplicaVerificationResult:
     errors: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        """Validate observed size and verification timestamp.
+        """
+        Validate observed size and verification timestamp.
 
         Example:
-            >>> ReplicaVerificationResult(
+            >>> ReplicaVerificationReport(
             ...     ReplicaID(1), DigitalAssetID(2), ReplicaState.PRESENT,
             ...     True, observed_size_bytes=-1,
             ... )
             Traceback (most recent call last):
             ...
             ValueError: observed_size_bytes must not be negative.
+
+
+        :return:
         """
 
         if self.observed_size_bytes is not None and self.observed_size_bytes < 0:
@@ -404,57 +467,73 @@ class ReplicaVerificationResult:
 
     @property
     def healthy(self) -> bool:
-        """Return whether verification confirmed the expected bytes.
+        """
+        Return whether verification confirmed the expected bytes.
 
         Example:
-            >>> ReplicaVerificationResult(
+            >>> ReplicaVerificationReport(
             ...     ReplicaID(12), DigitalAssetID(7),
             ...     ReplicaState.VERIFIED, True,
             ... ).healthy
             True
+
+
+        :return:
         """
 
         return self.state is ReplicaState.VERIFIED and not self.errors
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class AssetVerificationResult:
-    """Aggregate verification result for one Digital Asset.
+class DigitalAssetVerificationReport:
+    """
+    Aggregate verification report for one Digital Asset.
 
     Example:
-        >>> verified = ReplicaVerificationResult(
+        >>> verified = ReplicaVerificationReport(
         ...     ReplicaID(12), DigitalAssetID(7),
         ...     ReplicaState.VERIFIED, True,
         ... )
-        >>> AssetVerificationResult(DigitalAssetID(7), (verified,)).readable
+        >>> DigitalAssetVerificationReport(
+        ...     DigitalAssetID(7), (verified,),
+        ... ).readable
         True
     """
 
     digital_asset_id: DigitalAssetID
-    replicas: tuple[ReplicaVerificationResult, ...]
+    replica_reports: tuple[ReplicaVerificationReport, ...]
 
     @property
     def readable(self) -> bool:
-        """Return whether at least one Replica was verified readable.
+        """
+        Return whether at least one Replica was verified readable.
 
         Example:
-            >>> result.readable  # doctest: +SKIP
+            >>> report.readable  # doctest: +SKIP
             True
+
+
+        :return:
         """
 
-        return any(replica.healthy for replica in self.replicas)
+        return any(report.healthy for report in self.replica_reports)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class ReplicaRemovalResult:
-    """Outcome of coordinated byte deletion and Replica-state mutation.
+class ReplicaRemovalReport:
+    """
+    Outcome of coordinated byte deletion and Replica-record mutation.
+
+    A retained tombstone is a deliberately preserved Replica record whose
+    state is ``DELETED``. It prevents later reconciliation from mistaking an
+    intentional deletion for an unexplained missing copy.
 
     Example:
-        >>> result = ReplicaRemovalResult(
+        >>> report = ReplicaRemovalReport(
         ...     ReplicaID(12), bytes_deleted=True,
         ...     replica_forgotten=False, tombstone_retained=True,
         ... )
-        >>> result.tombstone_retained
+        >>> report.tombstone_retained
         True
     """
 
@@ -466,11 +545,12 @@ class ReplicaRemovalResult:
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class CompositeMemberSpec:
-    """One ordered atomic member of a Composite Digital Asset.
+class CompositeDigitalAssetMembership:
+    """
+    One ordered atomic member of a Composite Digital Asset.
 
     Example:
-        >>> member = CompositeMemberSpec(
+        >>> member = CompositeDigitalAssetMembership(
         ...     DigitalAssetID(7), 0, role="cover", logical_name="cover.jpg",
         ... )
         >>> member.required
@@ -486,13 +566,17 @@ class CompositeMemberSpec:
     required: bool = True
 
     def __post_init__(self) -> None:
-        """Reject invalid member positions and empty optional labels.
+        """
+        Reject invalid member positions and empty optional labels.
 
         Example:
-            >>> CompositeMemberSpec(DigitalAssetID(7), -1)
+            >>> CompositeDigitalAssetMembership(DigitalAssetID(7), -1)
             Traceback (most recent call last):
             ...
             ValueError: sequence_number must not be negative.
+
+
+        :return:
         """
 
         if self.digital_asset_id <= 0:
@@ -512,30 +596,35 @@ class CompositeMemberSpec:
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class CompositeDigitalAssetSpec:
-    """Input for declaring an ordered logical assembly of atomic Assets.
+class CompositeDigitalAssetDeclaration:
+    """
+    Input for declaring an ordered logical assembly of atomic Assets.
 
     Example:
-        >>> spec = CompositeDigitalAssetSpec(
-        ...     members=(CompositeMemberSpec(DigitalAssetID(7), 0),),
+        >>> declaration = CompositeDigitalAssetDeclaration(
+        ...     members=(CompositeDigitalAssetMembership(DigitalAssetID(7), 0),),
         ...     name="disc one",
         ... )
-        >>> len(spec.members)
+        >>> len(declaration.members)
         1
     """
 
-    members: tuple[CompositeMemberSpec, ...]
+    members: tuple[CompositeDigitalAssetMembership, ...]
     name: str | None = None
     attributes: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
-        """Require unique, contiguous sequence numbers.
+        """
+        Require unique, contiguous sequence numbers.
 
         Example:
-            >>> CompositeDigitalAssetSpec(())
+            >>> CompositeDigitalAssetDeclaration(())
             Traceback (most recent call last):
             ...
             ValueError: a Composite Digital Asset requires at least one member.
+
+
+        :return:
         """
 
         _validate_composite_members(self.members)
@@ -544,191 +633,244 @@ class CompositeDigitalAssetSpec:
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class CompositeDigitalAsset:
-    """Immutable domain snapshot of one logical multipart Asset.
+class CompositeDigitalAssetRecord:
+    """
+    Manager-maintained facts about one Composite Digital Asset.
 
     Composite Digital Assets do not directly contain bytes or own Replicas;
     their atomic members do.
 
     Example:
-        >>> composite = CompositeDigitalAsset(
+        >>> record = CompositeDigitalAssetRecord(
         ...     CompositeDigitalAssetID(3),
-        ...     (CompositeMemberSpec(DigitalAssetID(7), 0),),
+        ...     (CompositeDigitalAssetMembership(DigitalAssetID(7), 0),),
         ... )
-        >>> composite.composite_id
+        >>> record.composite_digital_asset_id
         3
     """
 
-    composite_id: CompositeDigitalAssetID
-    members: tuple[CompositeMemberSpec, ...]
+    composite_digital_asset_id: CompositeDigitalAssetID
+    members: tuple[CompositeDigitalAssetMembership, ...]
     name: str | None = None
     attributes: tuple[tuple[str, str], ...] = ()
     revision: str | None = None
 
     def __post_init__(self) -> None:
-        """Validate identity, members, and optional revision.
+        """
+        Validate identity, members, and optional revision.
 
         Example:
-            >>> CompositeDigitalAsset(
+            >>> CompositeDigitalAssetRecord(
             ...     CompositeDigitalAssetID(0),
-            ...     (CompositeMemberSpec(DigitalAssetID(7), 0),),
+            ...     (CompositeDigitalAssetMembership(DigitalAssetID(7), 0),),
             ... )
             Traceback (most recent call last):
             ...
-            ValueError: composite_id must be positive.
+            ValueError: composite_digital_asset_id must be positive.
+
+
+        :return:
         """
 
-        if self.composite_id <= 0:
-            raise ValueError("composite_id must be positive.")
+        if self.composite_digital_asset_id <= 0:
+            raise ValueError("composite_digital_asset_id must be positive.")
         _validate_composite_members(self.members)
         if self.revision is not None and not self.revision:
             raise ValueError("revision must not be empty when supplied.")
 
 
+# Todo: This does not seem to actually do what it claims...
 @dataclasses.dataclass(slots=True, frozen=True)
-class ResolvedAsset:
-    """One Digital Asset paired with the selected readable Replica.
+class DigitalAssetResolution:
+    """
+    Digital Asset and Replica records selected for readable access.
 
     Example:
-        >>> resolved.location == resolved.replica.location  # doctest: +SKIP
+        >>> resolution.location == resolution.replica_record.location  # doctest: +SKIP
         True
     """
 
-    asset: DigitalAsset
-    replica: Replica
+    asset_record: DigitalAssetRecord
+    replica_record: ReplicaRecord
 
     def __post_init__(self) -> None:
-        """Require the selected Replica to belong to the paired Asset.
+        """
+        Require the selected Replica to belong to the paired Asset.
 
         Example:
-            >>> ResolvedAsset(asset, wrong_replica)  # doctest: +SKIP
+            >>> DigitalAssetResolution(  # doctest: +SKIP
+            ...     asset_record, wrong_replica_record,
+            ... )
             Traceback (most recent call last):
             ...
             ValueError: Replica does not belong to the resolved Digital Asset.
+
+
+        :return:
         """
 
-        if self.asset.digital_asset_id != self.replica.digital_asset_id:
+        if (
+            self.asset_record.digital_asset_id
+            != self.replica_record.digital_asset_id
+        ):
             raise ValueError(
                 "Replica does not belong to the resolved Digital Asset."
             )
 
     @property
     def location(self) -> Location:
-        """Return the selected Replica Location.
+        """
+        Return the selected Replica Location.
 
         Example:
             >>> location = resolved.location  # doctest: +SKIP
+
+
+        :return:
         """
 
-        return self.replica.location
+        return self.replica_record.location
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class ResolvedCompositeMember:
-    """One named Composite member paired with its resolved Asset and Replica.
+class CompositeDigitalAssetMemberResolution:
+    """
+    One Composite membership paired with readable Asset and Replica records.
 
     Example:
-        >>> member.location == member.resolved.location  # doctest: +SKIP
+        >>> member.location == member.resolution.location  # doctest: +SKIP
         True
     """
 
-    member: CompositeMemberSpec
-    resolved: ResolvedAsset
+    membership: CompositeDigitalAssetMembership
+    resolution: DigitalAssetResolution
 
     def __post_init__(self) -> None:
-        """Require resolution of the member declared by the relationship.
+        """
+        Require resolution of the member declared by the relationship.
 
         Example:
-            >>> ResolvedCompositeMember(member, wrong)  # doctest: +SKIP
+            >>> CompositeDigitalAssetMemberResolution(  # doctest: +SKIP
+            ...     membership, wrong_resolution,
+            ... )
             Traceback (most recent call last):
             ...
             ValueError: resolved Asset does not match the Composite member.
+
+
+        :return:
         """
 
-        if self.member.digital_asset_id != self.resolved.asset.digital_asset_id:
+        if (
+            self.membership.digital_asset_id
+            != self.resolution.asset_record.digital_asset_id
+        ):
             raise ValueError(
                 "resolved Asset does not match the Composite member."
             )
 
     @property
     def location(self) -> Location:
-        """Return the selected Location for this member.
+        """
+        Return the selected Location for this member.
 
         Example:
             >>> location = member.location  # doctest: +SKIP
+
+
+        :return:
         """
 
-        return self.resolved.location
+        return self.resolution.location
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class CompositeAssetHealth:
-    """Completeness and member readability for one Composite Asset.
+class CompositeDigitalAssetAvailabilityAssessment:
+    """
+    Completeness and required-member readability for one Composite Asset.
+
+    The three member counts and failure details cover required memberships.
+    Optional members do not make the Composite unreadable when absent.
 
     Example:
-        >>> health = CompositeAssetHealth(
+        >>> assessment = CompositeDigitalAssetAvailabilityAssessment(
         ...     CompositeDigitalAssetID(3), 2, 2, 2,
         ... )
-        >>> health.readable
+        >>> assessment.readable
         True
     """
 
-    composite_id: CompositeDigitalAssetID
+    composite_digital_asset_id: CompositeDigitalAssetID
     expected_members: int
     resolved_members: int
     readable_members: int
-    missing_member_ids: tuple[DigitalAssetID, ...] = ()
+    missing_digital_asset_ids: tuple[DigitalAssetID, ...] = ()
     errors: tuple[str, ...] = ()
 
     @property
     def readable(self) -> bool:
-        """Return whether every required member has a readable Replica.
+        """
+        Return whether every required member has a readable Replica.
 
         Example:
-            >>> CompositeAssetHealth(CompositeDigitalAssetID(3), 2, 2, 2).readable
+            >>> CompositeDigitalAssetAvailabilityAssessment(
+            ...     CompositeDigitalAssetID(3), 2, 2, 2,
+            ... ).readable
             True
+
+
+        :return:
         """
 
         return (
             self.expected_members
             == self.resolved_members
             == self.readable_members
-            and not self.missing_member_ids
+            and not self.missing_digital_asset_ids
             and not self.errors
         )
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class ItemAssetSelection:
-    """Resolved atomic or Composite Asset selected for one Item role.
+class ItemDigitalAssetResolution:
+    """
+    Resolved atomic or Composite Asset selected for one Item role.
 
     Exactly one atomic or Composite selection is present. Composite resolution
     retains each membership relationship rather than flattening it to an
     unlabelled list of Locations.
 
     Example:
-        >>> selection = ItemAssetSelection(
-        ...     ItemID(9), "cover", resolved_asset=resolved,
+        >>> selection = ItemDigitalAssetResolution(
+        ...     ItemID(9), "cover", digital_asset_resolution=resolution,
         ... )  # doctest: +SKIP
     """
 
     item_id: ItemID
     role: str
-    resolved_asset: ResolvedAsset | None = None
-    composite: CompositeDigitalAsset | None = None
-    resolved_members: tuple[ResolvedCompositeMember, ...] = ()
+    digital_asset_resolution: DigitalAssetResolution | None = None
+    composite_digital_asset_record: CompositeDigitalAssetRecord | None = None
+    composite_member_resolutions: tuple[
+        CompositeDigitalAssetMemberResolution, ...
+    ] = ()
 
     def __post_init__(self) -> None:
-        """Require exactly one selected Asset and consistent resolutions.
+        """
+        Require exactly one selected Asset and consistent resolutions.
 
         Example:
-            >>> ItemAssetSelection(ItemID(9), "cover")
+            >>> ItemDigitalAssetResolution(ItemID(9), "cover")
             Traceback (most recent call last):
             ...
             ValueError: exactly one atomic or Composite Asset is required.
+
+
+        :return:
         """
 
-        if (self.resolved_asset is None) == (self.composite is None):
+        if (self.digital_asset_resolution is None) == (
+            self.composite_digital_asset_record is None
+        ):
             raise ValueError(
                 "exactly one atomic or Composite Asset is required."
             )
@@ -736,15 +878,18 @@ class ItemAssetSelection:
             raise ValueError("role must not be empty.")
         if self.item_id <= 0:
             raise ValueError("item_id must be positive.")
-        if self.resolved_asset is not None and self.resolved_members:
+        if (
+            self.digital_asset_resolution is not None
+            and self.composite_member_resolutions
+        ):
             raise ValueError(
                 "an atomic Item selection must not contain Composite members."
             )
-        if self.composite is not None:
-            declared_members = set(self.composite.members)
+        if self.composite_digital_asset_record is not None:
+            declared_members = set(self.composite_digital_asset_record.members)
             resolved_relationships = {
-                member.member
-                for member in self.resolved_members
+                member.membership
+                for member in self.composite_member_resolutions
             }
             if not resolved_relationships <= declared_members:
                 raise ValueError(
@@ -752,7 +897,7 @@ class ItemAssetSelection:
                 )
             required_members = {
                 member
-                for member in self.composite.members
+                for member in self.composite_digital_asset_record.members
                 if member.required
             }
             if not required_members <= resolved_relationships:
@@ -762,22 +907,34 @@ class ItemAssetSelection:
 
     @property
     def locations(self) -> tuple[Location, ...]:
-        """Return the selected readable Locations in delivery order.
+        """
+        Return the selected readable Locations in delivery order.
 
         Example:
             >>> locations = selection.locations  # doctest: +SKIP
+
+
+        :return:
         """
 
-        if self.resolved_asset is not None:
-            return (self.resolved_asset.location,)
-        return tuple(member.location for member in self.resolved_members)
+        if self.digital_asset_resolution is not None:
+            return (self.digital_asset_resolution.location,)
+        return tuple(
+            member.location for member in self.composite_member_resolutions
+        )
 
 
 def _validate_asset_identity(size_bytes: int, digests: tuple[Digest, ...]) -> None:
-    """Validate the size-and-digest identity shared by Asset input and output.
+    """
+    Validate the size-and-digest identity shared by Asset input and output.
 
     Example:
         >>> _validate_asset_identity(1, (Digest("sha256", "aa"),))
+
+
+    :param size_bytes:
+    :param digests:
+    :return:
     """
 
     if size_bytes < 0:
@@ -788,10 +945,15 @@ def _validate_asset_identity(size_bytes: int, digests: tuple[Digest, ...]) -> No
 
 
 def _validate_unique_digests(digests: tuple[Digest, ...]) -> None:
-    """Require at most one digest value per algorithm.
+    """
+    Require at most one digest value per algorithm.
 
     Example:
         >>> _validate_unique_digests((Digest("sha256", "aa"),))
+
+
+    :param digests:
+    :return:
     """
 
     algorithms = [digest.algorithm for digest in digests]
@@ -800,14 +962,19 @@ def _validate_unique_digests(digests: tuple[Digest, ...]) -> None:
 
 
 def _validate_composite_members(
-    members: tuple[CompositeMemberSpec, ...],
+    members: tuple[CompositeDigitalAssetMembership, ...],
 ) -> None:
-    """Require a non-empty, uniquely ordered Composite membership.
+    """
+    Require a non-empty, uniquely ordered Composite membership.
 
     Example:
         >>> _validate_composite_members(
-        ...     (CompositeMemberSpec(DigitalAssetID(7), 0),),
+        ...     (CompositeDigitalAssetMembership(DigitalAssetID(7), 0),),
         ... )
+
+
+    :param members:
+    :return:
     """
 
     if not members:
@@ -822,10 +989,16 @@ def _validate_composite_members(
 
 
 def _require_aware_datetime(value: datetime | None, field_name: str) -> None:
-    """Reject a timestamp without an unambiguous timezone.
+    """
+    Reject a timestamp without an unambiguous timezone.
 
     Example:
         >>> _require_aware_datetime(None, "checked_at")
+
+
+    :param value:
+    :param field_name:
+    :return:
     """
 
     if value is not None and (
@@ -835,23 +1008,23 @@ def _require_aware_datetime(value: datetime | None, field_name: str) -> None:
 
 
 __all__ = [
-    "AssetVerificationResult",
-    "CompositeAssetHealth",
-    "CompositeDigitalAsset",
-    "CompositeDigitalAssetSpec",
-    "CompositeMemberSpec",
-    "DigitalAsset",
+    "CompositeDigitalAssetAvailabilityAssessment",
+    "CompositeDigitalAssetMembership",
+    "CompositeDigitalAssetRecord",
+    "CompositeDigitalAssetDeclaration",
+    "DigitalAssetRecord",
     "DigitalAssetMetadata",
-    "DigitalAssetSpec",
-    "IngestResult",
-    "ItemAssetSelection",
-    "Replica",
+    "DigitalAssetDeclaration",
+    "DigitalAssetIngestResult",
+    "DigitalAssetVerificationReport",
+    "ItemDigitalAssetResolution",
+    "ReplicaRecord",
     "ReplicaMode",
     "ReplicaObservation",
-    "ReplicaRemovalResult",
-    "ReplicaSpec",
+    "ReplicaRemovalReport",
+    "ReplicaDeclaration",
     "ReplicaState",
-    "ReplicaVerificationResult",
-    "ResolvedAsset",
-    "ResolvedCompositeMember",
+    "ReplicaVerificationReport",
+    "DigitalAssetResolution",
+    "CompositeDigitalAssetMemberResolution",
 ]

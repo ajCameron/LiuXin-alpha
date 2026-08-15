@@ -1,4 +1,6 @@
-"""Registration facade for completed backup artifacts."""
+"""
+Registration facade for completed backup artifacts.
+"""
 
 from __future__ import annotations
 
@@ -8,19 +10,20 @@ from collections.abc import Iterator
 
 from LiuXin_alpha.storage.api.workflow_api.backup_api.models import (
     BackupWorkflowResult,
-    RegisteredBackupArtifact,
+    BackupArtifactRegistration,
 )
 from LiuXin_alpha.storage.api.workflow_api.models import WorkflowID
 
 
 class BackupArtifactRegistryAPI(abc.ABC):
-    """Register completed artifacts as Stores and preserve source presence.
+    """
+    Register completed artifacts as Stores and preserve source presence.
 
     Artifact creation and store registration are separate operations: a sealed
     artifact may exist before it becomes a configured read-only Store.
 
     Example:
-        >>> artifact = registry.register_artifact(3, result)  # doctest: +SKIP
+        >>> registration = registry.register_artifact(3, result)  # doctest: +SKIP
     """
 
     @abc.abstractmethod
@@ -31,34 +34,53 @@ class BackupArtifactRegistryAPI(abc.ABC):
         *,
         store_name: str | None = None,
         link_sources: bool = True,
-    ) -> RegisteredBackupArtifact:
-        """Register a successful workflow output as a configured Store.
+    ) -> BackupArtifactRegistration:
+        """
+        Register a successful workflow output as a configured Store.
 
         Example:
-            >>> artifact = registry.register_artifact(  # doctest: +SKIP
+            >>> registration = registry.register_artifact(  # doctest: +SKIP
             ...     3, result, store_name="nightly-pack",
             ... )
+
+
+        :param workflow_id:
+        :param result:
+        :param store_name:
+        :param link_sources:
+        :return:
         """
         ...
 
     @abc.abstractmethod
-    def get_registered_artifact(
+    def get_artifact_registration(
         self,
         workflow_id: WorkflowID,
-    ) -> RegisteredBackupArtifact | None:
-        """Return an artifact registration for one workflow, if present.
+    ) -> BackupArtifactRegistration | None:
+        """
+        Return an artifact registration for one workflow, if present.
 
         Example:
-            >>> artifact = registry.get_registered_artifact(3)  # doctest: +SKIP
+            >>> registration = registry.get_artifact_registration(3)  # doctest: +SKIP
+
+
+        :param workflow_id:
+        :return:
         """
         ...
 
     @abc.abstractmethod
-    def iter_registered_artifacts(self) -> Iterator[RegisteredBackupArtifact]:
-        """Iterate over registered backup artifacts.
+    def iter_artifact_registrations(self) -> Iterator[BackupArtifactRegistration]:
+        """
+        Iterate over registered backup artifacts.
 
         Example:
-            >>> artifacts = list(registry.iter_registered_artifacts())  # doctest: +SKIP
+            >>> registrations = list(  # doctest: +SKIP
+            ...     registry.iter_artifact_registrations(),
+            ... )
+
+
+        :return:
         """
         ...
 

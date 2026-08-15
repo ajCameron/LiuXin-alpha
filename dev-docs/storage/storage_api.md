@@ -20,8 +20,9 @@ StorageDriverAPI + optional protocols
 ```
 
 Code outside storage normally uses `StorageManagerAPI`. A `StoreAPI` is one
-configured LiuXin Store and is identified by a database record and stable Store
-UUID. A `StorageDriverAPI` is lower level and deliberately Store-neutral: it can
+configured LiuXin Store identified by a stable Store UUID. Its database row is
+an implementation detail. A `StorageDriverAPI` is lower level and deliberately
+Store-neutral: it can
 also power an import source, a temporary workspace, or another byte-oriented
 facility without inventing a Store row.
 
@@ -49,7 +50,7 @@ A non-default `offset` or `length` is either honoured or rejected with
 `StorageUnsupportedOperation`; a driver must not silently return the full
 object. A limited stream returns at most `length` bytes.
 
-Raw `DriverFileInfo.size` is optional. `None` means the endpoint cannot report
+Raw `DriverObjectInfo.size` is optional. `None` means the endpoint cannot report
 an authoritative length before reading—for example, a chunked HTTP response or
 generated object. Driver utilities stream such objects without inventing an
 expected size and count the bytes they actually receive. The configured Store
@@ -65,7 +66,7 @@ exactly the checked address requested by the caller. Reusable utilities and
 All `modified_at` and status `checked_at` timestamps are timezone-aware.
 
 `DriverObjectHints` carries a suggested filename, media type, and backend-native
-string metadata. Both `DriverFileInfo` and `DriverObjectEntry` contain the same
+string metadata. Both `DriverObjectInfo` and `DriverInventoryEntry` contain the same
 hints value, so a known non-enumerable object can expose HTTP-style response
 hints just as an inventory entry can.
 
@@ -75,7 +76,7 @@ Optional mechanics are structural, independently detectable protocols:
 
 | Protocol | Operation | Capability evidence |
 | --- | --- | --- |
-| `EnumerableStorageDriverAPI` | `iter_object_entries` | `enumeration != UNAVAILABLE` |
+| `EnumerableStorageDriverAPI` | `iter_inventory` | `enumeration != UNAVAILABLE` |
 | `WritableStorageDriverAPI` | `begin_write` | `create` and/or `replace` |
 | `DeletableStorageDriverAPI` | `delete` | `delete`; protected deletion additionally requires `conditional_delete` |
 | `ObjectAddressAllocatorStorageDriverAPI` | `allocate_object_address` | `object_address_allocation` |
@@ -91,14 +92,14 @@ remain `Location`-based manager decisions.
 
 ### Inventory
 
-`iter_object_entries()` returns files, not virtual directories. Its
+`iter_inventory()` returns objects, not virtual directories. Its
 `EnumerationCompleteness` is `COMPLETE`, `PARTIAL`, or `UNAVAILABLE`; listing
 failure must never masquerade as a complete empty result.
 Addresses are checked and unique within one iteration. Enumeration is not
 assumed to be a point-in-time snapshot unless the concrete driver documents
 that stronger guarantee.
 
-A `DriverObjectEntry` may include metadata already available cheaply from the
+A `DriverInventoryEntry` may include metadata already available cheaply from the
 backend listing: shared `DriverObjectHints`, size, modified time, digest, and
 version. These are discovery hints, not
 bibliographic assertions. This avoids an obligatory `stat()` request for every
@@ -113,7 +114,7 @@ Otherwise an unfiltered inventory remains valid, while a prefix request raises
 ## Transactional writes
 
 `begin_write()` is the write primitive; a generic `open(mode=...)` is not. It
-returns a `DriverWriteSession` with the following contract:
+returns a `DriverWriteSessionAPI` with the following contract:
 
 - `CREATE_ONLY` is the safe default; replacement is explicit;
 - the final address remains absent or unchanged before `commit()`;
@@ -200,7 +201,7 @@ inputs to `LocationFactory`; they are not fields on `Location`.
 Raw drivers are suitable for file importing because the core contains no Store
 or asset policy. A typical importer can:
 
-1. enumerate `DriverObjectEntry` values when the source supports inventory;
+1. enumerate `DriverInventoryEntry` values when the source supports inventory;
 2. inspect through `open_read` or `read_bytes`;
 3. call `storage.utils.driver.materialize_object()` only for a legacy reader
    requiring a local path;
@@ -248,6 +249,103 @@ idempotent. `probe()` reports ordinary offline state with
 `DriverStatus(available=False)` while configuration, authentication,
 permission, and unexpected backend failures remain typed exceptions.
 
+## Everyday file operations
+
+The same four familiar write names are available at every storage layer:
+
+| Layer | Simple result | Address input | Metadata meaning |
+| --- | --- | --- | --- |
+| `StorageManagerAPI` | `DigitalAssetRecord` | manager-selected Store | library metadata projected to placement hints |
+| `StoreAPI` | `FileInfo` | optional Location or opaque key string | library metadata projected to placement hints |
+| `StorageDriverAPI` | `DriverObjectInfo` | optional typed address or persisted string | backend-native string metadata |
+
+Each layer provides `store()`, `store_bytes()`, `store_stream()`, and
+`store_file()`. The generic `store()` dispatches ordinary bytes-like values,
+binary streams, and local paths. Omitting the destination asks that layer's
+allocator to choose one; when allocation is unsupported, callers supply the
+opaque key or address as a string without constructing a value object:
+
+```python
+stored = store.store_bytes(
+    payload,
+    name="book.epub",
+    metadata=item_metadata,
+)
+
+imported = driver.store_file(
+    "/incoming/book.epub",
+    object_address="staging/book.epub",
+    metadata={"content-type": "application/epub+zip"},
+)
+```
+
+Manager operations call Replica placement state `replica_mode`; Store and
+driver writes call publication behavior `write_mode`. This avoids giving the
+same `mode` name two unrelated meanings:
+
+```python
+archive_asset = manager.store_bytes(payload, replica_mode="archive")
+replaced = store.store_bytes(
+    new_payload,
+    location="objects/42",
+    write_mode="replace",
+)
+```
+
+The former `mode=` keyword remains a compatibility alias. Supplying both names
+is rejected so caller intent cannot be ambiguous.
+
+These conveniences do not add weaker write semantics. They resolve or
+allocate the destination, then delegate to the same staged `put()` or
+`begin_write()` path with size, digest, create/replace mode, native metadata,
+and placement hints intact. `StoreAPI` never exposes a driver address, and raw
+drivers never receive WEMI metadata or manager policy. Exact `Location`,
+`DriverObjectAddress`, write-session, and utility-based calls remain available
+for uncommon control and cross-endpoint transfers.
+
+Simple retrieval uses `open_file()` for an owned, read-only binary stream and
+`read_file()` for in-memory bytes. `get_file()` remains a familiar read-only
+alias for `open_file()`. Neither method accepts a write mode: staged writes go
+through `store*()` or the exact `begin_write()` session and become visible only
+when that session commits. Identifiers remain honest at each boundary:
+
+```python
+with manager.open_file(42) as source:            # Digital Asset ID
+    payload = source.read()
+
+payload = manager.read_file(sha256_hex)          # registered digest lookup
+payload = store.read_file(stored)                 # returned FileInfo
+payload = driver.read_file(imported)              # returned DriverObjectInfo
+```
+
+Only `StorageManagerAPI` owns a digest-to-Asset index, so only it interprets a
+bare hash as a reverse lookup (SHA-256 by default, or an explicit `Digest`). A
+Store or driver accepts a hash string only when that string is already its
+opaque key/address, as with a content-addressed backend. Generic lower layers
+do not enumerate and hash every object or pretend to have an index.
+
+Store and driver results round-trip through the whole everyday object
+lifecycle. The same methods also accept their opaque string key/address or
+exact typed value:
+
+```python
+stored = store.store_bytes(payload, name="book.epub")
+current = store.stat_file(stored)
+assert store.file_exists(stored)
+store.delete_file(stored, if_version=current.version)
+
+imported = driver.store_bytes(
+    payload,
+    object_address="imports/book.epub",
+)
+assert driver.file_exists(imported)
+driver.delete_file(imported, missing_ok=True)
+```
+
+`open_file()` and its `get_file()` alias return an owned, read-only binary
+stream and should be used as a context manager. `read_file()` reads the
+selected range fully into memory.
+
 ## Utilities are not contracts
 
 Free-standing operations live under `LiuXin_alpha.storage.utils`, not
@@ -265,6 +363,14 @@ API facade methods may delegate to utilities, but the API modules themselves
 contain contracts, models, typed errors, and facade adapters rather than a
 collection of free operations. General sync/async adaptation remains in
 `LiuXin_alpha.utils.sync_async` because it is useful outside storage as well.
+
+Backup workflows apply the same naming distinctions. A
+`BackupWorkflowDeclaration` is durable intent, a `BackupWorkflowCheckpoint` is
+the latest resumable or terminal execution state, each
+`BackupSourceStagingReport` describes one completed staging attempt, and a
+`BackupWorkflowResult` is the terminal operational return. Registering the
+sealed artifact produces a `BackupArtifactRegistration`; that value describes
+the registration and is not the artifact's bytes.
 
 ## Error model
 
@@ -289,44 +395,187 @@ does not erase or flatten driver failures.
 
 `DriverBackedStoreAPI` translates driver capabilities/status into
 `StoreCapabilities` and `StoreStatus`, applies configured read-only state, and
-adapts `DriverWriteSession` commits into routed `FileInfo` values.
+adapts `DriverWriteSessionAPI` commits into routed `FileInfo` values.
 It also translates advertised driver-native copy, move, and digest operations;
 it never advertises those accelerators while silently selecting a streaming
 fallback.
 
 `stat_digest_authoritative` says that digests already returned by `stat()` are
 authoritative for the described version; a driver with this flag false must
-leave `DriverFileInfo.digest` empty. `native_digest` independently says
+leave `DriverObjectInfo.digest` empty. `native_digest` independently says
 the backend implements `native_compute_digest()`. These facts must not be
 conflated.
 
-`StorageManagerAPI` owns cross-Store routing and policy. Store specifications
+`StorageManagerAPI` owns cross-Store routing and policy. `StoreConfiguration`
 can declare stable host and device UUIDs, allowing the manager to answer whether
 two Locations share a host/device before choosing a transfer path. Missing
 topology data yields `UNKNOWN`, not an invented physical distinction.
+Manager-wide status enumeration returns `StoreStatusObservation` values so
+each dynamic `StoreStatus` remains paired with the configured Store UUID that
+was observed. Enumeration includes configured Stores that have no live facade,
+reporting an unavailable status for them. `StoreConfigurationNotFound` means a
+Store UUID is not configured; `StoreUnavailable` means it is configured but
+cannot currently serve requests. Neither is `StoreNotFound`, which is reserved
+for missing bytes at a concrete Location.
 
-### Domain values are not persistence records
+Store-level default policy IDs are placement-time defaults. When a new Digital
+Asset receives its first Replica, the selected Store defaults are captured on
+the Asset record. Adding later Replicas does not change its effective policy,
+so resolution cannot depend on Replica creation or iteration order.
+
+The executable reference implementation is
+`LiuXin_alpha.storage.storage_manager.InMemoryStorageManager`. It implements
+the complete manager facade and routes bytes to injected `StoreAPI` instances,
+while deliberately retaining asset, Replica, policy, Composite, provenance,
+Item-link, ingest-idempotency, and reconciliation state only in memory. It is
+therefore suitable for contract tests, prototypes, and review of orchestration
+semantics—not as a durable production catalogue. A production implementation
+can replace those in-process repositories without changing the public manager
+contract. Store construction is injected as a factory; already-created Stores
+can be registered explicitly with `attach_store()`.
+
+### Everyday manager convenience surface
+
+`StorageManagerAPI` includes a concrete `StorageConvenienceAPI` mixin for
+ordinary application code. It owns no state and creates no second set of
+storage semantics: each operation normalizes familiar inputs and delegates to
+the explicit manager contract. Manager implementations therefore inherit the
+whole surface without implementing more abstract methods.
+
+The main entry point accepts bytes, a binary stream, or a local path:
+
+```python
+book = manager.store(
+    payload,
+    name="Book",
+    media_type="application/epub+zip",
+    original_name="book.epub",
+    metadata=item_metadata,
+    item=42,
+)
+
+cover = manager.store_file(
+    "/incoming/cover.jpg",
+    item=42,
+    role="cover",
+)
+
+with manager.open_asset(book) as source:
+    header = source.read(16)
+
+archive_copy = manager.replicate_asset(
+    book,
+    to=archive_store,
+    replica_mode="archive",
+)
+package = manager.create_composite(
+    {"book.epub": book, "cover.jpg": cover},
+    name="book package",
+)
+manager.link(42, package, role="package")
+```
+
+Convenience arguments accept the IDs, records, configurations, and Store
+facades that callers naturally already have. `store()`, `store_bytes()`,
+`store_stream()`, and `store_file()` return a `DigitalAssetRecord`, which is
+the useful result for most application work. Callers needing the operation
+UUID, exact Replica record, deduplication flags, or verification report use
+the underlying `ingest_bytes()` or `ingest_stream()` method instead.
+
+The convenience `metadata=` argument is deliberately richer than the Asset's
+flat `name`, `media_type`, `original_name`, and `attributes` fields. It accepts
+a WEMI metadata container, a plain mapping, or an existing
+`WorkStorageHints`, `ExpressionStorageHints`, `ManifestationStorageHints`, or
+`ItemStorageHints` value. `derive_storage_hints()` projects metadata containers
+on the storage side, so the metadata package does not depend on storage:
+
+```python
+book = manager.store_bytes(
+    payload,
+    metadata={
+        "title": "Permutation City",
+        "primary_agents": ["Greg Egan"],
+        "file_formats": ["EPUB"],
+    },
+)
+```
+
+These values are advisory placement hints, not Digital Asset identity and not
+backend-native object metadata. The explicit ingest methods call the argument
+`placement_hints=` to make that distinction visible. The operation UUID binds
+the supplied hints as part of retry identity.
+
+A Store advertises support with `StoreCapabilities.placement_hints`. Supporting
+Stores receive the same hint value in both `allocate_location()` and
+`begin_write()`, allowing a backend to choose a human layout and update a rich
+index transactionally. Stores without that capability continue to use their
+ordinary allocation and write behavior; hints are safely ignored. Placement
+hints are not automatically retained on the `DigitalAssetRecord`, because a
+later metadata edit must not change content identity or rewrite old Replicas.
+
+The same rule covers less frequent setup and provenance:
+
+```python
+live = manager.define_replication_policy("durable", copies=2)
+backup = manager.define_backup_policy(
+    "offsite", copies=1, require_tags={"offsite"},
+)
+archive = manager.add_store(
+    "archive",
+    "filesystem",
+    "file:///srv/archive",
+    replication=live,
+    backup=backup,
+)
+
+known = manager.declare_asset(
+    size=4,
+    digests={"sha256": "..."},
+    name="manifest object",
+)
+derivation = manager.record_derivation(
+    cover,
+    {"source": book},
+    kind="extract",
+)
+```
+
+Exact reproduction recipes, detailed Composite membership, uncommon policy
+constraints, transactional ingest results, and backend-specific Store settings
+remain available through the rich value-based methods. The convenience layer
+is intentionally an easy route into that contract, not a replacement domain
+model.
+
+### Domain objects and public records are distinct
 
 The manager boundary distinguishes three things that must not be collapsed:
 
 | Concept | Meaning | Public representation |
 | --- | --- | --- |
-| Digital Asset | Identity of one expected byte sequence | `DigitalAsset` |
-| Replica | Claim about one concrete copy at a Location | `Replica` |
-| Content | The byte stream obtained from that copy | `BinaryIO` |
+| Digital Asset | One expected byte sequence | Conceptual domain object |
+| Digital Asset record | Manager-maintained facts about that sequence | `DigitalAssetRecord` |
+| Replica | One concrete stored copy | Conceptual/physical object |
+| Replica record | Manager claim about a copy at a Location | `ReplicaRecord` |
+| Content | The readable bytes obtained from that copy | `BinaryIO` |
 
-`DigitalAsset` and `Replica` are immutable domain snapshots. They are not ORM
-objects, database rows, live storage handles, or containers for the bytes.
-`DigitalAsset` holds expected size and digests plus byte-object metadata.
-`Replica` links that identity to a `Location`, operational mode, and latest
-physical observation. Opening the Replica's Location through the manager or
-Store supplies the actual content stream.
+`DigitalAssetRecord` and `ReplicaRecord` are immutable public values. They are
+not ORM objects, database rows, live storage handles, or containers for bytes.
+The former holds expected size, digests, and descriptive metadata. The latter
+links the asset identity to a `Location`, operational mode, and latest
+`ReplicaObservation`. Opening that Location supplies the actual content.
 
-Creation inputs are distinct values: `DigitalAssetSpec`, `ReplicaSpec`, and
-`CompositeDigitalAssetSpec`. A new value is therefore not modelled as an entity
-whose database ID happens to be `None`. `DigitalAssetID`, `ReplicaID`, Item and
-policy identifiers are nominal `NewType` values so static analysis can reject
-cross-entity ID mistakes.
+Creation inputs are distinct values: `DigitalAssetDeclaration`,
+`ReplicaDeclaration`, and `CompositeDigitalAssetDeclaration`. A new value is
+therefore not modelled as a record whose database ID happens to be `None`.
+`DigitalAssetID`, `ReplicaID`, Item and policy identifiers are nominal
+`NewType` values so static analysis can reject cross-entity ID mistakes.
+
+The same vocabulary is used throughout this API: a `Reference` points to
+another object, an `Observation` is physical evidence, a `Resolution` records a
+selected route, an `Assessment` interprets current facts and policy, a `Plan`
+describes unapplied work, and a `Report` describes work or inspection already
+performed. `Configuration`, `Status`, and `Registration` retain their ordinary
+meanings. These suffixes describe public semantics, not persistence technology.
 
 Manager implementations receive persistence through narrow ports:
 
@@ -338,14 +587,14 @@ StorageManagerAPI
 StorageUnitOfWorkAPI
   DigitalAssetRepositoryAPI
   ReplicaRepositoryAPI
-  CompositeAssetRepositoryAPI
+  CompositeDigitalAssetRepositoryAPI
              │ private translation
              ▼
 database rows / ORM / document records
 ```
 
-Repository adapters translate persistence representations into domain
-snapshots. Row-shaped protocols and metadata containers do not cross the
+Repository adapters translate persistence representations into public records.
+Row-shaped protocols and metadata containers do not cross the
 manager API. A metadata unit of work covers only durable manager state; it does
 not pretend that an external Store write participates in the database
 transaction.
@@ -354,31 +603,44 @@ transaction.
 
 The public manager uses domain names only for domain operations:
 
-- `declare_digital_asset(spec)` registers a known byte identity without
+- `declare_digital_asset(declaration)` registers a known byte identity without
   asserting that any copy is present;
 - `ingest_stream()` and `ingest_bytes()` identify bytes, publish a copy, and
-  return an `IngestResult` containing a `DigitalAsset` and `Replica`;
-- `replicate_digital_asset()` returns the newly created `Replica`;
-- `resolve_digital_asset()` returns a `ResolvedAsset`, pairing the expected
-  identity with the selected readable copy;
+  return a `DigitalAssetIngestResult` containing a `DigitalAssetRecord` and
+  `ReplicaRecord`;
+- `replicate_digital_asset()` returns the new `ReplicaRecord`;
+- `resolve_digital_asset()` returns a `DigitalAssetResolution`, pairing the
+  expected record with the selected readable-copy record;
 - `forget_digital_asset()` forgets domain knowledge and does not imply byte
   deletion; and
 - `remove_replica()` explicitly coordinates physical and domain-state removal.
 
-Public `create_*_record`, `update_*_record`, and `delete_*_metadata` operations
-do not exist. Equivalent persistence mechanics stay inside repository adapters.
+`STAGED` describes publication work that is not yet committed for serving. A
+STAGED Replica may be selected for verification or reconciliation work, but it
+is never returned as readable content or counted as a readable policy copy.
+
+Manager lookup names state when they return records—for example,
+`get_digital_asset_record()` and `iter_replica_records()`. Equivalent database
+CRUD mechanics stay inside repository adapters.
 Manager-level absence also has manager-level errors: `DigitalAssetNotFound`,
-`ReplicaNotFound`, `NoReadableReplica`, `CompositeAssetNotFound`, and
-`CompositeIncomplete` are distinct from `StoreNotFound` at one concrete
+`ReplicaNotFound`, `NoReadableReplica`, `CompositeDigitalAssetNotFound`, and
+`CompositeDigitalAssetIncomplete` are distinct from `StoreNotFound` at one concrete
 Location.
+
+Item associations are symmetrical at the public boundary:
+`ItemDigitalAssetLinkAPI` links Item roles to atomic or Composite Assets and
+removes those links, while `resolve_item_digital_asset()` reads them.
 
 ### Cross-boundary recovery
 
 Publication and repository commit cannot generally be one atomic transaction.
 Ingest therefore accepts an optional operation UUID and returns it in
-`IngestResult`. Implementations use that identity with a staged Replica state
+`DigitalAssetIngestResult`. Implementations use that identity with a staged Replica state
 to resume, compensate, or reconcile failure between Store publication and
 metadata commit. Retrying the same logical operation should use the same UUID.
+That UUID binds the complete request—not only byte identity—including metadata,
+Item role, placement preference, Replica mode, and verification intent. Reuse
+for a different request fails with `StoragePreconditionFailed`.
 
 Reconciliation is likewise split into `plan_reconciliation()` and
 `apply_reconciliation()`. Inventory completeness is carried as
@@ -386,11 +648,118 @@ Reconciliation is likewise split into `plan_reconciliation()` and
 can never produce a conclusive clean result. A plan carries identity and an
 optional repository revision so stale application can fail explicitly.
 
-Composite resolution returns `ResolvedCompositeMember` values instead of a
+Composite resolution returns `CompositeDigitalAssetMemberResolution` values instead of a
 bare tuple of Locations. Logical names, paths, roles, titles, ordering, and the
-selected member Asset/Replica therefore survive resolution.
+selected member records therefore survive resolution.
 
-`DigitalAssetStorageHealth` deliberately separates current readability,
+Composite membership remains flat and atomic at this boundary. A
+`CompositeDigitalAssetMembership.logical_path` can express useful hierarchy, and callers
+may construct a tree-shaped presentation from those paths. Persisted recursive
+Composite membership is deferred until a concrete use case justifies graph
+cycles, nested policy, and ownership semantics.
+
+Composite availability counts required members. A missing or unreadable
+optional member may be omitted from resolution without making the Composite
+unreadable.
+
+### Derivation and exact recreation
+
+A derived result remains an ordinary atomic Digital Asset; there is no
+`DerivedDigitalAsset` subtype. Derivation describes provenance between Assets,
+while the Item-to-Asset link independently describes a contextual role such as
+`cover`, `thumbnail`, or `derived_output`.
+
+`DigitalAssetDerivationRecord` records one result, ordered atomic or Composite
+provenance sources, a semantic `DigitalAssetDerivationKind`, and an optional
+`ReproductionRecipe`.
+Its sources are `DigitalAssetDerivationSourceReference` values. An exact recipe
+pins `ReproductionRecipeInputReference` and
+`ReproductionRecipeArtifactReference` values; those values
+identify inputs and tooling but are not the input bytes or executable
+artefacts themselves.
+For URI-only executor or dependency references, a manager needs an injected
+`ReproductionRecipeArtifactResolverAPI` that verifies availability of bytes
+matching the pinned digest. A URI string by itself is not evidence that the
+artefact remains recoverable.
+The recipe deliberately distinguishes three claims:
+
+- `EXACT`: a complete recipe is expected to reproduce the registered bytes;
+- `BEST_EFFORT`: the process can be rerun but byte identity is not promised;
+- `NOT_REPRODUCIBLE`: the edge records provenance only.
+
+An exact complete recipe pins:
+
+- the ordered atomic input Asset IDs, sizes, digests, roles, and logical paths;
+- an executor artefact by name and digest, retrievable through either its own
+  managed Digital Asset ID or a URI whose bytes are checked against that digest;
+- dependency artefacts by digest and a managed Asset ID or verified URI;
+- a versioned argv-style replay command;
+- canonical relative input, working-directory, and result paths for an isolated
+  recipe workspace;
+- canonical JSON parameters and execution-environment description;
+- expected output size when known and at least one output digest; and
+- optional human instructions, operator, timestamp, and notes.
+
+When a provenance source is a Composite Asset, the recipe still enumerates the
+exact atomic member inputs consumed by that run. Later Composite membership
+changes therefore cannot silently alter replay. Environment JSON must include
+any platform, locale, timezone, random seed, clock, codec, or hardware detail
+on which deterministic output depends. It must not contain secret values;
+recipes should name credential slots or immutable non-secret artefacts instead.
+
+`record_digital_asset_derivation()` validates referenced identities, rejects
+cycles, and checks an exact recipe's expected output size and digests against
+the registered result Asset. A `StorageUnitOfWorkAPI` exposes a
+`DigitalAssetDerivationRepositoryAPI`, so creation of provenance can commit
+with the manager's other metadata. External Store publication remains outside
+that database transaction.
+
+The existing `transform_runs`, `transform_run_inputs`,
+`transform_run_outputs`, and `digital_asset_derivations` schema is a useful
+legacy starting point, but it cannot yet persist this contract losslessly. A
+schema migration must preserve canonical environment data, replay commands,
+executor/dependency digests and Asset IDs, recipe completeness and
+reproducibility claims, ordered inputs with roles and paths, and Composite
+provenance sources. Until that migration exists, adapters must reject exact
+recipe persistence rather than dropping fields or downgrading the claim
+silently.
+
+### Durability of recreatable derivatives
+
+Replication and backup policy copy minima are non-negative. This permits a
+reproducible derivative to request zero long-lived live copies and zero backup
+copies, but zero is never inferred merely because an Asset has a derivation
+edge.
+
+`ReplicationPolicy.loss_action` makes the consequence explicit:
+
+- `REQUIRE_COPY` is the default for originals and other retained Assets;
+- `RECREATE` permits loss of stored result bytes only through a complete exact
+  recipe whose pinned inputs and executor artefacts remain recoverable; and
+- `ACCEPT_LOSS` deliberately permits irrecoverable loss.
+
+`retention_priority` on replication and backup policies lets capacity planning
+evict lower-valued surplus copies before originals or irreplaceable Assets.
+Zero-copy backup policy cannot be retention locked. Policy assignment and
+assessment validate recreation transitively: a chain of disposable Assets
+must terminate in retained sources and must not form a cycle. Updating a
+persisted policy performs the same validation against every affected Asset and
+accepts an optional revision precondition; an unsafe or stale update leaves the
+previous policy intact.
+
+`DigitalAssetStorageAssessment` separately reports current readability, backup
+state, exact recreatability, recoverability, and irrecoverability.
+`DigitalAssetReplicationPlan` may select the exact derivation to execute;
+`DigitalAssetReplicationPlan` and `DigitalAssetBackupPlan` may identify surplus
+Replicas to remove.
+Neither plan performs the transformation or deletion itself.
+
+The current SQL schemas constrain replication and backup minima to at least
+one. They require a migration to permit zero and to persist `loss_action` and
+`retention_priority`; until then, persistence adapters must reject these newer
+policies rather than store misleading partial policy.
+
+`DigitalAssetStorageAssessment` deliberately separates current readability,
 replication satisfaction, backup satisfaction, at-risk state, and complete
 unavailability. A readable Asset may still violate durability policy.
 

@@ -16,44 +16,51 @@ import abc
 from types import TracebackType
 from typing import Generic
 
-from LiuXin_alpha.storage.api.storage_driver_api.accelerators_api import (
+from LiuXin_alpha.storage.api.store_driver_api.convenience_api import (
+    DriverFileIdentifier,
+    DriverNativeMetadata,
+    StorageDriverConvenienceAPI,
+    StorageDriverSource,
+)
+from LiuXin_alpha.storage.api.store_driver_api.accelerators_api import (
     NativeCopyStorageDriverAPI,
     NativeDigestStorageDriverAPI,
     NativeMoveStorageDriverAPI,
 )
-from LiuXin_alpha.storage.api.storage_driver_api.lifecycle_api import (
+from LiuXin_alpha.storage.api.store_driver_api.lifecycle_api import (
     StorageDriverLifecycleAPI,
 )
-from LiuXin_alpha.storage.api.storage_driver_api.models import (
+from LiuXin_alpha.storage.api.store_driver_api.models import (
     DriverCapabilities,
-    DriverConcurrency,
-    DriverFileInfo,
+    DriverConcurrencyCapabilities,
+    DriverObjectInfo,
     DriverObjectAddress,
-    DriverObjectAddressChecker,
+    DriverObjectAddressCheckerAPI,
     DriverObjectAddressInput,
     DriverObjectAddressT,
-    DriverObjectEntry,
+    DriverInventoryEntry,
     DriverObjectHints,
     DriverStatus,
     ScopedDriverObjectAddressChecker,
 )
-from LiuXin_alpha.storage.api.storage_driver_api.object_address_api import (
+from LiuXin_alpha.storage.api.store_driver_api.object_address_api import (
     StorageDriverObjectAddressAPI,
 )
-from LiuXin_alpha.storage.api.storage_driver_api.optional_api import (
+from LiuXin_alpha.storage.api.store_driver_api.optional_api import (
     DeletableStorageDriverAPI,
-    DriverWriteSession,
+    DriverWriteSessionAPI,
     EnumerableStorageDriverAPI,
     HierarchicalStorageDriverAPI,
     ObjectAddressAllocatorStorageDriverAPI,
     WritableStorageDriverAPI,
 )
-from LiuXin_alpha.storage.api.storage_driver_api.readable_api import (
+from LiuXin_alpha.storage.api.store_driver_api.readable_api import (
     ReadableStorageDriverAPI,
 )
 
 
 class StorageDriverAPI(
+    StorageDriverConvenienceAPI[DriverObjectAddressT],
     StorageDriverObjectAddressAPI[DriverObjectAddressT],
     StorageDriverLifecycleAPI,
     ReadableStorageDriverAPI[DriverObjectAddressT],
@@ -69,8 +76,7 @@ class StorageDriverAPI(
     ``DriverCapabilities``.
 
     Example:
-        >>> address = driver.parse_object_address("incoming/book.epub")  # doctest: +SKIP
-        >>> payload = driver.read_bytes(address)  # doctest: +SKIP
+        >>> payload = driver.read_file("incoming/book.epub")  # doctest: +SKIP
     """
 
     def __enter__(self) -> StorageDriverAPI[DriverObjectAddressT]:
@@ -79,6 +85,9 @@ class StorageDriverAPI(
 
         Example:
             >>> entered = driver.__enter__()  # doctest: +SKIP
+
+
+        :return:
         """
         _ = self.startup()
         return self
@@ -89,10 +98,17 @@ class StorageDriverAPI(
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        """Close the driver when leaving its context.
+        """
+        Close the driver when leaving its context.
 
         Example:
             >>> driver.__exit__(None, None, None)  # doctest: +SKIP
+
+
+        :param exc_type:
+        :param exc:
+        :param traceback:
+        :return:
         """
         self.close()
 
@@ -100,16 +116,18 @@ class StorageDriverAPI(
 __all__ = [
     "DeletableStorageDriverAPI",
     "DriverCapabilities",
-    "DriverConcurrency",
-    "DriverFileInfo",
+    "DriverConcurrencyCapabilities",
+    "DriverFileIdentifier",
+    "DriverNativeMetadata",
+    "DriverObjectInfo",
     "DriverObjectAddress",
-    "DriverObjectAddressChecker",
+    "DriverObjectAddressCheckerAPI",
     "DriverObjectAddressInput",
     "DriverObjectAddressT",
-    "DriverObjectEntry",
+    "DriverInventoryEntry",
     "DriverObjectHints",
     "DriverStatus",
-    "DriverWriteSession",
+    "DriverWriteSessionAPI",
     "EnumerableStorageDriverAPI",
     "HierarchicalStorageDriverAPI",
     "NativeCopyStorageDriverAPI",
@@ -119,6 +137,8 @@ __all__ = [
     "ReadableStorageDriverAPI",
     "ScopedDriverObjectAddressChecker",
     "StorageDriverAPI",
+    "StorageDriverConvenienceAPI",
+    "StorageDriverSource",
     "StorageDriverLifecycleAPI",
     "StorageDriverObjectAddressAPI",
     "WritableStorageDriverAPI",

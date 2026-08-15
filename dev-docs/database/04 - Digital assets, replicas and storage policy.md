@@ -72,6 +72,15 @@ It is not the same as derivation.
 Composition means “these assets together form this whole”.
 Derivation means “this asset was produced from that asset”.
 
+The storage-manager contract treats derivation as a first-class relation whose
+result is still an ordinary atomic digital asset. Exact recreation requires
+more than the current parent/child edge: ordered pinned inputs, Composite
+source references where applicable, executor and dependency digests, a replay
+command, canonical parameter/environment documents, expected output identity,
+and an explicit completeness/reproducibility claim. The existing transform and
+derivation tables require a migration before an adapter can persist that full
+contract without loss.
+
 ## Policy tables
 
 Storage policy is now first-class in the schema.
@@ -86,8 +95,18 @@ These describe floors, targets, spread rules, and store selection constraints.
 Desired-state policies for backup/archive copies.
 These describe backup copy counts, spread rules, verification expectations, and retention flags.
 
-`digital_assets` may point directly at one replication policy and one backup policy.
-This is the first step, not the final word on inheritance/overrides.
+`digital_assets` may point directly at one replication policy and one backup
+policy. Store defaults are captured into these references when the Asset's
+first Replica is placed; later multi-Store replication does not dynamically
+change the effective policy.
+
+Policy definitions also need to distinguish required retained bytes from
+recreatable or deliberately disposable outputs. The replacement API permits
+zero copy minima only with explicit loss semantics, plus a retention priority
+for capacity planning. SQL constraints and columns must be migrated before
+those policies are persisted: the current `>= 1` copy checks are intentionally
+too strict for exact reproducible derivatives, while silently coercing zero to
+one would misrepresent policy.
 
 ## Store metadata needed for policy
 
@@ -152,7 +171,7 @@ The database should therefore track both:
 A practical field name for the store side is something like `store_supported_replica_modes_json`.
 That can later be normalized if it starts to hurt, but it is enough to express “this store can hold archive copies but should never be selected for live replicas”.
 
-## Policy inheritance and defaults
+## Policy placement defaults
 
 Direct policy assignment on `digital_assets` is useful, but not sufficient on its own.
 The database also needs a durable notion of default policy at the storage-location level.
@@ -164,13 +183,16 @@ The likely first step is explicit foreign keys such as:
 - `folders.folder_default_replication_policy_id`
 - `folders.folder_default_backup_policy_id`
 
-This makes policy resolution legible and queryable.
+These defaults are copied to the Digital Asset policy foreign keys on first
+placement. They are not resolved later by walking the Asset's Replica rows;
+that would make a multi-Store Asset's policy depend on arbitrary row order.
+This makes policy resolution stable, legible, and queryable.
 It is better than scattering important defaults only through code or opaque JSON blobs.
 
 A useful rule of thumb is:
 
 - policy rows describe desired state
-- default-policy foreign keys describe where that policy comes from when an asset has no explicit override
+- Store or folder default-policy foreign keys supply policy at first placement
 - replica rows describe what physical copies actually exist now
 
 ## Composite and atomic asset rules

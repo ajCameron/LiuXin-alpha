@@ -1,22 +1,25 @@
-"""Asset-oriented retrieval facade."""
+"""
+Asset-oriented retrieval facade.
+"""
 
 import abc
 
-from LiuXin_alpha.storage.api.models import Location, StoreRef
+from LiuXin_alpha.storage.api.models import Location, StoreUUID
 from LiuXin_alpha.storage.api.storage_manager_api.location_factory import LocationFactory
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
     DigitalAssetID,
-    ItemAssetSelection,
+    DigitalAssetResolution,
+    ItemDigitalAssetResolution,
     ItemID,
-    Replica,
+    ReplicaRecord,
     ReplicaID,
     ReplicaMode,
-    ResolvedAsset,
 )
 
 
-class AssetRetrievalAPI(abc.ABC):
-    """Resolve logical Assets and Item roles to readable Replicas.
+class DigitalAssetRetrievalAPI(abc.ABC):
+    """
+    Resolve logical Assets and Item roles to readable Replicas.
 
     Selection returns enough domain context to identify both the expected
     bytes and the chosen concrete copy. ``Location``-only helpers remain
@@ -29,14 +32,19 @@ class AssetRetrievalAPI(abc.ABC):
         >>> location = resolved.location  # doctest: +SKIP
     """
 
+    # Todo: Surely we just, for efficiency, want to persist this in the StoreManager?
     @property
     def location_factory(self) -> LocationFactory:
-        """Return catalogue-aware Location factories bound to this manager.
+        """
+        Return catalogue-aware Location factories bound to this manager.
 
         Example:
             >>> location = manager.location_factory.from_id(  # doctest: +SKIP
             ...     DigitalAssetID(7),
             ... )
+
+
+        :return:
         """
 
         return LocationFactory(self)
@@ -46,36 +54,54 @@ class AssetRetrievalAPI(abc.ABC):
         self,
         digital_asset_id: DigitalAssetID,
         *,
-        preferred_store: StoreRef | None = None,
+        preferred_store_ref: StoreUUID | None = None,
         mode: ReplicaMode = ReplicaMode.ACTIVE,
         require_verified: bool = False,
-    ) -> Replica:
-        """Choose the best readable Replica for one Digital Asset.
+    ) -> ReplicaRecord:
+        """
+        Choose the best readable Replica for one Digital Asset.
 
         A known Asset without a suitable copy raises ``NoReadableReplica``.
 
         Example:
-            >>> replica = manager.select_replica(  # doctest: +SKIP
+            >>> replica_record = manager.select_replica(  # doctest: +SKIP
             ...     DigitalAssetID(7), require_verified=True,
             ... )
+
+
+        :param digital_asset_id:
+        :param preferred_store_ref:
+        :param mode:
+        :param require_verified:
+        :return:
         """
         ...
 
+    # Todo: add "scratch" - which gets you a temp copy of the file?
+    # Todo: Also want a in memory copy option?
     @abc.abstractmethod
     def resolve_digital_asset(
         self,
         digital_asset_id: DigitalAssetID,
         *,
-        preferred_store: StoreRef | None = None,
+        preferred_store_ref: StoreUUID | None = None,
         mode: ReplicaMode = ReplicaMode.ACTIVE,
         require_verified: bool = False,
-    ) -> ResolvedAsset:
-        """Return the Asset identity paired with one selected Replica.
+    ) -> DigitalAssetResolution:
+        """
+        Return the Asset identity paired with one selected Replica.
 
         Example:
             >>> resolved = manager.resolve_digital_asset(  # doctest: +SKIP
             ...     DigitalAssetID(7), require_verified=True,
             ... )
+
+
+        :param digital_asset_id:
+        :param preferred_store_ref:
+        :param mode:
+        :param require_verified:
+        :return:
         """
         ...
 
@@ -83,31 +109,44 @@ class AssetRetrievalAPI(abc.ABC):
         self,
         digital_asset_id: DigitalAssetID,
         *,
-        preferred_store: StoreRef | None = None,
+        preferred_store_ref: StoreUUID | None = None,
         mode: ReplicaMode = ReplicaMode.ACTIVE,
         require_verified: bool = False,
-    ) -> Location:
-        """Resolve one Digital Asset to the chosen Replica Location.
+    ) -> "Location":
+        """
+        Resolve one Digital Asset to the chosen Replica Location.
 
         Example:
             >>> location = manager.locate_digital_asset(  # doctest: +SKIP
             ...     DigitalAssetID(7), require_verified=True,
             ... )
+
+
+        :param digital_asset_id:
+        :param preferred_store_ref:
+        :param mode:
+        :param require_verified:
+        :return:
         """
 
         return self.resolve_digital_asset(
             digital_asset_id,
-            preferred_store=preferred_store,
+            preferred_store_ref=preferred_store_ref,
             mode=mode,
             require_verified=require_verified,
         ).location
 
     @abc.abstractmethod
-    def locate_replica(self, replica_id: ReplicaID) -> Location:
-        """Resolve one exact Replica identity to its concrete Location.
+    def locate_replica(self, replica_id: ReplicaID) -> "Location":
+        """
+        Resolve one exact Replica identity to its concrete Location.
 
         Example:
             >>> location = manager.locate_replica(ReplicaID(12))  # doctest: +SKIP
+
+
+        :param replica_id:
+        :return:
         """
         ...
 
@@ -116,36 +155,52 @@ class AssetRetrievalAPI(abc.ABC):
         self,
         digital_asset_id: DigitalAssetID,
         *,
-        preferred_store: StoreRef | None = None,
-        cache_store: StoreRef | None = None,
+        preferred_store_ref: StoreUUID | None = None,
+        cache_store_ref: StoreUUID | None = None,
         verify: bool = True,
-    ) -> ResolvedAsset:
-        """Ensure an Asset is locally readable and return the resulting copy.
+    ) -> DigitalAssetResolution:
+        """
+        Ensure an Asset is locally readable and return the resulting copy.
 
         Example:
             >>> resolved = manager.materialize_digital_asset(  # doctest: +SKIP
-            ...     DigitalAssetID(7), cache_store=cache_uuid,
+            ...     DigitalAssetID(7), cache_store_ref=cache_uuid,
             ... )
+
+
+        :param digital_asset_id:
+        :param preferred_store_ref:
+        :param cache_store_ref:
+        :param verify:
+        :return:
         """
         ...
 
     @abc.abstractmethod
-    def resolve_item_asset(
+    def resolve_item_digital_asset(
         self,
         item_id: ItemID,
         *,
         role: str = "primary_payload",
-        preferred_store: StoreRef | None = None,
+        preferred_store_ref: StoreUUID | None = None,
         require_verified: bool = False,
-    ) -> ItemAssetSelection:
-        """Resolve one Item role to an atomic or Composite Asset selection.
+    ) -> ItemDigitalAssetResolution:
+        """
+        Resolve one Item role to an atomic or Composite Asset selection.
 
         Example:
-            >>> selection = manager.resolve_item_asset(  # doctest: +SKIP
+            >>> selection = manager.resolve_item_digital_asset(  # doctest: +SKIP
             ...     ItemID(9), role="cover", require_verified=True,
             ... )
+
+
+        :param item_id:
+        :param role:
+        :param preferred_store_ref:
+        :param require_verified:
+        :return:
         """
         ...
 
 
-__all__ = ["AssetRetrievalAPI"]
+__all__ = ["DigitalAssetRetrievalAPI"]

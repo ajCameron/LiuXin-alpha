@@ -1,4 +1,6 @@
-"""LiuXin-aware domain, policy, routing, and persistence-port contracts."""
+"""
+LiuXin-aware domain, policy, routing, and persistence-port contracts.
+"""
 
 from __future__ import annotations
 
@@ -6,113 +8,150 @@ import abc
 
 from types import TracebackType
 
-from LiuXin_alpha.storage.api.storage_manager_api.catalog_api import AssetRegistryAPI
-from LiuXin_alpha.storage.api.storage_manager_api.composites_api import CompositeAssetAPI
+from LiuXin_alpha.storage.api.storage_manager_api.catalog_api import (
+    DigitalAssetRegistryAPI,
+)
+from LiuXin_alpha.storage.api.storage_manager_api.composites_api import (
+    CompositeDigitalAssetAPI,
+)
+from LiuXin_alpha.storage.api.storage_manager_api.convenience_api import (
+    DigitalAssetFileIdentifier,
+    StorageConvenienceAPI,
+)
+from LiuXin_alpha.storage.api.storage_manager_api.derivations_api import (
+    DigitalAssetDerivationRegistryAPI,
+    ReproductionRecipeArtifactResolverAPI,
+)
 from LiuXin_alpha.storage.api.storage_manager_api.errors import (
-    CompositeAssetNotFound,
-    CompositeIncomplete,
+    DigitalAssetDerivationNotFound,
+    CompositeDigitalAssetIncomplete,
+    CompositeDigitalAssetNotFound,
     DigitalAssetNotFound,
     NoReadableReplica,
-    PolicyUnsatisfied,
-    ReconciliationPlanStale,
+    StoragePolicyUnsatisfied,
+    StoreReconciliationPlanStale,
     ReplicaNotFound,
+    StoreConfigurationNotFound,
     StorageManagementError,
 )
-from LiuXin_alpha.storage.api.storage_manager_api.ingest_api import AssetIngestAPI
+from LiuXin_alpha.storage.api.storage_manager_api.ingest_api import (
+    DigitalAssetIngestAPI,
+)
+from LiuXin_alpha.storage.api.storage_manager_api.item_links_api import (
+    ItemDigitalAssetLinkAPI,
+)
 from LiuXin_alpha.storage.api.storage_manager_api.location_api import BoundLocation
 from LiuXin_alpha.storage.api.storage_manager_api.location_factory import LocationFactory
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
-    AssetVerificationResult,
-    BackupPlan,
+    DigitalAssetDerivationDeclaration,
+    DigitalAssetDerivationID,
+    DigitalAssetDerivationRecord,
+    DigitalAssetLossAction,
+    DigitalAssetBackupPlan,
     BackupPolicy,
     BackupPolicyID,
-    BackupStatus,
-    CompositeAssetHealth,
-    CompositeDigitalAsset,
+    BackupPolicyRecord,
+    CompositeDigitalAssetAvailabilityAssessment,
+    CompositeDigitalAssetDeclaration,
     CompositeDigitalAssetID,
-    CompositeDigitalAssetSpec,
-    CompositeMemberSpec,
-    DigitalAsset,
+    CompositeDigitalAssetMemberResolution,
+    CompositeDigitalAssetMembership,
+    CompositeDigitalAssetRecord,
+    DigitalAssetDeclaration,
     DigitalAssetID,
     DigitalAssetMetadata,
-    DigitalAssetSpec,
-    DigitalAssetStorageHealth,
-    DistinctBy,
-    EffectiveStoragePolicies,
-    IngestResult,
-    ItemAssetSelection,
+    DigitalAssetIngestResult,
+    DigitalAssetRecord,
+    DigitalAssetResolution,
+    DigitalAssetStorageAssessment,
+    DigitalAssetVerificationReport,
+    DigitalAssetDerivationKind,
+    DigitalAssetDerivationSourceReference,
+    ReplicaSeparationDimension,
+    ItemDigitalAssetResolution,
     ItemID,
-    PolicyStatus,
-    ReconciliationPlan,
-    ReconciliationReport,
-    Replica,
+    StoreReconciliationPlan,
+    StoreReconciliationReport,
+    ReproductionRecipeArtifactReference,
+    ReproductionRecipeInputReference,
+    ReplicaDeclaration,
     ReplicaID,
     ReplicaMode,
     ReplicaObservation,
-    ReplicaRemovalResult,
-    ReplicaSpec,
+    ReplicaRecord,
+    ReplicaRemovalReport,
     ReplicaState,
-    ReplicaVerificationResult,
-    ReplicationPlan,
+    ReplicaVerificationReport,
+    DigitalAssetReplicationPlan,
     ReplicationPolicy,
     ReplicationPolicyID,
-    ReplicationStatus,
-    ResolvedAsset,
-    ResolvedCompositeMember,
+    ReplicationPolicyRecord,
+    Reproducibility,
+    ReproductionRecipe,
+    ResolvedStoragePolicies,
     StorageBootstrapIssue,
     StorageBootstrapReport,
-    StoredBackupPolicy,
-    StoredReplicationPolicy,
-    StoreID,
-    StoreSpec,
+    StoragePolicyAssessment,
+    StoreConfiguration,
+    StoreStatusObservation,
     TopologyRelation,
 )
 from LiuXin_alpha.storage.api.storage_manager_api.policies_api import StoragePolicyAPI
 from LiuXin_alpha.storage.api.storage_manager_api.reconciliation_api import StorageReconciliationAPI
 from LiuXin_alpha.storage.api.storage_manager_api.replicas_api import ReplicaLifecycleAPI
 from LiuXin_alpha.storage.api.storage_manager_api.repositories_api import (
-    CompositeAssetRepositoryAPI,
+    DigitalAssetDerivationRepositoryAPI,
+    CompositeDigitalAssetRepositoryAPI,
     DigitalAssetRepositoryAPI,
     ReplicaRepositoryAPI,
     StorageUnitOfWorkAPI,
     StorageUnitOfWorkFactoryAPI,
 )
-from LiuXin_alpha.storage.api.storage_manager_api.retrieval_api import AssetRetrievalAPI
+from LiuXin_alpha.storage.api.storage_manager_api.retrieval_api import (
+    DigitalAssetRetrievalAPI,
+)
 from LiuXin_alpha.storage.api.storage_manager_api.router_api import StorageRouterAPI
 from LiuXin_alpha.storage.api.storage_manager_api.stores_api import StoreAdministrationAPI
 
 
 class StorageManagerAPI(
+    StorageConvenienceAPI,
     StorageRouterAPI,
     StoreAdministrationAPI,
-    AssetRegistryAPI,
-    AssetIngestAPI,
-    AssetRetrievalAPI,
+    DigitalAssetRegistryAPI,
+    DigitalAssetIngestAPI,
+    DigitalAssetRetrievalAPI,
+    ItemDigitalAssetLinkAPI,
     ReplicaLifecycleAPI,
     StoragePolicyAPI,
-    CompositeAssetAPI,
+    CompositeDigitalAssetAPI,
+    DigitalAssetDerivationRegistryAPI,
     StorageReconciliationAPI,
     abc.ABC,
 ):
-    """Complete manager facade over storage domain values and configured Stores.
+    """
+    Complete manager facade over storage domain values and configured Stores.
 
     Concrete managers orchestrate byte publication and domain repositories.
     Database records, ORM models, and raw driver addresses do not cross this
-    boundary. The context manager closes configured Stores on exit.
+    boundary. Concrete convenience methods accept ordinary bytes, paths, IDs,
+    records, and keyword metadata, then delegate to the explicit domain
+    methods. The context manager closes configured Stores on exit.
 
     Example:
-        >>> def read_asset(
-        ...     manager: StorageManagerAPI, asset_id: DigitalAssetID,
-        ... ) -> bytes:
-        ...     resolved = manager.resolve_digital_asset(asset_id)
-        ...     return manager.read_bytes(resolved.location)
+        >>> def read_asset(manager: StorageManagerAPI, asset_id: int) -> bytes:
+        ...     return manager.read_file(asset_id)
     """
 
     def __enter__(self) -> StorageManagerAPI:
-        """Enter the manager lifetime and return this manager.
+        """
+        Enter the manager lifetime and return this manager.
 
         Example:
             >>> entered = manager.__enter__()  # doctest: +SKIP
+
+
+        :return:
         """
 
         return self
@@ -123,72 +162,95 @@ class StorageManagerAPI(
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        """Close configured Stores when leaving the manager context.
+        """
+        Close configured Stores when leaving the manager context.
 
         Example:
             >>> manager.__exit__(None, None, None)  # doctest: +SKIP
+
+
+        :param exc_type:
+        :param exc:
+        :param traceback:
+        :return:
         """
 
         self.close()
 
 
 __all__ = [
-    "AssetIngestAPI",
-    "AssetRegistryAPI",
-    "AssetRetrievalAPI",
-    "AssetVerificationResult",
-    "BackupPlan",
+    "DigitalAssetDerivationDeclaration",
+    "DigitalAssetDerivationID",
+    "DigitalAssetDerivationNotFound",
+    "DigitalAssetDerivationRecord",
+    "DigitalAssetDerivationRegistryAPI",
+    "DigitalAssetDerivationRepositoryAPI",
+    "DigitalAssetLossAction",
+    "DigitalAssetBackupPlan",
     "BackupPolicy",
     "BackupPolicyID",
-    "BackupStatus",
+    "BackupPolicyRecord",
     "BoundLocation",
-    "CompositeAssetAPI",
-    "CompositeAssetHealth",
-    "CompositeAssetNotFound",
-    "CompositeAssetRepositoryAPI",
-    "CompositeDigitalAsset",
+    "CompositeDigitalAssetAvailabilityAssessment",
+    "CompositeDigitalAssetAPI",
+    "CompositeDigitalAssetDeclaration",
     "CompositeDigitalAssetID",
-    "CompositeDigitalAssetSpec",
-    "CompositeIncomplete",
-    "CompositeMemberSpec",
-    "DigitalAsset",
+    "CompositeDigitalAssetIncomplete",
+    "CompositeDigitalAssetMemberResolution",
+    "CompositeDigitalAssetMembership",
+    "CompositeDigitalAssetNotFound",
+    "CompositeDigitalAssetRecord",
+    "CompositeDigitalAssetRepositoryAPI",
+    "DigitalAssetDeclaration",
+    "DigitalAssetFileIdentifier",
     "DigitalAssetID",
     "DigitalAssetMetadata",
     "DigitalAssetNotFound",
     "DigitalAssetRepositoryAPI",
-    "DigitalAssetSpec",
-    "DigitalAssetStorageHealth",
-    "DistinctBy",
-    "EffectiveStoragePolicies",
-    "IngestResult",
-    "ItemAssetSelection",
+    "DigitalAssetIngestAPI",
+    "DigitalAssetIngestResult",
+    "DigitalAssetRecord",
+    "DigitalAssetRegistryAPI",
+    "DigitalAssetResolution",
+    "DigitalAssetRetrievalAPI",
+    "DigitalAssetStorageAssessment",
+    "DigitalAssetVerificationReport",
+    "DigitalAssetDerivationKind",
+    "DigitalAssetDerivationSourceReference",
+    "ReplicaSeparationDimension",
+    "ItemDigitalAssetResolution",
+    "ItemDigitalAssetLinkAPI",
     "ItemID",
     "LocationFactory",
     "NoReadableReplica",
-    "PolicyStatus",
-    "PolicyUnsatisfied",
-    "ReconciliationPlan",
-    "ReconciliationPlanStale",
-    "ReconciliationReport",
-    "Replica",
+    "StoragePolicyUnsatisfied",
+    "StoreReconciliationPlan",
+    "StoreReconciliationPlanStale",
+    "StoreReconciliationReport",
+    "ReproductionRecipeArtifactReference",
+    "ReproductionRecipeArtifactResolverAPI",
+    "ReproductionRecipeInputReference",
+    "ReplicaDeclaration",
     "ReplicaID",
     "ReplicaLifecycleAPI",
     "ReplicaMode",
     "ReplicaNotFound",
     "ReplicaObservation",
-    "ReplicaRemovalResult",
+    "ReplicaRecord",
+    "ReplicaRemovalReport",
     "ReplicaRepositoryAPI",
-    "ReplicaSpec",
     "ReplicaState",
-    "ReplicaVerificationResult",
-    "ReplicationPlan",
+    "ReplicaVerificationReport",
+    "DigitalAssetReplicationPlan",
     "ReplicationPolicy",
     "ReplicationPolicyID",
-    "ReplicationStatus",
-    "ResolvedAsset",
-    "ResolvedCompositeMember",
+    "ReplicationPolicyRecord",
+    "Reproducibility",
+    "ReproductionRecipe",
+    "ResolvedStoragePolicies",
     "StorageBootstrapIssue",
     "StorageBootstrapReport",
+    "StorageConvenienceAPI",
     "StorageManagementError",
     "StorageManagerAPI",
     "StoragePolicyAPI",
@@ -197,9 +259,9 @@ __all__ = [
     "StorageUnitOfWorkAPI",
     "StorageUnitOfWorkFactoryAPI",
     "StoreAdministrationAPI",
-    "StoreID",
-    "StoredBackupPolicy",
-    "StoredReplicationPolicy",
-    "StoreSpec",
+    "StoreConfigurationNotFound",
+    "StoragePolicyAssessment",
+    "StoreConfiguration",
+    "StoreStatusObservation",
     "TopologyRelation",
 ]

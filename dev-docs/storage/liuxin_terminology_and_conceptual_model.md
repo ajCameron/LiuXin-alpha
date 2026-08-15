@@ -391,11 +391,11 @@ entirely lost.
 
 A Digital Asset identifies the bytes that should exist, rather than the place where those bytes happen to be stored.
 
-In the public storage-manager API, a `DigitalAsset` is an immutable domain
-snapshot of that identity. It is not the database row used to persist the
-identity and it is not a container for the byte stream. Repositories privately
-translate database records into domain snapshots; reading a selected Replica
-Location produces the actual bytes.
+In the public storage-manager API, `DigitalAssetRecord` contains LiuXin's
+manager-maintained facts about that identity. It is neither the Digital Asset
+nor the database row used to persist the facts, and it does not contain the
+byte stream. Repositories privately translate database rows or documents into
+public records; reading a selected Replica Location produces the actual bytes.
 
 The expected size and digest form an important part of that identity. 
 A filename alone is not sufficient: two files with the same name may contain different bytes, while files with different
@@ -538,6 +538,26 @@ A derivation relationship may record:
 - operator or automated job;
 - success or validation status.
 
+In the public storage API this is modelled as a
+`DigitalAssetDerivationRecord`,
+not a `DerivedDigitalAsset` subtype. The result remains an ordinary atomic
+Digital Asset; derivation is contextual provenance and may be many-to-many.
+
+When the result may be discarded and recreated, provenance alone is not
+enough. A complete exact `ReproductionRecipe` also pins the consumed atomic
+inputs through `ReproductionRecipeInputReference` values, executable and
+dependency artefacts through `ReproductionRecipeArtifactReference` values, a
+replay command, canonical parameters and environment, and expected output
+identity. Composite sources remain useful provenance as
+`DigitalAssetDerivationSourceReference` values, but the recipe flattens them to
+the exact atomic
+member Assets used at the time. This prevents later membership edits from
+changing the meaning of replay.
+
+Only a complete recipe explicitly claiming byte-identical reproduction can
+justify recreate-on-loss storage policy. Best-effort recipes remain valuable
+provenance but do not make an Asset safely disposable.
+
 This gives LiuXin a chain of provenance rather than silently replacing one representation with another. 
 It also permits a source Asset to be retained even where a more convenient derived format is normally used for access.
 
@@ -611,11 +631,11 @@ The Replica does not define the content’s identity.
 Its associated Digital Asset does that. 
 A Replica is one claim about where a copy of the content can be found.
 
-The manager API consequently exposes a `Replica` domain snapshot containing
-its stable ID, Digital Asset ID, Location, operational mode, and latest
-observation. That snapshot is not a database record or a live file handle.
-Record CRUD remains behind `ReplicaRepositoryAPI`, while physical reads and
-writes are routed through the Replica's Location.
+The manager API consequently exposes a `ReplicaRecord` containing its stable
+ID, Digital Asset ID, Location, operational mode, and latest observation. That
+public record is not a database row, a live file handle, or the concrete copy
+itself. Persistence mechanics remain behind `ReplicaRepositoryAPI`, while
+physical reads and writes are routed through the Replica's Location.
 
 ---
 
@@ -775,7 +795,7 @@ capability and a source version returned by `stat()` before any destination is
 published. Without those guarantees, the operation remains a copy followed by
 separately coordinated deletion rather than pretending to be a race-safe move.
 
-Inventory, when available, returns `DriverObjectEntry` values containing cheap
+Inventory, when available, returns `DriverInventoryEntry` values containing cheap
 native hints, optional size, modified time, digest, and version. Shared
 `DriverObjectHints` attach suggested filename, media type, and native metadata
 to both inventory entries and `stat()` results. A raw driver may report an

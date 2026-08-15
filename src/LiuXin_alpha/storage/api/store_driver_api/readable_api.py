@@ -1,4 +1,6 @@
-"""Minimal readable core and safe read-only conveniences for drivers."""
+"""
+Minimal readable core and safe read-only conveniences for drivers.
+"""
 
 from __future__ import annotations
 
@@ -13,12 +15,12 @@ from LiuXin_alpha.storage.api.errors import (
     StorageUnsupportedOperation,
 )
 from LiuXin_alpha.storage.api.models import Digest
-from LiuXin_alpha.storage.api.storage_driver_api.accelerators_api import (
+from LiuXin_alpha.storage.api.store_driver_api.accelerators_api import (
     NativeDigestStorageDriverAPI,
 )
-from LiuXin_alpha.storage.api.storage_driver_api.models import (
+from LiuXin_alpha.storage.api.store_driver_api.models import (
     DriverCapabilities,
-    DriverFileInfo,
+    DriverObjectInfo,
     DriverObjectAddressT,
 )
 from LiuXin_alpha.storage.utils.constants import DEFAULT_STORAGE_CHUNK_SIZE
@@ -42,10 +44,15 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         self,
         object_address: DriverObjectAddressT,
     ) -> DriverObjectAddressT:
-        """Validate an address before any backend I/O.
+        """
+        Validate an address before any backend I/O.
 
         Example:
             >>> checked = driver.check_object_address(address)  # doctest: +SKIP
+
+
+        :param object_address:
+        :return:
         """
         ...
 
@@ -54,21 +61,30 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         self,
         object_address: DriverObjectAddressT,
     ) -> DriverObjectAddressT:
-        """Validate ownership and canonical serialization.
+        """
+        Validate ownership and canonical serialization.
 
         Example:
             >>> checked = driver.require_canonical_object_address(address)  # doctest: +SKIP
+
+
+        :param object_address:
+        :return:
         """
         ...
 
     @property
     @abc.abstractmethod
     def capabilities(self) -> DriverCapabilities:
-        """Describe mechanics this raw driver inherently supports.
+        """
+        Describe mechanics this raw driver inherently supports.
 
         Example:
             >>> driver.capabilities.range_reads  # doctest: +SKIP
             True
+
+
+        :return:
         """
         ...
 
@@ -76,8 +92,9 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
     def stat(
         self,
         object_address: DriverObjectAddressT,
-    ) -> DriverFileInfo[DriverObjectAddressT]:
-        """Describe one object or raise ``StorageNotFound``.
+    ) -> DriverObjectInfo[DriverObjectAddressT]:
+        """
+        Describe one object or raise ``StorageNotFound``.
 
         Connection, permission, and authentication errors must remain visible.
         The returned ``object_address`` must equal the checked requested
@@ -87,6 +104,10 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
 
         Example:
             >>> info = driver.stat(address)  # doctest: +SKIP
+
+
+        :param object_address:
+        :return:
         """
         ...
 
@@ -109,13 +130,19 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         Example:
             >>> with driver.open_read(address, offset=10, length=20) as source:  # doctest: +SKIP
             ...     payload = source.read()
+
+
+        :param object_address:
+        :param offset:
+        :param length:
+        :return:
         """
         ...
 
     def try_stat(
         self,
         object_address: DriverObjectAddressT,
-    ) -> DriverFileInfo[DriverObjectAddressT] | None:
+    ) -> DriverObjectInfo[DriverObjectAddressT] | None:
         """
         Return ``None`` only for genuine absence.
 
@@ -123,27 +150,34 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
             >>> driver.try_stat(missing) is None  # doctest: +SKIP
             True
 
+
         :param object_address:
         :return:
         """
         checked = self.check_object_address(object_address)
         try:
-            return self.require_file_info(checked, self.stat(checked))
+            return self.require_object_info(checked, self.stat(checked))
         except StorageNotFound:
             return None
 
-    def require_file_info(
+    def require_object_info(
         self,
         expected_address: DriverObjectAddressT,
-        info: DriverFileInfo[DriverObjectAddressT],
-    ) -> DriverFileInfo[DriverObjectAddressT]:
-        """Require returned metadata to describe the requested object.
+        info: DriverObjectInfo[DriverObjectAddressT],
+    ) -> DriverObjectInfo[DriverObjectAddressT]:
+        """
+        Require returned metadata to describe the requested object.
 
         Driver adapters and reusable callers should apply this to results from
         raw ``stat``, commit, and native operations before trusting them.
 
         Example:
-            >>> info = driver.require_file_info(address, driver.stat(address))  # doctest: +SKIP
+            >>> info = driver.require_object_info(address, driver.stat(address))  # doctest: +SKIP
+
+
+        :param expected_address:
+        :param info:
+        :return:
         """
         expected = self.require_canonical_object_address(expected_address)
         actual = self.require_canonical_object_address(info.object_address)
@@ -169,20 +203,26 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
             >>> driver.exists(address)  # doctest: +SKIP
             True
 
+
         :param object_address:
         :return:
         """
         return self.try_stat(object_address) is not None
 
     def file_size(self, object_address: DriverObjectAddressT) -> int | None:
-        """Return an authoritative byte size, or ``None`` when unknown.
+        """
+        Return an authoritative byte size, or ``None`` when unknown.
 
         Example:
             >>> driver.file_size(address)  # doctest: +SKIP
             42
+
+
+        :param object_address:
+        :return:
         """
         checked = self.check_object_address(object_address)
-        return self.require_file_info(checked, self.stat(checked)).size
+        return self.require_object_info(checked, self.stat(checked)).size
 
     def get(
         self,
@@ -191,10 +231,17 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         offset: int = 0,
         length: int | None = None,
     ) -> BinaryIO:
-        """Return ``open_read`` using familiar retrieval vocabulary.
+        """
+        Return ``open_read`` using familiar retrieval vocabulary.
 
         Example:
             >>> source = driver.get(address, length=20)  # doctest: +SKIP
+
+
+        :param object_address:
+        :param offset:
+        :param length:
+        :return:
         """
         return self.open_read(
             self.check_object_address(object_address),
@@ -209,11 +256,18 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         offset: int = 0,
         length: int | None = None,
     ) -> bytes:
-        """Read one small object or range fully into memory.
+        """
+        Read one small object or range fully into memory.
 
         Example:
             >>> driver.read_bytes(address, length=4)  # doctest: +SKIP
             b'book'
+
+
+        :param object_address:
+        :param offset:
+        :param length:
+        :return:
         """
         with self.open_read(
             self.check_object_address(object_address),
@@ -232,10 +286,17 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         *,
         chunk_size: int = DEFAULT_STORAGE_CHUNK_SIZE,
     ) -> Digest:
-        """Use an authoritative native digest or a streaming fallback.
+        """
+        Use an authoritative native digest or a streaming fallback.
 
         Example:
             >>> digest = driver.compute_digest(address, "sha256")  # doctest: +SKIP
+
+
+        :param object_address:
+        :param algorithm:
+        :param chunk_size:
+        :return:
         """
         object_address = self.check_object_address(object_address)
         if chunk_size < 1:

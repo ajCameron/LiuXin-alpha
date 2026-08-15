@@ -1,4 +1,6 @@
-"""Configured-store, bootstrap, and reconciliation value objects."""
+"""
+Configured-store, bootstrap, and reconciliation value objects.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +9,12 @@ import dataclasses
 from enum import StrEnum
 from uuid import UUID
 
-from LiuXin_alpha.storage.api.models import EnumerationCompleteness, Location, StoreRef
+from LiuXin_alpha.storage.api.models import (
+    EnumerationCompleteness,
+    Location,
+    StoreStatus,
+    StoreUUID,
+)
 from LiuXin_alpha.storage.api.storage_manager_api.models.assets import ReplicaMode
 from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
     BackupPolicyID,
@@ -17,7 +24,8 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
 
 
 class TopologyRelation(StrEnum):
-    """Whether two configured Stores share a declared topology identity.
+    """
+    Whether two configured Stores share a declared topology identity.
 
     ``UNKNOWN`` is distinct from ``DIFFERENT``: absence of host or device
     metadata must not be treated as evidence of physical separation.
@@ -33,20 +41,26 @@ class TopologyRelation(StrEnum):
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class StoreSpec:
-    """Portable durable configuration for one store endpoint.
+class StoreConfiguration:
+    """
+    Portable durable configuration for one store endpoint.
+
+    Store default policy identifiers are placement-time defaults. A manager
+    captures them on a newly declared Digital Asset whose first Replica is
+    placed in this Store; they are not dynamically inherited by every Asset
+    that later acquires a Replica here.
 
     Example:
-        >>> spec = StoreSpec(
+        >>> configuration = StoreConfiguration(
         ...     store_uuid=UUID(int=1),
         ...     store_name="primary", store_kind="filesystem",
         ...     store_root_uri="file:///srv/liuxin",
         ... )
-        >>> spec.supports_folders
+        >>> configuration.supports_folders
         True
     """
 
-    store_uuid: StoreRef
+    store_uuid: StoreUUID
     store_name: str
     store_kind: str
     store_root_uri: str
@@ -69,13 +83,19 @@ class StoreSpec:
     supports_folders: bool = True
 
     def __post_init__(self) -> None:
-        """Require a UUID plus textual names, kinds, and root URIs.
+        """
+        Require a UUID plus textual names, kinds, and root URIs.
 
         Example:
-            >>> StoreSpec(UUID(int=1), "", "filesystem", "file:///srv")
+            >>> StoreConfiguration(
+            ...     UUID(int=1), "", "filesystem", "file:///srv",
+            ... )
             Traceback (most recent call last):
             ...
             ValueError: store_name must not be empty.
+
+
+        :return:
         """
 
         if not isinstance(self.store_uuid, UUID):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -97,7 +117,8 @@ class StoreSpec:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageBootstrapIssue:
-    """One configured store that could not be loaded during bootstrap.
+    """
+    One configured store that could not be loaded during bootstrap.
 
     Example:
         >>> issue = StorageBootstrapIssue(
@@ -107,14 +128,15 @@ class StorageBootstrapIssue:
         'offline'
     """
 
-    store_ref: StoreRef | None
+    store_ref: StoreUUID | None
     store_name: str | None
     reason: str
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageBootstrapReport:
-    """Summary of rebuilding the runtime store registry from configuration.
+    """
+    Summary of rebuilding the runtime store registry from configuration.
 
     Example:
         >>> report = StorageBootstrapReport(
@@ -131,13 +153,17 @@ class StorageBootstrapReport:
     issues: tuple[StorageBootstrapIssue, ...] = ()
 
     def __post_init__(self) -> None:
-        """Reject negative or impossible configuration counts.
+        """
+        Reject negative or impossible configuration counts.
 
         Example:
             >>> StorageBootstrapReport(discovered_configurations=-1)
             Traceback (most recent call last):
             ...
             ValueError: bootstrap counts must not be negative.
+
+
+        :return:
         """
 
         counts = (
@@ -160,27 +186,71 @@ class StorageBootstrapReport:
 
     @property
     def ok(self) -> bool:
-        """Return whether every Store configuration loaded without failure.
+        """
+        Return whether every Store configuration loaded without failure.
 
         Example:
             >>> StorageBootstrapReport(
             ...     discovered_configurations=2, loaded_stores=2,
             ... ).ok
             True
+
+
+        :return:
         """
 
         return self.failed_configurations == 0
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class ReconciliationPlan:
-    """Non-mutating comparison between Replica claims and Store inventory.
+class StoreStatusObservation:
+    """
+    One configured Store UUID paired with its dynamic status snapshot.
+
+    A bare ``StoreStatus`` is sufficient after a caller addresses one Store.
+    Enumeration needs this wrapper so the result remains attributable.
+
+    Example:
+        >>> observation = StoreStatusObservation(
+        ...     UUID(int=1), StoreStatus(available=True, writable=False),
+        ... )
+        >>> observation.store_ref
+        UUID('00000000-0000-0000-0000-000000000001')
+    """
+
+    store_ref: StoreUUID
+    status: StoreStatus
+
+    def __post_init__(self) -> None:
+        """
+        Require a UUID rather than a name or database identifier.
+
+        Example:
+            >>> StoreStatusObservation(
+            ...     "archive", StoreStatus(available=True, writable=False),
+            ... )
+            Traceback (most recent call last):
+            ...
+            TypeError: store_ref must be a UUID.
+
+
+        :return:
+        """
+
+        if not isinstance(self.store_ref, UUID):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise TypeError("store_ref must be a UUID.")
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class StoreReconciliationPlan:
+    """
+    Non-mutating comparison between Replica claims and Store inventory.
 
     ``plan_id`` and ``repository_revision`` let an implementation reject a
     stale plan before applying repository state changes.
 
     Example:
-        >>> plan = ReconciliationPlan(
+        >>> plan = StoreReconciliationPlan(
         ...     UUID(int=2), UUID(int=1), True,
         ...     EnumerationCompleteness.COMPLETE,
         ... )
@@ -189,7 +259,7 @@ class ReconciliationPlan:
     """
 
     plan_id: UUID
-    store_ref: StoreRef
+    store_ref: StoreUUID
     verify_digests: bool
     enumeration: EnumerationCompleteness
     expected_replicas: int = 0
@@ -204,10 +274,11 @@ class ReconciliationPlan:
     errors: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        """Validate plan identity, counts, and matched-inventory bounds.
+        """
+        Validate plan identity, counts, and matched-inventory bounds.
 
         Example:
-            >>> ReconciliationPlan(
+            >>> StoreReconciliationPlan(
             ...     UUID(int=2), UUID(int=1), False,
             ...     EnumerationCompleteness.COMPLETE,
             ...     expected_replicas=1, matched_replicas=2,
@@ -215,6 +286,9 @@ class ReconciliationPlan:
             Traceback (most recent call last):
             ...
             ValueError: matched_replicas exceeds a reconciliation total.
+
+
+        :return:
         """
 
         if not isinstance(self.plan_id, UUID):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -238,11 +312,15 @@ class ReconciliationPlan:
 
     @property
     def conclusive(self) -> bool:
-        """Return whether inventory was complete and checks had no errors.
+        """
+        Return whether inventory was complete and checks had no errors.
 
         Example:
             >>> plan.conclusive  # doctest: +SKIP
             True
+
+
+        :return:
         """
 
         return (
@@ -253,12 +331,13 @@ class ReconciliationPlan:
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class ReconciliationReport:
-    """Outcome of applying or previewing one reconciliation plan.
+class StoreReconciliationReport:
+    """
+    Outcome of applying or previewing one reconciliation plan.
 
     Example:
-        >>> report = ReconciliationReport(
-        ...     plan=ReconciliationPlan(
+        >>> report = StoreReconciliationReport(
+        ...     plan=StoreReconciliationPlan(
         ...         UUID(int=2), UUID(int=1), True,
         ...         EnumerationCompleteness.COMPLETE,
         ...         expected_replicas=2, observed_locations=2,
@@ -270,20 +349,24 @@ class ReconciliationReport:
         True
     """
 
-    plan: ReconciliationPlan
+    plan: StoreReconciliationPlan
     applied: bool
     updated_replica_ids: tuple[ReplicaID, ...] = ()
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        """Prevent a preview report from claiming applied mutations.
+        """
+        Prevent a preview report from claiming applied mutations.
 
         Example:
-            >>> ReconciliationReport(
+            >>> StoreReconciliationReport(
             ...     plan, applied=False,
             ...     updated_replica_ids=(ReplicaID(1),),
             ... )  # doctest: +SKIP
+
+
+        :return:
         """
 
         if not self.applied and self.updated_replica_ids:
@@ -293,11 +376,15 @@ class ReconciliationReport:
 
     @property
     def clean(self) -> bool:
-        """Return whether reconciliation found no missing or corrupt objects.
+        """
+        Return whether reconciliation found no missing or corrupt objects.
 
         Example:
             >>> report.clean  # doctest: +SKIP
             True
+
+
+        :return:
         """
 
         return self.plan.conclusive and not (
@@ -309,6 +396,7 @@ class ReconciliationReport:
 
 
 __all__ = [
-    "ReconciliationPlan", "ReconciliationReport", "StorageBootstrapIssue", "StorageBootstrapReport",
-    "StoreSpec", "TopologyRelation",
+    "StoreReconciliationPlan", "StoreReconciliationReport",
+    "StorageBootstrapIssue", "StorageBootstrapReport",
+    "StoreConfiguration", "StoreStatusObservation", "TopologyRelation",
 ]

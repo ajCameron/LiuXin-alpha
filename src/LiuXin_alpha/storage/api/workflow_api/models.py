@@ -1,4 +1,6 @@
-"""Values shared by resumable storage workflows."""
+"""
+Values shared by resumable storage workflows.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +12,8 @@ WorkflowID: TypeAlias = int
 
 
 class WorkflowStatus(StrEnum):
-    """Durable lifecycle state for one workflow execution.
+    """
+    Durable lifecycle state for one workflow execution.
 
     Example:
         >>> WorkflowStatus.COMPLETE.terminal
@@ -27,11 +30,15 @@ class WorkflowStatus(StrEnum):
 
     @property
     def terminal(self) -> bool:
-        """Return whether ordinary execution must stop at this state.
+        """
+        Return whether ordinary execution must stop at this state.
 
         Example:
             >>> WorkflowStatus.CANCELLED.terminal
             True
+
+
+        :return:
         """
         return self in {
             WorkflowStatus.FAILED,
@@ -41,7 +48,8 @@ class WorkflowStatus(StrEnum):
 
     @property
     def resumable(self) -> bool:
-        """Return whether a checkpoint may be reconstructed and continued.
+        """
+        Return whether a checkpoint may be reconstructed and continued.
 
         Failed workflows are resumable after their cause is corrected.
 
@@ -50,6 +58,9 @@ class WorkflowStatus(StrEnum):
             True
             >>> WorkflowStatus.CANCELLED.resumable
             False
+
+
+        :return:
         """
         return self in {
             WorkflowStatus.DRAFT,
@@ -60,7 +71,8 @@ class WorkflowStatus(StrEnum):
 
 @runtime_checkable
 class WorkflowStateAPI(Protocol):
-    """Structural status view required by generic workflow helpers.
+    """
+    Structural status view required by generic workflow helpers.
 
     Example:
         >>> def is_done(state: WorkflowStateAPI) -> bool:
@@ -69,10 +81,14 @@ class WorkflowStateAPI(Protocol):
 
     @property
     def status(self) -> WorkflowStatus:
-        """Return the durable lifecycle state represented by this checkpoint.
+        """
+        Return the durable lifecycle state represented by this checkpoint.
 
         Example:
             >>> status = state.status  # doctest: +SKIP
+
+
+        :return:
         """
         ...
 

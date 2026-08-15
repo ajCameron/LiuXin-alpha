@@ -1,4 +1,5 @@
-"""Storage workflow layer above manager, store, and driver contracts.
+"""
+Storage workflow layer above manager, store, and driver contracts.
 
 Workflows own explicit multi-step processes such as staging and sealing backup
 artifacts.  They use ``StorageManagerAPI`` for managed byte access, repositories
@@ -11,17 +12,16 @@ from LiuXin_alpha.storage.api.workflow_api.backup_api import (
     BackupPackPlan,
     BackupPlannerAPI,
     BackupSourceKind,
-    BackupSourceResult,
-    BackupSourceSpec,
+    BackupSourceStagingReport,
+    BackupSourceDeclaration,
     BackupWorkflowAPI,
     BackupWorkflowKind,
     BackupWorkflowRepositoryAPI,
     BackupWorkflowResult,
-    BackupWorkflowResumeState,
-    BackupWorkflowSpec,
-    BackupWorkflowStatus,
+    BackupWorkflowCheckpoint,
+    BackupWorkflowDeclaration,
     BackupWorkflowStepKind,
-    RegisteredBackupArtifact,
+    BackupArtifactRegistration,
 )
 from LiuXin_alpha.storage.api.workflow_api.base_api import StorageWorkflowAPI
 from LiuXin_alpha.storage.api.workflow_api.models import (
@@ -36,17 +36,16 @@ __all__ = [
     "BackupPackPlan",
     "BackupPlannerAPI",
     "BackupSourceKind",
-    "BackupSourceResult",
-    "BackupSourceSpec",
+    "BackupSourceStagingReport",
+    "BackupSourceDeclaration",
     "BackupWorkflowAPI",
     "BackupWorkflowKind",
     "BackupWorkflowRepositoryAPI",
     "BackupWorkflowResult",
-    "BackupWorkflowResumeState",
-    "BackupWorkflowSpec",
-    "BackupWorkflowStatus",
+    "BackupWorkflowCheckpoint",
+    "BackupWorkflowDeclaration",
     "BackupWorkflowStepKind",
-    "RegisteredBackupArtifact",
+    "BackupArtifactRegistration",
     "StorageWorkflowAPI",
     "WorkflowID",
     "WorkflowStateAPI",

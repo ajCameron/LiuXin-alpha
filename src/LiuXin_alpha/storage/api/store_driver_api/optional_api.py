@@ -11,11 +11,11 @@ from types import TracebackType
 from typing import Protocol, TypeVar, runtime_checkable
 
 from LiuXin_alpha.storage.api.models import Digest, WriteMode
-from LiuXin_alpha.storage.api.storage_driver_api.models import (
-    DriverFileInfo,
+from LiuXin_alpha.storage.api.store_driver_api.models import (
+    DriverObjectInfo,
     DriverObjectAddress,
     DriverObjectAddressT,
-    DriverObjectEntry,
+    DriverInventoryEntry,
 )
 
 
@@ -32,7 +32,7 @@ _DriverObjectAddressCoT = TypeVar(
 
 
 @runtime_checkable
-class DriverWriteSession(Protocol[DriverObjectAddressT]):
+class DriverWriteSessionAPI(Protocol[DriverObjectAddressT]):
     """
     One staged write whose final address changes only at commit.
 
@@ -56,15 +56,22 @@ class DriverWriteSession(Protocol[DriverObjectAddressT]):
 
         Example:
             >>> accepted = session.write(b"payload")  # doctest: +SKIP
+
+
+        :param data:
+        :return:
         """
         ...
 
-    def commit(self) -> DriverFileInfo[DriverObjectAddressT]:
+    def commit(self) -> DriverObjectInfo[DriverObjectAddressT]:
         """
         Verify expectations and publish the complete object.
 
         Example:
             >>> info = session.commit()  # doctest: +SKIP
+
+
+        :return:
         """
         ...
 
@@ -75,15 +82,21 @@ class DriverWriteSession(Protocol[DriverObjectAddressT]):
         Example:
             >>> session.abort()  # doctest: +SKIP
             >>> session.abort()  # doctest: +SKIP
+
+
+        :return:
         """
         ...
 
-    def __enter__(self) -> DriverWriteSession[DriverObjectAddressT]:
+    def __enter__(self) -> DriverWriteSessionAPI[DriverObjectAddressT]:
         """
         Enter the staged-write lifetime and return this session.
 
         Example:
             >>> entered = session.__enter__()  # doctest: +SKIP
+
+
+        :return:
         """
         ...
 
@@ -98,6 +111,12 @@ class DriverWriteSession(Protocol[DriverObjectAddressT]):
 
         Example:
             >>> session.__exit__(None, None, None)  # doctest: +SKIP
+
+
+        :param exc_type:
+        :param exc:
+        :param traceback:
+        :return:
         """
         ...
 
@@ -108,16 +127,16 @@ class EnumerableStorageDriverAPI(Protocol[DriverObjectAddressT]):
     Optional inventory protocol returning concrete objects and cheap hints.
 
     Example:
-        >>> entries = list(driver.iter_object_entries())  # doctest: +SKIP
+        >>> entries = list(driver.iter_inventory())  # doctest: +SKIP
     """
 
-    def iter_object_entries(
+    def iter_inventory(
         self,
         *,
         prefix: DriverObjectAddressT | None = None,
-    ) -> Iterator[DriverObjectEntry[DriverObjectAddressT]]:
+    ) -> Iterator[DriverInventoryEntry[DriverObjectAddressT]]:
         """
-        Enumerate object entries with declared complete/partial semantics.
+        Enumerate inventory entries with declared complete/partial semantics.
 
         Listing errors must surface. Drivers must not turn an incomplete or
         failed inventory into an apparently complete empty iterator. When
@@ -130,7 +149,8 @@ class EnumerableStorageDriverAPI(Protocol[DriverObjectAddressT]):
         stronger guarantee; concurrent changes may otherwise appear or vanish.
 
         Example:
-            >>> entries = driver.iter_object_entries(prefix=prefix)  # doctest: +SKIP
+            >>> entries = driver.iter_inventory(prefix=prefix)  # doctest: +SKIP
+
 
         :param prefix:
         :return:
@@ -140,7 +160,8 @@ class EnumerableStorageDriverAPI(Protocol[DriverObjectAddressT]):
 
 @runtime_checkable
 class WritableStorageDriverAPI(Protocol[DriverObjectAddressT]):
-    """Optional staged create/replace protocol.
+    """
+    Optional staged create/replace protocol.
 
     Example:
         >>> session = driver.begin_write(address)  # doctest: +SKIP
@@ -154,7 +175,7 @@ class WritableStorageDriverAPI(Protocol[DriverObjectAddressT]):
         expected_size: int | None = None,
         expected_digest: Digest | None = None,
         metadata: tuple[tuple[str, str], ...] = (),
-    ) -> DriverWriteSession[DriverObjectAddressT]:
+    ) -> DriverWriteSessionAPI[DriverObjectAddressT]:
         """
         Begin a private staged write at an explicit address.
 
@@ -168,6 +189,7 @@ class WritableStorageDriverAPI(Protocol[DriverObjectAddressT]):
             >>> session = driver.begin_write(  # doctest: +SKIP
             ...     address, expected_size=4,
             ... )
+
 
         :param object_address:
         :param mode:
@@ -208,6 +230,7 @@ class DeletableStorageDriverAPI(Protocol[_DriverObjectAddressContraT]):
         Example:
             >>> driver.delete(address, if_version="v3")  # doctest: +SKIP
 
+
         :param object_address:
         :param missing_ok:
         :param if_version:
@@ -242,6 +265,7 @@ class ObjectAddressAllocatorStorageDriverAPI(
             ...     expected_digest=digest,
             ... )
 
+
         :param expected_size:
         :param expected_digest:
         :param name_hint:
@@ -252,7 +276,8 @@ class ObjectAddressAllocatorStorageDriverAPI(
 
 @runtime_checkable
 class HierarchicalStorageDriverAPI(Protocol[_DriverObjectAddressCoT]):
-    """Optional construction of addresses from filesystem-like tokens.
+    """
+    Optional construction of addresses from filesystem-like tokens.
 
     Object-address strings remain opaque to generic code. Only drivers
     advertising this protocol may expose path or prefix joining semantics.
@@ -263,7 +288,6 @@ class HierarchicalStorageDriverAPI(Protocol[_DriverObjectAddressCoT]):
 
     def join_object_address(self, *tokens: str) -> _DriverObjectAddressCoT:
         """
-
         Construct a canonical checked address from hierarchy tokens.
 
         Example:
@@ -278,7 +302,7 @@ class HierarchicalStorageDriverAPI(Protocol[_DriverObjectAddressCoT]):
 
 __all__ = [
     "DeletableStorageDriverAPI",
-    "DriverWriteSession",
+    "DriverWriteSessionAPI",
     "EnumerableStorageDriverAPI",
     "HierarchicalStorageDriverAPI",
     "ObjectAddressAllocatorStorageDriverAPI",

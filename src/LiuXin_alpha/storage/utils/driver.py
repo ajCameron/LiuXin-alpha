@@ -21,22 +21,22 @@ from LiuXin_alpha.storage.api.models import (
     EnumerationCompleteness,
     WriteMode,
 )
-from LiuXin_alpha.storage.api.storage_driver_api.accelerators_api import (
+from LiuXin_alpha.storage.api.store_driver_api.accelerators_api import (
     NativeCopyStorageDriverAPI,
     NativeMoveStorageDriverAPI,
 )
-from LiuXin_alpha.storage.api.storage_driver_api.models import (
-    DriverFileInfo,
+from LiuXin_alpha.storage.api.store_driver_api.models import (
+    DriverObjectInfo,
     DriverObjectAddress,
-    DriverObjectEntry,
+    DriverInventoryEntry,
 )
-from LiuXin_alpha.storage.api.storage_driver_api.optional_api import (
+from LiuXin_alpha.storage.api.store_driver_api.optional_api import (
     DeletableStorageDriverAPI,
-    DriverWriteSession,
+    DriverWriteSessionAPI,
     EnumerableStorageDriverAPI,
     WritableStorageDriverAPI,
 )
-from LiuXin_alpha.storage.api.storage_driver_api.readable_api import (
+from LiuXin_alpha.storage.api.store_driver_api.readable_api import (
     ReadableStorageDriverAPI,
 )
 from LiuXin_alpha.storage.utils.constants import DEFAULT_STORAGE_CHUNK_SIZE
@@ -49,7 +49,7 @@ _DestinationAddressT = TypeVar(
 
 
 def write_all(
-    session: DriverWriteSession[_DestinationAddressT],
+    session: DriverWriteSessionAPI[_DestinationAddressT],
     data: bytes,
 ) -> None:
     """Write all bytes even when a staged session accepts partial chunks.
@@ -82,7 +82,7 @@ def put_object(
     expected_digest: Digest | None = None,
     metadata: tuple[tuple[str, str], ...] = (),
     chunk_size: int = DEFAULT_STORAGE_CHUNK_SIZE,
-) -> DriverFileInfo[_DestinationAddressT]:
+) -> DriverObjectInfo[_DestinationAddressT]:
     """
     Stream bytes through a driver's optional staged-write protocol.
 
@@ -145,7 +145,7 @@ def write_object_bytes(
     mode: WriteMode = WriteMode.CREATE_ONLY,
     expected_digest: Digest | None = None,
     metadata: tuple[tuple[str, str], ...] = (),
-) -> DriverFileInfo[_DestinationAddressT]:
+) -> DriverObjectInfo[_DestinationAddressT]:
     """
     Write a small in-memory payload with an exact size expectation.
 
@@ -190,7 +190,7 @@ def iter_object_addresses(
     if not isinstance(driver, EnumerableStorageDriverAPI):
         raise StorageUnsupportedOperation(
             "driver advertises enumeration but does not implement "
-            + "iter_object_entries()."
+            + "iter_inventory()."
         )
     enumerable = cast(EnumerableStorageDriverAPI[_SourceAddressT], driver)
     if prefix is not None and not driver.capabilities.prefix_enumeration:
@@ -203,7 +203,7 @@ def iter_object_addresses(
         else driver.require_canonical_object_address(prefix)
     )
     seen: set[DriverObjectAddress] = set()
-    for entry in enumerable.iter_object_entries(prefix=checked_prefix):
+    for entry in enumerable.iter_inventory(prefix=checked_prefix):
         address = driver.require_canonical_object_address(
             entry.object_address
         )
@@ -224,7 +224,7 @@ def transfer_between_drivers(
     mode: WriteMode = WriteMode.CREATE_ONLY,
     destination_metadata: tuple[tuple[str, str], ...] = (),
     chunk_size: int = DEFAULT_STORAGE_CHUNK_SIZE,
-) -> DriverFileInfo[_DestinationAddressT]:
+) -> DriverObjectInfo[_DestinationAddressT]:
     """Copy one verified object between arbitrary reusable drivers.
 
     A same-instance native copy is used only when advertised. Otherwise bytes
@@ -294,7 +294,7 @@ def move_between_drivers(
     *,
     mode: WriteMode = WriteMode.CREATE_ONLY,
     chunk_size: int = DEFAULT_STORAGE_CHUNK_SIZE,
-) -> DriverFileInfo[_DestinationAddressT]:
+) -> DriverObjectInfo[_DestinationAddressT]:
     """Perform verified transfer followed by conditional source deletion.
 
     Example:
@@ -372,7 +372,7 @@ def materialize_object(
     driver: ReadableStorageDriverAPI[_SourceAddressT],
     object_address: _SourceAddressT,
     *,
-    entry: DriverObjectEntry[_SourceAddressT] | None = None,
+    entry: DriverInventoryEntry[_SourceAddressT] | None = None,
     suggested_filename: str | None = None,
     chunk_size: int = DEFAULT_STORAGE_CHUNK_SIZE,
 ) -> Generator[Path, None, None]:
@@ -478,10 +478,10 @@ def _require_writable_driver(
 def _require_result_address(
     driver: ReadableStorageDriverAPI[_DestinationAddressT],
     expected_address: _DestinationAddressT,
-    info: DriverFileInfo[_DestinationAddressT],
+    info: DriverObjectInfo[_DestinationAddressT],
     *,
     operation: str,
-) -> DriverFileInfo[_DestinationAddressT]:
+) -> DriverObjectInfo[_DestinationAddressT]:
     """Require driver metadata to describe exactly the requested object.
 
     Example:
@@ -490,7 +490,7 @@ def _require_result_address(
         ... )
     """
     try:
-        return driver.require_file_info(expected_address, info)
+        return driver.require_object_info(expected_address, info)
     except StorageIntegrityError as exc:
         raise StorageIntegrityError(
             f"driver {operation} returned metadata for another address."

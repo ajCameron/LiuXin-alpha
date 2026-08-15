@@ -1,11 +1,15 @@
-"""Manager-bound factories for resolving catalogue identities to Locations."""
+"""
+Manager-bound factories for resolving catalogue identities to Locations.
+
+Locations contain all the information we have as to the
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from LiuXin_alpha.storage.api.models import Location, StoreRef
+from LiuXin_alpha.storage.api.models import Location, StoreUUID
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
     DigitalAssetID,
     ReplicaID,
@@ -13,7 +17,8 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 
 
 class _AssetLocator(Protocol):
-    """Location-resolution subset required by ``LocationFactory``.
+    """
+    Location-resolution subset required by ``LocationFactory``.
 
     Example:
         >>> def accepts_locator(locator: _AssetLocator) -> None:
@@ -24,30 +29,43 @@ class _AssetLocator(Protocol):
         self,
         digital_asset_id: DigitalAssetID,
         *,
-        preferred_store: StoreRef | None = None,
+        preferred_store_ref: StoreUUID | None = None,
         require_verified: bool = False,
     ) -> Location:
-        """Select a readable Location for one Digital Asset.
+        """
+        Select a readable Location for one Digital Asset.
 
         Example:
             >>> location = locator.locate_digital_asset(  # doctest: +SKIP
             ...     DigitalAssetID(7),
             ... )
+
+
+        :param digital_asset_id:
+        :param preferred_store_ref:
+        :param require_verified:
+        :return:
         """
         ...
 
     def locate_replica(self, replica_id: ReplicaID) -> Location:
-        """Resolve one exact Replica Location.
+        """
+        Resolve one exact Replica Location.
 
         Example:
             >>> location = locator.locate_replica(ReplicaID(12))  # doctest: +SKIP
+
+
+        :param replica_id:
+        :return:
         """
         ...
 
 
 @dataclass(slots=True, frozen=True, eq=False)
 class LocationFactory:
-    """Resolve database identities through one storage manager.
+    """
+    Resolve database identities through one storage manager.
 
     A Digital Asset may have several Replicas, so ``from_id`` performs a
     current manager selection rather than reconstructing a unique address.
@@ -67,25 +85,32 @@ class LocationFactory:
         self,
         digital_asset_id: DigitalAssetID,
         *,
-        preferred_store: StoreRef | None = None,
+        preferred_store_ref: StoreUUID | None = None,
         require_verified: bool = False,
     ) -> Location:
-        """Select one readable Location for a Digital Asset identity.
+        """
+        Select one readable Location for a Digital Asset identity.
 
-        ``preferred_store`` is a Store UUID, not its row ID or display name.
+        ``preferred_store_ref`` is a Store UUID, not a row ID or display name.
         The returned Location may change as Replica health or placement
         changes; persist it when the concrete address itself is significant.
 
         Example:
             >>> location = factory.from_id(  # doctest: +SKIP
-            ...     DigitalAssetID(7), preferred_store=UUID(int=1),
+            ...     DigitalAssetID(7), preferred_store_ref=UUID(int=1),
             ...     require_verified=True,
             ... )
+
+
+        :param digital_asset_id:
+        :param preferred_store_ref:
+        :param require_verified:
+        :return:
         """
 
         return self._manager.locate_digital_asset(
             digital_asset_id,
-            preferred_store=preferred_store,
+            preferred_store_ref=preferred_store_ref,
             require_verified=require_verified,
         )
 
@@ -93,31 +118,43 @@ class LocationFactory:
         self,
         digital_asset_id: DigitalAssetID,
         *,
-        preferred_store: StoreRef | None = None,
+        preferred_store_ref: StoreUUID | None = None,
         require_verified: bool = False,
     ) -> Location:
-        """Explicitly named alias for :meth:`from_id`.
+        """
+        Explicitly named alias for :meth:`from_id`.
 
         Example:
             >>> location = factory.from_digital_asset_id(  # doctest: +SKIP
             ...     DigitalAssetID(7),
             ... )
+
+
+        :param digital_asset_id:
+        :param preferred_store_ref:
+        :param require_verified:
+        :return:
         """
 
         return self.from_id(
             digital_asset_id,
-            preferred_store=preferred_store,
+            preferred_store_ref=preferred_store_ref,
             require_verified=require_verified,
         )
 
     def from_replica_id(self, replica_id: ReplicaID) -> Location:
-        """Resolve one exact Replica identity to its Location.
+        """
+        Resolve one exact Replica identity to its Location.
 
         Unlike ``from_id``, this performs no choice among a Digital Asset's
         Replicas because the Replica ID already identifies one concrete copy.
 
         Example:
             >>> location = factory.from_replica_id(ReplicaID(12))  # doctest: +SKIP
+
+
+        :param replica_id:
+        :return:
         """
 
         return self._manager.locate_replica(replica_id)

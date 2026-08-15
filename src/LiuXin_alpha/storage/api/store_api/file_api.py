@@ -1,4 +1,5 @@
-"""Transactional configured-store file protocols.
+"""
+Transactional configured-store file protocols.
 
 The primitive contract is deliberately small.  It describes concrete byte
 storage only; assets, replicas, placement policy, repair, reconciliation, and
@@ -13,13 +14,16 @@ from __future__ import annotations
 
 import abc
 import hashlib
+import io
 
 from collections.abc import Iterator
 from types import TracebackType
 from typing import BinaryIO, Protocol, runtime_checkable
-from uuid import UUID
-
-from LiuXin_alpha.storage.api.errors import StoreUnsupportedOperation
+from LiuXin_alpha.storage.api.errors import (
+    StoreError,
+    StoreNotFound,
+    StoreUnsupportedOperation,
+)
 from LiuXin_alpha.storage.api.models import (
     Digest,
     FileInfo,
@@ -28,10 +32,11 @@ from LiuXin_alpha.storage.api.models import (
     StoreStatus,
     WriteMode,
 )
+from LiuXin_alpha.storage.api.placement_hints_api import StoragePlacementHints
 
 
 @runtime_checkable
-class WriteSession(Protocol):
+class WriteSessionAPI(Protocol):
     """
     One staged write whose final Location changes only at commit.
 
@@ -49,7 +54,7 @@ class WriteSession(Protocol):
     false; callers may then choose a safer destination or recovery policy.
 
     Example:
-        >>> def publish(session: WriteSession, data: bytes) -> FileInfo:
+        >>> def publish(session: WriteSessionAPI, data: bytes) -> FileInfo:
         ...     with session:
         ...         session.write(data)
         ...         return session.commit()
@@ -61,6 +66,7 @@ class WriteSession(Protocol):
 
         Example:
             >>> accepted = session.write(b"payload")  # doctest: +SKIP
+
 
         :param data:
         :return:
@@ -74,24 +80,33 @@ class WriteSession(Protocol):
         Example:
             >>> info = session.commit()  # doctest: +SKIP
 
+
         :return:
         """
         ...
 
     def abort(self) -> None:
-        """Discard staged state; repeated calls must be safe.
+        """
+        Discard staged state; repeated calls must be safe.
 
         Example:
             >>> session.abort()  # doctest: +SKIP
             >>> session.abort()  # doctest: +SKIP
+
+
+        :return:
         """
         ...
 
-    def __enter__(self) -> WriteSession:
-        """Enter the staged-write lifetime and return this session.
+    def __enter__(self) -> WriteSessionAPI:
+        """
+        Enter the staged-write lifetime and return this session.
 
         Example:
             >>> entered = session.__enter__()  # doctest: +SKIP
+
+
+        :return:
         """
         ...
 
@@ -101,16 +116,23 @@ class WriteSession(Protocol):
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        """Abort unless this session has already committed.
+        """
+        Abort unless this session has already committed.
 
         Example:
             >>> session.__exit__(None, None, None)  # doctest: +SKIP
+
+
+        :param exc_type:
+        :param exc:
+        :param traceback:
+        :return:
         """
         ...
 
 
 @runtime_checkable
-class FileStore(Protocol):
+class StoreCoreAPI(Protocol):
     """
     Structural view of the mandatory operations on one configured store.
 
@@ -119,26 +141,32 @@ class FileStore(Protocol):
     how the configured store delegates work to ``StorageDriverAPI``.
 
     Example:
-        >>> def read_all(store: FileStore, location: Location) -> bytes:
+        >>> def read_all(store: StoreCoreAPI, location: Location) -> bytes:
         ...     with store.open_read(location) as source:
         ...         return source.read()
     """
 
     @property
     @abc.abstractmethod
-    def capabilities(self) -> "StoreCapabilities":
+    def capabilities(  # pyright: ignore[reportInvalidAbstractMethod]
+        self,
+    ) -> "StoreCapabilities":
         """
         Describe operations the backend can inherently perform.
 
         Example:
             >>> supports_ranges = store.capabilities.range_reads  # doctest: +SKIP
 
+
         :return:
         """
         ...
 
     @abc.abstractmethod
-    def stat(self, location: Location) -> FileInfo:
+    def stat(  # pyright: ignore[reportInvalidAbstractMethod]
+        self,
+        location: Location,
+    ) -> FileInfo:
         """
         Get one object's stats or raise ``StoreNotFound``.
 
@@ -148,13 +176,14 @@ class FileStore(Protocol):
         Example:
             >>> info = store.stat(Location(UUID(int=1), "objects/42"))  # doctest: +SKIP
 
+
         :param location:
         :return:
         """
         ...
 
     @abc.abstractmethod
-    def open_read(
+    def open_read(  # pyright: ignore[reportInvalidAbstractMethod]
         self,
         location: Location,
         *,
@@ -169,6 +198,7 @@ class FileStore(Protocol):
             ...     Location(UUID(int=1), "objects/42"), offset=10, length=20,
             ... )
 
+
         :param location:
         :param offset:
         :param length:
@@ -177,38 +207,52 @@ class FileStore(Protocol):
         ...
 
     @abc.abstractmethod
-    def begin_write(
+    def begin_write(  # pyright: ignore[reportInvalidAbstractMethod]
         self,
         location: Location,
         *,
         mode: WriteMode = WriteMode.CREATE_ONLY,
         expected_size: int | None = None,
         expected_digest: Digest | None = None,
-    ) -> "WriteSession":
-        """Start a private staged write without changing the final Location.
+        placement_hints: StoragePlacementHints | None = None,
+    ) -> "WriteSessionAPI":
+        """
+        Start a private staged write without changing the final Location.
 
         ``CREATE_ONLY`` is the safe default.  Immutable or content-addressed
         stores may treat publication of identical bytes at an existing key as
         idempotent success, but different bytes must raise an integrity or
         already-exists error rather than overwrite the object.
+        Placement hints are advisory and Store-facing. Implementations that
+        support rich layouts or indexes may consume them during commit;
+        implementations that do not may ignore them.
 
         Example:
             >>> session = store.begin_write(  # doctest: +SKIP
             ...     Location(UUID(int=1), "objects/42"),
             ...     mode=WriteMode.CREATE_ONLY, expected_size=4,
             ... )
+
+
+        :param location:
+        :param mode:
+        :param expected_size:
+        :param expected_digest:
+        :param placement_hints:
+        :return:
         """
         ...
 
     @abc.abstractmethod
-    def delete(
+    def delete(  # pyright: ignore[reportInvalidAbstractMethod]
         self,
         location: Location,
         *,
         missing_ok: bool = False,
         if_version: str | None = None,
     ) -> None:
-        """Delete an object with optional idempotence and race protection.
+        """
+        Delete an object with optional idempotence and race protection.
 
         ``missing_ok`` suppresses only genuine absence. Passing
         ``if_version`` requires ``capabilities.conditional_delete`` and
@@ -221,16 +265,23 @@ class FileStore(Protocol):
             >>> store.delete(  # doctest: +SKIP
             ...     Location(UUID(int=1), "objects/42"), if_version="v3",
             ... )
+
+
+        :param location:
+        :param missing_ok:
+        :param if_version:
+        :return:
         """
         ...
 
     @abc.abstractmethod
-    def iter_locations(
+    def iter_locations(  # pyright: ignore[reportInvalidAbstractMethod]
         self,
         *,
         prefix: Location | None = None,
     ) -> Iterator[Location]:
-        """Enumerate concrete files only; completeness is a capability.
+        """
+        Enumerate concrete files only; completeness is a capability.
 
         A non-``None`` prefix additionally requires
         ``capabilities.prefix_enumeration``. Implementations raise
@@ -239,16 +290,25 @@ class FileStore(Protocol):
 
         Example:
             >>> locations = list(store.iter_locations())  # doctest: +SKIP
+
+
+        :param prefix:
+        :return:
         """
         ...
 
     @abc.abstractmethod
-    def status(self, *, refresh: bool = False) -> StoreStatus:
+    def status(  # pyright: ignore[reportInvalidAbstractMethod]
+        self,
+        *,
+        refresh: bool = False,
+    ) -> StoreStatus:
         """
         Return the configured store's availability and capacity state.
 
         Example:
             >>> online = store.status(refresh=True).available  # doctest: +SKIP
+
 
         :param refresh:
         :return:
@@ -256,8 +316,9 @@ class FileStore(Protocol):
         ...
 
 
-class StoreFileAPI(FileStore, abc.ABC):
-    """Nominal configured-store byte API with safe convenience operations.
+class StoreFileAPI(StoreCoreAPI, abc.ABC):
+    """
+    Nominal configured-store byte API with safe convenience operations.
 
     Example:
         >>> def read_header(store: StoreFileAPI, location: Location) -> bytes:
@@ -265,30 +326,46 @@ class StoreFileAPI(FileStore, abc.ABC):
     """
 
     def try_stat(self, location: Location) -> FileInfo | None:
-        """Return ``None`` only when the store reports genuine absence.
+        """
+        Return ``None`` only when the store reports genuine absence.
 
         Example:
             >>> store.try_stat(Location(UUID(int=1), "missing")) is None  # doctest: +SKIP
             True
-        """
-        from LiuXin_alpha.storage.utils.store import try_stat
 
-        return try_stat(self, location)
+
+        :param location:
+        :return:
+        """
+        try:
+            return self.stat(location)
+        except StoreNotFound:
+            return None
 
     def exists(self, location: Location) -> bool:
-        """Test existence without masking permission or availability errors.
+        """
+        Test existence without masking permission or availability errors.
 
         Example:
             >>> store.exists(Location(UUID(int=1), "objects/42"))  # doctest: +SKIP
             True
+
+
+        :param location:
+        :return:
         """
         return self.try_stat(location) is not None
 
     def file_size(self, location: Location) -> int:
-        """Return one object's authoritative byte size.
+        """
+        Return one object's authoritative byte size.
 
         Example:
             >>> size = store.file_size(Location(UUID(int=1), "objects/42"))  # doctest: +SKIP
+
+
+        :param location:
+        :return:
         """
         return self.stat(location).size
 
@@ -299,10 +376,17 @@ class StoreFileAPI(FileStore, abc.ABC):
         offset: int = 0,
         length: int | None = None,
     ) -> BinaryIO:
-        """Familiar alias for ``open_read``.
+        """
+        Familiar alias for ``open_read``.
 
         Example:
             >>> source = store.get(location, offset=10, length=20)  # doctest: +SKIP
+
+
+        :param location:
+        :param offset:
+        :param length:
+        :return:
         """
         return self.open_read(location, offset=offset, length=length)
 
@@ -313,11 +397,18 @@ class StoreFileAPI(FileStore, abc.ABC):
         offset: int = 0,
         length: int | None = None,
     ) -> bytes:
-        """Read one object or range fully into memory.
+        """
+        Read one object or range fully into memory.
 
         Example:
             >>> store.read_bytes(location, length=4)  # doctest: +SKIP
             b'book'
+
+
+        :param location:
+        :param offset:
+        :param length:
+        :return:
         """
         with self.open_read(location, offset=offset, length=length) as source:
             return source.read()
@@ -330,27 +421,70 @@ class StoreFileAPI(FileStore, abc.ABC):
         mode: WriteMode = WriteMode.CREATE_ONLY,
         expected_size: int | None = None,
         expected_digest: Digest | None = None,
+        placement_hints: StoragePlacementHints | None = None,
         chunk_size: int = 1024 * 1024,
     ) -> FileInfo:
-        """Stream, verify, and transactionally publish one object.
+        """
+        Stream, verify, and transactionally publish one object.
 
         Example:
             >>> import io
             >>> info = store.put(  # doctest: +SKIP
             ...     location, io.BytesIO(b"book"), expected_size=4,
             ... )
-        """
-        from LiuXin_alpha.storage.utils.store import put
 
-        return put(
-            self,
-            location,
-            source,
-            mode=mode,
-            expected_size=expected_size,
-            expected_digest=expected_digest,
-            chunk_size=chunk_size,
+
+        :param location:
+        :param source:
+        :param mode:
+        :param expected_size:
+        :param expected_digest:
+        :param placement_hints:
+        :param chunk_size:
+        :return:
+        """
+        if chunk_size < 1:
+            raise ValueError("chunk_size must be at least one byte.")
+        if expected_size is not None and expected_size < 0:
+            raise ValueError("expected_size must not be negative.")
+
+        session = (
+            self.begin_write(
+                location,
+                mode=mode,
+                expected_size=expected_size,
+                expected_digest=expected_digest,
+            )
+            if placement_hints is None or not self.capabilities.placement_hints
+            else self.begin_write(
+                location,
+                mode=mode,
+                expected_size=expected_size,
+                expected_digest=expected_digest,
+                placement_hints=placement_hints,
+            )
         )
+        with session:
+            while True:
+                chunk = source.read(chunk_size)
+                if not chunk:
+                    break
+                if not isinstance(chunk, bytes):
+                    raise TypeError("source must be a binary stream returning bytes.")
+                view = memoryview(chunk)
+                written = 0
+                while written < len(view):
+                    accepted = session.write(view[written:].tobytes())
+                    if accepted <= 0:
+                        raise StoreError(
+                            "write session accepted no bytes and made no progress."
+                        )
+                    if accepted > len(view) - written:
+                        raise StoreError(
+                            "write session accepted more bytes than supplied."
+                        )
+                    written += accepted
+            return session.commit()
 
     def write_bytes(
         self,
@@ -359,27 +493,45 @@ class StoreFileAPI(FileStore, abc.ABC):
         *,
         mode: WriteMode = WriteMode.CREATE_ONLY,
         expected_digest: Digest | None = None,
+        placement_hints: StoragePlacementHints | None = None,
     ) -> FileInfo:
-        """Write a small in-memory payload with an exact size expectation.
+        """
+        Write a small in-memory payload with an exact size expectation.
 
         Example:
             >>> info = store.write_bytes(location, b"book")  # doctest: +SKIP
-        """
-        from LiuXin_alpha.storage.utils.store import write_bytes
 
-        return write_bytes(
-            self,
+
+        :param location:
+        :param data:
+        :param mode:
+        :param expected_digest:
+        :param placement_hints:
+        :return:
+        """
+        return self.put(
             location,
-            data,
+            io.BytesIO(data),
             mode=mode,
+            expected_size=len(data),
             expected_digest=expected_digest,
+            placement_hints=placement_hints,
         )
 
-    def iter_infos(self, *, prefix: Location | None = None) -> Iterator[FileInfo]:
-        """Enumerate concrete locations and describe each object.
+    def iter_file_infos(
+        self,
+        *,
+        prefix: Location | None = None,
+    ) -> Iterator[FileInfo]:
+        """
+        Enumerate concrete locations and describe each object.
 
         Example:
-            >>> infos = list(store.iter_infos())  # doctest: +SKIP
+            >>> infos = list(store.iter_file_infos())  # doctest: +SKIP
+
+
+        :param prefix:
+        :return:
         """
         for location in self.iter_locations(prefix=prefix):
             yield self.stat(location)
@@ -391,13 +543,20 @@ class StoreFileAPI(FileStore, abc.ABC):
         *,
         chunk_size: int = 1024 * 1024,
     ) -> Digest:
-        """Compute an object digest by streaming through the configured store.
+        """
+        Compute an object digest by streaming through the configured store.
 
         A concrete store may override this method to expose an authoritative
         driver-side digest.
 
         Example:
             >>> digest = store.compute_digest(location, "sha256")  # doctest: +SKIP
+
+
+        :param location:
+        :param algorithm:
+        :param chunk_size:
+        :return:
         """
         if chunk_size < 1:
             raise ValueError("chunk_size must be at least one byte.")
@@ -425,10 +584,17 @@ class StoreFileAPI(FileStore, abc.ABC):
         *,
         mode: WriteMode = WriteMode.CREATE_ONLY,
     ) -> FileInfo:
-        """Copy by verified streaming unless a concrete store overrides it.
+        """
+        Copy by verified streaming unless a concrete store overrides it.
 
         Example:
             >>> info = store.copy(source, destination)  # doctest: +SKIP
+
+
+        :param source:
+        :param destination:
+        :param mode:
+        :return:
         """
         source_info = self.stat(source)
         with self.open_read(source) as source_stream:
@@ -447,7 +613,8 @@ class StoreFileAPI(FileStore, abc.ABC):
         *,
         mode: WriteMode = WriteMode.CREATE_ONLY,
     ) -> FileInfo:
-        """Perform a verified copy followed by conditional source deletion.
+        """
+        Perform a verified copy followed by conditional source deletion.
 
         A concrete store may override this method with a safe native move. The
         generic fallback refuses to publish the destination unless the source
@@ -455,6 +622,12 @@ class StoreFileAPI(FileStore, abc.ABC):
 
         Example:
             >>> info = store.move(source, destination)  # doctest: +SKIP
+
+
+        :param source:
+        :param destination:
+        :param mode:
+        :return:
         """
         source_info = self.stat(source)
         if not self.capabilities.conditional_delete:
@@ -472,11 +645,12 @@ class StoreFileAPI(FileStore, abc.ABC):
 
 
 @runtime_checkable
-class NativeCopyStore(FileStore, Protocol):
-    """Optional backend-native copy acceleration.
+class NativeCopyStoreAPI(StoreCoreAPI, Protocol):
+    """
+    Optional backend-native copy acceleration.
 
     Example:
-        >>> def clone(store: NativeCopyStore, source: Location, target: Location):
+        >>> def clone(store: NativeCopyStoreAPI, source: Location, target: Location):
         ...     return store.copy(source, target, mode=WriteMode.CREATE_ONLY)
     """
 
@@ -487,20 +661,28 @@ class NativeCopyStore(FileStore, Protocol):
         *,
         mode: WriteMode = WriteMode.CREATE_ONLY,
     ) -> FileInfo:
-        """Copy entirely within the backend without client-side streaming.
+        """
+        Copy entirely within the backend without client-side streaming.
 
         Example:
             >>> info = store.copy(source, destination)  # doctest: +SKIP
+
+
+        :param source:
+        :param destination:
+        :param mode:
+        :return:
         """
         ...
 
 
 @runtime_checkable
-class NativeMoveStore(FileStore, Protocol):
-    """Optional backend-native move acceleration.
+class NativeMoveStoreAPI(StoreCoreAPI, Protocol):
+    """
+    Optional backend-native move acceleration.
 
     Example:
-        >>> def relocate(store: NativeMoveStore, source: Location, target: Location):
+        >>> def relocate(store: NativeMoveStoreAPI, source: Location, target: Location):
         ...     return store.move(source, target, mode=WriteMode.CREATE_ONLY)
     """
 
@@ -511,20 +693,28 @@ class NativeMoveStore(FileStore, Protocol):
         *,
         mode: WriteMode = WriteMode.CREATE_ONLY,
     ) -> FileInfo:
-        """Move entirely within the backend with explicit collision behavior.
+        """
+        Move entirely within the backend with explicit collision behavior.
 
         Example:
             >>> info = store.move(source, destination)  # doctest: +SKIP
+
+
+        :param source:
+        :param destination:
+        :param mode:
+        :return:
         """
         ...
 
 
 @runtime_checkable
-class DigestingStore(FileStore, Protocol):
-    """Optional authoritative or server-side digest acceleration.
+class DigestingStoreAPI(StoreCoreAPI, Protocol):
+    """
+    Optional authoritative or server-side digest acceleration.
 
     Example:
-        >>> def sha256(store: DigestingStore, location: Location) -> Digest:
+        >>> def sha256(store: DigestingStoreAPI, location: Location) -> Digest:
         ...     return store.compute_digest(location, "sha256")
     """
 
@@ -533,19 +723,25 @@ class DigestingStore(FileStore, Protocol):
         location: Location,
         algorithm: str = "sha256",
     ) -> Digest:
-        """Compute a digest without requiring a generic client-side read.
+        """
+        Compute a digest without requiring a generic client-side read.
 
         Example:
             >>> digest = store.compute_digest(location, "sha256")  # doctest: +SKIP
+
+
+        :param location:
+        :param algorithm:
+        :return:
         """
         ...
 
 
 __all__ = [
-    "DigestingStore",
-    "FileStore",
-    "NativeCopyStore",
-    "NativeMoveStore",
+    "DigestingStoreAPI",
+    "StoreCoreAPI",
+    "NativeCopyStoreAPI",
+    "NativeMoveStoreAPI",
     "StoreFileAPI",
-    "WriteSession",
+    "WriteSessionAPI",
 ]

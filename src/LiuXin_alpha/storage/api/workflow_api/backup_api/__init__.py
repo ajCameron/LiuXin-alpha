@@ -1,4 +1,6 @@
-"""Backup workflow contracts and durable value objects."""
+"""
+Backup workflow contracts and durable value objects.
+"""
 
 from LiuXin_alpha.storage.api.workflow_api.backup_api.artifact_api import (
     BackupArtifactRegistryAPI,
@@ -6,15 +8,14 @@ from LiuXin_alpha.storage.api.workflow_api.backup_api.artifact_api import (
 from LiuXin_alpha.storage.api.workflow_api.backup_api.models import (
     BackupPackPlan,
     BackupSourceKind,
-    BackupSourceResult,
-    BackupSourceSpec,
+    BackupSourceStagingReport,
+    BackupSourceDeclaration,
     BackupWorkflowKind,
     BackupWorkflowResult,
-    BackupWorkflowResumeState,
-    BackupWorkflowSpec,
-    BackupWorkflowStatus,
+    BackupWorkflowCheckpoint,
+    BackupWorkflowDeclaration,
     BackupWorkflowStepKind,
-    RegisteredBackupArtifact,
+    BackupArtifactRegistration,
 )
 from LiuXin_alpha.storage.api.workflow_api.backup_api.planner_api import (
     BackupPlannerAPI,
@@ -32,15 +33,14 @@ __all__ = [
     "BackupPackPlan",
     "BackupPlannerAPI",
     "BackupSourceKind",
-    "BackupSourceResult",
-    "BackupSourceSpec",
+    "BackupSourceStagingReport",
+    "BackupSourceDeclaration",
     "BackupWorkflowAPI",
     "BackupWorkflowKind",
     "BackupWorkflowRepositoryAPI",
     "BackupWorkflowResult",
-    "BackupWorkflowResumeState",
-    "BackupWorkflowSpec",
-    "BackupWorkflowStatus",
+    "BackupWorkflowCheckpoint",
+    "BackupWorkflowDeclaration",
     "BackupWorkflowStepKind",
-    "RegisteredBackupArtifact",
+    "BackupArtifactRegistration",
 ]

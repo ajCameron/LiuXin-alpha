@@ -53,7 +53,7 @@ class _MemoryDriverWriteSession:
         self.buffer.extend(data)
         return len(data)
 
-    def commit(self) -> api.DriverFileInfo[_MemoryDriverObjectAddress]:
+    def commit(self) -> api.DriverObjectInfo[_MemoryDriverObjectAddress]:
         if self.committed or self.aborted:
             raise api.StoreError("driver write session is finished")
 
@@ -131,7 +131,7 @@ class _MemoryDriver(api.StorageDriverAPI[_MemoryDriverObjectAddress]):
     @property
     def object_address_checker(
         self,
-    ) -> api.DriverObjectAddressChecker[_MemoryDriverObjectAddress]:
+    ) -> api.DriverObjectAddressCheckerAPI[_MemoryDriverObjectAddress]:
         return self._object_address_checker
 
     @property
@@ -220,14 +220,14 @@ class _MemoryDriver(api.StorageDriverAPI[_MemoryDriverObjectAddress]):
     def stat(
         self,
         object_address: _MemoryDriverObjectAddress,
-    ) -> api.DriverFileInfo[_MemoryDriverObjectAddress]:
+    ) -> api.DriverObjectInfo[_MemoryDriverObjectAddress]:
         object_address = self.check_object_address(object_address)
         self._require_online()
         value = str(object_address)
         if value not in self.files:
             raise api.StoreNotFound(value)
         payload = self.files[value]
-        return api.DriverFileInfo(
+        return api.DriverObjectInfo(
             object_address,
             size=len(payload),
             digest=api.Digest("sha256", hashlib.sha256(payload).hexdigest()),
@@ -297,11 +297,11 @@ class _MemoryDriver(api.StorageDriverAPI[_MemoryDriverObjectAddress]):
         del self.metadata[value]
         del self.versions[value]
 
-    def iter_object_entries(
+    def iter_inventory(
         self,
         *,
         prefix: _MemoryDriverObjectAddress | None = None,
-    ) -> Iterator[api.DriverObjectEntry[_MemoryDriverObjectAddress]]:
+    ) -> Iterator[api.DriverInventoryEntry[_MemoryDriverObjectAddress]]:
         if prefix is not None:
             prefix = self.check_object_address(prefix)
         self._require_online()
@@ -314,7 +314,7 @@ class _MemoryDriver(api.StorageDriverAPI[_MemoryDriverObjectAddress]):
                         self._object_address_checker.address_space_uuid
                     ),
                 )
-                yield api.DriverObjectEntry(
+                yield api.DriverInventoryEntry(
                     address,
                     size=len(self.files[address_value]),
                     version=self.versions[address_value],
@@ -330,7 +330,7 @@ class _MemoryDriverStore(
 ):
     def __init__(self, driver: _MemoryDriver, *, read_only: bool = False) -> None:
         self.__driver = driver
-        self._spec = api.StoreSpec(
+        self._configuration = api.StoreConfiguration(
             store_uuid=MEMORY_STORE_UUID,
             store_name="memory-store",
             store_kind=driver.driver_kind,
@@ -339,8 +339,8 @@ class _MemoryDriverStore(
         )
 
     @property
-    def spec(self) -> api.StoreSpec:
-        return self._spec
+    def configuration(self) -> api.StoreConfiguration:
+        return self._configuration
 
     @property
     def _driver(self) -> api.StorageDriverAPI[_MemoryDriverObjectAddress]:
@@ -352,21 +352,38 @@ def _sha256(data: bytes) -> api.Digest:
 
 
 def test_driver_package_has_small_core_and_independent_capabilities() -> None:
-    from LiuXin_alpha.storage.api import storage_driver_api
-    from LiuXin_alpha.storage.api.storage_driver_api.lifecycle_api import (
+    from LiuXin_alpha.storage.api import store_driver_api
+    from LiuXin_alpha.storage.api.store_driver_api.convenience_api import (
+        StorageDriverConvenienceAPI,
+    )
+    from LiuXin_alpha.storage.api.store_driver_api.lifecycle_api import (
         StorageDriverLifecycleAPI,
     )
-    from LiuXin_alpha.storage.api.storage_driver_api.object_address_api import (
+    from LiuXin_alpha.storage.api.store_driver_api.object_address_api import (
         StorageDriverObjectAddressAPI,
     )
-    from LiuXin_alpha.storage.api.storage_driver_api.readable_api import (
+    from LiuXin_alpha.storage.api.store_driver_api.readable_api import (
         ReadableStorageDriverAPI,
     )
 
-    assert storage_driver_api.StorageDriverAPI is api.StorageDriverAPI
+    assert store_driver_api.StorageDriverAPI is api.StorageDriverAPI
     assert issubclass(api.StorageDriverAPI, StorageDriverObjectAddressAPI)
     assert issubclass(api.StorageDriverAPI, StorageDriverLifecycleAPI)
     assert issubclass(api.StorageDriverAPI, ReadableStorageDriverAPI)
+    assert issubclass(api.StorageDriverAPI, StorageDriverConvenienceAPI)
+    assert api.StorageDriverConvenienceAPI is StorageDriverConvenienceAPI
+    assert (
+        inspect.signature(api.StorageDriverAPI.store)
+        .parameters["source"]
+        .annotation
+        == "StorageDriverSource"
+    )
+    assert (
+        inspect.signature(api.StorageDriverAPI.get_file)
+        .parameters["identifier"]
+        .annotation
+        == "DriverFileIdentifier[DriverObjectAddressT]"
+    )
     assert api.StorageDriverAPI.__abstractmethods__ == {
         "capabilities",
         "object_address_checker",
@@ -378,23 +395,27 @@ def test_driver_package_has_small_core_and_independent_capabilities() -> None:
         "stat",
         "status",
     }
-    assert len(storage_driver_api.__all__) == len(
-        set(storage_driver_api.__all__)
+    assert len(store_driver_api.__all__) == len(
+        set(store_driver_api.__all__)
     )
     assert all(
-        hasattr(storage_driver_api, name)
-        for name in storage_driver_api.__all__
+        hasattr(store_driver_api, name)
+        for name in store_driver_api.__all__
     )
     assert {
+        "DriverFileIdentifier",
+        "DriverNativeMetadata",
         "DriverObjectAddress",
-        "DriverObjectAddressChecker",
+        "DriverObjectAddressCheckerAPI",
         "DriverObjectAddressInput",
         "DriverObjectAddressT",
         "ScopedDriverObjectAddressChecker",
         "StorageDriverObjectAddressAPI",
         "EnumerableStorageDriverAPI",
         "WritableStorageDriverAPI",
-    } <= set(storage_driver_api.__all__)
+        "StorageDriverConvenienceAPI",
+        "StorageDriverSource",
+    } <= set(store_driver_api.__all__)
     assert not {
         "DriverKey",
         "DriverKeyChecker",
@@ -403,22 +424,59 @@ def test_driver_package_has_small_core_and_independent_capabilities() -> None:
         "ScopedDriverKeyChecker",
         "StoreDriverKeyAPI",
         "StoreDriverAPI",
-    } & set(storage_driver_api.__all__)
+    } & set(store_driver_api.__all__)
     with pytest.raises(TypeError):
         api.StorageDriverAPI()
 
 
+def test_store_facade_exposes_concrete_convenience_writes() -> None:
+    from LiuXin_alpha.storage.api import store_api
+    from LiuXin_alpha.storage.api.store_api.convenience_api import (
+        StoreConvenienceAPI,
+    )
+
+    assert issubclass(api.StoreAPI, StoreConvenienceAPI)
+    assert api.StoreConvenienceAPI is StoreConvenienceAPI
+    assert (
+        inspect.signature(api.StoreAPI.store).parameters["source"].annotation
+        == "StoreSource"
+    )
+    assert (
+        inspect.signature(api.StoreAPI.get_file)
+        .parameters["identifier"]
+        .annotation
+        == "StoreFileIdentifier"
+    )
+    assert {
+        "StoreConvenienceAPI",
+        "StoreFileIdentifier",
+        "StoreSource",
+    } <= set(store_api.__all__)
+    assert {
+        "delete_file",
+        "file_exists",
+        "get_file",
+        "open_file",
+        "read_file",
+        "stat_file",
+        "store",
+        "store_bytes",
+        "store_stream",
+        "store_file",
+    }.isdisjoint(api.StoreAPI.__abstractmethods__)
+
+
 def test_driver_object_addresses_do_not_leak_through_store_boundary() -> None:
     store_surfaces = (
-        api.FileStore,
+        api.StoreCoreAPI,
         api.StoreFileAPI,
         api.StoreIdentityAPI,
         api.StoreLifecycleAPI,
         api.StoreAPI,
         api.DriverBackedStoreAPI,
-        api.NativeCopyStore,
-        api.NativeMoveStore,
-        api.DigestingStore,
+        api.NativeCopyStoreAPI,
+        api.NativeMoveStoreAPI,
+        api.DigestingStoreAPI,
     )
 
     for surface in store_surfaces:
@@ -439,7 +497,7 @@ def test_driver_models_are_opaque_explicit_and_validated() -> None:
     object_address = api.DriverObjectAddress(
         "opaque/backend-address", MEMORY_STORE_UUID
     )
-    info = api.DriverFileInfo(
+    info = api.DriverObjectInfo(
         object_address,
         size=4,
         hints=api.DriverObjectHints(
@@ -452,9 +510,9 @@ def test_driver_models_are_opaque_explicit_and_validated() -> None:
     with pytest.raises(ValueError, match="empty"):
         api.DriverObjectAddress("", MEMORY_STORE_UUID)
     with pytest.raises(ValueError, match="negative"):
-        api.DriverFileInfo(object_address, size=-1)
+        api.DriverObjectInfo(object_address, size=-1)
     with pytest.raises(ValueError, match="unique"):
-        api.DriverFileInfo(
+        api.DriverObjectInfo(
             object_address,
             size=4,
             hints=api.DriverObjectHints(
@@ -463,7 +521,7 @@ def test_driver_models_are_opaque_explicit_and_validated() -> None:
         )
     with pytest.raises(ValueError, match="object_count"):
         api.DriverStatus(True, True, object_count=-1)
-    entry = api.DriverObjectEntry(
+    entry = api.DriverInventoryEntry(
         object_address,
         size=4,
         hints=api.DriverObjectHints(
@@ -473,18 +531,18 @@ def test_driver_models_are_opaque_explicit_and_validated() -> None:
     )
     assert entry.hints.suggested_filename == "book.epub"
     with pytest.raises(ValueError, match="entry size"):
-        api.DriverObjectEntry(object_address, size=-1)
+        api.DriverInventoryEntry(object_address, size=-1)
     with pytest.raises(ValueError, match="recommended_parallel_reads"):
-        api.DriverConcurrency(recommended_parallel_reads=0)
+        api.DriverConcurrencyCapabilities(recommended_parallel_reads=0)
     with pytest.raises(ValueError, match="thread-safe"):
-        api.DriverConcurrency(concurrent_reads=True)
+        api.DriverConcurrencyCapabilities(concurrent_reads=True)
     with pytest.raises(ValueError, match="concurrent_reads"):
-        api.DriverConcurrency(
+        api.DriverConcurrencyCapabilities(
             thread_safe=True,
             recommended_parallel_reads=2,
         )
     with pytest.raises(ValueError, match="timezone-aware"):
-        api.DriverFileInfo(
+        api.DriverObjectInfo(
             object_address,
             size=4,
             modified_at=datetime(2026, 1, 1),
@@ -590,7 +648,7 @@ def test_driver_staged_write_metadata_ranges_and_safe_replacement() -> None:
         assert driver.try_stat(object_address) is None
         info = session.commit()
 
-    assert isinstance(session, api.DriverWriteSession)
+    assert isinstance(session, api.DriverWriteSessionAPI)
     assert info.hints.metadata == metadata
     assert driver.file_size(object_address) == 4
     assert driver.read_bytes(object_address, offset=1, length=2) == b"oo"
@@ -605,6 +663,100 @@ def test_driver_staged_write_metadata_ranges_and_safe_replacement() -> None:
         mode=api.WriteMode.REPLACE,
     )
     assert driver.read_bytes(object_address) == b"replaced"
+
+
+def test_driver_convenience_writes_allocate_parse_and_normalize_inputs(
+    tmp_path,
+) -> None:
+    driver = _MemoryDriver()
+
+    allocated = driver.store_bytes(
+        b"book",
+        name="book.epub",
+        metadata={"content-type": "application/epub+zip"},
+    )
+    streamed = driver.store(
+        io.BytesIO(b"cover"),
+        object_address="explicit/cover.jpg",
+        expected_size=5,
+    )
+    local_path = tmp_path / "notes.txt"
+    local_path.write_bytes(b"notes")
+    from_file = driver.store(local_path)
+
+    assert str(allocated.object_address).endswith("book.epub")
+    assert allocated.hints.metadata == (
+        ("content-type", "application/epub+zip"),
+    )
+    assert str(streamed.object_address) == "explicit/cover.jpg"
+    assert driver.read_bytes(streamed.object_address) == b"cover"
+    with driver.open_file(streamed) as source:
+        assert source.read() == b"cover"
+    with driver.get_file(streamed) as source:
+        assert source.read() == b"cover"
+    assert driver.read_file(allocated) == b"book"
+    assert driver.stat_file(allocated).object_address == allocated.object_address
+    assert (
+        driver.stat_file(str(allocated.object_address)).object_address
+        == allocated.object_address
+    )
+    assert driver.file_exists(allocated)
+    assert driver.file_exists(str(allocated.object_address))
+    assert str(from_file.object_address).endswith("notes.txt")
+    assert driver.read_bytes(from_file.object_address) == b"notes"
+
+    replaceable = driver.store_bytes(
+        b"old",
+        object_address="explicit/replaceable",
+    )
+    replaced = driver.store_bytes(
+        b"new",
+        object_address=replaceable.object_address,
+        write_mode="replace",
+    )
+    assert driver.read_file(replaced) == b"new"
+    compatibility_result = driver.store_bytes(
+        b"compatible",
+        object_address=replaced.object_address,
+        mode="replace",
+    )
+    assert driver.read_file(compatibility_result) == b"compatible"
+    with pytest.raises(TypeError, match="write_mode or mode"):
+        driver.store_bytes(
+            b"ambiguous",
+            object_address=compatibility_result.object_address,
+            write_mode="replace",
+            mode="replace",
+        )
+
+    driver.delete_file(
+        compatibility_result,
+        if_version=compatibility_result.version,
+    )
+    assert not driver.file_exists(compatibility_result)
+    driver.delete_file(compatibility_result, missing_ok=True)
+    driver.delete_file(str(from_file.object_address))
+    assert not driver.file_exists(str(from_file.object_address))
+
+
+def test_driver_convenience_requires_allocation_or_an_explicit_address() -> None:
+    driver = _MemoryDriver()
+    driver._capabilities = dataclasses.replace(
+        driver.capabilities,
+        object_address_allocation=False,
+    )
+
+    with pytest.raises(
+        api.StorageUnsupportedOperation,
+        match="supply object_address explicitly",
+    ):
+        driver.store_bytes(b"book", name="book.epub")
+
+    stored = driver.store_bytes(
+        b"book",
+        object_address="explicit/book.epub",
+    )
+    assert str(stored.object_address) == "explicit/book.epub"
 
 
 def test_driver_copy_move_inventory_and_typed_failures() -> None:
@@ -753,6 +905,76 @@ def test_driver_backed_store_translates_identity_keys_metadata_and_lifecycle() -
     assert store.startup().available
 
 
+def test_store_convenience_writes_allocate_parse_and_accept_files(
+    tmp_path,
+) -> None:
+    driver = _MemoryDriver()
+    store = _MemoryDriverStore(driver)
+
+    allocated = store.store_bytes(
+        b"book",
+        name="book.epub",
+        metadata={"title": "Permutation City"},
+    )
+    streamed = store.store(
+        io.BytesIO(b"cover"),
+        location="explicit/cover.jpg",
+        expected_size=5,
+    )
+    local_path = tmp_path / "notes.txt"
+    local_path.write_bytes(b"notes")
+    from_file = store.store(local_path)
+
+    assert allocated.location.key.endswith("book.epub")
+    assert store.read_bytes(allocated.location) == b"book"
+    with store.open_file(allocated) as source:
+        assert source.read() == b"book"
+    with store.get_file(allocated) as source:
+        assert source.read() == b"book"
+    assert store.read_file(streamed) == b"cover"
+    assert store.stat_file(allocated).location == allocated.location
+    assert store.stat_file(allocated.location.key).location == allocated.location
+    assert store.file_exists(allocated)
+    assert store.file_exists(allocated.location.key)
+    assert streamed.location.key == "explicit/cover.jpg"
+    assert store.read_bytes(streamed.location) == b"cover"
+    assert from_file.location.key.endswith("notes.txt")
+    assert store.read_bytes(from_file.location) == b"notes"
+
+    replaceable = store.store_bytes(
+        b"old",
+        location="explicit/replaceable",
+    )
+    replaced = store.store_bytes(
+        b"new",
+        location=replaceable.location,
+        write_mode="replace",
+    )
+    assert store.read_file(replaced) == b"new"
+    compatibility_result = store.store_bytes(
+        b"compatible",
+        location=replaced.location,
+        mode="replace",
+    )
+    assert store.read_file(compatibility_result) == b"compatible"
+    with pytest.raises(TypeError, match="write_mode or mode"):
+        store.store_bytes(
+            b"ambiguous",
+            location=compatibility_result.location,
+            write_mode="replace",
+            mode="replace",
+        )
+
+    store.delete_file(
+        compatibility_result,
+        if_version=compatibility_result.version,
+    )
+    assert not store.file_exists(compatibility_result)
+    store.delete_file(compatibility_result, missing_ok=True)
+    store.delete_file(from_file.location.key)
+    assert not store.file_exists(from_file.location.key)
+
+
 def test_driver_backed_store_enforces_configured_read_only_state() -> None:
     driver = _MemoryDriver()
     store = _MemoryDriverStore(driver, read_only=True)
@@ -787,6 +1009,7 @@ def test_readable_core_does_not_require_listing_or_mutation_protocols() -> None:
         def capabilities(self) -> api.DriverCapabilities:
             return api.DriverCapabilities(
                 range_reads=False,
+                stat_digest_authoritative=True,
                 enumeration=api.EnumerationCompleteness.UNAVAILABLE,
             )
 
@@ -808,7 +1031,7 @@ def test_readable_core_does_not_require_listing_or_mutation_protocols() -> None:
 
         def stat(self, object_address):
             object_address = self.check_object_address(object_address)
-            return api.DriverFileInfo(object_address, 4, digest=_sha256(b"book"))
+            return api.DriverObjectInfo(object_address, 4, digest=_sha256(b"book"))
 
         def open_read(self, object_address, *, offset=0, length=None):
             self.check_object_address(object_address)
@@ -818,11 +1041,16 @@ def test_readable_core_does_not_require_listing_or_mutation_protocols() -> None:
 
     driver = ReadOnlyDriver()
     address = driver.parse_object_address("book")
+    info = driver.stat(address)
 
     assert driver.read_bytes(address) == b"book"
+    assert driver.read_file(info) == b"book"
+    assert driver.file_exists(info)
     assert not isinstance(driver, api.WritableStorageDriverAPI)
     assert not isinstance(driver, api.EnumerableStorageDriverAPI)
     assert not isinstance(driver, api.DeletableStorageDriverAPI)
+    with pytest.raises(api.StorageUnsupportedOperation, match="deletion"):
+        driver.delete_file(info)
     with pytest.raises(api.StorageUnsupportedOperation, match="enumeration"):
         list(storage_utils.iter_object_addresses(driver))
     with pytest.raises(api.StorageUnsupportedOperation, match="create_only"):
@@ -841,7 +1069,7 @@ def test_cross_driver_transfer_inventory_hints_and_materialisation() -> None:
         metadata=(("content-type", "application/epub+zip"),),
     )
 
-    entry = next(source_driver.iter_object_entries())
+    entry = next(source_driver.iter_inventory())
     assert entry.hints.suggested_filename == "book.epub"
     assert entry.size == 4
     result = storage_utils.transfer_between_drivers(
@@ -933,8 +1161,8 @@ def test_driver_results_and_inventory_must_report_owned_expected_addresses() -> 
         )
 
     class DuplicateInventoryDriver(_MemoryDriver):
-        def iter_object_entries(self, *, prefix=None):
-            entries = list(super().iter_object_entries(prefix=prefix))
+        def iter_inventory(self, *, prefix=None):
+            entries = list(super().iter_inventory(prefix=prefix))
             yield from entries
             yield from entries
 

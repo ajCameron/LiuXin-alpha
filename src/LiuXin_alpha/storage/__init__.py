@@ -13,6 +13,10 @@ from typing import Any
 
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
+    "InMemoryStorageManager": (
+        "LiuXin_alpha.storage.storage_manager",
+        "InMemoryStorageManager",
+    ),
     "StorageManager": ("LiuXin_alpha.storage.store_manager", "StorageManager"),
     "StoreManager": ("LiuXin_alpha.storage.store_manager", "StoreManager"),
     "StorageBootstrapIssue": (

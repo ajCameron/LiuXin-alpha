@@ -12,8 +12,8 @@ from LiuXin_alpha.storage.api.errors import (
     StorageIntegrityError,
     StorageUnsupportedOperation,
 )
-from LiuXin_alpha.storage.api.storage_driver_api.models import (
-    DriverObjectAddressChecker,
+from LiuXin_alpha.storage.api.store_driver_api.models import (
+    DriverObjectAddressCheckerAPI,
     DriverObjectAddressInput,
     DriverObjectAddressT,
 )
@@ -35,11 +35,15 @@ class StorageDriverObjectAddressAPI(Generic[DriverObjectAddressT], abc.ABC):
     @abc.abstractmethod
     def object_address_checker(
         self,
-    ) -> DriverObjectAddressChecker[DriverObjectAddressT]:
-        """Return the injected runtime checker for this driver instance.
+    ) -> DriverObjectAddressCheckerAPI[DriverObjectAddressT]:
+        """
+        Return the injected runtime checker for this driver instance.
 
         Example:
             >>> checker = driver.object_address_checker  # doctest: +SKIP
+
+
+        :return:
         """
         ...
 
@@ -52,6 +56,10 @@ class StorageDriverObjectAddressAPI(Generic[DriverObjectAddressT], abc.ABC):
 
         Example:
             >>> checked = driver.check_object_address(address)  # doctest: +SKIP
+
+
+        :param object_address:
+        :return:
         """
         return self.object_address_checker(object_address)
 
@@ -59,10 +67,15 @@ class StorageDriverObjectAddressAPI(Generic[DriverObjectAddressT], abc.ABC):
         self,
         object_address: DriverObjectAddressT,
     ) -> DriverObjectAddressT:
-        """Require stable scoped serialization for a produced address.
+        """
+        Require stable scoped serialization for a produced address.
 
         Example:
             >>> address = driver.require_canonical_object_address(address)  # doctest: +SKIP
+
+
+        :param object_address:
+        :return:
         """
         checked = self.check_object_address(object_address)
         reparsed = self.parse_object_address(str(checked))
@@ -79,27 +92,38 @@ class StorageDriverObjectAddressAPI(Generic[DriverObjectAddressT], abc.ABC):
 
         Example:
             >>> kind = driver.driver_kind  # doctest: +SKIP
+
+
+        :return:
         """
         return type(self).__name__
 
     @property
     @abc.abstractmethod
     def root_uri(self) -> str:
-        """Return a credential-free URI identifying the configured endpoint.
+        """
+        Return a credential-free URI identifying the configured endpoint.
 
         The value is suitable for logs and configuration displays. Drivers
         must remove passwords, access tokens, and equivalent secrets.
 
         Example:
             >>> root_uri = driver.root_uri  # doctest: +SKIP
+
+
+        :return:
         """
         ...
 
     def suggest_endpoint_name(self) -> str:
-        """Suggest a human-readable name for this configured endpoint.
+        """
+        Suggest a human-readable name for this configured endpoint.
 
         Example:
             >>> suggested = driver.suggest_endpoint_name()  # doctest: +SKIP
+
+
+        :return:
         """
         return self.driver_kind
 
@@ -108,7 +132,8 @@ class StorageDriverObjectAddressAPI(Generic[DriverObjectAddressT], abc.ABC):
         self,
         identifier: DriverObjectAddressInput[DriverObjectAddressT],
     ) -> DriverObjectAddressT:
-        """Canonicalize a typed address or persisted driver-relative value.
+        """
+        Canonicalize a typed address or persisted driver-relative value.
 
         Existing typed values must pass ``check_object_address``. Strings are
         not URIs; implementations mint their concrete, scoped address type.
@@ -118,11 +143,16 @@ class StorageDriverObjectAddressAPI(Generic[DriverObjectAddressT], abc.ABC):
 
         Example:
             >>> address = driver.parse_object_address("objects/42")  # doctest: +SKIP
+
+
+        :param identifier:
+        :return:
         """
         ...
 
     def object_address_from_uri(self, uri: str) -> DriverObjectAddressT:
-        """Resolve an endpoint-owned external URI when explicitly supported.
+        """
+        Resolve an endpoint-owned external URI when explicitly supported.
 
         Implementations require ``capabilities.external_uri_parsing``. The
         result must be canonical, checked, scoped to this driver instance, and
@@ -132,6 +162,10 @@ class StorageDriverObjectAddressAPI(Generic[DriverObjectAddressT], abc.ABC):
             >>> address = driver.object_address_from_uri(  # doctest: +SKIP
             ...     "ftp://example.test/incoming/book.epub",
             ... )
+
+
+        :param uri:
+        :return:
         """
         _ = uri
         raise StorageUnsupportedOperation(
@@ -139,7 +173,8 @@ class StorageDriverObjectAddressAPI(Generic[DriverObjectAddressT], abc.ABC):
         )
 
     def object_uri(self, object_address: DriverObjectAddressT) -> str | None:
-        """Return a credential-free external URI, or ``None`` if unavailable.
+        """
+        Return a credential-free external URI, or ``None`` if unavailable.
 
         Non-``None`` results require
         ``capabilities.external_uri_rendering`` and must not expose credentials
@@ -147,6 +182,10 @@ class StorageDriverObjectAddressAPI(Generic[DriverObjectAddressT], abc.ABC):
 
         Example:
             >>> uri = driver.object_uri(address)  # doctest: +SKIP
+
+
+        :param object_address:
+        :return:
         """
         _ = self.check_object_address(object_address)
         return None

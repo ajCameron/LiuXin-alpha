@@ -1,4 +1,6 @@
-"""Digital Asset identity registry facade."""
+"""
+Digital Asset identity registry facade.
+"""
 
 import abc
 
@@ -6,48 +8,67 @@ from collections.abc import Iterator
 
 from LiuXin_alpha.storage.api.models import Digest
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
-    DigitalAsset,
+    DigitalAssetDeclaration,
     DigitalAssetID,
     DigitalAssetMetadata,
-    DigitalAssetSpec,
+    DigitalAssetRecord,
 )
 
 
-class AssetRegistryAPI(abc.ABC):
-    """Domain operations for known atomic byte identities.
+class DigitalAssetRegistryAPI(abc.ABC):
+    """
+    Domain operations for known atomic byte identities.
 
     Implementations may use repositories internally, but this facade accepts
     and returns domain values rather than database records.
 
     Example:
         >>> def lookup(
-        ...     registry: AssetRegistryAPI, asset_id: DigitalAssetID,
-        ... ) -> DigitalAsset:
-        ...     return registry.get_digital_asset(asset_id)
+        ...     registry: DigitalAssetRegistryAPI,
+        ...     asset_id: DigitalAssetID,
+        ... ) -> DigitalAssetRecord:
+        ...     return registry.get_digital_asset_record(asset_id)
     """
 
     @abc.abstractmethod
-    def declare_digital_asset(self, spec: DigitalAssetSpec) -> DigitalAsset:
-        """Register a known expected byte sequence without creating a Replica.
+    def declare_digital_asset(
+        self,
+        declaration: DigitalAssetDeclaration,
+    ) -> DigitalAssetRecord:
+        """
+        Register a known expected byte sequence without creating a Replica.
 
         Ingest is the usual operation when bytes are available. Declaration is
         useful for manifests, restoration catalogues, or a known-but-missing
         Asset.
 
         Example:
-            >>> asset = registry.declare_digital_asset(spec)  # doctest: +SKIP
+            >>> record = registry.declare_digital_asset(  # doctest: +SKIP
+            ...     declaration,
+            ... )
+
+
+        :param declaration:
+        :return:
         """
         ...
 
     @abc.abstractmethod
-    def get_digital_asset(
+    def get_digital_asset_record(
         self,
         digital_asset_id: DigitalAssetID,
-    ) -> DigitalAsset:
-        """Return one domain snapshot or raise ``DigitalAssetNotFound``.
+    ) -> DigitalAssetRecord:
+        """
+        Return the manager record or raise ``DigitalAssetNotFound``.
 
         Example:
-            >>> asset = registry.get_digital_asset(DigitalAssetID(7))  # doctest: +SKIP
+            >>> record = registry.get_digital_asset_record(  # doctest: +SKIP
+            ...     DigitalAssetID(7),
+            ... )
+
+
+        :param digital_asset_id:
+        :return:
         """
         ...
 
@@ -58,43 +79,62 @@ class AssetRegistryAPI(abc.ABC):
         metadata: DigitalAssetMetadata,
         *,
         if_revision: str | None = None,
-    ) -> DigitalAsset:
-        """Replace descriptive metadata without changing byte identity.
+    ) -> DigitalAssetRecord:
+        """
+        Replace descriptive metadata without changing byte identity.
 
         A stale ``if_revision`` raises ``StoragePreconditionFailed``.
 
         Example:
-            >>> asset = registry.update_digital_asset_metadata(  # doctest: +SKIP
+            >>> record = registry.update_digital_asset_metadata(  # doctest: +SKIP
             ...     DigitalAssetID(7), metadata, if_revision="v2",
             ... )
+
+
+        :param digital_asset_id:
+        :param metadata:
+        :param if_revision:
+        :return:
         """
         ...
 
     @abc.abstractmethod
-    def iter_digital_assets(self) -> Iterator[DigitalAsset]:
-        """Iterate over known Digital Asset snapshots.
+    def iter_digital_asset_records(self) -> Iterator[DigitalAssetRecord]:
+        """
+        Iterate over known Digital Asset records.
 
         Example:
-            >>> assets = list(registry.iter_digital_assets())  # doctest: +SKIP
+            >>> records = list(  # doctest: +SKIP
+            ...     registry.iter_digital_asset_records(),
+            ... )
+
+
+        :return:
         """
         ...
 
     @abc.abstractmethod
-    def find_digital_asset_by_digest(
+    def find_digital_asset_record_by_digest(
         self,
         digest: Digest,
         *,
         size_bytes: int | None = None,
-    ) -> DigitalAsset | None:
-        """Find a deduplication candidate by digest and optional exact size.
+    ) -> DigitalAssetRecord | None:
+        """
+        Find a deduplication candidate by digest and optional exact size.
 
         Only genuine absence returns ``None``; repository and connection
         failures remain visible.
 
         Example:
-            >>> asset = registry.find_digital_asset_by_digest(  # doctest: +SKIP
+            >>> record = registry.find_digital_asset_record_by_digest(  # doctest: +SKIP
             ...     Digest("sha256", "a" * 64), size_bytes=42,
             ... )
+
+
+        :param digest:
+        :param size_bytes:
+        :return:
         """
         ...
 
@@ -106,7 +146,8 @@ class AssetRegistryAPI(abc.ABC):
         require_no_replicas: bool = True,
         if_revision: str | None = None,
     ) -> bool:
-        """Forget an Asset identity without implying physical byte deletion.
+        """
+        Forget an Asset identity without implying physical byte deletion.
 
         The safe default refuses to forget an Asset with Replica claims.
 
@@ -114,8 +155,14 @@ class AssetRegistryAPI(abc.ABC):
             >>> forgotten = registry.forget_digital_asset(  # doctest: +SKIP
             ...     DigitalAssetID(7), require_no_replicas=True,
             ... )
+
+
+        :param digital_asset_id:
+        :param require_no_replicas:
+        :param if_revision:
+        :return:
         """
         ...
 
 
-__all__ = ["AssetRegistryAPI"]
+__all__ = ["DigitalAssetRegistryAPI"]

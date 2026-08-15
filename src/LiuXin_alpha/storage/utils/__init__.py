@@ -28,7 +28,10 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "copy": ("LiuXin_alpha.storage.utils.store", "copy"),
     "exists": ("LiuXin_alpha.storage.utils.store", "exists"),
     "get": ("LiuXin_alpha.storage.utils.store", "get"),
-    "iter_infos": ("LiuXin_alpha.storage.utils.store", "iter_infos"),
+    "iter_file_infos": (
+        "LiuXin_alpha.storage.utils.store",
+        "iter_file_infos",
+    ),
     "move": ("LiuXin_alpha.storage.utils.store", "move"),
     "put": ("LiuXin_alpha.storage.utils.store", "put"),
     "read_bytes": ("LiuXin_alpha.storage.utils.store", "read_bytes"),
