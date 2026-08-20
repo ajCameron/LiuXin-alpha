@@ -81,6 +81,7 @@ class StoreConfiguration:
     operational_role: str | None = None
     read_only: bool = False
     supports_folders: bool = True
+    backend_options: tuple[tuple[str, object], ...] = ()
 
     def __post_init__(self) -> None:
         """
@@ -113,6 +114,24 @@ class StoreConfiguration:
         ):
             if not value.strip():
                 raise ValueError(f"{name} must not be empty.")
+        option_names: set[str] = set()
+        for key, value in self.backend_options:
+            if not isinstance(key, str) or not key.strip():
+                raise ValueError("backend option names must be non-empty strings.")
+            if key in option_names:
+                raise ValueError(f"duplicate backend option: {key!r}.")
+            option_names.add(key)
+            if not (
+                value is None
+                or isinstance(value, (str, int, float, bool))
+                or (
+                    isinstance(value, tuple)
+                    and all(isinstance(item, str) for item in value)
+                )
+            ):
+                raise TypeError(
+                    "backend option values must be JSON scalars or string tuples."
+                )
 
 
 @dataclasses.dataclass(slots=True, frozen=True)

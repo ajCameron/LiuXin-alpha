@@ -683,6 +683,9 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
         name="stores",
         columns=(
             _identity_pk("store_id"),
+            '"store_uuid" uuid null',
+            '"store_host_uuid" uuid null',
+            '"store_device_uuid" uuid null',
             '"store_name" text null',
             '"store_kind" text null',
             '"store_access_protocol" text null',
@@ -735,6 +738,7 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             'references "backup_policies" ("backup_policy_id") on delete set null on update cascade',
         ),
         indexes=(
+            'create unique index if not exists "idx_stores_uuid_unique" on "stores" ("store_uuid") where "store_uuid" is not null',
             'create index if not exists "idx_stores_default_replication_policy_id" on "stores" ("store_default_replication_policy_id")',
             'create index if not exists "idx_stores_default_backup_policy_id" on "stores" ("store_default_backup_policy_id")',
         ),

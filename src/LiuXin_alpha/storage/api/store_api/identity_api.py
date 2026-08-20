@@ -198,6 +198,44 @@ class StoreIdentityAPI(abc.ABC):
             return self.require_location(identifier)
         return self.location(identifier)
 
+    def location_from_uri(self, uri: str) -> Location:
+        """
+        Resolve an external URI owned by this Store when supported.
+
+        The Store validates that the URI belongs to its configured endpoint;
+        callers must not strip roots or parse backend address syntax themselves.
+
+        Example:
+            >>> location = store.location_from_uri(  # doctest: +SKIP
+            ...     "s3://library/books/book.epub",
+            ... )
+
+        :param uri:
+        :return:
+        """
+
+        _ = uri
+        raise StoreUnsupportedOperation(
+            f"{type(self).__name__} does not resolve external object URIs."
+        )
+
+    def location_uri(self, location: Location) -> str | None:
+        """
+        Return a credential-free external URI for an owned Location, if any.
+
+        ``None`` means that the Store cannot safely or canonically render one.
+        Generic code should preserve the opaque Location regardless.
+
+        Example:
+            >>> uri = store.location_uri(location)  # doctest: +SKIP
+
+        :param location:
+        :return:
+        """
+
+        _ = self.require_location(location)
+        return None
+
     def allocate_location(
         self,
         *,

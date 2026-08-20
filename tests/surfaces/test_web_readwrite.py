@@ -957,11 +957,11 @@ def test_web_readwrite_can_upload_file_from_work_page_and_create_wemi_chain(driv
                 "item_source_name": "Work Upload Item",
                 "item_location": "shelf://uploads/work",
             },
-            files={
-                "upload_file": ("work-original.epub", "application/epub+zip", b"WORK-UPLOAD-BYTES"),
-            },
-        )
-        assert status == "302 Found"
+                files={
+                    "upload_file": ("work-original.epub", "application/epub+zip", b"WORK-UPLOAD-BYTES"),
+                },
+            )
+        assert status == "302 Found", _body.decode("utf-8", errors="replace")
         location = str(headers["Location"])
         assert location.startswith("/tables/works/{}".format(work_id))
         assert "notice_title=File+uploaded" in location

@@ -313,6 +313,57 @@ class DriverInventoryEntry(Generic[DriverObjectAddressT]):
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
+class DriverInventoryPage(Generic[DriverObjectAddressT]):
+    """
+    One resumable backend inventory page with an opaque continuation cursor.
+
+    Example:
+        >>> page = DriverInventoryPage[DriverObjectAddress]((), None)
+        >>> page.finished
+        True
+    """
+
+    entries: tuple[DriverInventoryEntry[DriverObjectAddressT], ...]
+    next_cursor: str | None
+    snapshot_token: str | None = None
+
+    def __post_init__(self) -> None:
+        """
+        Reject empty cursors and duplicate addresses within one page.
+
+        Example:
+            >>> DriverInventoryPage[DriverObjectAddress]((), "")
+            Traceback (most recent call last):
+            ...
+            ValueError: driver inventory cursor must not be empty.
+        """
+
+        if self.next_cursor == "":
+            raise ValueError("driver inventory cursor must not be empty.")
+        if self.snapshot_token == "":
+            raise ValueError(
+                "driver inventory snapshot token must not be empty."
+            )
+        addresses = tuple(entry.object_address for entry in self.entries)
+        if len(addresses) != len(set(addresses)):
+            raise ValueError(
+                "driver inventory page addresses must be unique."
+            )
+
+    @property
+    def finished(self) -> bool:
+        """
+        Return whether this page ends the backend scan.
+
+        Example:
+            >>> DriverInventoryPage[DriverObjectAddress]((), None).finished
+            True
+        """
+
+        return self.next_cursor is None
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
 class DriverConcurrencyCapabilities:
     """
     Conservative concurrency guarantees for one driver instance.
@@ -403,6 +454,8 @@ class DriverCapabilities:
     external_uri_parsing: bool = False
     external_uri_rendering: bool = False
     prefix_enumeration: bool = False
+    conditional_read: bool = False
+    paged_enumeration: bool = False
     concurrency: DriverConcurrencyCapabilities = dataclasses.field(
         default_factory=DriverConcurrencyCapabilities
     )
@@ -433,6 +486,13 @@ class DriverCapabilities:
             )
         if self.conditional_delete and not self.delete:
             raise ValueError("conditional_delete requires deletion.")
+        if (
+            self.paged_enumeration
+            and self.enumeration is EnumerationCompleteness.UNAVAILABLE
+        ):
+            raise ValueError(
+                "paged_enumeration requires object enumeration."
+            )
         if self.write_metadata and not (self.create or self.replace):
             raise ValueError(
                 "write_metadata requires staged write support."

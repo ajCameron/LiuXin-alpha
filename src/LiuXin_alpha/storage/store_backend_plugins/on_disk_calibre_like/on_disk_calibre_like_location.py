@@ -1,17 +1,9 @@
-"""Location type for the calibre-like on-disk managed store backend."""
+"""Location compatibility name for the opaque new Store location value."""
 
-from __future__ import annotations
-
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
-    OnDiskExistingManagedStoreLocation,
-)
+from LiuXin_alpha.storage.api import Location
 
 
-class OnDiskCalibreLikeStoreLocation(OnDiskExistingManagedStoreLocation):
-    """
-    Calibre-like store location.
+OnDiskCalibreLikeStoreLocation = Location
 
-    This backend keeps the same local-filesystem semantics as the existing
-    managed on-disk store and only changes file placement strategy.
-    """
 
+__all__ = ["OnDiskCalibreLikeStoreLocation"]

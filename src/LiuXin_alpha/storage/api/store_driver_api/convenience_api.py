@@ -69,6 +69,7 @@ class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> BinaryIO:
         """
         Open a driver object as a read-only binary stream.
@@ -91,6 +92,7 @@ class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
         :param identifier:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
 
@@ -106,6 +108,7 @@ class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
             _driver_file_address(address_api, identifier),
             offset=offset,
             length=length,
+            if_version=if_version,
         )
 
     def get_file(
@@ -114,6 +117,7 @@ class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> BinaryIO:
         """
         Return the read-only ``open_file`` stream using familiar vocabulary.
@@ -126,10 +130,16 @@ class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
         :param identifier:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
 
-        return self.open_file(identifier, offset=offset, length=length)
+        return self.open_file(
+            identifier,
+            offset=offset,
+            length=length,
+            if_version=if_version,
+        )
 
     def read_file(
         self,
@@ -137,6 +147,7 @@ class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> bytes:
         """
         Read an object by typed address, persisted string, or returned info.
@@ -149,6 +160,7 @@ class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
         :param identifier:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
 
@@ -156,6 +168,7 @@ class StorageDriverConvenienceAPI(Generic[DriverObjectAddressT]):
             identifier,
             offset=offset,
             length=length,
+            if_version=if_version,
         ) as source:
             return source.read()
 

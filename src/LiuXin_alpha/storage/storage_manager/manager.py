@@ -13,7 +13,7 @@ import dataclasses
 import hashlib
 import tempfile
 
-from collections import Counter
+from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator
 from datetime import UTC, datetime
 from threading import RLock
@@ -55,11 +55,49 @@ class _AdoptIngestRequest:
     digital_asset_id: api.DigitalAssetID | None
     item_id: api.ItemID | None
     role: str | None
+    metadata: api.DigitalAssetMetadata
     replica_mode: api.ReplicaMode
     verify: bool
 
 
-_IngestRequest = _StreamIngestRequest | _AdoptIngestRequest
+@dataclasses.dataclass(slots=True, frozen=True)
+class _IdentifiedStreamIngestRequest:
+    """Normalized semantics bound to one trusted-identity stream ingest."""
+
+    size_bytes: int
+    authoritative_digests: tuple[api.Digest, ...]
+    item_id: api.ItemID | None
+    role: str | None
+    metadata: api.DigitalAssetMetadata
+    placement_hints: api.StoragePlacementHints | None
+    preferred_store_ref: api.StoreUUID | None
+    replica_mode: api.ReplicaMode
+    verify: bool
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _StoreObjectIngestRequest:
+    """Normalized semantics for one Store-to-Store object ingest."""
+
+    source_location: api.Location
+    source_version: str | None
+    size_bytes: int
+    authoritative_digests: tuple[api.Digest, ...]
+    item_id: api.ItemID | None
+    role: str | None
+    metadata: api.DigitalAssetMetadata
+    placement_hints: api.StoragePlacementHints | None
+    preferred_store_ref: api.StoreUUID | None
+    replica_mode: api.ReplicaMode
+    verify: bool
+
+
+_IngestRequest = (
+    _StreamIngestRequest
+    | _IdentifiedStreamIngestRequest
+    | _StoreObjectIngestRequest
+    | _AdoptIngestRequest
+)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -68,6 +106,23 @@ class _IngestOperation:
 
     request: _IngestRequest
     result: api.DigitalAssetIngestResult
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _RecreationBranch:
+    """Internal exact-replay route for one requested Digital Asset."""
+
+    viable: bool
+    steps: tuple[api.DigitalAssetDerivationRecord, ...] = ()
+    available_digital_asset_ids: frozenset[api.DigitalAssetID] = (
+        frozenset()
+    )
+    unavailable_digital_asset_ids: frozenset[api.DigitalAssetID] = (
+        frozenset()
+    )
+    selected_derivation_id: api.DigitalAssetDerivationID | None = None
+    alternative_derivation_ids: tuple[api.DigitalAssetDerivationID, ...] = ()
+    warnings: tuple[str, ...] = ()
 
 
 class _Hasher(Protocol):
@@ -143,6 +198,9 @@ class InMemoryStorageManager(api.StorageManagerAPI):
         ] = {}
         self._item_targets: dict[tuple[api.ItemID, str], _ItemTarget] = {}
         self._ingest_operations: dict[UUID, _IngestOperation] = {}
+        self._ingest_identity_locks: dict[
+            tuple[int, tuple[api.Digest, ...]], RLock
+        ] = {}
 
         self._next_asset_id = 1
         self._next_replica_id = 1
@@ -443,13 +501,15 @@ class InMemoryStorageManager(api.StorageManagerAPI):
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> BinaryIO:
         """Route a binary read by the Location's Store UUID."""
 
-        return self.get_store(location.store_ref).open_read(
-            location,
-            offset=offset,
-            length=length,
+        store = self.get_store(location.store_ref)
+        if if_version is None:
+            return store.open_read(location, offset=offset, length=length)
+        return store.open_read(
+            location, offset=offset, length=length, if_version=if_version
         )
 
     @override
@@ -786,113 +846,345 @@ class InMemoryStorageManager(api.StorageManagerAPI):
                 verify,
             )
 
-            with self._lock:
-                prior = self._ingest_operations.get(operation_id)
-            if prior is not None:
-                if prior.request != request:
-                    raise api.StoragePreconditionFailed(
-                        "ingest operation ID was already used for a different request."
-                    )
-                return prior.result
-
-            destination_ref = (
-                self.get_default_store_ref()
-                if preferred_store_ref is None
-                else preferred_store_ref
-            )
-            replication_policy_id, backup_policy_id = (
-                self._placement_policy_ids(destination_ref)
-            )
-
-            with self._lock:
-                existing = self._find_asset_locked(observed_digests, total)
-            asset_created = existing is None
-            asset_record = (
-                self.declare_digital_asset(
-                    api.DigitalAssetDeclaration(
-                        total,
-                        observed_digests,
-                        normalized_metadata,
-                        replication_policy_id,
-                        backup_policy_id,
-                    )
-                )
-                if existing is None
-                else existing
-            )
-            if existing is not None:
-                asset_record = self._capture_first_placement_policies(
-                    asset_record,
-                    replication_policy_id,
-                    backup_policy_id,
-                )
-
-            existing_replica = self._find_replica_for_store(
-                asset_record.digital_asset_id,
-                destination_ref,
-                replica_mode,
-            )
-            if (
-                existing_replica is not None
-                and not self._record_is_readable(existing_replica)
-            ):
-                existing_replica = None
-            replica_created = existing_replica is None
-            if existing_replica is None:
-                store = self._require_writable_destination(
-                    destination_ref,
-                    replica_mode,
-                )
-                location = self._allocate_asset_location(
-                    store,
-                    asset_record,
-                    placement_hints=placement_hints,
-                )
+            def _publish(
+                store: api.StoreAPI,
+                location: api.Location,
+                digest: api.Digest,
+            ) -> None:
                 spool.seek(0)
                 store.put(
                     location,
                     cast(BinaryIO, cast(object, spool)),
-                    expected_size=asset_record.size_bytes,
-                    expected_digest=self._preferred_digest(asset_record),
+                    expected_size=total,
+                    expected_digest=digest,
                     placement_hints=placement_hints,
                 )
-                replica_record = self._add_replica(
-                    api.ReplicaDeclaration(
-                        asset_record.digital_asset_id,
-                        location,
-                        replica_mode,
-                        api.ReplicaObservation(api.ReplicaState.PRESENT),
-                    )
-                )
-            else:
-                replica_record = existing_replica
-            if verify:
-                report = self.verify_replica(replica_record.replica_id)
-                replica_record = self.get_replica_record(replica_record.replica_id)
-                verified = report.healthy
-            else:
-                verified = replica_record.state is api.ReplicaState.VERIFIED
-            result = api.DigitalAssetIngestResult(
-                operation_id,
-                asset_record,
-                replica_record,
-                asset_created,
-                replica_created,
-                deduplicated=not asset_created,
-                verified=verified,
+
+            return self._complete_authoritative_ingest(
+                request=request,
+                operation_id=operation_id,
+                size_bytes=total,
+                digests=observed_digests,
+                item_id=item_id,
+                role=role,
+                metadata=normalized_metadata,
+                placement_hints=placement_hints,
+                preferred_store_ref=preferred_store_ref,
+                replica_mode=replica_mode,
+                verify=verify,
+                publish=_publish,
             )
-            if item_id is not None:
-                self.link_item_to_digital_asset(
-                    item_id,
-                    asset_record.digital_asset_id,
-                    role="primary_payload" if role is None else role,
-                )
-            with self._lock:
-                self._ingest_operations[operation_id] = _IngestOperation(
-                    request,
-                    result,
-                )
-            return result
+
+    @override
+    def ingest_identified_stream(
+        self,
+        stream: BinaryIO,
+        *,
+        size_bytes: int,
+        authoritative_digests: tuple[api.Digest, ...],
+        operation_id: UUID | None = None,
+        item_id: api.ItemID | None = None,
+        role: str | None = None,
+        metadata: api.DigitalAssetMetadata | None = None,
+        placement_hints: api.StoragePlacementHints | None = None,
+        preferred_store_ref: api.StoreUUID | None = None,
+        replica_mode: api.ReplicaMode = api.ReplicaMode.ACTIVE,
+        verify: bool = True,
+    ) -> api.DigitalAssetIngestResult:
+        """Publish trusted identified bytes without manager-side spooling."""
+
+        if size_bytes < 0:
+            raise ValueError("size_bytes must not be negative.")
+        digests = tuple(
+            sorted(
+                authoritative_digests,
+                key=lambda digest: (digest.algorithm, digest.value),
+            )
+        )
+        if not digests:
+            raise ValueError("authoritative_digests must not be empty.")
+        if len({digest.algorithm for digest in digests}) != len(digests):
+            raise ValueError(
+                "authoritative_digests must contain unique algorithms."
+            )
+        sha256 = next(
+            (digest for digest in digests if digest.algorithm == "sha256"),
+            None,
+        )
+        if sha256 is None:
+            raise ValueError(
+                "identified stream ingest requires an authoritative SHA-256 digest."
+            )
+        operation_id = uuid4() if operation_id is None else operation_id
+        normalized_metadata = (
+            api.DigitalAssetMetadata() if metadata is None else metadata
+        )
+        request = _IdentifiedStreamIngestRequest(
+            size_bytes,
+            digests,
+            item_id,
+            role,
+            normalized_metadata,
+            placement_hints,
+            preferred_store_ref,
+            replica_mode,
+            verify,
+        )
+
+        def _publish(
+            store: api.StoreAPI,
+            location: api.Location,
+            digest: api.Digest,
+        ) -> None:
+            store.put(
+                location,
+                stream,
+                expected_size=size_bytes,
+                expected_digest=digest,
+                placement_hints=placement_hints,
+            )
+
+        return self._complete_authoritative_ingest(
+            request=request,
+            operation_id=operation_id,
+            size_bytes=size_bytes,
+            digests=digests,
+            item_id=item_id,
+            role=role,
+            metadata=normalized_metadata,
+            placement_hints=placement_hints,
+            preferred_store_ref=preferred_store_ref,
+            replica_mode=replica_mode,
+            verify=verify,
+            publish=_publish,
+        )
+
+    @override
+    def ingest_store_object(
+        self,
+        source: api.StoreAPI,
+        info: api.FileInfo | api.StoreInventoryEntry,
+        *,
+        operation_id: UUID | None = None,
+        item_id: api.ItemID | None = None,
+        role: str | None = None,
+        metadata: api.DigitalAssetMetadata | None = None,
+        placement_hints: api.StoragePlacementHints | None = None,
+        preferred_store_ref: api.StoreUUID | None = None,
+        replica_mode: api.ReplicaMode = api.ReplicaMode.ACTIVE,
+        verify: bool = True,
+    ) -> api.DigitalAssetIngestResult:
+        """Prefer verified native transfer, then fall back to source streaming."""
+
+        if isinstance(source, api.IngestSourceStoreAPI):
+            return api.DigitalAssetIngestAPI.ingest_store_object(
+                self,
+                source,
+                info,
+                operation_id=operation_id,
+                item_id=item_id,
+                role=role,
+                metadata=metadata,
+                placement_hints=placement_hints,
+                preferred_store_ref=preferred_store_ref,
+                replica_mode=replica_mode,
+                verify=verify,
+            )
+
+        def _fallback(
+            fallback_operation_id: UUID | None,
+        ) -> api.DigitalAssetIngestResult:
+            return api.DigitalAssetIngestAPI.ingest_store_object(
+                self,
+                source,
+                info,
+                operation_id=fallback_operation_id,
+                item_id=item_id,
+                role=role,
+                metadata=metadata,
+                placement_hints=placement_hints,
+                preferred_store_ref=preferred_store_ref,
+                replica_mode=replica_mode,
+                verify=verify,
+            )
+
+        digest = (
+            info.digest
+            if source.capabilities.stat_digest_authoritative
+            else None
+        )
+        return self._ingest_store_object_natively_or_fallback(
+            source,
+            info,
+            digest,
+            operation_id=operation_id,
+            item_id=item_id,
+            role=role,
+            metadata=metadata,
+            placement_hints=placement_hints,
+            preferred_store_ref=preferred_store_ref,
+            replica_mode=replica_mode,
+            verify=verify,
+            fallback=_fallback,
+        )
+
+    @override
+    def ingest_prepared_store_object(
+        self,
+        source: api.StoreAPI,
+        prepared: api.PreparedIngestObject,
+        *,
+        operation_id: UUID | None = None,
+        item_id: api.ItemID | None = None,
+        role: str | None = None,
+        metadata: api.DigitalAssetMetadata | None = None,
+        placement_hints: api.StoragePlacementHints | None = None,
+        preferred_store_ref: api.StoreUUID | None = None,
+        replica_mode: api.ReplicaMode = api.ReplicaMode.ACTIVE,
+        verify: bool = True,
+    ) -> api.DigitalAssetIngestResult:
+        """Prefer native transfer while reusing an existing preparation."""
+
+        if not isinstance(source, api.IngestSourceStoreAPI):
+            raise TypeError(
+                "prepared Store ingest requires IngestSourceStoreAPI."
+            )
+        source.require_location(prepared.info.location)
+        try:
+            source.ingest_capabilities.validate_prepared(prepared)
+        except ValueError as error:
+            raise api.StoreIntegrityError(str(error)) from error
+
+        def _fallback(
+            fallback_operation_id: UUID | None,
+        ) -> api.DigitalAssetIngestResult:
+            return api.DigitalAssetIngestAPI.ingest_prepared_store_object(
+                self,
+                source,
+                prepared,
+                operation_id=fallback_operation_id,
+                item_id=item_id,
+                role=role,
+                metadata=metadata,
+                placement_hints=placement_hints,
+                preferred_store_ref=preferred_store_ref,
+                replica_mode=replica_mode,
+                verify=verify,
+            )
+
+        digest = next(
+            (
+                candidate
+                for candidate in prepared.authoritative_digests
+                if candidate.algorithm == "sha256"
+            ),
+            None,
+        )
+        return self._ingest_store_object_natively_or_fallback(
+            source,
+            prepared.info,
+            digest,
+            operation_id=operation_id,
+            item_id=item_id,
+            role=role,
+            metadata=metadata,
+            placement_hints=placement_hints,
+            preferred_store_ref=preferred_store_ref,
+            replica_mode=replica_mode,
+            verify=verify,
+            fallback=_fallback,
+        )
+
+    def _ingest_store_object_natively_or_fallback(
+        self,
+        source: api.StoreAPI,
+        info: api.FileInfo | api.StoreInventoryEntry,
+        digest: api.Digest | None,
+        *,
+        operation_id: UUID | None,
+        item_id: api.ItemID | None,
+        role: str | None,
+        metadata: api.DigitalAssetMetadata | None,
+        placement_hints: api.StoragePlacementHints | None,
+        preferred_store_ref: api.StoreUUID | None,
+        replica_mode: api.ReplicaMode,
+        verify: bool,
+        fallback: Callable[
+            [UUID | None],
+            api.DigitalAssetIngestResult,
+        ],
+    ) -> api.DigitalAssetIngestResult:
+        """Attempt verified native import and invoke one exact fallback."""
+
+        destination_ref = (
+            self.get_default_store_ref()
+            if preferred_store_ref is None
+            else preferred_store_ref
+        )
+        destination = self.get_store(destination_ref)
+        if (
+            not isinstance(destination, api.NativeImportStoreAPI)
+            or not destination.can_import_from(source)
+            or info.size is None
+            or digest is None
+            or digest.algorithm != "sha256"
+        ):
+            return fallback(operation_id)
+
+        selected_operation_id = (
+            uuid4() if operation_id is None else operation_id
+        )
+        digests = (digest,)
+        normalized_metadata = (
+            api.DigitalAssetMetadata() if metadata is None else metadata
+        )
+        request = _StoreObjectIngestRequest(
+            info.location,
+            info.version,
+            info.size,
+            digests,
+            item_id,
+            role,
+            normalized_metadata,
+            placement_hints,
+            preferred_store_ref,
+            replica_mode,
+            verify,
+        )
+
+        def _publish(
+            store: api.StoreAPI,
+            location: api.Location,
+            expected_digest: api.Digest,
+        ) -> None:
+            assert isinstance(store, api.NativeImportStoreAPI)
+            assert info.size is not None
+            store.import_from(
+                source,
+                info.location,
+                location,
+                expected_size=info.size,
+                expected_digest=expected_digest,
+                placement_hints=placement_hints,
+            )
+
+        try:
+            return self._complete_authoritative_ingest(
+                request=request,
+                operation_id=selected_operation_id,
+                size_bytes=info.size,
+                digests=digests,
+                item_id=item_id,
+                role=role,
+                metadata=normalized_metadata,
+                placement_hints=placement_hints,
+                preferred_store_ref=preferred_store_ref,
+                replica_mode=replica_mode,
+                verify=verify,
+                publish=_publish,
+            )
+        except api.StoreUnsupportedOperation:
+            return fallback(selected_operation_id)
 
     @override
     def adopt_location(
@@ -903,17 +1195,22 @@ class InMemoryStorageManager(api.StorageManagerAPI):
         digital_asset_id: api.DigitalAssetID | None = None,
         item_id: api.ItemID | None = None,
         role: str | None = None,
+        metadata: api.DigitalAssetMetadata | None = None,
         replica_mode: api.ReplicaMode = api.ReplicaMode.UNMANAGED,
         verify: bool = False,
     ) -> api.DigitalAssetIngestResult:
         """Register bytes already present at one concrete Location."""
 
         operation_id = uuid4() if operation_id is None else operation_id
+        normalized_metadata = (
+            api.DigitalAssetMetadata() if metadata is None else metadata
+        )
         request = _AdoptIngestRequest(
             location,
             digital_asset_id,
             item_id,
             role,
+            normalized_metadata,
             replica_mode,
             verify,
         )
@@ -940,6 +1237,7 @@ class InMemoryStorageManager(api.StorageManagerAPI):
                     api.DigitalAssetDeclaration(
                         info.size,
                         observed,
+                        normalized_metadata,
                         replication_policy_id=replication_policy_id,
                         backup_policy_id=backup_policy_id,
                     )
@@ -1220,6 +1518,7 @@ class InMemoryStorageManager(api.StorageManagerAPI):
         *,
         destination_store_ref: api.StoreUUID | None = None,
         source_replica_id: api.ReplicaID | None = None,
+        placement_hints: api.StoragePlacementHints | None = None,
         mode: api.ReplicaMode = api.ReplicaMode.ACTIVE,
         verify: bool = True,
     ) -> api.ReplicaRecord:
@@ -1235,19 +1534,29 @@ class InMemoryStorageManager(api.StorageManagerAPI):
             raise api.StoragePreconditionFailed(
                 "source Replica belongs to another Digital Asset."
             )
+        effective_placement_hints = (
+            source_record.placement_hints
+            if placement_hints is None
+            else placement_hints
+        )
         destination_store_ref = (
             self.get_default_store_ref()
             if destination_store_ref is None
             else destination_store_ref
         )
         store = self._require_writable_destination(destination_store_ref, mode)
-        location = self._allocate_asset_location(store, asset_record)
+        location = self._allocate_asset_location(
+            store,
+            asset_record,
+            placement_hints=effective_placement_hints,
+        )
         with self.get(source_record.location) as source:
-            self.put(
+            store.put(
                 location,
                 source,
                 expected_size=asset_record.size_bytes,
                 expected_digest=self._preferred_digest(asset_record),
+                placement_hints=effective_placement_hints,
             )
         replica_record = self._add_replica(
             api.ReplicaDeclaration(
@@ -1255,6 +1564,7 @@ class InMemoryStorageManager(api.StorageManagerAPI):
                 location,
                 mode,
                 api.ReplicaObservation(api.ReplicaState.PRESENT),
+                placement_hints=effective_placement_hints,
             )
         )
         if verify:
@@ -1293,18 +1603,56 @@ class InMemoryStorageManager(api.StorageManagerAPI):
         self,
         digital_asset_id: api.DigitalAssetID,
         *,
-        all_replicas: bool = False,
+        replica_ids: Iterable[api.ReplicaID] | None = None,
+        stop_after_first_healthy: bool | None = None,
+        all_replicas: bool | None = None,
     ) -> api.DigitalAssetVerificationReport:
-        """Verify every Replica or stop after the first healthy copy."""
+        """Verify an exact subset, every Replica, or one healthy copy."""
 
         self.get_digital_asset_record(digital_asset_id)
+        if all_replicas is not None and stop_after_first_healthy is not None:
+            raise ValueError(
+                "all_replicas and stop_after_first_healthy are mutually exclusive."
+            )
+        if all_replicas is not None:
+            stop_after_first_healthy = not all_replicas
+        selected_ids = None if replica_ids is None else tuple(replica_ids)
+        if selected_ids is not None:
+            if not selected_ids:
+                raise ValueError("replica_ids must not be empty when supplied.")
+            if len(selected_ids) != len(set(selected_ids)):
+                raise ValueError("replica_ids must not contain duplicates.")
+            records = tuple(
+                self.get_replica_record(replica_id)
+                for replica_id in selected_ids
+            )
+            for record in records:
+                if record.digital_asset_id != digital_asset_id:
+                    raise api.StoragePreconditionFailed(
+                        "selected Replica belongs to another Digital Asset."
+                    )
+                if record.state is api.ReplicaState.DELETED:
+                    raise api.StoragePreconditionFailed(
+                        "selected Replica has been deleted."
+                    )
+        else:
+            records = tuple(
+                record
+                for record in self.iter_replica_records(
+                    digital_asset_id=digital_asset_id
+                )
+                if record.state is not api.ReplicaState.DELETED
+            )
+        should_stop = (
+            selected_ids is None
+            if stop_after_first_healthy is None
+            else stop_after_first_healthy
+        )
         reports: list[api.ReplicaVerificationReport] = []
-        for record in self.iter_replica_records(digital_asset_id=digital_asset_id):
-            if record.state is api.ReplicaState.DELETED:
-                continue
+        for record in records:
             report = self.verify_replica(record.replica_id)
             reports.append(report)
-            if report.healthy and not all_replicas:
+            if report.healthy and should_stop:
                 break
         return api.DigitalAssetVerificationReport(
             digital_asset_id,
@@ -2180,9 +2528,13 @@ class InMemoryStorageManager(api.StorageManagerAPI):
         source_composite_digital_asset_id: (
             api.CompositeDigitalAssetID | None
         ) = None,
+        workflow_id: int | None = None,
         exact_only: bool = False,
     ) -> Iterator[api.DigitalAssetDerivationRecord]:
         """Iterate over an ID-ordered, provenance-filtered snapshot."""
+
+        if workflow_id is not None and workflow_id <= 0:
+            raise ValueError("workflow_id must be positive when supplied.")
 
         with self._lock:
             records = tuple(
@@ -2208,9 +2560,189 @@ class InMemoryStorageManager(api.StorageManagerAPI):
                         for source in record.declaration.sources
                     )
                 )
+                and (
+                    workflow_id is None
+                    or record.declaration.workflow_id == workflow_id
+                )
                 and (not exact_only or record.can_recreate_exactly)
             )
         return iter(records)
+
+    @override
+    def get_derivation_graph(
+        self,
+        digital_asset_id: api.DigitalAssetID,
+        *,
+        direction: (
+            api.DigitalAssetDerivationGraphDirection | str
+        ) = api.DigitalAssetDerivationGraphDirection.BOTH,
+        max_depth: int | None = None,
+        workflow_id: int | None = None,
+        exact_only: bool = False,
+    ) -> api.DigitalAssetDerivationGraph:
+        """Return a stable breadth-first provenance graph around one Asset."""
+
+        self.get_digital_asset_record(digital_asset_id)
+        if max_depth is not None and max_depth < 0:
+            raise ValueError("max_depth must not be negative.")
+        try:
+            graph_direction = api.DigitalAssetDerivationGraphDirection(
+                direction
+            )
+        except ValueError as error:
+            raise ValueError(
+                "direction must be 'ancestors', 'descendants', or 'both'."
+            ) from error
+
+        records = tuple(
+            self.iter_digital_asset_derivation_records(
+                workflow_id=workflow_id,
+                exact_only=exact_only,
+            )
+        )
+        sources_by_derivation = {
+            record.digital_asset_derivation_id: tuple(
+                sorted(
+                    self._source_asset_ids(
+                        record,
+                        include_recipe_artifacts=False,
+                    )
+                )
+            )
+            for record in records
+        }
+        by_result: dict[
+            api.DigitalAssetID,
+            list[api.DigitalAssetDerivationRecord],
+        ] = {}
+        by_source: dict[
+            api.DigitalAssetID,
+            list[api.DigitalAssetDerivationRecord],
+        ] = {}
+        for record in records:
+            by_result.setdefault(
+                record.declaration.result_digital_asset_id,
+                [],
+            ).append(record)
+            for source_id in sources_by_derivation[
+                record.digital_asset_derivation_id
+            ]:
+                by_source.setdefault(source_id, []).append(record)
+
+        asset_ids: list[api.DigitalAssetID] = [digital_asset_id]
+        seen_asset_ids = {digital_asset_id}
+        composite_ids: list[api.CompositeDigitalAssetID] = []
+        seen_composite_ids: set[api.CompositeDigitalAssetID] = set()
+        graph_records: list[api.DigitalAssetDerivationRecord] = []
+        seen_derivation_ids: set[api.DigitalAssetDerivationID] = set()
+        truncated = False
+
+        def walk(
+            walk_direction: api.DigitalAssetDerivationGraphDirection,
+        ) -> None:
+            """Breadth-first walk in one direction while retaining branches."""
+
+            nonlocal truncated
+            queue: deque[tuple[api.DigitalAssetID, int]] = deque(
+                ((digital_asset_id, 0),)
+            )
+            walked: set[api.DigitalAssetID] = set()
+            while queue:
+                current_id, depth = queue.popleft()
+                if current_id in walked:
+                    continue
+                walked.add(current_id)
+                adjacent = (
+                    by_result.get(current_id, ())
+                    if walk_direction
+                    is api.DigitalAssetDerivationGraphDirection.ANCESTORS
+                    else by_source.get(current_id, ())
+                )
+                if max_depth is not None and depth >= max_depth:
+                    if adjacent:
+                        truncated = True
+                    continue
+                for record in adjacent:
+                    derivation_id = record.digital_asset_derivation_id
+                    if derivation_id not in seen_derivation_ids:
+                        graph_records.append(record)
+                        seen_derivation_ids.add(derivation_id)
+                        for source in record.declaration.sources:
+                            composite_id = source.composite_digital_asset_id
+                            if (
+                                composite_id is not None
+                                and composite_id not in seen_composite_ids
+                            ):
+                                composite_ids.append(composite_id)
+                                seen_composite_ids.add(composite_id)
+                    next_ids = (
+                        sources_by_derivation[derivation_id]
+                        if walk_direction
+                        is api.DigitalAssetDerivationGraphDirection.ANCESTORS
+                        else (
+                            record.declaration.result_digital_asset_id,
+                        )
+                    )
+                    for next_id in next_ids:
+                        if next_id not in seen_asset_ids:
+                            asset_ids.append(next_id)
+                            seen_asset_ids.add(next_id)
+                        if next_id not in walked:
+                            queue.append((next_id, depth + 1))
+
+        if graph_direction in {
+            api.DigitalAssetDerivationGraphDirection.ANCESTORS,
+            api.DigitalAssetDerivationGraphDirection.BOTH,
+        }:
+            walk(api.DigitalAssetDerivationGraphDirection.ANCESTORS)
+        if graph_direction in {
+            api.DigitalAssetDerivationGraphDirection.DESCENDANTS,
+            api.DigitalAssetDerivationGraphDirection.BOTH,
+        }:
+            walk(api.DigitalAssetDerivationGraphDirection.DESCENDANTS)
+
+        return api.DigitalAssetDerivationGraph(
+            digital_asset_id,
+            graph_direction,
+            tuple(asset_ids),
+            tuple(composite_ids),
+            tuple(graph_records),
+            truncated,
+        )
+
+    @override
+    def plan_digital_asset_recreation(
+        self,
+        digital_asset_id: api.DigitalAssetID,
+    ) -> api.DigitalAssetRecreationPlan:
+        """Select a shortest viable, topologically ordered exact replay route."""
+
+        self.get_digital_asset_record(digital_asset_id)
+        branch = self._plan_recreation_branch(
+            digital_asset_id,
+            visiting=frozenset(),
+            memo={},
+        )
+        alternatives = tuple(
+            derivation_id
+            for derivation_id in dict.fromkeys(
+                branch.alternative_derivation_ids
+            )
+            if derivation_id != branch.selected_derivation_id
+        )
+        return api.DigitalAssetRecreationPlan(
+            digital_asset_id,
+            steps=branch.steps,
+            available_digital_asset_ids=tuple(
+                sorted(branch.available_digital_asset_ids)
+            ),
+            unavailable_digital_asset_ids=tuple(
+                sorted(branch.unavailable_digital_asset_ids)
+            ),
+            selected_derivation_id=branch.selected_derivation_id,
+            alternative_derivation_ids=alternatives,
+            warnings=tuple(dict.fromkeys(branch.warnings)),
+        )
 
     @override
     def forget_digital_asset_derivation(
@@ -2463,6 +2995,163 @@ class InMemoryStorageManager(api.StorageManagerAPI):
                     f"{digest.algorithm} digest does not match expected value."
                 )
 
+    def _complete_authoritative_ingest(
+        self,
+        *,
+        request: _IngestRequest,
+        operation_id: UUID,
+        size_bytes: int,
+        digests: tuple[api.Digest, ...],
+        item_id: api.ItemID | None,
+        role: str | None,
+        metadata: api.DigitalAssetMetadata,
+        placement_hints: api.StoragePlacementHints | None,
+        preferred_store_ref: api.StoreUUID | None,
+        replica_mode: api.ReplicaMode,
+        verify: bool,
+        publish: Callable[[api.StoreAPI, api.Location, api.Digest], None],
+    ) -> api.DigitalAssetIngestResult:
+        """Serialize matching identities while allowing distinct parallel ingest."""
+
+        identity = (size_bytes, digests)
+        with self._lock:
+            identity_lock = self._ingest_identity_locks.setdefault(
+                identity,
+                RLock(),
+            )
+        with identity_lock:
+            return self._complete_authoritative_ingest_locked(
+                request=request,
+                operation_id=operation_id,
+                size_bytes=size_bytes,
+                digests=digests,
+                item_id=item_id,
+                role=role,
+                metadata=metadata,
+                placement_hints=placement_hints,
+                preferred_store_ref=preferred_store_ref,
+                replica_mode=replica_mode,
+                verify=verify,
+                publish=publish,
+            )
+
+    def _complete_authoritative_ingest_locked(
+        self,
+        *,
+        request: _IngestRequest,
+        operation_id: UUID,
+        size_bytes: int,
+        digests: tuple[api.Digest, ...],
+        item_id: api.ItemID | None,
+        role: str | None,
+        metadata: api.DigitalAssetMetadata,
+        placement_hints: api.StoragePlacementHints | None,
+        preferred_store_ref: api.StoreUUID | None,
+        replica_mode: api.ReplicaMode,
+        verify: bool,
+        publish: Callable[[api.StoreAPI, api.Location, api.Digest], None],
+    ) -> api.DigitalAssetIngestResult:
+        """Declare, publish, and register one authoritative object identity."""
+
+        with self._lock:
+            prior = self._ingest_operations.get(operation_id)
+        if prior is not None:
+            if prior.request != request:
+                raise api.StoragePreconditionFailed(
+                    "ingest operation ID was already used for a different request."
+                )
+            return prior.result
+        destination_ref = (
+            self.get_default_store_ref()
+            if preferred_store_ref is None
+            else preferred_store_ref
+        )
+        replication_policy_id, backup_policy_id = self._placement_policy_ids(
+            destination_ref
+        )
+        with self._lock:
+            existing = self._find_asset_locked(digests, size_bytes)
+        asset_created = existing is None
+        asset_record = (
+            self.declare_digital_asset(
+                api.DigitalAssetDeclaration(
+                    size_bytes,
+                    digests,
+                    metadata,
+                    replication_policy_id,
+                    backup_policy_id,
+                )
+            )
+            if existing is None
+            else existing
+        )
+        if existing is not None:
+            asset_record = self._capture_first_placement_policies(
+                asset_record,
+                replication_policy_id,
+                backup_policy_id,
+            )
+        existing_replica = self._find_replica_for_store(
+            asset_record.digital_asset_id,
+            destination_ref,
+            replica_mode,
+        )
+        if (
+            existing_replica is not None
+            and not self._record_is_readable(existing_replica)
+        ):
+            existing_replica = None
+        replica_created = existing_replica is None
+        if existing_replica is None:
+            store = self._require_writable_destination(
+                destination_ref,
+                replica_mode,
+            )
+            location = self._allocate_asset_location(
+                store,
+                asset_record,
+                placement_hints=placement_hints,
+            )
+            publish(store, location, self._preferred_digest(asset_record))
+            replica_record = self._add_replica(
+                api.ReplicaDeclaration(
+                    asset_record.digital_asset_id,
+                    location,
+                    replica_mode,
+                    api.ReplicaObservation(api.ReplicaState.PRESENT),
+                    placement_hints=placement_hints,
+                )
+            )
+        else:
+            replica_record = existing_replica
+        if verify:
+            report = self.verify_replica(replica_record.replica_id)
+            replica_record = self.get_replica_record(replica_record.replica_id)
+            verified = report.healthy
+        else:
+            verified = replica_record.state is api.ReplicaState.VERIFIED
+        result = api.DigitalAssetIngestResult(
+            operation_id,
+            asset_record,
+            replica_record,
+            asset_created,
+            replica_created,
+            deduplicated=not asset_created,
+            verified=verified,
+        )
+        if item_id is not None:
+            self.link_item_to_digital_asset(
+                item_id,
+                asset_record.digital_asset_id,
+                role="primary_payload" if role is None else role,
+            )
+        with self._lock:
+            self._ingest_operations[operation_id] = _IngestOperation(
+                request,
+                result,
+            )
+        return result
+
     def _require_same_identity(
         self,
         record: api.DigitalAssetRecord,
@@ -2573,7 +3262,28 @@ class InMemoryStorageManager(api.StorageManagerAPI):
             errors.append(
                 f"expected {asset_record.size_bytes} bytes, observed {info.size}"
             )
-        if calculate_digests:
+        store = self.get_store(record.location.store_ref)
+        authoritative_stat_digest = (
+            store.capabilities.stat_digest_authoritative
+            and info.digest is not None
+            and info.digest.algorithm == "sha256"
+        )
+        if calculate_digests and authoritative_stat_digest:
+            assert info.digest is not None
+            expected_by_algorithm = {
+                digest.algorithm: digest.value
+                for digest in asset_record.digests
+            }
+            observed = (info.digest,)
+            digest_matches = (
+                expected_by_algorithm.get(info.digest.algorithm)
+                == info.digest.value
+            )
+            if not digest_matches:
+                errors.append(
+                    "authoritative Store digest does not identify the Digital Asset."
+                )
+        elif calculate_digests:
             try:
                 observed = self._calculate_location_digests(
                     record.location,
@@ -2662,7 +3372,8 @@ class InMemoryStorageManager(api.StorageManagerAPI):
                 declaration.location,
                 declaration.mode,
                 declaration.observation,
-                self._new_revision_locked(),
+                revision=self._new_revision_locked(),
+                placement_hints=declaration.placement_hints,
             )
             self._replicas[replica_id] = record
             self._replica_generation += 1
@@ -3076,6 +3787,242 @@ class InMemoryStorageManager(api.StorageManagerAPI):
             if len(selected_refs) == needed:
                 break
         return tuple(selected_refs)
+
+    def _plan_recreation_branch(
+        self,
+        digital_asset_id: api.DigitalAssetID,
+        *,
+        visiting: frozenset[api.DigitalAssetID],
+        memo: dict[api.DigitalAssetID, _RecreationBranch],
+    ) -> _RecreationBranch:
+        """Recursively select an exact route for one currently unavailable Asset."""
+
+        if digital_asset_id in visiting:
+            return _RecreationBranch(
+                False,
+                unavailable_digital_asset_ids=frozenset(
+                    {digital_asset_id}
+                ),
+                warnings=(
+                    f"recreation planning encountered a cycle at Asset "
+                    f"{digital_asset_id}",
+                ),
+            )
+        cached = memo.get(digital_asset_id)
+        if cached is not None:
+            return cached
+        if self._asset_has_readable_replica(digital_asset_id):
+            branch = _RecreationBranch(
+                True,
+                available_digital_asset_ids=frozenset(
+                    {digital_asset_id}
+                ),
+            )
+            memo[digital_asset_id] = branch
+            return branch
+
+        candidates = tuple(
+            self.iter_digital_asset_derivation_records(
+                result_digital_asset_id=digital_asset_id,
+                exact_only=True,
+            )
+        )
+        if not candidates:
+            branch = _RecreationBranch(
+                False,
+                unavailable_digital_asset_ids=frozenset(
+                    {digital_asset_id}
+                ),
+                warnings=(
+                    f"Asset {digital_asset_id} has no complete exact "
+                    "derivation recipe",
+                ),
+            )
+            memo[digital_asset_id] = branch
+            return branch
+
+        next_visiting = visiting | {digital_asset_id}
+        viable: list[
+            tuple[api.DigitalAssetDerivationRecord, _RecreationBranch]
+        ] = []
+        unavailable_ids: set[api.DigitalAssetID] = {digital_asset_id}
+        failed_warnings: list[str] = []
+        for candidate in candidates:
+            attempt = self._plan_recreation_derivation(
+                candidate,
+                visiting=next_visiting,
+                memo=memo,
+            )
+            if attempt.viable:
+                viable.append((candidate, attempt))
+            else:
+                unavailable_ids.update(
+                    attempt.unavailable_digital_asset_ids
+                )
+                failed_warnings.extend(attempt.warnings)
+
+        if not viable:
+            branch = _RecreationBranch(
+                False,
+                unavailable_digital_asset_ids=frozenset(unavailable_ids),
+                warnings=tuple(failed_warnings),
+            )
+            memo[digital_asset_id] = branch
+            return branch
+
+        viable.sort(
+            key=lambda item: (
+                len(item[1].steps),
+                item[0].digital_asset_derivation_id,
+            )
+        )
+        selected_record, selected = viable[0]
+        alternatives = list(selected.alternative_derivation_ids)
+        alternatives.extend(
+            record.digital_asset_derivation_id
+            for record, _ in viable[1:]
+        )
+        branch = dataclasses.replace(
+            selected,
+            selected_derivation_id=(
+                selected_record.digital_asset_derivation_id
+            ),
+            alternative_derivation_ids=tuple(
+                dict.fromkeys(alternatives)
+            ),
+            warnings=tuple(
+                dict.fromkeys(selected.warnings + tuple(failed_warnings))
+            ),
+        )
+        memo[digital_asset_id] = branch
+        return branch
+
+    def _plan_recreation_derivation(
+        self,
+        record: api.DigitalAssetDerivationRecord,
+        *,
+        visiting: frozenset[api.DigitalAssetID],
+        memo: dict[api.DigitalAssetID, _RecreationBranch],
+    ) -> _RecreationBranch:
+        """Plan every managed prerequisite of one exact derivation recipe."""
+
+        recipe = record.declaration.recipe
+        if recipe is None or not record.can_recreate_exactly:
+            return _RecreationBranch(
+                False,
+                warnings=(
+                    f"derivation {record.digital_asset_derivation_id} is not "
+                    "a complete exact recipe",
+                ),
+            )
+
+        prerequisite_branches: list[_RecreationBranch] = []
+        unavailable_ids: set[api.DigitalAssetID] = set()
+        warnings: list[str] = []
+        for source_id in sorted(
+            self._source_asset_ids(
+                record,
+                include_recipe_artifacts=False,
+            )
+        ):
+            source_branch = self._plan_recreation_branch(
+                source_id,
+                visiting=visiting,
+                memo=memo,
+            )
+            if source_branch.viable:
+                prerequisite_branches.append(source_branch)
+            else:
+                unavailable_ids.update(
+                    source_branch.unavailable_digital_asset_ids
+                )
+                warnings.extend(source_branch.warnings)
+
+        artifacts = (
+            (() if recipe.executor is None else (recipe.executor,))
+            + recipe.dependencies
+        )
+        for artifact in artifacts:
+            managed_branch: _RecreationBranch | None = None
+            if artifact.digital_asset_id is not None:
+                managed_branch = self._plan_recreation_branch(
+                    artifact.digital_asset_id,
+                    visiting=visiting,
+                    memo=memo,
+                )
+                if managed_branch.viable:
+                    prerequisite_branches.append(managed_branch)
+                    continue
+            if self._external_recipe_artifact_is_available(artifact):
+                if managed_branch is not None:
+                    warnings.append(
+                        f"derivation {record.digital_asset_derivation_id} "
+                        f"will retrieve artefact {artifact.name!r} by URI "
+                        "because its managed Asset is unavailable"
+                    )
+                continue
+            if managed_branch is not None:
+                unavailable_ids.update(
+                    managed_branch.unavailable_digital_asset_ids
+                )
+                warnings.extend(managed_branch.warnings)
+            warnings.append(
+                f"derivation {record.digital_asset_derivation_id} requires "
+                f"unavailable artefact {artifact.name!r}"
+            )
+
+        if unavailable_ids or any(
+            "requires unavailable artefact" in warning
+            for warning in warnings
+        ):
+            return _RecreationBranch(
+                False,
+                unavailable_digital_asset_ids=frozenset(unavailable_ids),
+                warnings=tuple(dict.fromkeys(warnings)),
+            )
+
+        steps: list[api.DigitalAssetDerivationRecord] = []
+        seen_steps: set[api.DigitalAssetDerivationID] = set()
+        available_ids: set[api.DigitalAssetID] = set()
+        alternatives: list[api.DigitalAssetDerivationID] = []
+        for prerequisite in prerequisite_branches:
+            available_ids.update(
+                prerequisite.available_digital_asset_ids
+            )
+            warnings.extend(prerequisite.warnings)
+            alternatives.extend(
+                prerequisite.alternative_derivation_ids
+            )
+            for step in prerequisite.steps:
+                if step.digital_asset_derivation_id in seen_steps:
+                    continue
+                steps.append(step)
+                seen_steps.add(step.digital_asset_derivation_id)
+        if record.digital_asset_derivation_id not in seen_steps:
+            steps.append(record)
+
+        return _RecreationBranch(
+            True,
+            steps=tuple(steps),
+            available_digital_asset_ids=frozenset(available_ids),
+            selected_derivation_id=record.digital_asset_derivation_id,
+            alternative_derivation_ids=tuple(dict.fromkeys(alternatives)),
+            warnings=tuple(dict.fromkeys(warnings)),
+        )
+
+    def _external_recipe_artifact_is_available(
+        self,
+        artifact: api.ReproductionRecipeArtifactReference,
+    ) -> bool:
+        """Check a pinned URI artefact through the configured resolver."""
+
+        resolver = self._artifact_resolver
+        if artifact.uri is None or resolver is None:
+            return False
+        try:
+            return resolver.is_available(artifact)
+        except Exception:
+            return False
 
     def _source_asset_ids(
         self,

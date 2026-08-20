@@ -20,17 +20,32 @@ from LiuXin_alpha.storage.api.errors import (
 from LiuXin_alpha.storage.api.models import (
     Digest,
     EnumerationCompleteness,
+    FileHints,
     FileInfo,
     Location,
     StoreCapabilities,
+    StoreConcurrencyCapabilities,
+    StoreInventoryEntry,
+    StoreInventoryPage,
     StoreStatus,
     WriteMode,
 )
 from LiuXin_alpha.storage.api.placement_hints_api import StoragePlacementHints
+from LiuXin_alpha.storage.api.store_api.ingest_source_api import (
+    IngestInventoryResume,
+    IngestMetadataAvailability,
+    IngestObjectDelivery,
+    IngestObjectResume,
+    IngestReadConsistency,
+    IngestSourceCapabilities,
+    PreparedIngestObject,
+)
 from LiuXin_alpha.storage.api.store_driver_api import (
     DeletableStorageDriverAPI,
+    DriverObjectHints,
     DriverObjectInfo,
     DriverObjectAddressT,
+    DriverInventoryEntry,
     DriverStatus,
     DriverWriteSessionAPI,
     EnumerableStorageDriverAPI,
@@ -39,6 +54,7 @@ from LiuXin_alpha.storage.api.store_driver_api import (
     NativeDigestStorageDriverAPI,
     NativeMoveStorageDriverAPI,
     ObjectAddressAllocatorStorageDriverAPI,
+    PagedEnumerableStorageDriverAPI,
     StorageDriverAPI,
     WritableStorageDriverAPI,
 )
@@ -217,8 +233,13 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             conditional_delete=raw.conditional_delete,
             atomic_publish=raw.atomic_publish,
             range_reads=raw.range_reads,
+            conditional_read=raw.conditional_read,
             stat_digest_authoritative=raw.stat_digest_authoritative,
             enumeration=raw.enumeration,
+            paged_enumeration=(
+                raw.paged_enumeration
+                and isinstance(self._driver, PagedEnumerableStorageDriverAPI)
+            ),
             native_copy=native_copy,
             native_move=native_move,
             native_digest=native_digest,
@@ -226,6 +247,16 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             object_address_allocation=raw.object_address_allocation,
             hierarchical_object_addresses=raw.hierarchical_object_addresses,
             prefix_enumeration=raw.prefix_enumeration,
+            external_uri_parsing=raw.external_uri_parsing,
+            external_uri_rendering=raw.external_uri_rendering,
+            concurrency=StoreConcurrencyCapabilities(
+                thread_safe=raw.concurrency.thread_safe,
+                concurrent_reads=raw.concurrency.concurrent_reads,
+                concurrent_writes=raw.concurrency.concurrent_writes,
+                recommended_parallel_reads=(
+                    raw.concurrency.recommended_parallel_reads
+                ),
+            ),
         )
         if not self.configuration.read_only:
             return capabilities
@@ -236,6 +267,191 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             delete=False,
             conditional_delete=False,
         )
+
+    @property
+    def ingest_capabilities(self) -> IngestSourceCapabilities:
+        """Describe advanced source behavior derived from driver mechanics.
+
+        Concrete Stores override this profile only for qualities that cannot
+        be inferred from the ordinary driver contract, such as whether reads
+        are disk-spooled or which authoritative digest algorithms may appear.
+
+        Example:
+            >>> store.ingest_capabilities.object_delivery  # doctest: +SKIP
+            <IngestObjectDelivery.STREAMING: 'streaming'>
+
+        :return: Advanced source-ingest capability profile.
+        """
+
+        raw = self._driver.capabilities
+        read_consistency = (
+            IngestReadConsistency.VERSION_PINNED
+            if raw.conditional_read
+            else IngestReadConsistency.UNGUARDED
+        )
+        return IngestSourceCapabilities(
+            read_consistency=read_consistency,
+            object_delivery=IngestObjectDelivery.STREAMING,
+            inventory_resume=(
+                IngestInventoryResume.CURSOR
+                if raw.paged_enumeration
+                else IngestInventoryResume.NONE
+            ),
+            object_resume=(
+                IngestObjectResume.STABLE_RANGE
+                if raw.range_reads and raw.conditional_read
+                else IngestObjectResume.NONE
+            ),
+            metadata_availability=IngestMetadataAvailability.NONE,
+        )
+
+    def prepare_ingest(
+        self,
+        info: FileInfo | StoreInventoryEntry,
+        *,
+        inspect: bool = True,
+    ) -> PreparedIngestObject:
+        """Bind one candidate to its richest safe driver-backed observations.
+
+        Example:
+            >>> prepared = store.prepare_ingest(entry)  # doctest: +SKIP
+
+        :param info: Candidate owned by this configured Store.
+        :param inspect: Whether to refresh it through authoritative ``stat``.
+        :return: Immutable per-object ingest preparation.
+        """
+
+        self.require_location(info.location)
+        selected: FileInfo | StoreInventoryEntry = info
+        if inspect and isinstance(info, StoreInventoryEntry):
+            try:
+                selected = self.stat(info.location)
+            except StoreUnsupportedOperation:
+                selected = info
+        profile = self.ingest_capabilities
+        if profile.read_consistency is IngestReadConsistency.IMMUTABLE:
+            consistency = IngestReadConsistency.IMMUTABLE
+        elif (
+            profile.read_consistency
+            is IngestReadConsistency.VERSION_PINNED
+            and selected.version is not None
+        ):
+            consistency = IngestReadConsistency.VERSION_PINNED
+        else:
+            consistency = IngestReadConsistency.UNGUARDED
+        advertised_algorithms = set(
+            profile.authoritative_digest_algorithms
+        )
+        authoritative_digests = (
+            (selected.digest,)
+            if (
+                self.capabilities.stat_digest_authoritative
+                and selected.digest is not None
+                and selected.digest.algorithm in advertised_algorithms
+            )
+            else ()
+        )
+        return PreparedIngestObject(
+            info=selected,
+            read_consistency=consistency,
+            authoritative_digests=authoritative_digests,
+            provenance_uri=self.location_uri(selected.location),
+        )
+
+    def open_prepared_ingest(
+        self,
+        prepared: PreparedIngestObject,
+        *,
+        offset: int = 0,
+    ) -> BinaryIO:
+        """Open a prepared object and enforce its per-object read guarantee.
+
+        Example:
+            >>> with store.open_prepared_ingest(prepared) as source:  # doctest: +SKIP
+            ...     payload = source.read()
+
+        :param prepared: Preparation previously returned by this Store.
+        :param offset: Optional stable resume offset.
+        :return: Context-managed binary object stream.
+        """
+
+        location = self.require_location(prepared.info.location)
+        try:
+            self.ingest_capabilities.validate_prepared(prepared)
+        except ValueError as error:
+            raise StoreIntegrityError(str(error)) from error
+        if offset < 0:
+            raise StoreInvalidLocation(
+                "prepared ingest offset must not be negative."
+            )
+        if offset and (
+            self.ingest_capabilities.object_resume
+            is not IngestObjectResume.STABLE_RANGE
+            or prepared.read_consistency is IngestReadConsistency.UNGUARDED
+        ):
+            raise StoreUnsupportedOperation(
+                "this prepared object does not support stable ingest resume."
+            )
+        if prepared.read_consistency is IngestReadConsistency.VERSION_PINNED:
+            assert prepared.info.version is not None
+            return self.open_read(
+                location,
+                offset=offset,
+                if_version=prepared.info.version,
+            )
+        return self.open_read(location, offset=offset)
+
+    def location_from_uri(self, uri: str) -> Location:
+        """
+        Resolve a driver-owned external URI into a routed Location.
+
+        Example:
+            >>> location = store.location_from_uri(  # doctest: +SKIP
+            ...     "s3://library/books/book.epub",
+            ... )
+
+        :param uri:
+        :return:
+        """
+
+        if not self._driver.capabilities.external_uri_parsing:
+            raise StoreUnsupportedOperation(
+                f"{self._driver.driver_kind} does not resolve external object URIs."
+            )
+        return self._location(self._driver.object_address_from_uri(uri))
+
+    def location_uri(self, location: Location) -> str | None:
+        """
+        Render a credential-free external URI through the owned driver.
+
+        Example:
+            >>> uri = store.location_uri(location)  # doctest: +SKIP
+
+        :param location:
+        :return:
+        """
+
+        address = self._object_address(location)
+        if not self._driver.capabilities.external_uri_rendering:
+            return None
+        return self._driver.object_uri(address)
+
+    def _native_write_metadata(
+        self,
+        placement_hints: StoragePlacementHints | None,
+    ) -> tuple[tuple[str, str], ...]:
+        """Project Store hints into backend-native metadata when supported.
+
+        Example:
+            >>> store._native_write_metadata(None)
+            ()
+
+        :param placement_hints: Optional advisory library placement metadata.
+        :return: Driver-native string pairs, empty for ordinary Stores.
+        """
+
+        _ = placement_hints
+        return ()
 
     def startup(self) -> StoreStatus:
         """
@@ -390,6 +606,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> BinaryIO:
         """
         Open a routed binary stream through the owned driver.
@@ -401,10 +618,19 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         :param location:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
+        address = self._object_address(location)
+        if if_version is None:
+            return self._driver.open_read(
+                address, offset=offset, length=length
+            )
         return self._driver.open_read(
-            self._object_address(location), offset=offset, length=length
+            address,
+            offset=offset,
+            length=length,
+            if_version=if_version,
         )
 
     def begin_write(
@@ -456,6 +682,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             mode=mode,
             expected_size=expected_size,
             expected_digest=expected_digest,
+            metadata=self._native_write_metadata(placement_hints),
         )
         return _DriverWriteSessionAdapter(self, session, address)
 
@@ -678,6 +905,160 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             seen.add(address)
             yield self._location(address)
 
+    def iter_file_infos(
+        self,
+        *,
+        prefix: Location | None = None,
+    ) -> Iterator[FileInfo]:
+        """Expose rich inventory metadata without re-statting known entries.
+
+        Example:
+            >>> infos = tuple(store.iter_file_infos())  # doctest: +SKIP
+
+        :param prefix: Optional owned Location restricting enumeration.
+        :return: Authoritative or inventory-derived file information.
+        """
+
+        driver = self._driver
+        if (
+            driver.capabilities.enumeration
+            is EnumerationCompleteness.UNAVAILABLE
+            or not isinstance(driver, EnumerableStorageDriverAPI)
+        ):
+            raise StoreUnsupportedOperation(
+                f"{driver.driver_kind} does not support enumeration."
+            )
+        enumerable = cast(
+            EnumerableStorageDriverAPI[DriverObjectAddressT], driver
+        )
+        driver_prefix = (
+            None if prefix is None else self._object_address(prefix)
+        )
+        if driver_prefix is not None and not driver.capabilities.prefix_enumeration:
+            raise StoreUnsupportedOperation(
+                f"{driver.driver_kind} does not support prefix enumeration."
+            )
+        seen: set[DriverObjectAddressT] = set()
+        for entry in enumerable.iter_inventory(prefix=driver_prefix):
+            address = driver.require_canonical_object_address(
+                entry.object_address
+            )
+            if address in seen:
+                raise StoreIntegrityError(
+                    "driver enumeration returned a duplicate object address."
+                )
+            seen.add(address)
+            if entry.size is None:
+                yield self._file_info(
+                    driver.require_object_info(address, driver.stat(address))
+                )
+                continue
+            yield FileInfo(
+                location=self._location(address),
+                size=entry.size,
+                modified_at=entry.modified_at,
+                digest=entry.digest,
+                version=entry.version,
+                hints=self._file_hints(entry.hints),
+            )
+
+    def iter_inventory_entries(
+        self,
+        *,
+        prefix: Location | None = None,
+    ) -> Iterator[StoreInventoryEntry]:
+        """Expose inventory entries without requiring a known object size.
+
+        Example:
+            >>> entries = tuple(store.iter_inventory_entries())  # doctest: +SKIP
+
+        :param prefix: Optional owned Location restricting enumeration.
+        :return: Driver inventory translated into routed Store entries.
+        """
+
+        driver = self._driver
+        if (
+            driver.capabilities.enumeration
+            is EnumerationCompleteness.UNAVAILABLE
+            or not isinstance(driver, EnumerableStorageDriverAPI)
+        ):
+            raise StoreUnsupportedOperation(
+                f"{driver.driver_kind} does not support enumeration."
+            )
+        enumerable = cast(
+            EnumerableStorageDriverAPI[DriverObjectAddressT], driver
+        )
+        driver_prefix = (
+            None if prefix is None else self._object_address(prefix)
+        )
+        if driver_prefix is not None and not driver.capabilities.prefix_enumeration:
+            raise StoreUnsupportedOperation(
+                f"{driver.driver_kind} does not support prefix enumeration."
+            )
+        seen: set[DriverObjectAddressT] = set()
+        for entry in enumerable.iter_inventory(prefix=driver_prefix):
+            address = driver.require_canonical_object_address(
+                entry.object_address
+            )
+            if address in seen:
+                raise StoreIntegrityError(
+                    "driver enumeration returned a duplicate object address."
+                )
+            seen.add(address)
+            yield self._inventory_entry(
+                dataclasses.replace(entry, object_address=address)
+            )
+
+    def inventory_page(
+        self,
+        *,
+        prefix: Location | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+        snapshot_token: str | None = None,
+    ) -> StoreInventoryPage:
+        """Return a resumable page of routed inventory entries.
+
+        Example:
+            >>> page = store.inventory_page(limit=100)  # doctest: +SKIP
+
+        :param prefix: Optional owned Location restricting enumeration.
+        :param cursor: Opaque continuation token from the preceding page.
+        :param limit: Optional maximum number of entries to return.
+        :param snapshot_token: Optional backend snapshot token to continue.
+        :return: One page plus continuation and snapshot tokens.
+        """
+
+        driver = self._driver
+        if (
+            not driver.capabilities.paged_enumeration
+            or not isinstance(driver, PagedEnumerableStorageDriverAPI)
+        ):
+            raise StoreUnsupportedOperation(
+                f"{driver.driver_kind} does not support paged enumeration."
+            )
+        driver_prefix = (
+            None if prefix is None else self._object_address(prefix)
+        )
+        if driver_prefix is not None and not driver.capabilities.prefix_enumeration:
+            raise StoreUnsupportedOperation(
+                f"{driver.driver_kind} does not support prefix enumeration."
+            )
+        enumerable = cast(
+            PagedEnumerableStorageDriverAPI[DriverObjectAddressT], driver
+        )
+        page = enumerable.inventory_page(
+            prefix=driver_prefix,
+            cursor=cursor,
+            limit=limit,
+            snapshot_token=snapshot_token,
+        )
+        return StoreInventoryPage(
+            entries=tuple(self._inventory_entry(entry) for entry in page.entries),
+            next_cursor=page.next_cursor,
+            snapshot_token=page.snapshot_token,
+        )
+
     def _object_address(self, location: Location) -> DriverObjectAddressT:
         """
         Translate a routed Location into a checked private address.
@@ -756,6 +1137,46 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             modified_at=info.modified_at,
             digest=info.digest,
             version=info.version,
+            hints=self._file_hints(info.hints),
+        )
+
+    def _inventory_entry(
+        self,
+        entry: DriverInventoryEntry[DriverObjectAddressT],
+    ) -> StoreInventoryEntry:
+        """Translate one possibly size-less driver inventory entry.
+
+        Example:
+            >>> routed = store._inventory_entry(driver_entry)  # doctest: +SKIP
+
+        :param entry: Canonical raw-driver inventory metadata.
+        :return: Routed Store inventory metadata.
+        """
+
+        return StoreInventoryEntry(
+            location=self._location(entry.object_address),
+            size=entry.size,
+            modified_at=entry.modified_at,
+            digest=entry.digest,
+            version=entry.version,
+            hints=self._file_hints(entry.hints),
+        )
+
+    def _file_hints(self, hints: DriverObjectHints) -> FileHints:
+        """
+        Translate driver observations without exposing a driver value object.
+
+        Example:
+            >>> routed = store._file_hints(driver_hints)  # doctest: +SKIP
+
+        :param hints:
+        :return:
+        """
+
+        return FileHints(
+            suggested_filename=hints.suggested_filename,
+            media_type=hints.media_type,
+            metadata=hints.metadata,
         )
 
     def _effective_status(self, status: DriverStatus) -> StoreStatus:

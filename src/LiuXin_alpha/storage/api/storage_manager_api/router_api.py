@@ -50,6 +50,7 @@ class StorageRouterAPI(abc.ABC):
     @abc.abstractmethod
     def get(
         self, location: Location, *, offset: int = 0, length: int | None = None,
+        if_version: str | None = None,
     ) -> BinaryIO:
         """
         Open a routed object as a binary, optionally ranged stream.
@@ -63,6 +64,7 @@ class StorageRouterAPI(abc.ABC):
         :param location:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
         ...
@@ -223,6 +225,7 @@ class StorageRouterAPI(abc.ABC):
 
     def read_bytes(
         self, location: Location, *, offset: int = 0, length: int | None = None,
+        if_version: str | None = None,
     ) -> bytes:
         """
         Read a routed object or range fully into memory.
@@ -237,10 +240,21 @@ class StorageRouterAPI(abc.ABC):
         :param location:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
 
-        with self.get(location, offset=offset, length=length) as source:
+        reader = (
+            self.get(location, offset=offset, length=length)
+            if if_version is None
+            else self.get(
+                location,
+                offset=offset,
+                length=length,
+                if_version=if_version,
+            )
+        )
+        with reader as source:
             return source.read()
 
     def write_bytes(
@@ -297,7 +311,13 @@ class StorageRouterAPI(abc.ABC):
         """
 
         source_info = self.stat(source)
-        with self.get(source) as source_stream:
+        reader = (
+            self.get(source, if_version=source_info.version)
+            if self.capabilities(source.store_ref).conditional_read
+            and source_info.version is not None
+            else self.get(source)
+        )
+        with reader as source_stream:
             return self.put(
                 destination,
                 source_stream,

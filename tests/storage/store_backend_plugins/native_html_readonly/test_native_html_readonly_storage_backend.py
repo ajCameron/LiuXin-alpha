@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+import io
+
+import pytest
+
+from LiuXin_alpha.storage.api import EnumerationCompleteness, StoreReadOnly
 from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
     NativeHtmlBackendOptions,
     NativeHtmlReadOnlyStorageBackend,
 )
 from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
     native_html_storage_backend as backend_module,
+)
+from tests.fixtures.storage_unicode import (
+    UNICODE_FILENAME,
+    UNICODE_PAYLOAD,
+    UNICODE_URL_KEY,
 )
 
 
@@ -18,6 +28,64 @@ def _html_result(url: str, body: str) -> object:
         body=body.encode("utf-8"),
         charset="utf-8",
     )
+
+
+def test_native_backend_preserves_unicode_url_names_and_bytes(monkeypatch) -> None:
+    root = "https://example.com/library/"
+    object_url = root + UNICODE_URL_KEY
+
+    monkeypatch.setattr(
+        backend_module.NativeHtmlReadOnlyStorageBackend,
+        "_fetch_url",
+        lambda self, url: _html_result(
+            url,
+            f'<html><body><a href="{UNICODE_URL_KEY}">book</a></body></html>',
+        ),
+    )
+
+    class _Response(io.BytesIO):
+        status = 200
+
+        def __init__(self, url: str, payload: bytes) -> None:
+            super().__init__(payload)
+            self.headers = {
+                "Content-Length": str(len(UNICODE_PAYLOAD)),
+                "Content-Type": "application/epub+zip",
+                "ETag": '"unicode-v1"',
+            }
+            self._url = url
+
+        def geturl(self) -> str:
+            return self._url
+
+    def _open_http(request, timeout_s):
+        del timeout_s
+        return _Response(
+            request.full_url,
+            b"" if request.method == "HEAD" else UNICODE_PAYLOAD,
+        )
+
+    monkeypatch.setattr(
+        backend_module.NativeHtmlReadOnlyStorageBackend,
+        "_open_http_request",
+        staticmethod(_open_http),
+    )
+    store = NativeHtmlReadOnlyStorageBackend(
+        root,
+        options=NativeHtmlBackendOptions(
+            max_http_requests_per_hour=None,
+            respect_robots=False,
+        ),
+    )
+
+    [location] = list(store.iter_locations())
+    info = store.stat_file(location)
+
+    assert location.key == UNICODE_URL_KEY
+    assert store.location_uri(location) == object_url
+    assert info.hints.suggested_filename == UNICODE_FILENAME
+    assert info.hints.media_type == "application/epub+zip"
+    assert store.read_file(info) == UNICODE_PAYLOAD
 
 
 def test_native_backend_crawl_descends_through_non_file_like_pages(monkeypatch) -> None:
@@ -121,14 +189,39 @@ def test_native_backend_iter_locations_and_stat_follow_new_plugin_api(monkeypatc
         return responses[url]
 
     monkeypatch.setattr(backend_module.NativeHtmlReadOnlyStorageBackend, "_fetch_url", _fake_fetch)
+    payloads = {
+        "https://example.com/library/files/one.epub": b"one-book",
+        "https://example.com/library/files/two.mobi": b"two-book",
+    }
+
+    class _Response(io.BytesIO):
+        def __init__(self, url: str, payload: bytes, *, status: int) -> None:
+            super().__init__(payload)
+            self.status = status
+            self.headers = {
+                "Content-Length": str(len(payloads[url])),
+                "Content-Type": "application/octet-stream",
+                "ETag": '"version-1"',
+            }
+            self._url = url
+
+        def geturl(self) -> str:
+            return self._url
+
+    def _open_http(request, timeout_s):
+        del timeout_s
+        payload = payloads[request.full_url]
+        byte_range = request.get_header("Range")
+        if request.method == "HEAD":
+            return _Response(request.full_url, b"", status=200)
+        if byte_range == "bytes=1-3":
+            return _Response(request.full_url, payload[1:4], status=206)
+        return _Response(request.full_url, payload, status=200)
+
     monkeypatch.setattr(
         backend_module.NativeHtmlReadOnlyStorageBackend,
-        "file_exists",
-        lambda self, url: url in {
-            "https://example.com/library/files/one.epub",
-            "https://example.com/library/files/two.mobi",
-        },
-        raising=False,
+        "_open_http_request",
+        staticmethod(_open_http),
     )
 
     store = NativeHtmlReadOnlyStorageBackend(
@@ -139,10 +232,17 @@ def test_native_backend_iter_locations_and_stat_follow_new_plugin_api(monkeypatc
 
     locations = list(store.iter_locations())
 
-    assert [loc.file_url for loc in locations] == [
-        "https://example.com/library/files/one.epub",
-        "https://example.com/library/files/two.mobi",
+    assert [loc.key for loc in locations] == [
+        "files/one.epub",
+        "files/two.mobi",
     ]
-    assert store.exists(locations[0]) is True
-    assert store.file_size(locations[0]) == 0
-    assert store.stat(locations[0]).url == "https://example.com/library/files/one.epub"
+    assert all(loc.store_ref == store.store_ref for loc in locations)
+    assert store.capabilities.enumeration is EnumerationCompleteness.PARTIAL
+    assert store.file_exists(locations[0]) is True
+    assert store.stat_file(locations[0]).size == len(payloads[
+        "https://example.com/library/files/one.epub"
+    ])
+    assert store.read_file(locations[0]) == b"one-book"
+    assert store.read_file(locations[0], offset=1, length=3) == b"ne-"
+    with pytest.raises(StoreReadOnly):
+        store.store_bytes(b"replacement", location=locations[0])

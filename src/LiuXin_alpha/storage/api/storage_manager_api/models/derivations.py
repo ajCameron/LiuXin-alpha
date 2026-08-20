@@ -56,6 +56,24 @@ class Reproducibility(StrEnum):
     NOT_REPRODUCIBLE = "not_reproducible"
 
 
+class DigitalAssetDerivationGraphDirection(StrEnum):
+    """
+    Direction in which a derivation graph is traversed from one Asset.
+
+    ``ANCESTORS`` follows results back to their inputs. ``DESCENDANTS``
+    follows inputs forward to results. ``BOTH`` returns the connected
+    provenance neighbourhood in both directions.
+
+    Example:
+        >>> DigitalAssetDerivationGraphDirection.ANCESTORS.value
+        'ancestors'
+    """
+
+    ANCESTORS = "ancestors"
+    DESCENDANTS = "descendants"
+    BOTH = "both"
+
+
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetDerivationSourceReference:
     """
@@ -385,6 +403,7 @@ class DigitalAssetDerivationDeclaration:
     created_at: datetime | None = None
     operator: str | None = None
     notes: str | None = None
+    workflow_id: int | None = None
 
     def __post_init__(self) -> None:
         """
@@ -418,6 +437,8 @@ class DigitalAssetDerivationDeclaration:
         _require_optional_text(self.output_role, "output_role")
         _require_optional_text(self.operator, "operator")
         _require_optional_text(self.notes, "notes")
+        if self.workflow_id is not None and self.workflow_id <= 0:
+            raise ValueError("workflow_id must be positive when supplied.")
         if self.created_at is not None:
             if self.created_at.tzinfo is None or self.created_at.utcoffset() is None:
                 raise ValueError("created_at must be timezone-aware.")
@@ -485,6 +506,188 @@ class DigitalAssetDerivationRecord:
         return (
             self.declaration.recipe is not None
             and self.declaration.recipe.can_recreate_exactly
+        )
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class DigitalAssetDerivationGraph:
+    """
+    Immutable provenance neighbourhood rooted at one atomic Digital Asset.
+
+    Derivation records retain the actual edges, including ordered source
+    roles. ``digital_asset_ids`` and ``composite_digital_asset_ids`` provide
+    a convenient node inventory. ``truncated`` is true when ``max_depth``
+    prevented the manager from following at least one further edge.
+
+    Example:
+        >>> graph = DigitalAssetDerivationGraph(
+        ...     DigitalAssetID(8),
+        ...     DigitalAssetDerivationGraphDirection.ANCESTORS,
+        ...     (DigitalAssetID(8),),
+        ... )
+        >>> graph.digital_asset_ids
+        (8,)
+    """
+
+    root_digital_asset_id: DigitalAssetID
+    direction: DigitalAssetDerivationGraphDirection
+    digital_asset_ids: tuple[DigitalAssetID, ...]
+    composite_digital_asset_ids: tuple[CompositeDigitalAssetID, ...] = ()
+    derivation_records: tuple[DigitalAssetDerivationRecord, ...] = ()
+    truncated: bool = False
+
+    def __post_init__(self) -> None:
+        """
+        Require a positive root and unique node and edge identities.
+
+        Example:
+            >>> DigitalAssetDerivationGraph(
+            ...     DigitalAssetID(0),
+            ...     DigitalAssetDerivationGraphDirection.ANCESTORS,
+            ...     (DigitalAssetID(0),),
+            ... )
+            Traceback (most recent call last):
+            ...
+            ValueError: root_digital_asset_id must be positive.
+        """
+
+        if self.root_digital_asset_id <= 0:
+            raise ValueError("root_digital_asset_id must be positive.")
+        if self.root_digital_asset_id not in self.digital_asset_ids:
+            raise ValueError("digital_asset_ids must contain the graph root.")
+        if len(self.digital_asset_ids) != len(set(self.digital_asset_ids)):
+            raise ValueError("digital_asset_ids must be unique.")
+        if len(self.composite_digital_asset_ids) != len(
+            set(self.composite_digital_asset_ids)
+        ):
+            raise ValueError("composite_digital_asset_ids must be unique.")
+        derivation_ids = tuple(
+            record.digital_asset_derivation_id
+            for record in self.derivation_records
+        )
+        if len(derivation_ids) != len(set(derivation_ids)):
+            raise ValueError("derivation_records must be unique.")
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class DigitalAssetRecreationPlan:
+    """
+    Selected exact replay chain for making one Digital Asset available.
+
+    ``steps`` are in executable topological order: every managed input or
+    artefact recreation appears before the recipe that consumes it. The
+    manager prefers a viable route requiring fewer replay steps and exposes
+    other viable choices through ``alternative_derivation_ids``.
+
+    Example:
+        >>> plan = DigitalAssetRecreationPlan(
+        ...     DigitalAssetID(8),
+        ...     available_digital_asset_ids=(DigitalAssetID(8),),
+        ... )
+        >>> (plan.already_available, plan.can_recreate_exactly)
+        (True, True)
+    """
+
+    digital_asset_id: DigitalAssetID
+    steps: tuple[DigitalAssetDerivationRecord, ...] = ()
+    available_digital_asset_ids: tuple[DigitalAssetID, ...] = ()
+    unavailable_digital_asset_ids: tuple[DigitalAssetID, ...] = ()
+    selected_derivation_id: DigitalAssetDerivationID | None = None
+    alternative_derivation_ids: tuple[DigitalAssetDerivationID, ...] = ()
+    warnings: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        """
+        Require internally consistent replay identities.
+
+        Example:
+            >>> DigitalAssetRecreationPlan(DigitalAssetID(0))
+            Traceback (most recent call last):
+            ...
+            ValueError: digital_asset_id must be positive.
+        """
+
+        if self.digital_asset_id <= 0:
+            raise ValueError("digital_asset_id must be positive.")
+        available = set(self.available_digital_asset_ids)
+        unavailable = set(self.unavailable_digital_asset_ids)
+        if len(available) != len(self.available_digital_asset_ids):
+            raise ValueError("available_digital_asset_ids must be unique.")
+        if len(unavailable) != len(self.unavailable_digital_asset_ids):
+            raise ValueError("unavailable_digital_asset_ids must be unique.")
+        if available & unavailable:
+            raise ValueError("available and unavailable Asset IDs must be disjoint.")
+        step_ids = tuple(
+            step.digital_asset_derivation_id for step in self.steps
+        )
+        if len(step_ids) != len(set(step_ids)):
+            raise ValueError("recreation steps must be unique.")
+        if self.selected_derivation_id is not None:
+            if self.selected_derivation_id not in step_ids:
+                raise ValueError("selected_derivation_id must identify a plan step.")
+            selected = next(
+                step
+                for step in self.steps
+                if step.digital_asset_derivation_id
+                == self.selected_derivation_id
+            )
+            if (
+                selected.declaration.result_digital_asset_id
+                != self.digital_asset_id
+            ):
+                raise ValueError(
+                    "selected_derivation_id must produce the requested Asset."
+                )
+        if len(self.alternative_derivation_ids) != len(
+            set(self.alternative_derivation_ids)
+        ):
+            raise ValueError("alternative_derivation_ids must be unique.")
+        if self.selected_derivation_id in self.alternative_derivation_ids:
+            raise ValueError("the selected derivation cannot be an alternative.")
+
+    @property
+    def already_available(self) -> bool:
+        """
+        Return whether the requested bytes can already be read.
+
+        Example:
+            >>> DigitalAssetRecreationPlan(
+            ...     DigitalAssetID(8),
+            ...     available_digital_asset_ids=(DigitalAssetID(8),),
+            ... ).already_available
+            True
+        """
+
+        return self.digital_asset_id in self.available_digital_asset_ids
+
+    @property
+    def requires_replay(self) -> bool:
+        """
+        Return whether executing at least one recipe is required.
+
+        Example:
+            >>> DigitalAssetRecreationPlan(DigitalAssetID(8)).requires_replay
+            False
+        """
+
+        return bool(self.steps)
+
+    @property
+    def can_recreate_exactly(self) -> bool:
+        """
+        Return whether the selected plan can provide the exact bytes.
+
+        Example:
+            >>> DigitalAssetRecreationPlan(
+            ...     DigitalAssetID(8),
+            ...     available_digital_asset_ids=(DigitalAssetID(8),),
+            ... ).can_recreate_exactly
+            True
+        """
+
+        return self.already_available or (
+            self.selected_derivation_id is not None
+            and not self.unavailable_digital_asset_ids
         )
 
 
@@ -618,9 +821,12 @@ def _require_json_object(document: str, field_name: str) -> None:
 
 __all__ = [
     "DigitalAssetDerivationDeclaration",
+    "DigitalAssetDerivationGraph",
+    "DigitalAssetDerivationGraphDirection",
     "DigitalAssetDerivationRecord",
     "DigitalAssetDerivationKind",
     "DigitalAssetDerivationSourceReference",
+    "DigitalAssetRecreationPlan",
     "ReproductionRecipeArtifactReference",
     "ReproductionRecipeInputReference",
     "Reproducibility",

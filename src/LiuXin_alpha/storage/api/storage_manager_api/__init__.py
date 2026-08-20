@@ -44,8 +44,11 @@ from LiuXin_alpha.storage.api.storage_manager_api.location_api import BoundLocat
 from LiuXin_alpha.storage.api.storage_manager_api.location_factory import LocationFactory
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
     DigitalAssetDerivationDeclaration,
+    DigitalAssetDerivationGraph,
+    DigitalAssetDerivationGraphDirection,
     DigitalAssetDerivationID,
     DigitalAssetDerivationRecord,
+    DigitalAssetRecreationPlan,
     DigitalAssetLossAction,
     DigitalAssetBackupPlan,
     BackupPolicy,
@@ -99,7 +102,7 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 from LiuXin_alpha.storage.api.storage_manager_api.policies_api import StoragePolicyAPI
 from LiuXin_alpha.storage.api.storage_manager_api.reconciliation_api import StorageReconciliationAPI
 from LiuXin_alpha.storage.api.storage_manager_api.replicas_api import ReplicaLifecycleAPI
-from LiuXin_alpha.storage.api.storage_manager_api.repositories_api import (
+from LiuXin_alpha.storage.api.persistence_api import (
     DigitalAssetDerivationRepositoryAPI,
     CompositeDigitalAssetRepositoryAPI,
     DigitalAssetRepositoryAPI,
@@ -180,9 +183,12 @@ class StorageManagerAPI(
 
 __all__ = [
     "DigitalAssetDerivationDeclaration",
+    "DigitalAssetDerivationGraph",
+    "DigitalAssetDerivationGraphDirection",
     "DigitalAssetDerivationID",
     "DigitalAssetDerivationNotFound",
     "DigitalAssetDerivationRecord",
+    "DigitalAssetRecreationPlan",
     "DigitalAssetDerivationRegistryAPI",
     "DigitalAssetDerivationRepositoryAPI",
     "DigitalAssetLossAction",

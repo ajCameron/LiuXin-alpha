@@ -1,27 +1,31 @@
+"""A Location is always scoped to exactly one configured Store."""
+
 from __future__ import annotations
 
 import pytest
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_storage_backend import (
-    OnDiskExistingManagedStorageBackend,
-)
+from LiuXin_alpha.storage import api
 
 
-class TestCrossStoreBehavior:
-    def test_relative_to_across_stores_raises(self, tmp_path, loc_cls) -> None:
-        s1 = tmp_path / "s1"
-        s2 = tmp_path / "s2"
-        s1.mkdir()
-        s2.mkdir()
+def test_equal_keys_in_different_stores_are_distinct(store, second_store) -> None:
+    first = store.locate("same/key")
+    second = second_store.locate("same/key")
 
-        store1 = OnDiskExistingManagedStorageBackend(url=str(s1))
-        store2 = OnDiskExistingManagedStorageBackend(url=str(s2))
+    assert first != second
+    assert len({first, second}) == 2
 
-        a1 = loc_cls("a", "b", store=store1)
-        a2 = loc_cls("a", store=store2)
 
-        with pytest.raises(ValueError):
-            _ = a1.relative_to(a2)
+def test_manager_routes_same_key_to_independent_stores(manager, store, second_store) -> None:
+    first = store.locate("same/key")
+    second = second_store.locate("same/key")
+    manager.write_bytes(first, b"first")
+    manager.write_bytes(second, b"second")
 
-        assert a1.is_relative_to(a2) is False
-        assert (a1 == a2) is False
+    assert manager.read_bytes(first) == b"first"
+    assert manager.read_bytes(second) == b"second"
+
+
+def test_store_rejects_a_location_owned_by_another_store(store, second_store) -> None:
+    foreign = second_store.locate("object")
+    with pytest.raises(api.StoreInvalidLocation):
+        store.stat(foreign)

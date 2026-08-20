@@ -69,10 +69,12 @@ def _upsert_remote_store_row(
     access_protocol: str,
     supports_checksums: bool,
     policy_json: str,
+    store_uuid: str,
 ) -> Row:
     store_columns = _ensure_remote_store_schema_support(db)
 
     common_payload = {
+        "store_uuid": store_uuid,
         "store_name": backend_name,
         "store_kind": store_kind,
         "store_access_protocol": access_protocol,
@@ -139,6 +141,14 @@ def ensure_wget_html_readonly_store(
     )
 
     backend_name = store_name or safe_path_to_name(root)
+    existing_rows = db.search("stores", "store_root_uri", root)
+    persisted_uuid = (
+        None
+        if not existing_rows
+        or "store_uuid" not in existing_rows[0].allowed_columns
+        or existing_rows[0]["store_uuid"] in (None, "")
+        else str(existing_rows[0]["store_uuid"])
+    )
     options = WgetBackendOptions(
         wget_exe=wget_exe,
         wget_args=tuple(wget_args or ()),
@@ -152,7 +162,12 @@ def ensure_wget_html_readonly_store(
         user_agent=user_agent,
         no_verbose=bool(no_verbose),
     )
-    backend = WgetHtmlReadOnlyStorageBackend(url=root, name=backend_name, options=options)
+    backend = WgetHtmlReadOnlyStorageBackend(
+        url=root,
+        name=backend_name,
+        uuid=persisted_uuid,
+        options=options,
+    )
     policy_json = json.dumps(
         {
             "backend": "wget_html_readonly",
@@ -175,11 +190,12 @@ def ensure_wget_html_readonly_store(
     store_row = _upsert_remote_store_row(
         db,
         root=root,
-        backend_name=backend.name,
+        backend_name=backend.configuration.store_name,
         store_kind=store_kind,
         access_protocol="wget",
         supports_checksums=False,
         policy_json=policy_json,
+        store_uuid=str(backend.store_ref),
     )
     return store_row, backend
 
@@ -209,6 +225,14 @@ def ensure_native_html_readonly_store(
     )
 
     backend_name = store_name or safe_path_to_name(root)
+    existing_rows = db.search("stores", "store_root_uri", root)
+    persisted_uuid = (
+        None
+        if not existing_rows
+        or "store_uuid" not in existing_rows[0].allowed_columns
+        or existing_rows[0]["store_uuid"] in (None, "")
+        else str(existing_rows[0]["store_uuid"])
+    )
     options = NativeHtmlBackendOptions(
         timeout_s=timeout_s,
         max_http_requests_per_hour=effective_max_http_requests_per_hour,
@@ -220,7 +244,12 @@ def ensure_native_html_readonly_store(
         user_agent=user_agent,
         max_html_bytes=max(1024, int(max_html_bytes)),
     )
-    backend = NativeHtmlReadOnlyStorageBackend(url=root, name=backend_name, options=options)
+    backend = NativeHtmlReadOnlyStorageBackend(
+        url=root,
+        name=backend_name,
+        uuid=persisted_uuid,
+        options=options,
+    )
     policy_json = json.dumps(
         {
             "backend": "native_html_readonly",
@@ -241,11 +270,12 @@ def ensure_native_html_readonly_store(
     store_row = _upsert_remote_store_row(
         db,
         root=root,
-        backend_name=backend.name,
+        backend_name=backend.configuration.store_name,
         store_kind=store_kind,
         access_protocol="native_html",
         supports_checksums=False,
         policy_json=policy_json,
+        store_uuid=str(backend.store_ref),
     )
     return store_row, backend
 
@@ -296,7 +326,7 @@ def register_wget_html_readonly_store_files(
         db,
         store_row=store_row,
         store_url=str(backend.url),
-        store_name_value=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.name,
+        store_name_value=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.configuration.store_name,
         discovery_source=backend,
         mode="wget",
         ebook_extensions=ebook_extensions,
@@ -350,7 +380,7 @@ def register_native_html_readonly_store_files(
         db,
         store_row=store_row,
         store_url=str(backend.url),
-        store_name_value=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.name,
+        store_name_value=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.configuration.store_name,
         discovery_source=backend,
         mode="native_html",
         ebook_extensions=ebook_extensions,

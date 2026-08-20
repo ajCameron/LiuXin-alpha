@@ -57,13 +57,18 @@ def get(
     *,
     offset: int = 0,
     length: int | None = None,
+    if_version: str | None = None,
 ) -> BinaryIO:
     """Familiar alias for the primitive ``open_read`` operation.
 
     Example:
         >>> stream = get(store, Location(UUID(int=1), "objects/42"))  # doctest: +SKIP
     """
-    return store.open_read(location, offset=offset, length=length)
+    if if_version is None:
+        return store.open_read(location, offset=offset, length=length)
+    return store.open_read(
+        location, offset=offset, length=length, if_version=if_version
+    )
 
 
 def read_bytes(
@@ -72,6 +77,7 @@ def read_bytes(
     *,
     offset: int = 0,
     length: int | None = None,
+    if_version: str | None = None,
 ) -> bytes:
     """Read a complete object or requested range into memory.
 
@@ -79,7 +85,13 @@ def read_bytes(
         >>> read_bytes(store, Location(UUID(int=1), "objects/42"), length=4)  # doctest: +SKIP
         b'book'
     """
-    with get(store, location, offset=offset, length=length) as source:
+    with get(
+        store,
+        location,
+        offset=offset,
+        length=length,
+        if_version=if_version,
+    ) as source:
         return source.read()
 
 

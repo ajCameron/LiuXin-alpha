@@ -13,6 +13,11 @@ CREATE TABLE IF NOT EXISTS `stores` (
   `store_id` INTEGER PRIMARY KEY,
 
   -- Identity / addressing
+  -- Stable public identity used by opaque storage Locations. Unlike store_id,
+  -- this survives export/import and must never be repurposed for another Store.
+  `store_uuid` TEXT NULL,
+  `store_host_uuid` TEXT NULL,
+  `store_device_uuid` TEXT NULL,
   -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
   -- Application logic can enforce presence later.
   `store_name` TEXT NULL,
@@ -122,7 +127,15 @@ ON `stores` (`store_default_replication_policy_id`);
 -- BREAK
 -- BREAK
 
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_stores_uuid_unique`
+ON `stores` (`store_uuid`)
+WHERE `store_uuid` IS NOT NULL;
+
+-- BREAK
+-- BREAK
+
 CREATE INDEX IF NOT EXISTS `idx_stores_default_backup_policy_id`
 ON `stores` (`store_default_backup_policy_id`);
 
+-- BREAK
 -- BREAK

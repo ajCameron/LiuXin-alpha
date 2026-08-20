@@ -2,19 +2,20 @@
 Public domain values for the LiuXin-aware storage manager facade.
 """
 
-from LiuXin_alpha.storage.api.storage_manager_api.models.assets import (
-    CompositeDigitalAssetAvailabilityAssessment,
-    CompositeDigitalAssetDeclaration,
-    CompositeDigitalAssetMemberResolution,
-    CompositeDigitalAssetMembership,
-    CompositeDigitalAssetRecord,
+from LiuXin_alpha.storage.api.storage_manager_api.models.asset_identity import (
     DigitalAssetDeclaration,
-    DigitalAssetIngestResult,
     DigitalAssetMetadata,
     DigitalAssetRecord,
-    DigitalAssetResolution,
+)
+from LiuXin_alpha.storage.api.storage_manager_api.models.composites import (
+    CompositeDigitalAssetAvailabilityAssessment,
+    CompositeDigitalAssetDeclaration,
+    CompositeDigitalAssetMembership,
+    CompositeDigitalAssetRecord,
+)
+from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import (
+    DigitalAssetIngestResult,
     DigitalAssetVerificationReport,
-    ItemDigitalAssetResolution,
     ReplicaDeclaration,
     ReplicaMode,
     ReplicaObservation,
@@ -23,11 +24,19 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.assets import (
     ReplicaState,
     ReplicaVerificationReport,
 )
+from LiuXin_alpha.storage.api.storage_manager_api.models.resolutions import (
+    CompositeDigitalAssetMemberResolution,
+    DigitalAssetResolution,
+    ItemDigitalAssetResolution,
+)
 from LiuXin_alpha.storage.api.storage_manager_api.models.derivations import (
     DigitalAssetDerivationDeclaration,
+    DigitalAssetDerivationGraph,
+    DigitalAssetDerivationGraphDirection,
     DigitalAssetDerivationRecord,
     DigitalAssetDerivationKind,
     DigitalAssetDerivationSourceReference,
+    DigitalAssetRecreationPlan,
     ReproductionRecipeArtifactReference,
     ReproductionRecipeInputReference,
     Reproducibility,
@@ -68,6 +77,8 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.stores import (
 
 __all__ = [
     "DigitalAssetDerivationDeclaration",
+    "DigitalAssetDerivationGraph",
+    "DigitalAssetDerivationGraphDirection",
     "DigitalAssetDerivationID",
     "DigitalAssetDerivationRecord",
     "DigitalAssetLossAction",
@@ -91,6 +102,7 @@ __all__ = [
     "DigitalAssetVerificationReport",
     "DigitalAssetDerivationKind",
     "DigitalAssetDerivationSourceReference",
+    "DigitalAssetRecreationPlan",
     "ReplicaSeparationDimension",
     "ItemDigitalAssetResolution",
     "ItemID",

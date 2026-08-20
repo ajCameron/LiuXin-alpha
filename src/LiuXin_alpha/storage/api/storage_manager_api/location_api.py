@@ -70,6 +70,7 @@ class _StorageRouterLike(Protocol):
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> BinaryIO:
         """
         Open a routed binary stream.
@@ -81,6 +82,7 @@ class _StorageRouterLike(Protocol):
         :param location:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
         ...
@@ -91,6 +93,7 @@ class _StorageRouterLike(Protocol):
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> bytes:
         """
         Read a routed object into memory.
@@ -102,6 +105,7 @@ class _StorageRouterLike(Protocol):
         :param location:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
         ...
@@ -278,6 +282,7 @@ class BoundLocation:
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> BinaryIO:
         """
         Open a current binary read stream, optionally range-limited.
@@ -289,13 +294,19 @@ class BoundLocation:
 
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
 
+        if if_version is None:
+            return self._manager.get(
+                self.location, offset=offset, length=length
+            )
         return self._manager.get(
             self.location,
             offset=offset,
             length=length,
+            if_version=if_version,
         )
 
     def read_bytes(
@@ -303,6 +314,7 @@ class BoundLocation:
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> bytes:
         """
         Read the current object or range fully into memory.
@@ -313,13 +325,19 @@ class BoundLocation:
 
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
 
+        if if_version is None:
+            return self._manager.read_bytes(
+                self.location, offset=offset, length=length
+            )
         return self._manager.read_bytes(
             self.location,
             offset=offset,
             length=length,
+            if_version=if_version,
         )
 
     def put(

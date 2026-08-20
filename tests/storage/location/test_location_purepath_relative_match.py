@@ -1,39 +1,28 @@
+"""Relative-path and pattern operations are intentionally backend-specific."""
 
 from __future__ import annotations
 
-import pytest
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
-    OnDiskExistingManagedStoreLocation,
-)
-
-from .conftest import AsyncOnDiskLocation
+def test_location_has_no_relative_or_pattern_semantics(location) -> None:
+    for operation in ("relative_to", "is_relative_to", "match"):
+        assert not hasattr(location, operation)
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
-def test_relative_to_location(store, loc_cls) -> None:
-    base = loc_cls("a", store=store)
-    target = loc_cls("a", "b", "c.txt", store=store)
-    rel = target.relative_to(base)
-    assert rel.parts == ("b", "c.txt")
+def test_backend_prefix_inventory_is_the_portable_relationship(store) -> None:
+    store.store_bytes(b"one", location="a/b/one")
+    store.store_bytes(b"two", location="a/c/two")
 
-    with pytest.raises(ValueError):
-        _ = base.relative_to(target)
+    under_ab = list(store.iter_locations(prefix=store.locate("a/b")))
+    assert [location.key for location in under_ab] == ["a/b/one"]
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
-def test_relative_to_string(store, loc_cls) -> None:
-    target = loc_cls("a", "b", "c.txt", store=store)
-    rel = target.relative_to("a")
-    assert rel.parts == ("b", "c.txt")
-    assert target.is_relative_to("a") is True
-    assert target.is_relative_to("x") is False
+def test_cross_store_prefix_is_rejected(store, second_store) -> None:
+    foreign_prefix = second_store.locate("a")
+    try:
+        list(store.iter_locations(prefix=foreign_prefix))
+    except Exception as error:
+        from LiuXin_alpha.storage import api
 
-
-@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
-def test_match_semantics(store, loc_cls) -> None:
-    p = loc_cls("a", "b", "c.txt", store=store)
-    assert p.match("*.txt") is True
-    assert p.match("c.*") is True
-    assert p.match("a/*/c.txt") is True
-    assert p.match("a/*/*.bin") is False
+        assert isinstance(error, api.StoreInvalidLocation)
+    else:  # pragma: no cover
+        raise AssertionError("foreign prefix was accepted")

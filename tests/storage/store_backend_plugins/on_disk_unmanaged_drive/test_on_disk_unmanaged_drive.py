@@ -1,108 +1,162 @@
+"""New-API contracts for an existing unmanaged disk Store."""
+
 from __future__ import annotations
 
-import pathlib
+import os
+
+from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.storage.api import StoreStatus
+from LiuXin_alpha.ingest import ingest_store
+from LiuXin_alpha.storage import api
+from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
+from LiuXin_alpha.storage.stores import FilesystemStore
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive import (
     OnDiskUnmanagedStorageBackend,
 )
+from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_single_file import (
+    OnDiskUnmanagedSingleFile,
+)
+from tests.fixtures.storage_unicode import (
+    POSIX_BAD_BYTES_FILENAME,
+    POSIX_BAD_BYTES_FILENAME_BYTES,
+    POSIX_BAD_BYTES_PAYLOAD,
+    UNICODE_FILENAME,
+    UNICODE_KEY,
+    UNICODE_PAYLOAD,
+)
 
 
-def test_on_disk_unmanaged_drive_init_creates_root(tmp_path: pathlib.Path) -> None:
-    store_root = tmp_path / "unmanaged_root"
-    assert store_root.exists() is False
+def test_on_disk_unmanaged_drive_discovers_unicode_names_and_bytes(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path.joinpath(*UNICODE_KEY.split("/"))
+    path.parent.mkdir(parents=True)
+    path.write_bytes(UNICODE_PAYLOAD)
+    store = OnDiskUnmanagedStorageBackend(tmp_path)
 
-    store = OnDiskUnmanagedStorageBackend(url=str(store_root))
-    assert store.root_path == store_root.resolve()
-    assert store.root_path.exists() is True
-    assert store.root_path.is_dir() is True
-    assert store.url == str(store_root)
+    [location] = list(store.iter_locations())
+    info = store.stat_file(location)
+    uri = store.location_uri(location)
 
-
-def test_on_disk_unmanaged_drive_exists_and_path_boundary(tmp_path: pathlib.Path) -> None:
-    store = OnDiskUnmanagedStorageBackend(url=str(tmp_path))
-    inside = tmp_path / "inside.txt"
-    inside.write_text("ok", encoding="utf-8")
-
-    assert store.exists(str(inside)) is True
-    assert store.exists("inside.txt") is True
-    assert store.exists("nope.txt") is False
-    assert store.exists(str(tmp_path.parent / "outside.txt")) is False
-
-    with pytest.raises(ValueError):
-        store.locate(str(tmp_path.parent / "outside.txt"))
+    assert location.key == UNICODE_KEY
+    assert info.hints.suggested_filename == UNICODE_FILENAME
+    assert store.read_file(info) == UNICODE_PAYLOAD
+    assert uri is not None
+    assert store.location_from_uri(uri) == location
 
 
-def test_on_disk_unmanaged_drive_stat(tmp_path: pathlib.Path) -> None:
-    store = OnDiskUnmanagedStorageBackend(url=str(tmp_path))
-    p = tmp_path / "sample.bin"
-    p.write_bytes(b"abc123")
-
-    status = store.stat(str(p))
-    assert status.url == str(p.resolve())
-    assert status.size == 6
-    assert status.hash
-    assert status.recheck_self(all=True) is True
-
-
-def test_on_disk_unmanaged_drive_iter_locations_iterates_recursively(tmp_path: pathlib.Path) -> None:
-    store = OnDiskUnmanagedStorageBackend(url=str(tmp_path))
-    (tmp_path / "a.txt").write_text("a", encoding="utf-8")
-    nested = tmp_path / "nested"
-    nested.mkdir()
-    (nested / "b.txt").write_text("b", encoding="utf-8")
-
-    urls = {f.file_url for f in store.iter_locations()}
-    assert str((tmp_path / "a.txt").resolve()) in urls
-    assert str((nested / "b.txt").resolve()) in urls
-
-
-def test_on_disk_unmanaged_drive_is_read_only(tmp_path: pathlib.Path) -> None:
-    store = OnDiskUnmanagedStorageBackend(url=str(tmp_path))
-    loc = store.location("example.txt")
-    assert loc.location_capabilities.read_only is True
-    with pytest.raises(PermissionError):
-        store.write_bytes(b"cannot write")
-    with pytest.raises(PermissionError):
-        store.delete(str(tmp_path / "nope.txt"))
-    with pytest.raises(PermissionError):
-        loc.write_bytes(b"cannot write")
-
-
-def test_on_disk_unmanaged_drive_startup_and_status_reports_read_only(tmp_path: pathlib.Path) -> None:
-    store = OnDiskUnmanagedStorageBackend(url=str(tmp_path))
-    status_from_startup = store.startup()
-    status_from_cache = store.status()
-
-    assert isinstance(status_from_startup, StoreStatus)
-    assert status_from_startup is status_from_cache
-    assert status_from_startup.url == str(tmp_path.resolve())
-    assert isinstance(status_from_startup.checked, bool)
-    assert isinstance(status_from_startup.good, bool)
-    assert status_from_startup.check_status.write is False
-    assert status_from_startup.details.get("mode") == "read_only"
-
-
-def test_storage_manager_can_build_on_disk_unmanaged_plugin_from_spec(tmp_path: pathlib.Path) -> None:
-    from LiuXin_alpha.storage.api.info_containers_api import StoreSpec
-    from LiuXin_alpha.storage.store_manager import StorageManager
-
-    (tmp_path / "source.txt").write_text("source", encoding="utf-8")
-
-    manager = StorageManager(startup_on_add=False)
-    spec = StoreSpec(
-        store_id=None,
-        store_uuid="uuid-unmanaged",
-        store_name="source-root",
-        store_kind="on_disk_existing_unmanaged_drive",
-        store_url=str(tmp_path),
-        store_root_uri=str(tmp_path),
+@pytest.mark.skipif(os.name != "posix", reason="surrogateescape is a POSIX filename contract")
+def test_on_disk_unmanaged_drive_ingests_undecodable_filename_bytes(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    raw_path = os.path.join(
+        os.fsencode(source_root),
+        POSIX_BAD_BYTES_FILENAME_BYTES,
     )
+    with open(raw_path, "wb") as handle:
+        handle.write(POSIX_BAD_BYTES_PAYLOAD)
+    store = OnDiskUnmanagedStorageBackend(source_root)
 
-    container = manager.build_store_container(spec)
-    located = container.locate("source.txt")
+    [location] = list(store.iter_locations())
+    uri = store.location_uri(location)
 
-    assert container.plugin.plugin_kind == "OnDiskUnmanagedStorageBackend"
-    assert located.read_text(encoding="utf-8") == "source"
+    assert location.key == POSIX_BAD_BYTES_FILENAME
+    assert store.read_file(location) == POSIX_BAD_BYTES_PAYLOAD
+    assert uri is not None
+    assert store.location_from_uri(uri) == location
+
+    destination = FilesystemStore(tmp_path / "destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+    report = ingest_store(manager, store)
+
+    assert report.ok and report.ingested_files == 1
+    [item] = report.items
+    assert manager.read_file(item.result.asset_record) == POSIX_BAD_BYTES_PAYLOAD
+
+
+def test_on_disk_unmanaged_drive_init_requires_existing_root(tmp_path: Path) -> None:
+    missing = tmp_path / "missing"
+    store = OnDiskUnmanagedStorageBackend(missing)
+    assert not store.startup().available
+    assert not missing.exists()
+
+
+def test_on_disk_unmanaged_drive_exists_and_path_boundary(tmp_path: Path) -> None:
+    (tmp_path / "book.epub").write_bytes(b"book")
+    store = OnDiskUnmanagedStorageBackend(tmp_path)
+    store.startup()
+    assert store.file_exists("book.epub")
+    assert not store.file_exists("missing.epub")
+    with pytest.raises(api.StoreInvalidLocation):
+        store.locate("../outside")
+
+
+def test_on_disk_unmanaged_drive_stat(tmp_path: Path) -> None:
+    (tmp_path / "book.epub").write_bytes(b"book")
+    store = OnDiskUnmanagedStorageBackend(tmp_path)
+    info = store.stat_file("book.epub")
+    assert info.size == 4
+    assert info.location.store_ref == store.store_ref
+
+
+def test_on_disk_unmanaged_drive_iter_locations_iterates_recursively(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "nested").mkdir()
+    (tmp_path / "root.bin").write_bytes(b"root")
+    (tmp_path / "nested/book.epub").write_bytes(b"book")
+    store = OnDiskUnmanagedStorageBackend(tmp_path)
+    assert {location.key for location in store.iter_locations()} == {
+        "nested/book.epub",
+        "root.bin",
+    }
+
+
+def test_on_disk_unmanaged_drive_is_read_only(tmp_path: Path) -> None:
+    (tmp_path / "existing").write_bytes(b"data")
+    store = OnDiskUnmanagedStorageBackend(tmp_path)
+    with pytest.raises(api.StoreReadOnly):
+        store.store_bytes(b"new", location="new")
+    with pytest.raises(api.StoreReadOnly):
+        store.delete_file("existing")
+
+
+def test_on_disk_unmanaged_drive_startup_and_status_reports_read_only(
+    tmp_path: Path,
+) -> None:
+    store = OnDiskUnmanagedStorageBackend(tmp_path)
+    status = store.startup()
+    assert status.available
+    assert not status.writable
+    assert store.capabilities.enumeration is api.EnumerationCompleteness.COMPLETE
+    assert not store.capabilities.create
+
+
+def test_storage_manager_can_attach_on_disk_unmanaged_store(tmp_path: Path) -> None:
+    (tmp_path / "book.epub").write_bytes(b"book")
+    store = OnDiskUnmanagedStorageBackend(tmp_path)
+    manager = InMemoryStorageManager(
+        store_registrations=((store.configuration, store),),
+        default_store_ref=store.store_ref,
+    )
+    assert manager.read_bytes(store.locate("book.epub")) == b"book"
+
+
+def test_unmanaged_single_file_compatibility_facade_uses_current_api(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "book.txt"
+    path.write_text("book", encoding="utf-8")
+    file = OnDiskUnmanagedSingleFile(path)
+
+    assert file.location.store_ref == file.store_ref
+    assert file.stat().size == 4
+    assert file.read_bytes(length=2) == b"bo"
+    assert file.read_text() == "book"

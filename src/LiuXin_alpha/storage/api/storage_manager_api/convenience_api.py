@@ -5,10 +5,13 @@ Low-cognitive-overhead operations layered over the explicit manager contract.
 from __future__ import annotations
 
 import os
+import shutil
+import tempfile
+import zipfile
 
 from collections.abc import Iterable, Mapping
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import BinaryIO, TypeAlias, cast
 from uuid import UUID, uuid4
 
@@ -43,6 +46,7 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
     BackupPolicyRecord,
     CompositeDigitalAssetDeclaration,
     CompositeDigitalAssetID,
+    CompositeDigitalAssetMemberResolution,
     CompositeDigitalAssetMembership,
     CompositeDigitalAssetRecord,
     DigitalAssetDeclaration,
@@ -103,6 +107,9 @@ _AttributeInput: TypeAlias = (
 _DigestInput: TypeAlias = Mapping[str, str] | Iterable[Digest]
 _DerivationSourceInput: TypeAlias = (
     _AssetInput | CompositeDigitalAssetRecord
+)
+_StorableSource: TypeAlias = (
+    bytes | bytearray | memoryview | BinaryIO | str | os.PathLike[str]
 )
 
 
@@ -424,34 +431,28 @@ class StorageConvenienceAPI:
         :return:
         """
 
-        source_path = Path(path)
-        observed_size = source_path.stat().st_size
-        if expected_size is not None and expected_size != observed_size:
-            raise StorageIntegrityError(
-                f"expected {expected_size} bytes, found {observed_size}."
-            )
-        with source_path.open("rb") as source:
-            return self.store_stream(
-                source,
-                expected_size=observed_size,
-                expected_digests=expected_digests,
-                name=name,
-                media_type=media_type,
-                original_name=(
-                    source_path.name
-                    if original_name is None
-                    else original_name
-                ),
-                attributes=attributes,
-                metadata=metadata,
-                item=item,
-                role=role,
-                store=store,
-                replica_mode=replica_mode,
-                verify=verify,
-                operation_id=operation_id,
-                mode=mode,
-            )
+        result = cast(
+            DigitalAssetIngestAPI,
+            cast(object, self),
+        ).ingest_file(
+            path,
+            operation_id=operation_id,
+            expected_size=expected_size,
+            expected_digests=tuple(expected_digests),
+            item_id=_item_id(item),
+            role=role,
+            metadata=_metadata(
+                name,
+                media_type,
+                original_name,
+                attributes,
+            ),
+            placement_hints=_placement_hints(metadata),
+            preferred_store_ref=_store_ref(store),
+            replica_mode=_replica_mode_argument(replica_mode, mode),
+            verify=verify,
+        )
+        return result.asset_record
 
     def declare_asset(
         self,
@@ -764,6 +765,7 @@ class StorageConvenienceAPI:
         *,
         to: StoreUUID | StoreConfiguration | StoreAPI | None = None,
         from_replica: ReplicaID | ReplicaRecord | None = None,
+        metadata: StorageHintSource | None = None,
         replica_mode: ReplicaMode | str | None = None,
         verify: bool = True,
         mode: ReplicaMode | str | None = None,
@@ -780,6 +782,8 @@ class StorageConvenienceAPI:
         :param asset:
         :param to:
         :param from_replica:
+        :param metadata: Optional rich metadata used to place this Replica.
+            When omitted, the source Replica's placement snapshot is reused.
         :param replica_mode:
         :param verify:
         :param mode: Backward-compatible alias for ``replica_mode``.
@@ -793,6 +797,7 @@ class StorageConvenienceAPI:
             _asset_id(asset),
             destination_store_ref=_store_ref(to),
             source_replica_id=_replica_id(from_replica),
+            placement_hints=_placement_hints(metadata),
             mode=_replica_mode_argument(replica_mode, mode),
             verify=verify,
         )
@@ -947,6 +952,174 @@ class StorageConvenienceAPI:
                 attributes=_attributes(attributes),
             )
         )
+
+    def store_composite(
+        self,
+        members: Mapping[str, _StorableSource],
+        *,
+        name: str | None = None,
+        attributes: Mapping[str, str] | Iterable[tuple[str, str]] = (),
+        metadata: StorageHintSource | None = None,
+        item: ItemID | int | None = None,
+        role: str = "primary_payload",
+        store: StoreUUID | StoreConfiguration | StoreAPI | None = None,
+        replica_mode: ReplicaMode | str | None = None,
+        verify: bool = True,
+        mode: ReplicaMode | str | None = None,
+    ) -> CompositeDigitalAssetRecord:
+        """Ingest named atomic members and declare their Composite.
+
+        Mapping keys are safe relative logical paths in the resulting
+        Composite. Each value uses the same source forms as :meth:`store`.
+        Successfully ingested atomic Assets remain valid if a later member
+        fails; the Composite record is declared only after every member has
+        completed.
+
+        Example:
+            >>> package = manager.store_composite(  # doctest: +SKIP
+            ...     {"book.epub": book_bytes, "images/cover.jpg": cover},
+            ...     name="book package",
+            ... )
+        """
+
+        if not members:
+            raise ValueError("a Composite Digital Asset requires at least one member.")
+        stored: dict[str, DigitalAssetRecord] = {}
+        for logical_path, source in members.items():
+            member_path = _composite_logical_path(logical_path)
+            stored[member_path] = self.store(
+                source,
+                original_name=PurePosixPath(member_path).name,
+                metadata=metadata,
+                store=store,
+                replica_mode=replica_mode,
+                verify=verify,
+                mode=mode,
+            )
+        composite = self.create_composite(
+            stored,
+            name=name,
+            attributes=attributes,
+        )
+        if item is not None:
+            self.link(item, composite, role=role)
+        return composite
+
+    def export_composite_to_directory(
+        self,
+        composite: CompositeDigitalAssetID | CompositeDigitalAssetRecord,
+        destination: str | os.PathLike[str],
+        *,
+        overwrite: bool = False,
+        store: StoreUUID | StoreConfiguration | StoreAPI | None = None,
+        verified: bool = False,
+    ) -> tuple[Path, ...]:
+        """Write resolved Composite members beneath one local directory.
+
+        Logical member paths are validated as relative POSIX paths and
+        resolved against the destination to prevent traversal or symlink
+        escape. Existing files are preserved unless ``overwrite`` is true.
+
+        Example:
+            >>> paths = manager.export_composite_to_directory(  # doctest: +SKIP
+            ...     package, "/exports/book",
+            ... )
+        """
+
+        record = _composite_record(self, composite)
+        resolutions = cast(
+            CompositeDigitalAssetAPI,
+            cast(object, self),
+        ).resolve_composite_digital_asset(
+            record.composite_digital_asset_id,
+            preferred_store_ref=_store_ref(store),
+            require_verified=verified,
+        )
+        root = Path(destination).expanduser().resolve(strict=False)
+        if root.exists() and not root.is_dir():
+            raise NotADirectoryError(root)
+        targets = _resolved_composite_targets(root, resolutions)
+        collisions = tuple(path for path in targets if path.exists())
+        if collisions and not overwrite:
+            raise FileExistsError(collisions[0])
+        root.mkdir(parents=True, exist_ok=True)
+        written: list[Path] = []
+        for resolution, target in zip(resolutions, targets, strict=True):
+            target.parent.mkdir(parents=True, exist_ok=True)
+            mode_name = "wb" if overwrite else "xb"
+            with self.open_asset(
+                resolution.resolution.asset_record,
+                store=store,
+                verified=verified,
+            ) as source, target.open(mode_name) as output:
+                shutil.copyfileobj(source, output, length=1024 * 1024)
+            written.append(target)
+        return tuple(written)
+
+    def open_composite_zip(
+        self,
+        composite: CompositeDigitalAssetID | CompositeDigitalAssetRecord,
+        *,
+        store: StoreUUID | StoreConfiguration | StoreAPI | None = None,
+        verified: bool = False,
+    ) -> BinaryIO:
+        """Return a seekable temporary ZIP stream of resolved members.
+
+        This is a transient delivery representation. Callers that persist it
+        should ingest the ZIP as a new atomic Asset and record its derivation
+        from the Composite explicitly.
+
+        Example:
+            >>> with manager.open_composite_zip(package) as source:  # doctest: +SKIP
+            ...     header = source.read(4)
+        """
+
+        record = _composite_record(self, composite)
+        resolutions = cast(
+            CompositeDigitalAssetAPI,
+            cast(object, self),
+        ).resolve_composite_digital_asset(
+            record.composite_digital_asset_id,
+            preferred_store_ref=_store_ref(store),
+            require_verified=verified,
+        )
+        names = tuple(
+            _member_delivery_path(resolution)
+            for resolution in resolutions
+        )
+        if len(names) != len(set(names)):
+            raise StorageIntegrityError(
+                "Composite members resolve to duplicate delivery paths."
+            )
+        output = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
+        try:
+            with zipfile.ZipFile(
+                output,
+                mode="w",
+                compression=zipfile.ZIP_DEFLATED,
+            ) as archive:
+                for resolution, member_name in zip(
+                    resolutions,
+                    names,
+                    strict=True,
+                ):
+                    try:
+                        destination = archive.open(member_name, mode="w")
+                    except UnicodeEncodeError as error:
+                        raise StorageIntegrityError(
+                            "ZIP member names must be valid Unicode."
+                        ) from error
+                    with destination, self.open_asset(
+                        resolution.resolution.asset_record,
+                        store=store,
+                        verified=verified,
+                    ) as source:
+                        shutil.copyfileobj(source, destination, length=1024 * 1024)
+            _ = output.seek(0)
+            return cast(BinaryIO, cast(object, output))
+        except BaseException:
+            output.close()
+            raise
 
     def add_store(
         self,
@@ -1217,6 +1390,7 @@ class StorageConvenienceAPI:
         created_at: datetime | None = None,
         operator: str | None = None,
         notes: str | None = None,
+        workflow_id: int | None = None,
     ) -> DigitalAssetDerivationRecord:
         """
         Record ordinary provenance without constructing source references.
@@ -1239,6 +1413,7 @@ class StorageConvenienceAPI:
         :param created_at:
         :param operator:
         :param notes:
+        :param workflow_id: Optional workflow execution grouping this step.
         :return:
         """
 
@@ -1272,6 +1447,7 @@ class StorageConvenienceAPI:
             created_at=created_at,
             operator=operator,
             notes=notes,
+            workflow_id=workflow_id,
         )
         return cast(
             DigitalAssetDerivationRegistryAPI,
@@ -1674,6 +1850,102 @@ def _derivation_source(
         digital_asset_id=_asset_id(value),
         role=role,
     )
+
+
+def _composite_record(
+    manager: object,
+    value: CompositeDigitalAssetID | CompositeDigitalAssetRecord,
+) -> CompositeDigitalAssetRecord:
+    """Resolve a Composite ID while preserving an existing record.
+
+    Example:
+        >>> _composite_record(manager, record) is record  # doctest: +SKIP
+        True
+    """
+
+    if isinstance(value, CompositeDigitalAssetRecord):
+        return value
+    return cast(
+        CompositeDigitalAssetAPI,
+        manager,
+    ).get_composite_digital_asset_record(_composite_id(value))
+
+
+def _composite_logical_path(value: str) -> str:
+    """Validate one portable, relative Composite delivery path.
+
+    Example:
+        >>> _composite_logical_path("images/cover.jpg")
+        'images/cover.jpg'
+    """
+
+    if not isinstance(value, str):
+        raise TypeError("Composite logical paths must be strings.")
+    path = PurePosixPath(value)
+    parts = value.split("/")
+    if (
+        not value
+        or "\x00" in value
+        or "\\" in value
+        or path.is_absolute()
+        or any(part in {"", ".", ".."} for part in parts)
+        or path.as_posix() != value
+    ):
+        raise ValueError(
+            f"invalid relative Composite logical path: {value!r}"
+        )
+    return value
+
+
+def _member_delivery_path(
+    member: CompositeDigitalAssetMemberResolution,
+) -> str:
+    """Choose and validate the portable path for one resolved member.
+
+    Example:
+        >>> _member_delivery_path(member)  # doctest: +SKIP
+        'images/cover.jpg'
+    """
+
+    membership = member.membership
+    asset = member.resolution.asset_record
+    candidate = (
+        membership.logical_path
+        or membership.logical_name
+        or asset.metadata.original_name
+        or f"member-{membership.sequence_number}"
+    )
+    return _composite_logical_path(candidate)
+
+
+def _resolved_composite_targets(
+    root: Path,
+    resolutions: tuple[CompositeDigitalAssetMemberResolution, ...],
+) -> tuple[Path, ...]:
+    """Resolve unique member targets without permitting root escape.
+
+    Example:
+        >>> targets = _resolved_composite_targets(root, members)  # doctest: +SKIP
+    """
+
+    targets: list[Path] = []
+    root_resolved = root.resolve(strict=False)
+    for resolution in resolutions:
+        relative = _member_delivery_path(resolution)
+        target = root.joinpath(*PurePosixPath(relative).parts)
+        resolved = target.resolve(strict=False)
+        try:
+            resolved.relative_to(root_resolved)
+        except ValueError as error:
+            raise StorageIntegrityError(
+                f"Composite member path escapes destination: {relative!r}"
+            ) from error
+        targets.append(target)
+    if len(targets) != len(set(targets)):
+        raise StorageIntegrityError(
+            "Composite members resolve to duplicate delivery paths."
+        )
+    return tuple(targets)
 
 
 __all__ = ["DigitalAssetFileIdentifier", "StorageConvenienceAPI"]

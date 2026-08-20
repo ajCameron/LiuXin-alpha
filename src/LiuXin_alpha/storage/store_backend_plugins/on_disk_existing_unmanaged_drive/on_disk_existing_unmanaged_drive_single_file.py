@@ -1,81 +1,89 @@
-
-"""
-Represents a single file in an unmanaged on disk folder store.
-"""
+"""Compatibility facade for one file in an unmanaged filesystem Store."""
 
 from __future__ import annotations
 
-import os
+import pathlib
 
-from LiuXin_alpha.storage.api.file_api import SingleFileAPI
-from LiuXin_alpha.storage.single_file import SingleFileStatus
-from LiuXin_alpha.utils.storage.local.file_properties import get_file_hash
+from typing import BinaryIO
+from uuid import NAMESPACE_URL, uuid5
+
+from LiuXin_alpha.storage.api import FileInfo
+
+from .on_disk_existing_unmanaged_drive_storage_backend import (
+    OnDiskUnmanagedStorageBackend,
+)
 
 
-class OnDiskUnmanagedSingleFile(SingleFileAPI):
+class OnDiskUnmanagedSingleFile:
+    """Bind one local file to a read-only Store and its owned ``Location``.
+
+    New code should keep the Store and Location separately.  This small facade
+    remains for older import and archive helpers that naturally start from one
+    local filename, while exposing only the current read/stat vocabulary.
     """
-    Represents a single file on disk.
 
-    Said disk need NOT be managed by LiuXin.
-    People will (definitely) use this. But they probably shouldn't.
-    It's here for some backup and archive tools and to unify file imports.
-    The plan is you mount ANY SOURCE YOU WANT as a storage backend - then let LiuXin transfer the files to another
-    backend to actually keep them.
-    """
-    def __init__(self, file_url: str, file_status: SingleFileStatus | None = None) -> None:
-        """
-        Startup the file.
+    def __init__(self, file_url: str | pathlib.Path) -> None:
+        path = pathlib.Path(file_url).expanduser().resolve(strict=False)
+        self.path = path
+        self.store = OnDiskUnmanagedStorageBackend(
+            path.parent,
+            name=f"unmanaged-file:{path.name}",
+            uuid=uuid5(NAMESPACE_URL, path.as_uri()),
+        )
+        self.location = self.store.locate(path.name)
 
-        :param file_url:
-        """
-        if file_status is None:
-            def _exists(url: str) -> bool:
-                return os.path.exists(url)
+    @property
+    def store_ref(self):
+        """Return the stable UUID of the file's configured Store."""
 
-            def _size(url: str) -> int:
-                if not _exists(url):
-                    return 0
-                return int(os.path.getsize(url))
+        return self.store.store_ref
 
-            def _hash(url: str) -> str:
-                if not _exists(url):
-                    return ""
-                return get_file_hash(url)
+    def stat(self) -> FileInfo:
+        """Return current authoritative metadata for the file."""
 
-            file_status = SingleFileStatus(
-                url=file_url,
-                check_exists_function=_exists,
-                check_size_function=_size,
-                check_hash_function=_hash,
-            )
+        return self.store.stat(self.location)
 
-        super().__init__(file_url=file_url, file_status=file_status)
+    def open_read(
+        self,
+        *,
+        offset: int = 0,
+        length: int | None = None,
+        if_version: str | None = None,
+    ) -> BinaryIO:
+        """Open a binary, read-only stream for the file."""
 
-    def recheck_status(self) -> SingleFileStatus:
-        """
-        Recheck the status of the file.
+        return self.store.open_read(
+            self.location,
+            offset=offset,
+            length=length,
+            if_version=if_version,
+        )
 
-        :return:
-        """
-        if self.file_status is None:
-            raise AttributeError("Cannot recheck file status without a status object.")
-        self.file_status.recheck_self(all=True)
-        return self.file_status
+    def read_bytes(
+        self,
+        *,
+        offset: int = 0,
+        length: int | None = None,
+        if_version: str | None = None,
+    ) -> bytes:
+        """Read the file or a byte range fully into memory."""
 
-    def as_string(self) -> str:
-        """
-        Return the file as a string - this can be a memory and time intensive operation.
+        return self.store.read_bytes(
+            self.location,
+            offset=offset,
+            length=length,
+            if_version=if_version,
+        )
 
-        :return:
-        """
-        with self.open(self.file_url, mode="r", encoding="utf-8") as f:
-            return f.read()
+    def read_text(self, *, encoding: str = "utf-8") -> str:
+        """Decode the complete file with an explicit text encoding."""
 
-    def as_bytes(self) -> bytes:
-        """
-        Return the file as bytes.
+        return self.read_bytes().decode(encoding)
 
-        :return:
-        """
-        with self.open(self.file_url, mode="rb") as f:
-            return f.read()
+    def close(self) -> None:
+        """Close the underlying configured Store."""
+
+        self.store.close()
+
+
+__all__ = ["OnDiskUnmanagedSingleFile"]

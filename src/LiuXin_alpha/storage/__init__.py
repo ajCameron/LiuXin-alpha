@@ -13,6 +13,26 @@ from typing import Any
 
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
+    "DEFAULT_BACKEND_REGISTRY": (
+        "LiuXin_alpha.storage.backend_registry",
+        "DEFAULT_BACKEND_REGISTRY",
+    ),
+    "StorageBackendDescriptor": (
+        "LiuXin_alpha.storage.backend_registry",
+        "StorageBackendDescriptor",
+    ),
+    "StorageBackendRegistry": (
+        "LiuXin_alpha.storage.backend_registry",
+        "StorageBackendRegistry",
+    ),
+    "StoreConstructionContext": (
+        "LiuXin_alpha.storage.backend_registry",
+        "StoreConstructionContext",
+    ),
+    "build_store": (
+        "LiuXin_alpha.storage.store_factory",
+        "build_store",
+    ),
     "InMemoryStorageManager": (
         "LiuXin_alpha.storage.storage_manager",
         "InMemoryStorageManager",

@@ -57,11 +57,31 @@ already exist.
 - `storage_bootstrap_report_example.py`
   - Load stores from DB `stores` table and print bootstrap report/issues.
 - `storage_manager_manual_roundtrip_example.py`
-  - Use `StorageManager` directly (without DB wiring) for a simple add/retrieve round-trip.
+  - Start `StorageManager` with an already constructed `FilesystemStore`,
+    store bytes, and read the Asset back by record, ID, and SHA-256 digest.
+- `storage_manager_workflows_example.py`
+  - Start two filesystem Stores from portable configurations using the
+    manager's default Store factory, then exercise detailed file ingest,
+    metadata placement hints, ID/hash lookup, replication, exact-subset
+    verification, Composite ingest, directory export, and ZIP delivery.
 - `reconcile_with_database_path_example.py`
   - Call `register_existing_disk_with_database_path(...)` directly.
 - `quickstart.sh`
   - Runs a non-network sequence of the local Library/Storage examples end-to-end.
+
+Minimal direct-manager example:
+
+```bash
+python examples/storage_manager_manual_roundtrip_example.py \
+  --store-root /tmp/liuxin-manual-store
+```
+
+Broader two-Store workflow:
+
+```bash
+python examples/storage_manager_workflows_example.py \
+  --work-dir /tmp/liuxin-storage-workflows
+```
 
 ## Metadata / Web Sources
 

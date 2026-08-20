@@ -6,11 +6,13 @@ import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import InputIntegrityError
+from LiuXin_alpha.storage.api import FileInfo, Location
 from LiuXin_alpha.storage.reconcile import squashfs_db_sync as sync
 from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
     SquashfsBuildReport,
@@ -999,29 +1001,25 @@ class _NonClosingConnection:
         return None
 
 
-class _ArchiveStatus:
-    hash = ""
-    size = 0
-
-    def recheck_self(self, *, all: bool) -> None:
-        assert all
-
-
 class _MixedArchiveBackend:
     def __init__(self, *, url: str, name: str | None) -> None:
         self.url = url
         self.name = name
+        self.store_ref = UUID(int=1)
+
+    def locate(self, key: str) -> Location:
+        return Location(self.store_ref, key)
 
     @staticmethod
-    def exists(archive_path: str) -> bool:
-        return not archive_path.startswith("missing/")
+    def exists(location: Location) -> bool:
+        return not location.key.startswith("missing/")
 
     @staticmethod
-    def stat(_archive_path: str) -> _ArchiveStatus:
-        return _ArchiveStatus()
+    def stat(location: Location) -> FileInfo:
+        return FileInfo(location=location, size=0)
 
     @staticmethod
-    def read_file_bytes(_archive_path: str) -> bytes:
+    def read_bytes(_location: Location) -> bytes:
         return b"WRONG-ARCHIVE-PAYLOAD"
 
 

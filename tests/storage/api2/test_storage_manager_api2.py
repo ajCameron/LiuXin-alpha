@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import inspect
 import io
+import zipfile
 
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, replace
@@ -508,6 +509,7 @@ def test_full_manager_layers_catalogue_and_policy_above_the_small_router() -> No
         "declare_composite_digital_asset", "plan_reconciliation",
         "record_digital_asset_derivation",
         "iter_digital_asset_derivation_records",
+        "get_derivation_graph", "plan_digital_asset_recreation",
         "link_item_to_digital_asset", "unlink_item_digital_asset",
         "get_store", "iter_stores",
     }.issubset(api.StorageManagerAPI.__abstractmethods__)
@@ -1086,6 +1088,9 @@ def test_public_exports_reject_ambiguous_legacy_value_names() -> None:
     assert not retired_names & set(api.__all__)
     assert {
         "DigitalAssetDerivationRecord",
+        "DigitalAssetDerivationGraph",
+        "DigitalAssetDerivationGraphDirection",
+        "DigitalAssetRecreationPlan",
         "CompositeDigitalAssetMembership",
         "DigitalAssetDeclaration",
         "DigitalAssetRecord",
@@ -1282,6 +1287,18 @@ def test_exact_complete_recipe_rejects_missing_replay_evidence() -> None:
             ),
             output_path="../cover.jpg",
         )
+    with pytest.raises(ValueError, match="workflow_id"):
+        api.DigitalAssetDerivationDeclaration(
+            api.DigitalAssetID(8),
+            (
+                api.DigitalAssetDerivationSourceReference(
+                    0,
+                    digital_asset_id=api.DigitalAssetID(7),
+                ),
+            ),
+            api.DigitalAssetDerivationKind.CONVERT,
+            workflow_id=0,
+        )
 
 
 def test_derivative_policy_can_trade_copies_for_exact_recreation() -> None:
@@ -1451,6 +1468,42 @@ def test_reference_manager_is_concrete_and_ingest_is_idempotent() -> None:
         manager.ingest_bytes(b"different", operation_id=operation_id)
 
 
+def test_adopt_location_preserves_metadata_for_a_new_asset() -> None:
+    store = _MemoryStore(MAIN_STORE_UUID)
+    manager = InMemoryStorageManager(
+        store_registrations=((store.configuration, store),),
+    )
+    location = store.write_bytes(store.location("incoming/book.epub"), b"book").location
+    metadata = api.DigitalAssetMetadata(
+        original_name="book.epub",
+        media_type="application/epub+zip",
+    )
+    operation_id = UUID("00000000-0000-0000-0000-000000000902")
+
+    result = manager.adopt_location(
+        location,
+        operation_id=operation_id,
+        metadata=metadata,
+    )
+    retried = manager.adopt_location(
+        location,
+        operation_id=operation_id,
+        metadata=metadata,
+    )
+
+    assert result.asset_created
+    assert retried == result
+    assert result.asset_record.metadata == metadata
+    assert result.location == location
+    assert result.replica_record.mode is api.ReplicaMode.UNMANAGED
+    with pytest.raises(api.StoragePreconditionFailed):
+        manager.adopt_location(
+            location,
+            operation_id=operation_id,
+            metadata=api.DigitalAssetMetadata(original_name="different.epub"),
+        )
+
+
 def test_reference_manager_replicates_verifies_and_reconciles() -> None:
     main = _MemoryStore(MAIN_STORE_UUID)
     other = _MemoryStore(OTHER_STORE_UUID)
@@ -1486,6 +1539,161 @@ def test_reference_manager_replicates_verifies_and_reconciles() -> None:
     manager.ingest_bytes(b"changes repository generation")
     with pytest.raises(api.StoreReconciliationPlanStale):
         manager.apply_reconciliation(stale)
+
+
+def test_detailed_file_ingest_returns_result_and_defaults_original_name(
+    tmp_path,
+) -> None:
+    store = _MemoryStore(MAIN_STORE_UUID)
+    manager = InMemoryStorageManager(
+        store_registrations=((store.configuration, store),),
+    )
+    source = tmp_path / "Tortured-Caf\u00e9-Cafe\u0301.epub"
+    source.write_bytes(b"file ingest")
+
+    result = manager.ingest_file(
+        source,
+        metadata=api.DigitalAssetMetadata(name="Detailed ingest"),
+    )
+
+    assert isinstance(result, api.DigitalAssetIngestResult)
+    assert result.asset_record.metadata.name == "Detailed ingest"
+    assert result.asset_record.metadata.original_name == source.name
+    assert manager.read_file(result.asset_record) == b"file ingest"
+    with pytest.raises(api.StorageIntegrityError, match="expected 999"):
+        manager.ingest_file(source, expected_size=999)
+
+
+def test_replication_reuses_and_can_override_recorded_placement_hints() -> None:
+    main = _PlacementAwareMemoryStore(MAIN_STORE_UUID)
+    other = _PlacementAwareMemoryStore(OTHER_STORE_UUID)
+    archive = _PlacementAwareMemoryStore(ARCHIVE_STORE_UUID)
+    manager = InMemoryStorageManager(
+        store_registrations=(
+            (main.configuration, main),
+            (other.configuration, other),
+            (archive.configuration, archive),
+        ),
+        default_store_ref=MAIN_STORE_UUID,
+    )
+    initial_hints = {"title": "Original placement", "work_id": 42}
+    ingested = manager.ingest_bytes(
+        b"rich replication",
+        placement_hints=initial_hints,
+    )
+
+    inherited = manager.replicate_digital_asset(
+        ingested.asset_record.digital_asset_id,
+        destination_store_ref=OTHER_STORE_UUID,
+    )
+    override_hints = {"title": "Archive placement", "work_id": 42}
+    overridden = manager.replicate_asset(
+        ingested.asset_record,
+        to=archive,
+        metadata=override_hints,
+    )
+
+    assert ingested.replica_record.placement_hints == initial_hints
+    assert inherited.placement_hints == initial_hints
+    assert other.allocation_hints == initial_hints
+    assert other.write_hints == initial_hints
+    assert overridden.placement_hints == override_hints
+    assert archive.allocation_hints == override_hints
+    assert archive.write_hints == override_hints
+
+
+def test_verify_digital_asset_supports_exact_ordered_replica_subsets() -> None:
+    main = _MemoryStore(MAIN_STORE_UUID)
+    other = _MemoryStore(OTHER_STORE_UUID)
+    archive = _MemoryStore(ARCHIVE_STORE_UUID)
+    manager = InMemoryStorageManager(
+        store_registrations=(
+            (main.configuration, main),
+            (other.configuration, other),
+            (archive.configuration, archive),
+        ),
+        default_store_ref=MAIN_STORE_UUID,
+    )
+    ingested = manager.ingest_bytes(b"verify subset")
+    other_replica = manager.replicate_digital_asset(
+        ingested.asset_record.digital_asset_id,
+        destination_store_ref=OTHER_STORE_UUID,
+    )
+    archive_replica = manager.replicate_digital_asset(
+        ingested.asset_record.digital_asset_id,
+        destination_store_ref=ARCHIVE_STORE_UUID,
+    )
+
+    report = manager.verify_digital_asset(
+        ingested.asset_record.digital_asset_id,
+        replica_ids=(archive_replica.replica_id, other_replica.replica_id),
+    )
+
+    assert tuple(item.replica_id for item in report.replica_reports) == (
+        archive_replica.replica_id,
+        other_replica.replica_id,
+    )
+    first_only = manager.verify_digital_asset(
+        ingested.asset_record.digital_asset_id,
+        replica_ids=(archive_replica.replica_id, other_replica.replica_id),
+        stop_after_first_healthy=True,
+    )
+    assert len(first_only.replica_reports) == 1
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        manager.verify_digital_asset(
+            ingested.asset_record.digital_asset_id,
+            stop_after_first_healthy=True,
+            all_replicas=True,
+        )
+
+
+def test_composite_convenience_ingests_and_exports_members(tmp_path) -> None:
+    store = _MemoryStore(MAIN_STORE_UUID)
+    manager = InMemoryStorageManager(
+        store_registrations=((store.configuration, store),),
+    )
+    composite = manager.store_composite(
+        {
+            "text/chapter 1.txt": b"chapter one",
+            "images/Caf\u00e9-Cafe\u0301.bin": b"cover bytes",
+        },
+        name="exportable package",
+    )
+
+    exported = manager.export_composite_to_directory(
+        composite,
+        tmp_path / "exported",
+    )
+    assert {path.relative_to(tmp_path / "exported").as_posix() for path in exported} == {
+        "text/chapter 1.txt",
+        "images/Caf\u00e9-Cafe\u0301.bin",
+    }
+    assert (tmp_path / "exported/text/chapter 1.txt").read_bytes() == b"chapter one"
+
+    with manager.open_composite_zip(composite) as stream:
+        with zipfile.ZipFile(stream) as archive_file:
+            assert set(archive_file.namelist()) == {
+                "text/chapter 1.txt",
+                "images/Caf\u00e9-Cafe\u0301.bin",
+            }
+            assert archive_file.read("images/Caf\u00e9-Cafe\u0301.bin") == b"cover bytes"
+
+    with pytest.raises(ValueError, match="logical path"):
+        manager.store_composite({"../escape.bin": b"escape"})
+
+
+def test_persistence_ports_have_a_dedicated_spi_with_compatibility_imports() -> None:
+    from LiuXin_alpha.storage.api.persistence_api import (
+        DigitalAssetRepositoryAPI as PersistenceRepository,
+        StorageUnitOfWorkAPI as PersistenceUnitOfWork,
+    )
+    from LiuXin_alpha.storage.api.storage_manager_api.repositories_api import (
+        DigitalAssetRepositoryAPI as CompatibilityRepository,
+        StorageUnitOfWorkAPI as CompatibilityUnitOfWork,
+    )
+
+    assert PersistenceRepository is CompatibilityRepository
+    assert PersistenceUnitOfWork is CompatibilityUnitOfWork
 
 
 def test_reference_manager_records_exact_derivation_and_disposable_policy() -> None:
@@ -1623,6 +1831,207 @@ def test_reference_manager_validates_composites_and_derivation_cycles() -> None:
                 api.DigitalAssetDerivationKind.OTHER,
             )
         )
+
+
+def test_derivation_graph_traverses_chains_branches_and_workflows() -> None:
+    store = _MemoryStore(MAIN_STORE_UUID)
+    manager = InMemoryStorageManager(
+        store_registrations=((store.configuration, store),),
+    )
+    html = manager.ingest_bytes(b"html").asset_record
+    epub = manager.ingest_bytes(b"epub").asset_record
+    mobi = manager.ingest_bytes(b"mobi").asset_record
+    azw3 = manager.ingest_bytes(b"azw3").asset_record
+
+    html_to_epub = manager.record_derivation(
+        epub,
+        [html],
+        kind="convert",
+        workflow_id=42,
+        notes="html to epub",
+    )
+    epub_to_mobi = manager.record_derivation(
+        mobi,
+        [epub],
+        kind="convert",
+        workflow_id=42,
+        notes="epub to mobi",
+    )
+    epub_to_azw3 = manager.record_derivation(
+        azw3,
+        [epub],
+        kind="convert",
+        workflow_id=42,
+        notes="epub to azw3",
+    )
+    direct_html_to_mobi = manager.record_derivation(
+        mobi,
+        [html],
+        kind="convert",
+        workflow_id=99,
+        notes="direct alternative",
+    )
+
+    ancestors = tuple(manager.iter_derivation_ancestors(mobi.digital_asset_id))
+    descendants = tuple(
+        manager.iter_derivation_descendants(html.digital_asset_id)
+    )
+    workflow_chain = manager.get_derivation_graph(
+        mobi.digital_asset_id,
+        direction="ancestors",
+        workflow_id=42,
+    )
+    shallow = manager.get_derivation_graph(
+        mobi.digital_asset_id,
+        direction=api.DigitalAssetDerivationGraphDirection.ANCESTORS,
+        max_depth=1,
+        workflow_id=42,
+    )
+
+    assert tuple(
+        record.digital_asset_derivation_id for record in ancestors
+    ) == (
+        epub_to_mobi.digital_asset_derivation_id,
+        direct_html_to_mobi.digital_asset_derivation_id,
+        html_to_epub.digital_asset_derivation_id,
+    )
+    assert tuple(
+        record.digital_asset_derivation_id for record in descendants
+    ) == (
+        html_to_epub.digital_asset_derivation_id,
+        direct_html_to_mobi.digital_asset_derivation_id,
+        epub_to_mobi.digital_asset_derivation_id,
+        epub_to_azw3.digital_asset_derivation_id,
+    )
+    assert workflow_chain.digital_asset_ids == (
+        mobi.digital_asset_id,
+        epub.digital_asset_id,
+        html.digital_asset_id,
+    )
+    assert tuple(
+        record.digital_asset_derivation_id
+        for record in workflow_chain.derivation_records
+    ) == (
+        epub_to_mobi.digital_asset_derivation_id,
+        html_to_epub.digital_asset_derivation_id,
+    )
+    assert tuple(
+        record.digital_asset_derivation_id
+        for record in shallow.derivation_records
+    ) == (epub_to_mobi.digital_asset_derivation_id,)
+    assert shallow.truncated
+
+
+def test_recreation_plan_selects_shortest_route_and_orders_chain() -> None:
+    store = _MemoryStore(MAIN_STORE_UUID)
+    manager = InMemoryStorageManager(
+        store_registrations=((store.configuration, store),),
+    )
+    html_ingest = manager.ingest_bytes(b"html")
+    epub_ingest = manager.ingest_bytes(b"epub")
+    mobi_ingest = manager.ingest_bytes(b"mobi")
+    tool = manager.ingest_bytes(b"converter").asset_record
+    html = html_ingest.asset_record
+    epub = epub_ingest.asset_record
+    mobi = mobi_ingest.asset_record
+
+    def exact_conversion(
+        source: api.DigitalAssetRecord,
+        result: api.DigitalAssetRecord,
+        recipe_type: str,
+        *,
+        workflow_id: int,
+    ) -> api.DigitalAssetDerivationRecord:
+        recipe = api.ReproductionRecipe(
+            recipe_type=recipe_type,
+            reproducibility=api.Reproducibility.EXACT,
+            complete=True,
+            inputs=(
+                api.ReproductionRecipeInputReference(
+                    0,
+                    source.digital_asset_id,
+                    source.size_bytes,
+                    source.digests,
+                    "input.bin",
+                ),
+            ),
+            executor=api.ReproductionRecipeArtifactReference(
+                "converter",
+                tool.digests[0],
+                digital_asset_id=tool.digital_asset_id,
+            ),
+            parameters_json=f'{{"profile":"{recipe_type}"}}',
+            command=("converter", "input.bin", "output.bin"),
+            output_path="output.bin",
+            expected_output_size=result.size_bytes,
+            expected_output_digests=result.digests,
+        )
+        return manager.record_derivation(
+            result,
+            [source],
+            kind="convert",
+            recipe=recipe,
+            workflow_id=workflow_id,
+        )
+
+    html_to_epub = exact_conversion(
+        html, epub, "html_to_epub", workflow_id=42,
+    )
+    epub_to_mobi = exact_conversion(
+        epub, mobi, "epub_to_mobi", workflow_id=42,
+    )
+    direct = exact_conversion(
+        html, mobi, "html_to_mobi", workflow_id=99,
+    )
+
+    available = manager.plan_digital_asset_recreation(mobi.digital_asset_id)
+    assert available.already_available
+    assert not available.requires_replay
+
+    manager.remove_replica(epub_ingest.replica_record.replica_id)
+    manager.remove_replica(mobi_ingest.replica_record.replica_id)
+
+    shortest = manager.plan_digital_asset_recreation(mobi.digital_asset_id)
+    assert shortest.can_recreate_exactly
+    assert shortest.selected_derivation_id == direct.digital_asset_derivation_id
+    assert tuple(
+        step.digital_asset_derivation_id for step in shortest.steps
+    ) == (direct.digital_asset_derivation_id,)
+    assert shortest.alternative_derivation_ids == (
+        epub_to_mobi.digital_asset_derivation_id,
+    )
+    assert set(shortest.available_digital_asset_ids) == {
+        html.digital_asset_id,
+        tool.digital_asset_id,
+    }
+
+    assert manager.forget_digital_asset_derivation(
+        direct.digital_asset_derivation_id
+    )
+    chained = manager.plan_digital_asset_recreation(mobi.digital_asset_id)
+    assert chained.can_recreate_exactly
+    assert chained.selected_derivation_id == (
+        epub_to_mobi.digital_asset_derivation_id
+    )
+    assert tuple(
+        step.digital_asset_derivation_id for step in chained.steps
+    ) == (
+        html_to_epub.digital_asset_derivation_id,
+        epub_to_mobi.digital_asset_derivation_id,
+    )
+    assert tuple(
+        step.declaration.recipe.recipe_type
+        for step in chained.steps
+        if step.declaration.recipe is not None
+    ) == ("html_to_epub", "epub_to_mobi")
+    assert tuple(
+        step.declaration.recipe.parameters_json
+        for step in chained.steps
+        if step.declaration.recipe is not None
+    ) == (
+        '{"profile":"html_to_epub"}',
+        '{"profile":"epub_to_mobi"}',
+    )
 
 
 def test_reference_manager_store_lifecycle_uses_injected_factory() -> None:
@@ -1820,6 +2229,23 @@ def test_uri_only_recipe_artifacts_require_an_availability_resolver() -> None:
     )
 
     assert not manager.assess_digital_asset(result.digital_asset_id).recreatable
+    result_replica = next(
+        manager.iter_replica_records(
+            digital_asset_id=result.digital_asset_id
+        )
+    )
+    manager.remove_replica(result_replica.replica_id)
+    recreation_plan = manager.plan_digital_asset_recreation(
+        result.digital_asset_id
+    )
+    assert not recreation_plan.can_recreate_exactly
+    assert result.digital_asset_id in (
+        recreation_plan.unavailable_digital_asset_ids
+    )
+    assert any(
+        "unavailable artefact" in warning
+        for warning in recreation_plan.warnings
+    )
     with pytest.raises(api.StoragePolicyUnsatisfied):
         manager.set_digital_asset_policies(
             result.digital_asset_id,

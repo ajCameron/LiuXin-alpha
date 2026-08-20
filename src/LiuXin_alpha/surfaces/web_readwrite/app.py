@@ -20,6 +20,7 @@ from urllib.parse import parse_qs, quote, unquote, urlencode
 from wsgiref.simple_server import make_server
 
 from LiuXin_alpha.core import CoreClientAPI
+from LiuXin_alpha.storage.backend_registry import DEFAULT_BACKEND_REGISTRY
 from LiuXin_alpha.surfaces.core import (
     CoreRow,
     add_core_client_arguments,
@@ -39,18 +40,11 @@ from LiuXin_alpha.surfaces.web_readonly.app import (
 
 _REQUEST_NOTICE: ContextVar[Optional[dict[str, str]]] = ContextVar("web_readwrite_request_notice", default=None)
 
-_STORE_BACKEND_KINDS = (
-    "ftp_readonly",
-    "native_html_readonly",
-    "on_disk_calibre_like",
-    "on_disk_existing_managed_drive",
-    "on_disk_existing_unmanaged_drive",
-    "on_disk_flat",
-    "rclone_http_readonly",
-    "single_file_sqlite",
-    "squashfs_build",
-    "squashfs_readonly",
-    "wget_html_readonly",
+_STORE_BACKEND_DESCRIPTORS = tuple(
+    DEFAULT_BACKEND_REGISTRY.iter_descriptors(user_selectable_only=True)
+)
+_STORE_BACKEND_KINDS = tuple(
+    descriptor.kind for descriptor in _STORE_BACKEND_DESCRIPTORS
 )
 
 
@@ -783,17 +777,22 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
                 ("pseudonym", "pseudonym"),
             ]
         if str(table) == "stores" and lowered == "store_kind":
-            return [(kind, kind) for kind in _STORE_BACKEND_KINDS]
-        if str(table) == "stores" and lowered == "store_access_protocol":
             return [
-                ("", "Unset"),
-                ("file", "file"),
-                ("sqlite", "sqlite"),
-                ("http", "http"),
-                ("https", "https"),
-                ("rclone", "rclone"),
-                ("squashfs", "squashfs"),
+                (descriptor.kind, descriptor.label)
+                for descriptor in _STORE_BACKEND_DESCRIPTORS
             ]
+        if str(table) == "stores" and lowered == "store_access_protocol":
+            protocols = sorted(
+                {
+                    protocol
+                    for descriptor in _STORE_BACKEND_DESCRIPTORS
+                    for protocol in (
+                        descriptor.access_protocol,
+                        *descriptor.access_protocol_aliases,
+                    )
+                }
+            )
+            return [("", "Unset"), *((value, value) for value in protocols)]
         if str(table) == "stores" and lowered == "store_auth_method":
             return [
                 ("", "Unset"),
@@ -1277,31 +1276,16 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
             raise ValueError("No {} row found for id {}.".format(table, row_id))
         return table, row
 
-    def _storage_key_for_stored_file(self, *, store_row, stored_file) -> str:
+    def _storage_key_for_stored_file(self, *, stored_file) -> str:
         if isinstance(stored_file, Mapping):
-            store_key = str(stored_file.get("store_key") or "").strip()
+            store_key = str(
+                stored_file.get("key")
+                or stored_file.get("store_key")
+                or ""
+            ).strip()
             if store_key:
                 return store_key
-            file_url = str(stored_file.get("file_url") or "").strip()
-        else:
-            file_url = str(getattr(stored_file, "file_url", "") or "").strip()
-        if not file_url:
-            return ""
-        root_uri = str(_row_value(store_row, "store_root_uri") or "").strip()
-        access_protocol = str(_row_value(store_row, "store_access_protocol") or "").strip().lower()
-        local_root: Optional[Path] = None
-        if root_uri.startswith("file://"):
-            local_root = Path(root_uri[7:])
-        elif root_uri and access_protocol in {"", "file", "local"}:
-            local_root = Path(root_uri)
-        if local_root is not None:
-            try:
-                resolved_file = Path(file_url).expanduser().resolve(strict=False)
-                resolved_root = local_root.expanduser().resolve(strict=False)
-                return str(resolved_file.relative_to(resolved_root)).replace("\\", "/")
-            except Exception:
-                return file_url
-        return file_url
+        return str(getattr(stored_file, "key", "") or "").strip()
 
     def _render_file_upload_page(
         self,
@@ -1470,7 +1454,7 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         upload: dict[str, object],
         store_row,
         store_id: int,
-        preferred_store: str,
+        store_uuid: str,
         item_id: Optional[int] = None,
     ):
         uploaded_name = self._upload_basename(str(upload.get("filename") or "upload.bin"))
@@ -1480,7 +1464,6 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
             "original_name": uploaded_name,
             "file_extension": Path(display_name).suffix.lstrip("."),
             "file_store_id": store_id,
-            "preferred_store": preferred_store,
         }
         if item_id is not None:
             metadata["file_item_id"] = int(item_id)
@@ -1496,7 +1479,10 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
                     bytes(upload.get("bytes") or b"")
                 ).decode("ascii"),
                 "metadata": metadata,
-                "preferred_store": preferred_store,
+                "store_uuid": store_uuid,
+                "name": display_name,
+                "original_name": uploaded_name,
+                "media_type": raw_mime_type or None,
             },
         )
         if not isinstance(put_result, Mapping):
@@ -1509,7 +1495,9 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         extension = Path(display_name).suffix.lstrip(".")
         file_payload: dict[str, object] = {
             "file_store_id": store_id,
-            "file_storage_key": self._storage_key_for_stored_file(store_row=store_row, stored_file=stored_file),
+            "file_storage_key": self._storage_key_for_stored_file(
+                stored_file=stored_file
+            ),
             "file_name": display_name,
             "file_base_name": Path(display_name).stem,
             "file_extension": extension or None,
@@ -2397,7 +2385,17 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
                 status="400 Bad Request",
             )
 
-        preferred_store = str(_row_value(store_row, "store_name") or "store-{}".format(store_id))
+        try:
+            store_detail = self.core.query(
+                "storage.store.get",
+                {"store": store_id},
+            )
+            store_uuid = str(store_detail["store_uuid"])
+        except Exception as exc:
+            return self._html_response(
+                self._render_file_upload_page(error_text="Store resolution failed: {}".format(exc), values=form, context_table=context_table, raw_row_id=raw_row_id),
+                status="400 Bad Request",
+            )
         try:
             target_item_id: Optional[int] = None
             uploaded_name = self._upload_basename(str(upload.get("filename") or "upload.bin"))
@@ -2421,7 +2419,7 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
                 upload=upload,
                 store_row=store_row,
                 store_id=store_id,
-                preferred_store=preferred_store,
+                store_uuid=store_uuid,
                 item_id=target_item_id,
             )
         except Exception as exc:

@@ -9,8 +9,11 @@ from typing import Protocol, runtime_checkable
 
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
     DigitalAssetDerivationDeclaration,
+    DigitalAssetDerivationGraph,
+    DigitalAssetDerivationGraphDirection,
     DigitalAssetDerivationID,
     DigitalAssetDerivationRecord,
+    DigitalAssetRecreationPlan,
     CompositeDigitalAssetID,
     DigitalAssetID,
     ReproductionRecipeArtifactReference,
@@ -107,6 +110,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         result_digital_asset_id: DigitalAssetID | None = None,
         source_digital_asset_id: DigitalAssetID | None = None,
         source_composite_digital_asset_id: CompositeDigitalAssetID | None = None,
+        workflow_id: int | None = None,
         exact_only: bool = False,
     ) -> Iterator[DigitalAssetDerivationRecord]:
         """
@@ -124,7 +128,139 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         :param result_digital_asset_id:
         :param source_digital_asset_id:
         :param source_composite_digital_asset_id:
+        :param workflow_id: Restrict results to one workflow execution.
         :param exact_only:
+        :return:
+        """
+        ...
+
+    def iter_derivation_ancestors(
+        self,
+        digital_asset_id: DigitalAssetID,
+        *,
+        max_depth: int | None = None,
+        workflow_id: int | None = None,
+        exact_only: bool = False,
+    ) -> Iterator[DigitalAssetDerivationRecord]:
+        """
+        Iterate from a result toward every direct and transitive derivation.
+
+        Records are returned nearest-first. Alternative recipes are retained;
+        this is a provenance traversal, not a recreation-route selection.
+
+        Example:
+            >>> chain = list(manager.iter_derivation_ancestors(  # doctest: +SKIP
+            ...     DigitalAssetID(9),
+            ... ))
+
+
+        :param digital_asset_id:
+        :param max_depth: Maximum number of derivation edges from the root.
+        :param workflow_id: Restrict traversal to one workflow execution.
+        :param exact_only: Follow only complete exact recipes.
+        :return:
+        """
+
+        graph = self.get_derivation_graph(
+            digital_asset_id,
+            direction=DigitalAssetDerivationGraphDirection.ANCESTORS,
+            max_depth=max_depth,
+            workflow_id=workflow_id,
+            exact_only=exact_only,
+        )
+        return iter(graph.derivation_records)
+
+    def iter_derivation_descendants(
+        self,
+        digital_asset_id: DigitalAssetID,
+        *,
+        max_depth: int | None = None,
+        workflow_id: int | None = None,
+        exact_only: bool = False,
+    ) -> Iterator[DigitalAssetDerivationRecord]:
+        """
+        Iterate from an input toward every direct and transitive result.
+
+        Records are returned nearest-first and include branches.
+
+        Example:
+            >>> outputs = list(manager.iter_derivation_descendants(  # doctest: +SKIP
+            ...     DigitalAssetID(7), max_depth=2,
+            ... ))
+
+
+        :param digital_asset_id:
+        :param max_depth: Maximum number of derivation edges from the root.
+        :param workflow_id: Restrict traversal to one workflow execution.
+        :param exact_only: Follow only complete exact recipes.
+        :return:
+        """
+
+        graph = self.get_derivation_graph(
+            digital_asset_id,
+            direction=DigitalAssetDerivationGraphDirection.DESCENDANTS,
+            max_depth=max_depth,
+            workflow_id=workflow_id,
+            exact_only=exact_only,
+        )
+        return iter(graph.derivation_records)
+
+    @abc.abstractmethod
+    def get_derivation_graph(
+        self,
+        digital_asset_id: DigitalAssetID,
+        *,
+        direction: (
+            DigitalAssetDerivationGraphDirection | str
+        ) = DigitalAssetDerivationGraphDirection.BOTH,
+        max_depth: int | None = None,
+        workflow_id: int | None = None,
+        exact_only: bool = False,
+    ) -> DigitalAssetDerivationGraph:
+        """
+        Return a bounded provenance graph rooted at one atomic Asset.
+
+        The graph contains all matching alternatives rather than choosing one
+        route. Recipe inputs participate in traversal; managed executables and
+        dependencies do not become provenance ancestors.
+
+        Example:
+            >>> graph = manager.get_derivation_graph(  # doctest: +SKIP
+            ...     DigitalAssetID(9), direction="ancestors",
+            ... )
+
+
+        :param digital_asset_id:
+        :param direction:
+        :param max_depth:
+        :param workflow_id:
+        :param exact_only:
+        :return:
+        """
+        ...
+
+    @abc.abstractmethod
+    def plan_digital_asset_recreation(
+        self,
+        digital_asset_id: DigitalAssetID,
+    ) -> DigitalAssetRecreationPlan:
+        """
+        Select the shortest currently viable exact replay chain.
+
+        Returned steps are topologically ordered. A readable requested Asset
+        yields an already-available plan with no steps. Alternative viable
+        derivations remain visible on the plan; unavailable inputs and tools
+        are reported without mutating storage.
+
+        Example:
+            >>> plan = manager.plan_digital_asset_recreation(  # doctest: +SKIP
+            ...     DigitalAssetID(9),
+            ... )
+            >>> plan.can_recreate_exactly  # doctest: +SKIP
+            True
+
+
+        :param digital_asset_id:
         :return:
         """
         ...

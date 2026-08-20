@@ -27,6 +27,12 @@ search = [
 postgres = [
   "psycopg2-binary>=2.9",
 ]
+s3 = [
+  "boto3>=1.35,<2",
+]
+encryption = [
+  "cryptography>=43,<47",
+]
 typing = [
   "basedpyright>=1.39,<2",
   "libcst>=1.8,<2",

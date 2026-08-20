@@ -890,10 +890,14 @@ def test_driver_backed_store_translates_identity_keys_metadata_and_lifecycle() -
     assert store.read_bytes(location) == b"book"
     assert store.file_size(location) == 4
     assert store.locate(location.key) == location
-    assert driver.object_uri(driver.parse_object_address(location.key)) == (
-        f"{driver.root_uri}/{location.key}"
-    )
+    uri = f"{driver.root_uri}/{location.key}"
+    assert store.capabilities.external_uri_parsing
+    assert store.capabilities.external_uri_rendering
+    assert store.location_uri(location) == uri
+    assert store.location_from_uri(uri) == location
     assert list(store.iter_locations()) == [location]
+    [inventory_info] = store.iter_file_infos()
+    assert inventory_info.hints.suggested_filename == location.key.rsplit("/", 1)[-1]
 
     with pytest.raises(api.StoreInvalidLocation):
         store.stat(api.Location(OTHER_STORE_UUID, location.key))

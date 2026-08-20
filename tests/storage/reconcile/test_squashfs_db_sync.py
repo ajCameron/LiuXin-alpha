@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from uuid import UUID
+
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import InputIntegrityError
@@ -174,13 +176,12 @@ def test_squashfs_db_workflow_publishes_and_duplicates_verified_files(driver_spe
         )
 
         assert db.storage is not None
-        retrieved = db.storage.locate_file(
-            metadata={
-                "file_store_id": open_store_id,
-                "file_storage_key": "Author One/Book One (1)/Book One - ONE.epub",
-            }
+        location = db.storage.get_store(
+            UUID(str(locked_store["store_uuid"]))
+        ).locate(
+            "Author One/Book One (1)/Book One - ONE.epub"
         )
-        assert retrieved.read_bytes() == b"ONE"
+        assert db.storage.read_bytes(location) == b"ONE"
 
         link_rows = db.search("file_store_links", "file_store_link_store_id", open_store_id)
         designation_links = [row for row in link_rows if row["file_store_link_type"] == "squashfs_designation"]

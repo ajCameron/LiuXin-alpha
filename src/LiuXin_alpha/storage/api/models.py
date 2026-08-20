@@ -11,6 +11,8 @@ from enum import StrEnum
 from typing import TypeAlias
 from uuid import UUID
 
+from LiuXin_alpha.storage.api.placement_hints_api import StoragePlacementHints
+
 
 StoreUUID: TypeAlias = UUID
 
@@ -109,6 +111,139 @@ class Digest:
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
+class FileHints:
+    """
+    Non-policy naming, media, and backend metadata hints for one file.
+
+    These values preserve useful observations made by a Store while keeping
+    backend-specific driver value objects below the configured-Store boundary.
+    Ingest may use them as suggestions; they are not bibliographic facts.
+
+    Example:
+        >>> FileHints(suggested_filename="book.epub").suggested_filename
+        'book.epub'
+    """
+
+    suggested_filename: str | None = None
+    media_type: str | None = None
+    metadata: tuple[tuple[str, str], ...] = ()
+    placement_hints: StoragePlacementHints | None = None
+
+    def __post_init__(self) -> None:
+        """
+        Validate optional strings and unique native metadata keys.
+
+        Example:
+            >>> FileHints(media_type="")
+            Traceback (most recent call last):
+            ...
+            ValueError: media_type must not be empty.
+        """
+
+        if self.suggested_filename == "":
+            raise ValueError("suggested_filename must not be empty.")
+        if self.media_type == "":
+            raise ValueError("media_type must not be empty.")
+        names = [name for name, _value in self.metadata]
+        if any(not name.strip() for name in names):
+            raise ValueError("file hint metadata names must not be empty.")
+        if len(names) != len(set(names)):
+            raise ValueError("file hint metadata names must be unique.")
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class StoreInventoryEntry:
+    """
+    Discovery information for one Store object whose size may be unknown.
+
+    Unlike :class:`FileInfo`, an inventory entry is not required to carry an
+    authoritative size. This keeps streaming HTTP and FTP sources ingestible
+    without weakening the Store ``stat`` contract.
+
+    Example:
+        >>> entry = StoreInventoryEntry(
+        ...     Location(UUID(int=1), "incoming/book.epub"),
+        ...     hints=FileHints(suggested_filename="book.epub"),
+        ... )
+        >>> entry.size is None
+        True
+    """
+
+    location: Location
+    size: int | None = None
+    modified_at: datetime | None = None
+    digest: Digest | None = None
+    version: str | None = None
+    hints: FileHints = dataclasses.field(default_factory=FileHints)
+
+    def __post_init__(self) -> None:
+        """
+        Validate optional size and timestamp values.
+
+        Example:
+            >>> StoreInventoryEntry(Location(UUID(int=1), "bad"), size=-1)
+            Traceback (most recent call last):
+            ...
+            ValueError: inventory size must not be negative.
+        """
+
+        if self.size is not None and self.size < 0:
+            raise ValueError("inventory size must not be negative.")
+        _require_aware_datetime(self.modified_at, "modified_at")
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class StoreInventoryPage:
+    """
+    One resumable page of Store inventory.
+
+    ``next_cursor`` is opaque and scoped to the configured Store. ``None``
+    means the scan has reached its current end. A snapshot token, when present,
+    identifies the backend inventory view used for all pages.
+
+    Example:
+        >>> page = StoreInventoryPage(entries=(), next_cursor=None)
+        >>> page.finished
+        True
+    """
+
+    entries: tuple[StoreInventoryEntry, ...]
+    next_cursor: str | None
+    snapshot_token: str | None = None
+
+    def __post_init__(self) -> None:
+        """
+        Reject empty cursors and duplicate locations within one page.
+
+        Example:
+            >>> StoreInventoryPage((), "")
+            Traceback (most recent call last):
+            ...
+            ValueError: inventory cursor must not be empty.
+        """
+
+        if self.next_cursor == "":
+            raise ValueError("inventory cursor must not be empty.")
+        if self.snapshot_token == "":
+            raise ValueError("inventory snapshot token must not be empty.")
+        locations = tuple(entry.location for entry in self.entries)
+        if len(locations) != len(set(locations)):
+            raise ValueError("inventory page locations must be unique.")
+
+    @property
+    def finished(self) -> bool:
+        """
+        Return whether this page ends the inventory scan.
+
+        Example:
+            >>> StoreInventoryPage((), None).finished
+            True
+        """
+
+        return self.next_cursor is None
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
 class FileInfo:
     """
     Authoritative information available for one stored object.
@@ -125,6 +260,7 @@ class FileInfo:
     modified_at: datetime | None = None
     digest: Digest | None = None
     version: str | None = None
+    hints: FileHints = dataclasses.field(default_factory=FileHints)
 
     def __post_init__(self) -> None:
         """
@@ -144,6 +280,25 @@ class FileInfo:
             raise ValueError("file size must not be negative.")
         _require_aware_datetime(self.modified_at, "modified_at")
 
+    def as_inventory_entry(self) -> StoreInventoryEntry:
+        """
+        Return this authoritative information as a discovery entry.
+
+        Example:
+            >>> info = FileInfo(Location(UUID(int=1), "book.epub"), 4)
+            >>> info.as_inventory_entry().size
+            4
+        """
+
+        return StoreInventoryEntry(
+            self.location,
+            self.size,
+            self.modified_at,
+            self.digest,
+            self.version,
+            self.hints,
+        )
+
 
 class EnumerationCompleteness(StrEnum):
     """
@@ -157,6 +312,56 @@ class EnumerationCompleteness(StrEnum):
     COMPLETE = "complete"
     PARTIAL = "partial"
     UNAVAILABLE = "unavailable"
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class StoreConcurrencyCapabilities:
+    """
+    Conservative concurrency guarantees for one configured Store.
+
+    Example:
+        >>> StoreConcurrencyCapabilities(
+        ...     thread_safe=True, concurrent_reads=True,
+        ...     recommended_parallel_reads=4,
+        ... ).recommended_parallel_reads
+        4
+    """
+
+    thread_safe: bool = False
+    concurrent_reads: bool = False
+    concurrent_writes: bool = False
+    recommended_parallel_reads: int | None = None
+
+    def __post_init__(self) -> None:
+        """
+        Validate concurrency claims and recommendations.
+
+        Example:
+            >>> StoreConcurrencyCapabilities(concurrent_reads=True)
+            Traceback (most recent call last):
+            ...
+            ValueError: concurrent Store operations require thread safety.
+        """
+
+        if (self.concurrent_reads or self.concurrent_writes) and not self.thread_safe:
+            raise ValueError(
+                "concurrent Store operations require thread safety."
+            )
+        if (
+            self.recommended_parallel_reads is not None
+            and self.recommended_parallel_reads < 1
+        ):
+            raise ValueError(
+                "recommended_parallel_reads must be at least one."
+            )
+        if (
+            self.recommended_parallel_reads is not None
+            and self.recommended_parallel_reads > 1
+            and not self.concurrent_reads
+        ):
+            raise ValueError(
+                "parallel Store reads require concurrent_reads support."
+            )
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -190,6 +395,13 @@ class StoreCapabilities:
     placement_hints: bool = False
     hierarchical_object_addresses: bool = False
     prefix_enumeration: bool = False
+    external_uri_parsing: bool = False
+    external_uri_rendering: bool = False
+    conditional_read: bool = False
+    paged_enumeration: bool = False
+    concurrency: StoreConcurrencyCapabilities = dataclasses.field(
+        default_factory=StoreConcurrencyCapabilities
+    )
 
     def __post_init__(self) -> None:
         """
@@ -217,6 +429,13 @@ class StoreCapabilities:
             )
         if self.conditional_delete and not self.delete:
             raise ValueError("conditional_delete requires Store deletion.")
+        if (
+            self.paged_enumeration
+            and self.enumeration is EnumerationCompleteness.UNAVAILABLE
+        ):
+            raise ValueError(
+                "paged_enumeration requires Store enumeration."
+            )
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -296,9 +515,13 @@ def _require_aware_datetime(value: datetime | None, field_name: str) -> None:
 __all__ = [
     "Digest",
     "EnumerationCompleteness",
+    "FileHints",
     "FileInfo",
     "Location",
+    "StoreConcurrencyCapabilities",
     "StoreCapabilities",
+    "StoreInventoryEntry",
+    "StoreInventoryPage",
     "StoreUUID",
     "StoreStatus",
     "WriteMode",

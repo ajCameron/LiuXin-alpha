@@ -558,6 +558,13 @@ Only a complete recipe explicitly claiming byte-identical reproduction can
 justify recreate-on-loss storage policy. Best-effort recipes remain valuable
 provenance but do not make an Asset safely disposable.
 
+Each derivation record is one edge. Chained transformations retain their
+intermediate Assets: HTML-to-EPUB and EPUB-to-MOBI are two records joined by
+the EPUB Asset, optionally grouped under the same workflow execution ID.
+Manager graph traversal exposes the complete ancestry or descendant branches,
+while recreation planning selects a currently viable exact route and orders
+its recipes from prerequisites to requested result.
+
 This gives LiuXin a chain of provenance rather than silently replacing one representation with another. 
 It also permits a source Asset to be retained even where a more convenient derived format is normally used for access.
 

@@ -32,7 +32,6 @@ class DigitalAssetRetrievalAPI(abc.ABC):
         >>> location = resolved.location  # doctest: +SKIP
     """
 
-    # Todo: Surely we just, for efficiency, want to persist this in the StoreManager?
     @property
     def location_factory(self) -> LocationFactory:
         """
@@ -77,8 +76,6 @@ class DigitalAssetRetrievalAPI(abc.ABC):
         """
         ...
 
-    # Todo: add "scratch" - which gets you a temp copy of the file?
-    # Todo: Also want a in memory copy option?
     @abc.abstractmethod
     def resolve_digital_asset(
         self,

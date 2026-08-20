@@ -118,6 +118,7 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> BinaryIO:
         """
         Open a context-managed, binary, read-only object stream.
@@ -126,6 +127,10 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         resources. Negative ranges are invalid. A non-default range must either
         be honoured exactly (returning at most ``length`` bytes) or raise
         ``StorageUnsupportedOperation``; it must never be silently ignored.
+        ``if_version`` pins the stream to the opaque version returned by
+        ``stat`` and requires ``capabilities.conditional_read``. A stale token
+        raises ``StoragePreconditionFailed`` before any mismatched bytes are
+        returned.
 
         Example:
             >>> with driver.open_read(address, offset=10, length=20) as source:  # doctest: +SKIP
@@ -135,6 +140,7 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         :param object_address:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
         ...
@@ -230,6 +236,7 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> BinaryIO:
         """
         Return ``open_read`` using familiar retrieval vocabulary.
@@ -241,12 +248,14 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         :param object_address:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
+        checked = self.check_object_address(object_address)
+        if if_version is None:
+            return self.open_read(checked, offset=offset, length=length)
         return self.open_read(
-            self.check_object_address(object_address),
-            offset=offset,
-            length=length,
+            checked, offset=offset, length=length, if_version=if_version
         )
 
     def read_bytes(
@@ -255,6 +264,7 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> bytes:
         """
         Read one small object or range fully into memory.
@@ -267,13 +277,21 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         :param object_address:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
-        with self.open_read(
-            self.check_object_address(object_address),
-            offset=offset,
-            length=length,
-        ) as source:
+        checked = self.check_object_address(object_address)
+        reader = (
+            self.open_read(checked, offset=offset, length=length)
+            if if_version is None
+            else self.open_read(
+                checked,
+                offset=offset,
+                length=length,
+                if_version=if_version,
+            )
+        )
+        with reader as source:
             payload = source.read()
         if not isinstance(payload, bytes):
             raise TypeError("driver read stream must return bytes.")

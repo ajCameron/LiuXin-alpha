@@ -391,6 +391,22 @@ so network, authentication, and permission failures remain visible. Store-facing
 `Store*` exception names are aliases of the same hierarchy; the Store adapter
 does not erase or flatten driver failures.
 
+Concrete drivers translate backend-native exceptions at their boundary. A
+raised failure message identifies the backend, attempted operation,
+credential-free target, and a concise reason; the original exception remains
+available through Python exception chaining. Targets and backend details must
+not reproduce URL user information, query values, authorization material, or
+secret-like assignments. Filesystem and SQLite errors additionally classify
+common absence, collision, permissions, read-only, capacity, timeout, and
+corruption conditions into the corresponding typed errors.
+
+Health probes flatten only ordinary unavailability and timeouts into
+`DriverStatus(available=False)`. Invalid configuration, missing configured
+containers, authentication failure, permission denial, integrity failure, and
+unexpected backend faults remain typed exceptions with the same contextual
+message, so operators can distinguish “temporarily offline” from “needs
+intervention.”
+
 ## Store and manager responsibilities
 
 `DriverBackedStoreAPI` translates driver capabilities/status into
@@ -434,6 +450,89 @@ can replace those in-process repositories without changing the public manager
 contract. Store construction is injected as a factory; already-created Stores
 can be registered explicitly with `attach_store()`.
 
+### Starting a manager
+
+Application code normally uses `StorageManager`, which supplies the standard
+Store factory on top of the reference orchestration implementation. The
+smallest useful startup constructs a Store directly and lets the manager own
+its runtime lifetime:
+
+```python
+from pathlib import Path
+
+from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.stores import FilesystemStore
+
+primary = FilesystemStore(Path("/srv/liuxin/primary"), name="primary")
+
+with StorageManager(stores=[primary]) as manager:
+    asset = manager.store_bytes(
+        b"book bytes",
+        original_name="book.epub",
+        media_type="application/epub+zip",
+    )
+    assert manager.read_file(asset.digital_asset_id) == b"book bytes"
+```
+
+When Store configuration already exists independently of a live facade, use
+the manager's default factory. This is also the construction path used by
+database bootstrap:
+
+```python
+from uuid import uuid4
+
+from LiuXin_alpha.storage import api
+from LiuXin_alpha.storage.store_manager import StorageManager
+
+configuration = api.StoreConfiguration(
+    store_uuid=uuid4(),
+    store_name="primary",
+    store_kind="filesystem",
+    store_root_uri="file:///srv/liuxin/primary",
+)
+
+with StorageManager() as manager:
+    manager.create_store(configuration)
+    asset = manager.store_file("/incoming/book.epub")
+```
+
+For database-backed Store discovery, the database remains responsible for the
+durable `stores` rows and the manager reports every loaded, skipped, or failed
+configuration:
+
+```python
+manager, report = StorageManager.from_database(database)
+with manager:
+    if not report.ok:
+        for issue in report.issues:
+            print("Store bootstrap issue:", issue.reason)
+
+    # Re-read the stores table after an administrator changes it.
+    report = manager.reload_stores()
+```
+
+A database-bound `reload_stores()` treats the current `stores` table as
+authoritative. It constructs and starts replacements before swapping them in,
+adds newly discovered Stores, and unloads Stores whose rows were removed or
+marked offline/retired. If a replacement cannot be constructed or started,
+the previous live facade remains in service and the failure is included in the
+report. A removed Store configuration that is still referenced by an in-memory
+Replica is retained as an unavailable identity until that claim is retired.
+
+Pass `replace_existing=False` for an additive refresh: new and currently
+unavailable configurations are loaded, while existing live Stores are not
+rebuilt and removed rows are not unloaded.
+
+These manager implementations persist bytes in their Stores but retain the
+Asset, Replica, Composite, Item-link, and derivation catalogue in memory. A
+process restart therefore needs a durable manager implementation of the
+persistence SPI; merely reconstructing the same filesystem Store does not
+reconstruct those records.
+
+Runnable forms of the first example and a larger two-Store workflow live in
+`examples/storage_manager_manual_roundtrip_example.py` and
+`examples/storage_manager_workflows_example.py`.
+
 ### Everyday manager convenience surface
 
 `StorageManagerAPI` includes a concrete `StorageConvenienceAPI` mixin for
@@ -473,6 +572,17 @@ package = manager.create_composite(
     name="book package",
 )
 manager.link(42, package, role="package")
+
+imported_package = manager.store_composite(
+    {
+        "book.epub": "/incoming/book.epub",
+        "images/cover.jpg": cover_bytes,
+    },
+    name="imported book package",
+)
+manager.export_composite_to_directory(imported_package, "/exports/book")
+with manager.open_composite_zip(imported_package) as package_zip:
+    deliver(package_zip)
 ```
 
 Convenience arguments accept the IDs, records, configurations, and Store
@@ -480,7 +590,9 @@ facades that callers naturally already have. `store()`, `store_bytes()`,
 `store_stream()`, and `store_file()` return a `DigitalAssetRecord`, which is
 the useful result for most application work. Callers needing the operation
 UUID, exact Replica record, deduplication flags, or verification report use
-the underlying `ingest_bytes()` or `ingest_stream()` method instead.
+the corresponding `ingest_bytes()`, `ingest_stream()`, or `ingest_file()`
+method instead. `ingest_file()` also pins the observed local size and supplies
+the basename as `original_name` when the caller did not provide one.
 
 The convenience `metadata=` argument is deliberately richer than the Asset's
 flat `name`, `media_type`, `original_name`, and `attributes` fields. It accepts
@@ -512,6 +624,11 @@ index transactionally. Stores without that capability continue to use their
 ordinary allocation and write behavior; hints are safely ignored. Placement
 hints are not automatically retained on the `DigitalAssetRecord`, because a
 later metadata edit must not change content identity or rewrite old Replicas.
+Instead, each `ReplicaRecord` retains the placement-hint snapshot requested for
+that copy. Replication reuses the source Replica's snapshot by default and
+accepts an explicit override when the destination needs different
+organization. Retaining a hint even when the first Store ignores it allows a
+later rich destination to benefit from the same metadata.
 
 The same rule covers less frequent setup and provenance:
 
@@ -561,8 +678,9 @@ The manager boundary distinguishes three things that must not be collapsed:
 `DigitalAssetRecord` and `ReplicaRecord` are immutable public values. They are
 not ORM objects, database rows, live storage handles, or containers for bytes.
 The former holds expected size, digests, and descriptive metadata. The latter
-links the asset identity to a `Location`, operational mode, and latest
-`ReplicaObservation`. Opening that Location supplies the actual content.
+links the asset identity to a `Location`, operational mode, placement-hint
+snapshot, and latest `ReplicaObservation`. Opening that Location supplies the
+actual content.
 
 Creation inputs are distinct values: `DigitalAssetDeclaration`,
 `ReplicaDeclaration`, and `CompositeDigitalAssetDeclaration`. A new value is
@@ -631,6 +749,28 @@ Item associations are symmetrical at the public boundary:
 `ItemDigitalAssetLinkAPI` links Item roles to atomic or Composite Assets and
 removes those links, while `resolve_item_digital_asset()` reads them.
 
+`verify_digital_asset()` normally stops after finding one healthy Replica.
+Supplying `replica_ids=` instead verifies exactly that ordered subset by
+default. `stop_after_first_healthy=` selects either policy explicitly;
+`all_replicas=` remains as the compatibility spelling for callers using the
+older boolean surface.
+
+### Persistence SPI
+
+Repository and transaction contracts live under
+`LiuXin_alpha.storage.api.persistence_api`. They are implementation-facing
+ports for durable manager adapters, not another application API. The package
+contains repositories for Assets, Replicas, Composites, and derivations plus a
+unit-of-work factory. The old `storage_manager_api.repositories_api` module
+reexports those same protocols for compatibility.
+
+A durable Replica repository must round-trip the complete
+`ReplicaDeclaration`/`ReplicaRecord`, including its placement-hint snapshot.
+The reference `InMemoryStorageManager` does so in memory. The existing legacy
+FRBR storage tables are not presented as the persistence implementation of
+this new SPI; an adapter and its schema must preserve the same fields before
+it can claim that contract.
+
 ### Cross-boundary recovery
 
 Publication and repository commit cannot generally be one atomic transaction.
@@ -662,6 +802,13 @@ Composite availability counts required members. A missing or unreadable
 optional member may be omitted from resolution without making the Composite
 unreadable.
 
+The convenience surface can ingest a mapping of logical paths to bytes,
+streams, or local paths with `store_composite()`. It can materialize resolved
+members beneath a local directory with traversal and collision checks, or
+return a seekable transient ZIP stream. A ZIP that should itself be retained
+is ingested as a new atomic Asset and linked to the Composite with an explicit
+derivation; export does not silently create a new managed identity.
+
 ### Derivation and exact recreation
 
 A derived result remains an ordinary atomic Digital Asset; there is no
@@ -672,6 +819,22 @@ while the Item-to-Asset link independently describes a contextual role such as
 `DigitalAssetDerivationRecord` records one result, ordered atomic or Composite
 provenance sources, a semantic `DigitalAssetDerivationKind`, and an optional
 `ReproductionRecipe`.
+One record represents one transformation edge. Multi-stage work is expressed
+by making each intermediate output an ordinary managed Asset and using it as
+the next edge's input, for example:
+
+```text
+HTML Asset -- html-to-epub recipe --> EPUB Asset
+EPUB Asset -- epub-to-mobi recipe --> MOBI Asset
+```
+
+This retains the intermediate byte identity, permits branching and caching,
+and allows each step to make its own reproducibility claim. An optional
+`workflow_id` groups edges produced by one pipeline execution without making
+that operational grouping the provenance relationship itself. A single recipe
+may still contain an internally multi-stage command when its intermediates are
+deliberately ephemeral and never become managed Assets.
+
 Its sources are `DigitalAssetDerivationSourceReference` values. An exact recipe
 pins `ReproductionRecipeInputReference` and
 `ReproductionRecipeArtifactReference` values; those values
@@ -713,6 +876,24 @@ the registered result Asset. A `StorageUnitOfWorkAPI` exposes a
 `DigitalAssetDerivationRepositoryAPI`, so creation of provenance can commit
 with the manager's other metadata. External Store publication remains outside
 that database transaction.
+
+The manager exposes the resulting DAG directly. `iter_derivation_ancestors()`
+walks from a result toward its transitive inputs;
+`iter_derivation_descendants()` walks from an input toward every transitive
+result; and `get_derivation_graph()` returns the node inventory and edge
+records in either or both directions. Traversal is breadth-first, can be
+bounded by depth, can retain only exact recipes, and can be restricted to a
+single workflow execution. Alternatives and branches remain present in these
+provenance views.
+
+`plan_digital_asset_recreation()` is the deliberately selective operation. It
+uses current Replica and pinned-artefact availability, recursively considers
+exact derivations for missing inputs and managed tools, and chooses a viable
+route requiring the fewest replay steps. Its `DigitalAssetRecreationPlan`
+returns derivation records in executable topological order, identifies the
+selected root derivation and other viable alternatives, and reports readable
+leaf Assets, unavailable Assets, and warnings. Planning is read-only; executing
+recipes and publishing their verified output is a separate workflow concern.
 
 The existing `transform_runs`, `transform_run_inputs`,
 `transform_run_outputs`, and `digital_asset_derivations` schema is a useful

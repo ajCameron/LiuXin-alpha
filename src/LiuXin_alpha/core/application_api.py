@@ -8,6 +8,7 @@ import base64
 
 from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
@@ -363,7 +364,7 @@ class CoreApplicationAPI:
         query(
             "storage.files.list",
             self.storage_files_list,
-            summary="List Core-managed file locations with pagination.",
+            summary="List Core-managed Digital Assets with pagination.",
             payload_fields=(
                 _field("limit", field_type="integer"),
                 _field("offset", field_type="integer"),
@@ -373,10 +374,10 @@ class CoreApplicationAPI:
         query(
             "storage.file.locate",
             self.storage_file_locate,
-            summary="Resolve one file URL to a Core-managed location.",
+            summary="Resolve one Digital Asset to a Core-managed Location.",
             payload_fields=(
-                _field("file_url", required=True, field_type="string"),
-                _field("preferred_store", field_type="string|null"),
+                _field("asset_id", required=True, field_type="integer"),
+                _field("store_uuid", field_type="string|null"),
             ),
             tags=("storage", "read"),
         )
@@ -385,8 +386,8 @@ class CoreApplicationAPI:
             self.storage_file_read,
             summary="Read one Core-managed file as a wire-encoded byte value.",
             payload_fields=(
-                _field("file_url", required=True, field_type="string"),
-                _field("preferred_store", field_type="string|null"),
+                _field("asset_id", required=True, field_type="integer"),
+                _field("store_uuid", field_type="string|null"),
             ),
             tags=("storage", "read"),
         )
@@ -654,16 +655,19 @@ class CoreApplicationAPI:
             payload_fields=(
                 _field("content_base64", required=True, field_type="string"),
                 _field("metadata", field_type="object"),
-                _field("preferred_store", field_type="string|null"),
+                _field("store_uuid", field_type="string|null"),
+                _field("name", field_type="string|null"),
+                _field("original_name", field_type="string|null"),
+                _field("media_type", field_type="string|null"),
             ),
             tags=("storage", "files", "write"),
         )
         command(
             "storage.file.delete",
             self.storage_file_delete,
-            summary="Delete one Core-managed file location.",
+            summary="Delete one exact Replica and retain its tombstone.",
             payload_fields=(
-                _field("file_url", required=True, field_type="string"),
+                _field("replica_id", required=True, field_type="integer"),
             ),
             tags=("storage", "files", "write"),
         )
@@ -2099,49 +2103,54 @@ class CoreApplicationAPI:
         )
 
     @staticmethod
-    def _store_record(container: Any, *, refresh: bool) -> dict[str, Any]:
-        status = container.status(refresh=refresh)
+    def _store_record(store: Any, *, refresh: bool) -> dict[str, Any]:
+        configuration = store.configuration
+        status = store.status(refresh=refresh)
         return {
-            "store_id": container.store_id,
-            "store_uuid": container.store_uuid,
-            "store_name": str(container.store_name),
-            "store_url": str(container.store_url),
-            "spec": container.spec,
+            "store_uuid": configuration.store_uuid,
+            "store_name": configuration.store_name,
+            "store_kind": configuration.store_kind,
+            "store_root_uri": configuration.store_root_uri,
+            "configuration": configuration,
             "status": status,
         }
 
     @staticmethod
-    def _location_record(location: Any) -> dict[str, Any]:
-        store = getattr(location, "store", None)
-        store_name = getattr(
-            store,
-            "name",
-            getattr(store, "store_name", None),
-        )
+    def _location_record(library: Any, location: Any) -> dict[str, Any]:
         try:
-            store_key = str(location.as_store_key())
+            store = library.get_store(location.store_ref)
+            store_name = store.configuration.store_name
         except Exception:
-            store_key = str(location)
+            store_name = None
         try:
-            file_url = str(location.file_url)
+            info = library.storage.stat(location)
         except Exception:
-            file_url = str(getattr(location, "url", "") or "")
-        try:
-            exists = bool(location.exists())
-        except Exception:
-            exists = None
+            info = None
         return {
-            "store_name": (
-                None if store_name is None else str(store_name)
-            ),
-            "store_key": store_key,
-            "file_url": file_url,
-            "name": str(getattr(location, "name", "") or ""),
-            "suffix": str(getattr(location, "suffix", "") or ""),
-            "exists": exists,
-            "cached_size": getattr(location, "cached_size", None),
-            "cached_hash": getattr(location, "cached_hash", None),
+            "store_uuid": location.store_ref,
+            "store_name": store_name,
+            "key": location.key,
+            "exists": info is not None,
+            "size": None if info is None else info.size,
+            "digest": None if info is None else info.digest,
+            "version": None if info is None else info.version,
         }
+
+    @staticmethod
+    def _store_argument(library: Any, value: Any) -> Any:
+        if value in (None, ""):
+            return None
+        try:
+            return library.get_store(UUID(str(value)))
+        except (TypeError, ValueError):
+            matches = [
+                store
+                for store in library.iter_stores()
+                if store.configuration.store_name == str(value)
+            ]
+            if len(matches) == 1:
+                return matches[0]
+            raise CoreDispatchError(f"Unknown Store: {value!r}.")
 
     def storage_stores_list(
         self,
@@ -2151,10 +2160,10 @@ class CoreApplicationAPI:
         payload = _payload(query)
         records = [
             self._store_record(
-                container,
+                store,
                 refresh=bool(payload.get("refresh", False)),
             )
-            for container in runtime.services.library.iter_stores()
+            for store in runtime.services.library.iter_stores()
         ]
         return {
             "stores": records,
@@ -2175,13 +2184,13 @@ class CoreApplicationAPI:
             _optional_int(payload, "offset", default=0)
             or 0
         )
-        locations = list(runtime.services.library.iter_files())
+        assets = list(runtime.services.library.iter_files())
         return {
             "files": [
-                self._location_record(location)
-                for location in locations[offset : offset + limit]
+                asset
+                for asset in assets[offset : offset + limit]
             ],
-            "total_count": len(locations),
+            "total_count": len(assets),
             "limit": limit,
             "offset": offset,
         }
@@ -2192,16 +2201,14 @@ class CoreApplicationAPI:
         query: "CoreQuery",
     ) -> dict[str, Any]:
         payload = _payload(query)
-        location = runtime.services.library.retrieve_file(
-            file_url=_required_text(payload, "file_url"),
-            preferred_store=(
-                None
-                if payload.get("preferred_store") is None
-                else str(payload.get("preferred_store"))
-            ),
+        library = runtime.services.library
+        store = self._store_argument(library, payload.get("store_uuid"))
+        location = library.locate_file(
+            _required_int(payload, "asset_id"),
+            store=store,
         )
         return {
-            "location": self._location_record(location),
+            "location": self._location_record(library, location),
         }
 
     def storage_file_read(
@@ -2210,17 +2217,16 @@ class CoreApplicationAPI:
         query: "CoreQuery",
     ) -> dict[str, Any]:
         payload = _payload(query)
-        location = runtime.services.library.retrieve_file(
-            file_url=_required_text(payload, "file_url"),
-            preferred_store=(
-                None
-                if payload.get("preferred_store") is None
-                else str(payload.get("preferred_store"))
-            ),
+        library = runtime.services.library
+        store = self._store_argument(library, payload.get("store_uuid"))
+        asset_id = _required_int(payload, "asset_id")
+        location = library.locate_file(
+            asset_id,
+            store=store,
         )
         return {
-            "location": self._location_record(location),
-            "content": location.read_bytes(),
+            "location": self._location_record(library, location),
+            "content": library.read_file(asset_id, store=store),
         }
 
     def storage_store_save(
@@ -2271,17 +2277,32 @@ class CoreApplicationAPI:
         metadata = payload.get("metadata")
         if metadata is not None and not isinstance(metadata, Mapping):
             raise CoreDispatchError("`metadata` must be an object or null.")
-        location = runtime.services.library.add_file(
+        library = runtime.services.library
+        store = self._store_argument(library, payload.get("store_uuid"))
+        asset = library.add_file(
             content,
             metadata=None if metadata is None else dict(metadata),
-            preferred_store=(
+            store=store,
+            name=(None if payload.get("name") in (None, "") else str(payload["name"])),
+            original_name=(
                 None
-                if payload.get("preferred_store") is None
-                else str(payload.get("preferred_store"))
+                if payload.get("original_name") in (None, "")
+                else str(payload["original_name"])
+            ),
+            media_type=(
+                None
+                if payload.get("media_type") in (None, "")
+                else str(payload["media_type"])
             ),
         )
+        resolution = library.storage.resolve_digital_asset(
+            asset.digital_asset_id,
+            preferred_store_ref=(None if store is None else store.store_ref),
+        )
         return {
-            "location": self._location_record(location),
+            "asset": asset,
+            "replica_id": resolution.replica_record.replica_id,
+            "location": self._location_record(library, resolution.location),
             "size": len(content),
         }
 
@@ -2291,12 +2312,12 @@ class CoreApplicationAPI:
         command: "CoreCommand",
     ) -> dict[str, Any]:
         payload = _payload(command)
-        file_url = _required_text(payload, "file_url")
+        replica_id = _required_int(payload, "replica_id")
+        report = runtime.services.library.delete_file(replica_id)
         return {
-            "file_url": file_url,
-            "deleted": bool(
-                runtime.services.library.delete_file(file_url=file_url)
-            ),
+            "replica_id": replica_id,
+            "deleted": bool(report.bytes_deleted or report.replica_forgotten),
+            "report": report,
         }
 
     def cache_reload(

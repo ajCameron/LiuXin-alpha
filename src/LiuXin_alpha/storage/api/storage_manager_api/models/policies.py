@@ -534,9 +534,15 @@ class DigitalAssetBackupPlan:
 
 
 __all__ = [
-    "DigitalAssetLossAction", "DigitalAssetBackupPlan", "BackupPolicy",
-    "BackupPolicyRecord", "DigitalAssetStorageAssessment",
-    "ReplicaSeparationDimension", "DigitalAssetReplicationPlan",
-    "ReplicationPolicy", "ReplicationPolicyRecord", "ResolvedStoragePolicies",
+    "DigitalAssetLossAction",
+    "DigitalAssetBackupPlan",
+    "BackupPolicy",
+    "BackupPolicyRecord",
+    "DigitalAssetStorageAssessment",
+    "ReplicaSeparationDimension",
+    "DigitalAssetReplicationPlan",
+    "ReplicationPolicy",
+    "ReplicationPolicyRecord",
+    "ResolvedStoragePolicies",
     "StoragePolicyAssessment",
 ]

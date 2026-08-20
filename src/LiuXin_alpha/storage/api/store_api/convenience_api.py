@@ -47,6 +47,7 @@ class StoreConvenienceAPI:
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> BinaryIO:
         """
         Open a Store file as a read-only binary stream.
@@ -67,6 +68,7 @@ class StoreConvenienceAPI:
         :param identifier:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
 
@@ -75,6 +77,7 @@ class StoreConvenienceAPI:
             _store_file_location(identity, identifier),
             offset=offset,
             length=length,
+            if_version=if_version,
         )
 
     def get_file(
@@ -83,6 +86,7 @@ class StoreConvenienceAPI:
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> BinaryIO:
         """
         Return the read-only ``open_file`` stream using familiar vocabulary.
@@ -95,10 +99,16 @@ class StoreConvenienceAPI:
         :param identifier:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
 
-        return self.open_file(identifier, offset=offset, length=length)
+        return self.open_file(
+            identifier,
+            offset=offset,
+            length=length,
+            if_version=if_version,
+        )
 
     def read_file(
         self,
@@ -106,6 +116,7 @@ class StoreConvenienceAPI:
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> bytes:
         """
         Read a Store file by opaque key, Location, or returned FileInfo.
@@ -118,6 +129,7 @@ class StoreConvenienceAPI:
         :param identifier:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
 
@@ -125,6 +137,7 @@ class StoreConvenienceAPI:
             identifier,
             offset=offset,
             length=length,
+            if_version=if_version,
         ) as source:
             return source.read()
 

@@ -1,10 +1,4 @@
-"""Read-only rclone-backed storage plugin.
-
-This is a raw storage plugin over an rclone filesystem root, usually an HTTP
-remote. It knows how to locate, inspect, and stream concrete remote files, but
-it knows nothing about library items, digital assets, replicas, or database
-policy.
-"""
+"""Configured read-only Store powered by rclone."""
 
 from __future__ import annotations
 
@@ -13,112 +7,194 @@ import subprocess
 import threading
 import time
 
-from dataclasses import dataclass
-from typing import Any, Dict, Iterator, Optional, Sequence, Type
+from dataclasses import dataclass, fields, replace
+from typing import Any, Dict, Optional, Sequence
+from urllib.parse import urlsplit
+from uuid import UUID, uuid4
 
-from ...api import StorePluginAPI, StoreCheckStatus, StoreLocationMixinAPI, StoreStatus
+from LiuXin_alpha.storage.api import (
+    DriverBackedStoreAPI,
+    IngestMetadataAvailability,
+    IngestSourceCapabilities,
+    Location,
+    StoreConfiguration,
+    StorageInvalidAddress,
+)
+from LiuXin_alpha.storage.drivers.rclone import (
+    RcloneObjectAddress,
+    RcloneStorageDriver,
+)
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
-from LiuXin_alpha.utils.logging.event_logs.in_memory_list import InMemoryEventLog
 
-from .rclone_http_location import RcloneHttpReadOnlyStoreLocation
 from .rclone_utils import run_rclone, run_rclone_json, which_rclone
 
+
 RCLONE_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT = 1200.0
-RCLONE_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY = "rclone_http_max_requests_per_hour_default"
+RCLONE_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY = (
+    "rclone_http_max_requests_per_hour_default"
+)
 
 
 def get_default_rclone_http_requests_per_hour() -> float:
-    """
-    Return the configured default requests-per-hour for rclone HTTP stores.
+    """Return the preference-backed polite request-rate default."""
 
-    Falls back to ``RCLONE_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT`` if preferences
-    are unavailable or contain an invalid value.
-    """
     default = float(RCLONE_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT)
     try:
         from LiuXin_alpha.preferences import preferences
 
-        raw = preferences.get(
-            RCLONE_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY,
-            default,
-        )
-        if raw is None:
-            return default
-        value = float(raw)
+        raw = preferences.get(RCLONE_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY, default)
+        value = default if raw is None else float(raw)
     except Exception:
         return default
     return value
 
 
 def _normalize_rclone_fs_root(url: str) -> str:
-    """
-    Normalize a user-facing URL into an rclone filesystem root string.
+    """Convert a plain HTTP URL to rclone's config-less HTTP backend syntax."""
 
-    Supports plain HTTP(S) URLs by converting them into rclone's config-less
-    backend syntax with quoted URL value:
-    ``:http,url="https://example.com":``
-    """
     root = str(url or "").strip()
     if not root:
-        return root
+        raise StorageInvalidAddress("rclone filesystem root must not be empty.")
     lowered = root.lower()
-    if lowered.startswith("http://") or lowered.startswith("https://"):
+    if lowered.startswith(("http://", "https://")):
+        parsed = urlsplit(root)
+        if parsed.username is not None or parsed.password is not None:
+            raise StorageInvalidAddress(
+                "HTTP rclone roots must not embed credentials."
+            )
+        if parsed.query or parsed.fragment:
+            raise StorageInvalidAddress(
+                "HTTP rclone roots must not contain query or fragment data."
+            )
         normalized_http = root.rstrip("/")
         quoted = normalized_http.replace('"', '\\"')
-        return ':http,url="{}":'.format(quoted)
+        return f':http,url="{quoted}":'
     return root
 
 
 @dataclass
 class RcloneBackendOptions:
-    """Runtime options controlling `rclone` invocation behavior."""
+    """Runtime options controlling rclone invocation and politeness."""
 
     rclone_exe: str = "rclone"
     rclone_args: Sequence[str] = ()
     env: Dict[str, str] | None = None
     timeout_s: float | None = 60.0
-    # Default low-ish crawl speed for polite remote mirroring.
-    # Set to `None` or <= 0 to disable backend-level rate limiting.
     max_http_requests_per_hour: float | None = None
-    # Add rclone native TPS flags when rate limiting is enabled.
     apply_rclone_tpslimit: bool = True
     rclone_tpslimit_burst: int = 1
-    # Space out backend operations globally across this store instance.
     enforce_global_rate_limit: bool = True
 
     def __post_init__(self) -> None:
         if self.max_http_requests_per_hour is None:
-            self.max_http_requests_per_hour = get_default_rclone_http_requests_per_hour()
+            self.max_http_requests_per_hour = (
+                get_default_rclone_http_requests_per_hour()
+            )
+        if self.rclone_tpslimit_burst < 1:
+            raise ValueError("rclone_tpslimit_burst must be at least one.")
 
 
-class RcloneHttpReadOnlyStorageBackend(StorePluginAPI):
-    """Read-only StorageBackend powered by `rclone`'s HTTP remote.
+def _durable_rclone_options(
+    options: RcloneBackendOptions,
+) -> tuple[tuple[str, object], ...]:
+    """Return non-secret, JSON-compatible rclone process options."""
 
-    `url` is an rclone filesystem (fs) string, e.g.
+    durable: list[tuple[str, object]] = []
+    for field in fields(options):
+        if field.name == "env":
+            continue
+        value = getattr(options, field.name)
+        if field.name == "rclone_args":
+            value = tuple(str(argument) for argument in value)
+        durable.append((field.name, value))
+    return tuple(durable)
 
-    - Config-based:   ``remote:`` or ``remote:some/base/path``
-    - Config-less:    ``:http,url="https://example.com":``  (quoted URL value)
 
-    This backend is intentionally read-only: add/delete operations raise.
-    """
+class RcloneHttpReadOnlyStorageBackend(
+    DriverBackedStoreAPI[RcloneObjectAddress]
+):
+    """One configured, completely enumerable read-only rclone filesystem."""
 
-    location_cls: Type[RcloneHttpReadOnlyStoreLocation] = RcloneHttpReadOnlyStoreLocation
+    store_kind = "rclone_readonly"
 
     def __init__(
         self,
         url: str,
         *,
         name: Optional[str] = None,
-        uuid: Optional[str] = None,
+        uuid: str | UUID | None = None,
         options: RcloneBackendOptions | None = None,
+        configuration: StoreConfiguration | None = None,
     ) -> None:
-        super().__init__(url=_normalize_rclone_fs_root(url), name=name, uuid=uuid)
+        self.url = _normalize_rclone_fs_root(url)
         self.options = options or RcloneBackendOptions()
-        self._event_log = InMemoryEventLog()
         self._rate_limit_lock = threading.Lock()
-        self._next_allowed_request_monotonic: float = 0.0
+        self._next_allowed_request_monotonic = 0.0
+        store_uuid = (
+            configuration.store_uuid
+            if configuration is not None
+            else uuid4() if uuid is None else (
+                uuid if isinstance(uuid, UUID) else UUID(uuid)
+            )
+        )
+        self.__driver = RcloneStorageDriver(
+            self.url,
+            address_space_uuid=store_uuid,
+            json_runner=lambda arguments: self.run_rclone_json(
+                arguments,
+                check=True,
+            ),
+            process_spawner=self.spawn_rclone_process,
+            probe=self._probe_rclone,
+        )
+        self._configuration = configuration or StoreConfiguration(
+            store_uuid=store_uuid,
+            store_name=name or self.url_to_name(self.url),
+            store_kind=self.store_kind,
+            store_root_uri=self.url,
+            store_url=self.url,
+            store_access_protocol="rclone",
+            read_only=True,
+            supports_folders=True,
+            backend_options=_durable_rclone_options(self.options),
+        )
 
-    def url_to_name(self, url: str) -> str:
+    @property
+    def configuration(self) -> StoreConfiguration:
+        return self._configuration
+
+    @property
+    def _driver(self) -> RcloneStorageDriver:
+        return self.__driver
+
+    @property
+    def driver(self) -> RcloneStorageDriver:
+        return self.__driver
+
+    @property
+    def root_path(self) -> str:
+        return self.url
+
+    @property
+    def ingest_capabilities(self) -> IngestSourceCapabilities:
+        """Advertise the hashes and metadata rclone may return on inspection.
+
+        Example:
+            >>> profile = store.ingest_capabilities  # doctest: +SKIP
+            >>> "sha256" in profile.authoritative_digest_algorithms  # doctest: +SKIP
+            True
+
+        :return: Rclone-specific source-ingest capability profile.
+        """
+
+        return replace(
+            super().ingest_capabilities,
+            authoritative_digest_algorithms=("sha256", "sha1", "md5"),
+            metadata_availability=IngestMetadataAvailability.INSPECTION,
+        )
+
+    @staticmethod
+    def url_to_name(url: str) -> str:
         return safe_path_to_name(url)
 
     def _normalized_requests_per_hour(self) -> float | None:
@@ -127,27 +203,31 @@ class RcloneHttpReadOnlyStorageBackend(StorePluginAPI):
             return None
         try:
             rate = float(value)
-        except Exception:
+        except (TypeError, ValueError):
             return None
-        if rate <= 0:
-            return None
-        return rate
+        return rate if rate > 0 else None
 
     def _effective_rclone_args(self) -> tuple[str, ...]:
-        args = list(self.options.rclone_args)
+        arguments = list(self.options.rclone_args)
         rate = self._normalized_requests_per_hour()
         if not self.options.apply_rclone_tpslimit or rate is None:
-            return tuple(args)
-
-        has_tpslimit = any(arg == "--tpslimit" or str(arg).startswith("--tpslimit=") for arg in args)
-        has_burst = any(arg == "--tpslimit-burst" or str(arg).startswith("--tpslimit-burst=") for arg in args)
-        per_second = rate / 3600.0
-        if not has_tpslimit:
-            args.append("--tpslimit={:.8f}".format(per_second))
+            return tuple(arguments)
+        has_limit = any(
+            argument == "--tpslimit" or str(argument).startswith("--tpslimit=")
+            for argument in arguments
+        )
+        has_burst = any(
+            argument == "--tpslimit-burst"
+            or str(argument).startswith("--tpslimit-burst=")
+            for argument in arguments
+        )
+        if not has_limit:
+            arguments.append(f"--tpslimit={rate / 3600.0:.8f}")
         if not has_burst:
-            burst = max(1, int(self.options.rclone_tpslimit_burst))
-            args.append("--tpslimit-burst={}".format(burst))
-        return tuple(args)
+            arguments.append(
+                f"--tpslimit-burst={int(self.options.rclone_tpslimit_burst)}"
+            )
+        return tuple(arguments)
 
     def _acquire_rate_limit_slot(self) -> None:
         if not self.options.enforce_global_rate_limit:
@@ -161,13 +241,19 @@ class RcloneHttpReadOnlyStorageBackend(StorePluginAPI):
             now = time.monotonic()
             if now < self._next_allowed_request_monotonic:
                 sleep_for = self._next_allowed_request_monotonic - now
-                self._next_allowed_request_monotonic = self._next_allowed_request_monotonic + interval
+                self._next_allowed_request_monotonic += interval
             else:
                 self._next_allowed_request_monotonic = now + interval
-        if sleep_for > 0:
+        if sleep_for:
             time.sleep(sleep_for)
 
-    def run_rclone(self, args: Sequence[str], *, check: bool = True, timeout_s: float | None = None):
+    def run_rclone(
+        self,
+        args: Sequence[str],
+        *,
+        check: bool = True,
+        timeout_s: float | None = None,
+    ):
         self._acquire_rate_limit_slot()
         return run_rclone(
             args,
@@ -178,7 +264,13 @@ class RcloneHttpReadOnlyStorageBackend(StorePluginAPI):
             check=check,
         )
 
-    def run_rclone_json(self, args: Sequence[str], *, check: bool = True, timeout_s: float | None = None):
+    def run_rclone_json(
+        self,
+        args: Sequence[str],
+        *,
+        check: bool = True,
+        timeout_s: float | None = None,
+    ):
         self._acquire_rate_limit_slot()
         return run_rclone_json(
             args,
@@ -191,166 +283,47 @@ class RcloneHttpReadOnlyStorageBackend(StorePluginAPI):
 
     def spawn_rclone_process(self, args: Sequence[str]) -> subprocess.Popen:
         self._acquire_rate_limit_slot()
-        exe = which_rclone(self.options.rclone_exe)
-        cmd = [exe, *self._effective_rclone_args(), *list(args)]
-        env_map = dict(os.environ)
+        executable = which_rclone(self.options.rclone_exe)
+        command = [executable, *self._effective_rclone_args(), *list(args)]
+        environment = dict(os.environ)
         if self.options.env:
-            env_map.update(dict(self.options.env))
-        return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env_map)
+            environment.update(dict(self.options.env))
+        return subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=environment,
+        )
 
-    def startup(self) -> StoreStatus:
-        """Validate the backend and cache the resulting store status."""
+    def _probe_rclone(self) -> None:
         self.run_rclone(["version"], check=True)
-        return self.self_test()
-
-    def self_test(self) -> StoreStatus:
-        cs = StoreCheckStatus()
-        cs.store_marker_file = True
-        cs.read = False
-        cs.write = False
-        cs.sundry = False
-
-        good = "unknown"
-        try:
-            # List root (non-recursive) to prove we can read.
-            self.run_rclone_json(["lsjson", "--max-depth", "1", self.url], check=True)
-            cs.read = True
-            cs.sundry = True
-            good = "ok (read-only)"
-        except Exception as e:
-            self._event_log.put(f"self_test failed: {e!r}")
-            cs.read = False
-            good = "unhealthy"
-
-        # No robust free-space for HTTP remotes (rclone about unsupported).
-        return StoreStatus(
-            name=self.name,
-            uuid=self.uuid or self.name,
-            file_count=None,
-            store_free_space=0,
-            check_status=cs,
-            checked=bool(cs.read),
-            url=self.url,
-            good=good,
-            event_log=self._event_log,
-            details={
-                "max_http_requests_per_hour": self._normalized_requests_per_hour(),
-                "apply_rclone_tpslimit": bool(self.options.apply_rclone_tpslimit),
-                "enforce_global_rate_limit": bool(self.options.enforce_global_rate_limit),
-            },
+        self.run_rclone_json(
+            ["lsjson", "--max-depth", "1", self.url],
+            check=True,
         )
 
-    @property
-    def root_path(self) -> str:
-        return self.url
+    def locate(self, identifier: str | Location) -> Location:
+        """Accept an opaque relative key or a root-owned rclone identifier."""
 
-    def _relative_path_from_url(self, file_url: str | StoreLocationMixinAPI) -> str:
-        if isinstance(file_url, StoreLocationMixinAPI):
-            if file_url.store is self:
-                return file_url.as_posix()
-            file_url = file_url.file_url
-        text = str(file_url).strip()
-        if self.url.endswith(":"):
-            prefix = self.url
-        else:
-            prefix = self.url.rstrip("/") + "/"
+        if isinstance(identifier, Location):
+            return self.require_location(identifier)
+        text = str(identifier)
+        prefix = self.url if self.url.endswith(":") else self.url.rstrip("/") + "/"
         if text.startswith(prefix):
-            text = text[len(prefix):]
-        text = text.replace("\\", "/").lstrip("/")
-        return text
+            return self._location(self.__driver.object_address_from_uri(text))
+        return super().locate(text)
 
-    def status(self) -> StoreStatus:
-        return self.self_test()
+    def self_test(self):
+        return self.probe()
 
-    def location(self, *tokens: str) -> RcloneHttpReadOnlyStoreLocation:
-        return self.location_cls(*tokens, store=self)
 
-    def locate(
-        self,
-        file_identifier: str | StoreLocationMixinAPI,
-    ) -> RcloneHttpReadOnlyStoreLocation:
-        rel = self._relative_path_from_url(file_identifier)
-        return self.location(*[part for part in rel.split("/") if part])
-
-    def exists(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
-        target = self.locate(file_identifier).as_store_key()
-        try:
-            self.run_rclone_json(["lsjson", "--stat", target], check=True)
-            return True
-        except Exception as e:
-            msg = str(e).lower()
-            if "not found" in msg or "doesn't exist" in msg or "couldn't find" in msg or "error 404" in msg:
-                return False
-            return False
-
-    def file_size(self, file_identifier: str | StoreLocationMixinAPI) -> int | None:
-        blob = self.run_rclone_json(["lsjson", "--stat", self.locate(file_identifier).as_store_key()], check=False)
-        if not isinstance(blob, dict):
-            return None
-        return int(blob.get("Size") or 0)
-
-    def stat(self, file_identifier: str | StoreLocationMixinAPI) -> SingleFileStatus:
-        location = self.locate(file_identifier)
-
-        def _blob() -> dict[str, Any] | None:
-            blob = self.run_rclone_json(["lsjson", "--stat", location.as_store_key()], check=False)
-            return blob if isinstance(blob, dict) else None
-
-        def _exists(_url: str) -> bool:
-            return _blob() is not None
-
-        def _size(_url: str) -> int:
-            blob = _blob()
-            return int((blob or {}).get("Size") or 0)
-
-        def _hash(_url: str) -> str:
-            blob = _blob() or {}
-            hashes = blob.get("Hashes") or {}
-            if isinstance(hashes, dict):
-                return str(hashes.get("sha256") or hashes.get("md5") or "")
-            return ""
-
-        return SingleFileStatus(
-            url=location.as_store_key(),
-            check_exists_function=_exists,
-            check_size_function=_size,
-            check_hash_function=_hash,
-        )
-
-    def iter_locations(self) -> Iterator[RcloneHttpReadOnlyStoreLocation]:
-        items = self.run_rclone_json(["lsjson", "-R", "--files-only", self.url], check=True) or []
-        for it in items:
-            path = it.get("Path") or it.get("Name")
-            if not path:
-                continue
-            location = self.locate(path)
-            setattr(location, "_cached_stat_blob", dict(it))
-            yield location
-
-    def write_bytes(
-        self,
-        file_bytes: bytes,
-        *,
-        metadata: Any = None,
-        location: str | None = None,
-    ) -> RcloneHttpReadOnlyStoreLocation:
-        raise PermissionError("HTTP backend is read-only")
-
-    def copy_within_plugin(
-        self,
-        src_location: str | StoreLocationMixinAPI,
-        dst_location: str | StoreLocationMixinAPI,
-    ) -> RcloneHttpReadOnlyStoreLocation:
-        raise PermissionError("HTTP backend is read-only")
-
-    def delete(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
-        raise PermissionError("HTTP backend is read-only")
-
-    def update_bytes(
-        self,
-        file_identifier: str | StoreLocationMixinAPI,
-        file_bytes: bytes,
-        *,
-        append: bool = False,
-    ) -> bool:
-        raise PermissionError("HTTP backend is read-only")
+__all__ = [
+    "RCLONE_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT",
+    "RCLONE_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY",
+    "RcloneBackendOptions",
+    "RcloneHttpReadOnlyStorageBackend",
+    "get_default_rclone_http_requests_per_hour",
+    "run_rclone",
+    "run_rclone_json",
+    "which_rclone",
+]

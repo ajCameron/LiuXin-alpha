@@ -1,32 +1,18 @@
+"""Opaque Location behavior for the unmanaged disk Store."""
 
-"""
-Tests the OnDiskUnmanagedLocation class.
-"""
-
-import tempfile
-
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_storage_backend import OnDiskUnmanagedStorageBackend
+from LiuXin_alpha.storage import api
+from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive import (
+    OnDiskUnmanagedStorageBackend,
+)
 
 
 class TestOnDiskUnmanagedLocation:
-    """
-    Tests the OnDiskUnmanagedLocation class.
-    """
-    def test_basic_api(self) -> None:
-        """
-        Tests the basic API.
+    def test_basic_api(self, tmp_path) -> None:
+        (tmp_path / "book").write_bytes(b"book")
+        store = OnDiskUnmanagedStorageBackend(tmp_path)
+        location = store.locate("book")
 
-        :return:
-        """
-        from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_location import OnDiskUnmanagedStoreLocation
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-
-            test_storage_backend = OnDiskUnmanagedStorageBackend(url=tmp_dir)
-            assert test_storage_backend.url == tmp_dir
-
-            assert test_storage_backend.exists("this file is not real") is False
-
-            test_loc = OnDiskUnmanagedStoreLocation(store=test_storage_backend)
-
-            assert test_loc.store == test_storage_backend
+        assert isinstance(location, api.Location)
+        assert location.store_ref == store.store_ref
+        assert location.key == "book"
+        assert store.read_file(location) == b"book"

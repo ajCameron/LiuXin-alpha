@@ -93,23 +93,6 @@ def _infer_remote_access_protocol(remote_url: str) -> str:
     return "rclone"
 
 
-def _storage_key_from_store_url(*, store_url: str, file_url: str) -> str:
-    root = str(store_url).strip()
-    target = str(file_url).strip()
-    if not root:
-        return target.lstrip("/")
-    if root.endswith(":"):
-        if target.startswith(root):
-            return target[len(root) :].lstrip("/")
-        return target
-    rooted = root.rstrip("/") + "/"
-    if target.startswith(rooted):
-        return target[len(rooted) :]
-    if target.startswith(root):
-        return target[len(root) :].lstrip("/")
-    return target
-
-
 def _guess_remote_url_extension(candidate_url: str) -> str:
     parsed = urlparse(str(candidate_url or "").strip())
     suffixes: list[str] = []
@@ -130,20 +113,6 @@ def _guess_remote_url_extension(candidate_url: str) -> str:
     if not suffixes:
         return ""
     return suffixes[-1]
-
-
-def _extract_preferred_hash(hashes: object) -> str | None:
-    if not isinstance(hashes, dict):
-        return None
-    preferred = ("sha256", "sha1", "md5", "crc32")
-    for key in preferred:
-        value = hashes.get(key)
-        if value:
-            return str(value)
-    for value in hashes.values():
-        if value:
-            return str(value)
-    return None
 
 
 def _table_columns(db, table_name: str) -> set[str]:
@@ -197,8 +166,16 @@ def ensure_unmanaged_store_for_disk(
     store_rows = db.search("stores", "store_root_uri", str(root))
     if store_rows:
         store_row = store_rows[0]
+        persisted_uuid = store_row["store_uuid"] if "store_uuid" in store_row.allowed_columns else None
+        if persisted_uuid not in (None, ""):
+            backend = OnDiskUnmanagedStorageBackend(
+                url=str(root),
+                name=backend_name,
+                uuid=str(persisted_uuid),
+            )
         updates = {
-            "store_name": backend.name,
+            "store_uuid": str(backend.store_ref),
+            "store_name": backend.configuration.store_name,
             "store_kind": store_kind,
             "store_access_protocol": "file",
             "store_root_uri": str(root),
@@ -225,7 +202,8 @@ def ensure_unmanaged_store_for_disk(
     store_columns = _table_columns(db, "stores")
     now_epk = _now_ep_ms()
     payload = {
-        "store_name": backend.name,
+        "store_uuid": str(backend.store_ref),
+        "store_name": backend.configuration.store_name,
         "store_kind": store_kind,
         "store_access_protocol": "file",
         "store_root_uri": str(root),
@@ -299,8 +277,17 @@ def ensure_rclone_http_readonly_store(
     store_rows = db.search("stores", "store_root_uri", root)
     if store_rows:
         store_row = store_rows[0]
+        persisted_uuid = store_row["store_uuid"] if "store_uuid" in store_row.allowed_columns else None
+        if persisted_uuid not in (None, ""):
+            backend = RcloneHttpReadOnlyStorageBackend(
+                url=root,
+                name=backend_name,
+                uuid=str(persisted_uuid),
+                options=options,
+            )
         updates = {
-            "store_name": backend.name,
+            "store_uuid": str(backend.store_ref),
+            "store_name": backend.configuration.store_name,
             "store_kind": store_kind,
             "store_access_protocol": _infer_remote_access_protocol(root),
             "store_root_uri": root,
@@ -327,7 +314,8 @@ def ensure_rclone_http_readonly_store(
 
     now_epk = _now_ep_ms()
     payload = {
-        "store_name": backend.name,
+        "store_uuid": str(backend.store_ref),
+        "store_name": backend.configuration.store_name,
         "store_kind": store_kind,
         "store_access_protocol": _infer_remote_access_protocol(root),
         "store_root_uri": root,
@@ -402,28 +390,21 @@ def _build_remote_file_payload(
     *,
     file_url: str,
     storage_key: str,
-    stat_blob: dict[str, object] | None,
+    size_bytes: int,
+    modified_at: datetime | None,
+    sha256: str | None,
     store_id: int,
     now_epk: int,
     source_label: str,
-    capture_hashes: bool,
 ) -> dict[str, object]:
     path_obj = pathlib.PurePosixPath(storage_key or pathlib.PurePosixPath(file_url).name)
     name = path_obj.name
     ext = path_obj.suffix.lower().lstrip(".")
 
-    size_raw = (stat_blob or {}).get("Size")
-    try:
-        size_bytes = int(size_raw) if size_raw is not None else 0
-    except Exception:
-        size_bytes = 0
-
-    mtime_epk = _coerce_datetime_ep_ms((stat_blob or {}).get("ModTime"))
+    mtime_epk = (
+        None if modified_at is None else int(modified_at.timestamp() * 1000.0)
+    )
     mime_type, _ = mimetypes.guess_type(name)
-
-    chosen_hash = None
-    if capture_hashes:
-        chosen_hash = _extract_preferred_hash((stat_blob or {}).get("Hashes"))
 
     payload = {
         "file_store_id": store_id,
@@ -435,10 +416,10 @@ def _build_remote_file_payload(
         "file_role": "primary",
         "file_media_category": "ebook",
         "file_size_bytes": size_bytes,
-        "file_hash_sha256": chosen_hash,
-        "file_integrity_status": "ok" if chosen_hash else "unchecked",
+        "file_hash_sha256": sha256,
+        "file_integrity_status": "ok" if sha256 else "unchecked",
         "file_last_seen_timestamp_ep_k": now_epk,
-        "file_last_integrity_check_timestamp_ep_k": now_epk if chosen_hash else None,
+        "file_last_integrity_check_timestamp_ep_k": now_epk if sha256 else None,
         "file_acquired_timestamp_ep_k": now_epk,
         "file_source": source_label,
         "file_original_name": name,
@@ -564,7 +545,7 @@ def register_existing_disk_as_unmanaged_store(
     report = UnmanagedDiskRegistrationReport(
         store_row_id=store_id,
         store_root_uri=str(backend.root_path),
-        store_name=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.name,
+        store_name=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.configuration.store_name,
     )
     _emit_progress(
         progress_callback,
@@ -713,7 +694,7 @@ def register_rclone_http_readonly_store_files(
     report = UnmanagedDiskRegistrationReport(
         store_row_id=store_id,
         store_root_uri=str(backend.url),
-        store_name=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.name,
+        store_name=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.configuration.store_name,
     )
     _emit_progress(
         progress_callback,
@@ -738,10 +719,11 @@ def register_rclone_http_readonly_store_files(
 
     ebook_exts = _normalize_ebook_extensions(ebook_extensions)
 
-    for remote_file in backend.iter_locations():
+    for info in backend.iter_file_infos():
+        location = info.location
         report.scanned_files += 1
         try:
-            storage_key = _storage_key_from_store_url(store_url=backend.url, file_url=remote_file.file_url)
+            storage_key = location.key
             ext = pathlib.PurePosixPath(storage_key).suffix.lower().lstrip(".")
             if ext not in ebook_exts:
                 report.skipped_non_ebook_files += 1
@@ -755,21 +737,26 @@ def register_rclone_http_readonly_store_files(
 
             report.ebook_candidates += 1
             now_epk = _now_ep_ms()
-            stat_blob: dict[str, object] | None = None
-            stat_fn = getattr(remote_file, "_stat_blob", None)
-            if callable(stat_fn):
-                maybe_blob = stat_fn()
-                if isinstance(maybe_blob, dict):
-                    stat_blob = maybe_blob
+            sha256: str | None = None
+            if capture_hashes and info.digest is not None:
+                if info.digest.algorithm == "sha256":
+                    sha256 = info.digest.value
+            root_uri = backend.configuration.store_root_uri
+            file_url = (
+                root_uri + storage_key
+                if root_uri.endswith(":")
+                else root_uri.rstrip("/") + "/" + storage_key
+            )
 
             payload = _build_remote_file_payload(
-                file_url=remote_file.file_url,
+                file_url=file_url,
                 storage_key=storage_key,
-                stat_blob=stat_blob,
+                size_bytes=info.size,
+                modified_at=info.modified_at,
+                sha256=sha256,
                 store_id=store_id,
                 now_epk=now_epk,
                 source_label=source_label,
-                capture_hashes=bool(capture_hashes),
             )
 
             existing = existing_by_key.get(storage_key)
@@ -797,7 +784,7 @@ def register_rclone_http_readonly_store_files(
                     report.linked_files += 1
 
         except Exception as exc:
-            marker = getattr(remote_file, "file_url", "<unknown>")
+            marker = getattr(location, "key", "<unknown>")
             report.errors.append("{} :: {}".format(marker, repr(exc)))
             _emit_progress(
                 progress_callback,

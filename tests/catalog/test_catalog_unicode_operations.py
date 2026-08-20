@@ -444,6 +444,21 @@ def test_existing_and_requested_work_ids_replace_unicode_wemi_paths(db) -> None:
     )[0]["_catalog_link"]
     assert f"新由来 {suffix}" in replacement_link["extra"].values()
 
+    attached = catalog.mutations.writer.create_wemi_stack(
+        work={},
+        expression={"label": f"追加表現 {suffix}"},
+        manifestation={"format_detail": f"追加版 {suffix}"},
+        work_id=original.work_id,
+    )
+    assert attached.work_id == original.work_id
+    assert catalog.works.require(original.work_id)["work_title"] == (
+        f"置換作品 {suffix}"
+    )
+    assert [
+        row["expression_id"]
+        for row in catalog.expressions.list_for_work(original.work_id)
+    ] == [attached.expression_id]
+
     requested_id = max(
         row["work_id"] for row in catalog.works.list(limit=100_000)
     ) + 10_000

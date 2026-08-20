@@ -16,7 +16,6 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 )
 
 
-# Todo: We want a similar DigitalAssetAPI
 class CompositeDigitalAssetAPI(abc.ABC):
     """
     Operations over ordered logical assemblies of atomic Assets.
@@ -178,12 +177,5 @@ class CompositeDigitalAssetAPI(abc.ABC):
         :return:
         """
         ...
-
-    # Todo: We have some nice manipulation methods but retrieval still needs real work
-    #       We need methods for actually getting stuff into and out of stores. Ideally simple.
-    # Todo: get_composite_digital_asset_as_zip -> BinaryIO (zipped file of the contents)
-    # Todo: write_composite_to_folder -> takes all the members of a composite digital asset and dumps em to some kind of folder
-    # Todo: store_composite_digital_asset([BinaryIO, ]) -> something appropriate
-
 
 __all__ = ["CompositeDigitalAssetAPI"]

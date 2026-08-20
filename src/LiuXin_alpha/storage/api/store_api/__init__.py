@@ -11,6 +11,7 @@ operations.  Cross-store routing and storage policy stay in
 from LiuXin_alpha.storage.api.store_api.file_api import (
     DigestingStoreAPI,
     StoreCoreAPI,
+    NativeImportStoreAPI,
     NativeCopyStoreAPI,
     NativeMoveStoreAPI,
     StoreFileAPI,
@@ -26,6 +27,16 @@ from LiuXin_alpha.storage.api.store_api.identity_api import (
     StoreConfigurationAPI,
     StoreIdentityAPI,
 )
+from LiuXin_alpha.storage.api.store_api.ingest_source_api import (
+    IngestInventoryResume,
+    IngestMetadataAvailability,
+    IngestObjectDelivery,
+    IngestObjectResume,
+    IngestReadConsistency,
+    IngestSourceCapabilities,
+    IngestSourceStoreAPI,
+    PreparedIngestObject,
+)
 from LiuXin_alpha.storage.api.store_api.lifecycle_api import StoreLifecycleAPI
 
 
@@ -35,11 +46,20 @@ from LiuXin_alpha.storage.api.store_api.driver_backed_api import DriverBackedSto
 __all__ = [
     "DigestingStoreAPI",
     "DriverBackedStoreAPI",
+    "IngestInventoryResume",
+    "IngestMetadataAvailability",
+    "IngestObjectDelivery",
+    "IngestObjectResume",
+    "IngestReadConsistency",
+    "IngestSourceCapabilities",
+    "IngestSourceStoreAPI",
+    "PreparedIngestObject",
     "StoreCoreAPI",
     "StoreConvenienceAPI",
     "StoreFileIdentifier",
     "StoreSource",
     "NativeCopyStoreAPI",
+    "NativeImportStoreAPI",
     "NativeMoveStoreAPI",
     "StoreAPI",
     "StoreFileAPI",

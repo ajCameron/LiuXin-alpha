@@ -16,6 +16,7 @@ from LiuXin_alpha.storage.api.store_driver_api.models import (
     DriverObjectAddress,
     DriverObjectAddressT,
     DriverInventoryEntry,
+    DriverInventoryPage,
 )
 
 
@@ -155,6 +156,50 @@ class EnumerableStorageDriverAPI(Protocol[DriverObjectAddressT]):
         :param prefix:
         :return:
         """
+        ...
+
+
+@runtime_checkable
+class PagedEnumerableStorageDriverAPI(Protocol[DriverObjectAddressT]):
+    """
+    Optional resumable inventory protocol for large backend collections.
+
+    Cursors are opaque and valid only for the same configured driver and
+    prefix. Backends that can bind pages to a stable snapshot return a
+    ``snapshot_token`` and require it on subsequent calls.
+
+    Example:
+        >>> page = driver.inventory_page(limit=500)  # doctest: +SKIP
+    """
+
+    def inventory_page(
+        self,
+        *,
+        prefix: DriverObjectAddressT | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+        snapshot_token: str | None = None,
+    ) -> DriverInventoryPage[DriverObjectAddressT]:
+        """
+        Return one bounded page and the cursor needed to continue it.
+
+        Passing a stale or foreign cursor/snapshot raises
+        ``StoragePreconditionFailed`` or ``StorageInvalidAddress``; it must
+        never silently restart from the beginning.
+
+        Example:
+            >>> next_page = driver.inventory_page(  # doctest: +SKIP
+            ...     cursor=page.next_cursor,
+            ...     snapshot_token=page.snapshot_token,
+            ... )
+
+        :param prefix:
+        :param cursor:
+        :param limit:
+        :param snapshot_token:
+        :return:
+        """
+
         ...
 
 
@@ -304,6 +349,7 @@ __all__ = [
     "DeletableStorageDriverAPI",
     "DriverWriteSessionAPI",
     "EnumerableStorageDriverAPI",
+    "PagedEnumerableStorageDriverAPI",
     "HierarchicalStorageDriverAPI",
     "ObjectAddressAllocatorStorageDriverAPI",
     "WritableStorageDriverAPI",

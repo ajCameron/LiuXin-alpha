@@ -21,6 +21,7 @@ import time
 from contextlib import contextmanager
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Optional
+from uuid import uuid4
 
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import InputIntegrityError
@@ -575,6 +576,12 @@ def ensure_open_squashfs_store(
                 detail="reopened",
             )
             updates = {
+                "store_uuid": (
+                    existing["store_uuid"]
+                    if "store_uuid" in existing.allowed_columns
+                    and existing["store_uuid"] not in (None, "")
+                    else str(uuid4())
+                ),
                 "store_name": store_name or existing["store_name"] or safe_path_to_name(str(archive)),
                 "store_kind": OPEN_SQUASHFS_STORE_KIND,
                 "store_access_protocol": "squashfs",
@@ -602,6 +609,7 @@ def ensure_open_squashfs_store(
         detail="created",
     )
     payload = {
+        "store_uuid": str(uuid4()),
         "store_name": store_name or safe_path_to_name(str(archive)),
         "store_kind": OPEN_SQUASHFS_STORE_KIND,
         "store_access_protocol": "squashfs",
@@ -1289,7 +1297,8 @@ def publish_open_squashfs_store(
 
         designation_results: list[dict[str, object]] = []
         for item in designations:
-            if not archive_backend.exists(item.archive_path):
+            archive_location = archive_backend.locate(item.archive_path)
+            if not archive_backend.exists(archive_location):
                 detail = "missing_in_archive"
                 report.errors.append(
                     "file_id={} archive_path={!r} :: {}".format(item.file_id, item.archive_path, detail)
@@ -1306,12 +1315,16 @@ def publish_open_squashfs_store(
                 )
                 continue
 
-            status = archive_backend.stat(item.archive_path)
-            status.recheck_self(all=True)
-            archive_hash = _normalize_sha256(str(status.hash or ""))
-            archive_size = int(status.size or 0)
+            status = archive_backend.stat(archive_location)
+            archive_hash = (
+                status.digest.value
+                if status.digest is not None
+                and status.digest.algorithm == "sha256"
+                else None
+            )
+            archive_size = status.size
             if not archive_hash:
-                payload = archive_backend.read_file_bytes(item.archive_path)
+                payload = archive_backend.read_bytes(archive_location)
                 archive_hash = hashlib.sha256(payload).hexdigest()
                 archive_size = len(payload)
 

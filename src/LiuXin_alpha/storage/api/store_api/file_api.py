@@ -29,6 +29,8 @@ from LiuXin_alpha.storage.api.models import (
     FileInfo,
     Location,
     StoreCapabilities,
+    StoreInventoryEntry,
+    StoreInventoryPage,
     StoreStatus,
     WriteMode,
 )
@@ -189,9 +191,14 @@ class StoreCoreAPI(Protocol):
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> BinaryIO:
         """
         Open a binary, read-only stream, optionally restricted to a range.
+
+        ``if_version`` pins the stream to a version returned by ``stat`` when
+        ``capabilities.conditional_read`` is true. A stale token raises
+        ``StorePreconditionFailed`` before mismatched bytes are returned.
 
         Example:
             >>> source = store.open_read(  # doctest: +SKIP
@@ -202,6 +209,7 @@ class StoreCoreAPI(Protocol):
         :param location:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
         ...
@@ -375,6 +383,7 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> BinaryIO:
         """
         Familiar alias for ``open_read``.
@@ -386,9 +395,14 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         :param location:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
-        return self.open_read(location, offset=offset, length=length)
+        if if_version is None:
+            return self.open_read(location, offset=offset, length=length)
+        return self.open_read(
+            location, offset=offset, length=length, if_version=if_version
+        )
 
     def read_bytes(
         self,
@@ -396,6 +410,7 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         *,
         offset: int = 0,
         length: int | None = None,
+        if_version: str | None = None,
     ) -> bytes:
         """
         Read one object or range fully into memory.
@@ -408,9 +423,20 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         :param location:
         :param offset:
         :param length:
+        :param if_version:
         :return:
         """
-        with self.open_read(location, offset=offset, length=length) as source:
+        reader = (
+            self.open_read(location, offset=offset, length=length)
+            if if_version is None
+            else self.open_read(
+                location,
+                offset=offset,
+                length=length,
+                if_version=if_version,
+            )
+        )
+        with reader as source:
             return source.read()
 
     def put(
@@ -536,6 +562,54 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         for location in self.iter_locations(prefix=prefix):
             yield self.stat(location)
 
+    def iter_inventory_entries(
+        self,
+        *,
+        prefix: Location | None = None,
+    ) -> Iterator[StoreInventoryEntry]:
+        """
+        Enumerate discovery entries, including objects with unknown sizes.
+
+        The default derives entries from authoritative ``FileInfo`` values.
+        Driver-backed Stores override this to preserve optional-size inventory
+        without forcing a ``stat`` call.
+
+        Example:
+            >>> entries = list(store.iter_inventory_entries())  # doctest: +SKIP
+
+        :param prefix:
+        :return:
+        """
+
+        for info in self.iter_file_infos(prefix=prefix):
+            yield info.as_inventory_entry()
+
+    def inventory_page(
+        self,
+        *,
+        prefix: Location | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+        snapshot_token: str | None = None,
+    ) -> StoreInventoryPage:
+        """
+        Return one resumable inventory page when inherently supported.
+
+        Example:
+            >>> page = store.inventory_page(limit=500)  # doctest: +SKIP
+
+        :param prefix:
+        :param cursor:
+        :param limit:
+        :param snapshot_token:
+        :return:
+        """
+
+        _ = prefix, cursor, limit, snapshot_token
+        raise StoreUnsupportedOperation(
+            f"{type(self).__name__} does not support resumable inventory pages."
+        )
+
     def compute_digest(
         self,
         location: Location,
@@ -597,7 +671,13 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         :return:
         """
         source_info = self.stat(source)
-        with self.open_read(source) as source_stream:
+        reader = (
+            self.open_read(source, if_version=source_info.version)
+            if self.capabilities.conditional_read
+            and source_info.version is not None
+            else self.open_read(source)
+        )
+        with reader as source_stream:
             return self.put(
                 destination,
                 source_stream,
@@ -642,6 +722,57 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         result = self.copy(source, destination, mode=mode)
         self.delete(source, if_version=source_info.version)
         return result
+
+
+@runtime_checkable
+class NativeImportStoreAPI(StoreCoreAPI, Protocol):
+    """Optional cross-Store native object-transfer acceleration.
+
+    Example:
+        >>> destination.can_import_from(source)  # doctest: +SKIP
+        True
+    """
+
+    def can_import_from(self, source: StoreCoreAPI) -> bool:
+        """Return whether this destination can natively read the source.
+
+        Example:
+            >>> supported = destination.can_import_from(source)  # doctest: +SKIP
+
+        :param source: Configured source Store.
+        :return: Whether a native import may be attempted.
+        """
+        ...
+
+    def import_from(
+        self,
+        source: StoreCoreAPI,
+        source_location: Location,
+        destination: Location,
+        *,
+        mode: WriteMode = WriteMode.CREATE_ONLY,
+        expected_size: int,
+        expected_digest: Digest,
+        placement_hints: StoragePlacementHints | None = None,
+    ) -> FileInfo:
+        """Transfer and verify an object without client-side byte streaming.
+
+        Example:
+            >>> info = destination.import_from(  # doctest: +SKIP
+            ...     source, source_location, target,
+            ...     expected_size=4, expected_digest=digest,
+            ... )
+
+        :param source: Configured source Store.
+        :param source_location: Source-owned object location.
+        :param destination: Destination-owned object location.
+        :param mode: Publication mode.
+        :param expected_size: Exact authoritative source size.
+        :param expected_digest: Authoritative digest verified after transfer.
+        :param placement_hints: Advisory destination metadata.
+        :return: Committed destination information.
+        """
+        ...
 
 
 @runtime_checkable
@@ -740,6 +871,7 @@ class DigestingStoreAPI(StoreCoreAPI, Protocol):
 __all__ = [
     "DigestingStoreAPI",
     "StoreCoreAPI",
+    "NativeImportStoreAPI",
     "NativeCopyStoreAPI",
     "NativeMoveStoreAPI",
     "StoreFileAPI",

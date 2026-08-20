@@ -39,6 +39,7 @@ from LiuXin_alpha.storage.api.store_driver_api.models import (
     DriverObjectAddressInput,
     DriverObjectAddressT,
     DriverInventoryEntry,
+    DriverInventoryPage,
     DriverObjectHints,
     DriverStatus,
     ScopedDriverObjectAddressChecker,
@@ -50,6 +51,7 @@ from LiuXin_alpha.storage.api.store_driver_api.optional_api import (
     DeletableStorageDriverAPI,
     DriverWriteSessionAPI,
     EnumerableStorageDriverAPI,
+    PagedEnumerableStorageDriverAPI,
     HierarchicalStorageDriverAPI,
     ObjectAddressAllocatorStorageDriverAPI,
     WritableStorageDriverAPI,
@@ -73,7 +75,10 @@ class StorageDriverAPI(
     The generic address subtype prevents crossing backend technologies at type
     check time; the injected checker prevents crossing configured instances at
     runtime. Optional protocols are detected separately and corroborated by
-    ``DriverCapabilities``.
+    ``DriverCapabilities``. Backend-native failures are translated to the
+    shared ``StorageError`` hierarchy with a credential-safe message naming the
+    backend, operation, target, and reason; exception chaining retains the
+    diagnostic cause.
 
     Example:
         >>> payload = driver.read_file("incoming/book.epub")  # doctest: +SKIP
@@ -125,10 +130,12 @@ __all__ = [
     "DriverObjectAddressInput",
     "DriverObjectAddressT",
     "DriverInventoryEntry",
+    "DriverInventoryPage",
     "DriverObjectHints",
     "DriverStatus",
     "DriverWriteSessionAPI",
     "EnumerableStorageDriverAPI",
+    "PagedEnumerableStorageDriverAPI",
     "HierarchicalStorageDriverAPI",
     "NativeCopyStorageDriverAPI",
     "NativeDigestStorageDriverAPI",

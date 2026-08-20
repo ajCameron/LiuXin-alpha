@@ -4,9 +4,10 @@ Replica lifecycle operations above Store byte mechanics.
 
 import abc
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 
 from LiuXin_alpha.storage.api.models import StoreUUID
+from LiuXin_alpha.storage.api.placement_hints_api import StoragePlacementHints
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
     DigitalAssetVerificationReport,
     DigitalAssetID,
@@ -73,8 +74,6 @@ class ReplicaLifecycleAPI(abc.ABC):
         """
         ...
 
-    # Todo: Ideally we should have the metadata which was used to place the asset in the first place...
-    # Todo: Possibly store it as a json blob with the DigitalAssetRecord
     @abc.abstractmethod
     def replicate_digital_asset(
         self,
@@ -82,6 +81,7 @@ class ReplicaLifecycleAPI(abc.ABC):
         *,
         destination_store_ref: StoreUUID | None = None,
         source_replica_id: ReplicaID | None = None,
+        placement_hints: StoragePlacementHints | None = None,
         mode: ReplicaMode = ReplicaMode.ACTIVE,
         verify: bool = True,
     ) -> ReplicaRecord:
@@ -97,6 +97,9 @@ class ReplicaLifecycleAPI(abc.ABC):
         :param digital_asset_id:
         :param destination_store_ref:
         :param source_replica_id:
+        :param placement_hints: Optional destination-placement override. When
+            omitted, implementations should reuse the source Replica's
+            recorded placement snapshot when available.
         :param mode:
         :param verify:
         :return:
@@ -123,16 +126,23 @@ class ReplicaLifecycleAPI(abc.ABC):
         """
         ...
 
-    # Todo: We should be able to specify a subset of replicas. It's not clear what behavior passing false produces
     @abc.abstractmethod
     def verify_digital_asset(
         self,
         digital_asset_id: DigitalAssetID,
         *,
-        all_replicas: bool = False,
+        replica_ids: Iterable[ReplicaID] | None = None,
+        stop_after_first_healthy: bool | None = None,
+        all_replicas: bool | None = None,
     ) -> DigitalAssetVerificationReport:
         """
-        Verify enough Replicas, or every Replica, for one Asset.
+        Verify selected Replicas, enough Replicas, or every Replica.
+
+        With no explicit selection, verification stops after the first healthy
+        Replica. Supplying ``replica_ids`` checks that exact subset in caller
+        order by default. ``stop_after_first_healthy`` makes either behavior
+        explicit. ``all_replicas`` is the compatibility spelling and cannot
+        be combined with an explicit stop policy.
 
         Example:
             >>> report = manager.verify_digital_asset(  # doctest: +SKIP
@@ -140,7 +150,12 @@ class ReplicaLifecycleAPI(abc.ABC):
             ... )
 
         :param digital_asset_id:
-        :param all_replicas:
+        :param replica_ids: Exact Replica identities to check, or every live
+            Replica belonging to the Asset when omitted.
+        :param stop_after_first_healthy: Whether a healthy result ends the
+            scan. Defaults to true for an implicit scan and false for an exact
+            subset.
+        :param all_replicas: Compatibility alias for the inverse stop policy.
         :return:
         """
         ...

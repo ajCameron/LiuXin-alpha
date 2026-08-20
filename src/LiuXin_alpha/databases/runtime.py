@@ -8,7 +8,11 @@ from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING
 
-from LiuXin_alpha.storage.store_manager import StorageBootstrapReport, StorageManager
+from LiuXin_alpha.storage.store_manager import (
+    StorageBootstrapIssue,
+    StorageBootstrapReport,
+    StorageManager,
+)
 from LiuXin_alpha.databases.maintenance.service import Maintainer
 from LiuXin_alpha.utils.logging import default_log
 
@@ -67,12 +71,14 @@ def bootstrap_storage_manager(
         # Existing managers can outlive one database instance during test/runtime
         # wiring; keep the live database bound before reading store rows.
         db.storage.db = db
+        db.storage.startup_on_add = bool(startup_on_add)
 
     try:
         report = db.storage.load_from_database(
             db,
             include_offline=include_offline,
             clear_existing=clear_existing,
+            startup=startup_on_add,
         )
     except Exception as exc:
         if strict:
@@ -84,10 +90,17 @@ def bootstrap_storage_manager(
             ("database_path", db.metadata.get("database_path") if getattr(db, "metadata", None) else None),
         )
         report = StorageBootstrapReport(
-            discovered_rows=0,
+            discovered_configurations=1,
             loaded_stores=0,
-            skipped_rows=0,
-            failed_rows=1,
+            skipped_configurations=0,
+            failed_configurations=1,
+            issues=(
+                StorageBootstrapIssue(
+                    None,
+                    None,
+                    str(exc) or type(exc).__name__,
+                ),
+            ),
         )
 
     db.storage_bootstrap_report = report

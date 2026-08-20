@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from uuid import UUID
 
 from LiuXin_alpha.storage.reconcile import (
     register_rclone_http_readonly_store_files,
@@ -172,8 +173,10 @@ def test_rclone_rate_limit_is_restored_when_storage_manager_bootstraps(db, monke
     )
 
     assert db.storage is not None
-    store = db.storage.get_store_container("web_mirror_bootstrap")
-    assert getattr(store.plugin.options, "max_http_requests_per_hour", None) == 5.0
+    rows = db.search("stores", "store_name", "web_mirror_bootstrap")
+    assert len(rows) == 1
+    store = db.storage.get_store(UUID(str(rows[0]["store_uuid"])))
+    assert getattr(store.options, "max_http_requests_per_hour", None) == 5.0
 
 
 def test_register_rclone_http_with_database_path_helper(provision_test_database, driver_spec, monkeypatch) -> None:
