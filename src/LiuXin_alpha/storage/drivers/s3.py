@@ -50,12 +50,20 @@ from LiuXin_alpha.storage.drivers._errors import (
     driver_failure_message,
     translate_os_error,
 )
-from LiuXin_alpha.storage.drivers._validation import reject_malformed_unicode
+from LiuXin_alpha.storage.drivers._validation import (
+    best_effort_close,
+    reject_malformed_percent_escapes,
+    reject_malformed_unicode,
+)
 
 
 MINIMUM_MULTIPART_PART_SIZE = 5 * 1024 * 1024
 DEFAULT_MULTIPART_THRESHOLD = 64 * 1024 * 1024
 DEFAULT_MULTIPART_PART_SIZE = 16 * 1024 * 1024
+DEFAULT_MAX_S3_INVENTORY_PAGES = 10_000
+DEFAULT_MAX_S3_INVENTORY_ENTRIES = 100_000
+DEFAULT_MAX_S3_INVENTORY_PAGE_ENTRIES = 10_000
+DEFAULT_MAX_S3_INVENTORY_CURSOR_CHARS = 4_096
 
 
 class S3ClientAPI(Protocol):
@@ -144,9 +152,7 @@ class _S3BodyReader(io.RawIOBase):
 
     def close(self) -> None:
         try:
-            close = getattr(self._body, "close", None)
-            if callable(close):
-                close()
+            best_effort_close(self._body)
         finally:
             super().close()
 
@@ -312,6 +318,10 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         multipart_part_size: int = DEFAULT_MULTIPART_PART_SIZE,
         local_staging_directory: str | os.PathLike[str] | None = None,
         close_client: bool = True,
+        max_inventory_pages: int = DEFAULT_MAX_S3_INVENTORY_PAGES,
+        max_inventory_entries: int = DEFAULT_MAX_S3_INVENTORY_ENTRIES,
+        max_inventory_page_entries: int = DEFAULT_MAX_S3_INVENTORY_PAGE_ENTRIES,
+        max_inventory_cursor_chars: int = DEFAULT_MAX_S3_INVENTORY_CURSOR_CHARS,
     ) -> None:
         bucket_text = str(bucket).strip()
         reject_malformed_unicode(bucket_text, label="S3 bucket name")
@@ -328,6 +338,14 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
             raise ValueError(
                 "multipart_part_size must be at least five MiB."
             )
+        if max_inventory_pages < 1:
+            raise ValueError("max_inventory_pages must be positive.")
+        if max_inventory_entries < 1:
+            raise ValueError("max_inventory_entries must be positive.")
+        if max_inventory_page_entries < 1:
+            raise ValueError("max_inventory_page_entries must be positive.")
+        if max_inventory_cursor_chars < 1:
+            raise ValueError("max_inventory_cursor_chars must be positive.")
         self._bucket = bucket_text
         self._prefix = _canonical_s3_prefix(prefix)
         self._client = client
@@ -338,6 +356,10 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         )
         self._multipart_threshold = int(multipart_threshold)
         self._multipart_part_size = int(multipart_part_size)
+        self._max_inventory_pages = int(max_inventory_pages)
+        self._max_inventory_entries = int(max_inventory_entries)
+        self._max_inventory_page_entries = int(max_inventory_page_entries)
+        self._max_inventory_cursor_chars = int(max_inventory_cursor_chars)
         self._write_lock = threading.RLock()
         try:
             if local_staging_directory is None:
@@ -479,12 +501,23 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         return self.parse_object_address("/".join(str(token) for token in tokens))
 
     def object_address_from_uri(self, uri: str) -> S3ObjectAddress:
-        parsed = urlsplit(str(uri))
+        uri_text = str(uri)
+        reject_malformed_unicode(uri_text, label="S3 object URI")
+        try:
+            parsed = urlsplit(uri_text)
+        except (TypeError, ValueError) as error:
+            raise StorageInvalidAddress("S3 object URI is malformed.") from error
         if parsed.scheme.lower() != "s3" or parsed.netloc != self._bucket:
             raise StorageInvalidAddress("S3 URI belongs to another bucket.")
         if parsed.query or parsed.fragment:
             raise StorageInvalidAddress("S3 object URI must not contain query or fragment data.")
-        full_key = unquote(parsed.path.lstrip("/"))
+        reject_malformed_percent_escapes(parsed.path, label="S3 object URI path")
+        try:
+            full_key = unquote(parsed.path.lstrip("/"), errors="strict")
+        except UnicodeDecodeError as error:
+            raise StorageInvalidAddress(
+                "S3 object URI path contains invalid UTF-8 escapes."
+            ) from error
         prefix = self._full_prefix()
         if prefix and not full_key.startswith(prefix):
             raise StorageInvalidAddress("S3 URI belongs to another configured prefix.")
@@ -511,6 +544,15 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
                 target=self.object_uri(checked),
                 operation="stat object",
             ) from error
+        if not isinstance(response, Mapping):
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "S3",
+                    "stat object",
+                    target=self.object_uri(checked),
+                    reason="the backend returned a non-object response",
+                )
+            )
         return self._object_info(checked, response)
 
     def open_read(
@@ -549,11 +591,18 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
                 target=self.object_uri(checked),
                 operation="open read",
             ) from error
+        if not isinstance(response, Mapping):
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "S3",
+                    "open read",
+                    target=self.object_uri(checked),
+                    reason="the backend returned a non-object response",
+                )
+            )
         body = response.get("Body")
         if body is None or not callable(getattr(body, "read", None)):
-            close = getattr(body, "close", None)
-            if callable(close):
-                close()
+            best_effort_close(body)
             raise StorageUnavailable(
                 driver_failure_message(
                     "S3",
@@ -571,9 +620,7 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
             )
             _validate_s3_response_version(response, if_version)
         except BaseException:
-            close = getattr(body, "close", None)
-            if callable(close):
-                close()
+            best_effort_close(body)
             raise
         return io.BufferedReader(
             _S3BodyReader(
@@ -591,9 +638,31 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         continuation: str | None = None
         seen_cursors: set[str] = set()
         seen: set[S3ObjectAddress] = set()
+        page_count = 0
+        entry_count = 0
         while True:
+            page_count += 1
+            if page_count > self._max_inventory_pages:
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "S3",
+                        "inventory",
+                        target=self.root_uri,
+                        reason="the configured inventory page limit was exceeded",
+                    )
+                )
             page = self.inventory_page(prefix=prefix, cursor=continuation)
             for entry in page.entries:
+                entry_count += 1
+                if entry_count > self._max_inventory_entries:
+                    raise StorageUnavailable(
+                        driver_failure_message(
+                            "S3",
+                            "inventory",
+                            target=self.root_uri,
+                            reason="the configured inventory entry limit was exceeded",
+                        )
+                    )
                 address = entry.object_address
                 if address in seen:
                     raise StorageIntegrityError("S3 inventory returned a duplicate key.")
@@ -634,8 +703,11 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
             "Prefix": self._full_prefix() + relative_prefix,
         }
         if cursor is not None:
-            if not cursor:
+            if not isinstance(cursor, str) or not cursor:
                 raise ValueError("inventory cursor must not be empty.")
+            if len(cursor) > self._max_inventory_cursor_chars:
+                raise ValueError("inventory cursor exceeded the configured size limit.")
+            reject_malformed_unicode(cursor, label="S3 continuation token")
             arguments["ContinuationToken"] = cursor
         if limit is not None:
             arguments["MaxKeys"] = min(limit, 1000)
@@ -647,9 +719,42 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
                 target=self.root_uri,
                 operation="list inventory",
             ) from error
+        if not isinstance(response, Mapping):
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "S3",
+                    "list inventory",
+                    target=self.root_uri,
+                    reason="the backend returned a non-object response",
+                )
+            )
         entries: list[DriverInventoryEntry[S3ObjectAddress]] = []
         seen: set[S3ObjectAddress] = set()
-        for item in response.get("Contents", ()) or ():
+        raw_contents = response.get("Contents", ()) or ()
+        try:
+            content_iterator = iter(raw_contents)
+        except TypeError as error:
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "S3",
+                    "list inventory",
+                    target=self.root_uri,
+                    reason="the response contained an invalid Contents value",
+                )
+            ) from error
+        for item_index, item in enumerate(content_iterator, start=1):
+            if item_index > self._max_inventory_page_entries:
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "S3",
+                        "list inventory",
+                        target=self.root_uri,
+                        reason=(
+                            "the configured per-page inventory entry limit "
+                            "was exceeded"
+                        ),
+                    )
+                )
             if not isinstance(item, Mapping) or not item.get("Key"):
                 raise StorageUnavailable(
                     driver_failure_message(
@@ -711,6 +816,18 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
                 )
             )
         if next_cursor is not None:
+            if len(next_cursor) > self._max_inventory_cursor_chars:
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "S3",
+                        "list inventory",
+                        target=self.root_uri,
+                        reason=(
+                            "the continuation token exceeded the configured "
+                            "size limit"
+                        ),
+                    )
+                )
             try:
                 reject_malformed_unicode(
                     next_cursor,
@@ -1311,6 +1428,10 @@ def _s3_failure_reason(code: str, status: int | None, summary: str) -> str:
 
 
 __all__ = [
+    "DEFAULT_MAX_S3_INVENTORY_CURSOR_CHARS",
+    "DEFAULT_MAX_S3_INVENTORY_ENTRIES",
+    "DEFAULT_MAX_S3_INVENTORY_PAGE_ENTRIES",
+    "DEFAULT_MAX_S3_INVENTORY_PAGES",
     "DEFAULT_MULTIPART_PART_SIZE",
     "DEFAULT_MULTIPART_THRESHOLD",
     "MINIMUM_MULTIPART_PART_SIZE",

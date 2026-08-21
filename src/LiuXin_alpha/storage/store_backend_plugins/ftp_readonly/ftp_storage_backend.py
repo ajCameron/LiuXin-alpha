@@ -59,6 +59,11 @@ class FtpReadOnlyStorageBackend(DriverBackedStoreAPI[FtpObjectAddress]):
             ),
             read_only=True,
             supports_folders=True,
+            backend_options=tuple(
+                (field.name, getattr(self.options, field.name))
+                for field in dataclasses.fields(self.options)
+                if field.name != "client_factory"
+            ),
         )
 
     @property

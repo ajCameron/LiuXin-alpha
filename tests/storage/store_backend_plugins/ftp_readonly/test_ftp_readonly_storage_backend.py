@@ -643,3 +643,33 @@ def test_ftp_nlst_fallback_validates_server_names() -> None:
 
     with pytest.raises(StorageUnavailable, match="malformed Unicode"):
         list(store.driver.iter_inventory())
+
+
+def test_ftp_inventory_enforces_per_directory_and_total_entry_limits() -> None:
+    class _FloodingClient(_FakeFtpClient):
+        def mlsd(self, target: str = "."):
+            del target
+            for index in range(4):
+                yield f"book-{index}.epub", {"type": "file", "size": "1"}
+
+    per_directory = FtpReadOnlyStorageBackend(
+        "ftp://example.test/",
+        options=FtpBackendOptions(
+            client_factory=lambda: _FloodingClient(_tree()),
+            max_directory_entries=2,
+        ),
+    )
+    with pytest.raises(StorageUnavailable, match="per-directory entry limit"):
+        list(per_directory.driver.iter_inventory())
+
+    total = FtpReadOnlyStorageBackend(
+        "ftp://example.test/",
+        options=FtpBackendOptions(
+            client_factory=lambda: _FloodingClient(_tree()),
+            max_directory_entries=10,
+            max_inventory_entries=2,
+        ),
+    )
+    with pytest.raises(StorageUnavailable, match="inventory entry limit") as failure:
+        list(total.driver.iter_inventory())
+    assert "ftp://example.test/" in str(failure.value)

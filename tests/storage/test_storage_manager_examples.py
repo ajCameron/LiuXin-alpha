@@ -45,6 +45,7 @@ def test_manual_storage_manager_roundtrip_example(tmp_path: Path) -> None:
     assert result["store_name"] == "manual_demo_store"
     assert result["digital_asset_id"] == 1
     assert result["replica_id"] == 1
+    assert result["metadata_is_durable"] is True
     assert result["retrieved_preview"] == "example payload"
     assert result["all_read_forms_match"] is True
     assert any(path.is_file() for path in store_root.rglob("*"))
@@ -58,6 +59,7 @@ def test_storage_manager_workflows_example(tmp_path: Path) -> None:
     )
 
     assert result["stores"] == ["archive", "primary"]
+    assert result["metadata_is_durable"] is True
     assert result["ingest_verified"] is True
     assert result["all_read_forms_match"] is True
     assert result["placement_hints_reused"] is True

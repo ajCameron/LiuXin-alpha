@@ -699,3 +699,86 @@ def test_http_driver_rejects_nonbyte_or_overlong_stream_chunks() -> None:
         with driver.open_read(driver.parse_object_address("book.epub")) as stream:
             with pytest.raises(StorageUnavailable, match=message):
                 stream.read()
+
+
+def test_http_inventory_stops_an_unbounded_or_duplicate_remote_feed() -> None:
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        inventory_provider=lambda: (
+            "https://example.test/root/repeated.epub" for _ in range(3)
+        ),
+        max_inventory_entries=2,
+        max_requests_per_hour=0,
+    )
+
+    with pytest.raises(StorageUnavailable, match="inventory entry limit") as failure:
+        list(driver.iter_inventory())
+
+    assert "https://example.test/root/" in str(failure.value)
+
+
+def test_http_hostile_close_cannot_mask_success_or_the_primary_failure() -> None:
+    class _CloseBombResponse(_Response):
+        def close(self) -> None:
+            super().close()
+            raise RuntimeError("attacker-controlled close failure")
+
+    successful = _CloseBombResponse(
+        "https://example.test/root/book.epub",
+        b"book",
+        headers={"Content-Length": "4"},
+    )
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        request_opener=lambda request, timeout: successful,
+        max_requests_per_hour=0,
+    )
+    address = driver.parse_object_address("book.epub")
+
+    with driver.open_read(address) as stream:
+        assert stream.read() == b"book"
+    assert successful.closed
+
+    rejected = _CloseBombResponse(
+        "https://example.test/root/book.epub",
+        b"",
+        status=503,
+    )
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        request_opener=lambda request, timeout: rejected,
+        max_requests_per_hour=0,
+    )
+    with pytest.raises(StorageUnavailable, match="status 503"):
+        driver.open_read(driver.parse_object_address("book.epub"))
+    assert rejected.closed
+
+
+def test_http_translates_and_redacts_arbitrary_hostile_stream_failures() -> None:
+    class _HostileResponse(_Response):
+        def read(self, size: int = -1) -> bytes:
+            del size
+            raise RuntimeError("token=supersecret " + ("noise " * 200))
+
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        request_opener=lambda request, timeout: _HostileResponse(
+            request.full_url,
+            b"",
+            headers={"Content-Length": "4"},
+        ),
+        max_requests_per_hour=0,
+    )
+
+    with driver.open_read(driver.parse_object_address("book.epub")) as stream:
+        with pytest.raises(StorageUnavailable) as failure:
+            stream.read()
+
+    assert "HTTP stream read failed" in str(failure.value)
+    assert "supersecret" not in str(failure.value)
+    assert "<redacted>" in str(failure.value)
+    assert len(str(failure.value)) < 700

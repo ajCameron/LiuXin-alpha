@@ -157,6 +157,17 @@ def test_backend_policy_round_trip_handles_new_backends_and_strips_secrets() -> 
             (("rclone_exe", "rclone-custom"), ("timeout_s", 20.0)),
         ),
         (
+            "http_readonly",
+            (("max_inventory_entries", 4321), ("timeout_s", 12.0)),
+        ),
+        (
+            "ftp_readonly",
+            (
+                ("max_directory_entries", 321),
+                ("max_inventory_entries", 654),
+            ),
+        ),
+        (
             "encrypted",
             (("inner_store_uuid", str(uuid4())), ("key_id", "key-v1")),
         ),

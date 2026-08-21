@@ -74,6 +74,8 @@ def test_register_rclone_http_store_files_inserts_rows_and_tracks_policy(db, mon
         store_name="web_mirror",
         max_http_requests_per_hour=10.0,
         enforce_global_rate_limit=False,
+        max_inventory_entries=23,
+        max_json_token_chars=4096,
         refresh_storage_manager=False,
     )
 
@@ -97,6 +99,8 @@ def test_register_rclone_http_store_files_inserts_rows_and_tracks_policy(db, mon
     policy = json.loads(str(policy_raw))
     assert policy["backend"] == "rclone_http_readonly"
     assert policy["rclone"]["max_http_requests_per_hour"] == 10.0
+    assert policy["rclone"]["max_inventory_entries"] == 23
+    assert policy["rclone"]["max_json_token_chars"] == 4096
     assert int(store_row["store_supports_checksums"] or 0) == 1
 
     # Ensure the configured rate limit is translated into rclone TPS flags.

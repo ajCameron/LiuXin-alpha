@@ -636,7 +636,7 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             _scratch_column("replication_policy"),
         ),
         constraints=(
-            'constraint "replication_policy_min_copies_check" check ("replication_policy_min_copies" >= 1)',
+            'constraint "replication_policy_min_copies_check" check ("replication_policy_min_copies" >= 0)',
             'constraint "replication_policy_auto_heal_bool" check ("replication_policy_auto_heal" in (0,1))',
             'constraint "replication_policy_mode_check" check ("replication_policy_mode" in '
             "('active','backup','archive'))",
@@ -668,7 +668,7 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             _scratch_column("backup_policy"),
         ),
         constraints=(
-            'constraint "backup_policy_min_copies_check" check ("backup_policy_min_backup_copies" >= 1)',
+            'constraint "backup_policy_min_copies_check" check ("backup_policy_min_backup_copies" >= 0)',
             'constraint "backup_policy_periodic_verification_bool" check ("backup_policy_periodic_verification" in (0,1))',
             'constraint "backup_policy_retention_locked_bool" check ("backup_policy_retention_locked" in (0,1))',
             'constraint "backup_policy_mode_check" check ("backup_policy_mode" in (\'backup\',\'archive\'))',
@@ -812,6 +812,140 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
         ),
     ),
     TableDefinition(
+        name="composite_digital_assets",
+        columns=(
+            _identity_pk("composite_digital_asset_id"),
+            '"composite_digital_asset_name" text null',
+            '"composite_digital_asset_media_type" text null',
+            '"composite_digital_asset_media_category" text null',
+            '"composite_digital_asset_source" text null',
+            '"composite_digital_asset_replication_policy_id" bigint null',
+            '"composite_digital_asset_backup_policy_id" bigint null',
+            _epoch_column("composite_digital_asset_created_timestamp_ep_k"),
+            _epoch_column("composite_digital_asset_modified_timestamp_ep_k"),
+            _nullable_epoch_column(
+                "composite_digital_asset_source_created_datestamp_ep_k"
+            ),
+            _nullable_epoch_column(
+                "composite_digital_asset_source_modified_datestamp_ep_k"
+            ),
+            _scratch_column("composite_digital_asset"),
+        ),
+        constraints=(
+            'constraint "composite_digital_asset_replication_policy_fk" foreign key '
+            '("composite_digital_asset_replication_policy_id") references '
+            '"replication_policies" ("replication_policy_id") on delete set null on update cascade',
+            'constraint "composite_digital_asset_backup_policy_fk" foreign key '
+            '("composite_digital_asset_backup_policy_id") references '
+            '"backup_policies" ("backup_policy_id") on delete set null on update cascade',
+        ),
+    ),
+    TableDefinition(
+        name="digital_asset_item_links",
+        columns=(
+            _identity_pk("digital_asset_item_link_id"),
+            '"digital_asset_item_link_digital_asset_id" bigint null',
+            '"digital_asset_item_link_item_id" bigint null',
+            '"digital_asset_item_link_priority" bigint null',
+            '"digital_asset_item_link_primary" bigint null',
+            '"digital_asset_item_link_type" text null',
+            '"digital_asset_item_link_origin" text null',
+            '"digital_asset_item_link_source" text null',
+            _nullable_epoch_column("digital_asset_item_link_datestamp"),
+            _scratch_column("digital_asset_item_link"),
+        ),
+        constraints=(
+            'constraint "digital_asset_item_link_asset_fk" foreign key '
+            '("digital_asset_item_link_digital_asset_id") references '
+            '"digital_assets" ("digital_asset_id") on delete cascade on update cascade',
+            'constraint "digital_asset_item_link_item_fk" foreign key '
+            '("digital_asset_item_link_item_id") references "items" ("item_id") '
+            'on delete cascade on update cascade',
+            'constraint "digital_asset_item_link_primary_bool" check '
+            '("digital_asset_item_link_primary" is null or '
+            '"digital_asset_item_link_primary" in (0,1))',
+        ),
+        indexes=(
+            'create index if not exists "idx_digital_asset_item_links_asset" '
+            'on "digital_asset_item_links" ("digital_asset_item_link_digital_asset_id")',
+            'create index if not exists "idx_digital_asset_item_links_item" '
+            'on "digital_asset_item_links" ("digital_asset_item_link_item_id")',
+        ),
+    ),
+    TableDefinition(
+        name="composite_digital_asset_item_links",
+        columns=(
+            _identity_pk("composite_digital_asset_item_link_id"),
+            '"composite_digital_asset_item_link_composite_digital_asset_id" bigint null',
+            '"composite_digital_asset_item_link_item_id" bigint null',
+            '"composite_digital_asset_item_link_priority" bigint null',
+            '"composite_digital_asset_item_link_primary" bigint null',
+            '"composite_digital_asset_item_link_type" text null',
+            '"composite_digital_asset_item_link_origin" text null',
+            '"composite_digital_asset_item_link_source" text null',
+            _nullable_epoch_column("composite_digital_asset_item_link_datestamp"),
+            _scratch_column("composite_digital_asset_item_link"),
+        ),
+        constraints=(
+            'constraint "composite_digital_asset_item_link_asset_fk" foreign key '
+            '("composite_digital_asset_item_link_composite_digital_asset_id") references '
+            '"composite_digital_assets" ("composite_digital_asset_id") '
+            'on delete cascade on update cascade',
+            'constraint "composite_digital_asset_item_link_item_fk" foreign key '
+            '("composite_digital_asset_item_link_item_id") references "items" ("item_id") '
+            'on delete cascade on update cascade',
+            'constraint "composite_digital_asset_item_link_primary_bool" check '
+            '("composite_digital_asset_item_link_primary" is null or '
+            '"composite_digital_asset_item_link_primary" in (0,1))',
+        ),
+        indexes=(
+            'create index if not exists "idx_composite_digital_asset_item_links_asset" '
+            'on "composite_digital_asset_item_links" '
+            '("composite_digital_asset_item_link_composite_digital_asset_id")',
+            'create index if not exists "idx_composite_digital_asset_item_links_item" '
+            'on "composite_digital_asset_item_links" '
+            '("composite_digital_asset_item_link_item_id")',
+        ),
+    ),
+    TableDefinition(
+        name="composite_digital_asset_digital_asset_links",
+        columns=(
+            _identity_pk("composite_digital_asset_digital_asset_link_id"),
+            '"composite_digital_asset_digital_asset_link_composite_digital_asset_id" bigint null',
+            '"composite_digital_asset_digital_asset_link_digital_asset_id" bigint null',
+            '"composite_digital_asset_digital_asset_link_type" text null',
+            '"composite_digital_asset_digital_asset_link_origin" text null',
+            '"composite_digital_asset_digital_asset_link_sequence_number" bigint null',
+            '"composite_digital_asset_digital_asset_link_is_required" bigint null',
+            '"composite_digital_asset_digital_asset_link_source" text null',
+            _nullable_epoch_column(
+                "composite_digital_asset_digital_asset_link_datestamp"
+            ),
+            _scratch_column("composite_digital_asset_digital_asset_link"),
+        ),
+        constraints=(
+            'constraint "composite_member_composite_fk" foreign key '
+            '("composite_digital_asset_digital_asset_link_composite_digital_asset_id") '
+            'references "composite_digital_assets" ("composite_digital_asset_id") '
+            'on delete cascade on update cascade',
+            'constraint "composite_member_asset_fk" foreign key '
+            '("composite_digital_asset_digital_asset_link_digital_asset_id") '
+            'references "digital_assets" ("digital_asset_id") '
+            'on delete cascade on update cascade',
+            'constraint "composite_member_required_bool" check '
+            '("composite_digital_asset_digital_asset_link_is_required" is null or '
+            '"composite_digital_asset_digital_asset_link_is_required" in (0,1))',
+        ),
+        indexes=(
+            'create index if not exists "idx_composite_members_composite" '
+            'on "composite_digital_asset_digital_asset_links" '
+            '("composite_digital_asset_digital_asset_link_composite_digital_asset_id")',
+            'create index if not exists "idx_composite_members_asset" '
+            'on "composite_digital_asset_digital_asset_links" '
+            '("composite_digital_asset_digital_asset_link_digital_asset_id")',
+        ),
+    ),
+    TableDefinition(
         name="asset_replicas",
         columns=(
             _identity_pk("asset_replica_id"),
@@ -841,10 +975,10 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             'constraint "asset_replica_digital_asset_fk" foreign key ("asset_replica_digital_asset_id") '
             'references "digital_assets" ("digital_asset_id") on delete cascade on update cascade',
             'constraint "asset_replica_store_fk" foreign key ("asset_replica_store_id") '
-            'references "stores" ("store_id") on delete cascade on update cascade',
+            'references "stores" ("store_id") on delete restrict on update cascade',
             'constraint "asset_replica_folder_fk" foreign key ("asset_replica_folder_id") '
             'references "folders" ("folder_id") on delete set null on update cascade',
-            'constraint "asset_replica_mode_check" check ("asset_replica_mode" in (\'active\',\'backup\',\'archive\'))',
+            'constraint "asset_replica_mode_check" check ("asset_replica_mode" in (\'active\',\'backup\',\'archive\',\'cache\',\'transient\',\'unmanaged\'))',
         ),
         indexes=(
             'create unique index if not exists "idx_asset_replicas_unique_store_key" on "asset_replicas" ("asset_replica_store_id", "asset_replica_storage_key")',

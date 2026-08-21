@@ -51,13 +51,20 @@ from LiuXin_alpha.storage.drivers._errors import (
     driver_failure_message,
     translate_os_error,
 )
-from LiuXin_alpha.storage.drivers._validation import reject_malformed_unicode
+from LiuXin_alpha.storage.drivers._validation import (
+    best_effort_close,
+    reject_malformed_unicode,
+)
 
 
 RcloneJsonRunner = Callable[[Sequence[str]], Any]
 RcloneCommandRunner = Callable[[Sequence[str]], Any]
 RcloneProcessSpawner = Callable[[Sequence[str]], Any]
 RcloneProbe = Callable[[], None]
+
+
+DEFAULT_MAX_RCLONE_INVENTORY_ENTRIES = 100_000
+DEFAULT_MAX_RCLONE_JSON_TOKEN_CHARS = 8 * 1024 * 1024
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -117,6 +124,15 @@ class _RcloneProcessReader(io.RawIOBase):
                 )
             ) from error
         except OSError as error:
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "rclone",
+                    "read object",
+                    target=self._target,
+                    reason=str(error) or type(error).__name__,
+                )
+            ) from error
+        except Exception as error:
             raise StorageUnavailable(
                 driver_failure_message(
                     "rclone",
@@ -186,10 +202,25 @@ class _RcloneProcessReader(io.RawIOBase):
                     reason=str(error) or type(error).__name__,
                 )
             ) from error
+        except Exception as error:
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "rclone",
+                    "read object",
+                    target=self._target,
+                    reason=str(error) or type(error).__name__,
+                )
+            ) from error
         if return_code:
             stderr = b""
             if self._stderr is not None:
-                stderr = self._stderr.read()
+                try:
+                    stderr = self._stderr.read()
+                except Exception as error:
+                    stderr = (
+                        "rclone exited unsuccessfully and its diagnostic "
+                        f"stream failed: {type(error).__name__}"
+                    )
             message = (
                 stderr.decode(errors="replace")
                 if isinstance(stderr, bytes)
@@ -205,16 +236,7 @@ class _RcloneProcessReader(io.RawIOBase):
         if self.closed:
             return
         try:
-            if self._stdout is not None:
-                self._stdout.close()
-            if self._process.poll() is None:
-                self._process.terminate()
-                try:
-                    self._process.wait(timeout=1)
-                except Exception:
-                    self._process.kill()
-            if self._stderr is not None:
-                self._stderr.close()
+            _stop_rclone_process(self._process)
         finally:
             super().close()
 
@@ -372,16 +394,24 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
         json_runner: RcloneJsonRunner,
         process_spawner: RcloneProcessSpawner,
         probe: RcloneProbe | None = None,
+        max_inventory_entries: int = DEFAULT_MAX_RCLONE_INVENTORY_ENTRIES,
+        max_json_token_chars: int = DEFAULT_MAX_RCLONE_JSON_TOKEN_CHARS,
     ) -> None:
         root = str(fs_root).strip()
         reject_malformed_unicode(root, label="rclone filesystem root")
         if not root or "\x00" in root or "\n" in root or "\r" in root:
             raise StorageInvalidAddress("rclone filesystem root is invalid.")
         _reject_inline_rclone_secrets(root)
+        if max_inventory_entries < 1:
+            raise ValueError("max_inventory_entries must be positive.")
+        if max_json_token_chars < 1:
+            raise ValueError("max_json_token_chars must be positive.")
         self._fs_root = root
         self._json_runner = json_runner
         self._process_spawner = process_spawner
         self._probe_callback = probe
+        self._max_inventory_entries = int(max_inventory_entries)
+        self._max_json_token_chars = int(max_json_token_chars)
         self._checker = ScopedDriverObjectAddressChecker(
             RcloneObjectAddress,
             address_space_uuid,
@@ -486,7 +516,14 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
             ["lsjson", "--stat", "--hash", self.object_uri(checked)]
         )
         if not isinstance(blob, dict):
-            raise StorageNotFound(str(checked))
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "rclone",
+                    "stat object",
+                    target=self.object_uri(checked),
+                    reason="rclone returned a non-object response",
+                )
+            )
         if bool(blob.get("IsDir", False)):
             raise StorageInvalidAddress("rclone Store Locations identify files, not directories.")
         if "Size" not in blob:
@@ -631,6 +668,7 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
                     for item in _iter_json_array_process(
                         process,
                         target=self._fs_root,
+                        max_token_chars=self._max_json_token_chars,
                     ):
                         yielded = True
                         yield item
@@ -639,10 +677,14 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
                     # Some injected/legacy runners expose only the JSON call.
                     # Fall back solely when process startup failed before any
                     # output; malformed successful output must remain fatal.
+                    try:
+                        process_status = process.poll()
+                    except Exception:
+                        process_status = None
                     if (
                         isinstance(error, StorageTimeout)
                         or yielded
-                        or process.poll() in {None, 0}
+                        or process_status in {None, 0}
                     ):
                         raise
             payload = self._run_json(arguments)
@@ -655,7 +697,18 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
             yield from payload
 
         seen: set[RcloneObjectAddress] = set()
+        observed = 0
         for item in _items():
+            observed += 1
+            if observed > self._max_inventory_entries:
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "rclone",
+                        "inventory",
+                        target=self._fs_root,
+                        reason="the configured inventory entry limit was exceeded",
+                    )
+                )
             if not isinstance(item, dict):
                 raise StorageUnavailable("rclone inventory contained a non-object entry.")
             raw_path = item.get("Path") or item.get("Name")
@@ -751,6 +804,8 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
         process_spawner: RcloneProcessSpawner,
         probe: RcloneProbe | None = None,
         local_staging_directory: str | os.PathLike[str] | None = None,
+        max_inventory_entries: int = DEFAULT_MAX_RCLONE_INVENTORY_ENTRIES,
+        max_json_token_chars: int = DEFAULT_MAX_RCLONE_JSON_TOKEN_CHARS,
     ) -> None:
         super().__init__(
             fs_root,
@@ -758,6 +813,8 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
             json_runner=json_runner,
             process_spawner=process_spawner,
             probe=probe,
+            max_inventory_entries=max_inventory_entries,
+            max_json_token_chars=max_json_token_chars,
         )
         self._command_runner = command_runner
         self._write_lock = threading.RLock()
@@ -1062,6 +1119,7 @@ def _iter_json_array_process(
     process: _ProcessAPI,
     *,
     target: str,
+    max_token_chars: int = DEFAULT_MAX_RCLONE_JSON_TOKEN_CHARS,
 ) -> Iterator[Any]:
     """Incrementally decode one JSON array while owning an rclone process."""
 
@@ -1116,13 +1174,36 @@ def _iter_json_array_process(
                     item, end = decoder.raw_decode(buffer, position)
                 except json.JSONDecodeError:
                     break
+                except (RecursionError, OverflowError) as error:
+                    raise StorageUnavailable(
+                        "rclone inventory JSON exceeded safe decoder limits."
+                    ) from error
                 position = end
                 after_item = True
                 yield item
 
             if finished:
                 break
-            raw = stdout.read(64 * 1024)
+            try:
+                raw = stdout.read(64 * 1024)
+            except (TimeoutError, subprocess.TimeoutExpired) as error:
+                raise StorageTimeout(
+                    driver_failure_message(
+                        "rclone",
+                        "inventory",
+                        target=target,
+                        reason="the inventory stream timed out",
+                    )
+                ) from error
+            except Exception as error:
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "rclone",
+                        "inventory",
+                        target=target,
+                        reason=str(error) or type(error).__name__,
+                    )
+                ) from error
             if not isinstance(raw, bytes):
                 raise StorageUnavailable(
                     "rclone inventory stdout returned non-byte data."
@@ -1137,6 +1218,17 @@ def _iter_json_array_process(
                     raise StorageUnavailable(
                         "rclone inventory returned malformed UTF-8."
                     ) from error
+                if len(buffer) > max_token_chars:
+                    raise StorageUnavailable(
+                        driver_failure_message(
+                            "rclone",
+                            "inventory",
+                            target=target,
+                            reason=(
+                                "the configured JSON token size limit was exceeded"
+                            ),
+                        )
+                    )
                 continue
             if exhausted:
                 _require_rclone_process_success(
@@ -1167,15 +1259,7 @@ def _iter_json_array_process(
             operation="inventory",
         )
     finally:
-        stdout.close()
-        if process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=1)
-            except Exception:
-                process.kill()
-        if stderr is not None:
-            stderr.close()
+        _stop_rclone_process(process)
 
 
 _RCLONE_SECRET_OPTION = re.compile(
@@ -1217,6 +1301,29 @@ def _valid_rclone_process(process: object) -> bool:
     )
 
 
+def _stop_rclone_process(process: _ProcessAPI) -> None:
+    """Best-effort cleanup that cannot replace a transfer's real outcome."""
+
+    best_effort_close(getattr(process, "stdout", None))
+    try:
+        running = process.poll() is None
+    except Exception:
+        running = True
+    if running:
+        try:
+            process.terminate()
+        except Exception:
+            pass
+        try:
+            process.wait(timeout=1)
+        except Exception:
+            try:
+                process.kill()
+            except Exception:
+                pass
+    best_effort_close(getattr(process, "stderr", None))
+
+
 def _require_rclone_process_success(
     process: _ProcessAPI,
     *,
@@ -1245,10 +1352,25 @@ def _require_rclone_process_success(
                 reason=str(error) or type(error).__name__,
             )
         ) from error
+    except Exception as error:
+        raise StorageUnavailable(
+            driver_failure_message(
+                "rclone",
+                operation,
+                target=target,
+                reason=str(error) or type(error).__name__,
+            )
+        ) from error
     if not return_code:
         return
     stderr = process.stderr
-    detail = stderr.read() if stderr is not None else b""
+    try:
+        detail = stderr.read() if stderr is not None else b""
+    except Exception as error:
+        detail = (
+            "rclone exited unsuccessfully and its diagnostic stream failed: "
+            f"{type(error).__name__}"
+        )
     message = (
         detail.decode(errors="replace")
         if isinstance(detail, bytes)

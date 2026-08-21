@@ -1,10 +1,9 @@
-"""
-In-memory reference implementation of :class:`StorageManagerAPI`.
+"""Repository-neutral storage orchestration and its transient implementation.
 
-The manager deliberately owns policy and catalogue state while Store objects
-own bytes.  It is suitable for tests, prototypes, and review of orchestration
-semantics.  A production adapter can replace the dictionaries with durable
-repositories without changing the public manager contract.
+The shared orchestration core owns policy and workflow behaviour while Store
+objects own bytes. The application manager binds that core to durable database
+repository views; :class:`TransientStorageManager` supplies disposable mapping
+state for focused tests and one-shot work.
 """
 
 from __future__ import annotations
@@ -170,22 +169,21 @@ def _backup_policy_id(
     return api.BackupPolicyID(identifier)
 
 
-class InMemoryStorageManager(api.StorageManagerAPI):
+class _StorageManagerOrchestrator(api.StorageManagerAPI):
     """
-    Complete reference manager with in-memory metadata and injected Stores.
+    Repository-neutral storage orchestration over injected Stores.
 
-    The class is intentionally honest about durability: Store publication is
-    real, but manager records disappear with this process.  It nevertheless
-    implements the full orchestration contract, including optimistic
-    revisions, idempotent ingest operation IDs, policy assessment, provenance,
-    and reconciliation.
+    Concrete subclasses select the manager-state repository. The shared core
+    implements optimistic revisions, idempotent ingest operation IDs, policy
+    assessment, provenance, and reconciliation without defining persistence
+    or cache policy.
 
     Store registrations are explicit ``(StoreConfiguration, StoreAPI)`` pairs.
     ``store_factory`` is needed only for ``create_store()``, ``update_store()``,
     or ``reload_stores()``.
 
     Example:
-        >>> manager = InMemoryStorageManager()  # no Store until one is attached
+        >>> manager = TransientStorageManager()  # no Store until one is attached
         >>> list(manager.iter_digital_asset_records())
         []
     """
@@ -270,7 +268,7 @@ class InMemoryStorageManager(api.StorageManagerAPI):
         startup: bool = True,
         replace_existing: bool = False,
     ) -> api.StoreConfiguration:
-        """Attach an already constructed Store to this reference manager."""
+        """Attach an already constructed Store to this manager."""
 
         if store.store_ref != configuration.store_uuid:
             raise api.StoreInvalidLocation(
@@ -906,7 +904,7 @@ class InMemoryStorageManager(api.StorageManagerAPI):
         *,
         role: str = "primary_payload",
     ) -> bool:
-        """Remove one in-memory Item-to-Asset role link."""
+        """Remove one manager-owned Item-to-Asset role link."""
 
         with self._lock:
             return self._item_targets.pop((item_id, role), None) is not None
@@ -1890,7 +1888,7 @@ class InMemoryStorageManager(api.StorageManagerAPI):
         self,
         policy: api.ReplicationPolicy,
     ) -> api.ReplicationPolicyRecord:
-        """Register one replication policy with stable in-memory identity."""
+        """Register one replication policy with stable manager identity."""
 
         with self._lock:
             policy_id = api.ReplicationPolicyID(
@@ -1997,7 +1995,7 @@ class InMemoryStorageManager(api.StorageManagerAPI):
         self,
         policy: api.BackupPolicy,
     ) -> api.BackupPolicyRecord:
-        """Register one backup policy with stable in-memory identity."""
+        """Register one backup policy with stable manager identity."""
 
         with self._lock:
             policy_id = api.BackupPolicyID(self._next_backup_policy_id)
@@ -3036,7 +3034,7 @@ class InMemoryStorageManager(api.StorageManagerAPI):
     # ------------------------------------------------------------------
 
     def _new_revision_locked(self) -> str:
-        """Allocate a monotonically increasing in-memory revision token."""
+        """Allocate a monotonically increasing manager revision token."""
 
         self._revision_counter += 1
         return f"m{self._revision_counter}"
@@ -3196,6 +3194,7 @@ class InMemoryStorageManager(api.StorageManagerAPI):
                     "ingest operation ID was already used for a different request."
                 )
             return prior.result
+        self._journal_ingest_started(operation_id, request)
         destination_ref = (
             self.get_default_store_ref()
             if preferred_store_ref is None
@@ -3242,7 +3241,16 @@ class InMemoryStorageManager(api.StorageManagerAPI):
                     asset_record,
                     placement_hints=placement_hints,
                 )
+                self._journal_ingest_publication_pending(
+                    operation_id,
+                    asset_record=asset_record,
+                    asset_created=asset_created,
+                    location=location,
+                    replica_mode=replica_mode,
+                    placement_hints=placement_hints,
+                )
                 publish(store, location, self._preferred_digest(asset_record))
+                self._journal_ingest_published(operation_id)
                 if existing is not None:
                     # Placement-policy defaults become part of an existing,
                     # previously unplaced Asset only after its first bytes have
@@ -3263,7 +3271,8 @@ class InMemoryStorageManager(api.StorageManagerAPI):
                 )
             else:
                 replica_record = existing_replica
-        except Exception:
+        except Exception as error:
+            self._journal_ingest_failed(operation_id, error)
             if asset_created:
                 # Declaring identity is an implementation prerequisite for
                 # allocation, not a successful ingest result.  Do not leave a
@@ -3306,6 +3315,35 @@ class InMemoryStorageManager(api.StorageManagerAPI):
                 result,
             )
         return result
+
+    def _journal_ingest_started(
+        self,
+        operation_id: UUID,
+        request: _IngestRequest,
+    ) -> None:
+        """Hook for durable managers to record operation intent."""
+
+    def _journal_ingest_publication_pending(
+        self,
+        operation_id: UUID,
+        *,
+        asset_record: api.DigitalAssetRecord,
+        asset_created: bool,
+        location: api.Location,
+        replica_mode: api.ReplicaMode,
+        placement_hints: api.StoragePlacementHints | None,
+    ) -> None:
+        """Hook immediately before external Store publication begins."""
+
+    def _journal_ingest_published(self, operation_id: UUID) -> None:
+        """Hook after Store publication and before metadata completion."""
+
+    def _journal_ingest_failed(
+        self,
+        operation_id: UUID,
+        error: BaseException,
+    ) -> None:
+        """Hook for a handled ingest failure."""
 
     def _require_same_identity(
         self,
@@ -4431,3 +4469,24 @@ class InMemoryStorageManager(api.StorageManagerAPI):
             except Exception:
                 return False
         return True
+
+
+class TransientStorageManager(_StorageManagerOrchestrator):
+    """Disposable manager state for focused tests and one-shot work.
+
+    Store publication is real, but manager-owned records disappear with the
+    process. Applications should use the database-backed ``StorageManager``;
+    this implementation is not a cache and does not participate in LiuXin's
+    cache lifecycle.
+    """
+
+
+# Compatibility for callers written before the persistence boundary was made
+# explicit. New code should prefer the honest ``TransientStorageManager`` name.
+InMemoryStorageManager = TransientStorageManager
+
+
+__all__ = [
+    "InMemoryStorageManager",
+    "TransientStorageManager",
+]

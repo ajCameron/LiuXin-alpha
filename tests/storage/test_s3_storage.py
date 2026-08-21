@@ -473,6 +473,7 @@ def test_s3_reads_tortured_unicode_keys_without_normalizing_them(
 def _pathological_s3_driver(
     tmp_path: Path,
     client: _FakeS3Client,
+    **kwargs,
 ) -> S3StorageDriver:
     return S3StorageDriver(
         "library",
@@ -481,6 +482,7 @@ def _pathological_s3_driver(
         client=client,
         local_staging_directory=tmp_path,
         close_client=False,
+        **kwargs,
     )
 
 
@@ -622,6 +624,109 @@ def test_store_ingest_rejects_multi_page_cursor_cycles_without_publication(
     )
 
     with pytest.raises(api.StoreIntegrityError, match="cursor"):
+        ingest_store(manager, source, page_size=1)
+
+    assert tuple(manager.iter_digital_asset_records()) == ()
+    assert tuple(manager.iter_replica_records()) == ()
+    assert tuple(destination.iter_locations()) == ()
+
+
+def test_store_ingest_stops_endless_unique_cursors_without_publication(
+    s3_store,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from LiuXin_alpha.ingest import stores as ingest_stores_module
+
+    source, client = s3_store
+    calls = 0
+
+    def _endless_pages(**kwargs):
+        nonlocal calls
+        del kwargs
+        calls += 1
+        return {
+            "Contents": [],
+            "IsTruncated": True,
+            "NextContinuationToken": f"cursor-{calls}",
+        }
+
+    client.list_objects_v2 = _endless_pages  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        ingest_stores_module,
+        "MAX_STORE_INGEST_INVENTORY_PAGES",
+        2,
+    )
+    destination = FilesystemStore(tmp_path / "unique-cursor-flood-destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+
+    with pytest.raises(api.StoreIntegrityError, match="ingest page limit"):
+        ingest_store(manager, source, page_size=1)
+
+    assert calls == 2
+    assert tuple(manager.iter_digital_asset_records()) == ()
+    assert tuple(manager.iter_replica_records()) == ()
+    assert tuple(destination.iter_locations()) == ()
+
+
+def test_store_ingest_stops_oversized_inventory_before_publication(
+    s3_store,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from LiuXin_alpha.ingest import stores as ingest_stores_module
+
+    source, client = s3_store
+    client.list_objects_v2 = lambda **kwargs: {  # type: ignore[method-assign]
+        "Contents": [
+            {"Key": f"liuxin/book-{index}.epub", "Size": 1}
+            for index in range(3)
+        ],
+        "IsTruncated": False,
+    }
+    monkeypatch.setattr(
+        ingest_stores_module,
+        "MAX_STORE_INGEST_INVENTORY_ENTRIES",
+        2,
+    )
+    destination = FilesystemStore(tmp_path / "inventory-flood-destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+
+    with pytest.raises(api.StoreIntegrityError, match="ingest entry limit"):
+        ingest_store(manager, source, page_size=100)
+
+    assert tuple(manager.iter_digital_asset_records()) == ()
+    assert tuple(manager.iter_replica_records()) == ()
+    assert tuple(destination.iter_locations()) == ()
+
+
+def test_store_ingest_rejects_oversized_plugin_cursor_without_publication(
+    s3_store,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from LiuXin_alpha.ingest import stores as ingest_stores_module
+
+    source, client = s3_store
+    client.list_objects_v2 = lambda **kwargs: {  # type: ignore[method-assign]
+        "Contents": [],
+        "IsTruncated": True,
+        "NextContinuationToken": "x" * 9,
+    }
+    monkeypatch.setattr(ingest_stores_module, "MAX_STORE_INGEST_CURSOR_CHARS", 8)
+    destination = FilesystemStore(tmp_path / "oversized-cursor-destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+
+    with pytest.raises(api.StoreIntegrityError, match="cursor.*size limit"):
         ingest_store(manager, source, page_size=1)
 
     assert tuple(manager.iter_digital_asset_records()) == ()
@@ -780,3 +885,138 @@ def test_s3_inventory_rejects_duplicate_out_of_scope_or_malformed_entries(
 
     with pytest.raises((api.StorageIntegrityError, api.StorageUnavailable)):
         list(driver.iter_inventory())
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "s3://library/liuxin/bad-%GG.epub",
+        "s3://library/liuxin/bad-%FF.epub",
+        "s3://library/liuxin/bad\ud800.epub",
+    ],
+)
+def test_s3_rejects_malformed_external_uri_encoding(
+    tmp_path: Path,
+    uri: str,
+) -> None:
+    driver = _pathological_s3_driver(tmp_path, _FakeS3Client())
+
+    with pytest.raises(api.StorageInvalidAddress):
+        driver.object_address_from_uri(uri)
+
+
+def test_s3_inventory_stops_endless_unique_continuation_tokens(
+    tmp_path: Path,
+) -> None:
+    client = _FakeS3Client()
+    calls = 0
+
+    def _endless_pages(**kwargs):
+        nonlocal calls
+        del kwargs
+        calls += 1
+        return {
+            "Contents": [],
+            "IsTruncated": True,
+            "NextContinuationToken": f"cursor-{calls}",
+        }
+
+    client.list_objects_v2 = _endless_pages  # type: ignore[method-assign]
+    driver = _pathological_s3_driver(
+        tmp_path,
+        client,
+        max_inventory_pages=2,
+    )
+
+    with pytest.raises(api.StorageUnavailable, match="inventory page limit"):
+        list(driver.iter_inventory())
+    assert calls == 2
+
+
+def test_s3_inventory_rejects_oversized_remote_continuation_tokens(
+    tmp_path: Path,
+) -> None:
+    client = _FakeS3Client()
+    client.list_objects_v2 = lambda **kwargs: {  # type: ignore[method-assign]
+        "Contents": [],
+        "IsTruncated": True,
+        "NextContinuationToken": "x" * 9,
+    }
+    driver = _pathological_s3_driver(
+        tmp_path,
+        client,
+        max_inventory_cursor_chars=8,
+    )
+
+    with pytest.raises(api.StorageUnavailable, match="continuation token.*size limit"):
+        list(driver.iter_inventory())
+
+
+def test_s3_inventory_rejects_oversized_or_nonobject_pages(tmp_path: Path) -> None:
+    client = _FakeS3Client()
+    client.list_objects_v2 = lambda **kwargs: {  # type: ignore[method-assign]
+        "Contents": [
+            {"Key": f"liuxin/book-{index}.epub", "Size": 1}
+            for index in range(3)
+        ],
+        "IsTruncated": False,
+    }
+    driver = _pathological_s3_driver(
+        tmp_path,
+        client,
+        max_inventory_page_entries=2,
+    )
+    with pytest.raises(api.StorageUnavailable, match="per-page inventory entry limit"):
+        list(driver.iter_inventory())
+
+    client.list_objects_v2 = lambda **kwargs: "attacker text"  # type: ignore[method-assign]
+    with pytest.raises(api.StorageUnavailable, match="non-object response"):
+        list(driver.iter_inventory())
+
+
+def test_s3_hostile_body_close_cannot_mask_success_or_primary_failure(
+    tmp_path: Path,
+) -> None:
+    class _CloseBombBody(io.BytesIO):
+        def close(self) -> None:
+            super().close()
+            raise RuntimeError("attacker-controlled close failure")
+
+    client = _FakeS3Client()
+    readable = _CloseBombBody(b"book")
+    client.get_object = lambda **kwargs: {  # type: ignore[method-assign]
+        "Body": readable,
+        "ContentLength": 4,
+    }
+    driver = _pathological_s3_driver(tmp_path, client)
+    with driver.open_read(driver.parse_object_address("book.epub")) as stream:
+        assert stream.read() == b"book"
+    assert readable.closed
+
+    class _UnreadableCloseBomb:
+        closed = False
+
+        def close(self) -> None:
+            self.closed = True
+            raise RuntimeError("attacker-controlled close failure")
+
+    unreadable = _UnreadableCloseBomb()
+    client.get_object = lambda **kwargs: {  # type: ignore[method-assign]
+        "Body": unreadable,
+        "ContentLength": 4,
+    }
+    with pytest.raises(api.StorageUnavailable, match="readable response body"):
+        driver.open_read(driver.parse_object_address("book.epub"))
+    assert unreadable.closed
+
+
+def test_s3_rejects_nonobject_stat_and_read_responses(tmp_path: Path) -> None:
+    client = _FakeS3Client()
+    driver = _pathological_s3_driver(tmp_path, client)
+    client.head_object = lambda **kwargs: "attacker text"  # type: ignore[method-assign]
+    with pytest.raises(api.StorageUnavailable, match="non-object response"):
+        driver.stat(driver.parse_object_address("book.epub"))
+
+    client.get_object = lambda **kwargs: ["attacker list"]  # type: ignore[method-assign]
+    with pytest.raises(api.StorageUnavailable, match="non-object response"):
+        driver.open_read(driver.parse_object_address("book.epub"))

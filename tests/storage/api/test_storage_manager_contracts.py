@@ -9,6 +9,7 @@ import pytest
 
 from LiuXin_alpha.storage.api import (
     Digest,
+    StorageManagementError,
     StorageBootstrapReport,
     StoreAlreadyExists,
     StoreConfiguration,
@@ -16,11 +17,16 @@ from LiuXin_alpha.storage.api import (
     StoreUnavailable,
 )
 from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.storage_manager import TransientStorageManager
 from LiuXin_alpha.storage.stores import FilesystemStore
 
 
 def _store(path: Path, name: str) -> FilesystemStore:
     return FilesystemStore(path, name=name)
+
+
+def test_application_manager_does_not_inherit_transient_state_manager() -> None:
+    assert not issubclass(StorageManager, TransientStorageManager)
 
 
 def test_manager_initialization_accepts_only_new_store_api_and_starts_stores(
@@ -187,6 +193,23 @@ class _WritableRowsDatabase(_RowsDatabase):
     def __init__(self, rows):
         super().__init__(rows)
         self.macros = _RowsMacros(rows)
+
+
+class _IncompleteCatalogueDatabase(_RowsDatabase):
+    def get_tables(self):
+        return ["stores", "digital_assets"]
+
+
+def test_database_catalogue_never_silently_falls_back_to_volatile_metadata(
+    tmp_path: Path,
+) -> None:
+    database = _IncompleteCatalogueDatabase([])
+
+    with pytest.raises(
+        StorageManagementError,
+        match="refusing an implicit in-memory fallback",
+    ):
+        StorageManager(db=database, startup_on_add=False)
 
 
 def test_database_bootstrap_reports_loaded_skipped_and_failed_configurations(

@@ -82,6 +82,7 @@ class CoreServices:
             close_cache_on_shutdown = owns_cache
         self.close_cache_on_shutdown = bool(close_cache_on_shutdown)
         self._validate_dependencies()
+        self._bind_storage_cache()
 
     @property
     def catalog(self) -> Any:
@@ -230,6 +231,15 @@ class CoreServices:
                     "Core {} must use the Core library database.".format(label)
                 )
 
+    def _bind_storage_cache(self) -> None:
+        """Share Core's cache with the database-backed storage repository."""
+
+        cache = self.cache
+        storage = getattr(self.database, "storage", None)
+        bind = getattr(storage, "bind_metadata_cache", None)
+        if cache is not None and callable(bind):
+            bind(cache)
+
     def describe(self) -> dict[str, Any]:
         cache = self.cache
         cache_payload: dict[str, Any] = {
@@ -334,6 +344,10 @@ class CoreServices:
             return
         self._closed = True
         if self.close_cache_on_shutdown and self.cache is not None:
+            storage = getattr(self.database, "storage", None)
+            unbind = getattr(storage, "bind_metadata_cache", None)
+            if callable(unbind):
+                unbind(None)
             self.cache.close()
         if self._owns_maintenance and self._maintenance is not None:
             stop = getattr(self._maintenance, "stop", None)

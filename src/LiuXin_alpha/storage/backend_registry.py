@@ -194,9 +194,13 @@ def _build_sqlite(configuration, _context):
 def _build_http(configuration, _context):
     from LiuXin_alpha.storage.stores import HttpReadOnlyStore
 
+    options = _options(configuration)
     return HttpReadOnlyStore(
         configuration.store_root_uri,
         store_kind="http_readonly",
+        timeout_s=options.get("timeout_s", 30.0),
+        max_requests_per_hour=options.get("max_requests_per_hour"),
+        max_inventory_entries=options.get("max_inventory_entries", 100_000),
         **_common(configuration),
     )
 
@@ -442,7 +446,7 @@ DEFAULT_BACKEND_REGISTRY = StorageBackendRegistry(
             "http_readonly", "Direct HTTP root (read-only)", _build_http,
             aliases=("http",), access_protocol="http",
             access_protocol_aliases=("https",), read_only=True,
-            location_type="remote", hierarchical=False,
+            location_type="remote", hierarchical=False, policy_section="http",
         ),
         _descriptor(
             "native_html_readonly", "Native HTML crawler remote (read-only)",

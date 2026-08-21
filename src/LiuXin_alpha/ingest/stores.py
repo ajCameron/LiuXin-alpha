@@ -57,6 +57,13 @@ StorePlacementInput: TypeAlias = (
 )
 
 
+# A final circuit breaker for custom or third-party paged Store plugins. Native
+# backends should enforce their own tighter protocol-specific limits as well.
+MAX_STORE_INGEST_INVENTORY_PAGES = 10_000
+MAX_STORE_INGEST_INVENTORY_ENTRIES = 100_000
+MAX_STORE_INGEST_CURSOR_CHARS = 4_096
+
+
 def ingest_store(
     manager: StorageManagerAPI,
     source: StoreIngestSource,
@@ -704,15 +711,31 @@ def _inventory_batches(
     if not paged:
         entries = source.iter_inventory_entries(prefix=prefix)
         batch_size = max(1, worker_count * 4)
+        observed_entries = 0
         while batch := tuple(islice(entries, batch_size)):
+            observed_entries += len(batch)
+            if observed_entries > MAX_STORE_INGEST_INVENTORY_ENTRIES:
+                raise StoreIntegrityError(
+                    "Store inventory exceeded the configured ingest entry limit."
+                )
             yield batch, None, None, None
         return
 
-    continuation = cursor
-    seen_cursors = {cursor} if cursor is not None else set()
-    current_snapshot = snapshot_token
+    continuation = _validated_inventory_token(cursor, label="cursor")
+    seen_cursors = {continuation} if continuation is not None else set()
+    current_snapshot = _validated_inventory_token(
+        snapshot_token,
+        label="snapshot token",
+    )
     remaining = max_files
+    page_count = 0
+    observed_entries = 0
     while True:
+        page_count += 1
+        if page_count > MAX_STORE_INGEST_INVENTORY_PAGES:
+            raise StoreIntegrityError(
+                "Store inventory exceeded the configured ingest page limit."
+            )
         limit = page_size
         if remaining is not None:
             limit = remaining if limit is None else min(limit, remaining)
@@ -726,12 +749,24 @@ def _inventory_batches(
             raise StoreIntegrityError(
                 "Store inventory page exceeded its requested limit."
             )
-        next_cursor = page.next_cursor
+        observed_entries += len(page.entries)
+        if observed_entries > MAX_STORE_INGEST_INVENTORY_ENTRIES:
+            raise StoreIntegrityError(
+                "Store inventory exceeded the configured ingest entry limit."
+            )
+        next_cursor = _validated_inventory_token(
+            page.next_cursor,
+            label="next cursor",
+        )
+        page_snapshot = _validated_inventory_token(
+            page.snapshot_token,
+            label="snapshot token",
+        )
         if next_cursor is not None and next_cursor in seen_cursors:
             raise StoreIntegrityError(
                 "Store inventory returned a repeated or non-advancing cursor."
             )
-        yield page.entries, continuation, next_cursor, page.snapshot_token
+        yield page.entries, continuation, next_cursor, page_snapshot
         if remaining is not None:
             remaining -= len(page.entries)
             if remaining <= 0:
@@ -740,7 +775,31 @@ def _inventory_batches(
             return
         seen_cursors.add(next_cursor)
         continuation = next_cursor
-        current_snapshot = page.snapshot_token or current_snapshot
+        current_snapshot = page_snapshot or current_snapshot
+
+
+def _validated_inventory_token(
+    value: object,
+    *,
+    label: str,
+) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise StoreIntegrityError(
+            f"Store inventory returned an invalid {label}."
+        )
+    if len(value) > MAX_STORE_INGEST_CURSOR_CHARS:
+        raise StoreIntegrityError(
+            f"Store inventory {label} exceeded the configured size limit."
+        )
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as error:
+        raise StoreIntegrityError(
+            f"Store inventory returned malformed Unicode in its {label}."
+        ) from error
+    return value
 
 
 def _extensions(values: Iterable[str] | None) -> frozenset[str] | None:

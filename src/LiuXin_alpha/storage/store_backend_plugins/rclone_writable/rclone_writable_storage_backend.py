@@ -73,6 +73,8 @@ class RcloneWritableStorageBackend(RcloneHttpReadOnlyStorageBackend):
             process_spawner=self.spawn_rclone_process,
             probe=self._probe_rclone,
             local_staging_directory=local_staging_directory,
+            max_inventory_entries=self.options.max_inventory_entries,
+            max_json_token_chars=self.options.max_json_token_chars,
         )
         if configuration is None:
             backend_options = self._configuration.backend_options

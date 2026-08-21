@@ -246,6 +246,10 @@ def test_postgresql_schema_builder_executes_core_and_storage_tables() -> None:
     assert 'create table if not exists "digital_assets"' in ddl
     assert '"digital_asset_size_bytes" bigint null' in ddl
     assert 'create table if not exists "asset_replicas"' in ddl
+    assert (
+        'references "stores" ("store_id") on delete restrict on update cascade'
+        in ddl_lower
+    )
     assert 'create table if not exists "column_metadata"' in ddl_lower
     assert (
         "values ('works', 'work_title', 0, 'title', "

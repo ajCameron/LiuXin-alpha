@@ -439,33 +439,38 @@ Asset receives its first Replica, the selected Store defaults are captured on
 the Asset record. Adding later Replicas does not change its effective policy,
 so resolution cannot depend on Replica creation or iteration order.
 
-The executable reference implementation is
-`LiuXin_alpha.storage.storage_manager.InMemoryStorageManager`. It implements
-the complete manager facade and routes bytes to injected `StoreAPI` instances,
-while deliberately retaining asset, Replica, policy, Composite, provenance,
-Item-link, ingest-idempotency, and reconciliation state only in memory. It is
-therefore suitable for contract tests, prototypes, and review of orchestration
-semantics—not as a durable production catalogue. A production implementation
-can replace those in-process repositories without changing the public manager
-contract. Store construction is injected as a factory; already-created Stores
-can be registered explicitly with `attach_store()`.
+The application implementation is `LiuXin_alpha.storage.store_manager.StorageManager`.
+Its manager state is database-authoritative and exposed to the orchestration
+core through repository views. When Core owns a LiuXin `Cache`, the same cache
+serves eligible storage reads and receives explicit invalidation after storage
+writes; uncached helper/workflow tables remain direct repository reads. The
+manager does not retain a second private catalogue snapshot.
+
+`TransientStorageManager` implements the complete facade for focused contract
+tests and deliberately disposable one-shot work. The former
+`InMemoryStorageManager` spelling is a compatibility alias. The production
+manager does not inherit from it. See `storage_component_status.md` for the
+runtime composition and remaining production checklist.
 
 ### Starting a manager
 
 Application code normally uses `StorageManager`, which supplies the standard
-Store factory on top of the reference orchestration implementation. The
-smallest useful startup constructs a Store directly and lets the manager own
-its runtime lifetime:
+Store factory on top of the repository-neutral orchestration implementation. The
+smallest production-shaped startup opens the database-backed manager and lets
+it own each Store's runtime lifetime:
 
 ```python
-from pathlib import Path
+from LiuXin_alpha.databases.database import Database
 
-from LiuXin_alpha.storage.store_manager import StorageManager
-from LiuXin_alpha.storage.stores import FilesystemStore
-
-primary = FilesystemStore(Path("/srv/liuxin/primary"), name="primary")
-
-with StorageManager(stores=[primary]) as manager:
+with Database(
+    metadata={"database_path": "/srv/liuxin/catalog.sqlite"},
+    create=False,
+    storage_startup_on_add=True,
+) as database:
+    manager = database.storage
+    assert manager is not None
+    if not tuple(manager.iter_store_configurations()):
+        manager.add_filesystem_store("primary", "/srv/liuxin/primary")
     asset = manager.store_bytes(
         b"book bytes",
         original_name="book.epub",
@@ -481,6 +486,7 @@ database bootstrap:
 ```python
 from uuid import uuid4
 
+from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.storage import api
 from LiuXin_alpha.storage.store_manager import StorageManager
 
@@ -491,7 +497,11 @@ configuration = api.StoreConfiguration(
     store_root_uri="file:///srv/liuxin/primary",
 )
 
-with StorageManager() as manager:
+with Database(
+    metadata={"database_path": "/srv/liuxin/catalog.sqlite"},
+    create=False,
+    enable_storage_manager=False,
+) as database, StorageManager(db=database) as manager:
     manager.create_store(configuration)
     asset = manager.store_file("/incoming/book.epub")
 ```
@@ -516,18 +526,17 @@ authoritative. It constructs and starts replacements before swapping them in,
 adds newly discovered Stores, and unloads Stores whose rows were removed or
 marked offline/retired. If a replacement cannot be constructed or started,
 the previous live facade remains in service and the failure is included in the
-report. A removed Store configuration that is still referenced by an in-memory
+report. A removed Store configuration that is still referenced by a catalogued
 Replica is retained as an unavailable identity until that claim is retired.
 
 Pass `replace_existing=False` for an additive refresh: new and currently
 unavailable configurations are loaded, while existing live Stores are not
 rebuilt and removed rows are not unloaded.
 
-These manager implementations persist bytes in their Stores but retain the
-Asset, Replica, Composite, Item-link, and derivation catalogue in memory. A
-process restart therefore needs a durable manager implementation of the
-persistence SPI; merely reconstructing the same filesystem Store does not
-reconstruct those records.
+The application manager persists both Store configuration and manager-owned
+domain records. Reconstructing a filesystem Store alone is intentionally not a
+catalogue recovery mechanism; reopening the LiuXin database restores those
+records and runs pending-ingest recovery.
 
 Runnable forms of the first example and a larger two-Store workflow live in
 `examples/storage/storage_manager_manual_roundtrip_example.py` and
@@ -766,10 +775,11 @@ reexports those same protocols for compatibility.
 
 A durable Replica repository must round-trip the complete
 `ReplicaDeclaration`/`ReplicaRecord`, including its placement-hint snapshot.
-The reference `InMemoryStorageManager` does so in memory. The existing legacy
-FRBR storage tables are not presented as the persistence implementation of
-this new SPI; an adapter and its schema must preserve the same fields before
-it can claim that contract.
+`DatabaseStorageMetadataRepository` persists the complete domain values in
+versioned envelopes while retaining useful scalar columns for ordinary schema
+queries. Its repository views may read through Core's cache but always write
+to the database first. The internal mapping-shaped orchestration seam remains
+a compatibility step toward using these SPI/unit-of-work protocols directly.
 
 ### Cross-boundary recovery
 

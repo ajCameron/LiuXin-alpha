@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import urllib.request
 
 from typing import Optional
@@ -52,6 +53,14 @@ class WgetHtmlReadOnlyStorageBackend(HttpReadOnlyStore, WgetHtmlDiscoverySource)
             timeout_s=options.timeout_s,
             headers={"User-Agent": options.user_agent} if options.user_agent else None,
             max_requests_per_hour=options.max_http_requests_per_hour,
+        )
+        self._configuration = dataclasses.replace(
+            self._configuration,
+            backend_options=tuple(
+                (field.name, getattr(options, field.name))
+                for field in dataclasses.fields(options)
+                if field.name != "env"
+            ),
         )
 
     @staticmethod

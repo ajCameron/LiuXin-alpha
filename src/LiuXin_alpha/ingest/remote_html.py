@@ -132,6 +132,8 @@ def ensure_wget_html_readonly_store(
     respect_robots: bool = True,
     user_agent: str | None = None,
     no_verbose: bool = True,
+    max_observed_urls: int = 100_000,
+    max_output_chars: int = 8 * 1024 * 1024,
 ) -> tuple[Row, WgetHtmlReadOnlyStorageBackend]:
     """Create or reuse a `stores` row and wget-backed read-only store for a remote URL."""
     root = _normalize_remote_root(remote_url)
@@ -162,6 +164,8 @@ def ensure_wget_html_readonly_store(
         respect_robots=bool(respect_robots),
         user_agent=user_agent,
         no_verbose=bool(no_verbose),
+        max_observed_urls=max_observed_urls,
+        max_output_chars=max_output_chars,
     )
     backend = WgetHtmlReadOnlyStorageBackend(
         url=root,
@@ -184,6 +188,8 @@ def ensure_wget_html_readonly_store(
                 "respect_robots": bool(options.respect_robots),
                 "user_agent": options.user_agent,
                 "no_verbose": bool(options.no_verbose),
+                "max_observed_urls": options.max_observed_urls,
+                "max_output_chars": options.max_output_chars,
             },
         },
         sort_keys=True,
@@ -216,6 +222,8 @@ def ensure_native_html_readonly_store(
     respect_robots: bool = True,
     user_agent: str | None = None,
     max_html_bytes: int = 2_000_000,
+    max_pages: int = 10_000,
+    max_observed_urls: int = 100_000,
 ) -> tuple[Row, NativeHtmlReadOnlyStorageBackend]:
     """Create or reuse a `stores` row and native-HTTP read-only store for a remote URL."""
     root = _normalize_remote_root(remote_url)
@@ -244,6 +252,8 @@ def ensure_native_html_readonly_store(
         respect_robots=bool(respect_robots),
         user_agent=user_agent,
         max_html_bytes=max(1024, int(max_html_bytes)),
+        max_pages=max_pages,
+        max_observed_urls=max_observed_urls,
     )
     backend = NativeHtmlReadOnlyStorageBackend(
         url=root,
@@ -264,6 +274,8 @@ def ensure_native_html_readonly_store(
                 "respect_robots": bool(options.respect_robots),
                 "user_agent": options.user_agent,
                 "max_html_bytes": int(options.max_html_bytes),
+                "max_pages": options.max_pages,
+                "max_observed_urls": options.max_observed_urls,
             },
         },
         sort_keys=True,
@@ -298,6 +310,8 @@ def register_wget_html_readonly_store_files(
     respect_robots: bool = True,
     user_agent: str | None = None,
     no_verbose: bool = True,
+    max_observed_urls: int = 100_000,
+    max_output_chars: int = 8 * 1024 * 1024,
     ebook_extensions: Optional[Iterable[str]] = None,
     source_label: str = "wget_html_import",
     attach_store_links: bool = True,
@@ -322,6 +336,8 @@ def register_wget_html_readonly_store_files(
         respect_robots=respect_robots,
         user_agent=user_agent,
         no_verbose=no_verbose,
+        max_observed_urls=max_observed_urls,
+        max_output_chars=max_output_chars,
     )
     return ingest_html_discovery_store_files(
         db,
@@ -354,6 +370,8 @@ def register_native_html_readonly_store_files(
     respect_robots: bool = True,
     user_agent: str | None = None,
     max_html_bytes: int = 2_000_000,
+    max_pages: int = 10_000,
+    max_observed_urls: int = 100_000,
     ebook_extensions: Optional[Iterable[str]] = None,
     source_label: str = "native_html_import",
     attach_store_links: bool = True,
@@ -376,6 +394,8 @@ def register_native_html_readonly_store_files(
         respect_robots=respect_robots,
         user_agent=user_agent,
         max_html_bytes=max_html_bytes,
+        max_pages=max_pages,
+        max_observed_urls=max_observed_urls,
     )
     return ingest_html_discovery_store_files(
         db,
@@ -411,6 +431,8 @@ def register_wget_html_readonly_with_database_path(
     respect_robots: bool = True,
     user_agent: str | None = None,
     no_verbose: bool = True,
+    max_observed_urls: int = 100_000,
+    max_output_chars: int = 8 * 1024 * 1024,
     ebook_extensions: Optional[Iterable[str]] = None,
     source_label: str = "wget_html_import",
     attach_store_links: bool = True,
@@ -439,6 +461,8 @@ def register_wget_html_readonly_with_database_path(
             respect_robots=respect_robots,
             user_agent=user_agent,
             no_verbose=no_verbose,
+            max_observed_urls=max_observed_urls,
+            max_output_chars=max_output_chars,
             ebook_extensions=ebook_extensions,
             source_label=source_label,
             attach_store_links=attach_store_links,
@@ -464,6 +488,8 @@ def register_native_html_readonly_with_database_path(
     respect_robots: bool = True,
     user_agent: str | None = None,
     max_html_bytes: int = 2_000_000,
+    max_pages: int = 10_000,
+    max_observed_urls: int = 100_000,
     ebook_extensions: Optional[Iterable[str]] = None,
     source_label: str = "native_html_import",
     attach_store_links: bool = True,
@@ -490,6 +516,8 @@ def register_native_html_readonly_with_database_path(
             respect_robots=respect_robots,
             user_agent=user_agent,
             max_html_bytes=max_html_bytes,
+            max_pages=max_pages,
+            max_observed_urls=max_observed_urls,
             ebook_extensions=ebook_extensions,
             source_label=source_label,
             attach_store_links=attach_store_links,

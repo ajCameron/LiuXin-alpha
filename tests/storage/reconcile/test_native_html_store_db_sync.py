@@ -59,6 +59,8 @@ def test_register_native_html_store_files_inserts_rows_and_tracks_policy(db, mon
         remote_url="https://example.com/library/",
         store_name="native_web_mirror",
         max_http_requests_per_hour=60.0,
+        max_pages=7,
+        max_observed_urls=13,
         refresh_storage_manager=False,
     )
 
@@ -84,6 +86,8 @@ def test_register_native_html_store_files_inserts_rows_and_tracks_policy(db, mon
     policy = json.loads(str(policy_raw))
     assert policy["backend"] == "native_html_readonly"
     assert policy["native_html"]["max_http_requests_per_hour"] == 60.0
+    assert policy["native_html"]["max_pages"] == 7
+    assert policy["native_html"]["max_observed_urls"] == 13
     assert int(store_row["store_supports_checksums"] or 0) == 0
 
 

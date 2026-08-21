@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 
 from pathlib import Path
 from typing import Any, cast
@@ -13,6 +14,7 @@ import pytest
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.databases.runtime import bootstrap_storage_manager
+from LiuXin_alpha.caches import CacheLookupStatus, create_cache
 from LiuXin_alpha.storage.api import (
     NoReadableReplica,
     StorageBootstrapIssue,
@@ -188,6 +190,261 @@ def test_database_startup_loads_rows_and_reload_tracks_database_changes(
         assert database.storage.get_default_store_ref() == archive_ref
         assert_integrity(database)
         database.storage.close()
+
+
+def test_database_bound_manager_metadata_and_operation_ids_survive_restart(
+    driver_spec,
+    tmp_path: Path,
+    assert_integrity,
+) -> None:
+    """The live dictionaries are caches; the reopened DB is authoritative."""
+
+    from LiuXin_alpha.storage.api import (
+        BackupPolicy,
+        CompositeDigitalAssetDeclaration,
+        CompositeDigitalAssetMembership,
+        DigitalAssetLossAction,
+        DigitalAssetDerivationDeclaration,
+        DigitalAssetDerivationKind,
+        DigitalAssetDerivationSourceReference,
+        ReplicationPolicy,
+    )
+
+    database_path = tmp_path / "durable-storage-manager.sqlite"
+    store_ref = uuid4()
+    operation_id = uuid4()
+    interrupted_operation_id = uuid4()
+    payload = "durable bytes — 😀".encode()
+    interrupted_payload = b"published before metadata commit"
+    root = tmp_path / "durable-store"
+
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        enable_storage_manager=False,
+    ) as setup_database:
+        _insert_filesystem_store(
+            setup_database,
+            store_ref=store_ref,
+            name="durable",
+            root=root,
+        )
+        item_row = Row.from_idless_row_dict(
+            setup_database,
+            row_dict={"item_type": "digital", "item_source": "storage-test"},
+            table="items",
+        )
+        item_id = int(item_row["item_id"])
+
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        storage_startup_on_add=True,
+    ) as database:
+        assert database.storage is not None
+        manager = database.storage
+        cache = create_cache(database, "schema_backed")
+        manager.bind_metadata_cache(cache)
+        assert manager.metadata_is_durable
+        assert manager.metadata_cache is cache
+        source = manager.store_bytes(b"source", original_name="source.epub")
+        result = manager.store_bytes(
+            payload,
+            original_name="tortured é ‮ name.epub",
+            attributes={"source": "résumé", "emoji": "📚"},
+            operation_id=operation_id,
+        )
+        replication = manager.create_replication_policy(
+            ReplicationPolicy(
+                name="restart replication",
+                min_copies=0,
+                target_copies=0,
+                synchronous_write_copies=0,
+                loss_action=DigitalAssetLossAction.ACCEPT_LOSS,
+            )
+        )
+        backup = manager.create_backup_policy(
+            BackupPolicy(
+                name="restart backup",
+                min_copies=0,
+                target_copies=0,
+            )
+        )
+        composite = manager.declare_composite_digital_asset(
+            CompositeDigitalAssetDeclaration(
+                (
+                    CompositeDigitalAssetMembership(
+                        source.digital_asset_id,
+                        0,
+                        role="source",
+                        logical_path="inputs/source.epub",
+                    ),
+                    CompositeDigitalAssetMembership(
+                        result.digital_asset_id,
+                        1,
+                        role="result",
+                        logical_path="outputs/result.epub",
+                    ),
+                ),
+                name="restart composite",
+                attributes=(("kind", "conversion-pair"),),
+            )
+        )
+        derivation = manager.record_digital_asset_derivation(
+            DigitalAssetDerivationDeclaration(
+                result.digital_asset_id,
+                (
+                    DigitalAssetDerivationSourceReference(
+                        0,
+                        digital_asset_id=source.digital_asset_id,
+                        role="primary",
+                    ),
+                ),
+                DigitalAssetDerivationKind.CONVERT,
+                operator="test converter",
+                notes="round trip all rich provenance",
+            )
+        )
+        manager.link_item_to_digital_asset(
+            item_id,
+            result.digital_asset_id,
+            role="custom_payload_role",
+        )
+        manager.link_item_to_composite_digital_asset(
+            item_id,
+            composite.composite_digital_asset_id,
+            role="source_archive",
+        )
+        replica_count = len(tuple(manager.iter_replica_records()))
+        operation_cache = manager._ingest_operations
+        original_commit = operation_cache._upsert
+
+        def _interrupt_metadata_commit(_operation) -> None:
+            raise RuntimeError("simulated process stop before operation commit")
+
+        operation_cache._upsert = _interrupt_metadata_commit
+        with pytest.raises(RuntimeError, match="simulated process stop"):
+            manager.store_bytes(
+                interrupted_payload,
+                original_name="interrupted.epub",
+                operation_id=interrupted_operation_id,
+            )
+        operation_cache._upsert = original_commit
+        assert_integrity(database)
+        manager.bind_metadata_cache(None)
+        cache.close()
+
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        storage_startup_on_add=True,
+    ) as reopened:
+        assert reopened.storage is not None
+        manager = reopened.storage
+        assert manager.metadata_is_durable
+        assert manager.read_asset(result.digital_asset_id) == payload
+        assert manager.get_digital_asset_record(result.digital_asset_id) == result
+        assert manager.get_replication_policy_record(
+            replication.replication_policy_id
+        ) == replication
+        assert manager.get_backup_policy_record(backup.backup_policy_id) == backup
+        assert manager.get_composite_digital_asset_record(
+            composite.composite_digital_asset_id
+        ) == composite
+        assert manager.get_digital_asset_derivation_record(
+            derivation.digital_asset_derivation_id
+        ) == derivation
+        atomic_link = manager.resolve_item_digital_asset(
+            item_id, role="custom_payload_role"
+        )
+        assert (
+            atomic_link.digital_asset_resolution.asset_record.digital_asset_id
+            == result.digital_asset_id
+        )
+        composite_link = manager.resolve_item_digital_asset(
+            item_id, role="source_archive"
+        )
+        assert (
+            composite_link.composite_digital_asset_record.composite_digital_asset_id
+            == composite.composite_digital_asset_id
+        )
+        recovered = manager.store_bytes(
+            interrupted_payload,
+            original_name="interrupted.epub",
+            operation_id=interrupted_operation_id,
+        )
+        assert manager.read_asset(recovered.digital_asset_id) == interrupted_payload
+        assert manager.ingest_recovery_issues == ()
+
+        retried = manager.store_bytes(
+            payload,
+            original_name="tortured é ‮ name.epub",
+            attributes={"source": "résumé", "emoji": "📚"},
+            operation_id=operation_id,
+        )
+        assert retried == result
+        assert len(tuple(manager.iter_replica_records())) == replica_count + 1
+        assert_integrity(reopened)
+
+
+def test_database_manager_shares_liuxin_cache_without_private_record_copies(
+    driver_spec,
+    tmp_path: Path,
+    assert_integrity,
+) -> None:
+    database_path = tmp_path / "shared-cache.sqlite"
+    store_ref = uuid4()
+    root = tmp_path / "shared-cache-store"
+
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        enable_storage_manager=False,
+    ) as setup_database:
+        _insert_filesystem_store(
+            setup_database,
+            store_ref=store_ref,
+            name="cache-shared",
+            root=root,
+        )
+
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        storage_startup_on_add=True,
+    ) as database:
+        assert database.storage is not None
+        manager = database.storage
+        cache = create_cache(database, "schema_backed")
+        manager.bind_metadata_cache(cache)
+
+        assert manager.metadata_cache is cache
+        assert not isinstance(manager._assets, dict)
+        assert not isinstance(manager._replicas, dict)
+
+        asset = manager.store_bytes(
+            b"shared cache bytes",
+            original_name="cache-shared.epub",
+        )
+
+        cached = cache.get("digital_assets", int(asset.digital_asset_id))
+        assert cached.status is CacheLookupStatus.HIT
+        assert manager.get_digital_asset_record(asset.digital_asset_id) == asset
+
+        manager.bind_metadata_cache(None)
+        cache.close()
+        assert manager.get_digital_asset_record(asset.digital_asset_id) == asset
+        assert_integrity(database)
 
 
 def test_database_bootstrap_constructs_and_uses_local_backend_matrix(
@@ -518,22 +775,28 @@ def test_database_reload_retains_claimed_store_identity_until_row_recovers(
             b"bytes with a durable replica claim"
         )
 
-        database.macros.delete_row("stores", store_id)
+        with pytest.raises(sqlite3.IntegrityError):
+            database.macros.delete_row("stores", store_id)
+
+        row = database.get_row_from_id("stores", store_id)
+        assert row is not None
+        row["store_online_status"] = "retired"
+        row.sync()
         removed = database.storage.reload_stores()
 
-        assert removed.discovered_configurations == 0
+        assert removed.discovered_configurations == 1
+        assert removed.skipped_configurations == 1
         assert database.storage.get_store_configuration(store_ref).store_uuid == store_ref
         with pytest.raises(StoreUnavailable):
             database.storage.get_store(store_ref)
         with pytest.raises(NoReadableReplica):
             database.storage.read_asset(asset)
 
-        _insert_filesystem_store(
-            database,
-            store_ref=store_ref,
-            name="claimed store restored",
-            root=store_root,
-        )
+        row = database.get_row_from_id("stores", store_id)
+        assert row is not None
+        row["store_name"] = "claimed store restored"
+        row["store_online_status"] = "online"
+        row.sync()
         restored = database.storage.reload_stores()
 
         assert restored.loaded_stores == 1

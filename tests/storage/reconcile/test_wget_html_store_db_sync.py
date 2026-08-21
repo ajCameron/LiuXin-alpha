@@ -42,6 +42,8 @@ def test_register_wget_html_store_files_inserts_rows_and_tracks_policy(db, monke
         remote_url="https://example.com/",
         store_name="wget_web_mirror",
         max_http_requests_per_hour=60.0,
+        max_observed_urls=17,
+        max_output_chars=4096,
         refresh_storage_manager=False,
     )
 
@@ -64,6 +66,8 @@ def test_register_wget_html_store_files_inserts_rows_and_tracks_policy(db, monke
     policy = json.loads(str(policy_raw))
     assert policy["backend"] == "wget_html_readonly"
     assert policy["wget"]["max_http_requests_per_hour"] == 60.0
+    assert policy["wget"]["max_observed_urls"] == 17
+    assert policy["wget"]["max_output_chars"] == 4096
     assert int(store_row["store_supports_checksums"] or 0) == 0
 
     assert captured_args
@@ -114,6 +118,8 @@ def test_wget_rate_limit_is_restored_when_storage_manager_bootstraps(db, monkeyp
         remote_url="https://example.com/",
         store_name="wget_web_mirror_bootstrap",
         max_http_requests_per_hour=30.0,
+        max_observed_urls=31,
+        max_output_chars=8192,
         refresh_storage_manager=True,
     )
 
@@ -122,6 +128,8 @@ def test_wget_rate_limit_is_restored_when_storage_manager_bootstraps(db, monkeyp
     assert len(rows) == 1
     store = db.storage.get_store(UUID(str(rows[0]["store_uuid"])))
     assert getattr(store.options, "max_http_requests_per_hour", None) == 30.0
+    assert store.options.max_observed_urls == 31
+    assert store.options.max_output_chars == 8192
 
 
 def test_register_wget_html_with_database_path_helper(provision_test_database, driver_spec, monkeypatch) -> None:

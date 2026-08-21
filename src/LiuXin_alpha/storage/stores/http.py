@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from LiuXin_alpha.storage.api import DriverBackedStoreAPI, StoreConfiguration
 from LiuXin_alpha.storage.drivers.http import (
+    DEFAULT_MAX_HTTP_INVENTORY_ENTRIES,
     HttpInventoryProvider,
     HttpObjectAddress,
     HttpRequestOpener,
@@ -32,6 +33,7 @@ class HttpReadOnlyStore(DriverBackedStoreAPI[HttpObjectAddress]):
         timeout_s: float | None = 30.0,
         headers: Mapping[str, str] | None = None,
         max_requests_per_hour: float | None = None,
+        max_inventory_entries: int | None = DEFAULT_MAX_HTTP_INVENTORY_ENTRIES,
     ) -> None:
         store_uuid = uuid4() if uuid is None else (
             uuid if isinstance(uuid, UUID) else UUID(uuid)
@@ -46,6 +48,11 @@ class HttpReadOnlyStore(DriverBackedStoreAPI[HttpObjectAddress]):
             store_access_protocol="https" if url.lower().startswith("https:") else "http",
             read_only=True,
             supports_folders=True,
+            backend_options=(
+                ("timeout_s", timeout_s),
+                ("max_requests_per_hour", max_requests_per_hour),
+                ("max_inventory_entries", max_inventory_entries),
+            ),
         )
         self.__driver = HttpStorageDriver(
             url,
@@ -56,6 +63,7 @@ class HttpReadOnlyStore(DriverBackedStoreAPI[HttpObjectAddress]):
             timeout_s=timeout_s,
             headers=headers,
             max_requests_per_hour=max_requests_per_hour,
+            max_inventory_entries=max_inventory_entries,
         )
 
     @property

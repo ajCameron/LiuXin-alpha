@@ -29,6 +29,10 @@ from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 from .rclone_utils import run_rclone, run_rclone_json, which_rclone
 
 
+_monotonic = time.monotonic
+_sleep = time.sleep
+
+
 RCLONE_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT = 1200.0
 RCLONE_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY = (
     "rclone_http_max_requests_per_hour_default"
@@ -134,6 +138,8 @@ class RcloneBackendOptions:
     apply_rclone_tpslimit: bool = True
     rclone_tpslimit_burst: int = 1
     enforce_global_rate_limit: bool = True
+    max_inventory_entries: int = 100_000
+    max_json_token_chars: int = 8 * 1024 * 1024
 
     def __post_init__(self) -> None:
         if self.max_http_requests_per_hour is None:
@@ -142,6 +148,10 @@ class RcloneBackendOptions:
             )
         if self.rclone_tpslimit_burst < 1:
             raise ValueError("rclone_tpslimit_burst must be at least one.")
+        if self.max_inventory_entries < 1:
+            raise ValueError("max_inventory_entries must be positive.")
+        if self.max_json_token_chars < 1:
+            raise ValueError("max_json_token_chars must be positive.")
 
 
 def _durable_rclone_options(
@@ -196,6 +206,8 @@ class RcloneHttpReadOnlyStorageBackend(
             ),
             process_spawner=self.spawn_rclone_process,
             probe=self._probe_rclone,
+            max_inventory_entries=self.options.max_inventory_entries,
+            max_json_token_chars=self.options.max_json_token_chars,
         )
         self._configuration = configuration or StoreConfiguration(
             store_uuid=store_uuid,
@@ -288,14 +300,14 @@ class RcloneHttpReadOnlyStorageBackend(
         interval = 3600.0 / rate
         sleep_for = 0.0
         with self._rate_limit_lock:
-            now = time.monotonic()
+            now = _monotonic()
             if now < self._next_allowed_request_monotonic:
                 sleep_for = self._next_allowed_request_monotonic - now
                 self._next_allowed_request_monotonic += interval
             else:
                 self._next_allowed_request_monotonic = now + interval
         if sleep_for:
-            time.sleep(sleep_for)
+            _sleep(sleep_for)
 
     def run_rclone(
         self,

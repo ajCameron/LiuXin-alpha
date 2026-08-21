@@ -218,6 +218,94 @@ def test_remote_ingest_failure_publishes_no_asset_replica_or_destination_bytes(
     assert tuple(destination.iter_locations()) == ()
 
 
+def test_remote_ingest_reports_bounded_redacted_diagnostics_without_publication(
+    tmp_path,
+) -> None:
+    root = "https://example.test/library/"
+    object_url = root + "book.epub"
+
+    def _open(request, timeout):
+        del timeout
+        if request.method == "HEAD":
+            return _RemoteResponse(
+                request.full_url,
+                b"",
+                headers={"Content-Length": "4"},
+            )
+        raise RuntimeError("token=supersecret " + ("attacker-noise " * 200))
+
+    source = HttpReadOnlyStore(
+        root,
+        inventory_provider=lambda: (object_url,),
+        request_opener=_open,
+        max_requests_per_hour=0,
+    )
+    destination = FilesystemStore(tmp_path / "hostile-diagnostics-destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+
+    report = ingest_store(manager, source)
+
+    assert not report.ok and report.ingested_files == 0
+    [failure] = report.failures
+    assert failure.error_type == "StorageError"
+    assert "HTTP GET failed" in failure.message
+    assert "supersecret" not in failure.message
+    assert "<redacted>" in failure.message
+    assert len(failure.message) < 700
+    assert tuple(manager.iter_digital_asset_records()) == ()
+    assert tuple(manager.iter_replica_records()) == ()
+    assert tuple(destination.iter_locations()) == ()
+
+
+def test_remote_close_failure_after_eof_does_not_turn_committed_ingest_into_failure(
+    tmp_path,
+) -> None:
+    root = "https://example.test/library/"
+    object_url = root + "book.epub"
+
+    class _CloseBombResponse(_RemoteResponse):
+        def close(self) -> None:
+            super().close()
+            raise RuntimeError("attacker-controlled close failure")
+
+    def _open(request, timeout):
+        del timeout
+        if request.method == "HEAD":
+            return _RemoteResponse(
+                request.full_url,
+                b"",
+                headers={"Content-Length": "4"},
+            )
+        return _CloseBombResponse(
+            request.full_url,
+            b"book",
+            headers={"Content-Length": "4"},
+        )
+
+    source = HttpReadOnlyStore(
+        root,
+        inventory_provider=lambda: (object_url,),
+        request_opener=_open,
+        max_requests_per_hour=0,
+    )
+    destination = FilesystemStore(tmp_path / "hostile-close-destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+
+    report = ingest_store(manager, source)
+
+    assert report.ok and report.ingested_files == 1
+    [item] = report.items
+    assert manager.read_file(item.result.asset_record) == b"book"
+    assert len(tuple(manager.iter_digital_asset_records())) == 1
+    assert len(tuple(manager.iter_replica_records())) == 1
+
+
 def test_interrupted_version_pinned_http_ingest_resumes_from_checkpoint(
     tmp_path,
 ) -> None:

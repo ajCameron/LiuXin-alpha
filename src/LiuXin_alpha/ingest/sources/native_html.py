@@ -54,12 +54,20 @@ class NativeHtmlBackendOptions:
     respect_robots: bool = True
     user_agent: str | None = None
     max_html_bytes: int = 2_000_000
+    max_pages: int = 10_000
+    max_observed_urls: int = 100_000
 
     def __post_init__(self) -> None:
         if self.max_http_requests_per_hour is None:
             self.max_http_requests_per_hour = get_default_crawler_http_requests_per_hour(
                 LEGACY_NATIVE_HTML_MAX_REQUESTS_PER_HOUR_PREF_KEY
             )
+        if self.max_html_bytes < 1:
+            raise ValueError("max_html_bytes must be positive.")
+        if self.max_pages < 1:
+            raise ValueError("max_pages must be positive.")
+        if self.max_observed_urls < 1:
+            raise ValueError("max_observed_urls must be positive.")
 
 
 @dataclass(frozen=True)
@@ -263,6 +271,7 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
         queued = {root}
         crawled: set[str] = set()
         observed: set[str] = set()
+        observed_link_count = 0
         filtered: list[str] = []
 
         while pending:
@@ -270,6 +279,10 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
             normalized_current = normalize_http_url(current_url)
             if normalized_current is None or normalized_current in crawled:
                 continue
+            if len(crawled) >= self.options.max_pages:
+                raise RuntimeError(
+                    "native HTML crawl exceeded its configured page limit"
+                )
             crawled.add(normalized_current)
             if not self._is_within_root_scope(normalized_current):
                 continue
@@ -331,6 +344,11 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
                 can_descend = False
 
             for raw_link in parser.links:
+                observed_link_count += 1
+                if observed_link_count > self.options.max_observed_urls:
+                    raise RuntimeError(
+                        "native HTML crawl exceeded its configured observed-URL limit"
+                    )
                 normalized = normalize_http_url(raw_link)
                 if normalized is None or normalized in observed:
                     continue

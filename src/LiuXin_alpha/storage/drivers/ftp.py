@@ -59,12 +59,18 @@ class FtpDriverOptions:
     client_factory: Callable[[], Any] | None = None
     spool_limit_bytes: int = 8 * 1024 * 1024
     max_inventory_depth: int = 256
+    max_directory_entries: int = 100_000
+    max_inventory_entries: int = 100_000
 
     def __post_init__(self) -> None:
         if self.spool_limit_bytes < 0:
             raise ValueError("spool_limit_bytes must not be negative.")
         if self.max_inventory_depth < 1:
             raise ValueError("max_inventory_depth must be at least one.")
+        if self.max_directory_entries < 1:
+            raise ValueError("max_directory_entries must be at least one.")
+        if self.max_inventory_entries < 1:
+            raise ValueError("max_inventory_entries must be at least one.")
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -431,7 +437,18 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
             operation="inventory",
             missing_as_not_found=True,
         ) as client:
+            observed = 0
             for path, facts in self._walk_entries(client):
+                observed += 1
+                if observed > self.options.max_inventory_entries:
+                    raise StorageUnavailable(
+                        driver_failure_message(
+                            "FTP",
+                            "inventory",
+                            target=self._root_uri,
+                            reason="the configured inventory entry limit was exceeded",
+                        )
+                    )
                 if facts.get("type") == "dir":
                     continue
                 if prefix_key is not None and not path.startswith(prefix_key):
@@ -567,7 +584,13 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         try:
             entries: list[tuple[str, dict[str, str]]] = []
             seen_names: set[str] = set()
+            observed = 0
             for raw_name, facts in client.mlsd(target):
+                observed += 1
+                if observed > self.options.max_directory_entries:
+                    raise StorageUnavailable(
+                        "FTP inventory exceeded its configured per-directory entry limit."
+                    )
                 name = _validated_ftp_listing_name(raw_name)
                 if name is None:
                     continue
@@ -587,10 +610,15 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
                 )
             return entries
         except (AttributeError, NotImplementedError, ftplib.error_perm):
-            names = list(client.nlst(target))
             entries: list[tuple[str, dict[str, str]]] = []
             seen_names: set[str] = set()
-            for raw_name in names:
+            observed = 0
+            for raw_name in client.nlst(target):
+                observed += 1
+                if observed > self.options.max_directory_entries:
+                    raise StorageUnavailable(
+                        "FTP inventory exceeded its configured per-directory entry limit."
+                    )
                 candidate_name = str(raw_name).rstrip("/").rsplit("/", 1)[-1]
                 name = _validated_ftp_listing_name(candidate_name)
                 if name is None:

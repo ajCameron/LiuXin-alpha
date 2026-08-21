@@ -7,6 +7,7 @@ import argparse
 import sys
 import zipfile
 
+from contextlib import redirect_stdout
 from pathlib import Path
 
 EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +21,8 @@ from _example_utils import (  # pyright: ignore[reportImplicitRelativeImport]
 
 _ = bootstrap_src_path()
 
+from LiuXin_alpha.databases.database import Database
+from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.storage import api
 from LiuXin_alpha.storage.store_manager import StorageManager
 
@@ -56,10 +59,31 @@ def run(work_dir: Path) -> dict[str, object]:
     cover_bytes = b"example cover payload\n"
     book_path.write_bytes(book_bytes)
 
-    # StorageManager supplies the standard backend factory. Supplying durable
-    # configuration details exercises the same construction path used by
-    # database bootstrap, while the manager catalogue itself remains in memory.
-    with StorageManager() as manager:
+    catalogue_path = root / "storage-catalog.sqlite"
+
+    # A normal application manager is database-backed: Store configuration,
+    # Assets, Replicas, provenance, Item links, policies, and ingest operation
+    # IDs all survive a restart. TransientStorageManager remains available for
+    # focused tests and deliberately disposable work.
+    # Legacy schema construction still emits progress messages on stdout;
+    # keep this JSON-producing example's stdout machine-readable.
+    with redirect_stdout(sys.stderr):
+        database = Database(
+            metadata={"database_path": str(catalogue_path)},
+            create=True,
+            backup=False,
+            enable_storage_manager=False,
+        )
+    with database, StorageManager(db=database) as manager:
+        item_row = Row.from_idless_row_dict(
+            database,
+            row_dict={
+                "item_type": "digital",
+                "item_source": "storage-manager-workflows-example",
+            },
+            table="items",
+        )
+        item_id = api.ItemID(int(item_row["item_id"]))
         primary = manager.add_filesystem_store(
             "primary",
             root / "primary-store",
@@ -75,7 +99,7 @@ def run(work_dir: Path) -> dict[str, object]:
         # verification result. Use store_file() when only the Asset is needed.
         ingest = manager.ingest_file(
             book_path,
-            item_id=api.ItemID(42),
+            item_id=item_id,
             role="primary_payload",
             metadata=api.DigitalAssetMetadata(
                 name="The Left Hand of Darkness",
@@ -127,7 +151,7 @@ def run(work_dir: Path) -> dict[str, object]:
                 "images/cover.jpg": cover_bytes,
             },
             name="book package",
-            item=api.ItemID(42),
+            item=item_id,
             role="package",
             verify=True,
         )
@@ -140,13 +164,15 @@ def run(work_dir: Path) -> dict[str, object]:
                 zip_members = tuple(archive_file.namelist())
 
         item_resolution = manager.resolve_item_digital_asset(
-            api.ItemID(42),
+            item_id,
             role="package",
             require_verified=True,
         )
 
         return {
             "work_dir": str(root),
+            "catalogue": str(catalogue_path),
+            "metadata_is_durable": manager.metadata_is_durable,
             "stores": sorted(
                 configuration.store_name
                 for configuration in manager.iter_store_configurations()

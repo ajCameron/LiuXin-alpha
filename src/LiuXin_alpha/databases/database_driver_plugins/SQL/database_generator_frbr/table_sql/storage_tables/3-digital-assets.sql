@@ -196,7 +196,7 @@ CREATE TABLE IF NOT EXISTS `asset_replicas` (
   CONSTRAINT `asset_replica_store_fk`
     FOREIGN KEY (`asset_replica_store_id`)
     REFERENCES `stores` (`store_id`)
-    ON DELETE CASCADE
+    ON DELETE RESTRICT
     ON UPDATE CASCADE,
 
   CONSTRAINT `asset_replica_folder_fk`
@@ -206,7 +206,7 @@ CREATE TABLE IF NOT EXISTS `asset_replicas` (
     ON UPDATE CASCADE,
 
   CONSTRAINT `asset_replica_mode_check`
-    CHECK (`asset_replica_mode` IN ('active', 'backup', 'archive'))
+    CHECK (`asset_replica_mode` IN ('active', 'backup', 'archive', 'cache', 'transient', 'unmanaged'))
 );
 
 -- BREAK

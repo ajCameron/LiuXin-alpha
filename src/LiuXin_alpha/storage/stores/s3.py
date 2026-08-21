@@ -21,6 +21,10 @@ from LiuXin_alpha.storage.api import (
     StorageUnavailable,
 )
 from LiuXin_alpha.storage.drivers.s3 import (
+    DEFAULT_MAX_S3_INVENTORY_ENTRIES,
+    DEFAULT_MAX_S3_INVENTORY_CURSOR_CHARS,
+    DEFAULT_MAX_S3_INVENTORY_PAGE_ENTRIES,
+    DEFAULT_MAX_S3_INVENTORY_PAGES,
     DEFAULT_MULTIPART_PART_SIZE,
     DEFAULT_MULTIPART_THRESHOLD,
     S3ClientAPI,
@@ -39,6 +43,10 @@ class S3BackendOptions:
     multipart_threshold: int = DEFAULT_MULTIPART_THRESHOLD
     multipart_part_size: int = DEFAULT_MULTIPART_PART_SIZE
     local_staging_directory: str | None = None
+    max_inventory_pages: int = DEFAULT_MAX_S3_INVENTORY_PAGES
+    max_inventory_entries: int = DEFAULT_MAX_S3_INVENTORY_ENTRIES
+    max_inventory_page_entries: int = DEFAULT_MAX_S3_INVENTORY_PAGE_ENTRIES
+    max_inventory_cursor_chars: int = DEFAULT_MAX_S3_INVENTORY_CURSOR_CHARS
 
 
 class S3Store(DriverBackedStoreAPI[S3ObjectAddress]):
@@ -94,6 +102,10 @@ class S3Store(DriverBackedStoreAPI[S3ObjectAddress]):
             multipart_part_size=selected_options.multipart_part_size,
             local_staging_directory=selected_options.local_staging_directory,
             close_client=owns_client,
+            max_inventory_pages=selected_options.max_inventory_pages,
+            max_inventory_entries=selected_options.max_inventory_entries,
+            max_inventory_page_entries=selected_options.max_inventory_page_entries,
+            max_inventory_cursor_chars=selected_options.max_inventory_cursor_chars,
         )
 
     @property

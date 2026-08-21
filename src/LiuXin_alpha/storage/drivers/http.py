@@ -51,6 +51,7 @@ from LiuXin_alpha.storage.api import (
 )
 from LiuXin_alpha.storage.drivers._errors import driver_failure_message
 from LiuXin_alpha.storage.drivers._validation import (
+    best_effort_close,
     reject_malformed_percent_escapes,
     reject_malformed_unicode,
 )
@@ -77,6 +78,9 @@ class HttpResponseAPI(Protocol):
 HttpRequestOpener = Callable[[urllib.request.Request, float | None], HttpResponseAPI]
 HttpInventoryProvider = Callable[[], Iterable[str]]
 HttpProbe = Callable[[], None]
+
+
+DEFAULT_MAX_HTTP_INVENTORY_ENTRIES = 100_000
 
 
 class _HttpResponseReader(io.RawIOBase):
@@ -127,6 +131,15 @@ class _HttpResponseReader(io.RawIOBase):
                     ),
                 )
             ) from error
+        except Exception as error:
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "HTTP",
+                    "stream read",
+                    target=self._target,
+                    reason=str(error) or type(error).__name__,
+                )
+            ) from error
         if not isinstance(data, bytes):
             raise StorageUnavailable(
                 driver_failure_message(
@@ -166,7 +179,7 @@ class _HttpResponseReader(io.RawIOBase):
 
     def close(self) -> None:
         try:
-            self._response.close()
+            best_effort_close(self._response)
         finally:
             super().close()
 
@@ -190,7 +203,10 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         timeout_s: float | None = 30.0,
         headers: Mapping[str, str] | None = None,
         max_requests_per_hour: float | None = None,
+        max_inventory_entries: int | None = DEFAULT_MAX_HTTP_INVENTORY_ENTRIES,
     ) -> None:
+        if max_inventory_entries is not None and max_inventory_entries < 1:
+            raise ValueError("max_inventory_entries must be positive or None.")
         self._root_url = _canonical_root_url(root_url)
         self._root_parts = urlsplit(self._root_url)
         self._checker = ScopedDriverObjectAddressChecker(
@@ -203,6 +219,7 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         self._timeout_s = timeout_s
         self._headers = dict(headers or {})
         self._requests_per_hour = _positive_rate(max_requests_per_hour)
+        self._max_inventory_entries = max_inventory_entries
         self._rate_lock = threading.Lock()
         self._next_request_at = 0.0
         self._last_status = DriverStatus(
@@ -252,7 +269,7 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
                 self._probe_callback()
             else:
                 response = self._request(self._root_url, method="HEAD")
-                response.close()
+                best_effort_close(response)
         except (StorageUnavailable, StorageTimeout) as error:
             self._last_status = DriverStatus(
                 available=False,
@@ -347,7 +364,7 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
             )
         finally:
             if response is not None:
-                response.close()
+                best_effort_close(response)
 
     def open_read(
         self,
@@ -382,17 +399,17 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
                 length=length,
             )
         except BaseException:
-            response.close()
+            best_effort_close(response)
             raise
         if if_version is not None:
             response_version = _header(response.headers, "ETag")
             if response_version is None:
-                response.close()
+                best_effort_close(response)
                 raise StorageUnavailable(
                     "HTTP conditional read response omitted its ETag."
                 )
             if response_version != if_version:
-                response.close()
+                best_effort_close(response)
                 raise StoragePreconditionFailed(
                     f"version changed for {checked!s}."
                 )
@@ -418,8 +435,22 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
             None if prefix is None else str(self.check_object_address(prefix))
         )
         seen: set[HttpObjectAddress] = set()
+        observed = 0
         try:
             for uri in self._inventory_provider():
+                observed += 1
+                if (
+                    self._max_inventory_entries is not None
+                    and observed > self._max_inventory_entries
+                ):
+                    raise StorageUnavailable(
+                        driver_failure_message(
+                            "HTTP",
+                            "inventory",
+                            target=self._root_url,
+                            reason="the configured inventory entry limit was exceeded",
+                        )
+                    )
                 address = self.object_address_from_uri(str(uri))
                 if checked_prefix is not None and not str(address).startswith(
                     checked_prefix
@@ -652,7 +683,7 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
                     )
                 ) from error
         except BaseException:
-            response.close()
+            best_effort_close(response)
             raise
 
     def _acquire_rate_limit_slot(self) -> None:
@@ -1021,6 +1052,7 @@ def _positive_rate(value: float | None) -> float | None:
 
 
 __all__ = [
+    "DEFAULT_MAX_HTTP_INVENTORY_ENTRIES",
     "HttpInventoryProvider",
     "HttpObjectAddress",
     "HttpRequestOpener",

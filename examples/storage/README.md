@@ -20,7 +20,10 @@ SHA-256 digest, can enforce `--expected-sha256`, and writes locally only when
 `storage_manager_manual_roundtrip_example.py` is the shortest useful manager
 example. `storage_manager_workflows_example.py` expands that into portable
 Store configuration, rich placement hints, replication, verification,
-ID/digest lookup, and Composite export.
+ID/digest lookup, and Composite export. Both use a database-backed manager so
+their catalogues and ingest operation IDs survive a process restart. Use
+`TransientStorageManager` only when deliberately disposable state is useful,
+most commonly in focused tests.
 
 ## Existing storage
 

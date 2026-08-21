@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from contextlib import redirect_stdout
 from pathlib import Path
 
 EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +19,7 @@ from _example_utils import (  # pyright: ignore[reportImplicitRelativeImport]
 
 _ = bootstrap_src_path()
 
+from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.storage.store_manager import StorageManager
 from LiuXin_alpha.storage.stores import FilesystemStore
 
@@ -39,10 +41,25 @@ def main() -> int:
 
     store = FilesystemStore(store_root, name=args.store_name)
     source_bytes = args.payload.encode("utf-8")
+    catalogue_path = store_root.with_name(f"{store_root.name}-catalog.sqlite")
 
     # StorageManager owns the Asset/Replica catalogue. FilesystemStore owns
-    # the published bytes. The context manager closes every Store on exit.
-    with StorageManager(stores=[store], startup_on_add=True) as manager:
+    # the published bytes. Application metadata is database-backed by default;
+    # the nested context managers close Stores before closing the catalogue.
+    # Legacy schema construction still emits progress messages on stdout;
+    # keep this JSON-producing example's stdout machine-readable.
+    with redirect_stdout(sys.stderr):
+        database = Database(
+            metadata={"database_path": str(catalogue_path)},
+            create=True,
+            backup=False,
+            enable_storage_manager=False,
+        )
+    with database, StorageManager(
+        db=database,
+        stores=[store],
+        startup_on_add=True,
+    ) as manager:
         asset = manager.store_bytes(
             source_bytes,
             name="Manual Storage Demo",
@@ -72,6 +89,8 @@ def main() -> int:
 
         payload = {
             "store_root": str(store_root),
+            "catalogue": str(catalogue_path),
+            "metadata_is_durable": manager.metadata_is_durable,
             "store_name": args.store_name,
             "default_store_uuid": str(manager.get_default_store_ref()),
             "digital_asset_id": int(asset.digital_asset_id),

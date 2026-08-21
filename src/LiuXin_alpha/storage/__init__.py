@@ -37,6 +37,10 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
         "LiuXin_alpha.storage.storage_manager",
         "InMemoryStorageManager",
     ),
+    "TransientStorageManager": (
+        "LiuXin_alpha.storage.storage_manager",
+        "TransientStorageManager",
+    ),
     "StorageManager": ("LiuXin_alpha.storage.store_manager", "StorageManager"),
     "StoreManager": ("LiuXin_alpha.storage.store_manager", "StoreManager"),
     "StorageBootstrapIssue": (

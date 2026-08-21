@@ -34,6 +34,7 @@ HELPER_TABLES = frozenset(
         "digital_asset_workflow_events",
         "item_workflow",
         "item_workflow_events",
+        "storage_ingest_operations",
         "transform_runs",
         "transform_run_inputs",
         "transform_run_outputs",

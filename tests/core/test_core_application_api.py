@@ -819,6 +819,8 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
         cache_type="schema_backed",
         close_cache_on_shutdown=True,
     )
+    assert db.storage is not None
+    assert db.storage.metadata_cache is runtime.cache
     title = "Core API {}".format(uuid.uuid4())
     try:
         created = runtime.command(
@@ -1007,6 +1009,7 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
         )["record"] is None
     finally:
         runtime.shutdown()
+    assert db.storage.metadata_cache is None
 
 
 def test_catalog_conveniences_have_direct_and_rpc_parity(db) -> None:

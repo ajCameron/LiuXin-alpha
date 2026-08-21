@@ -310,3 +310,149 @@ def test_nonstreamed_wget_uses_surrogateescape_for_undecodable_output(
     assert captured["encoding"] == "utf-8"
     assert captured["errors"] == "surrogateescape"
     assert wget_utils.extract_http_urls_from_wget_output(result.stdout) == []
+
+
+def test_native_crawler_stops_page_and_observed_url_floods(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page_limited = NativeHtmlDiscoverySource(
+        "https://example.test/library/",
+        options=NativeHtmlBackendOptions(
+            max_http_requests_per_hour=0,
+            respect_robots=False,
+            max_pages=2,
+        ),
+    )
+
+    def _next_page(self, url):
+        index = 0 if url.endswith("/library/") else int(url.rsplit("-", 1)[1].split(".", 1)[0])
+        return _FetchResult(
+            url,
+            url,
+            200,
+            "text/html",
+            f'<a href="page-{index + 1}.html">next</a>'.encode(),
+            "utf-8",
+        )
+
+    monkeypatch.setattr(NativeHtmlDiscoverySource, "_fetch_url", _next_page)
+    with pytest.raises(RuntimeError, match="configured page limit"):
+        page_limited.discover_urls(force=True)
+
+    link_limited = NativeHtmlDiscoverySource(
+        "https://example.test/library/",
+        options=NativeHtmlBackendOptions(
+            max_http_requests_per_hour=0,
+            respect_robots=False,
+            max_observed_urls=2,
+        ),
+    )
+    monkeypatch.setattr(
+        NativeHtmlDiscoverySource,
+        "_fetch_url",
+        lambda self, url: _FetchResult(
+            url,
+            url,
+            200,
+            "text/html",
+            b"".join(
+                f'<a href="book-{index}.epub">book</a>'.encode()
+                for index in range(3)
+            ),
+            "utf-8",
+        ),
+    )
+    with pytest.raises(RuntimeError, match="observed-URL limit"):
+        link_limited.discover_urls(force=True)
+
+
+def test_wget_discovery_stops_observed_url_and_retained_output_floods(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = WgetHtmlDiscoverySource(
+        "https://example.test/library/",
+        options=WgetBackendOptions(
+            max_http_requests_per_hour=0,
+            max_observed_urls=2,
+            max_output_chars=1_000,
+        ),
+    )
+
+    def _url_flood(args, **kwargs):
+        del args
+        callback = kwargs["line_callback"]
+        for index in range(3):
+            callback(f"https://example.test/library/book-{index}.epub")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(source, "_run_wget", _url_flood)
+    with pytest.raises(RuntimeError, match="observed-URL limit"):
+        source.discover_urls(force=True)
+
+    output_limited = WgetHtmlDiscoverySource(
+        "https://example.test/library/",
+        options=WgetBackendOptions(
+            max_http_requests_per_hour=0,
+            max_output_chars=10,
+        ),
+    )
+    monkeypatch.setattr(
+        output_limited,
+        "_run_wget",
+        lambda args, **kwargs: SimpleNamespace(
+            returncode=0,
+            stdout="x" * 20,
+            stderr="",
+        ),
+    )
+    with pytest.raises(RuntimeError, match="configured size limit"):
+        output_limited.discover_urls(force=True)
+
+
+def test_streamed_wget_kills_output_flood_before_retaining_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FloodStdout:
+        closed = False
+        emitted = False
+
+        def readline(self, size=-1):
+            del size
+            if self.emitted:
+                return ""
+            self.emitted = True
+            return "x" * 20
+
+        def close(self):
+            self.closed = True
+
+    class _Process:
+        def __init__(self):
+            self.stdout = _FloodStdout()
+            self.returncode = None
+            self.killed = False
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self):
+            self.killed = True
+            self.returncode = -9
+
+        def wait(self, timeout=None):
+            del timeout
+            return int(self.returncode or 0)
+
+    process = _Process()
+    monkeypatch.setattr(wget_utils, "which_wget", lambda exe: "/fake/wget")
+    monkeypatch.setattr(wget_utils.subprocess, "Popen", lambda *args, **kwargs: process)
+
+    with pytest.raises(RuntimeError, match="configured size limit"):
+        wget_utils.run_wget(
+            ["--spider", "https://example.test/"],
+            line_callback=lambda line: None,
+            max_output_chars=10,
+        )
+
+    assert process.killed
+    assert process.stdout.closed

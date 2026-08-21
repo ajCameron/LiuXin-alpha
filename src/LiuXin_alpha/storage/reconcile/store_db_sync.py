@@ -235,6 +235,8 @@ def ensure_rclone_http_readonly_store(
     rclone_exe: str = "rclone",
     rclone_args: Optional[Sequence[str]] = None,
     timeout_s: float | None = 60.0,
+    max_inventory_entries: int = 100_000,
+    max_json_token_chars: int = 8 * 1024 * 1024,
 ) -> tuple[Row, RcloneHttpReadOnlyStorageBackend]:
     """
     Create/reuse a `stores` row and rclone-backed read-only store for a remote URL.
@@ -256,6 +258,8 @@ def ensure_rclone_http_readonly_store(
         apply_rclone_tpslimit=bool(apply_rclone_tpslimit),
         rclone_tpslimit_burst=max(1, int(rclone_tpslimit_burst)),
         enforce_global_rate_limit=bool(enforce_global_rate_limit),
+        max_inventory_entries=max_inventory_entries,
+        max_json_token_chars=max_json_token_chars,
     )
     backend = RcloneHttpReadOnlyStorageBackend(url=root, name=backend_name, options=options)
 
@@ -270,6 +274,8 @@ def ensure_rclone_http_readonly_store(
             "rclone_exe": options.rclone_exe,
             "rclone_args": list(options.rclone_args),
             "timeout_s": options.timeout_s,
+            "max_inventory_entries": options.max_inventory_entries,
+            "max_json_token_chars": options.max_json_token_chars,
         },
     }
     policy_json = json.dumps(policy_payload, sort_keys=True)
@@ -665,6 +671,8 @@ def register_rclone_http_readonly_store_files(
     rclone_exe: str = "rclone",
     rclone_args: Optional[Sequence[str]] = None,
     timeout_s: float | None = 60.0,
+    max_inventory_entries: int = 100_000,
+    max_json_token_chars: int = 8 * 1024 * 1024,
     ebook_extensions: Optional[Iterable[str]] = None,
     source_label: str = "rclone_http_import",
     capture_hashes: bool = False,
@@ -688,6 +696,8 @@ def register_rclone_http_readonly_store_files(
         rclone_exe=rclone_exe,
         rclone_args=rclone_args,
         timeout_s=timeout_s,
+        max_inventory_entries=max_inventory_entries,
+        max_json_token_chars=max_json_token_chars,
     )
 
     store_id = int(store_row.row_id if store_row.row_id is not None else store_row["store_id"])
@@ -867,6 +877,8 @@ def register_rclone_http_readonly_with_database_path(
     rclone_exe: str = "rclone",
     rclone_args: Optional[Sequence[str]] = None,
     timeout_s: float | None = 60.0,
+    max_inventory_entries: int = 100_000,
+    max_json_token_chars: int = 8 * 1024 * 1024,
     ebook_extensions: Optional[Iterable[str]] = None,
     source_label: str = "rclone_http_import",
     capture_hashes: bool = False,
@@ -893,6 +905,8 @@ def register_rclone_http_readonly_with_database_path(
             rclone_exe=rclone_exe,
             rclone_args=rclone_args,
             timeout_s=timeout_s,
+            max_inventory_entries=max_inventory_entries,
+            max_json_token_chars=max_json_token_chars,
             ebook_extensions=ebook_extensions,
             source_label=source_label,
             capture_hashes=capture_hashes,

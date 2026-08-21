@@ -338,10 +338,10 @@ def test_rclone_backend_global_rate_limit_spaces_commands(monkeypatch) -> None:
         return {}
 
     monkeypatch.setattr(backend_module, "run_rclone_json", _fake_run_rclone_json)
-    monkeypatch.setattr(backend_module.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(backend_module, "_monotonic", lambda: next(monotonic_values))
     monkeypatch.setattr(
-        backend_module.time,
-        "sleep",
+        backend_module,
+        "_sleep",
         lambda seconds: sleeps.append(float(seconds)),
     )
     store = RcloneHttpReadOnlyStorageBackend(
@@ -504,6 +504,143 @@ def test_rclone_prefix_inventory_and_read_only_enforcement(monkeypatch) -> None:
         store.store_bytes(b"x", location="alpha/new.epub")
     with pytest.raises(StoreReadOnly):
         store.delete_file("alpha/one.epub")
+
+
+def test_rclone_inventory_enforces_stream_token_and_entry_limits(monkeypatch) -> None:
+    oversized_process = SimpleNamespace(
+        stdout=io.BytesIO(b'[{"Path":"' + (b"x" * 128)),
+        stderr=io.BytesIO(),
+        wait=lambda timeout=None: 0,
+        poll=lambda: 0,
+        terminate=lambda: None,
+        kill=lambda: None,
+    )
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        lambda self, args: oversized_process,
+    )
+    token_limited = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(
+            max_http_requests_per_hour=0,
+            enforce_global_rate_limit=False,
+            max_json_token_chars=32,
+        ),
+    )
+    with pytest.raises(StorageUnavailable, match="JSON token size limit"):
+        list(token_limited.iter_locations())
+
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        lambda self, args: (_ for _ in ()).throw(RuntimeError("no process")),
+    )
+    monkeypatch.setattr(
+        backend_module,
+        "run_rclone_json",
+        lambda args, **kwargs: [
+            {"Path": f"book-{index}.epub", "Size": 1}
+            for index in range(3)
+        ],
+    )
+    entry_limited = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(
+            max_http_requests_per_hour=0,
+            enforce_global_rate_limit=False,
+            max_inventory_entries=2,
+        ),
+    )
+    with pytest.raises(StorageUnavailable, match="inventory entry limit"):
+        list(entry_limited.iter_locations())
+
+
+def test_rclone_hostile_process_cleanup_cannot_mask_a_successful_read(
+    monkeypatch,
+) -> None:
+    payload = b"book"
+
+    class _CloseBomb(io.BytesIO):
+        def close(self) -> None:
+            super().close()
+            raise RuntimeError("attacker-controlled stream close")
+
+    process = SimpleNamespace(
+        stdout=_CloseBomb(payload),
+        stderr=_CloseBomb(),
+        wait=lambda timeout=None: 0,
+        poll=lambda: (_ for _ in ()).throw(RuntimeError("hostile poll")),
+        terminate=lambda: (_ for _ in ()).throw(RuntimeError("hostile terminate")),
+        kill=lambda: (_ for _ in ()).throw(RuntimeError("hostile kill")),
+    )
+    monkeypatch.setattr(
+        backend_module,
+        "run_rclone_json",
+        lambda args, **kwargs: {
+            "Name": "book.epub",
+            "Path": "book.epub",
+            "Size": len(payload),
+            "IsDir": False,
+        },
+    )
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        lambda self, args: process,
+    )
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(
+            max_http_requests_per_hour=0,
+            enforce_global_rate_limit=False,
+        ),
+    )
+
+    assert store.read_file(store.stat_file("book.epub")) == payload
+    assert process.stdout.closed
+
+
+def test_rclone_translates_and_redacts_arbitrary_hostile_stream_failures(
+    monkeypatch,
+) -> None:
+    class _HostileStdout:
+        def read(self, size=-1):
+            del size
+            raise RuntimeError("token=supersecret " + ("noise " * 200))
+
+        def close(self):
+            return None
+
+    process = SimpleNamespace(
+        stdout=_HostileStdout(),
+        stderr=io.BytesIO(),
+        wait=lambda timeout=None: 0,
+        poll=lambda: 0,
+        terminate=lambda: None,
+        kill=lambda: None,
+    )
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        lambda self, args: process,
+    )
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(
+            max_http_requests_per_hour=0,
+            enforce_global_rate_limit=False,
+        ),
+    )
+
+    with store.driver.open_read(store.driver.parse_object_address("book.epub")) as stream:
+        with pytest.raises(StorageUnavailable) as failure:
+            stream.read()
+
+    assert "rclone read object failed" in str(failure.value)
+    assert "supersecret" not in str(failure.value)
+    assert "<redacted>" in str(failure.value)
+    assert len(str(failure.value)) < 700
 
 
 @pytest.mark.parametrize(
