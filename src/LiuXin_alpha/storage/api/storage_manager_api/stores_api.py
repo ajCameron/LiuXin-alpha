@@ -58,6 +58,71 @@ class StoreAdministrationAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
+    def add_store(
+        self,
+        name: str,
+        kind: str,
+        root: str | os.PathLike[str],
+        *,
+        store_uuid: StoreUUID | None = None,
+        url: str | None = None,
+        protocol: str | None = None,
+        failure_domain: str | None = None,
+        region: str | None = None,
+        host: UUID | None = None,
+        device: UUID | None = None,
+        tags: Iterable[str] = (),
+        replication: ReplicationPolicyID | ReplicationPolicyRecord | None = None,
+        backup: BackupPolicyID | BackupPolicyRecord | None = None,
+        modes: Iterable[ReplicaMode | str] = (
+            ReplicaMode.ACTIVE,
+            ReplicaMode.BACKUP,
+            ReplicaMode.ARCHIVE,
+        ),
+        operational_role: str | None = None,
+        read_only: bool = False,
+        folders: bool = True,
+        options: (
+            Mapping[str, object] | Iterable[tuple[str, object]]
+        ) = (),
+        start: bool = True,
+    ) -> StoreConfiguration:
+        """Configure and optionally start a Store in one call.
+
+        The implementation belongs to the concrete manager because it invokes
+        that manager's configured backend factory. This API declaration only
+        defines the application-facing argument and return contract.
+
+        Example:
+            >>> archive = manager.add_store(  # doctest: +SKIP
+            ...     "archive", "s3", "s3://books/archive",
+            ...     tags={"offsite"},
+            ... )
+
+        :param name: Human-readable Store name.
+        :param kind: Registered storage-backend kind.
+        :param root: Backend root path, URI, or native endpoint text.
+        :param store_uuid: Optional durable identity; generated when omitted.
+        :param url: Optional operator-facing Store URL.
+        :param protocol: Optional access protocol override.
+        :param failure_domain: Fault-isolation bucket for placement policy.
+        :param region: Geographic or administrative placement region.
+        :param host: Stable host identity when known.
+        :param device: Stable physical-device identity when known.
+        :param tags: Placement-policy labels.
+        :param replication: Default replication policy or identifier.
+        :param backup: Default backup policy or identifier.
+        :param modes: Replica modes permitted on this Store.
+        :param operational_role: Operator-facing Store role.
+        :param read_only: Whether all mutation is forbidden.
+        :param folders: Whether the Store exposes folder semantics.
+        :param options: Non-secret backend-specific configuration values.
+        :param start: Whether to start the backend before returning.
+        :return: The registered portable Store configuration.
+        """
+        ...
+
+    @abc.abstractmethod
     def add_filesystem_store(
         self,
         name: str,

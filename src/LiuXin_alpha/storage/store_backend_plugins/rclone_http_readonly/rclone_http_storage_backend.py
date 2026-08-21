@@ -35,6 +35,56 @@ RCLONE_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY = (
 )
 
 
+class _TimedRcloneProcess:
+    """Kill a streaming rclone command when its configured deadline expires."""
+
+    def __init__(
+        self,
+        process: subprocess.Popen,
+        *,
+        timeout_s: float,
+        command: list[str],
+    ) -> None:
+        self._process = process
+        self._timeout_s = timeout_s
+        self._command = command
+        self._timed_out = threading.Event()
+        self.stdout = process.stdout
+        self.stderr = process.stderr
+        self._timer = threading.Timer(timeout_s, self._expire)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def _expire(self) -> None:
+        if self._process.poll() is None:
+            self._timed_out.set()
+            self._process.kill()
+
+    def wait(self, timeout: float | None = None) -> int:
+        return_code = int(self._process.wait(timeout=timeout))
+        self._timer.cancel()
+        if self._timed_out.is_set():
+            raise subprocess.TimeoutExpired(
+                self._command,
+                self._timeout_s,
+            )
+        return return_code
+
+    def poll(self) -> int | None:
+        return_code = self._process.poll()
+        if return_code is not None:
+            self._timer.cancel()
+        return return_code
+
+    def terminate(self) -> None:
+        self._timer.cancel()
+        self._process.terminate()
+
+    def kill(self) -> None:
+        self._timer.cancel()
+        self._process.kill()
+
+
 def get_default_rclone_http_requests_per_hour() -> float:
     """Return the preference-backed polite request-rate default."""
 
@@ -281,18 +331,25 @@ class RcloneHttpReadOnlyStorageBackend(
             check=check,
         )
 
-    def spawn_rclone_process(self, args: Sequence[str]) -> subprocess.Popen:
+    def spawn_rclone_process(self, args: Sequence[str]):
         self._acquire_rate_limit_slot()
         executable = which_rclone(self.options.rclone_exe)
         command = [executable, *self._effective_rclone_args(), *list(args)]
         environment = dict(os.environ)
         if self.options.env:
             environment.update(dict(self.options.env))
-        return subprocess.Popen(
+        process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=environment,
+        )
+        if self.options.timeout_s is None:
+            return process
+        return _TimedRcloneProcess(
+            process,
+            timeout_s=float(self.options.timeout_s),
+            command=command,
         )
 
     def _probe_rclone(self) -> None:

@@ -12,7 +12,12 @@ This script:
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
+
+EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
+if str(EXAMPLES_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_ROOT))
 
 from _example_utils import bootstrap_src_path, dump_json
 
@@ -85,6 +90,11 @@ def main() -> int:
     ) as lib:
         store_id = ensure_managed_store_row(lib, store_root=store_root, store_name=args.store_name)
         bootstrap = lib.refresh_storage(clear_existing=True)
+        store = next(
+            candidate
+            for candidate in lib.iter_stores()
+            if candidate.configuration.store_name == args.store_name
+        )
 
         added = lib.add_file(
             args.payload.encode("utf-8"),
@@ -93,9 +103,12 @@ def main() -> int:
                 "authors": ["LiuXin"],
                 "file_extension": "txt",
             },
-            preferred_store=args.store_name,
+            store=store,
+            name="library-facade-demo.txt",
         )
-        fetched = lib.retrieve_file(file_url=added.file_url, preferred_store=args.store_name)
+        location = lib.locate_file(added, store=store)
+        with lib.retrieve_file(added, store=store) as fetched:
+            retrieved = fetched.read()
 
         payload = {
             "database_path": str(db_path),
@@ -103,9 +116,11 @@ def main() -> int:
             "store_name": args.store_name,
             "store_root": str(store_root),
             "bootstrap_report": bootstrap,
-            "stored_file_url": added.file_url,
-            "retrieved_bytes": len(fetched.as_bytes()),
-            "retrieved_text_preview": fetched.as_string()[:160],
+            "digital_asset_id": int(added.digital_asset_id),
+            "stored_location": location,
+            "stored_file_url": store.location_uri(location),
+            "retrieved_bytes": len(retrieved),
+            "retrieved_text_preview": retrieved.decode("utf-8")[:160],
         }
         print(dump_json(payload))
     return 0

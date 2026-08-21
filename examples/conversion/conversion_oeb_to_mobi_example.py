@@ -13,12 +13,13 @@ from pathlib import Path
 
 from _conversion_example_utils import (
     ExampleLog,
+    dump_json,
     install_customize_ui_stub,
+    isolated_conversion_scratch,
     load_oeb_from_opf,
     make_mobi_output_opts,
     resolve_oeb_input,
 )
-from _example_utils import dump_json
 
 from LiuXin_alpha.file_formats.conversion.plugins.mobi_output import MOBIOutput
 
@@ -72,7 +73,14 @@ def main() -> int:
         install_customize_ui_stub()
         oeb = load_oeb_from_opf(opf_path)
         opts = make_mobi_output_opts(mobi_file_type=args.mobi_type, extract_to=extract_to)
-        MOBIOutput(None).convert(oeb, str(output_path), None, opts, ExampleLog(verbose=args.verbose))
+        with isolated_conversion_scratch():
+            MOBIOutput(None).convert(
+                oeb,
+                str(output_path),
+                None,
+                opts,
+                ExampleLog(verbose=args.verbose),
+            )
 
         payload = {
             "input_opf": str(opf_path),

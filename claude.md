@@ -213,14 +213,14 @@ Examples are documented in `examples/README.md`.
 High-value ones:
 
 - `examples/quickstart.sh`: local non-network smoke tour
-- `examples/library_register_unmanaged_disk_example.py`
-- `examples/reconcile_with_database_path_example.py`
-- `examples/storage_bootstrap_report_example.py`
+- `examples/storage/library_register_unmanaged_disk_example.py`
+- `examples/storage/reconcile_with_database_path_example.py`
+- `examples/storage/storage_bootstrap_report_example.py`
 
 General pattern:
 
 ```bash
-python3 examples/<script>.py --help
+python3 examples/<category>/<script>.py --help
 ```
 
 ## Testing guidance

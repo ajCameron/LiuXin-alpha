@@ -1468,6 +1468,27 @@ def test_reference_manager_is_concrete_and_ingest_is_idempotent() -> None:
         manager.ingest_bytes(b"different", operation_id=operation_id)
 
 
+def test_failed_manager_publication_leaves_no_phantom_asset(
+    monkeypatch,
+) -> None:
+    store = _MemoryStore(MAIN_STORE_UUID)
+    manager = InMemoryStorageManager(
+        store_registrations=((store.configuration, store),),
+    )
+
+    def _fail_put(*args, **kwargs):
+        del args, kwargs
+        raise api.StoreUnavailable("destination disconnected during publish")
+
+    monkeypatch.setattr(store, "put", _fail_put)
+
+    with pytest.raises(api.StoreUnavailable, match="disconnected"):
+        manager.ingest_bytes(b"payload")
+
+    assert tuple(manager.iter_digital_asset_records()) == ()
+    assert tuple(manager.iter_replica_records()) == ()
+
+
 def test_adopt_location_preserves_metadata_for_a_new_asset() -> None:
     store = _MemoryStore(MAIN_STORE_UUID)
     manager = InMemoryStorageManager(
@@ -2400,11 +2421,12 @@ def test_storage_manager_exposes_concrete_convenience_operations() -> None:
         "link",
         "unlink",
         "create_composite",
-        "add_store",
         "define_replication_policy",
         "define_backup_policy",
         "record_derivation",
     }.isdisjoint(api.StorageManagerAPI.__abstractmethods__)
+    assert "add_store" in api.StorageManagerAPI.__abstractmethods__
+    assert "add_store" not in InMemoryStorageManager.__abstractmethods__
 
 
 def test_convenience_storage_and_retrieval_accept_ordinary_inputs(

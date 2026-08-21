@@ -1,19 +1,25 @@
 from __future__ import annotations
 
 import ftplib
+import socket
 
 from dataclasses import dataclass
 
 import pytest
 
+from LiuXin_alpha.ingest import ingest_store
 from LiuXin_alpha.storage.api import (
     EnumerationCompleteness,
     Location,
     StorageAuthenticationFailed,
     StorageInvalidAddress,
     StorageNotFound,
+    StorageTimeout,
+    StorageUnavailable,
     StoreReadOnly,
 )
+from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
+from LiuXin_alpha.storage.stores import FilesystemStore
 from LiuXin_alpha.storage.store_backend_plugins.ftp_readonly import (
     FtpBackendOptions,
     FtpReadOnlyStorageBackend,
@@ -247,6 +253,66 @@ def test_ftp_backend_reads_tortured_unicode_paths_without_normalizing_them() -> 
         assert store.location_from_uri(uri) == location
 
 
+def test_ftp_unicode_object_ingests_end_to_end(tmp_path) -> None:
+    tree = {
+        "/": _Node("dir"),
+        "/library": _Node("dir"),
+        f"/library/{UNICODE_DIRECTORY}": _Node("dir"),
+        f"/library/{UNICODE_KEY}": _Node(
+            "file",
+            size=len(UNICODE_PAYLOAD),
+            payload=UNICODE_PAYLOAD,
+        ),
+    }
+    source = _make_store(tree=tree)
+    destination = FilesystemStore(tmp_path / "ftp-ingest-destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+
+    report = ingest_store(manager, source)
+
+    assert report.ok and report.ingested_files == 1
+    [item] = report.items
+    assert item.source_info.location.key == UNICODE_KEY
+    assert item.result.asset_record.metadata.original_name == UNICODE_FILENAME
+    assert manager.read_file(item.result.asset_record) == UNICODE_PAYLOAD
+
+
+def test_truncated_ftp_ingest_publishes_no_manager_state(tmp_path) -> None:
+    class _TruncatedTransfer(_FakeFtpClient):
+        def retrbinary(self, cmd: str, callback, blocksize: int = 8192, rest=None):
+            del cmd, blocksize, rest
+            callback(b"short")
+            return "226 Transfer complete"
+
+    tree = {
+        "/": _Node("dir"),
+        "/library": _Node("dir"),
+        "/library/book.epub": _Node("file", size=12, payload=b"short"),
+    }
+    source = FtpReadOnlyStorageBackend(
+        "ftp://example.test/library/",
+        options=FtpBackendOptions(
+            client_factory=lambda: _TruncatedTransfer(tree)
+        ),
+    )
+    destination = FilesystemStore(tmp_path / "ftp-truncated-destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+
+    report = ingest_store(manager, source)
+
+    assert not report.ok and report.ingested_files == 0
+    assert "wrong length" in report.failures[0].message
+    assert tuple(manager.iter_digital_asset_records()) == ()
+    assert tuple(manager.iter_replica_records()) == ()
+    assert tuple(destination.iter_locations()) == ()
+
+
 @pytest.mark.parametrize("control", ["line\nbreak.epub", "carriage\rreturn.epub", "tab\tname.epub"])
 def test_ftp_backend_rejects_protocol_control_characters(control: str) -> None:
     store = _make_store()
@@ -378,3 +444,202 @@ def test_ftp_authentication_failure_remains_typed() -> None:
 
     with pytest.raises(StorageAuthenticationFailed):
         store.startup()
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    ["bad\ud800.epub", "folder/bad\udfff.epub"],
+)
+def test_ftp_rejects_unpaired_surrogate_object_paths(invalid: str) -> None:
+    store = _make_store()
+
+    with pytest.raises(StorageInvalidAddress, match="malformed Unicode"):
+        store.locate(invalid)
+
+
+def test_ftp_rejects_unpaired_surrogate_root_urls() -> None:
+    with pytest.raises(StorageInvalidAddress, match="malformed Unicode"):
+        FtpReadOnlyStorageBackend(
+            "ftp://example.test/library/\ud800/",
+            options=FtpBackendOptions(client_factory=lambda: _FakeFtpClient(_tree())),
+        )
+
+
+@pytest.mark.parametrize(
+    "root",
+    [
+        "ftp://example.test:not-a-port/library/",
+        "ftp://example.test:99999/library/",
+        "ftp://example.test/library/%GG/",
+        "ftp://example.test/library/bad%00path/",
+        "ftp://example.test/library/folder%5Cname/",
+    ],
+)
+def test_ftp_rejects_malformed_root_url_encoding(root: str) -> None:
+    with pytest.raises(StorageInvalidAddress):
+        FtpReadOnlyStorageBackend(
+            root,
+            options=FtpBackendOptions(client_factory=lambda: _FakeFtpClient(_tree())),
+        )
+
+
+def test_ftp_canonicalizes_idn_roots_and_matching_object_uris() -> None:
+    store = FtpReadOnlyStorageBackend(
+        "ftp://例え.テスト/library/",
+        options=FtpBackendOptions(client_factory=lambda: _FakeFtpClient(_tree())),
+    )
+
+    location = store.locate("ftp://例え.テスト/library/books/one.epub")
+
+    assert store.configuration.store_root_uri.startswith(
+        "ftp://xn--r8jz45g.xn--zckzah/library/"
+    )
+    assert location.key == "books/one.epub"
+
+
+@pytest.mark.parametrize(
+    "bad_name",
+    ["bad\ud800.epub", "slash/name.epub", "back\\slash.epub", "line\nbreak.epub"],
+)
+def test_ftp_inventory_rejects_malformed_names_returned_by_the_server(
+    bad_name: str,
+) -> None:
+    class _MalformedListing(_FakeFtpClient):
+        def mlsd(self, target: str = "."):
+            del target
+            yield bad_name, {"type": "file", "size": "1"}
+
+    store = FtpReadOnlyStorageBackend(
+        "ftp://example.test/",
+        options=FtpBackendOptions(
+            client_factory=lambda: _MalformedListing(_tree())
+        ),
+    )
+
+    with pytest.raises(StorageUnavailable, match="malformed"):
+        list(store.driver.iter_inventory())
+
+
+def test_ftp_inventory_ignores_protocol_self_entries_but_rejects_duplicates() -> None:
+    class _Listing(_FakeFtpClient):
+        duplicate = False
+
+        def mlsd(self, target: str = "."):
+            del target
+            yield ".", {"type": "cdir"}
+            yield "..", {"type": "pdir"}
+            yield "book.epub", {"type": "file", "size": "4"}
+            if self.duplicate:
+                yield "book.epub", {"type": "file", "size": "4"}
+
+    client = _Listing(_tree())
+    store = FtpReadOnlyStorageBackend(
+        "ftp://example.test/",
+        options=FtpBackendOptions(client_factory=lambda: client),
+    )
+    assert [
+        str(entry.object_address)
+        for entry in store.driver.iter_inventory()
+    ] == ["book.epub"]
+
+    client.duplicate = True
+    with pytest.raises(StorageUnavailable, match="duplicate"):
+        list(store.driver.iter_inventory())
+
+
+def test_ftp_inventory_stops_pathological_directory_depth() -> None:
+    tree = {
+        "/": _Node("dir"),
+        "/one": _Node("dir"),
+        "/one/two": _Node("dir"),
+        "/one/two/book.epub": _Node("file", size=4, payload=b"book"),
+    }
+    store = FtpReadOnlyStorageBackend(
+        "ftp://example.test/",
+        options=FtpBackendOptions(
+            client_factory=lambda: _FakeFtpClient(tree),
+            max_inventory_depth=1,
+        ),
+    )
+
+    with pytest.raises(StorageUnavailable, match="depth limit"):
+        list(store.driver.iter_inventory())
+
+
+def test_ftp_detects_a_successfully_completed_but_truncated_transfer() -> None:
+    class _TruncatingClient(_FakeFtpClient):
+        def retrbinary(self, cmd: str, callback, blocksize: int = 8192, rest=None):
+            del cmd, blocksize, rest
+            callback(b"ON")
+            return "226 Transfer complete"
+
+    store = FtpReadOnlyStorageBackend(
+        "ftp://example.test/library",
+        options=FtpBackendOptions(
+            client_factory=lambda: _TruncatingClient(_tree())
+        ),
+    )
+    address = store.driver.parse_object_address("books/one.epub")
+
+    with pytest.raises(StorageUnavailable, match="wrong length"):
+        store.driver.open_read(address)
+
+
+def test_ftp_translates_mid_transfer_timeout_and_discards_staging() -> None:
+    class _TimingOutClient(_FakeFtpClient):
+        def retrbinary(self, cmd: str, callback, blocksize: int = 8192, rest=None):
+            del cmd, blocksize, rest
+            callback(b"partial")
+            raise socket.timeout("remote stalled")
+
+    store = FtpReadOnlyStorageBackend(
+        "ftp://example.test/library",
+        options=FtpBackendOptions(
+            client_factory=lambda: _TimingOutClient(_tree())
+        ),
+    )
+    address = store.driver.parse_object_address("books/one.epub")
+
+    with pytest.raises(StorageTimeout, match="timed out"):
+        store.driver.open_read(address)
+
+
+def test_ftp_rejects_nonbyte_transfer_chunks() -> None:
+    class _TextTransferClient(_FakeFtpClient):
+        def retrbinary(self, cmd: str, callback, blocksize: int = 8192, rest=None):
+            del cmd, blocksize, rest
+            callback("not bytes")
+            return "226 Transfer complete"
+
+    store = FtpReadOnlyStorageBackend(
+        "ftp://example.test/library",
+        options=FtpBackendOptions(
+            client_factory=lambda: _TextTransferClient(_tree())
+        ),
+    )
+
+    with pytest.raises(StorageUnavailable, match="non-byte"):
+        store.driver.open_read(
+            store.driver.parse_object_address("books/one.epub")
+        )
+
+
+def test_ftp_nlst_fallback_validates_server_names() -> None:
+    class _BadNlstClient(_FakeFtpClient):
+        def mlsd(self, target: str = "."):
+            del target
+            raise NotImplementedError
+
+        def nlst(self, target: str = "."):
+            del target
+            return ["bad\ud800.epub"]
+
+    store = FtpReadOnlyStorageBackend(
+        "ftp://example.test/",
+        options=FtpBackendOptions(
+            client_factory=lambda: _BadNlstClient(_tree())
+        ),
+    )
+
+    with pytest.raises(StorageUnavailable, match="malformed Unicode"):
+        list(store.driver.iter_inventory())

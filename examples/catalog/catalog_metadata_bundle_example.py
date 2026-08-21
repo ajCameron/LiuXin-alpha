@@ -5,8 +5,11 @@ from __future__ import annotations
 
 import argparse
 
-from _catalog_example_utils import add_database_argument, open_catalog_example
-from _example_utils import dump_json
+from _catalog_example_utils import (
+    add_database_argument,
+    dump_json,
+    open_catalog_example,
+)
 
 from LiuXin_alpha.catalog.api import IdentifierCandidate, MetadataCandidate
 

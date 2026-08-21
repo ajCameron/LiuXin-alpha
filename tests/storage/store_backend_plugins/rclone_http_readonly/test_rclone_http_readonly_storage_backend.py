@@ -2,19 +2,26 @@ from __future__ import annotations
 
 import hashlib
 import io
+import subprocess
+import threading
 
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+from LiuXin_alpha.ingest import ingest_store
 from LiuXin_alpha.storage.api import (
     EnumerationCompleteness,
     Location,
     StorageInvalidAddress,
     StorageNotFound,
+    StorageTimeout,
+    StorageUnavailable,
     StoreReadOnly,
 )
+from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
+from LiuXin_alpha.storage.stores import FilesystemStore
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     RcloneBackendOptions,
     RcloneHttpReadOnlyStorageBackend,
@@ -42,6 +49,7 @@ def _extract_tpslimit(extra_args: tuple[str, ...]) -> float | None:
 
 def test_rclone_readonly_preserves_unicode_inventory_hints_and_bytes(
     monkeypatch,
+    tmp_path,
 ) -> None:
     digest = hashlib.sha256(UNICODE_PAYLOAD).hexdigest()
 
@@ -97,6 +105,75 @@ def test_rclone_readonly_preserves_unicode_inventory_hints_and_bytes(
     assert info.hints.suggested_filename == UNICODE_FILENAME
     assert info.digest is not None and info.digest.value == digest
     assert store.read_file(info) == UNICODE_PAYLOAD
+
+    destination = FilesystemStore(tmp_path / "rclone-ingest-destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+    report = ingest_store(manager, store)
+
+    assert report.ok and report.ingested_files == 1
+    [item] = report.items
+    assert item.source_info.location.key == UNICODE_KEY
+    assert item.result.asset_record.metadata.original_name == UNICODE_FILENAME
+    assert manager.read_file(item.result.asset_record) == UNICODE_PAYLOAD
+
+
+def test_truncated_rclone_ingest_publishes_no_manager_state(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    expected = b"authoritative payload"
+    record = {
+        "Name": "book.epub",
+        "Path": "book.epub",
+        "Size": len(expected),
+        "Hashes": {"SHA-256": hashlib.sha256(expected).hexdigest()},
+        "ID": "v1",
+        "IsDir": False,
+    }
+
+    def _fake_json(args, **kwargs):
+        del kwargs
+        return record if "--stat" in args else [record]
+
+    def _fake_spawn(self, args):
+        del self
+        if args[0] == "lsjson":
+            raise RuntimeError("use the injected JSON runner")
+        return SimpleNamespace(
+            stdout=io.BytesIO(b"short"),
+            stderr=io.BytesIO(),
+            wait=lambda timeout=None: 0,
+            poll=lambda: 0,
+            terminate=lambda: None,
+            kill=lambda: None,
+        )
+
+    monkeypatch.setattr(backend_module, "run_rclone_json", _fake_json)
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        _fake_spawn,
+    )
+    source = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(max_http_requests_per_hour=0),
+    )
+    destination = FilesystemStore(tmp_path / "rclone-truncated-destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+
+    report = ingest_store(manager, source)
+
+    assert not report.ok and report.ingested_files == 0
+    assert report.failures[0].error_type == "StorageIntegrityError"
+    assert tuple(manager.iter_digital_asset_records()) == ()
+    assert tuple(manager.iter_replica_records()) == ()
+    assert tuple(destination.iter_locations()) == ()
 
 
 def test_rclone_readonly_reads_tortured_unicode_paths_exactly(monkeypatch) -> None:
@@ -467,3 +544,365 @@ def test_rclone_locate_accepts_its_full_backend_identifier() -> None:
     assert store.locate("remote:base/path/book.epub").key == "path/book.epub"
     with pytest.raises(StorageInvalidAddress):
         store.driver.object_address_from_uri("other:path/book.epub")
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (b"[\xff]", "malformed UTF-8"),
+        (b'[{"Path":"book.epub"}', "truncated JSON"),
+        (b"[] trailing", "trailing JSON"),
+        (b"{}", "JSON array"),
+        (
+            b'[{"Path":"bad\\ud800.epub","Size":1}]',
+            "malformed Unicode",
+        ),
+    ],
+)
+def test_rclone_streaming_inventory_rejects_malformed_remote_output(
+    monkeypatch,
+    payload: bytes,
+    message: str,
+) -> None:
+    monkeypatch.setattr(
+        backend_module,
+        "run_rclone_json",
+        lambda args, **kwargs: pytest.fail(
+            "malformed streaming output must not be retried through fallback"
+        ),
+    )
+
+    def _spawn(self, args):
+        del self, args
+        return SimpleNamespace(
+            stdout=io.BytesIO(payload),
+            stderr=io.BytesIO(),
+            wait=lambda timeout=None: 0,
+            poll=lambda: 0,
+            terminate=lambda: None,
+            kill=lambda: None,
+        )
+
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        _spawn,
+    )
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(max_http_requests_per_hour=0),
+    )
+
+    with pytest.raises(StorageUnavailable, match=message):
+        list(store.driver.iter_inventory())
+
+
+def test_rclone_streaming_inventory_rejects_nonbinary_stdout(monkeypatch) -> None:
+    def _spawn(self, args):
+        del self, args
+        return SimpleNamespace(
+            stdout=io.StringIO("[]"),
+            stderr=io.BytesIO(),
+            wait=lambda timeout=None: 0,
+            poll=lambda: 0,
+            terminate=lambda: None,
+            kill=lambda: None,
+        )
+
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        _spawn,
+    )
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(max_http_requests_per_hour=0),
+    )
+
+    with pytest.raises(StorageUnavailable, match="non-byte"):
+        list(store.driver.iter_inventory())
+
+
+def test_rclone_inventory_rejects_an_invalid_process_adapter(monkeypatch) -> None:
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        lambda self, args: SimpleNamespace(
+            stdout=None,
+            stderr=None,
+            wait=lambda timeout=None: 0,
+            poll=lambda: 0,
+            terminate=lambda: None,
+        ),
+    )
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(max_http_requests_per_hour=0),
+    )
+
+    with pytest.raises(StorageUnavailable, match="invalid process stream"):
+        list(store.driver.iter_inventory())
+
+
+def test_rclone_inventory_translates_process_finish_timeout(monkeypatch) -> None:
+    def _wait(timeout=None):
+        raise subprocess.TimeoutExpired(["rclone", "lsjson"], timeout)
+
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        lambda self, args: SimpleNamespace(
+            stdout=io.BytesIO(b"[]"),
+            stderr=io.BytesIO(),
+            wait=_wait,
+            poll=lambda: 0,
+            terminate=lambda: None,
+            kill=lambda: None,
+        ),
+    )
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(max_http_requests_per_hour=0),
+    )
+
+    with pytest.raises(StorageTimeout, match="timed out"):
+        list(store.driver.iter_inventory())
+
+
+def test_rclone_inventory_checks_nonzero_exit_after_valid_json(monkeypatch) -> None:
+    def _spawn(self, args):
+        del self, args
+        return SimpleNamespace(
+            stdout=io.BytesIO(b'[{"Path":"book.epub","Size":4}]'),
+            stderr=io.BytesIO(b"connection reset by remote"),
+            wait=lambda timeout=None: 9,
+            poll=lambda: 9,
+            terminate=lambda: None,
+            kill=lambda: None,
+        )
+
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        _spawn,
+    )
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(max_http_requests_per_hour=0),
+    )
+
+    with pytest.raises(StorageUnavailable, match="connection reset"):
+        list(store.driver.iter_inventory())
+
+
+def test_rclone_read_detects_truncated_count_and_nonzero_exit(monkeypatch) -> None:
+    payloads = iter(
+        (
+            (b"ab", b"", 0),
+            (b"book", b"connection reset", 8),
+        )
+    )
+
+    def _spawn(self, args):
+        del self, args
+        payload, error, returncode = next(payloads)
+        return SimpleNamespace(
+            stdout=io.BytesIO(payload),
+            stderr=io.BytesIO(error),
+            wait=lambda timeout=None: returncode,
+            poll=lambda: returncode,
+            terminate=lambda: None,
+            kill=lambda: None,
+        )
+
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        _spawn,
+    )
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(max_http_requests_per_hour=0),
+    )
+    address = store.driver.parse_object_address("book.epub")
+
+    with store.driver.open_read(address, length=4) as stream:
+        with pytest.raises(StorageUnavailable, match="requested byte count"):
+            stream.read()
+    with store.driver.open_read(address) as stream:
+        with pytest.raises(StorageUnavailable, match="connection reset"):
+            stream.read()
+
+
+def test_rclone_read_translates_process_finish_timeout(monkeypatch) -> None:
+    def _wait(timeout=None):
+        del timeout
+        raise TimeoutError("hung process")
+
+    def _spawn(self, args):
+        del self, args
+        return SimpleNamespace(
+            stdout=io.BytesIO(b""),
+            stderr=io.BytesIO(),
+            wait=_wait,
+            poll=lambda: 0,
+            terminate=lambda: None,
+            kill=lambda: None,
+        )
+
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        _spawn,
+    )
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(max_http_requests_per_hour=0),
+    )
+
+    with store.driver.open_read(
+        store.driver.parse_object_address("book.epub")
+    ) as stream:
+        with pytest.raises(StorageTimeout, match="timed out"):
+            stream.read()
+
+
+def test_rclone_streaming_process_enforces_backend_timeout(monkeypatch) -> None:
+    class _BlockedProcess:
+        def __init__(self) -> None:
+            self.finished = threading.Event()
+            self.returncode = None
+            self.stdout = self
+            self.stderr = io.BytesIO()
+            self.killed = False
+
+        def read(self, size: int = -1) -> bytes:
+            del size
+            assert self.finished.wait(timeout=1)
+            return b""
+
+        def close(self) -> None:
+            return None
+
+        def wait(self, timeout=None) -> int:
+            if not self.finished.wait(timeout=timeout or 1):
+                raise subprocess.TimeoutExpired(["rclone"], timeout)
+            assert self.returncode is not None
+            return self.returncode
+
+        def poll(self):
+            return self.returncode
+
+        def terminate(self) -> None:
+            self.kill()
+
+        def kill(self) -> None:
+            self.killed = True
+            self.returncode = -9
+            self.finished.set()
+
+    process = _BlockedProcess()
+    monkeypatch.setattr(backend_module, "which_rclone", lambda exe: exe)
+    monkeypatch.setattr(backend_module.subprocess, "Popen", lambda *a, **k: process)
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(
+            timeout_s=0.01,
+            max_http_requests_per_hour=0,
+        ),
+    )
+
+    with store.driver.open_read(
+        store.driver.parse_object_address("book.epub")
+    ) as stream:
+        with pytest.raises(StorageTimeout, match="timed out"):
+            stream.read()
+
+    assert process.killed
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    ["bad\ud800.epub", "folder/bad\udfff.epub"],
+)
+def test_rclone_rejects_unpaired_surrogate_object_paths(invalid: str) -> None:
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(max_http_requests_per_hour=0),
+    )
+
+    with pytest.raises(StorageInvalidAddress, match="malformed Unicode"):
+        store.locate(invalid)
+
+
+@pytest.mark.parametrize(
+    "stat_blob",
+    [
+        {"Name": "bad\ud800.epub", "Size": 1, "IsDir": False},
+        {"Name": "book.epub", "Size": "not-a-number", "IsDir": False},
+        {"Name": "book.epub", "Size": -1, "IsDir": False},
+        ["not", "an", "object"],
+    ],
+)
+def test_rclone_stat_rejects_malformed_remote_metadata(
+    monkeypatch,
+    stat_blob: object,
+) -> None:
+    monkeypatch.setattr(
+        backend_module,
+        "run_rclone_json",
+        lambda args, **kwargs: stat_blob,
+    )
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(max_http_requests_per_hour=0),
+    )
+
+    with pytest.raises((StorageUnavailable, StorageNotFound)):
+        store.driver.stat(store.driver.parse_object_address("book.epub"))
+
+
+def test_rclone_open_read_rejects_an_invalid_process_adapter(monkeypatch) -> None:
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        lambda self, args: None,
+    )
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(max_http_requests_per_hour=0),
+    )
+
+    with pytest.raises(StorageUnavailable, match="invalid process stream"):
+        store.driver.open_read(
+            store.driver.parse_object_address("book.epub")
+        )
+
+
+def test_rclone_read_rejects_nonbyte_process_output(monkeypatch) -> None:
+    def _spawn(self, args):
+        del self, args
+        return SimpleNamespace(
+            stdout=io.StringIO("not bytes"),
+            stderr=io.BytesIO(),
+            wait=lambda timeout=None: 0,
+            poll=lambda: 0,
+            terminate=lambda: None,
+            kill=lambda: None,
+        )
+
+    monkeypatch.setattr(
+        backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        _spawn,
+    )
+    store = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(max_http_requests_per_hour=0),
+    )
+
+    with store.driver.open_read(
+        store.driver.parse_object_address("book.epub")
+    ) as stream:
+        with pytest.raises(StorageUnavailable, match="non-byte"):
+            stream.read()

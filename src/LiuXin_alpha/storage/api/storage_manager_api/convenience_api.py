@@ -83,9 +83,6 @@ from LiuXin_alpha.storage.api.storage_manager_api.retrieval_api import (
 from LiuXin_alpha.storage.api.storage_manager_api.router_api import (
     StorageRouterAPI,
 )
-from LiuXin_alpha.storage.api.storage_manager_api.stores_api import (
-    StoreAdministrationAPI,
-)
 from LiuXin_alpha.storage.api.store_api.facade_api import StoreAPI
 
 
@@ -1120,98 +1117,6 @@ class StorageConvenienceAPI:
         except BaseException:
             output.close()
             raise
-
-    def add_store(
-        self,
-        name: str,
-        kind: str,
-        root: str | os.PathLike[str],
-        *,
-        store_uuid: StoreUUID | None = None,
-        url: str | None = None,
-        protocol: str | None = None,
-        failure_domain: str | None = None,
-        region: str | None = None,
-        host: UUID | None = None,
-        device: UUID | None = None,
-        tags: Iterable[str] = (),
-        replication: ReplicationPolicyID | ReplicationPolicyRecord | None = None,
-        backup: BackupPolicyID | BackupPolicyRecord | None = None,
-        modes: Iterable[ReplicaMode | str] = (
-            ReplicaMode.ACTIVE,
-            ReplicaMode.BACKUP,
-            ReplicaMode.ARCHIVE,
-        ),
-        operational_role: str | None = None,
-        read_only: bool = False,
-        folders: bool = True,
-        options: (
-            Mapping[str, object] | Iterable[tuple[str, object]]
-        ) = (),
-        start: bool = True,
-    ) -> StoreConfiguration:
-        """
-        Configure and start a Store without constructing its configuration.
-
-        The manager's configured Store factory still selects the concrete
-        backend implementation.
-
-        Example:
-            >>> archive = manager.add_store(  # doctest: +SKIP
-            ...     "archive", "filesystem", "file:///srv/archive",
-            ...     tags={"offsite"},
-            ... )
-
-
-        :param name:
-        :param kind:
-        :param root:
-        :param store_uuid:
-        :param url:
-        :param protocol:
-        :param failure_domain:
-        :param region:
-        :param host:
-        :param device:
-        :param tags:
-        :param replication:
-        :param backup:
-        :param modes:
-        :param operational_role:
-        :param read_only:
-        :param folders:
-        :param options: Non-secret backend-specific configuration values.
-        :param start:
-        :return:
-        """
-
-        configuration = StoreConfiguration.for_backend(
-            name,
-            kind,
-            root,
-            store_uuid=store_uuid,
-            url=url,
-            protocol=protocol,
-            failure_domain=failure_domain,
-            region=region,
-            host=host,
-            device=device,
-            tags=tags,
-            replication_policy=_replication_policy_id(replication),
-            backup_policy=_backup_policy_id(backup),
-            modes=(_replica_mode(mode) for mode in modes),
-            operational_role=operational_role,
-            read_only=read_only,
-            folders=folders,
-            options=options,
-        )
-        return cast(
-            StoreAdministrationAPI,
-            cast(object, self),
-        ).create_store(
-            configuration,
-            startup=start,
-        )
 
     def define_replication_policy(
         self,

@@ -14,7 +14,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, BinaryIO
-from urllib.parse import quote, unquote, urlsplit, urlunsplit
+from urllib.parse import SplitResult, quote, unquote, urlsplit, urlunsplit
 from uuid import UUID
 
 from LiuXin_alpha.storage.api import (
@@ -42,6 +42,10 @@ from LiuXin_alpha.storage.drivers._errors import (
     driver_failure_message,
     translate_os_error,
 )
+from LiuXin_alpha.storage.drivers._validation import (
+    reject_malformed_percent_escapes,
+    reject_malformed_unicode,
+)
 
 
 @dataclasses.dataclass(slots=True)
@@ -54,10 +58,13 @@ class FtpDriverOptions:
     encoding: str = "utf-8"
     client_factory: Callable[[], Any] | None = None
     spool_limit_bytes: int = 8 * 1024 * 1024
+    max_inventory_depth: int = 256
 
     def __post_init__(self) -> None:
         if self.spool_limit_bytes < 0:
             raise ValueError("spool_limit_bytes must not be negative.")
+        if self.max_inventory_depth < 1:
+            raise ValueError("max_inventory_depth must be at least one.")
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -76,7 +83,14 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         options: FtpDriverOptions | None = None,
     ) -> None:
         self.options = options or FtpDriverOptions()
-        parsed = urlsplit(str(url))
+        url_text = str(url)
+        reject_malformed_unicode(url_text, label="FTP root URL")
+        try:
+            parsed = urlsplit(url_text)
+            host = _canonical_ftp_hostname(parsed)
+            port = parsed.port
+        except (TypeError, ValueError) as error:
+            raise StorageInvalidAddress("FTP root URL authority is malformed.") from error
         if parsed.scheme.lower() not in {"ftp", "ftps"}:
             raise StorageInvalidAddress("FTP driver requires an ftp(s) URL.")
         if not parsed.hostname:
@@ -85,16 +99,23 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
             raise StorageInvalidAddress("FTP root URL must not contain query or fragment data.")
 
         self._scheme = parsed.scheme.lower()
-        self._host = parsed.hostname
-        self._port = parsed.port or (990 if self._scheme == "ftps" else 21)
+        reject_malformed_percent_escapes(parsed.path, label="FTP root URL path")
+        self._host = host
+        self._port = port or (990 if self._scheme == "ftps" else 21)
         self._username = unquote(parsed.username) if parsed.username else "anonymous"
         self._password = unquote(parsed.password) if parsed.password else "anonymous@"
-        root = posixpath.normpath(unquote(parsed.path or "/"))
+        decoded_root = unquote(parsed.path or "/")
+        if "\\" in decoded_root or any(
+            ord(character) < 32 or ord(character) == 127
+            for character in decoded_root
+        ):
+            raise StorageInvalidAddress("FTP root URL path is malformed.")
+        root = posixpath.normpath(decoded_root)
         self._ftp_root_path = "/" if root in {"", "."} else "/" + root.strip("/")
         rendered_path = quote(self._ftp_root_path, safe="/-._~")
         if not rendered_path.endswith("/"):
             rendered_path += "/"
-        host = self._host
+        host = f"[{self._host}]" if ":" in self._host else self._host
         default_port = 990 if self._scheme == "ftps" else 21
         authority = host if self._port == default_port else f"{host}:{self._port}"
         self._root_uri = urlunsplit((self._scheme, authority, rendered_path, "", ""))
@@ -196,14 +217,22 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         return self.parse_object_address("/".join(str(token) for token in tokens))
 
     def object_address_from_uri(self, uri: str) -> FtpObjectAddress:
-        parsed = urlsplit(str(uri))
-        if parsed.scheme.lower() != self._scheme or parsed.hostname != self._host:
+        uri_text = str(uri)
+        reject_malformed_unicode(uri_text, label="FTP object URI")
+        try:
+            parsed = urlsplit(uri_text)
+            candidate_host = _canonical_ftp_hostname(parsed)
+            candidate_port_value = parsed.port
+        except (TypeError, ValueError) as error:
+            raise StorageInvalidAddress("FTP object URI authority is malformed.") from error
+        if parsed.scheme.lower() != self._scheme or candidate_host != self._host:
             raise StorageInvalidAddress("FTP object URI belongs to another endpoint.")
-        candidate_port = parsed.port or (990 if self._scheme == "ftps" else 21)
+        candidate_port = candidate_port_value or (990 if self._scheme == "ftps" else 21)
         if candidate_port != self._port:
             raise StorageInvalidAddress("FTP object URI uses another endpoint port.")
         if parsed.query or parsed.fragment:
             raise StorageInvalidAddress("FTP object URIs must not contain query or fragment data.")
+        reject_malformed_percent_escapes(parsed.path, label="FTP object URI path")
         path = posixpath.normpath(unquote(parsed.path or "/"))
         root_prefix = self._ftp_root_path.rstrip("/") + "/"
         if not path.startswith(root_prefix):
@@ -295,16 +324,28 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         if length == 0:
             return output
         remaining = length
+        received = 0
 
         def _receive(chunk: bytes) -> None:
-            nonlocal remaining
+            nonlocal received, remaining
+            if not isinstance(chunk, bytes):
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "FTP",
+                        "retrieve",
+                        target=self.object_uri(checked),
+                        reason="the server returned non-byte transfer data",
+                    )
+                )
             try:
                 if remaining is None:
                     output.write(chunk)
+                    received += len(chunk)
                     return
                 if remaining > 0:
                     accepted = chunk[:remaining]
                     output.write(accepted)
+                    received += len(accepted)
                     remaining -= len(accepted)
             except OSError as error:
                 raise translate_os_error(
@@ -321,6 +362,18 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
                 missing_as_not_found=True,
             ) as client:
                 command = f"RETR {str(checked)}"
+                expected_bytes: int | None = None
+                try:
+                    remote_size = _optional_int(client.size(str(checked)))
+                except Exception:
+                    remote_size = None
+                if remote_size is not None:
+                    available = max(0, remote_size - offset)
+                    expected_bytes = (
+                        available
+                        if length is None
+                        else min(length, available)
+                    )
                 try:
                     client.retrbinary(command, _receive, rest=offset or None)
                 except TypeError:
@@ -338,6 +391,18 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
                             _receive(chunk)
 
                     client.retrbinary(command, _receive_without_rest)
+                if expected_bytes is not None and received != expected_bytes:
+                    raise StorageUnavailable(
+                        driver_failure_message(
+                            "FTP",
+                            "retrieve",
+                            target=self.object_uri(checked),
+                            reason=(
+                                "the server completed a transfer with the wrong "
+                                f"length (expected {expected_bytes}, received {received})"
+                            ),
+                        )
+                    )
         except BaseException:
             try:
                 output.close()
@@ -477,15 +542,22 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         self,
         client: Any,
         relative_directory: str = "",
+        depth: int = 0,
     ) -> Iterator[tuple[str, dict[str, str]]]:
         for name, facts in self._list_dir(client, relative_directory):
             path = posixpath.join(relative_directory, name) if relative_directory else name
             normalized = dict(facts)
             entry_type = str(normalized.get("type") or "").lower()
-            if entry_type in {"dir", "cdir", "pdir"}:
+            if entry_type in {"cdir", "pdir"}:
+                continue
+            if entry_type == "dir":
                 normalized["type"] = "dir"
                 yield path, normalized
-                yield from self._walk_entries(client, path)
+                if depth >= self.options.max_inventory_depth:
+                    raise StorageUnavailable(
+                        "FTP inventory exceeded its configured directory-depth limit."
+                    )
+                yield from self._walk_entries(client, path, depth + 1)
             else:
                 normalized["type"] = "file"
                 yield path, normalized
@@ -493,18 +565,41 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
     def _list_dir(self, client: Any, relative_directory: str) -> list[tuple[str, dict[str, str]]]:
         target = relative_directory or "."
         try:
-            return [
-                (str(name), {str(key): str(value) for key, value in dict(facts).items()})
-                for name, facts in client.mlsd(target)
-                if str(name) not in {"", ".", ".."}
-            ]
+            entries: list[tuple[str, dict[str, str]]] = []
+            seen_names: set[str] = set()
+            for raw_name, facts in client.mlsd(target):
+                name = _validated_ftp_listing_name(raw_name)
+                if name is None:
+                    continue
+                if name in seen_names:
+                    raise StorageUnavailable(
+                        "FTP inventory returned a duplicate directory-entry name."
+                    )
+                seen_names.add(name)
+                entries.append(
+                    (
+                        name,
+                        {
+                            str(key): str(value)
+                            for key, value in dict(facts).items()
+                        },
+                    )
+                )
+            return entries
         except (AttributeError, NotImplementedError, ftplib.error_perm):
             names = list(client.nlst(target))
             entries: list[tuple[str, dict[str, str]]] = []
+            seen_names: set[str] = set()
             for raw_name in names:
-                name = str(raw_name).rstrip("/").rsplit("/", 1)[-1]
-                if not name or name in {".", ".."}:
+                candidate_name = str(raw_name).rstrip("/").rsplit("/", 1)[-1]
+                name = _validated_ftp_listing_name(candidate_name)
+                if name is None:
                     continue
+                if name in seen_names:
+                    raise StorageUnavailable(
+                        "FTP inventory returned a duplicate directory-entry name."
+                    )
+                seen_names.add(name)
                 candidate = posixpath.join(relative_directory, name) if relative_directory else name
                 current = client.pwd() if hasattr(client, "pwd") else None
                 is_directory = False
@@ -544,6 +639,7 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
 
 def _canonical_ftp_key(value: str) -> str:
     key = str(value)
+    reject_malformed_unicode(key, label="FTP object address")
     if not key or "\x00" in key:
         raise StorageInvalidAddress("FTP object address must not be empty or contain NUL.")
     if any(ord(character) < 32 or ord(character) == 127 for character in key):
@@ -554,6 +650,43 @@ def _canonical_ftp_key(value: str) -> str:
     if any(part in {"", ".", ".."} for part in parts):
         raise StorageInvalidAddress("FTP object address is not canonical.")
     return "/".join(parts)
+
+
+def _canonical_ftp_hostname(parsed: SplitResult) -> str:
+    """Return an unbracketed canonical hostname suitable for FTP clients."""
+
+    hostname = parsed.hostname
+    if not hostname:
+        raise StorageInvalidAddress("FTP URL must include a hostname.")
+    reject_malformed_unicode(hostname, label="FTP URL hostname")
+    if ":" in hostname:
+        return hostname.lower()
+    try:
+        return hostname.encode("idna").decode("ascii").lower()
+    except UnicodeError as error:
+        raise StorageInvalidAddress("FTP URL hostname is malformed.") from error
+
+
+def _validated_ftp_listing_name(value: object) -> str | None:
+    name = str(value)
+    if name in {"", ".", ".."}:
+        return None
+    try:
+        reject_malformed_unicode(name, label="FTP inventory name")
+    except StorageInvalidAddress as error:
+        raise StorageUnavailable(
+            "FTP inventory returned a name containing malformed Unicode."
+        ) from error
+    if (
+        "/" in name
+        or "\\" in name
+        or "\x00" in name
+        or any(ord(character) < 32 or ord(character) == 127 for character in name)
+    ):
+        raise StorageUnavailable(
+            "FTP inventory returned a malformed directory-entry name."
+        )
+    return name
 
 
 def _optional_int(value: Any) -> int | None:

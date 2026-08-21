@@ -51,6 +51,7 @@ from LiuXin_alpha.storage.drivers._errors import (
     driver_failure_message,
     translate_os_error,
 )
+from LiuXin_alpha.storage.drivers._validation import reject_malformed_unicode
 
 
 RcloneJsonRunner = Callable[[Sequence[str]], Any]
@@ -77,35 +78,128 @@ class _ProcessAPI(Protocol):
 class _RcloneProcessReader(io.RawIOBase):
     """Own an ``rclone cat`` process and validate its eventual exit status."""
 
-    def __init__(self, process: _ProcessAPI, target: str) -> None:
+    def __init__(
+        self,
+        process: _ProcessAPI,
+        target: str,
+        remaining: int | None = None,
+    ) -> None:
         self._process = process
         self._stdout = process.stdout
         self._stderr = process.stderr
         self._target = target
+        self._remaining = remaining
         self._checked_eof = False
 
     def readable(self) -> bool:
         return True
 
     def readinto(self, buffer: bytearray | memoryview) -> int:
-        data = self._stdout.read(len(buffer)) if self._stdout is not None else b""
-        if not isinstance(data, bytes):
-            raise TypeError("rclone cat stdout must be a binary stream.")
-        if not data and not self._checked_eof:
-            self._checked_eof = True
-            return_code = self._process.wait()
-            if return_code:
-                stderr = b""
-                if self._stderr is not None:
-                    stderr = self._stderr.read()
-                message = stderr.decode(errors="replace") if isinstance(stderr, bytes) else str(stderr)
-                raise _translate_rclone_error(
-                    message,
+        if self._remaining == 0:
+            self._check_process_result()
+            return 0
+        requested = len(buffer)
+        if self._remaining is not None:
+            requested = min(requested, self._remaining)
+        try:
+            data = (
+                self._stdout.read(requested)
+                if self._stdout is not None
+                else b""
+            )
+        except (TimeoutError, subprocess.TimeoutExpired) as error:
+            raise StorageTimeout(
+                driver_failure_message(
+                    "rclone",
+                    "read object",
                     target=self._target,
-                    operation="read object",
+                    reason="the object stream timed out",
+                )
+            ) from error
+        except OSError as error:
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "rclone",
+                    "read object",
+                    target=self._target,
+                    reason=str(error) or type(error).__name__,
+                )
+            ) from error
+        if not isinstance(data, bytes):
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "rclone",
+                    "read object",
+                    target=self._target,
+                    reason="rclone cat returned non-byte output",
+                )
+            )
+        if len(data) > requested:
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "rclone",
+                    "read object",
+                    target=self._target,
+                    reason="rclone cat returned more bytes than requested",
+                )
+            )
+        if not data:
+            self._check_process_result()
+            if self._remaining is not None and self._remaining > 0:
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "rclone",
+                        "read object",
+                        target=self._target,
+                        reason=(
+                            "rclone cat ended before the requested byte count "
+                            f"({self._remaining} bytes missing)"
+                        ),
+                    )
                 )
         buffer[: len(data)] = data
+        if self._remaining is not None:
+            self._remaining -= len(data)
         return len(data)
+
+    def _check_process_result(self) -> None:
+        if self._checked_eof:
+            return
+        self._checked_eof = True
+        try:
+            return_code = self._process.wait()
+        except (TimeoutError, subprocess.TimeoutExpired) as error:
+            raise StorageTimeout(
+                driver_failure_message(
+                    "rclone",
+                    "read object",
+                    target=self._target,
+                    reason="the object process timed out while finishing",
+                )
+            ) from error
+        except OSError as error:
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "rclone",
+                    "read object",
+                    target=self._target,
+                    reason=str(error) or type(error).__name__,
+                )
+            ) from error
+        if return_code:
+            stderr = b""
+            if self._stderr is not None:
+                stderr = self._stderr.read()
+            message = (
+                stderr.decode(errors="replace")
+                if isinstance(stderr, bytes)
+                else str(stderr)
+            )
+            raise _translate_rclone_error(
+                message,
+                target=self._target,
+                operation="read object",
+            )
 
     def close(self) -> None:
         if self.closed:
@@ -280,6 +374,7 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
         probe: RcloneProbe | None = None,
     ) -> None:
         root = str(fs_root).strip()
+        reject_malformed_unicode(root, label="rclone filesystem root")
         if not root or "\x00" in root or "\n" in root or "\r" in root:
             raise StorageInvalidAddress("rclone filesystem root is invalid.")
         _reject_inline_rclone_secrets(root)
@@ -411,7 +506,10 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
             version=_optional_text(blob.get("ID")),
             hints=DriverObjectHints(
                 suggested_filename=(
-                    _opaque_text(blob.get("Name"))
+                    _remote_rclone_text(
+                        blob.get("Name"),
+                        label="stat object name",
+                    )
                     or pathlib.PurePosixPath(str(checked)).name
                 ),
                 media_type=_optional_text(blob.get("MimeType"))
@@ -460,7 +558,31 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
                 target=target,
                 operation="open read",
             ) from error
-        return io.BufferedReader(_RcloneProcessReader(process, target))
+        if (
+            process is None
+            or not callable(getattr(process, "wait", None))
+            or not callable(getattr(process, "poll", None))
+            or getattr(process, "stdout", None) is None
+            or not callable(getattr(process.stdout, "read", None))
+        ):
+            if process is not None:
+                terminate = getattr(process, "terminate", None)
+                if callable(terminate):
+                    try:
+                        terminate()
+                    except Exception:
+                        pass
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "rclone",
+                    "open read",
+                    target=target,
+                    reason="rclone returned an invalid process stream",
+                )
+            )
+        return io.BufferedReader(
+            _RcloneProcessReader(process, target, remaining=length)
+        )
 
     def iter_inventory(
         self,
@@ -486,18 +608,42 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
             # form. Healthy production scans always take the streaming path.
             process = None
 
+        if process is not None and not _valid_rclone_process(process):
+            terminate = getattr(process, "terminate", None)
+            if callable(terminate):
+                try:
+                    terminate()
+                except Exception:
+                    pass
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "rclone",
+                    "start inventory",
+                    target=self._fs_root,
+                    reason="rclone returned an invalid process stream",
+                )
+            )
+
         def _items() -> Iterator[Any]:
-            yielded = False
             if process is not None:
+                yielded = False
                 try:
                     for item in _iter_json_array_process(
-                        process, target=self._fs_root
+                        process,
+                        target=self._fs_root,
                     ):
                         yielded = True
                         yield item
                     return
-                except (StorageUnavailable, StorageTimeout):
-                    if yielded:
+                except StorageError as error:
+                    # Some injected/legacy runners expose only the JSON call.
+                    # Fall back solely when process startup failed before any
+                    # output; malformed successful output must remain fatal.
+                    if (
+                        isinstance(error, StorageTimeout)
+                        or yielded
+                        or process.poll() in {None, 0}
+                    ):
                         raise
             payload = self._run_json(arguments)
             if payload is None:
@@ -515,7 +661,23 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
             raw_path = item.get("Path") or item.get("Name")
             if not raw_path:
                 continue
-            address = self.parse_object_address(str(raw_path))
+            try:
+                address = self.parse_object_address(
+                    _remote_rclone_text(
+                        raw_path,
+                        label="inventory object path",
+                    )
+                    or ""
+                )
+            except StorageInvalidAddress as error:
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "rclone",
+                        "inventory",
+                        target=self._fs_root,
+                        reason="rclone returned a malformed object path",
+                    )
+                ) from error
             if prefix_key is not None and not str(address).startswith(prefix_key):
                 continue
             if address in seen:
@@ -537,7 +699,10 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
                 version=_optional_text(item.get("ID")),
                 hints=DriverObjectHints(
                     suggested_filename=(
-                        _opaque_text(item.get("Name"))
+                        _remote_rclone_text(
+                            item.get("Name"),
+                            label="inventory object name",
+                        )
                         or pathlib.PurePosixPath(str(address)).name
                     ),
                     media_type=_optional_text(item.get("MimeType"))
@@ -959,19 +1124,36 @@ def _iter_json_array_process(
                 break
             raw = stdout.read(64 * 1024)
             if not isinstance(raw, bytes):
-                raise TypeError("rclone inventory stdout must be binary.")
+                raise StorageUnavailable(
+                    "rclone inventory stdout returned non-byte data."
+                )
             if raw:
                 if position:
                     buffer = buffer[position:]
                     position = 0
-                buffer += utf8.decode(raw)
+                try:
+                    buffer += utf8.decode(raw)
+                except UnicodeDecodeError as error:
+                    raise StorageUnavailable(
+                        "rclone inventory returned malformed UTF-8."
+                    ) from error
                 continue
             if exhausted:
+                _require_rclone_process_success(
+                    process,
+                    target=target,
+                    operation="inventory",
+                )
                 raise StorageUnavailable(
                     "rclone inventory returned truncated JSON."
                 )
             exhausted = True
-            buffer += utf8.decode(b"", final=True)
+            try:
+                buffer += utf8.decode(b"", final=True)
+            except UnicodeDecodeError as error:
+                raise StorageUnavailable(
+                    "rclone inventory returned malformed UTF-8."
+                ) from error
 
         while position < len(buffer) and buffer[position].isspace():
             position += 1
@@ -979,19 +1161,11 @@ def _iter_json_array_process(
             raise StorageUnavailable(
                 "rclone inventory returned trailing JSON data."
             )
-        return_code = process.wait()
-        if return_code:
-            detail = stderr.read() if stderr is not None else b""
-            message = (
-                detail.decode(errors="replace")
-                if isinstance(detail, bytes)
-                else str(detail)
-            )
-            raise _translate_rclone_error(
-                message,
-                target=target,
-                operation="inventory",
-            )
+        _require_rclone_process_success(
+            process,
+            target=target,
+            operation="inventory",
+        )
     finally:
         stdout.close()
         if process.poll() is None:
@@ -1022,12 +1196,69 @@ def _reject_inline_rclone_secrets(root: str) -> None:
 
 def _canonical_rclone_key(value: str) -> str:
     key = str(value)
+    reject_malformed_unicode(key, label="rclone object address")
     if not key or "\x00" in key or "\\" in key or key.startswith("/"):
         raise StorageInvalidAddress("rclone object address must be a relative POSIX path.")
     parts = key.split("/")
     if any(part in {"", ".", ".."} for part in parts):
         raise StorageInvalidAddress("rclone object address is not canonical.")
     return "/".join(parts)
+
+
+def _valid_rclone_process(process: object) -> bool:
+    """Return whether a spawned process exposes the stream contract we use."""
+
+    stdout = getattr(process, "stdout", None)
+    return (
+        callable(getattr(process, "wait", None))
+        and callable(getattr(process, "poll", None))
+        and stdout is not None
+        and callable(getattr(stdout, "read", None))
+    )
+
+
+def _require_rclone_process_success(
+    process: _ProcessAPI,
+    *,
+    target: str,
+    operation: str,
+) -> None:
+    """Wait for a streamed command and translate timeout/exit failures."""
+
+    try:
+        return_code = process.wait()
+    except (TimeoutError, subprocess.TimeoutExpired) as error:
+        raise StorageTimeout(
+            driver_failure_message(
+                "rclone",
+                operation,
+                target=target,
+                reason="the command timed out while finishing",
+            )
+        ) from error
+    except OSError as error:
+        raise StorageUnavailable(
+            driver_failure_message(
+                "rclone",
+                operation,
+                target=target,
+                reason=str(error) or type(error).__name__,
+            )
+        ) from error
+    if not return_code:
+        return
+    stderr = process.stderr
+    detail = stderr.read() if stderr is not None else b""
+    message = (
+        detail.decode(errors="replace")
+        if isinstance(detail, bytes)
+        else str(detail)
+    )
+    raise _translate_rclone_error(
+        message,
+        target=target,
+        operation=operation,
+    )
 
 
 def _rclone_datetime(value: Any) -> datetime | None:
@@ -1101,6 +1332,21 @@ def _opaque_text(value: Any) -> str | None:
         return None
     text = str(value)
     return text or None
+
+
+def _remote_rclone_text(value: Any, *, label: str) -> str | None:
+    """Validate text emitted by rclone before exposing it to callers."""
+
+    text = _opaque_text(value)
+    if text is None:
+        return None
+    try:
+        reject_malformed_unicode(text, label=f"rclone {label}")
+    except StorageInvalidAddress as error:
+        raise StorageUnavailable(
+            f"rclone returned malformed Unicode in its {label}."
+        ) from error
+    return text
 
 
 def _safe_rclone_name(value: str | None) -> str:

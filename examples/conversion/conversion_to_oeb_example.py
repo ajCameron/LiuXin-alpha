@@ -15,10 +15,11 @@ from types import SimpleNamespace
 from _conversion_example_utils import (
     ExampleLog,
     conversion_profile,
+    dump_json,
     install_customize_ui_stub,
+    isolated_conversion_scratch,
     load_oeb_from_opf,
 )
-from _example_utils import dump_json
 
 from LiuXin_alpha.file_formats.conversion.plugins.oeb_output import OEBOutput
 
@@ -163,17 +164,30 @@ def main() -> int:
     input_opts = _build_input_options(plugin)
     accelerators = {}
 
-    with input_path.open("rb") as stream:
-        plugin_result = plugin.convert(stream, input_opts, input_format, log, accelerators)
+    with isolated_conversion_scratch():
+        with input_path.open("rb") as stream:
+            plugin_result = plugin.convert(
+                stream,
+                input_opts,
+                input_format,
+                log,
+                accelerators,
+            )
 
-    oeb, details = _normalize_to_oeb(plugin_result, result_label="oeb_object")
+        oeb, details = _normalize_to_oeb(
+            plugin_result,
+            result_label="oeb_object",
+        )
 
-    postprocess = getattr(plugin, "postprocess_book", None)
-    if callable(postprocess):
-        postprocess(oeb, input_opts, log)
+        postprocess = getattr(plugin, "postprocess_book", None)
+        if callable(postprocess):
+            postprocess(oeb, input_opts, log)
 
-    out_opts = SimpleNamespace(expand_css=True, output_profile=conversion_profile())
-    OEBOutput(None).convert(oeb, str(output_dir), plugin, out_opts, log)
+        out_opts = SimpleNamespace(
+            expand_css=True,
+            output_profile=conversion_profile(),
+        )
+        OEBOutput(None).convert(oeb, str(output_dir), plugin, out_opts, log)
 
     output_files = sorted(p.relative_to(output_dir).as_posix() for p in output_dir.rglob("*") if p.is_file())
     payload = {

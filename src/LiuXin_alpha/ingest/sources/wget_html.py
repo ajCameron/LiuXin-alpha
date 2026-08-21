@@ -19,7 +19,11 @@ from LiuXin_alpha.ingest.sources.crawler_defaults import (
     LEGACY_WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY,
     get_default_crawler_http_requests_per_hour,
 )
-from LiuXin_alpha.ingest.sources.html_common import is_within_root_scope, looks_like_file_url
+from LiuXin_alpha.ingest.sources.html_common import (
+    is_within_root_scope,
+    looks_like_file_url,
+    normalize_http_url,
+)
 from LiuXin_alpha.ingest.sources.wget_utils import extract_http_urls_from_wget_output, run_wget
 
 WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT = CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT
@@ -56,7 +60,10 @@ class WgetHtmlDiscoverySource(DiscoverySourceAPI):
     """Remote HTML discovery source powered by `wget --spider`."""
 
     def __init__(self, url: str, *, options: WgetBackendOptions | None = None) -> None:
-        super().__init__(url=url)
+        normalized = normalize_http_url(url)
+        if normalized is None:
+            raise ValueError("wget discovery requires a valid HTTP(S) root URL.")
+        super().__init__(url=normalized)
         self.options = options or WgetBackendOptions()
         self._event_log = InMemoryEventLog()
         self._crawl_cache_urls: list[str] | None = None

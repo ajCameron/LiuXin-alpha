@@ -709,6 +709,7 @@ def _inventory_batches(
         return
 
     continuation = cursor
+    seen_cursors = {cursor} if cursor is not None else set()
     current_snapshot = snapshot_token
     remaining = max_files
     while True:
@@ -726,9 +727,9 @@ def _inventory_batches(
                 "Store inventory page exceeded its requested limit."
             )
         next_cursor = page.next_cursor
-        if next_cursor is not None and next_cursor == continuation:
+        if next_cursor is not None and next_cursor in seen_cursors:
             raise StoreIntegrityError(
-                "Store inventory returned a non-advancing cursor."
+                "Store inventory returned a repeated or non-advancing cursor."
             )
         yield page.entries, continuation, next_cursor, page.snapshot_token
         if remaining is not None:
@@ -737,6 +738,7 @@ def _inventory_batches(
                 return
         if next_cursor is None:
             return
+        seen_cursors.add(next_cursor)
         continuation = next_cursor
         current_snapshot = page.snapshot_token or current_snapshot
 

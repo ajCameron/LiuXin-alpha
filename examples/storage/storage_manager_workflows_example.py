@@ -4,9 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import sys
 import zipfile
 
 from pathlib import Path
+
+EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
+if str(EXAMPLES_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_ROOT))
 
 from _example_utils import (  # pyright: ignore[reportImplicitRelativeImport]
     bootstrap_src_path,

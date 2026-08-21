@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import types
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from _example_utils import bootstrap_src_path
+EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
+if str(EXAMPLES_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_ROOT))
+
+from _example_utils import bootstrap_src_path, dump_json
 
 bootstrap_src_path()
 
@@ -15,6 +22,25 @@ from LiuXin_alpha.file_formats.conversion.plugins.oeb_output import OEBOutput
 from LiuXin_alpha.file_formats.oeb.base import OEBBook
 from LiuXin_alpha.file_formats.oeb.reader import OEBReader
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.ptempfiles import (
+    get_base_scratch_folders,
+    set_base_scratch_folders,
+)
+
+
+@contextmanager
+def isolated_conversion_scratch() -> Iterator[Path]:
+    """Route legacy conversion temporaries through an existing temp folder."""
+
+    previous = get_base_scratch_folders()
+    with tempfile.TemporaryDirectory(
+        prefix="liuxin-alpha-conversion-scratch-"
+    ) as scratch:
+        set_base_scratch_folders(scratch)
+        try:
+            yield Path(scratch)
+        finally:
+            set_base_scratch_folders(previous)
 
 
 class ExampleLog:

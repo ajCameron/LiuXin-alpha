@@ -63,9 +63,11 @@ class NativeHtmlReadOnlyStorageBackend(
 
     def _probe_http_storage(self) -> None:
         result = self._fetch_url(self.url)
-        if int(result.status) >= 400:
+        if not self._usable_fetch_result(result):
             raise StorageUnavailable(
-                f"HTTP crawl root returned status {result.status}: {self.url}"
+                "HTTP crawl root returned an unsuccessful or scope-escaping "
+                f"response (status {result.status}, final URL {result.final_url!r}): "
+                f"{self.url}"
             )
 
     @staticmethod

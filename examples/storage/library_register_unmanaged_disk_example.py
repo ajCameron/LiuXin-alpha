@@ -6,7 +6,12 @@ Example: register an existing disk tree as an unmanaged store via Library.
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
+
+EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
+if str(EXAMPLES_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_ROOT))
 
 from _example_utils import bootstrap_src_path, dump_json
 
@@ -54,10 +59,9 @@ def main() -> int:
             refresh_storage_manager=not args.no_refresh_storage,
         )
 
-        try:
-            loaded_stores = [store.name for store in lib.iter_stores()]
-        except Exception:
-            loaded_stores = []
+        loaded_stores = [
+            store.configuration.store_name for store in lib.iter_stores()
+        ]
 
         payload = {
             "database_path": str(db_path),

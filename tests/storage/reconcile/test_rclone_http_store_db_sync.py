@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from uuid import UUID
 
+import pytest
+
+from LiuXin_alpha.storage.api import StorageInvalidAddress
 from LiuXin_alpha.storage.reconcile import (
+    ensure_rclone_http_readonly_store,
     register_rclone_http_readonly_store_files,
     register_rclone_http_readonly_with_database_path,
 )
@@ -208,3 +212,26 @@ def test_register_rclone_http_with_database_path_helper(provision_test_database,
     )
     assert report.inserted_files == 1
     assert report.errors == []
+
+
+@pytest.mark.parametrize(
+    "invalid_root",
+    [
+        "remote:\ud800",
+        "remote:path\nsecond-command",
+        ':s3,secret_access_key="do-not-store":bucket',
+    ],
+)
+def test_rclone_invalid_or_secret_roots_create_no_database_rows(
+    db,
+    invalid_root: str,
+) -> None:
+    ensure_surface_asset_tables(db)
+    before = len(db.get_all_rows("stores", iterator_return=False) or ())
+
+    with pytest.raises(StorageInvalidAddress) as raised:
+        ensure_rclone_http_readonly_store(db, invalid_root)
+
+    assert "do-not-store" not in str(raised.value)
+    after = len(db.get_all_rows("stores", iterator_return=False) or ())
+    assert after == before

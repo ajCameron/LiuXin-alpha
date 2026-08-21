@@ -13,6 +13,10 @@ from pathlib import Path
 from queue import Empty, Queue
 from threading import Event
 
+EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
+if str(EXAMPLES_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_ROOT))
+
 from _example_utils import bootstrap_src_path
 
 bootstrap_src_path()

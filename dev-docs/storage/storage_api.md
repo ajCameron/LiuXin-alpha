@@ -530,8 +530,8 @@ persistence SPI; merely reconstructing the same filesystem Store does not
 reconstruct those records.
 
 Runnable forms of the first example and a larger two-Store workflow live in
-`examples/storage_manager_manual_roundtrip_example.py` and
-`examples/storage_manager_workflows_example.py`.
+`examples/storage/storage_manager_manual_roundtrip_example.py` and
+`examples/storage/storage_manager_workflows_example.py`.
 
 ### Everyday manager convenience surface
 

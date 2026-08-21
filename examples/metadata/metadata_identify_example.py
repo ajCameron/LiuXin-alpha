@@ -9,7 +9,12 @@ import argparse
 import json
 import sys
 from io import StringIO
+from pathlib import Path
 from threading import Event
+
+EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
+if str(EXAMPLES_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_ROOT))
 
 from _example_utils import bootstrap_src_path
 

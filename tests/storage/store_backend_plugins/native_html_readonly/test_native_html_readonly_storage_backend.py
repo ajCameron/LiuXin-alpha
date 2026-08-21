@@ -4,7 +4,10 @@ import io
 
 import pytest
 
+from LiuXin_alpha.ingest import ingest_store
 from LiuXin_alpha.storage.api import EnumerationCompleteness, StoreReadOnly
+from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
+from LiuXin_alpha.storage.stores import FilesystemStore
 from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
     NativeHtmlBackendOptions,
     NativeHtmlReadOnlyStorageBackend,
@@ -30,7 +33,10 @@ def _html_result(url: str, body: str) -> object:
     )
 
 
-def test_native_backend_preserves_unicode_url_names_and_bytes(monkeypatch) -> None:
+def test_native_backend_preserves_unicode_url_names_and_bytes(
+    monkeypatch,
+    tmp_path,
+) -> None:
     root = "https://example.com/library/"
     object_url = root + UNICODE_URL_KEY
 
@@ -73,7 +79,7 @@ def test_native_backend_preserves_unicode_url_names_and_bytes(monkeypatch) -> No
     store = NativeHtmlReadOnlyStorageBackend(
         root,
         options=NativeHtmlBackendOptions(
-            max_http_requests_per_hour=None,
+            max_http_requests_per_hour=0,
             respect_robots=False,
         ),
     )
@@ -86,6 +92,19 @@ def test_native_backend_preserves_unicode_url_names_and_bytes(monkeypatch) -> No
     assert info.hints.suggested_filename == UNICODE_FILENAME
     assert info.hints.media_type == "application/epub+zip"
     assert store.read_file(info) == UNICODE_PAYLOAD
+
+    destination = FilesystemStore(tmp_path / "native-html-ingest-destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+    report = ingest_store(manager, store)
+
+    assert report.ok and report.ingested_files == 1
+    [item] = report.items
+    assert item.source_info.location.key == UNICODE_URL_KEY
+    assert item.result.asset_record.metadata.original_name == UNICODE_FILENAME
+    assert manager.read_file(item.result.asset_record) == UNICODE_PAYLOAD
 
 
 def test_native_backend_crawl_descends_through_non_file_like_pages(monkeypatch) -> None:
@@ -199,10 +218,16 @@ def test_native_backend_iter_locations_and_stat_follow_new_plugin_api(monkeypatc
             super().__init__(payload)
             self.status = status
             self.headers = {
-                "Content-Length": str(len(payloads[url])),
+                "Content-Length": str(
+                    len(payload) if status == 206 else len(payloads[url])
+                ),
                 "Content-Type": "application/octet-stream",
                 "ETag": '"version-1"',
             }
+            if status == 206:
+                self.headers["Content-Range"] = (
+                    f"bytes 1-3/{len(payloads[url])}"
+                )
             self._url = url
 
         def geturl(self) -> str:

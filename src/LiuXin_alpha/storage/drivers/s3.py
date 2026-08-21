@@ -50,6 +50,7 @@ from LiuXin_alpha.storage.drivers._errors import (
     driver_failure_message,
     translate_os_error,
 )
+from LiuXin_alpha.storage.drivers._validation import reject_malformed_unicode
 
 
 MINIMUM_MULTIPART_PART_SIZE = 5 * 1024 * 1024
@@ -105,7 +106,37 @@ class _S3BodyReader(io.RawIOBase):
                 operation="stream read",
             ) from error
         if not isinstance(data, bytes):
-            raise TypeError("S3 response body must return bytes.")
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "S3",
+                    "stream read",
+                    target=self._target,
+                    reason="the response body returned non-byte data",
+                )
+            )
+        if not data:
+            if self._remaining is not None and self._remaining > 0:
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "S3",
+                        "stream read",
+                        target=self._target,
+                        reason=(
+                            "the response ended before its declared length "
+                            f"({self._remaining} bytes missing)"
+                        ),
+                    )
+                )
+            return 0
+        if len(data) > requested:
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "S3",
+                    "stream read",
+                    target=self._target,
+                    reason="the response body returned more bytes than requested",
+                )
+            )
         buffer[: len(data)] = data
         if self._remaining is not None:
             self._remaining -= len(data)
@@ -283,6 +314,7 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         close_client: bool = True,
     ) -> None:
         bucket_text = str(bucket).strip()
+        reject_malformed_unicode(bucket_text, label="S3 bucket name")
         if (
             not bucket_text
             or "\x00" in bucket_text
@@ -517,23 +549,11 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
                 target=self.object_uri(checked),
                 operation="open read",
             ) from error
-        if "Range" in arguments:
-            content_range = str(response.get("ContentRange") or "")
-            if not content_range.startswith(f"bytes {offset}-"):
-                body = response.get("Body")
-                close = getattr(body, "close", None)
-                if callable(close):
-                    close()
-                raise StorageUnavailable(
-                    driver_failure_message(
-                        "S3",
-                        "open read",
-                        target=self.object_uri(checked),
-                        reason="the endpoint ignored the requested byte range",
-                    )
-                )
         body = response.get("Body")
         if body is None or not callable(getattr(body, "read", None)):
+            close = getattr(body, "close", None)
+            if callable(close):
+                close()
             raise StorageUnavailable(
                 driver_failure_message(
                     "S3",
@@ -542,10 +562,23 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
                     reason="get_object omitted a readable response body",
                 )
             )
+        try:
+            response_length = _validated_s3_response_length(
+                response,
+                offset=offset,
+                length=length,
+                ranged="Range" in arguments,
+            )
+            _validate_s3_response_version(response, if_version)
+        except BaseException:
+            close = getattr(body, "close", None)
+            if callable(close):
+                close()
+            raise
         return io.BufferedReader(
             _S3BodyReader(
                 body,
-                length,
+                response_length,
                 target=self.object_uri(checked),
             )
         )
@@ -556,6 +589,7 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         prefix: S3ObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[S3ObjectAddress]]:
         continuation: str | None = None
+        seen_cursors: set[str] = set()
         seen: set[S3ObjectAddress] = set()
         while True:
             page = self.inventory_page(prefix=prefix, cursor=continuation)
@@ -568,6 +602,11 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
             continuation = page.next_cursor
             if continuation is None:
                 return
+            if continuation in seen_cursors:
+                raise StorageIntegrityError(
+                    "S3 inventory returned a repeated continuation token."
+                )
+            seen_cursors.add(continuation)
 
     def inventory_page(
         self,
@@ -632,7 +671,19 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
                     )
                 )
             relative_key = full_key[len(root_prefix) :]
-            address = self.parse_object_address(relative_key)
+            try:
+                address = self.parse_object_address(relative_key)
+            except StorageInvalidAddress as error:
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "S3",
+                        "list inventory",
+                        target=self.root_uri,
+                        reason=(
+                            "the response contained a malformed object key"
+                        ),
+                    )
+                ) from error
             if address in seen:
                 raise StorageIntegrityError("S3 inventory returned a duplicate key.")
             seen.add(address)
@@ -659,6 +710,23 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
                     reason="a truncated response omitted its continuation token",
                 )
             )
+        if next_cursor is not None:
+            try:
+                reject_malformed_unicode(
+                    next_cursor,
+                    label="S3 continuation token",
+                )
+            except StorageInvalidAddress as error:
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "S3",
+                        "list inventory",
+                        target=self.root_uri,
+                        reason=(
+                            "the response contained a malformed continuation token"
+                        ),
+                    )
+                ) from error
         return DriverInventoryPage(
             entries=tuple(entries),
             next_cursor=next_cursor if truncated else None,
@@ -953,6 +1021,7 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
 
 def _canonical_s3_key(value: str) -> str:
     key = str(value)
+    reject_malformed_unicode(key, label="S3 object address")
     if not key or key.startswith("/") or "\x00" in key or "\\" in key:
         raise StorageInvalidAddress("S3 object address must be a relative POSIX key.")
     if any(part in {"", ".", ".."} for part in key.split("/")):
@@ -989,6 +1058,105 @@ def _optional_nonnegative_int(value: Any, label: str) -> int | None:
     if parsed < 0:
         raise StorageUnavailable(f"{label} is negative.")
     return parsed
+
+
+def _parse_s3_content_range(value: object) -> tuple[int, int, int | None]:
+    text = str(value or "").strip()
+    if not text.lower().startswith("bytes ") or "/" not in text:
+        raise StorageUnavailable("S3 endpoint returned a malformed ContentRange.")
+    interval, total_text = text[6:].split("/", 1)
+    if "-" not in interval:
+        raise StorageUnavailable("S3 endpoint returned a malformed ContentRange.")
+    start_text, end_text = interval.split("-", 1)
+    try:
+        start = int(start_text)
+        end = int(end_text)
+        total = None if total_text == "*" else int(total_text)
+    except ValueError as error:
+        raise StorageUnavailable(
+            "S3 endpoint returned a malformed ContentRange."
+        ) from error
+    if start < 0 or end < start or (
+        total is not None and (total <= 0 or end >= total)
+    ):
+        raise StorageUnavailable(
+            "S3 endpoint returned an impossible ContentRange."
+        )
+    return start, end, total
+
+
+def _validated_s3_response_length(
+    response: Mapping[str, Any],
+    *,
+    offset: int,
+    length: int | None,
+    ranged: bool,
+) -> int:
+    content_length = _optional_nonnegative_int(
+        response.get("ContentLength"),
+        "S3 response ContentLength",
+    )
+    if content_length is None:
+        raise StorageUnavailable("S3 get_object omitted ContentLength.")
+    content_range = response.get("ContentRange")
+    if not ranged:
+        if content_range not in (None, ""):
+            raise StorageUnavailable(
+                "S3 endpoint returned an unsolicited partial response."
+            )
+        return content_length
+    start, end, total = _parse_s3_content_range(content_range)
+    if start != offset:
+        raise StorageUnavailable(
+            "S3 partial response began at the wrong offset."
+        )
+    if length is not None:
+        requested_end = offset + length - 1
+        expected_end = (
+            requested_end
+            if total is None
+            else min(requested_end, total - 1)
+        )
+        if end != expected_end:
+            raise StorageUnavailable(
+                "S3 partial response ended at the wrong offset."
+            )
+    elif total is not None and end != total - 1:
+        raise StorageUnavailable(
+            "S3 open-ended partial response ended before the object boundary."
+        )
+    range_length = end - start + 1
+    if content_length != range_length:
+        raise StorageUnavailable(
+            "S3 ContentLength contradicts ContentRange."
+        )
+    return content_length
+
+
+def _validate_s3_response_version(
+    response: Mapping[str, Any],
+    expected_version: str | None,
+) -> None:
+    if expected_version is None:
+        return
+    if expected_version.startswith("version-id:"):
+        observed = _optional_text(response.get("VersionId"))
+        expected = expected_version.removeprefix("version-id:")
+        if observed != expected:
+            raise StoragePreconditionFailed(
+                "S3 conditional response omitted or changed its VersionId."
+            )
+        return
+    expected_etag = (
+        expected_version.removeprefix("etag:")
+        if expected_version.startswith("etag:")
+        else expected_version
+    ).strip('"')
+    observed_etag = _etag(response.get("ETag"))
+    if observed_etag != expected_etag:
+        raise StoragePreconditionFailed(
+            "S3 conditional response omitted or changed its ETag."
+        )
 
 
 def _aware_datetime(value: Any) -> datetime | None:

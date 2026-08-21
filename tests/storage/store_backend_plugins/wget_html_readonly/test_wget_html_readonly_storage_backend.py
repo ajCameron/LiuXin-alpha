@@ -4,7 +4,10 @@ import io
 
 import pytest
 
+from LiuXin_alpha.ingest import ingest_store
 from LiuXin_alpha.storage.api import EnumerationCompleteness, StoreReadOnly
+from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
+from LiuXin_alpha.storage.stores import FilesystemStore
 from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
     WgetBackendOptions,
     WgetHtmlReadOnlyStorageBackend,
@@ -24,7 +27,10 @@ def _ok_wget_result(*, args: list[str], stdout: str = "", stderr: str = "") -> W
     return WgetResult(args=list(args), returncode=0, stdout=stdout, stderr=stderr)
 
 
-def test_wget_backend_preserves_unicode_url_names_and_bytes(monkeypatch) -> None:
+def test_wget_backend_preserves_unicode_url_names_and_bytes(
+    monkeypatch,
+    tmp_path,
+) -> None:
     root = "https://example.com/books/"
     object_url = root + UNICODE_URL_KEY
 
@@ -65,7 +71,7 @@ def test_wget_backend_preserves_unicode_url_names_and_bytes(monkeypatch) -> None
     )
     store = WgetHtmlReadOnlyStorageBackend(
         root,
-        options=WgetBackendOptions(max_http_requests_per_hour=None),
+        options=WgetBackendOptions(max_http_requests_per_hour=0),
     )
 
     [location] = list(store.iter_locations())
@@ -76,6 +82,19 @@ def test_wget_backend_preserves_unicode_url_names_and_bytes(monkeypatch) -> None
     assert info.hints.suggested_filename == UNICODE_FILENAME
     assert info.hints.media_type == "application/epub+zip"
     assert store.read_file(info) == UNICODE_PAYLOAD
+
+    destination = FilesystemStore(tmp_path / "wget-html-ingest-destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+    report = ingest_store(manager, store)
+
+    assert report.ok and report.ingested_files == 1
+    [item] = report.items
+    assert item.source_info.location.key == UNICODE_URL_KEY
+    assert item.result.asset_record.metadata.original_name == UNICODE_FILENAME
+    assert manager.read_file(item.result.asset_record) == UNICODE_PAYLOAD
 
 
 def test_wget_backend_default_rate_limit_is_20_per_minute(monkeypatch) -> None:
@@ -316,7 +335,15 @@ def test_wget_backend_iter_locations_and_stat_follow_new_plugin_api(monkeypatch)
         def __init__(self, url: str, payload: bytes, *, status: int) -> None:
             super().__init__(payload)
             self.status = status
-            self.headers = {"Content-Length": str(len(payloads[url]))}
+            self.headers = {
+                "Content-Length": str(
+                    len(payload) if status == 206 else len(payloads[url])
+                )
+            }
+            if status == 206:
+                self.headers["Content-Range"] = (
+                    f"bytes 2-5/{len(payloads[url])}"
+                )
             self._url = url
 
         def geturl(self) -> str:

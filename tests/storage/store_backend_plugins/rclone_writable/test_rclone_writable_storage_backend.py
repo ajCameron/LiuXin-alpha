@@ -303,3 +303,63 @@ def test_writable_rclone_hides_and_reserves_its_remote_staging_namespace(
         store.read_bytes(reserved)
     with pytest.raises(api.StorageInvalidAddress, match="reserved"):
         store.store_bytes(b"user data", location=reserved)
+
+
+def test_writable_rclone_failed_publish_cleans_remote_staging(
+    writable_store,
+    monkeypatch,
+) -> None:
+    store, remote = writable_store
+    original_command = remote.command
+
+    def _failing_publish(arguments, **kwargs):
+        if list(arguments)[0] == "moveto":
+            raise RuntimeError("connection reset during publish")
+        return original_command(arguments, **kwargs)
+
+    monkeypatch.setattr(invocation_module, "run_rclone", _failing_publish)
+
+    with pytest.raises(api.StoreUnavailable, match="connection reset"):
+        store.store_bytes(b"book", location="books/book.epub")
+
+    assert "books/book.epub" not in remote.objects
+    assert not any(
+        key.startswith(".liuxin-staging/") for key in remote.objects
+    )
+
+
+def test_corrupt_rclone_native_transfer_publishes_no_manager_records(
+    writable_store,
+    monkeypatch,
+) -> None:
+    destination, remote = writable_store
+    remote.objects["incoming/native.epub"] = b"authoritative source"
+    original_command = remote.command
+
+    def _corrupt_copy(arguments, **kwargs):
+        result = original_command(arguments, **kwargs)
+        args = list(arguments)
+        if args[0] == "copyto" and args[1].startswith("remote:incoming/"):
+            remote.objects[remote.key(args[2])] = b"corrupt transfer"
+        return result
+
+    monkeypatch.setattr(invocation_module, "run_rclone", _corrupt_copy)
+    source = RcloneHttpReadOnlyStorageBackend(
+        "remote:",
+        options=RcloneBackendOptions(
+            max_http_requests_per_hour=0,
+            enforce_global_rate_limit=False,
+        ),
+    )
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+
+    report = ingest_store(manager, source)
+
+    assert not report.ok and report.ingested_files == 0
+    assert report.failures[0].error_type == "StorageIntegrityError"
+    assert tuple(manager.iter_digital_asset_records()) == ()
+    assert tuple(manager.iter_replica_records()) == ()
+    assert set(remote.objects) == {"incoming/native.epub"}

@@ -6,7 +6,12 @@ Example: inspect store bootstrap from the database `stores` table.
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
+
+EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
+if str(EXAMPLES_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_ROOT))
 
 from _example_utils import bootstrap_src_path, dump_json
 
@@ -45,7 +50,14 @@ def main() -> int:
         payload = {
             "database_path": str(db_path),
             "report": report,
-            "loaded_store_names": [store.name for store in db.storage.iter_stores()] if db.storage is not None else [],
+            "loaded_store_names": (
+                [
+                    store.configuration.store_name
+                    for store in db.storage.iter_stores()
+                ]
+                if db.storage is not None
+                else []
+            ),
         }
         print(dump_json(payload))
     return 0 if report.ok else 2

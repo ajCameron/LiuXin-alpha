@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from LiuXin_alpha.ingest import (
     register_native_html_readonly_store_files,
     register_native_html_readonly_with_database_path,
 )
+from LiuXin_alpha.ingest.remote_html import ensure_native_html_readonly_store
 from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
     native_html_storage_backend as backend_module,
 )
@@ -115,3 +118,69 @@ def test_register_native_html_with_database_path_helper(provision_test_database,
     )
     assert report.inserted_files == 1
     assert report.errors == []
+
+
+@pytest.mark.parametrize(
+    "invalid_root",
+    [
+        "https://example.test/library/bad-%GG/",
+        "https://example.test/library/bad%00path/",
+        "https://example.test/library/\ud800/",
+        "https://user:secret@example.test/library/",
+    ],
+)
+def test_native_html_invalid_roots_create_no_database_rows(
+    db,
+    invalid_root: str,
+) -> None:
+    ensure_surface_asset_tables(db)
+    before = len(db.get_all_rows("stores", iterator_return=False) or ())
+
+    with pytest.raises(ValueError, match="valid safe HTTP"):
+        ensure_native_html_readonly_store(db, invalid_root)
+
+    after = len(db.get_all_rows("stores", iterator_return=False) or ())
+    assert after == before
+
+
+def test_native_html_db_ingest_canonicalizes_unicode_and_drops_bad_link_bytes(
+    db,
+    monkeypatch,
+) -> None:
+    ensure_surface_asset_tables(db)
+    normalized_root = (
+        "https://xn--bcher-kva.example/%E6%96%87%E5%BA%93/"
+    )
+    body = (
+        b'<a href="valid-\xe4\xb9\xa6.epub">valid</a>'
+        b'<a href="bad-\xff.epub">bad</a>'
+        b'<a href="bad-%GG.epub">bad percent</a>'
+    )
+
+    monkeypatch.setattr(
+        backend_module.NativeHtmlReadOnlyStorageBackend,
+        "_fetch_url",
+        lambda self, url: backend_module._FetchResult(
+            requested_url=url,
+            final_url=url,
+            status=200,
+            content_type="text/html; charset=utf-8",
+            body=body,
+            charset="utf-8",
+        ),
+    )
+
+    report = register_native_html_readonly_store_files(
+        db,
+        remote_url="HTTPS://Bücher.example/文库/",
+        refresh_storage_manager=False,
+    )
+
+    assert report.errors == []
+    assert report.inserted_files == 1
+    assert report.store_root_uri == normalized_root
+    [row] = db.search("files", "file_store_id", report.store_row_id)
+    assert row["file_storage_key"] == "valid-%E4%B9%A6.epub"
+    store_row = db.get_row_from_id("stores", report.store_row_id)
+    assert store_row is not None
+    assert store_row["store_root_uri"] == normalized_root

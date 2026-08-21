@@ -22,7 +22,7 @@ from threading import Event
 
 
 def _bootstrap_src_path() -> None:
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
     src = repo_root / "src"
     if src.is_dir():
         src_text = str(src)

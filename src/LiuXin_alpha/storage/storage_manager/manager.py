@@ -313,6 +313,62 @@ class InMemoryStorageManager(api.StorageManagerAPI):
         )
 
     @override
+    def add_store(
+        self,
+        name: str,
+        kind: str,
+        root: str | os.PathLike[str],
+        *,
+        store_uuid: api.StoreUUID | None = None,
+        url: str | None = None,
+        protocol: str | None = None,
+        failure_domain: str | None = None,
+        region: str | None = None,
+        host: UUID | None = None,
+        device: UUID | None = None,
+        tags: Iterable[str] = (),
+        replication: (
+            api.ReplicationPolicyID | api.ReplicationPolicyRecord | None
+        ) = None,
+        backup: api.BackupPolicyID | api.BackupPolicyRecord | None = None,
+        modes: Iterable[api.ReplicaMode | str] = (
+            api.ReplicaMode.ACTIVE,
+            api.ReplicaMode.BACKUP,
+            api.ReplicaMode.ARCHIVE,
+        ),
+        operational_role: str | None = None,
+        read_only: bool = False,
+        folders: bool = True,
+        options: (
+            Mapping[str, object] | Iterable[tuple[str, object]]
+        ) = (),
+        start: bool = True,
+    ) -> api.StoreConfiguration:
+        """Build and register one Store through this manager's factory."""
+
+        configuration = api.StoreConfiguration.for_backend(
+            name,
+            kind,
+            root,
+            store_uuid=store_uuid,
+            url=url,
+            protocol=protocol,
+            failure_domain=failure_domain,
+            region=region,
+            host=host,
+            device=device,
+            tags=tags,
+            replication_policy=_replication_policy_id(replication),
+            backup_policy=_backup_policy_id(backup),
+            modes=modes,
+            operational_role=operational_role,
+            read_only=read_only,
+            folders=folders,
+            options=options,
+        )
+        return self.create_store(configuration, startup=start)
+
+    @override
     def add_filesystem_store(
         self,
         name: str,
@@ -3164,45 +3220,65 @@ class InMemoryStorageManager(api.StorageManagerAPI):
             if existing is None
             else existing
         )
-        if existing is not None:
-            asset_record = self._capture_first_placement_policies(
-                asset_record,
-                replication_policy_id,
-                backup_policy_id,
-            )
-        existing_replica = self._find_replica_for_store(
-            asset_record.digital_asset_id,
-            destination_ref,
-            replica_mode,
-        )
-        if (
-            existing_replica is not None
-            and not self._record_is_readable(existing_replica)
-        ):
-            existing_replica = None
-        replica_created = existing_replica is None
-        if existing_replica is None:
-            store = self._require_writable_destination(
+        try:
+            existing_replica = self._find_replica_for_store(
+                asset_record.digital_asset_id,
                 destination_ref,
                 replica_mode,
             )
-            location = self._allocate_asset_location(
-                store,
-                asset_record,
-                placement_hints=placement_hints,
-            )
-            publish(store, location, self._preferred_digest(asset_record))
-            replica_record = self._add_replica(
-                api.ReplicaDeclaration(
-                    asset_record.digital_asset_id,
-                    location,
+            if (
+                existing_replica is not None
+                and not self._record_is_readable(existing_replica)
+            ):
+                existing_replica = None
+            replica_created = existing_replica is None
+            if existing_replica is None:
+                store = self._require_writable_destination(
+                    destination_ref,
                     replica_mode,
-                    api.ReplicaObservation(api.ReplicaState.PRESENT),
+                )
+                location = self._allocate_asset_location(
+                    store,
+                    asset_record,
                     placement_hints=placement_hints,
                 )
-            )
-        else:
-            replica_record = existing_replica
+                publish(store, location, self._preferred_digest(asset_record))
+                if existing is not None:
+                    # Placement-policy defaults become part of an existing,
+                    # previously unplaced Asset only after its first bytes have
+                    # actually published.
+                    asset_record = self._capture_first_placement_policies(
+                        asset_record,
+                        replication_policy_id,
+                        backup_policy_id,
+                    )
+                replica_record = self._add_replica(
+                    api.ReplicaDeclaration(
+                        asset_record.digital_asset_id,
+                        location,
+                        replica_mode,
+                        api.ReplicaObservation(api.ReplicaState.PRESENT),
+                        placement_hints=placement_hints,
+                    )
+                )
+            else:
+                replica_record = existing_replica
+        except Exception:
+            if asset_created:
+                # Declaring identity is an implementation prerequisite for
+                # allocation, not a successful ingest result.  Do not leave a
+                # phantom Asset when destination selection, allocation, or
+                # publication fails before a Replica can be registered.
+                try:
+                    self.forget_digital_asset(
+                        asset_record.digital_asset_id,
+                        if_revision=asset_record.revision,
+                    )
+                except api.StoragePreconditionFailed:
+                    # Preserve the original Store failure if concurrent work
+                    # acquired a legitimate reference to the declaration.
+                    pass
+            raise
         if verify:
             report = self.verify_replica(replica_record.replica_id)
             replica_record = self.get_replica_record(replica_record.replica_id)

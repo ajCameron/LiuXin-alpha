@@ -6,10 +6,11 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 
 from dataclasses import dataclass
 from typing import Callable, Mapping, Sequence
-from urllib.parse import urlparse, urlunparse
+from LiuXin_alpha.ingest.sources.html_common import normalize_http_url
 
 
 class WgetNotInstalledError(RuntimeError):
@@ -64,6 +65,8 @@ def run_wget(
             timeout=timeout_s,
             check=False,
             text=True,
+            encoding="utf-8",
+            errors="surrogateescape",
         )
         result = WgetResult(
             args=cmd,
@@ -78,9 +81,26 @@ def run_wget(
             stderr=subprocess.STDOUT,
             env=merged_env,
             text=True,
+            encoding="utf-8",
+            errors="surrogateescape",
             bufsize=1,
         )
         merged_lines: list[str] = []
+        timed_out = threading.Event()
+
+        def _kill_timed_out_process() -> None:
+            if proc.poll() is None:
+                timed_out.set()
+                proc.kill()
+
+        timer = (
+            None
+            if timeout_s is None
+            else threading.Timer(timeout_s, _kill_timed_out_process)
+        )
+        if timer is not None:
+            timer.daemon = True
+            timer.start()
         try:
             assert proc.stdout is not None
             while True:
@@ -93,12 +113,12 @@ def run_wget(
                         pass
                 if line == "" and proc.poll() is not None:
                     break
-            returncode = int(proc.wait(timeout=timeout_s))
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait()
-            raise
+            returncode = int(proc.wait())
+            if timed_out.is_set():
+                raise subprocess.TimeoutExpired(cmd, timeout_s)
         finally:
+            if timer is not None:
+                timer.cancel()
             if proc.stdout is not None:
                 proc.stdout.close()
 
@@ -118,16 +138,7 @@ _URL_TOKEN_PATTERN = re.compile(r"https?://[^\s\"'<>]+", flags=re.IGNORECASE)
 
 
 def _normalize_url(url: str) -> str | None:
-    text = str(url or "").strip()
-    if not text:
-        return None
-    parsed = urlparse(text)
-    if parsed.scheme.lower() not in {"http", "https"}:
-        return None
-    if not parsed.netloc:
-        return None
-    normalized = parsed._replace(fragment="")
-    return urlunparse(normalized)
+    return normalize_http_url(url)
 
 
 def extract_http_urls_from_wget_output(output: str) -> list[str]:

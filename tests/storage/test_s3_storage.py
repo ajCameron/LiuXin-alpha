@@ -7,12 +7,16 @@ import io
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
 from LiuXin_alpha.storage import api
 from LiuXin_alpha.ingest import ingest_store
-from LiuXin_alpha.storage.drivers.s3 import MINIMUM_MULTIPART_PART_SIZE
+from LiuXin_alpha.storage.drivers.s3 import (
+    MINIMUM_MULTIPART_PART_SIZE,
+    S3StorageDriver,
+)
 from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
 from LiuXin_alpha.storage.stores import FilesystemStore, S3BackendOptions, S3Store
 from tests.fixtures.storage_unicode import (
@@ -73,6 +77,8 @@ class _FakeS3Client:
             result["ContentRange"] = f"bytes {start}-{start + len(payload) - 1}/{len(record['payload'])}"
         result["Body"] = io.BytesIO(payload)
         result["ContentLength"] = len(payload)
+        result["ETag"] = f'"{record["etag"]}"'
+        result["VersionId"] = record["version"]
         return result
 
     def put_object(self, **kwargs):
@@ -299,6 +305,37 @@ def test_store_ingest_reads_rich_s3_stat_hints(
     assert manager.read_file(item.result.asset_record) == b"s3 source"
 
 
+def test_truncated_s3_ingest_publishes_no_manager_state(
+    s3_store,
+    tmp_path: Path,
+) -> None:
+    source, client = s3_store
+    payload = b"authoritative S3 source"
+    source.store_bytes(payload, location="incoming/book.epub")
+    record = client.objects["liuxin/incoming/book.epub"]
+    body = io.BytesIO(b"short")
+    client.get_object = lambda **kwargs: {  # type: ignore[method-assign]
+        "Body": body,
+        "ContentLength": len(payload),
+        "ETag": f'"{record["etag"]}"',
+        "VersionId": record["version"],
+    }
+    destination = FilesystemStore(tmp_path / "s3-truncated-destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+
+    report = ingest_store(manager, source)
+
+    assert not report.ok and report.ingested_files == 0
+    assert report.failures[0].error_type == "StorageUnavailable"
+    assert tuple(manager.iter_digital_asset_records()) == ()
+    assert tuple(manager.iter_replica_records()) == ()
+    assert tuple(destination.iter_locations()) == ()
+    assert body.closed
+
+
 def test_s3_complete_paginated_inventory_prefix_and_uri_roundtrip(s3_store) -> None:
     store, _client = s3_store
     for key in ("alpha/one", "alpha/two", "beta/three"):
@@ -431,3 +468,315 @@ def test_s3_reads_tortured_unicode_keys_without_normalizing_them(
     assert store.read_file(discovered) == case.payload
     assert uri == f"s3://library/liuxin/{case.url_key}"
     assert store.location_from_uri(uri) == discovered
+
+
+def _pathological_s3_driver(
+    tmp_path: Path,
+    client: _FakeS3Client,
+) -> S3StorageDriver:
+    return S3StorageDriver(
+        "library",
+        prefix="liuxin",
+        address_space_uuid=uuid4(),
+        client=client,
+        local_staging_directory=tmp_path,
+        close_client=False,
+    )
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["bad\ud800.epub", "folder/bad\udfff.epub"],
+)
+def test_s3_rejects_unpaired_surrogates_before_calling_the_client(
+    tmp_path: Path,
+    key: str,
+) -> None:
+    client = _FakeS3Client()
+    driver = _pathological_s3_driver(tmp_path, client)
+
+    with pytest.raises(api.StorageInvalidAddress, match="malformed Unicode"):
+        driver.parse_object_address(key)
+
+
+@pytest.mark.parametrize(
+    "response_fields",
+    [
+        {"ContentLength": 2},
+        {"ContentLength": 2, "ContentRange": "bytes 0-1/10"},
+        {"ContentLength": 2, "ContentRange": "bytes 2-4/10"},
+        {"ContentLength": 3, "ContentRange": "bytes 2-3/10"},
+        {"ContentLength": 2, "ContentRange": "bytes 3-2/10"},
+        {"ContentLength": 2, "ContentRange": "not-a-range"},
+    ],
+)
+def test_s3_rejects_dishonest_partial_responses_and_closes_the_body(
+    tmp_path: Path,
+    response_fields: dict[str, Any],
+) -> None:
+    client = _FakeS3Client()
+    body = io.BytesIO(b"23")
+
+    def _get_object(**kwargs):
+        del kwargs
+        return {"Body": body, **response_fields}
+
+    client.get_object = _get_object  # type: ignore[method-assign]
+    driver = _pathological_s3_driver(tmp_path, client)
+
+    with pytest.raises(api.StorageUnavailable):
+        driver.open_read(
+            driver.parse_object_address("book.epub"),
+            offset=2,
+            length=2,
+        )
+
+    assert body.closed
+
+
+def test_s3_detects_a_truncated_declared_body_while_streaming(
+    tmp_path: Path,
+) -> None:
+    client = _FakeS3Client()
+    body = io.BytesIO(b"short")
+    client.get_object = lambda **kwargs: {  # type: ignore[method-assign]
+        "Body": body,
+        "ContentLength": 12,
+    }
+    driver = _pathological_s3_driver(tmp_path, client)
+
+    with driver.open_read(driver.parse_object_address("book.epub")) as stream:
+        with pytest.raises(api.StorageUnavailable, match="declared length"):
+            stream.read()
+
+    assert body.closed
+
+
+@pytest.mark.parametrize(
+    ("expected_version", "response_version"),
+    [
+        ("etag:old", {}),
+        ("etag:old", {"ETag": '"new"'}),
+        ("version-id:old", {}),
+        ("version-id:old", {"VersionId": "new"}),
+    ],
+)
+def test_s3_rejects_missing_or_changed_conditional_version_evidence(
+    tmp_path: Path,
+    expected_version: str,
+    response_version: dict[str, str],
+) -> None:
+    client = _FakeS3Client()
+    body = io.BytesIO(b"book")
+    client.get_object = lambda **kwargs: {  # type: ignore[method-assign]
+        "Body": body,
+        "ContentLength": 4,
+        **response_version,
+    }
+    driver = _pathological_s3_driver(tmp_path, client)
+
+    with pytest.raises(api.StoragePreconditionFailed):
+        driver.open_read(
+            driver.parse_object_address("book.epub"),
+            if_version=expected_version,
+        )
+
+    assert body.closed
+
+
+def test_s3_inventory_rejects_cursor_cycles_instead_of_looping_forever(
+    tmp_path: Path,
+) -> None:
+    client = _FakeS3Client()
+    client.list_objects_v2 = lambda **kwargs: {  # type: ignore[method-assign]
+        "Contents": [],
+        "IsTruncated": True,
+        "NextContinuationToken": (
+            "cursor-b" if kwargs.get("ContinuationToken") == "cursor-a"
+            else "cursor-a"
+        ),
+    }
+    driver = _pathological_s3_driver(tmp_path, client)
+
+    with pytest.raises(api.StorageIntegrityError, match="continuation token"):
+        list(driver.iter_inventory())
+
+
+def test_store_ingest_rejects_multi_page_cursor_cycles_without_publication(
+    s3_store,
+    tmp_path: Path,
+) -> None:
+    source, client = s3_store
+    client.list_objects_v2 = lambda **kwargs: {  # type: ignore[method-assign]
+        "Contents": [],
+        "IsTruncated": True,
+        "NextContinuationToken": (
+            "cursor-b" if kwargs.get("ContinuationToken") == "cursor-a"
+            else "cursor-a"
+        ),
+    }
+    destination = FilesystemStore(tmp_path / "cursor-cycle-destination")
+    manager = InMemoryStorageManager(
+        store_registrations=((destination.configuration, destination),),
+        default_store_ref=destination.store_ref,
+    )
+
+    with pytest.raises(api.StoreIntegrityError, match="cursor"):
+        ingest_store(manager, source, page_size=1)
+
+    assert tuple(manager.iter_digital_asset_records()) == ()
+    assert tuple(manager.iter_replica_records()) == ()
+    assert tuple(destination.iter_locations()) == ()
+
+
+@pytest.mark.parametrize(
+    "remote_value",
+    ["liuxin/bad\ud800.epub", "\ud800"],
+)
+def test_s3_inventory_rejects_malformed_unicode_from_the_service(
+    tmp_path: Path,
+    remote_value: str,
+) -> None:
+    client = _FakeS3Client()
+
+    def _list_objects(**kwargs):
+        del kwargs
+        if remote_value.startswith("liuxin/"):
+            return {
+                "Contents": [{"Key": remote_value, "Size": 1}],
+                "IsTruncated": False,
+            }
+        return {
+            "Contents": [],
+            "IsTruncated": True,
+            "NextContinuationToken": remote_value,
+        }
+
+    client.list_objects_v2 = _list_objects  # type: ignore[method-assign]
+    driver = _pathological_s3_driver(tmp_path, client)
+
+    with pytest.raises(api.StorageUnavailable, match="malformed"):
+        list(driver.iter_inventory())
+
+
+def test_s3_open_read_closes_an_unreadable_response_body(tmp_path: Path) -> None:
+    class _UnreadableBody:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    client = _FakeS3Client()
+    body = _UnreadableBody()
+    client.get_object = lambda **kwargs: {  # type: ignore[method-assign]
+        "Body": body,
+        "ContentLength": 4,
+    }
+    driver = _pathological_s3_driver(tmp_path, client)
+
+    with pytest.raises(api.StorageUnavailable, match="readable response body"):
+        driver.open_read(driver.parse_object_address("book.epub"))
+
+    assert body.closed
+
+
+@pytest.mark.parametrize(
+    ("failure", "error_type", "message"),
+    [
+        (TimeoutError("stalled"), api.StorageTimeout, "timed out"),
+        (OSError("connection reset"), api.StorageUnavailable, "connection reset"),
+    ],
+)
+def test_s3_translates_midstream_body_failures(
+    tmp_path: Path,
+    failure: BaseException,
+    error_type: type[Exception],
+    message: str,
+) -> None:
+    class _FailingBody(io.BytesIO):
+        def read(self, size: int = -1) -> bytes:
+            del size
+            raise failure
+
+    client = _FakeS3Client()
+    body = _FailingBody()
+    client.get_object = lambda **kwargs: {  # type: ignore[method-assign]
+        "Body": body,
+        "ContentLength": 4,
+    }
+    driver = _pathological_s3_driver(tmp_path, client)
+
+    with driver.open_read(driver.parse_object_address("book.epub")) as stream:
+        with pytest.raises(error_type, match=message):
+            stream.read()
+
+
+def test_s3_rejects_nonbyte_or_overlong_body_chunks(tmp_path: Path) -> None:
+    class _BadBody(io.BytesIO):
+        value: object
+
+        def read(self, size: int = -1):
+            if self.value == "overlong":
+                return b"x" * (size + 1)
+            return self.value
+
+    for value, message in (("text", "non-byte"), ("overlong", "more bytes")):
+        client = _FakeS3Client()
+        body = _BadBody()
+        body.value = value
+        client.get_object = lambda **kwargs: {  # type: ignore[method-assign]
+            "Body": body,
+            "ContentLength": 4,
+        }
+        driver = _pathological_s3_driver(tmp_path, client)
+        with driver.open_read(driver.parse_object_address("book.epub")) as stream:
+            with pytest.raises(api.StorageUnavailable, match=message):
+                stream.read()
+
+
+def test_s3_open_ended_range_must_reach_declared_object_boundary(
+    tmp_path: Path,
+) -> None:
+    client = _FakeS3Client()
+    body = io.BytesIO(b"23")
+    client.get_object = lambda **kwargs: {  # type: ignore[method-assign]
+        "Body": body,
+        "ContentLength": 2,
+        "ContentRange": "bytes 2-3/10",
+    }
+    driver = _pathological_s3_driver(tmp_path, client)
+
+    with pytest.raises(api.StorageUnavailable, match="object boundary"):
+        driver.open_read(
+            driver.parse_object_address("book.epub"),
+            offset=2,
+        )
+
+    assert body.closed
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        [
+            {"Key": "liuxin/book.epub", "Size": 4},
+            {"Key": "liuxin/book.epub", "Size": 4},
+        ],
+        [{"Key": "outside/book.epub", "Size": 4}],
+        ["not-an-object"],
+    ],
+)
+def test_s3_inventory_rejects_duplicate_out_of_scope_or_malformed_entries(
+    tmp_path: Path,
+    contents: list[object],
+) -> None:
+    client = _FakeS3Client()
+    client.list_objects_v2 = lambda **kwargs: {  # type: ignore[method-assign]
+        "Contents": contents,
+        "IsTruncated": False,
+    }
+    driver = _pathological_s3_driver(tmp_path, client)
+
+    with pytest.raises((api.StorageIntegrityError, api.StorageUnavailable)):
+        list(driver.iter_inventory())

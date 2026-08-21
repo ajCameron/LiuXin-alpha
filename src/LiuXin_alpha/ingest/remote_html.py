@@ -19,6 +19,7 @@ from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.ingest.models import RemoteHtmlRegistrationReport
 from LiuXin_alpha.ingest.pipelines import ingest_html_discovery_store_files
 from LiuXin_alpha.ingest.sources import get_default_crawler_http_requests_per_hour
+from LiuXin_alpha.ingest.sources.html_common import normalize_http_url
 from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
     NativeHtmlBackendOptions,
     NativeHtmlReadOnlyStorageBackend,
@@ -38,10 +39,10 @@ def _now_ep_ms() -> int:
 
 
 def _normalize_remote_root(url: str) -> str:
-    text = str(url).strip()
-    if not text:
-        raise ValueError("Remote store URL cannot be blank.")
-    return text
+    normalized = normalize_http_url(url)
+    if normalized is None:
+        raise ValueError("Remote store URL must be a valid safe HTTP(S) URL.")
+    return normalized
 
 
 def _table_columns(db, table_name: str) -> set[str]:

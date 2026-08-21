@@ -6,6 +6,7 @@ import dataclasses
 import email.utils
 import io
 import mimetypes
+import re
 import socket
 import threading
 import time
@@ -15,7 +16,15 @@ import urllib.request
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from datetime import datetime, timezone
 from typing import BinaryIO, Protocol
-from urllib.parse import parse_qsl, unquote, urljoin, urlsplit, urlunsplit
+from urllib.parse import (
+    SplitResult,
+    parse_qsl,
+    quote,
+    unquote,
+    urljoin,
+    urlsplit,
+    urlunsplit,
+)
 from uuid import UUID
 
 from LiuXin_alpha.storage.api import (
@@ -41,6 +50,10 @@ from LiuXin_alpha.storage.api import (
     StorageUnsupportedOperation,
 )
 from LiuXin_alpha.storage.drivers._errors import driver_failure_message
+from LiuXin_alpha.storage.drivers._validation import (
+    reject_malformed_percent_escapes,
+    reject_malformed_unicode,
+)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -107,15 +120,45 @@ class _HttpResponseReader(io.RawIOBase):
                     "HTTP",
                     "stream read",
                     target=self._target,
-                    reason=getattr(error, "strerror", None) or type(error).__name__,
+                    reason=(
+                        getattr(error, "strerror", None)
+                        or str(error)
+                        or type(error).__name__
+                    ),
                 )
             ) from error
-        if not data:
-            if self._remaining is not None:
-                self._remaining = 0
-            return 0
         if not isinstance(data, bytes):
-            raise TypeError("HTTP response streams must return bytes.")
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "HTTP",
+                    "stream read",
+                    target=self._target,
+                    reason="the response stream returned non-byte data",
+                )
+            )
+        if not data:
+            if self._remaining is not None and self._remaining > 0:
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "HTTP",
+                        "stream read",
+                        target=self._target,
+                        reason=(
+                            "the response ended before its declared length "
+                            f"({self._remaining} bytes missing)"
+                        ),
+                    )
+                )
+            return 0
+        if len(data) > count:
+            raise StorageUnavailable(
+                driver_failure_message(
+                    "HTTP",
+                    "stream read",
+                    target=self._target,
+                    reason="the response returned more bytes than requested",
+                )
+            )
         view[: len(data)] = data
         if self._remaining is not None:
             self._remaining -= len(data)
@@ -332,7 +375,15 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
             method="GET",
             headers=headers,
         )
-        status = int(getattr(response, "status", 200) or 200)
+        try:
+            remaining = _validated_response_length(
+                response,
+                offset=offset,
+                length=length,
+            )
+        except BaseException:
+            response.close()
+            raise
         if if_version is not None:
             response_version = _header(response.headers, "ETag")
             if response_version is None:
@@ -345,16 +396,12 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
                 raise StoragePreconditionFailed(
                     f"version changed for {checked!s}."
                 )
-        if ranged and status != 206:
-            response.close()
-            raise StorageUnsupportedOperation(
-                "HTTP endpoint ignored the requested byte range."
-            )
+        target = self.object_uri(checked)
         return io.BufferedReader(
             _HttpResponseReader(
                 response,
-                remaining=length,
-                target=self.object_uri(checked),
+                remaining=remaining,
+                target=target,
             )
         )
 
@@ -402,12 +449,18 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
             ) from error
 
     def _relative_key_from_uri(self, uri: str) -> str:
-        candidate = urlsplit(str(uri))
+        candidate_text = str(uri)
+        reject_malformed_unicode(candidate_text, label="HTTP object URI")
+        try:
+            candidate = urlsplit(candidate_text)
+            candidate_authority = _canonical_http_authority(candidate)
+        except (TypeError, ValueError) as error:
+            raise StorageInvalidAddress("HTTP object URI authority is malformed.") from error
         if candidate.fragment:
             raise StorageInvalidAddress("HTTP object URIs must not contain fragments.")
         if (
             candidate.scheme.lower() != self._root_parts.scheme
-            or candidate.netloc.lower() != self._root_parts.netloc.lower()
+            or candidate_authority != self._root_parts.netloc
         ):
             raise StorageInvalidAddress(
                 "HTTP object URI belongs to another endpoint."
@@ -433,13 +486,15 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         request_headers = dict(self._headers)
         request_headers.update(headers or {})
         self._acquire_rate_limit_slot()
-        request = urllib.request.Request(
-            url=url,
-            method=method,
-            headers=request_headers,
-        )
         try:
-            return self._request_opener(request, self._timeout_s)
+            request = urllib.request.Request(
+                url=url,
+                method=method,
+                headers=request_headers,
+            )
+            response = self._request_opener(request, self._timeout_s)
+            self._validate_response(response, requested_url=url, method=method)
+            return response
         except urllib.error.HTTPError as error:
             if method == "HEAD" and error.code in {405, 501}:
                 raise StorageUnsupportedOperation(
@@ -540,6 +595,66 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
                 )
             ) from error
 
+    def _validate_response(
+        self,
+        response: HttpResponseAPI,
+        *,
+        requested_url: str,
+        method: str,
+    ) -> None:
+        """Reject unsuccessful or scope-escaping custom/redirected responses."""
+
+        try:
+            status = int(getattr(response, "status", 200) or 200)
+            failure = _http_status_failure(method, requested_url, status)
+            if failure is not None:
+                raise failure
+            final_url = str(response.geturl() or requested_url)
+            candidate = urlsplit(final_url)
+            try:
+                candidate_authority = _canonical_http_authority(candidate)
+            except (StorageInvalidAddress, TypeError, ValueError) as error:
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "HTTP",
+                        method,
+                        target=requested_url,
+                        reason="the response returned a malformed endpoint URL",
+                    )
+                ) from error
+            if (
+                candidate.scheme.lower() != self._root_parts.scheme
+                or candidate_authority != self._root_parts.netloc
+            ):
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "HTTP",
+                        method,
+                        target=requested_url,
+                        reason="the response redirected outside the configured endpoint",
+                    )
+                )
+            if candidate.path == self._root_parts.path:
+                if candidate.fragment:
+                    raise StorageUnavailable(
+                        "HTTP response URL unexpectedly contained a fragment."
+                    )
+                return
+            try:
+                self._relative_key_from_uri(final_url)
+            except StorageInvalidAddress as error:
+                raise StorageUnavailable(
+                    driver_failure_message(
+                        "HTTP",
+                        method,
+                        target=requested_url,
+                        reason="the response redirected outside the configured root",
+                    )
+                ) from error
+        except BaseException:
+            response.close()
+            raise
+
     def _acquire_rate_limit_slot(self) -> None:
         if self._requests_per_hour is None:
             return
@@ -572,22 +687,122 @@ def _http_error_message(method: str, url: str, status: int, reason: str) -> str:
     )
 
 
+def _http_status_failure(
+    method: str,
+    url: str,
+    status: int,
+) -> StorageError | None:
+    """Map a returned status even when an injected opener did not raise it."""
+
+    if 200 <= status < 300:
+        return None
+    if method == "HEAD" and status in {405, 501}:
+        return StorageUnsupportedOperation(
+            _http_error_message(
+                method,
+                url,
+                status,
+                "the endpoint does not support HEAD",
+            )
+        )
+    if status in {404, 410}:
+        return StorageNotFound(
+            _http_error_message(method, url, status, "object not found")
+        )
+    if status == 401:
+        return StorageAuthenticationFailed(
+            _http_error_message(method, url, status, "authentication failed")
+        )
+    if status == 403:
+        return StoragePermissionDenied(
+            _http_error_message(method, url, status, "permission denied")
+        )
+    if status == 408:
+        return StorageTimeout(
+            _http_error_message(method, url, status, "request timed out")
+        )
+    if status == 412:
+        return StoragePreconditionFailed(
+            _http_error_message(
+                method,
+                url,
+                status,
+                "the request precondition failed",
+            )
+        )
+    if status == 416:
+        return StorageInvalidAddress(
+            _http_error_message(
+                method,
+                url,
+                status,
+                "the requested byte range is not satisfiable",
+            )
+        )
+    return StorageUnavailable(
+        _http_error_message(
+            method,
+            url,
+            status,
+            "the endpoint returned an unsuccessful response",
+        )
+    )
+
+
 def _canonical_root_url(value: str) -> str:
-    parsed = urlsplit(str(value).strip())
+    text = str(value).strip()
+    reject_malformed_unicode(text, label="HTTP root URL")
+    try:
+        parsed = urlsplit(text)
+        authority = _canonical_http_authority(parsed)
+    except (TypeError, ValueError) as error:
+        raise StorageInvalidAddress("HTTP root URL authority is malformed.") from error
     if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
         raise StorageInvalidAddress("HTTP driver requires an http(s) root URL.")
-    if parsed.username is not None or parsed.password is not None:
-        raise StorageInvalidAddress("HTTP root URLs must not embed credentials.")
+    if any(
+        character.isspace() or ord(character) < 32 or ord(character) == 127
+        for character in parsed.netloc
+    ):
+        raise StorageInvalidAddress("HTTP root URL authority is malformed.")
     if parsed.query or parsed.fragment:
         raise StorageInvalidAddress("HTTP root URLs must not contain query or fragment data.")
     path = parsed.path or "/"
+    reject_malformed_percent_escapes(path, label="HTTP root URL path")
+    decoded_path = unquote(path)
+    if "\\" in decoded_path or any(
+        ord(character) < 32 or ord(character) == 127
+        for character in decoded_path
+    ):
+        raise StorageInvalidAddress("HTTP root URL path is malformed.")
+    path = quote(path, safe="/%:@!$&'()*+,;=-._~")
     if not path.endswith("/"):
         path += "/"
-    return urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), path, "", ""))
+    return urlunsplit((parsed.scheme.lower(), authority, path, "", ""))
+
+
+def _canonical_http_authority(parsed: SplitResult) -> str:
+    """Render one credential-free authority with an ASCII DNS hostname."""
+
+    if parsed.username is not None or parsed.password is not None:
+        raise StorageInvalidAddress("HTTP URLs must not embed credentials.")
+    hostname = parsed.hostname
+    if not hostname:
+        raise StorageInvalidAddress("HTTP URLs must include a hostname.")
+    reject_malformed_unicode(hostname, label="HTTP URL hostname")
+    if ":" in hostname:
+        rendered_host = f"[{hostname.lower()}]"
+    else:
+        try:
+            rendered_host = hostname.encode("idna").decode("ascii").lower()
+        except UnicodeError as error:
+            raise StorageInvalidAddress("HTTP URL hostname is malformed.") from error
+    port = parsed.port
+    return rendered_host if port is None else f"{rendered_host}:{port}"
 
 
 def _canonical_relative_reference(value: str) -> str:
     key = str(value)
+    reject_malformed_unicode(key, label="HTTP object address")
     parsed = urlsplit(key)
     if not key or parsed.scheme or parsed.netloc or parsed.fragment:
         raise StorageInvalidAddress(
@@ -595,7 +810,23 @@ def _canonical_relative_reference(value: str) -> str:
         )
     if parsed.path.startswith(("/", "\\")) or "\\" in parsed.path:
         raise StorageInvalidAddress("HTTP object addresses must be root-relative keys.")
-    decoded_segments = unquote(parsed.path).split("/")
+    reject_malformed_percent_escapes(
+        parsed.path,
+        label="HTTP object address path",
+    )
+    reject_malformed_percent_escapes(
+        parsed.query,
+        label="HTTP object address query",
+    )
+    decoded_path = unquote(parsed.path)
+    if "\\" in decoded_path or any(
+        ord(character) < 32 or ord(character) == 127
+        for character in decoded_path
+    ):
+        raise StorageInvalidAddress(
+            "HTTP object addresses must not encode controls or backslashes."
+        )
+    decoded_segments = decoded_path.split("/")
     if any(segment in {"", ".", ".."} for segment in decoded_segments):
         raise StorageInvalidAddress(
             "HTTP object addresses must contain canonical non-empty path segments."
@@ -605,7 +836,15 @@ def _canonical_relative_reference(value: str) -> str:
             "HTTP object addresses must percent-encode whitespace and controls."
         )
     _reject_sensitive_query(parsed.query)
-    return parsed.path + (("?" + parsed.query) if parsed.query else "")
+    encoded_path = quote(
+        parsed.path,
+        safe="/%:@!$&'()*+,;=-._~",
+    )
+    encoded_query = quote(
+        parsed.query,
+        safe="%:@!$&'()*+,;=/?-._~",
+    )
+    return encoded_path + (("?" + encoded_query) if encoded_query else "")
 
 
 def _reject_sensitive_query(query: str) -> None:
@@ -650,13 +889,14 @@ def _header(headers: Mapping[str, str], name: str) -> str | None:
 
 def _response_size(response: HttpResponseAPI) -> int | None:
     content_range = _header(response.headers, "Content-Range")
-    if content_range and "/" in content_range:
-        total = content_range.rsplit("/", 1)[1].strip()
-        if total != "*":
-            try:
-                return int(total)
-            except ValueError:
-                pass
+    if content_range is not None:
+        _start, _end, total = _parse_content_range(content_range)
+        if total is not None:
+            return total
+    return _response_content_length(response)
+
+
+def _response_content_length(response: HttpResponseAPI) -> int | None:
     content_length = _header(response.headers, "Content-Length")
     if content_length is None:
         return None
@@ -667,6 +907,83 @@ def _response_size(response: HttpResponseAPI) -> int | None:
     if size < 0:
         raise StorageUnavailable("HTTP endpoint returned a negative Content-Length.")
     return size
+
+
+_CONTENT_RANGE = re.compile(
+    r"bytes\s+(?P<start>[0-9]+)-(?P<end>[0-9]+)/(?P<total>[0-9]+|\*)",
+    re.IGNORECASE,
+)
+
+
+def _parse_content_range(value: str) -> tuple[int, int, int | None]:
+    matched = _CONTENT_RANGE.fullmatch(value.strip())
+    if matched is None:
+        raise StorageUnavailable(
+            "HTTP endpoint returned a malformed Content-Range."
+        )
+    start = int(matched.group("start"))
+    end = int(matched.group("end"))
+    total_text = matched.group("total")
+    total = None if total_text == "*" else int(total_text)
+    if end < start or (total is not None and (total <= 0 or end >= total)):
+        raise StorageUnavailable(
+            "HTTP endpoint returned an impossible Content-Range."
+        )
+    return start, end, total
+
+
+def _validated_response_length(
+    response: HttpResponseAPI,
+    *,
+    offset: int,
+    length: int | None,
+) -> int | None:
+    """Validate HTTP range evidence and return the declared body length."""
+
+    ranged = offset != 0 or length is not None
+    status = int(getattr(response, "status", 200) or 200)
+    if not ranged:
+        if status == 206 or _header(response.headers, "Content-Range") is not None:
+            raise StorageUnavailable(
+                "HTTP endpoint returned an unsolicited partial response."
+            )
+        return _response_content_length(response)
+    if status != 206:
+        raise StorageUnsupportedOperation(
+            "HTTP endpoint ignored the requested byte range."
+        )
+    content_range = _header(response.headers, "Content-Range")
+    if content_range is None:
+        raise StorageUnavailable(
+            "HTTP partial response omitted Content-Range."
+        )
+    start, end, total = _parse_content_range(content_range)
+    if start != offset:
+        raise StorageUnavailable(
+            "HTTP partial response began at the wrong offset."
+        )
+    if length is not None:
+        requested_end = offset + length - 1
+        expected_end = (
+            requested_end
+            if total is None
+            else min(requested_end, total - 1)
+        )
+        if end != expected_end:
+            raise StorageUnavailable(
+                "HTTP partial response ended at the wrong offset."
+            )
+    elif total is not None and end != total - 1:
+        raise StorageUnavailable(
+            "HTTP open-ended partial response ended before the object boundary."
+        )
+    body_length = end - start + 1
+    content_length = _response_content_length(response)
+    if content_length is not None and content_length != body_length:
+        raise StorageUnavailable(
+            "HTTP Content-Length contradicts Content-Range."
+        )
+    return body_length
 
 
 def _http_datetime(value: str | None) -> datetime | None:

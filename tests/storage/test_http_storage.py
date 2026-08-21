@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import socket
 import urllib.error
 
 from uuid import uuid4
@@ -14,6 +15,9 @@ from LiuXin_alpha.storage.api import (
     StorageInvalidAddress,
     StorageNotFound,
     StoragePermissionDenied,
+    StoragePreconditionFailed,
+    StorageTimeout,
+    StorageUnavailable,
     StorageUnsupportedOperation,
 )
 from LiuXin_alpha.storage.drivers.http import HttpStorageDriver
@@ -316,3 +320,382 @@ def test_http_store_reads_non_utf8_octets_as_opaque_percent_encoded_keys() -> No
     assert location.key == key
     assert store.location_from_uri(object_url) == location
     assert store.read_file(location) == payload
+
+
+@pytest.mark.parametrize(
+    ("status", "error_type"),
+    [
+        (401, StorageAuthenticationFailed),
+        (403, StoragePermissionDenied),
+        (404, StorageNotFound),
+        (408, StorageTimeout),
+        (412, StoragePreconditionFailed),
+        (416, StorageInvalidAddress),
+        (500, StorageUnavailable),
+    ],
+)
+def test_http_driver_validates_unsuccessful_statuses_returned_by_custom_openers(
+    status: int,
+    error_type: type[Exception],
+) -> None:
+    response: _Response | None = None
+
+    def _opener(request, timeout):
+        nonlocal response
+        del timeout
+        response = _Response(request.full_url, b"failure", status=status)
+        return response
+
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        request_opener=_opener,
+        max_requests_per_hour=0,
+    )
+
+    with pytest.raises(error_type):
+        driver.open_read(driver.parse_object_address("book.epub"))
+
+    assert response is not None and response.closed
+
+
+def test_http_stat_falls_back_when_custom_opener_returns_head_not_supported() -> None:
+    methods: list[str] = []
+
+    def _opener(request, timeout):
+        del timeout
+        methods.append(request.method)
+        if request.method == "HEAD":
+            return _Response(request.full_url, b"", status=405)
+        return _Response(
+            request.full_url,
+            b"x",
+            status=206,
+            headers={
+                "Content-Length": "1",
+                "Content-Range": "bytes 0-0/4",
+            },
+        )
+
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        request_opener=_opener,
+        max_requests_per_hour=0,
+    )
+
+    assert driver.stat(driver.parse_object_address("book.epub")).size == 4
+    assert methods == ["HEAD", "GET"]
+
+
+@pytest.mark.parametrize(
+    "final_url",
+    [
+        "https://attacker.test/root/book.epub",
+        "https://example.test/outside/book.epub",
+        "https://example.test/root/../outside/book.epub",
+    ],
+)
+def test_http_driver_rejects_and_closes_scope_escaping_redirects(
+    final_url: str,
+) -> None:
+    response = _Response(final_url, b"stolen", headers={"Content-Length": "6"})
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        request_opener=lambda request, timeout: response,
+        max_requests_per_hour=0,
+    )
+
+    with pytest.raises(StorageUnavailable, match="redirected outside"):
+        driver.open_read(driver.parse_object_address("book.epub"))
+
+    assert response.closed
+
+
+@pytest.mark.parametrize(
+    "final_url",
+    [
+        "https://user:secret@example.test/root/book.epub",
+        "https://example.test:not-a-port/root/book.epub",
+    ],
+)
+def test_http_driver_rejects_and_closes_malformed_redirect_endpoints(
+    final_url: str,
+) -> None:
+    response = _Response(final_url, b"stolen", headers={"Content-Length": "6"})
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        request_opener=lambda request, timeout: response,
+        max_requests_per_hour=0,
+    )
+
+    with pytest.raises(StorageUnavailable, match="malformed endpoint"):
+        driver.open_read(driver.parse_object_address("book.epub"))
+
+    assert response.closed
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {"Content-Length": "2"},
+        {"Content-Length": "2", "Content-Range": "bytes 0-1/10"},
+        {"Content-Length": "2", "Content-Range": "bytes 2-4/10"},
+        {"Content-Length": "3", "Content-Range": "bytes 2-3/10"},
+        {"Content-Length": "2", "Content-Range": "bytes 3-2/10"},
+        {"Content-Length": "2", "Content-Range": "nonsense"},
+    ],
+)
+def test_http_driver_rejects_dishonest_partial_response_headers(
+    headers: dict[str, str],
+) -> None:
+    response = _Response(
+        "https://example.test/root/book.epub",
+        b"23",
+        status=206,
+        headers=headers,
+    )
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        request_opener=lambda request, timeout: response,
+        max_requests_per_hour=0,
+    )
+
+    with pytest.raises(StorageUnavailable):
+        driver.open_read(
+            driver.parse_object_address("book.epub"),
+            offset=2,
+            length=2,
+        )
+
+    assert response.closed
+
+
+def test_http_driver_detects_truncated_declared_body_during_streaming() -> None:
+    response = _Response(
+        "https://example.test/root/book.epub",
+        b"short",
+        headers={"Content-Length": "12"},
+    )
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        request_opener=lambda request, timeout: response,
+        max_requests_per_hour=0,
+    )
+
+    with driver.open_read(driver.parse_object_address("book.epub")) as stream:
+        with pytest.raises(StorageUnavailable, match="declared length"):
+            stream.read()
+
+    assert response.closed
+
+
+def test_http_driver_rejects_missing_or_changed_conditional_etag() -> None:
+    for headers, error_type in (
+        ({"Content-Length": "4"}, StorageUnavailable),
+        ({"Content-Length": "4", "ETag": '"new"'}, StoragePreconditionFailed),
+    ):
+        response = _Response(
+            "https://example.test/root/book.epub",
+            b"book",
+            headers=headers,
+        )
+        driver = HttpStorageDriver(
+            "https://example.test/root/",
+            address_space_uuid=uuid4(),
+            request_opener=lambda request, timeout, response=response: response,
+            max_requests_per_hour=0,
+        )
+        with pytest.raises(error_type):
+            driver.open_read(
+                driver.parse_object_address("book.epub"),
+                if_version='"old"',
+            )
+        assert response.closed
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        "bad-%",
+        "bad-%0.epub",
+        "bad-%GG.epub",
+        "bad%00name.epub",
+        "folder%5C..%5Cescape.epub",
+        "bad\ud800.epub",
+    ],
+)
+def test_http_driver_rejects_malformed_encoded_or_unicode_addresses(
+    invalid: str,
+) -> None:
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        max_requests_per_hour=0,
+    )
+
+    with pytest.raises(StorageInvalidAddress):
+        driver.parse_object_address(invalid)
+
+
+def test_http_driver_percent_encodes_raw_valid_unicode_addresses() -> None:
+    driver = HttpStorageDriver(
+        "https://example.test/文库/",
+        address_space_uuid=uuid4(),
+        max_requests_per_hour=0,
+    )
+
+    address = driver.parse_object_address("café/书.epub")
+
+    assert str(address) == "caf%C3%A9/%E4%B9%A6.epub"
+    assert driver.object_uri(address) == (
+        "https://example.test/%E6%96%87%E5%BA%93/"
+        "caf%C3%A9/%E4%B9%A6.epub"
+    )
+
+
+def test_http_driver_canonicalizes_idn_roots_and_matching_object_uris() -> None:
+    driver = HttpStorageDriver(
+        "https://例え.テスト/文庫/",
+        address_space_uuid=uuid4(),
+        max_requests_per_hour=0,
+    )
+
+    address = driver.object_address_from_uri(
+        "https://例え.テスト/%E6%96%87%E5%BA%AB/book.epub"
+    )
+
+    assert driver.root_uri == "https://xn--r8jz45g.xn--zckzah/%E6%96%87%E5%BA%AB/"
+    assert str(address) == "book.epub"
+
+
+@pytest.mark.parametrize(
+    "root",
+    ["https://example.test:not-a-port/root/", "https://example.test:99999/root/"],
+)
+def test_http_driver_rejects_malformed_endpoint_ports(root: str) -> None:
+    with pytest.raises(StorageInvalidAddress, match="authority"):
+        HttpStorageDriver(
+            root,
+            address_space_uuid=uuid4(),
+            max_requests_per_hour=0,
+        )
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {"Content-Length": "not-an-integer"},
+        {"Content-Length": "-1"},
+        {"Content-Length": "4", "Content-Range": "bytes 0-3/10"},
+    ],
+)
+def test_http_driver_rejects_invalid_or_unsolicited_length_evidence(
+    headers: dict[str, str],
+) -> None:
+    response = _Response(
+        "https://example.test/root/book.epub",
+        b"book",
+        status=206 if "Content-Range" in headers else 200,
+        headers=headers,
+    )
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        request_opener=lambda request, timeout: response,
+        max_requests_per_hour=0,
+    )
+
+    with pytest.raises(StorageUnavailable):
+        driver.open_read(driver.parse_object_address("book.epub"))
+
+    assert response.closed
+
+
+def test_http_open_ended_range_must_reach_declared_object_boundary() -> None:
+    response = _Response(
+        "https://example.test/root/book.epub",
+        b"23",
+        status=206,
+        headers={
+            "Content-Length": "2",
+            "Content-Range": "bytes 2-3/10",
+        },
+    )
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        request_opener=lambda request, timeout: response,
+        max_requests_per_hour=0,
+    )
+
+    with pytest.raises(StorageUnavailable, match="object boundary"):
+        driver.open_read(
+            driver.parse_object_address("book.epub"),
+            offset=2,
+        )
+
+
+@pytest.mark.parametrize(
+    ("failure", "error_type", "message"),
+    [
+        (socket.timeout("stalled"), StorageTimeout, "timed out"),
+        (OSError("connection reset"), StorageUnavailable, "connection reset"),
+    ],
+)
+def test_http_driver_translates_midstream_transport_failures(
+    failure: BaseException,
+    error_type: type[Exception],
+    message: str,
+) -> None:
+    class _FailingResponse(_Response):
+        def read(self, size: int = -1) -> bytes:
+            del size
+            raise failure
+
+    response = _FailingResponse(
+        "https://example.test/root/book.epub",
+        b"",
+        headers={"Content-Length": "4"},
+    )
+    driver = HttpStorageDriver(
+        "https://example.test/root/",
+        address_space_uuid=uuid4(),
+        request_opener=lambda request, timeout: response,
+        max_requests_per_hour=0,
+    )
+
+    with driver.open_read(driver.parse_object_address("book.epub")) as stream:
+        with pytest.raises(error_type, match=message):
+            stream.read()
+
+
+def test_http_driver_rejects_nonbyte_or_overlong_stream_chunks() -> None:
+    class _BadResponse(_Response):
+        value: object
+
+        def read(self, size: int = -1):
+            if self.value == "overlong":
+                return b"x" * (size + 1)
+            return self.value
+
+    for value, message in (("text", "non-byte"), ("overlong", "more bytes")):
+        response = _BadResponse(
+            "https://example.test/root/book.epub",
+            b"",
+            headers={"Content-Length": "4"},
+        )
+        response.value = value
+        driver = HttpStorageDriver(
+            "https://example.test/root/",
+            address_space_uuid=uuid4(),
+            request_opener=lambda request, timeout, response=response: response,
+            max_requests_per_hour=0,
+        )
+        with driver.open_read(driver.parse_object_address("book.epub")) as stream:
+            with pytest.raises(StorageUnavailable, match=message):
+                stream.read()

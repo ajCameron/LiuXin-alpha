@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 import shutil
+import sys
 import tempfile
 
 from collections.abc import Iterator
@@ -10,7 +11,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from _example_utils import bootstrap_src_path
+EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
+if str(EXAMPLES_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_ROOT))
+
+from _example_utils import bootstrap_src_path, dump_json
 
 bootstrap_src_path()
 
@@ -108,5 +113,6 @@ def open_catalog_example(
 __all__ = [
     "CatalogExampleSession",
     "add_database_argument",
+    "dump_json",
     "open_catalog_example",
 ]
