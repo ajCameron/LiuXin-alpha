@@ -97,12 +97,69 @@ class StorageManager(InMemoryStorageManager):
 
     def add_store(
         self,
+        store_or_name: api.StoreAPI | str | None = None,
+        *args: Any,
+        configuration: api.StoreConfiguration | None = None,
+        startup: bool | None = None,
+        **kwargs: Any,
+    ) -> api.StoreConfiguration:
+        """Add configured backend details or attach an existing Store object.
+
+        ``add_store(name, kind, root, ...)`` is the ordinary configuration
+        form defined by ``StorageManagerAPI``. Passing a ``StoreAPI`` retains
+        the object-oriented attachment form; ``configuration`` may override
+        the object's own configuration in that form.
+
+        Example:
+            >>> configured = manager.add_store(  # doctest: +SKIP
+            ...     "primary", "filesystem", "/srv/liuxin",
+            ... )
+            >>> attached = manager.add_store(store)  # doctest: +SKIP
+        """
+
+        if store_or_name is None:
+            supplied_keys = [
+                key for key in ("name", "store") if key in kwargs
+            ]
+            if len(supplied_keys) != 1:
+                raise TypeError(
+                    "add_store requires exactly one Store object or Store name."
+                )
+            store_or_name = kwargs.pop(supplied_keys[0])
+
+        if isinstance(store_or_name, api.StoreAPI):
+            if args or kwargs:
+                raise TypeError(
+                    "Store object attachment accepts only configuration and "
+                    "startup keyword arguments."
+                )
+            return self.add_store_instance(
+                store_or_name,
+                configuration=configuration,
+                startup=startup,
+            )
+        if not isinstance(store_or_name, str):
+            raise TypeError(
+                "add_store expects a StoreAPI instance or a Store name."
+            )
+        if configuration is not None:
+            raise TypeError(
+                "configuration is only valid when attaching a Store object."
+            )
+        if startup is not None:
+            if "start" in kwargs:
+                raise TypeError("Pass only one of start and startup.")
+            kwargs["start"] = startup
+        return super().add_store(store_or_name, *args, **kwargs)
+
+    def add_store_instance(
+        self,
         store: api.StoreAPI,
         *,
         configuration: api.StoreConfiguration | None = None,
         startup: bool | None = None,
     ) -> api.StoreConfiguration:
-        """Attach an already configured Store using ordinary vocabulary."""
+        """Attach one already-constructed configured Store facade."""
 
         return self.attach_store(
             configuration or store.configuration,

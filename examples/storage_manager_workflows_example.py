@@ -7,7 +7,6 @@ import argparse
 import zipfile
 
 from pathlib import Path
-from uuid import uuid4
 
 from _example_utils import (  # pyright: ignore[reportImplicitRelativeImport]
     bootstrap_src_path,
@@ -35,19 +34,13 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _filesystem_configuration(name: str, root: Path) -> api.StoreConfiguration:
-    """Build a portable configuration consumed by the default Store factory."""
-
-    return api.StoreConfiguration(
-        store_uuid=uuid4(),
-        store_name=name,
-        store_kind="filesystem",
-        store_root_uri=root.resolve(strict=False).as_uri(),
-    )
-
-
 def run(work_dir: Path) -> dict[str, object]:
-    """Run all local workflows and return a JSON-friendly summary."""
+    """
+    Run all local workflows and return a JSON-friendly summary.
+
+    :param work_dir:
+    :return:
+    """
 
     root = work_dir.expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -58,15 +51,19 @@ def run(work_dir: Path) -> dict[str, object]:
     cover_bytes = b"example cover payload\n"
     book_path.write_bytes(book_bytes)
 
-    primary = _filesystem_configuration("primary", root / "primary-store")
-    archive = _filesystem_configuration("archive", root / "archive-store")
-
     # StorageManager supplies the standard backend factory. Supplying durable
-    # StoreConfiguration values exercises the same construction path used by
+    # configuration details exercises the same construction path used by
     # database bootstrap, while the manager catalogue itself remains in memory.
     with StorageManager() as manager:
-        manager.create_store(primary)
-        manager.create_store(archive)
+        primary = manager.add_filesystem_store(
+            "primary",
+            root / "primary-store",
+        )
+        archive = manager.add_filesystem_store(
+            "archive",
+            root / "archive-store",
+            operational_role="archive",
+        )
         manager.set_default_store(primary.store_uuid)
 
         # The detailed ingest API returns the operation, Asset, Replica, and

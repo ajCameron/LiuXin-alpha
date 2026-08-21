@@ -13,6 +13,7 @@ from LiuXin_alpha.storage.store_manager import (
     StorageBootstrapReport,
     StorageManager,
 )
+from LiuXin_alpha.storage.api import StorageManagementError
 from LiuXin_alpha.databases.maintenance.service import Maintainer
 from LiuXin_alpha.utils.logging import default_log
 
@@ -104,6 +105,20 @@ def bootstrap_storage_manager(
         )
 
     db.storage_bootstrap_report = report
+    if strict and not report.ok:
+        issue_summary = "; ".join(
+            "{}: {}".format(
+                issue.store_name or issue.store_ref or "unknown Store",
+                issue.reason,
+            )
+            for issue in report.issues
+        )
+        detail = f" ({issue_summary})" if issue_summary else ""
+        raise StorageManagementError(
+            "Storage manager bootstrap failed for "
+            f"{report.failed_configurations} of "
+            f"{report.discovered_configurations} configured Stores{detail}."
+        )
     return report
 
 

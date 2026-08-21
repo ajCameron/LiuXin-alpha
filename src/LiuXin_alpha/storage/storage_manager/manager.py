@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import os
 import tempfile
 
 from collections import Counter, deque
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from datetime import UTC, datetime
 from threading import RLock
 from typing import BinaryIO, Literal, Protocol, cast, override
@@ -137,6 +138,36 @@ class _Hasher(Protocol):
         """Return the lowercase hexadecimal digest."""
 
         ...
+
+
+def _replication_policy_id(
+    value: api.ReplicationPolicyID | api.ReplicationPolicyRecord | None,
+) -> api.ReplicationPolicyID | None:
+    """Extract an optional replication-policy identity."""
+
+    if value is None:
+        return None
+    if isinstance(value, api.ReplicationPolicyRecord):
+        return value.replication_policy_id
+    identifier = int(value)
+    if identifier <= 0:
+        raise TypeError("replication must be a positive policy ID or policy record.")
+    return api.ReplicationPolicyID(identifier)
+
+
+def _backup_policy_id(
+    value: api.BackupPolicyID | api.BackupPolicyRecord | None,
+) -> api.BackupPolicyID | None:
+    """Extract an optional backup-policy identity."""
+
+    if value is None:
+        return None
+    if isinstance(value, api.BackupPolicyRecord):
+        return value.backup_policy_id
+    identifier = int(value)
+    if identifier <= 0:
+        raise TypeError("backup must be a positive policy ID or policy record.")
+    return api.BackupPolicyID(identifier)
 
 
 class InMemoryStorageManager(api.StorageManagerAPI):
@@ -280,6 +311,54 @@ class InMemoryStorageManager(api.StorageManagerAPI):
             factory(configuration),
             startup=startup,
         )
+
+    @override
+    def add_filesystem_store(
+        self,
+        name: str,
+        root: str | os.PathLike[str],
+        *,
+        store_uuid: api.StoreUUID | None = None,
+        failure_domain: str | None = None,
+        region: str | None = None,
+        host: UUID | None = None,
+        device: UUID | None = None,
+        tags: Iterable[str] = (),
+        replication: (
+            api.ReplicationPolicyID | api.ReplicationPolicyRecord | None
+        ) = None,
+        backup: api.BackupPolicyID | api.BackupPolicyRecord | None = None,
+        modes: Iterable[api.ReplicaMode | str] = (
+            api.ReplicaMode.ACTIVE,
+            api.ReplicaMode.BACKUP,
+            api.ReplicaMode.ARCHIVE,
+        ),
+        operational_role: str | None = None,
+        read_only: bool = False,
+        options: (
+            Mapping[str, object] | Iterable[tuple[str, object]]
+        ) = (),
+        start: bool = True,
+    ) -> api.StoreConfiguration:
+        """Build and register a filesystem Store through this manager's factory."""
+
+        configuration = api.StoreConfiguration.filesystem(
+            name,
+            root,
+            store_uuid=store_uuid,
+            failure_domain=failure_domain,
+            region=region,
+            host=host,
+            device=device,
+            tags=tags,
+            replication_policy=_replication_policy_id(replication),
+            backup_policy=_backup_policy_id(backup),
+            modes=modes,
+            operational_role=operational_role,
+            read_only=read_only,
+            options=options,
+        )
+        return self.create_store(configuration, startup=start)
 
     @override
     def update_store(

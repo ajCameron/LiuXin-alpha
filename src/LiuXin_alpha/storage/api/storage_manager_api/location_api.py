@@ -16,6 +16,7 @@ from LiuXin_alpha.storage.api.models import (
 )
 
 
+
 class _StorageRouterLike(Protocol):
     """
     Operations used by ``BoundLocation`` without importing the facade.

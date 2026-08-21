@@ -5,9 +5,14 @@ Configured-store, bootstrap, and reconciliation value objects.
 from __future__ import annotations
 
 import dataclasses
+import os
 
+from collections.abc import Iterable, Mapping
 from enum import StrEnum
-from uuid import UUID
+from pathlib import Path
+from typing import Self
+from urllib.parse import urlparse
+from uuid import UUID, uuid4
 
 from LiuXin_alpha.storage.api.models import (
     EnumerationCompleteness,
@@ -83,6 +88,132 @@ class StoreConfiguration:
     supports_folders: bool = True
     backend_options: tuple[tuple[str, object], ...] = ()
 
+    @classmethod
+    def for_backend(
+        cls,
+        name: str,
+        kind: str,
+        root: str | os.PathLike[str],
+        *,
+        store_uuid: StoreUUID | None = None,
+        url: str | None = None,
+        protocol: str | None = None,
+        failure_domain: str | None = None,
+        region: str | None = None,
+        host: UUID | None = None,
+        device: UUID | None = None,
+        tags: Iterable[str] = (),
+        replication_policy: ReplicationPolicyID | None = None,
+        backup_policy: BackupPolicyID | None = None,
+        modes: Iterable[ReplicaMode | str] = (
+            ReplicaMode.ACTIVE,
+            ReplicaMode.BACKUP,
+            ReplicaMode.ARCHIVE,
+        ),
+        operational_role: str | None = None,
+        read_only: bool = False,
+        folders: bool = True,
+        options: (
+            Mapping[str, object] | Iterable[tuple[str, object]]
+        ) = (),
+    ) -> Self:
+        """Build portable configuration without spelling out model fields.
+
+        Path-like roots are rendered as absolute ``file:`` URIs. String roots
+        are preserved for remote and backend-native endpoint syntax.
+
+        Example:
+            >>> configuration = StoreConfiguration.for_backend(
+            ...     "archive", "s3", "s3://books/archive",
+            ...     tags={"offsite"},
+            ... )
+            >>> configuration.store_kind
+            's3'
+        """
+
+        return cls(
+            store_uuid=uuid4() if store_uuid is None else store_uuid,
+            store_name=name,
+            store_kind=kind,
+            store_root_uri=_endpoint_text(root),
+            store_url=url,
+            store_access_protocol=protocol,
+            store_failure_domain=failure_domain,
+            store_region=region,
+            store_host_uuid=host,
+            store_device_uuid=device,
+            store_tags=tuple(tags),
+            store_default_replication_policy_id=replication_policy,
+            store_default_backup_policy_id=backup_policy,
+            supported_replica_modes=frozenset(
+                mode if isinstance(mode, ReplicaMode) else ReplicaMode(mode)
+                for mode in modes
+            ),
+            operational_role=operational_role,
+            read_only=read_only,
+            supports_folders=folders,
+            backend_options=_option_pairs(options),
+        )
+
+    @classmethod
+    def filesystem(
+        cls,
+        name: str,
+        root: str | os.PathLike[str],
+        *,
+        store_uuid: StoreUUID | None = None,
+        failure_domain: str | None = None,
+        region: str | None = None,
+        host: UUID | None = None,
+        device: UUID | None = None,
+        tags: Iterable[str] = (),
+        replication_policy: ReplicationPolicyID | None = None,
+        backup_policy: BackupPolicyID | None = None,
+        modes: Iterable[ReplicaMode | str] = (
+            ReplicaMode.ACTIVE,
+            ReplicaMode.BACKUP,
+            ReplicaMode.ARCHIVE,
+        ),
+        operational_role: str | None = None,
+        read_only: bool = False,
+        options: (
+            Mapping[str, object] | Iterable[tuple[str, object]]
+        ) = (),
+    ) -> Self:
+        """Build configuration for a local transactional filesystem Store.
+
+        Plain paths and ``Path`` objects become absolute ``file:`` URIs;
+        existing local file URIs remain valid. Non-file URI schemes are
+        rejected early with a configuration-focused error.
+
+        Example:
+            >>> configuration = StoreConfiguration.filesystem(
+            ...     "primary", Path("/srv/liuxin"),
+            ... )
+            >>> configuration.store_kind
+            'filesystem'
+        """
+
+        return cls.for_backend(
+            name,
+            "filesystem",
+            _filesystem_root_uri(root),
+            store_uuid=store_uuid,
+            protocol="file",
+            failure_domain=failure_domain,
+            region=region,
+            host=host,
+            device=device,
+            tags=tags,
+            replication_policy=replication_policy,
+            backup_policy=backup_policy,
+            modes=modes,
+            operational_role=operational_role,
+            read_only=read_only,
+            folders=True,
+            options=options,
+        )
+
     def __post_init__(self) -> None:
         """
         Require a UUID plus textual names, kinds, and root URIs.
@@ -132,6 +263,60 @@ class StoreConfiguration:
                 raise TypeError(
                     "backend option values must be JSON scalars or string tuples."
                 )
+
+
+def _endpoint_text(root: str | os.PathLike[str]) -> str:
+    """Render a path-like root while preserving endpoint strings.
+
+    Example:
+        >>> _endpoint_text("s3://books/archive")
+        's3://books/archive'
+    """
+
+    if isinstance(root, os.PathLike):
+        return Path(root).expanduser().resolve(strict=False).as_uri()
+    text = str(root).strip()
+    if not text:
+        raise ValueError("store root must not be empty.")
+    return text
+
+
+def _filesystem_root_uri(root: str | os.PathLike[str]) -> str:
+    """Render one local filesystem root as a portable file URI.
+
+    Example:
+        >>> _filesystem_root_uri("/srv/liuxin").startswith("file:")
+        True
+    """
+
+    if isinstance(root, os.PathLike):
+        return Path(root).expanduser().resolve(strict=False).as_uri()
+    text = str(root).strip()
+    if not text:
+        raise ValueError("filesystem Store root must not be empty.")
+    parsed = urlparse(text)
+    if parsed.scheme:
+        if parsed.scheme != "file":
+            raise ValueError(
+                "filesystem Store root must be a local path or file URI."
+            )
+        return text
+    return Path(text).expanduser().resolve(strict=False).as_uri()
+
+
+def _option_pairs(
+    options: Mapping[str, object] | Iterable[tuple[str, object]],
+) -> tuple[tuple[str, object], ...]:
+    """Freeze mapping or pair input for immutable configuration storage.
+
+    Example:
+        >>> _option_pairs({"region": "local"})
+        (('region', 'local'),)
+    """
+
+    if isinstance(options, Mapping):
+        return tuple(options.items())
+    return tuple(options)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)

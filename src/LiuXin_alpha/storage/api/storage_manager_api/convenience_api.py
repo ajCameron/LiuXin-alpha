@@ -13,7 +13,7 @@ from collections.abc import Iterable, Mapping
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO, TypeAlias, cast
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from LiuXin_alpha.storage.api.errors import StorageIntegrityError
 from LiuXin_alpha.storage.api.models import Digest, StoreUUID
@@ -1125,7 +1125,7 @@ class StorageConvenienceAPI:
         self,
         name: str,
         kind: str,
-        root: str,
+        root: str | os.PathLike[str],
         *,
         store_uuid: StoreUUID | None = None,
         url: str | None = None,
@@ -1145,6 +1145,9 @@ class StorageConvenienceAPI:
         operational_role: str | None = None,
         read_only: bool = False,
         folders: bool = True,
+        options: (
+            Mapping[str, object] | Iterable[tuple[str, object]]
+        ) = (),
         start: bool = True,
     ) -> StoreConfiguration:
         """
@@ -1177,32 +1180,30 @@ class StorageConvenienceAPI:
         :param operational_role:
         :param read_only:
         :param folders:
+        :param options: Non-secret backend-specific configuration values.
         :param start:
         :return:
         """
 
-        configuration = StoreConfiguration(
-            store_uuid=uuid4() if store_uuid is None else store_uuid,
-            store_name=name,
-            store_kind=kind,
-            store_root_uri=root,
-            store_url=url,
-            store_access_protocol=protocol,
-            store_failure_domain=failure_domain,
-            store_region=region,
-            store_host_uuid=host,
-            store_device_uuid=device,
-            store_tags=tuple(tags),
-            store_default_replication_policy_id=(
-                _replication_policy_id(replication)
-            ),
-            store_default_backup_policy_id=_backup_policy_id(backup),
-            supported_replica_modes=frozenset(
-                _replica_mode(mode) for mode in modes
-            ),
+        configuration = StoreConfiguration.for_backend(
+            name,
+            kind,
+            root,
+            store_uuid=store_uuid,
+            url=url,
+            protocol=protocol,
+            failure_domain=failure_domain,
+            region=region,
+            host=host,
+            device=device,
+            tags=tags,
+            replication_policy=_replication_policy_id(replication),
+            backup_policy=_backup_policy_id(backup),
+            modes=(_replica_mode(mode) for mode in modes),
             operational_role=operational_role,
             read_only=read_only,
-            supports_folders=folders,
+            folders=folders,
+            options=options,
         )
         return cast(
             StoreAdministrationAPI,

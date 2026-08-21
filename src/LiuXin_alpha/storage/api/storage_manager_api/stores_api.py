@@ -5,13 +5,20 @@ Configured-store administration facade.
 from __future__ import annotations
 
 import abc
+import os
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from LiuXin_alpha.storage.api.errors import StoreUnavailable
 from LiuXin_alpha.storage.api.models import Location, StoreStatus, StoreUUID
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
+    BackupPolicyID,
+    BackupPolicyRecord,
+    ReplicaMode,
+    ReplicationPolicyID,
+    ReplicationPolicyRecord,
     StorageBootstrapReport,
     StoreConfiguration,
     StoreStatusObservation,
@@ -47,6 +54,62 @@ class StoreAdministrationAPI(abc.ABC):
         :param configuration:
         :param startup:
         :return:
+        """
+        ...
+
+    @abc.abstractmethod
+    def add_filesystem_store(
+        self,
+        name: str,
+        root: str | os.PathLike[str],
+        *,
+        store_uuid: StoreUUID | None = None,
+        failure_domain: str | None = None,
+        region: str | None = None,
+        host: UUID | None = None,
+        device: UUID | None = None,
+        tags: Iterable[str] = (),
+        replication: ReplicationPolicyID | ReplicationPolicyRecord | None = None,
+        backup: BackupPolicyID | BackupPolicyRecord | None = None,
+        modes: Iterable[ReplicaMode | str] = (
+            ReplicaMode.ACTIVE,
+            ReplicaMode.BACKUP,
+            ReplicaMode.ARCHIVE,
+        ),
+        operational_role: str | None = None,
+        read_only: bool = False,
+        options: (
+            Mapping[str, object] | Iterable[tuple[str, object]]
+        ) = (),
+        start: bool = True,
+    ) -> StoreConfiguration:
+        """Configure and start a local filesystem Store in one call.
+
+        ``root`` may be a path-like value, plain local path, or ``file:`` URI.
+        Implementations normalize it into portable durable configuration and
+        register the resulting Store through their configured backend factory.
+
+        Example:
+            >>> primary = manager.add_filesystem_store(  # doctest: +SKIP
+            ...     "primary", "/srv/liuxin",
+            ... )
+
+        :param name: Human-readable Store name.
+        :param root: Local root directory or file URI.
+        :param store_uuid: Optional durable identity; generated when omitted.
+        :param failure_domain: Fault-isolation bucket for placement policy.
+        :param region: Geographic or administrative placement region.
+        :param host: Stable host identity when known.
+        :param device: Stable physical-device identity when known.
+        :param tags: Placement-policy labels.
+        :param replication: Default replication policy or identifier.
+        :param backup: Default backup policy or identifier.
+        :param modes: Replica modes permitted on this Store.
+        :param operational_role: Operator-facing Store role.
+        :param read_only: Whether all mutation is forbidden.
+        :param options: Non-secret backend-specific configuration values.
+        :param start: Whether to start the backend before returning.
+        :return: The registered portable Store configuration.
         """
         ...
 

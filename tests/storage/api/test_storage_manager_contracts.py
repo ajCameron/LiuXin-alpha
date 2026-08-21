@@ -51,6 +51,69 @@ def test_manager_registration_is_uuid_routed_and_duplicate_safe(tmp_path: Path) 
         manager.get_store(uuid4())
 
 
+def test_manager_adds_filesystem_store_from_a_path_without_configuration_boilerplate(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "primary 😀 store"
+
+    with StorageManager() as manager:
+        configuration = manager.add_filesystem_store(
+            "primary",
+            root,
+            tags={"local", "fast"},
+            operational_role="live",
+        )
+        asset = manager.store_bytes(
+            b"configured through the public convenience API",
+            original_name="book.epub",
+        )
+
+        assert configuration.store_root_uri == root.resolve().as_uri()
+        assert configuration.store_kind == "filesystem"
+        assert configuration.store_access_protocol == "file"
+        assert set(configuration.store_tags) == {"local", "fast"}
+        assert manager.get_default_store_ref() == configuration.store_uuid
+        assert manager.read_asset(asset) == (
+            b"configured through the public convenience API"
+        )
+        assert root.is_dir()
+
+
+def test_concrete_manager_add_store_supports_generic_and_object_forms(
+    tmp_path: Path,
+) -> None:
+    attached = FilesystemStore(tmp_path / "attached", name="attached")
+
+    with StorageManager() as manager:
+        generic = manager.add_store(
+            "generic",
+            "filesystem",
+            tmp_path / "generic",
+            protocol="file",
+            startup=True,
+        )
+        keyword = manager.add_store(
+            name="keyword",
+            kind="filesystem",
+            root=tmp_path / "keyword",
+        )
+        attached_configuration = manager.add_store(attached)
+
+        assert generic.store_root_uri == (
+            tmp_path / "generic"
+        ).resolve().as_uri()
+        assert manager.get_store(generic.store_uuid).status().available
+        assert keyword.store_root_uri == (
+            tmp_path / "keyword"
+        ).resolve().as_uri()
+        assert manager.get_store(keyword.store_uuid).status().available
+        assert attached_configuration == attached.configuration
+        assert manager.get_store(attached.store_ref) is attached
+
+        with pytest.raises(TypeError, match="only configuration and startup"):
+            manager.add_store(attached, "filesystem", tmp_path / "invalid")
+
+
 def test_manager_convenience_stores_and_reads_by_asset_id_or_hash(tmp_path: Path) -> None:
     store = _store(tmp_path / "managed", "managed")
     manager = StorageManager(stores=[store], startup_on_add=True)
