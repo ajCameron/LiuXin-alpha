@@ -1,4 +1,6 @@
-"""Internal helpers for safe, actionable storage-driver failures."""
+"""
+Internal helpers for safe, actionable storage-driver failures.
+"""
 
 from __future__ import annotations
 
@@ -35,7 +37,20 @@ def driver_failure_message(
     target: str | os.PathLike[str] | None = None,
     reason: str | None = None,
 ) -> str:
-    """Build one-line context without reproducing credentials or huge stderr."""
+    """
+    Build one-line context without reproducing credentials or huge stderr.
+
+    Example:
+        >>> driver_failure_message("HTTP", "read", target="https://user:secret@example.test/a")
+        "HTTP read failed for 'https://example.test/a'."
+
+
+    :param backend:
+    :param operation:
+    :param target:
+    :param reason:
+    :return:
+    """
 
     message = f"{str(backend).strip()} {str(operation).strip()} failed"
     if target is not None:
@@ -53,7 +68,20 @@ def translate_os_error(
     operation: str,
     target: str | os.PathLike[str] | None = None,
 ) -> StorageError:
-    """Translate common OS failures while retaining operation-level context."""
+    """
+    Translate common OS failures while retaining operation-level context.
+
+    Example:
+        >>> type(translate_os_error(FileNotFoundError(), backend="filesystem", operation="read"))
+        <class 'LiuXin_alpha.storage.api.errors.StorageNotFound'>
+
+
+    :param error:
+    :param backend:
+    :param operation:
+    :param target:
+    :return:
+    """
 
     error_number = getattr(error, "errno", None)
     reason = getattr(error, "strerror", None) or type(error).__name__
@@ -84,7 +112,20 @@ def translate_sqlite_error(
     operation: str,
     target: str | os.PathLike[str],
 ) -> StorageError:
-    """Classify useful SQLite failures without exposing SQL or parameters."""
+    """
+    Classify useful SQLite failures without exposing SQL or parameters.
+
+    Example:
+        >>> error = sqlite3.OperationalError("database is locked")
+        >>> type(translate_sqlite_error(error, operation="write", target="catalog.sqlite"))
+        <class 'LiuXin_alpha.storage.api.errors.StorageUnavailable'>
+
+
+    :param error:
+    :param operation:
+    :param target:
+    :return:
+    """
 
     error_name = str(getattr(error, "sqlite_errorname", "") or "").upper()
     normalized = str(error).lower()
@@ -115,6 +156,19 @@ def translate_sqlite_error(
 
 
 def _sqlite_reason(error_name: str, normalized: str) -> str:
+    """
+    Convert SQLite's machine-oriented error text into a safe explanation.
+
+    Example:
+        >>> _sqlite_reason("SQLITE_FULL", "database or disk is full")
+        'the database or containing disk is full'
+
+
+    :param error_name:
+    :param normalized:
+    :return:
+    """
+
     if "FULL" in error_name or "database or disk is full" in normalized:
         return "the database or containing disk is full"
     if "READONLY" in error_name or "readonly database" in normalized:
@@ -131,6 +185,18 @@ def _sqlite_reason(error_name: str, normalized: str) -> str:
 
 
 def _safe_target(value: str | os.PathLike[str]) -> str:
+    """
+    Remove credentials, query values, and fragments from an error target.
+
+    Example:
+        >>> _safe_target("https://user:pass@example.test/a?token=secret#part")
+        'https://example.test/a?<redacted>'
+
+
+    :param value:
+    :return:
+    """
+
     text = os.fspath(value)
     try:
         parsed = urlsplit(text)
@@ -149,6 +215,19 @@ def _safe_target(value: str | os.PathLike[str]) -> str:
 
 
 def _safe_detail(value: str | None, *, limit: int = 500) -> str:
+    """
+    Flatten, redact, and length-limit backend detail for one-line errors.
+
+    Example:
+        >>> _safe_detail("token=secret" + chr(10) + "request failed.")
+        'token=<redacted> request failed'
+
+
+    :param value:
+    :param limit:
+    :return:
+    """
+
     if value is None:
         return ""
     text = " ".join(str(value).replace("\x00", "").split())

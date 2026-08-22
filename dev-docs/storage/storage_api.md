@@ -778,8 +778,18 @@ A durable Replica repository must round-trip the complete
 `DatabaseStorageMetadataRepository` persists the complete domain values in
 versioned envelopes while retaining useful scalar columns for ordinary schema
 queries. Its repository views may read through Core's cache but always write
-to the database first. The internal mapping-shaped orchestration seam remains
-a compatibility step toward using these SPI/unit-of-work protocols directly.
+to the database first. `DatabaseStorageUnitOfWorkFactory` is the concrete
+database implementation of these ports. A context rolls back unless the
+caller explicitly calls `commit()`; `rollback()` is also explicit. The
+manager's mapping-shaped collections are compatibility adapters backed by
+those repository ports and retain no private record dictionary.
+
+Database-backed record IDs are allocated by the database inside the caller's
+transaction, and record revisions are globally unique UUID values. One-row
+writes invalidate the corresponding ID in the shared cache. The schema-backed
+plugin refreshes that row and dependent projections without a table scan;
+plugins that do not implement bounded refresh fall back to a whole-table reload
+for correctness.
 
 ### Cross-boundary recovery
 

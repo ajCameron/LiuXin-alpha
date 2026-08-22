@@ -1,4 +1,6 @@
-"""Validation shared by remote storage-driver address spaces."""
+"""
+Validation shared by remote storage-driver address spaces.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +13,19 @@ _HEXADECIMAL = frozenset(string.hexdigits)
 
 
 def best_effort_close(value: object) -> None:
-    """Close an untrusted remote adapter without masking the real outcome."""
+    """
+    Close an untrusted remote adapter without masking the real outcome.
+
+    Example:
+        >>> class Adapter:
+        ...     def close(self):
+        ...         raise RuntimeError("ignored during cleanup")
+        >>> best_effort_close(Adapter())
+
+
+    :param value:
+    :return:
+    """
 
     close = getattr(value, "close", None)
     if callable(close):
@@ -22,7 +36,17 @@ def best_effort_close(value: object) -> None:
 
 
 def reject_malformed_unicode(value: str, *, label: str) -> None:
-    """Reject lone surrogates which cannot cross Unicode remote protocols."""
+    """
+    Reject lone surrogates which cannot cross Unicode remote protocols.
+
+    Example:
+        >>> reject_malformed_unicode("Café", label="object key")
+
+
+    :param value:
+    :param label:
+    :return:
+    """
 
     try:
         value.encode("utf-8", errors="strict")
@@ -33,7 +57,17 @@ def reject_malformed_unicode(value: str, *, label: str) -> None:
 
 
 def reject_malformed_percent_escapes(value: str, *, label: str) -> None:
-    """Require every percent sign in a URL component to encode two hex digits."""
+    """
+    Require every percent sign in a URL component to encode two hex digits.
+
+    Example:
+        >>> reject_malformed_percent_escapes("books/Caf%C3%A9.epub", label="URL path")
+
+
+    :param value:
+    :param label:
+    :return:
+    """
 
     position = 0
     while True:

@@ -21,8 +21,8 @@ and reload reconstruct that registry from durable Store rows.
 `DatabaseStorageMetadataRepository` can bind Core's existing `Cache`:
 
 - cached main storage tables serve record reads;
-- repository writes commit to the database and invalidate affected cache
-  tables/relations;
+- repository writes commit to the database and invalidate affected cache row
+  IDs or relations;
 - storage helper/workflow tables omitted by cache schema continue to read
   directly from the database;
 - unbinding returns to direct repository reads; and
@@ -46,14 +46,17 @@ authoritative, and standalone `Database.storage` remains usable without Core.
 - Removing the private snapshot exposed and repaired a hidden schema defect:
   deleting a Store can no longer cascade-delete its durable Replica claims.
   Claimed Stores must be retired/offlined until those claims are resolved.
+- ID-scoped invalidation is now real rather than advisory: the schema-backed
+  plugin reads one changed row and repairs its indexes and relation projections
+  without a whole-table reload.
 
 ## Follow-ups
 
-The durable list is maintained in
-`dev-docs/storage/storage_component_status.md`: PostgreSQL live integration,
-schema migrations, multi-process ID allocation, operational status, compound
-mutation recovery, protected live-backend CI, persistence-SPI convergence, and
-large-catalogue cache benchmarks.
+The production-hardening list in
+`dev-docs/storage/storage_component_status.md` is complete. The 50,000-book
+cache run confirms bounded mutation refresh, while its roughly 745 MiB peak RSS
+also confirms the architecture decision: storage may share Core's configured
+cache but must remain fully usable through direct repository reads.
 
 ## Verification checkpoint
 

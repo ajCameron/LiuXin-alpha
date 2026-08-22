@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import sqlite3
 
@@ -20,6 +21,7 @@ from LiuXin_alpha.storage.api import (
     StorageBootstrapIssue,
     StorageBootstrapReport,
     StorageManagementError,
+    StoragePreconditionFailed,
     StoreConfigurationNotFound,
     StoreUnavailable,
 )
@@ -65,6 +67,96 @@ def _configuration_refs(database: Database) -> set[UUID]:
 def _live_refs(database: Database) -> set[UUID]:
     assert database.storage is not None
     return {store.store_ref for store in database.storage.iter_stores()}
+
+
+def test_database_metadata_unit_of_work_ports_commit_and_rollback(
+    driver_spec,
+    tmp_path: Path,
+) -> None:
+    from LiuXin_alpha.storage import api
+
+    database_path = tmp_path / "storage-unit-of-work.sqlite"
+    store_ref = uuid4()
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        enable_storage_manager=False,
+    ) as setup:
+        _insert_filesystem_store(
+            setup,
+            store_ref=store_ref,
+            name="unit-of-work",
+            root=tmp_path / "unit-of-work-store",
+        )
+
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as database:
+        assert database.storage is not None
+        manager = database.storage
+        factory = manager.metadata_unit_of_work_factory
+        assert isinstance(factory, api.StorageUnitOfWorkFactoryAPI)
+
+        declaration = api.DigitalAssetDeclaration(
+            4,
+            (api.Digest("sha256", "a" * 64),),
+            api.DigitalAssetMetadata(original_name="rolled-back.epub"),
+        )
+        with factory.begin() as unit_of_work:
+            assert isinstance(unit_of_work, api.StorageUnitOfWorkAPI)
+            assert isinstance(
+                unit_of_work.assets,
+                api.DigitalAssetRepositoryAPI,
+            )
+            assert isinstance(unit_of_work.replicas, api.ReplicaRepositoryAPI)
+            assert isinstance(
+                unit_of_work.composites,
+                api.CompositeDigitalAssetRepositoryAPI,
+            )
+            assert isinstance(
+                unit_of_work.derivations,
+                api.DigitalAssetDerivationRepositoryAPI,
+            )
+            rolled_back = unit_of_work.assets.add(declaration)
+            assert unit_of_work.assets.get(
+                rolled_back.digital_asset_id
+            ) == rolled_back
+            # No commit request: leaving the UoW rolls the reservation and
+            # record back together.
+
+        with pytest.raises(api.DigitalAssetNotFound):
+            factory.assets.get(rolled_back.digital_asset_id)
+
+        with factory.begin() as unit_of_work:
+            committed = unit_of_work.assets.add(
+                dataclasses.replace(
+                    declaration,
+                    metadata=api.DigitalAssetMetadata(
+                        original_name="committed.epub"
+                    ),
+                )
+            )
+            unit_of_work.commit()
+        assert manager.get_digital_asset_record(
+            committed.digital_asset_id
+        ) == committed
+
+        with factory.begin() as unit_of_work:
+            unit_of_work.assets.replace_metadata(
+                committed.digital_asset_id,
+                api.DigitalAssetMetadata(original_name="discarded.epub"),
+                if_revision=committed.revision,
+            )
+            unit_of_work.rollback()
+        assert manager.get_digital_asset_record(
+            committed.digital_asset_id
+        ).metadata.original_name == "committed.epub"
 
 
 def test_database_startup_loads_rows_and_reload_tracks_database_changes(
@@ -197,7 +289,7 @@ def test_database_bound_manager_metadata_and_operation_ids_survive_restart(
     tmp_path: Path,
     assert_integrity,
 ) -> None:
-    """The live dictionaries are caches; the reopened DB is authoritative."""
+    """Repository views survive a full manager restart without private state."""
 
     from LiuXin_alpha.storage.api import (
         BackupPolicy,
@@ -334,6 +426,17 @@ def test_database_bound_manager_metadata_and_operation_ids_survive_restart(
                 operation_id=interrupted_operation_id,
             )
         operation_cache._upsert = original_commit
+        operational_status = manager.get_operational_status()
+        pending_ingests = operational_status.issues_for("ingest_pending")
+        assert any(
+            issue.operation_id == interrupted_operation_id
+            for issue in pending_ingests
+        )
+        assert any(
+            action.action == "recover_pending_ingests"
+            and action.operation_id == interrupted_operation_id
+            for action in operational_status.recovery_actions
+        )
         assert_integrity(database)
         manager.bind_metadata_cache(None)
         cache.close()
@@ -397,6 +500,7 @@ def test_database_manager_shares_liuxin_cache_without_private_record_copies(
     driver_spec,
     tmp_path: Path,
     assert_integrity,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     database_path = tmp_path / "shared-cache.sqlite"
     store_ref = uuid4()
@@ -427,6 +531,22 @@ def test_database_manager_shares_liuxin_cache_without_private_record_copies(
         manager = database.storage
         cache = create_cache(database, "schema_backed")
         manager.bind_metadata_cache(cache)
+        full_reloads: list[str] = []
+        id_reloads: list[tuple[str, tuple[int, ...]]] = []
+        original_reload_main_table = cache.storage.reload_main_table
+        original_reload_ids = cache.storage.reload_ids
+
+        def tracked_full_reload(table, db=None) -> None:
+            full_reloads.append(str(table))
+            original_reload_main_table(table, db=db)
+
+        def tracked_id_reload(table, ids, db=None) -> None:
+            normalized = tuple(sorted(int(row_id) for row_id in ids))
+            id_reloads.append((str(table), normalized))
+            original_reload_ids(table, normalized, db=db)
+
+        monkeypatch.setattr(cache.storage, "reload_main_table", tracked_full_reload)
+        monkeypatch.setattr(cache.storage, "reload_ids", tracked_id_reload)
 
         assert manager.metadata_cache is cache
         assert not isinstance(manager._assets, dict)
@@ -439,6 +559,11 @@ def test_database_manager_shares_liuxin_cache_without_private_record_copies(
 
         cached = cache.get("digital_assets", int(asset.digital_asset_id))
         assert cached.status is CacheLookupStatus.HIT
+        assert (
+            "digital_assets",
+            (int(asset.digital_asset_id),),
+        ) in id_reloads
+        assert full_reloads == []
         assert manager.get_digital_asset_record(asset.digital_asset_id) == asset
 
         manager.bind_metadata_cache(None)
@@ -516,6 +641,449 @@ def test_database_bootstrap_constructs_and_uses_local_backend_matrix(
 
         assert_integrity(database)
         database.storage.close()
+
+
+def test_concurrently_open_managers_use_database_generated_record_ids(
+    driver_spec,
+    tmp_path: Path,
+    assert_integrity,
+) -> None:
+    """Managers opened from the same snapshot cannot overwrite each other's IDs."""
+
+    from LiuXin_alpha.storage.api import (
+        BackupPolicy,
+        CompositeDigitalAssetDeclaration,
+        CompositeDigitalAssetMembership,
+        DigitalAssetDerivationDeclaration,
+        DigitalAssetDerivationKind,
+        DigitalAssetDerivationSourceReference,
+        ReplicationPolicy,
+    )
+
+    database_path = tmp_path / "concurrent-identities.sqlite"
+    store_ref = uuid4()
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        enable_storage_manager=False,
+    ) as setup_database:
+        _insert_filesystem_store(
+            setup_database,
+            store_ref=store_ref,
+            name="concurrent",
+            root=tmp_path / "concurrent-store",
+        )
+
+    database_options = {
+        "metadata": {"database_path": str(database_path)},
+        "db_type": driver_spec.db_type,
+        "create": False,
+        "backup": False,
+        "storage_startup_on_add": True,
+    }
+    with Database(**database_options) as first_database, Database(
+        **database_options
+    ) as second_database:
+        first = first_database.storage
+        second = second_database.storage
+        assert first is not None
+        assert second is not None
+
+        first_replication = first.create_replication_policy(
+            ReplicationPolicy(name="first replication")
+        )
+        second_replication = second.create_replication_policy(
+            ReplicationPolicy(name="second replication")
+        )
+        observed_first_replication = second.get_replication_policy_record(
+            first_replication.replication_policy_id
+        )
+        updated_first_replication = second.update_replication_policy(
+            first_replication.replication_policy_id,
+            ReplicationPolicy(name="first replication updated"),
+            if_revision=observed_first_replication.revision,
+        )
+        assert updated_first_replication.revision != (
+            observed_first_replication.revision
+        )
+        with pytest.raises(StoragePreconditionFailed, match="revision precondition"):
+            first.update_replication_policy(
+                first_replication.replication_policy_id,
+                ReplicationPolicy(name="stale first replication"),
+                if_revision=first_replication.revision,
+            )
+        first_backup = first.create_backup_policy(
+            BackupPolicy(name="first backup")
+        )
+        second_backup = second.create_backup_policy(
+            BackupPolicy(name="second backup")
+        )
+
+        first_ingest = first.store_bytes(b"first concurrent bytes")
+        second_ingest = second.store_bytes(b"second concurrent bytes")
+        third_ingest = second.store_bytes(b"third concurrent bytes")
+        first_composite = first.declare_composite_digital_asset(
+            CompositeDigitalAssetDeclaration(
+                (
+                    CompositeDigitalAssetMembership(
+                        first_ingest.digital_asset_id,
+                        0,
+                    ),
+                ),
+                name="first composite",
+            )
+        )
+        second_composite = second.declare_composite_digital_asset(
+            CompositeDigitalAssetDeclaration(
+                (
+                    CompositeDigitalAssetMembership(
+                        second_ingest.digital_asset_id,
+                        0,
+                    ),
+                ),
+                name="second composite",
+            )
+        )
+        first_derivation = first.record_digital_asset_derivation(
+            DigitalAssetDerivationDeclaration(
+                second_ingest.digital_asset_id,
+                (
+                    DigitalAssetDerivationSourceReference(
+                        0,
+                        digital_asset_id=first_ingest.digital_asset_id,
+                    ),
+                ),
+                DigitalAssetDerivationKind.CONVERT,
+                operator="first converter",
+            )
+        )
+        second_derivation = second.record_digital_asset_derivation(
+            DigitalAssetDerivationDeclaration(
+                third_ingest.digital_asset_id,
+                (
+                    DigitalAssetDerivationSourceReference(
+                        0,
+                        digital_asset_id=second_ingest.digital_asset_id,
+                    ),
+                ),
+                DigitalAssetDerivationKind.CONVERT,
+                operator="second converter",
+            )
+        )
+
+        assert first_replication.replication_policy_id != (
+            second_replication.replication_policy_id
+        )
+        assert first_backup.backup_policy_id != second_backup.backup_policy_id
+        assert first_ingest.digital_asset_id != second_ingest.digital_asset_id
+        first_replica = next(
+            first.iter_replica_records(
+                digital_asset_id=first_ingest.digital_asset_id
+            )
+        )
+        second_replica = next(
+            second.iter_replica_records(
+                digital_asset_id=second_ingest.digital_asset_id
+            )
+        )
+        assert first_replica.replica_id != second_replica.replica_id
+        assert first_composite.composite_digital_asset_id != (
+            second_composite.composite_digital_asset_id
+        )
+        assert first_derivation.digital_asset_derivation_id != (
+            second_derivation.digital_asset_derivation_id
+        )
+        assert len(tuple(first.iter_digital_asset_records())) == 3
+        assert len(tuple(second.iter_replica_records())) == 3
+        assert_integrity(first_database)
+        assert_integrity(second_database)
+
+
+def test_pre_journal_storage_catalogue_is_migrated_during_bootstrap(
+    driver_spec,
+    tmp_path: Path,
+    assert_integrity,
+) -> None:
+    database_path = tmp_path / "pre-journal.sqlite"
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        enable_storage_manager=False,
+    ) as old_database:
+        with old_database.macros.transaction() as connection:
+            connection.execute("DROP TABLE storage_ingest_operations")
+            connection.execute("DROP TABLE storage_schema_migrations")
+
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as migrated:
+        assert migrated.storage is not None
+        assert {
+            "storage_ingest_operations",
+            "storage_schema_migrations",
+        } <= set(migrated.get_tables())
+        assert migrated.storage.storage_migration_report.applied_migrations == (
+            "storage-0001-migration-ledger",
+            "storage-0002-ingest-journal",
+        )
+        recorded = {
+            row["storage_schema_migration_id"]
+            for row in migrated.macros.get_rows("storage_schema_migrations")
+        }
+        assert recorded == {
+            "storage-0001-migration-ledger",
+            "storage-0002-ingest-journal",
+            "storage-0003-envelope-v1",
+        }
+        assert_integrity(migrated)
+
+
+def test_version_zero_storage_envelope_is_upgraded_in_place(
+    driver_spec,
+    tmp_path: Path,
+    assert_integrity,
+) -> None:
+    from LiuXin_alpha.storage.api import Digest, DigitalAssetDeclaration
+
+    database_path = tmp_path / "old-envelope.sqlite"
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as current:
+        assert current.storage is not None
+        record = current.storage.declare_digital_asset(
+            DigitalAssetDeclaration(4, (Digest("sha256", "abcd"),))
+        )
+        row = current.macros.get_row(
+            "digital_assets",
+            int(record.digital_asset_id),
+            id_column="digital_asset_id",
+        )
+        assert row is not None
+        envelope = json.loads(row["digital_asset_scratch"])
+        old_envelope = {
+            "format": envelope["format"],
+            "version": 0,
+            "record": envelope["payload"],
+        }
+        current.macros.update_row(
+            "digital_assets",
+            int(record.digital_asset_id),
+            {"digital_asset_scratch": json.dumps(old_envelope)},
+            id_column="digital_asset_id",
+        )
+
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as migrated:
+        assert migrated.storage is not None
+        assert migrated.storage.storage_migration_report.envelope_rows_upgraded == 1
+        assert migrated.storage.get_digital_asset_record(
+            record.digital_asset_id
+        ) == record
+        row = migrated.macros.get_row(
+            "digital_assets",
+            int(record.digital_asset_id),
+            id_column="digital_asset_id",
+        )
+        assert row is not None
+        assert json.loads(row["digital_asset_scratch"])["version"] == 1
+        assert_integrity(migrated)
+
+
+def test_newer_storage_envelope_is_refused_without_rewriting(
+    driver_spec,
+    tmp_path: Path,
+) -> None:
+    from LiuXin_alpha.storage.api import Digest, DigitalAssetDeclaration
+
+    database_path = tmp_path / "future-envelope.sqlite"
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as current:
+        assert current.storage is not None
+        record = current.storage.declare_digital_asset(
+            DigitalAssetDeclaration(6, (Digest("sha256", "future"),))
+        )
+        row = current.macros.get_row(
+            "digital_assets",
+            int(record.digital_asset_id),
+            id_column="digital_asset_id",
+        )
+        assert row is not None
+        envelope = json.loads(row["digital_asset_scratch"])
+        envelope["version"] = 99
+        current.macros.update_row(
+            "digital_assets",
+            int(record.digital_asset_id),
+            {"digital_asset_scratch": json.dumps(envelope)},
+            id_column="digital_asset_id",
+        )
+
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        enable_storage_manager=False,
+    ) as future_database:
+        with pytest.raises(
+            StorageManagementError,
+            match="envelope version 99.*newer than.*version 1",
+        ):
+            StorageManager(db=future_database, startup_on_add=False)
+        row = future_database.macros.get_row(
+            "digital_assets",
+            int(record.digital_asset_id),
+            id_column="digital_asset_id",
+        )
+        assert row is not None
+        assert json.loads(row["digital_asset_scratch"])["version"] == 99
+
+
+def test_store_update_and_explicit_forget_are_durable(
+    driver_spec,
+    tmp_path: Path,
+    assert_integrity,
+) -> None:
+    database_path = tmp_path / "store-administration.sqlite"
+    store_ref = uuid4()
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        enable_storage_manager=False,
+    ) as setup_database:
+        store_id = _insert_filesystem_store(
+            setup_database,
+            store_ref=store_ref,
+            name="before",
+            root=tmp_path / "before",
+        )
+
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as database:
+        assert database.storage is not None
+        original = database.storage.get_store_configuration(store_ref)
+        replacement = dataclasses.replace(
+            original,
+            store_name="after",
+            store_root_uri=(tmp_path / "after").resolve().as_uri(),
+            store_region="test-region",
+            store_tags=("durable", "updated"),
+        )
+
+        assert database.storage.update_store(store_ref, replacement) == replacement
+        row = database.macros.get_row("stores", store_id, id_column="store_id")
+        assert row is not None
+        assert row["store_name"] == "after"
+        assert row["store_root_uri"] == replacement.store_root_uri
+        assert row["store_region"] == "test-region"
+        assert json.loads(row["store_tags_json"]) == ["durable", "updated"]
+        assert_integrity(database)
+
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as reopened:
+        assert reopened.storage is not None
+        assert reopened.storage.get_store_configuration(store_ref) == replacement
+        assert reopened.storage.remove_store(
+            store_ref,
+            forget_configuration=True,
+        )
+        assert reopened.macros.get_row(
+            "stores", store_id, id_column="store_id"
+        ) is None
+        assert_integrity(reopened)
+
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as forgotten:
+        assert forgotten.storage is not None
+        with pytest.raises(StoreConfigurationNotFound):
+            forgotten.storage.get_store_configuration(store_ref)
+
+
+def test_compound_policy_update_rolls_back_intermediate_repository_write(
+    driver_spec,
+    tmp_path: Path,
+) -> None:
+    from LiuXin_alpha.storage.api import ReplicationPolicy
+
+    database_path = tmp_path / "compound-policy.sqlite"
+    with Database(
+        metadata={"database_path": str(database_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as database:
+        manager = database.storage
+        assert manager is not None
+        original = manager.create_replication_policy(
+            ReplicationPolicy(name="transactional original")
+        )
+        repository_mapping = manager._replication_policies
+        original_upsert = repository_mapping._upsert
+        calls = 0
+
+        def fail_final_write(record):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise RuntimeError("injected final policy write failure")
+            original_upsert(record)
+
+        repository_mapping._upsert = fail_final_write
+        try:
+            with pytest.raises(
+                RuntimeError,
+                match="injected final policy write failure",
+            ):
+                manager.update_replication_policy(
+                    original.replication_policy_id,
+                    ReplicationPolicy(name="must roll back"),
+                    if_revision=original.revision,
+                )
+        finally:
+            repository_mapping._upsert = original_upsert
+
+        assert manager.get_replication_policy_record(
+            original.replication_policy_id
+        ) == original
 
 
 def test_database_bootstrap_orders_encrypted_store_after_its_inner_store(

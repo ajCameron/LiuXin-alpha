@@ -35,6 +35,7 @@ HELPER_TABLES = frozenset(
         "item_workflow",
         "item_workflow_events",
         "storage_ingest_operations",
+        "storage_schema_migrations",
         "transform_runs",
         "transform_run_inputs",
         "transform_run_outputs",
@@ -51,5 +52,9 @@ OPTIONAL_HELPER_TABLES = frozenset(
     {
         "column_metadata",
         "normalized_identities",
+        # Storage bootstrapping owns the additive migration from catalogues
+        # created before its durable ingest journal and migration ledger.
+        "storage_ingest_operations",
+        "storage_schema_migrations",
     }
 )

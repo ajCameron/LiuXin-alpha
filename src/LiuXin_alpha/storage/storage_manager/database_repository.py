@@ -163,21 +163,41 @@ class RepositoryItemTargetMapping(
         return value
 
 
-@dataclasses.dataclass(slots=True, frozen=True)
-class DatabaseStorageMetadataSnapshot:
-    """Small startup state; catalogue records remain repository-backed."""
-
-    next_asset_id: int
-    next_replica_id: int
-    next_composite_id: int
-    next_derivation_id: int
-    next_replication_policy_id: int
-    next_backup_policy_id: int
-    revision_counter: int
-
-
 class DatabaseStorageMetadataRepository:
     """Read and write storage-manager state through portable DB macros."""
+
+    _RECORD_IDENTITIES = {
+        "digital_asset": (
+            "digital_assets",
+            "digital_asset_id",
+            "digital_asset_scratch",
+        ),
+        "replica": (
+            "asset_replicas",
+            "asset_replica_id",
+            "asset_replica_scratch",
+        ),
+        "composite": (
+            "composite_digital_assets",
+            "composite_digital_asset_id",
+            "composite_digital_asset_scratch",
+        ),
+        "derivation": (
+            "digital_asset_derivations",
+            "digital_asset_derivation_id",
+            "digital_asset_derivation_scratch",
+        ),
+        "replication_policy": (
+            "replication_policies",
+            "replication_policy_id",
+            "replication_policy_scratch",
+        ),
+        "backup_policy": (
+            "backup_policies",
+            "backup_policy_id",
+            "backup_policy_scratch",
+        ),
+    }
 
     _REQUIRED_TABLES = frozenset(
         {
@@ -191,6 +211,7 @@ class DatabaseStorageMetadataRepository:
             "composite_digital_asset_item_links",
             "composite_digital_asset_digital_asset_links",
             "storage_ingest_operations",
+            "storage_schema_migrations",
             "stores",
         }
     )
@@ -207,6 +228,39 @@ class DatabaseStorageMetadataRepository:
             "backup_policies",
         }
     )
+    _ENVELOPE_COLUMNS = {
+        "digital_assets": ("digital_asset_id", "digital_asset_scratch"),
+        "asset_replicas": ("asset_replica_id", "asset_replica_scratch"),
+        "composite_digital_assets": (
+            "composite_digital_asset_id",
+            "composite_digital_asset_scratch",
+        ),
+        "digital_asset_derivations": (
+            "digital_asset_derivation_id",
+            "digital_asset_derivation_scratch",
+        ),
+        "replication_policies": (
+            "replication_policy_id",
+            "replication_policy_scratch",
+        ),
+        "backup_policies": ("backup_policy_id", "backup_policy_scratch"),
+        "digital_asset_item_links": (
+            "digital_asset_item_link_id",
+            "digital_asset_item_link_scratch",
+        ),
+        "composite_digital_asset_item_links": (
+            "composite_digital_asset_item_link_id",
+            "composite_digital_asset_item_link_scratch",
+        ),
+        "composite_digital_asset_digital_asset_links": (
+            "composite_digital_asset_digital_asset_link_id",
+            "composite_digital_asset_digital_asset_link_scratch",
+        ),
+        "storage_ingest_operations": (
+            "storage_ingest_operation_id",
+            "storage_ingest_operation_scratch",
+        ),
+    }
 
     def __init__(
         self,
@@ -277,46 +331,63 @@ class DatabaseStorageMetadataRepository:
             return tuple(sorted(cls._REQUIRED_TABLES))
         return tuple(sorted(cls._REQUIRED_TABLES - tables))
 
-    def load(self) -> DatabaseStorageMetadataSnapshot:
-        """Load counters without retaining a second catalogue snapshot."""
+    def transaction(self):
+        """Return the portable database transaction used by manager mutations."""
 
-        replication_policies = self._load_replication_policies()
-        backup_policies = self._load_backup_policies()
-        assets = self._load_assets()
-        composites = self._load_composites()
-        derivations = self._load_derivations()
-        replicas = self._load_replicas()
-        revision_counter = max(
-            (
-                _revision_number(record.revision)
-                for records in (
-                    assets.values(),
-                    replicas.values(),
-                    composites.values(),
-                    derivations.values(),
-                    replication_policies.values(),
-                    backup_policies.values(),
-                )
-                for record in records
-            ),
-            default=0,
+        return self.macros.transaction()
+
+    def migrate_envelopes(self) -> int:
+        """Upgrade known older storage envelopes transactionally in place."""
+
+        upgraded = 0
+        with self.macros.transaction():
+            for table, (id_column, scratch_column) in self._ENVELOPE_COLUMNS.items():
+                for row in self.macros.get_rows(table):
+                    migrated = self._migrate_envelope(row.get(scratch_column))
+                    if migrated is None:
+                        continue
+                    self.macros.update_row(
+                        table,
+                        row[id_column],
+                        {scratch_column: migrated},
+                        id_column=id_column,
+                    )
+                    upgraded += 1
+        from LiuXin_alpha.storage.migrations import record_envelope_migration
+
+        record_envelope_migration(self.db, upgraded)
+        if upgraded:
+            self._invalidate_records(*self._ENVELOPE_COLUMNS)
+        return upgraded
+
+    def allocate_record_id(self, kind: str) -> int:
+        """Reserve a database-generated identity inside the caller transaction.
+
+        The manager immediately replaces the reservation scratch value with a
+        complete record before its surrounding transaction commits. This uses
+        SQLite rowid or PostgreSQL identity allocation instead of a racy
+        process-local ``max(id) + 1`` counter.
+        """
+
+        try:
+            table, id_column, scratch_column = self._RECORD_IDENTITIES[kind]
+        except KeyError:
+            raise ValueError(f"Unknown storage metadata record kind: {kind!r}") from None
+        reservation = json.dumps(
+            {
+                "format": _FORMAT,
+                "version": _FORMAT_VERSION,
+                "reservation": True,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
         )
-        return DatabaseStorageMetadataSnapshot(
-            next_asset_id=self._next_id("digital_assets", "digital_asset_id"),
-            next_replica_id=self._next_id("asset_replicas", "asset_replica_id"),
-            next_composite_id=self._next_id(
-                "composite_digital_assets", "composite_digital_asset_id"
-            ),
-            next_derivation_id=self._next_id(
-                "digital_asset_derivations", "digital_asset_derivation_id"
-            ),
-            next_replication_policy_id=self._next_id(
-                "replication_policies", "replication_policy_id"
-            ),
-            next_backup_policy_id=self._next_id(
-                "backup_policies", "backup_policy_id"
-            ),
-            revision_counter=revision_counter,
+        return int(
+            self.macros.insert_row(
+                table,
+                {scratch_column: reservation},
+                id_column=id_column,
+            )
         )
 
     def set_cache(self, cache: Any | None) -> None:
@@ -563,6 +634,18 @@ class DatabaseStorageMetadataRepository:
             if cached:
                 self.cache.invalidate(tables=cached)
 
+    def _invalidate_record_ids(self, table: str, *row_ids: int) -> None:
+        """Invalidate selected durable records without reloading their catalogue."""
+
+        if (
+            self.cache is not None
+            and table in self._cache_tables
+            and row_ids
+        ):
+            self.cache.invalidate(
+                ids={table: tuple(int(row_id) for row_id in row_ids)}
+            )
+
     # ------------------------------------------------------------------
     # Store identity and record persistence
     # ------------------------------------------------------------------
@@ -580,8 +663,49 @@ class DatabaseStorageMetadataRepository:
             allowed_columns=self.db.get_column_headings("stores"),
         )
         store_id = int(self.macros.insert_row("stores", values))
-        self._invalidate_records("stores")
+        self._invalidate_record_ids("stores", store_id)
         return store_id
+
+    def update_store(self, configuration: api.StoreConfiguration) -> None:
+        """Persist a complete replacement configuration for one Store UUID."""
+
+        rows = self.macros.get_rows(
+            "stores", where={"store_uuid": str(configuration.store_uuid)}
+        )
+        if not rows:
+            raise api.StoreConfigurationNotFound(
+                f"No durable Store row for UUID {configuration.store_uuid}."
+            )
+        if len(rows) != 1:
+            raise api.StorageManagementError(
+                f"duplicate durable Store UUID {configuration.store_uuid}."
+            )
+        values = store_configuration_to_row_dict(
+            configuration,
+            allowed_columns=self.db.get_column_headings("stores"),
+            include_nulls=True,
+        )
+        store_id = int(rows[0]["store_id"])
+        self.macros.update_row("stores", store_id, values)
+        self._invalidate_record_ids("stores", store_id)
+
+    def remove_store(self, store_ref: api.StoreUUID) -> None:
+        """Delete one unclaimed durable Store configuration."""
+
+        rows = self.macros.get_rows(
+            "stores", where={"store_uuid": str(store_ref)}
+        )
+        if not rows:
+            raise api.StoreConfigurationNotFound(
+                f"No durable Store row for UUID {store_ref}."
+            )
+        if len(rows) != 1:
+            raise api.StorageManagementError(
+                f"duplicate durable Store UUID {store_ref}."
+            )
+        store_id = int(rows[0]["store_id"])
+        self.macros.delete_row("stores", store_id)
+        self._invalidate_record_ids("stores", store_id)
 
     def upsert_asset(self, record: api.DigitalAssetRecord) -> None:
         values = {
@@ -601,11 +725,11 @@ class DatabaseStorageMetadataRepository:
             int(record.digital_asset_id),
             values,
         )
-        self._invalidate_records("digital_assets")
+        self._invalidate_record_ids("digital_assets", int(record.digital_asset_id))
 
     def remove_asset(self, digital_asset_id: api.DigitalAssetID) -> None:
         self.macros.delete_row("digital_assets", int(digital_asset_id))
-        self._invalidate_records("digital_assets")
+        self._invalidate_record_ids("digital_assets", int(digital_asset_id))
 
     def upsert_replica(self, record: api.ReplicaRecord) -> None:
         store_id = self._store_id(record.location.store_ref)
@@ -640,11 +764,11 @@ class DatabaseStorageMetadataRepository:
             int(record.replica_id),
             values,
         )
-        self._invalidate_records("asset_replicas")
+        self._invalidate_record_ids("asset_replicas", int(record.replica_id))
 
     def remove_replica(self, replica_id: api.ReplicaID) -> None:
         self.macros.delete_row("asset_replicas", int(replica_id))
-        self._invalidate_records("asset_replicas")
+        self._invalidate_record_ids("asset_replicas", int(replica_id))
 
     def upsert_composite(self, record: api.CompositeDigitalAssetRecord) -> None:
         composite_id = int(record.composite_digital_asset_id)
@@ -689,7 +813,7 @@ class DatabaseStorageMetadataRepository:
                         ),
                     },
                 )
-        self._invalidate_records("composite_digital_assets")
+        self._invalidate_record_ids("composite_digital_assets", composite_id)
         if self.cache is not None:
             self.cache.invalidate(
                 links=(
@@ -704,7 +828,9 @@ class DatabaseStorageMetadataRepository:
         self.macros.delete_row(
             "composite_digital_assets", int(composite_digital_asset_id)
         )
-        self._invalidate_records("composite_digital_assets")
+        self._invalidate_record_ids(
+            "composite_digital_assets", int(composite_digital_asset_id)
+        )
         if self.cache is not None:
             self.cache.invalidate(
                 links=(
@@ -743,7 +869,10 @@ class DatabaseStorageMetadataRepository:
             int(record.digital_asset_derivation_id),
             values,
         )
-        self._invalidate_records("digital_asset_derivations")
+        self._invalidate_record_ids(
+            "digital_asset_derivations",
+            int(record.digital_asset_derivation_id),
+        )
 
     def remove_derivation(
         self, digital_asset_derivation_id: api.DigitalAssetDerivationID
@@ -751,7 +880,9 @@ class DatabaseStorageMetadataRepository:
         self.macros.delete_row(
             "digital_asset_derivations", int(digital_asset_derivation_id)
         )
-        self._invalidate_records("digital_asset_derivations")
+        self._invalidate_record_ids(
+            "digital_asset_derivations", int(digital_asset_derivation_id)
+        )
 
     def upsert_replication_policy(self, record: api.ReplicationPolicyRecord) -> None:
         policy = record.policy
@@ -783,13 +914,17 @@ class DatabaseStorageMetadataRepository:
                 "replication_policy_scratch": self._dump(record),
             },
         )
-        self._invalidate_records("replication_policies")
+        self._invalidate_record_ids(
+            "replication_policies", int(record.replication_policy_id)
+        )
 
     def remove_replication_policy(
         self, replication_policy_id: api.ReplicationPolicyID
     ) -> None:
         self.macros.delete_row("replication_policies", int(replication_policy_id))
-        self._invalidate_records("replication_policies")
+        self._invalidate_record_ids(
+            "replication_policies", int(replication_policy_id)
+        )
 
     def upsert_backup_policy(self, record: api.BackupPolicyRecord) -> None:
         policy = record.policy
@@ -823,11 +958,11 @@ class DatabaseStorageMetadataRepository:
                 "backup_policy_scratch": self._dump(record),
             },
         )
-        self._invalidate_records("backup_policies")
+        self._invalidate_record_ids("backup_policies", int(record.backup_policy_id))
 
     def remove_backup_policy(self, backup_policy_id: api.BackupPolicyID) -> None:
         self.macros.delete_row("backup_policies", int(backup_policy_id))
-        self._invalidate_records("backup_policies")
+        self._invalidate_record_ids("backup_policies", int(backup_policy_id))
 
     def upsert_item_target(
         self,
@@ -1038,6 +1173,31 @@ class DatabaseStorageMetadataRepository:
                 (UUID(str(row["storage_ingest_operation_uuid"])), state, payload)
             )
         return tuple(pending)
+
+    def ingest_journal_statuses(self) -> tuple[dict[str, object], ...]:
+        """Return operator-safe journal summaries without decoded requests."""
+
+        if not self.has_ingest_journal:
+            return ()
+        return tuple(
+            {
+                "operation_id": UUID(
+                    str(row["storage_ingest_operation_uuid"])
+                ),
+                "state": str(row["storage_ingest_operation_state"]),
+                "last_error": row.get(
+                    "storage_ingest_operation_last_error"
+                ),
+                "store_ref": row.get("storage_ingest_operation_store_uuid"),
+                "storage_key": row.get(
+                    "storage_ingest_operation_storage_key"
+                ),
+            }
+            for row in self.macros.get_rows(
+                "storage_ingest_operations",
+                order_by=("storage_ingest_operation_id",),
+            )
+        )
 
     # ------------------------------------------------------------------
     # Loading helpers
@@ -1484,10 +1644,6 @@ class DatabaseStorageMetadataRepository:
                 if row_role == role:
                     self.macros.delete_row(table, row[f"{prefix}_id"])
 
-    def _next_id(self, table: str, id_column: str) -> int:
-        rows = self.macros.get_rows(table)
-        return max((int(row[id_column]) for row in rows), default=0) + 1
-
     def _store_id(self, store_ref: api.StoreUUID) -> int:
         rows = self.macros.get_rows(
             "stores", where={"store_uuid": str(store_ref)}
@@ -1578,6 +1734,41 @@ class DatabaseStorageMetadataRepository:
             raise api.StorageManagementError(
                 f"Cannot decode {scratch_column} for durable row: {error}"
             ) from error
+
+    def _migrate_envelope(self, raw: Any) -> str | None:
+        if raw in (None, ""):
+            return None
+        try:
+            envelope = json.loads(str(raw))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return None
+        if not isinstance(envelope, dict) or envelope.get("format") != _FORMAT:
+            return None
+        version = envelope.get("version", 0)
+        if version == _FORMAT_VERSION:
+            return None
+        if version != 0:
+            raise api.StorageManagementError(
+                f"storage envelope version {version!r} is newer than the "
+                f"supported version {_FORMAT_VERSION}."
+            )
+        payload = envelope.get("payload", envelope.get("record"))
+        try:
+            _decode(payload, self._types)
+        except Exception as error:
+            raise api.StorageManagementError(
+                f"cannot migrate storage envelope version 0: {error}"
+            ) from error
+        return json.dumps(
+            {
+                "format": _FORMAT,
+                "version": _FORMAT_VERSION,
+                "payload": payload,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
 
     def _dump(self, value: Any) -> str:
         return json.dumps(
@@ -1736,18 +1927,8 @@ def _json_list(value: Any, default: list[str]) -> list[str]:
     return [str(item) for item in decoded] if isinstance(decoded, list) else list(default)
 
 
-def _revision_number(value: str | None) -> int:
-    if value is None or not value.startswith("m"):
-        return 0
-    try:
-        return int(value[1:])
-    except ValueError:
-        return 0
-
-
 __all__ = [
     "DatabaseStorageMetadataRepository",
-    "DatabaseStorageMetadataSnapshot",
     "RepositoryItemTargetMapping",
     "RepositoryRecordMapping",
 ]

@@ -120,15 +120,65 @@ def _create_table_sql(table: TableDefinition) -> str:
 
 
 def _helper_sql_statements() -> tuple[str, ...]:
-    statements: list[str] = []
+    grouped: dict[str, list[str]] = {}
+    discovery_order: list[str] = []
     explicit = {definition.name for definition in TABLE_DEFINITIONS}
     helper_tables = set(HELPER_TABLES) - explicit
     for sqlite_statement in _sqlite_helper_statements():
         table_name = _statement_table_name(sqlite_statement) or _statement_index_table_name(sqlite_statement)
         if table_name not in helper_tables:
             continue
-        statements.append(_translate_sqlite_statement(sqlite_statement))
-    return tuple(statements)
+        if table_name not in grouped:
+            grouped[table_name] = []
+            discovery_order.append(table_name)
+        grouped[table_name].append(_translate_sqlite_statement(sqlite_statement))
+
+    dependencies: dict[str, set[str]] = {
+        table: {
+            dependency
+            for statement in statements
+            for dependency in _statement_referenced_tables(statement)
+            if dependency in grouped and dependency != table
+        }
+        for table, statements in grouped.items()
+    }
+    ordered_tables: list[str] = []
+    remaining = set(grouped)
+    while remaining:
+        ready = [
+            table
+            for table in discovery_order
+            if table in remaining
+            and not (dependencies[table] & remaining)
+        ]
+        if not ready:
+            cycle = ", ".join(
+                table for table in discovery_order if table in remaining
+            )
+            raise DatabaseDriverError(
+                "PostgreSQL helper-table foreign keys contain a dependency "
+                f"cycle: {cycle}."
+            )
+        ordered_tables.extend(ready)
+        remaining.difference_update(ready)
+    return tuple(
+        statement
+        for table in ordered_tables
+        for statement in grouped[table]
+    )
+
+
+def _statement_referenced_tables(statement: str) -> set[str]:
+    """Return tables named by portable ``REFERENCES`` clauses."""
+
+    return {
+        match.group(1)
+        for match in re.finditer(
+            r'\breferences\s+["`]([^"`]+)["`]',
+            statement,
+            flags=re.IGNORECASE,
+        )
+    }
 
 
 def _helper_table_catalog() -> dict[str, tuple[str, ...]]:

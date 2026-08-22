@@ -4,6 +4,8 @@ Concrete schema-backed implementation of the single-table cache API.
 
 from __future__ import annotations
 
+import bisect
+
 from collections import defaultdict
 from copy import deepcopy
 
@@ -180,23 +182,47 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
 
     def _refresh_ids(self, table_ids: Iterable[int]) -> None:
         db = _ensure_db(self.db)
-        changed = False
-        for table_id in table_ids:
+        for table_id in {int(value) for value in table_ids}:
             row_id = int(table_id)
+            old_row = self._rows_by_id.get(row_id)
             row = db.get_row_from_id(self.table, row_id)
             if row is None:
-                if row_id in self._rows_by_id:
-                    self._rows_by_id.pop(row_id, None)
-                    self._row_order = [existing for existing in self._row_order if existing != row_id]
-                    changed = True
+                if old_row is None:
+                    continue
+                self._remove_row_from_indexes(row_id, old_row)
+                self._rows_by_id.pop(row_id, None)
+                self._row_order.remove(row_id)
                 continue
-            if row_id not in self._rows_by_id:
-                self._row_order.append(row_id)
-                self._row_order.sort()
-            self._rows_by_id[row_id] = deepcopy(row.row_dict)
-            changed = True
-        if changed:
-            self._refresh_indexes()
+            new_row = deepcopy(row.row_dict)
+            if old_row is not None:
+                self._remove_row_from_indexes(row_id, old_row)
+            else:
+                bisect.insort(self._row_order, row_id)
+            self._rows_by_id[row_id] = new_row
+            self._add_row_to_indexes(row_id, new_row)
+
+    def _remove_row_from_indexes(
+        self,
+        row_id: int,
+        row: Mapping[str, Any],
+    ) -> None:
+        for column in self.column_headings:
+            value_ids = self._value_indexes.get(column, {}).get(row.get(column))
+            if value_ids is None:
+                continue
+            value_ids.discard(int(row_id))
+            if not value_ids:
+                self._value_indexes[column].pop(row.get(column), None)
+
+    def _add_row_to_indexes(
+        self,
+        row_id: int,
+        row: Mapping[str, Any],
+    ) -> None:
+        for column in self.column_headings:
+            self._value_indexes.setdefault(column, {}).setdefault(
+                row.get(column), set()
+            ).add(int(row_id))
 
     def create(
         self,

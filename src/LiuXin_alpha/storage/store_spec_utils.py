@@ -111,6 +111,7 @@ def store_configuration_to_row_dict(
     configuration: StoreConfiguration,
     *,
     allowed_columns: Iterable[str] | None = None,
+    include_nulls: bool = False,
 ) -> dict[str, Any]:
     """Serialize only schema-supported, non-secret configuration fields."""
 
@@ -164,7 +165,7 @@ def store_configuration_to_row_dict(
     return {
         key: value
         for key, value in values.items()
-        if keep(key) and value is not None
+        if keep(key) and (include_nulls or value is not None)
     }
 
 

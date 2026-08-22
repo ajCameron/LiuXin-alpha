@@ -15,6 +15,7 @@ import tempfile
 
 from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from threading import RLock
 from typing import BinaryIO, Literal, Protocol, cast, override
@@ -28,6 +29,14 @@ StoreRegistration = tuple[api.StoreConfiguration, api.StoreAPI]
 _ItemTargetKind = Literal["digital_asset", "composite_digital_asset"]
 _ItemTargetID = api.DigitalAssetID | api.CompositeDigitalAssetID
 _ItemTarget = tuple[_ItemTargetKind, _ItemTargetID]
+_MetadataRecordKind = Literal[
+    "digital_asset",
+    "replica",
+    "composite",
+    "derivation",
+    "replication_policy",
+    "backup_policy",
+]
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -529,6 +538,198 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
         return super().iter_store_statuses(refresh=refresh)
 
     @override
+    def get_operational_status(
+        self,
+        *,
+        refresh_stores: bool = False,
+    ) -> api.StorageOperationalStatus:
+        """Return an attributable, actionable snapshot of storage health."""
+
+        store_statuses = tuple(
+            self.iter_store_statuses(refresh=refresh_stores)
+        )
+        issues: list[api.StorageOperationalIssue] = []
+        actions: list[api.StorageRecoveryAction] = []
+
+        for observation in store_statuses:
+            if observation.status.available:
+                continue
+            message = (
+                observation.status.message
+                or f"Store {observation.store_ref} is unavailable."
+            )
+            issues.append(
+                api.StorageOperationalIssue(
+                    "store_unavailable",
+                    api.StorageOperationalSeverity.WARNING,
+                    message,
+                    store_ref=observation.store_ref,
+                )
+            )
+            actions.append(
+                api.StorageRecoveryAction(
+                    "reload_stores",
+                    "Reload the Store after its endpoint becomes available.",
+                    store_ref=observation.store_ref,
+                )
+            )
+
+        for journal in self._ingest_journal_statuses():
+            state = str(journal.get("state") or "unknown")
+            if state == "committed":
+                continue
+            operation_id = journal.get("operation_id")
+            if not isinstance(operation_id, UUID):
+                operation_id = None
+            last_error = journal.get("last_error")
+            if state == "failed":
+                message = f"Ingest {operation_id} failed"
+                if last_error:
+                    message += f": {last_error}"
+                issues.append(
+                    api.StorageOperationalIssue(
+                        "ingest_failed",
+                        api.StorageOperationalSeverity.ERROR,
+                        message,
+                        operation_id=operation_id,
+                    )
+                )
+                actions.append(
+                    api.StorageRecoveryAction(
+                        "retry_ingest",
+                        "Retry with the same operation UUID after correcting the failure.",
+                        operation_id=operation_id,
+                    )
+                )
+                continue
+            issues.append(
+                api.StorageOperationalIssue(
+                    "ingest_pending",
+                    api.StorageOperationalSeverity.WARNING,
+                    f"Ingest {operation_id} remains in journal state {state!r}.",
+                    operation_id=operation_id,
+                )
+            )
+            actions.append(
+                api.StorageRecoveryAction(
+                    "recover_pending_ingests",
+                    "Run pending-ingest recovery after required Stores are online.",
+                    operation_id=operation_id,
+                )
+            )
+
+        unhealthy_states = {
+            api.ReplicaState.MISSING,
+            api.ReplicaState.UNAVAILABLE,
+            api.ReplicaState.CORRUPT,
+        }
+        for replica in self.iter_replica_records():
+            if replica.state not in unhealthy_states:
+                continue
+            corrupt = replica.state is api.ReplicaState.CORRUPT
+            code = "replica_corrupt" if corrupt else "replica_unavailable"
+            issues.append(
+                api.StorageOperationalIssue(
+                    code,
+                    (
+                        api.StorageOperationalSeverity.ERROR
+                        if corrupt or replica.state is api.ReplicaState.MISSING
+                        else api.StorageOperationalSeverity.WARNING
+                    ),
+                    "Replica {} for Digital Asset {} is {}.".format(
+                        replica.replica_id,
+                        replica.digital_asset_id,
+                        replica.state.value,
+                    ),
+                    digital_asset_id=replica.digital_asset_id,
+                    replica_id=replica.replica_id,
+                    store_ref=replica.location.store_ref,
+                )
+            )
+            actions.append(
+                api.StorageRecoveryAction(
+                    "replicate_digital_asset",
+                    "Create and verify another Replica from a healthy source.",
+                    digital_asset_id=replica.digital_asset_id,
+                    replica_id=replica.replica_id,
+                    store_ref=replica.location.store_ref,
+                )
+            )
+
+        for asset in self.iter_digital_asset_records():
+            try:
+                assessment = self.assess_digital_asset(
+                    asset.digital_asset_id
+                )
+            except Exception as error:
+                issues.append(
+                    api.StorageOperationalIssue(
+                        "policy_assessment_failed",
+                        api.StorageOperationalSeverity.ERROR,
+                        "Could not assess Digital Asset {}: {}".format(
+                            asset.digital_asset_id,
+                            str(error) or type(error).__name__,
+                        ),
+                        digital_asset_id=asset.digital_asset_id,
+                    )
+                )
+                continue
+            for code, satisfied, action, reason in (
+                (
+                    "replication_policy_violation",
+                    assessment.replication_satisfied,
+                    "plan_replication",
+                    "Plan or execute additional live Replica placement.",
+                ),
+                (
+                    "backup_policy_violation",
+                    assessment.backup_satisfied,
+                    "plan_backup",
+                    "Plan or execute an additional backup/archive Replica.",
+                ),
+            ):
+                if satisfied:
+                    continue
+                issues.append(
+                    api.StorageOperationalIssue(
+                        code,
+                        (
+                            api.StorageOperationalSeverity.ERROR
+                            if assessment.unavailable
+                            else api.StorageOperationalSeverity.WARNING
+                        ),
+                        "Digital Asset {} does not meet its {}.".format(
+                            asset.digital_asset_id,
+                            code.replace("_", " "),
+                        ),
+                        digital_asset_id=asset.digital_asset_id,
+                    )
+                )
+                actions.append(
+                    api.StorageRecoveryAction(
+                        action,
+                        reason,
+                        digital_asset_id=asset.digital_asset_id,
+                    )
+                )
+
+        for message in tuple(getattr(self, "ingest_recovery_issues", ())):
+            issues.append(
+                api.StorageOperationalIssue(
+                    "ingest_recovery_deferred",
+                    api.StorageOperationalSeverity.WARNING,
+                    str(message),
+                )
+            )
+
+        return api.StorageOperationalStatus(
+            checked_at=datetime.now(UTC),
+            store_statuses=store_statuses,
+            issues=tuple(issues),
+            recovery_actions=tuple(dict.fromkeys(actions)),
+        )
+
+    @override
     def reload_stores(
         self,
         *,
@@ -740,15 +941,16 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
                     "declare the Asset and its exact derivation before assigning "
                     "a recreate-on-loss policy."
                 )
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             existing = self._find_asset_locked(
                 declaration.digests,
                 declaration.size_bytes,
             )
             if existing is not None:
                 return existing
-            digital_asset_id = api.DigitalAssetID(self._next_asset_id)
-            self._next_asset_id += 1
+            digital_asset_id = api.DigitalAssetID(
+                self._allocate_metadata_id_locked("digital_asset")
+            )
             record = api.DigitalAssetRecord(
                 digital_asset_id,
                 declaration.size_bytes,
@@ -786,7 +988,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> api.DigitalAssetRecord:
         """Replace metadata under an optimistic revision precondition."""
 
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             current = self._require_asset_locked(digital_asset_id)
             self._check_revision(current.revision, if_revision)
             updated = dataclasses.replace(
@@ -830,7 +1032,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> bool:
         """Forget an unreferenced Asset record without touching Store bytes."""
 
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             current = self._assets.get(digital_asset_id)
             if current is None:
                 return False
@@ -906,7 +1108,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> bool:
         """Remove one manager-owned Item-to-Asset role link."""
 
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             return self._item_targets.pop((item_id, role), None) is not None
 
     # ------------------------------------------------------------------
@@ -1440,17 +1642,18 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
             deduplicated=not asset_created,
             verified=verified,
         )
-        if item_id is not None:
-            self.link_item_to_digital_asset(
-                item_id,
-                asset_record.digital_asset_id,
-                role="primary_payload" if role is None else role,
-            )
-        with self._lock:
-            self._ingest_operations[operation_id] = _IngestOperation(
-                request,
-                result,
-            )
+        with self._metadata_transaction():
+            if item_id is not None:
+                self.link_item_to_digital_asset(
+                    item_id,
+                    asset_record.digital_asset_id,
+                    role="primary_payload" if role is None else role,
+                )
+            with self._lock:
+                self._ingest_operations[operation_id] = _IngestOperation(
+                    request,
+                    result,
+                )
         return result
 
     @override
@@ -1822,7 +2025,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
         elif retain_tombstone:
             warnings.append("tombstone retained while physical bytes were preserved")
 
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             current = self._require_replica_locked(replica_id)
             if retain_tombstone:
                 self._replicas[replica_id] = dataclasses.replace(
@@ -1870,7 +2073,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
                 raise api.StoragePreconditionFailed(
                     "Replica bytes still exist at the claimed Location."
                 )
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             current = self._replicas.get(replica_id)
             if current is None:
                 return False
@@ -1890,11 +2093,10 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> api.ReplicationPolicyRecord:
         """Register one replication policy with stable manager identity."""
 
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             policy_id = api.ReplicationPolicyID(
-                self._next_replication_policy_id
+                self._allocate_metadata_id_locked("replication_policy")
             )
-            self._next_replication_policy_id += 1
             record = api.ReplicationPolicyRecord(
                 policy_id,
                 policy,
@@ -1928,7 +2130,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> api.ReplicationPolicyRecord:
         """Replace a policy without invalidating recreation guarantees."""
 
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             current = self._replication_policies.get(replication_policy_id)
             if current is None:
                 raise api.StorageManagementError(
@@ -1960,7 +2162,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> bool:
         """Delete an unreferenced replication policy."""
 
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             if replication_policy_id not in self._replication_policies:
                 return False
             if any(
@@ -1997,9 +2199,10 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> api.BackupPolicyRecord:
         """Register one backup policy with stable manager identity."""
 
-        with self._lock:
-            policy_id = api.BackupPolicyID(self._next_backup_policy_id)
-            self._next_backup_policy_id += 1
+        with self._lock, self._metadata_transaction():
+            policy_id = api.BackupPolicyID(
+                self._allocate_metadata_id_locked("backup_policy")
+            )
             record = api.BackupPolicyRecord(
                 policy_id,
                 policy,
@@ -2033,7 +2236,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> api.BackupPolicyRecord:
         """Replace a policy without invalidating recreation guarantees."""
 
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             current = self._backup_policies.get(backup_policy_id)
             if current is None:
                 raise api.StorageManagementError(
@@ -2065,7 +2268,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> bool:
         """Delete an unreferenced backup policy."""
 
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             if backup_policy_id not in self._backup_policies:
                 return False
             if any(
@@ -2107,7 +2310,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
             replication_policy_id,
             backup_policy_id,
         )
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             current = self._require_asset_locked(digital_asset_id)
             self._check_revision(current.revision, if_revision)
             candidate = dataclasses.replace(
@@ -2362,9 +2565,10 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
 
         for member in declaration.members:
             self.get_digital_asset_record(member.digital_asset_id)
-        with self._lock:
-            composite_id = api.CompositeDigitalAssetID(self._next_composite_id)
-            self._next_composite_id += 1
+        with self._lock, self._metadata_transaction():
+            composite_id = api.CompositeDigitalAssetID(
+                self._allocate_metadata_id_locked("composite")
+            )
             record = api.CompositeDigitalAssetRecord(
                 composite_id,
                 declaration.members,
@@ -2402,7 +2606,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
 
         for member in declaration.members:
             self.get_digital_asset_record(member.digital_asset_id)
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             current = self._require_composite_locked(composite_digital_asset_id)
             self._check_revision(current.revision, if_revision)
             record = api.CompositeDigitalAssetRecord(
@@ -2437,7 +2641,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> bool:
         """Forget an unlinked Composite without touching member Assets."""
 
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             current = self._composites.get(composite_digital_asset_id)
             if current is None:
                 return False
@@ -2623,11 +2827,10 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
             declaration.result_digital_asset_id,
             source_asset_ids,
         )
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             derivation_id = api.DigitalAssetDerivationID(
-                self._next_derivation_id
+                self._allocate_metadata_id_locked("derivation")
             )
-            self._next_derivation_id += 1
             record = api.DigitalAssetDerivationRecord(
                 derivation_id,
                 declaration,
@@ -2886,7 +3089,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> bool:
         """Forget one provenance assertion under revision control."""
 
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             record = self._derivations.get(digital_asset_derivation_id)
             if record is None:
                 return False
@@ -2989,7 +3192,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> api.StoreReconciliationReport:
         """Apply one current plan to Replica observations only."""
 
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             if plan.repository_revision != str(self._replica_generation):
                 raise api.StoreReconciliationPlanStale(
                     "Replica repository changed after reconciliation planning."
@@ -3038,6 +3241,34 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
 
         self._revision_counter += 1
         return f"m{self._revision_counter}"
+
+    def _metadata_transaction(self):
+        """Return the transaction enclosing one metadata mutation."""
+
+        return nullcontext()
+
+    def _ingest_journal_statuses(self) -> tuple[Mapping[str, object], ...]:
+        """Return no durable journal entries for the transient manager."""
+
+        return ()
+
+    def _allocate_metadata_id_locked(
+        self,
+        kind: _MetadataRecordKind,
+    ) -> int:
+        """Allocate one process-local identity for the transient manager."""
+
+        attribute = {
+            "digital_asset": "_next_asset_id",
+            "replica": "_next_replica_id",
+            "composite": "_next_composite_id",
+            "derivation": "_next_derivation_id",
+            "replication_policy": "_next_replication_policy_id",
+            "backup_policy": "_next_backup_policy_id",
+        }[kind]
+        identifier = int(getattr(self, attribute))
+        setattr(self, attribute, identifier + 1)
+        return identifier
 
     @staticmethod
     def _check_revision(current: str | None, expected: str | None) -> None:
@@ -3303,17 +3534,18 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
             deduplicated=not asset_created,
             verified=verified,
         )
-        if item_id is not None:
-            self.link_item_to_digital_asset(
-                item_id,
-                asset_record.digital_asset_id,
-                role="primary_payload" if role is None else role,
-            )
-        with self._lock:
-            self._ingest_operations[operation_id] = _IngestOperation(
-                request,
-                result,
-            )
+        with self._metadata_transaction():
+            if item_id is not None:
+                self.link_item_to_digital_asset(
+                    item_id,
+                    asset_record.digital_asset_id,
+                    role="primary_payload" if role is None else role,
+                )
+            with self._lock:
+                self._ingest_operations[operation_id] = _IngestOperation(
+                    request,
+                    result,
+                )
         return result
 
     def _journal_ingest_started(
@@ -3524,7 +3756,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> api.ReplicaRecord:
         """Replace one Replica observation and advance repository generation."""
 
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             current = self._require_replica_locked(replica_id)
             updated = dataclasses.replace(
                 current,
@@ -3543,7 +3775,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
 
         self.get_digital_asset_record(declaration.digital_asset_id)
         self.get_store_configuration(declaration.location.store_ref)
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             conflict = next(
                 (
                     record
@@ -3557,8 +3789,9 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
                 raise api.StoragePreconditionFailed(
                     "Location already has a live Replica claim."
                 )
-            replica_id = api.ReplicaID(self._next_replica_id)
-            self._next_replica_id += 1
+            replica_id = api.ReplicaID(
+                self._allocate_metadata_id_locked("replica")
+            )
             record = api.ReplicaRecord(
                 replica_id,
                 declaration.digital_asset_id,
@@ -3764,7 +3997,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
             raise ValueError("item_id must be positive.")
         if not role.strip():
             raise ValueError("role must not be empty.")
-        with self._lock:
+        with self._lock, self._metadata_transaction():
             self._item_targets[(item_id, role)] = (kind, target_id)
 
     def _asset_has_derivation_reference_locked(

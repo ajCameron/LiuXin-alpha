@@ -95,11 +95,18 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
     StorageBootstrapIssue,
     StorageBootstrapReport,
     StoragePolicyAssessment,
+    StorageOperationalIssue,
+    StorageOperationalSeverity,
+    StorageOperationalStatus,
+    StorageRecoveryAction,
     StoreConfiguration,
     StoreStatusObservation,
     TopologyRelation,
 )
 from LiuXin_alpha.storage.api.storage_manager_api.policies_api import StoragePolicyAPI
+from LiuXin_alpha.storage.api.storage_manager_api.operational_api import (
+    StorageOperationalStatusAPI,
+)
 from LiuXin_alpha.storage.api.storage_manager_api.reconciliation_api import StorageReconciliationAPI
 from LiuXin_alpha.storage.api.storage_manager_api.replicas_api import ReplicaLifecycleAPI
 from LiuXin_alpha.storage.api.persistence_api import (
@@ -130,6 +137,7 @@ class StorageManagerAPI(
     CompositeDigitalAssetAPI,
     DigitalAssetDerivationRegistryAPI,
     StorageReconciliationAPI,
+    StorageOperationalStatusAPI,
     abc.ABC,
 ):
     """
@@ -259,6 +267,11 @@ __all__ = [
     "StorageConvenienceAPI",
     "StorageManagementError",
     "StorageManagerAPI",
+    "StorageOperationalIssue",
+    "StorageOperationalSeverity",
+    "StorageOperationalStatus",
+    "StorageOperationalStatusAPI",
+    "StorageRecoveryAction",
     "StoragePolicyAPI",
     "StorageReconciliationAPI",
     "StorageRouterAPI",

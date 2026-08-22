@@ -298,13 +298,20 @@ def test_backup_models_validate_paths_sources_checkpoints_and_results() -> None:
         api.BackupWorkflowKind.SQUASHFS_PACK,
         api.Location(ARCHIVE_STORE_UUID, "packs/nightly.sqsh"),
         sources=(source,),
-        options=(("compression", "zstd"),),
+        options=(("deterministic", "1"), ("compression", "zstd")),
     )
 
     assert source.archive_path == "books/novel.epub"
     assert source.location == location
     assert source.source_store_ref == PRIMARY_STORE_UUID
-    assert declaration.option_map() == {"compression": "zstd"}
+    assert declaration.options == (
+        ("compression", "zstd"),
+        ("deterministic", "1"),
+    )
+    assert declaration.option_map() == {
+        "compression": "zstd",
+        "deterministic": "1",
+    }
     assert "BackupWorkflowStatus" not in api.__all__
     assert not api.WorkflowStatus.DRAFT.terminal
     assert api.WorkflowStatus.FAILED.resumable

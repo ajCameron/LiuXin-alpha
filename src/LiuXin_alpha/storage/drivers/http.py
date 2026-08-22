@@ -1,4 +1,6 @@
-"""Read-only HTTP(S) storage driver with scoped opaque object addresses."""
+"""
+Read-only HTTP(S) storage driver with scoped opaque object addresses.
+"""
 
 from __future__ import annotations
 
@@ -59,20 +61,67 @@ from LiuXin_alpha.storage.drivers._validation import (
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class HttpObjectAddress(DriverObjectAddress):
-    """Canonical relative URL reference within one configured HTTP root."""
+    """
+    Canonical relative URL reference within one configured HTTP root.
+
+    Example:
+        >>> HttpObjectAddress("books/novel.epub", UUID(int=1)).value
+        'books/novel.epub'
+    """
 
 
 class HttpResponseAPI(Protocol):
-    """The small response surface used by :class:`HttpStorageDriver`."""
+    """
+    The small response surface used by :class:`HttpStorageDriver`.
+
+    Example:
+        >>> response: HttpResponseAPI = opener(request, 30)  # doctest: +SKIP
+    """
 
     headers: Mapping[str, str]
     status: int
 
-    def read(self, size: int = -1) -> bytes: ...
+    def read(self, size: int = -1) -> bytes:
+        """
+        Read up to ``size`` response-body bytes.
 
-    def close(self) -> None: ...
+        Example:
+            >>> response.read(4)  # doctest: +SKIP
+            b'book'
 
-    def geturl(self) -> str: ...
+
+        :param size:
+        :return:
+        """
+
+        ...
+
+    def close(self) -> None:
+        """
+        Release the response and its underlying connection.
+
+        Example:
+            >>> response.close()  # doctest: +SKIP
+
+
+        :return:
+        """
+
+        ...
+
+    def geturl(self) -> str:
+        """
+        Return the final URL after redirects.
+
+        Example:
+            >>> response.geturl()  # doctest: +SKIP
+            'https://example.test/books/a.epub'
+
+
+        :return:
+        """
+
+        ...
 
 
 HttpRequestOpener = Callable[[urllib.request.Request, float | None], HttpResponseAPI]
@@ -84,7 +133,12 @@ DEFAULT_MAX_HTTP_INVENTORY_ENTRIES = 100_000
 
 
 class _HttpResponseReader(io.RawIOBase):
-    """Own an HTTP response and optionally cap its readable byte count."""
+    """
+    Own an HTTP response and optionally cap its readable byte count.
+
+    Example:
+        >>> reader = _HttpResponseReader(response, remaining=4, target="https://example.test/a")  # doctest: +SKIP
+    """
 
     def __init__(
         self,
@@ -93,14 +147,50 @@ class _HttpResponseReader(io.RawIOBase):
         remaining: int | None,
         target: str,
     ) -> None:
+        """
+        Bind an owned response, declared remaining length, and safe target.
+
+        Example:
+            >>> _HttpResponseReader(response, remaining=None, target="https://example.test/a")  # doctest: +SKIP
+
+
+        :param response:
+        :param remaining:
+        :param target:
+        :return:
+        """
+
         self._response = response
         self._remaining = remaining
         self._target = target
 
     def readable(self) -> bool:
+        """
+        Report that the wrapper implements raw binary reads.
+
+        Example:
+            >>> reader.readable()  # doctest: +SKIP
+            True
+
+
+        :return:
+        """
+
         return True
 
     def readinto(self, buffer: bytearray | memoryview) -> int:
+        """
+        Fill a caller buffer while enforcing the declared response length.
+
+        Example:
+            >>> reader.readinto(bytearray(4))  # doctest: +SKIP
+            4
+
+
+        :param buffer:
+        :return:
+        """
+
         if self._remaining == 0:
             return 0
         view = memoryview(buffer)
@@ -178,6 +268,16 @@ class _HttpResponseReader(io.RawIOBase):
         return len(data)
 
     def close(self) -> None:
+        """
+        Close the owned response without masking prior transfer failures.
+
+        Example:
+            >>> reader.close()  # doctest: +SKIP
+
+
+        :return:
+        """
+
         try:
             best_effort_close(self._response)
         finally:
@@ -185,11 +285,17 @@ class _HttpResponseReader(io.RawIOBase):
 
 
 class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
-    """Reusable read-only driver for an HTTP tree or discovered URL set.
+    """
+    Reusable read-only driver for an HTTP tree or discovered URL set.
 
     Object keys are relative URL references. Absolute URLs enter only through
     :meth:`object_address_from_uri`, which verifies scheme, authority, and root
     path ownership before minting a scoped address.
+
+    Example:
+        >>> driver = HttpStorageDriver("https://example.test/books/", address_space_uuid=UUID(int=1))
+        >>> driver.root_uri
+        'https://example.test/books/'
     """
 
     def __init__(
@@ -205,6 +311,26 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         max_requests_per_hour: float | None = None,
         max_inventory_entries: int | None = DEFAULT_MAX_HTTP_INVENTORY_ENTRIES,
     ) -> None:
+        """
+        Configure one endpoint, optional inventory, headers, and rate limit.
+
+        Example:
+            >>> HttpStorageDriver("https://example.test/books", address_space_uuid=UUID(int=1)).root_uri
+            'https://example.test/books/'
+
+
+        :param root_url:
+        :param address_space_uuid:
+        :param inventory_provider:
+        :param request_opener:
+        :param probe:
+        :param timeout_s:
+        :param headers:
+        :param max_requests_per_hour:
+        :param max_inventory_entries:
+        :return:
+        """
+
         if max_inventory_entries is not None and max_inventory_entries < 1:
             raise ValueError("max_inventory_entries must be positive or None.")
         self._root_url = _canonical_root_url(root_url)
@@ -232,14 +358,47 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
     def object_address_checker(
         self,
     ) -> ScopedDriverObjectAddressChecker[HttpObjectAddress]:
+        """
+        Return the checker that scopes references to this endpoint.
+
+        Example:
+            >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
+            UUID('00000000-0000-0000-0000-000000000001')
+
+
+        :return:
+        """
+
         return self._checker
 
     @property
     def root_uri(self) -> str:
+        """
+        Return the canonical credential-free HTTP root URI.
+
+        Example:
+            >>> driver.root_uri  # doctest: +SKIP
+            'https://example.test/books/'
+
+
+        :return:
+        """
+
         return self._root_url
 
     @property
     def capabilities(self) -> DriverCapabilities:
+        """
+        Describe ranged conditional reads and optional partial inventory.
+
+        Example:
+            >>> driver.capabilities.range_reads  # doctest: +SKIP
+            True
+
+
+        :return:
+        """
+
         enumerable = self._inventory_provider is not None
         return DriverCapabilities(
             range_reads=True,
@@ -261,9 +420,31 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         )
 
     def startup(self) -> DriverStatus:
+        """
+        Probe the endpoint and retain the resulting status observation.
+
+        Example:
+            >>> driver.startup().available  # doctest: +SKIP
+            True
+
+
+        :return:
+        """
+
         return self.probe()
 
     def probe(self) -> DriverStatus:
+        """
+        Run the configured probe or a HEAD request against the root.
+
+        Example:
+            >>> driver.probe().writable  # doctest: +SKIP
+            False
+
+
+        :return:
+        """
+
         try:
             if self._probe_callback is not None:
                 self._probe_callback()
@@ -295,15 +476,48 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         return self._last_status
 
     def status(self) -> DriverStatus:
+        """
+        Return the most recently observed endpoint status.
+
+        Example:
+            >>> driver.status().available  # doctest: +SKIP
+            True
+
+
+        :return:
+        """
+
         return self._last_status
 
     def close(self) -> None:
+        """
+        Complete lifecycle cleanup; responses are owned per operation.
+
+        Example:
+            >>> driver.close()  # doctest: +SKIP
+
+
+        :return:
+        """
+
         return None
 
     def parse_object_address(
         self,
         identifier: DriverObjectAddressInput[HttpObjectAddress],
     ) -> HttpObjectAddress:
+        """
+        Validate a persisted relative URL reference within the root.
+
+        Example:
+            >>> str(driver.parse_object_address("authors/book.epub"))  # doctest: +SKIP
+            'authors/book.epub'
+
+
+        :param identifier:
+        :return:
+        """
+
         if isinstance(identifier, DriverObjectAddress):
             return self.check_object_address(identifier)
         key = _canonical_relative_reference(str(identifier))
@@ -314,6 +528,18 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         return address
 
     def join_object_address(self, *tokens: str) -> HttpObjectAddress:
+        """
+        Join URL path tokens and validate the rendered reference.
+
+        Example:
+            >>> str(driver.join_object_address("authors", "book.epub"))  # doctest: +SKIP
+            'authors/book.epub'
+
+
+        :param tokens:
+        :return:
+        """
+
         if not tokens:
             raise StorageInvalidAddress("at least one URL path token is required.")
         cleaned: list[str] = []
@@ -325,9 +551,33 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         return self.parse_object_address("/".join(cleaned))
 
     def object_address_from_uri(self, uri: str) -> HttpObjectAddress:
+        """
+        Convert one same-endpoint, in-root URI into a checked reference.
+
+        Example:
+            >>> str(driver.object_address_from_uri("https://example.test/books/a.epub"))  # doctest: +SKIP
+            'a.epub'
+
+
+        :param uri:
+        :return:
+        """
+
         return self.parse_object_address(self._relative_key_from_uri(uri))
 
     def object_uri(self, object_address: HttpObjectAddress) -> str:
+        """
+        Render one checked reference as its absolute endpoint URI.
+
+        Example:
+            >>> driver.object_uri(driver.parse_object_address("a.epub"))  # doctest: +SKIP
+            'https://example.test/books/a.epub'
+
+
+        :param object_address:
+        :return:
+        """
+
         checked = self.check_object_address(object_address)
         return urljoin(self._root_url, str(checked))
 
@@ -335,6 +585,18 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         self,
         object_address: HttpObjectAddress,
     ) -> DriverObjectInfo[HttpObjectAddress]:
+        """
+        Inspect HTTP size, ETag, time, filename, and media-type evidence.
+
+        Example:
+            >>> driver.stat(address).version  # doctest: +SKIP
+            '"v1"'
+
+
+        :param object_address:
+        :return:
+        """
+
         checked = self.check_object_address(object_address)
         url = self.object_uri(checked)
         response: HttpResponseAPI | None = None
@@ -374,6 +636,22 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         length: int | None = None,
         if_version: str | None = None,
     ) -> BinaryIO:
+        """
+        Open an owned full or ranged response with optional ETag protection.
+
+        Example:
+            >>> with driver.open_read(address, length=4) as source:  # doctest: +SKIP
+            ...     source.read()
+            b'book'
+
+
+        :param object_address:
+        :param offset:
+        :param length:
+        :param if_version:
+        :return:
+        """
+
         checked = self.check_object_address(object_address)
         if offset < 0 or (length is not None and length < 0):
             raise StorageInvalidAddress("HTTP read ranges must not be negative.")
@@ -427,6 +705,21 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         *,
         prefix: HttpObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[HttpObjectAddress]]:
+        """
+        Yield unique in-scope references from the configured discovery source.
+
+        The inventory is partial discovery evidence; it does not imply that
+        every object beneath the HTTP root is listed.
+
+        Example:
+            >>> [str(item.object_address) for item in driver.iter_inventory()]  # doctest: +SKIP
+            ['authors/book.epub']
+
+
+        :param prefix:
+        :return:
+        """
+
         if self._inventory_provider is None:
             raise StorageUnsupportedOperation(
                 "HTTP endpoint has no inventory provider."
@@ -480,6 +773,18 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
             ) from error
 
     def _relative_key_from_uri(self, uri: str) -> str:
+        """
+        Extract a canonical relative reference from one owned absolute URI.
+
+        Example:
+            >>> driver._relative_key_from_uri("https://example.test/books/a.epub")  # doctest: +SKIP
+            'a.epub'
+
+
+        :param uri:
+        :return:
+        """
+
         candidate_text = str(uri)
         reject_malformed_unicode(candidate_text, label="HTTP object URI")
         try:
@@ -514,6 +819,19 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         method: str,
         headers: Mapping[str, str] | None = None,
     ) -> HttpResponseAPI:
+        """
+        Issue one rate-limited request and translate transport/status failures.
+
+        Example:
+            >>> response = driver._request(driver.root_uri, method="HEAD")  # doctest: +SKIP
+
+
+        :param url:
+        :param method:
+        :param headers:
+        :return:
+        """
+
         request_headers = dict(self._headers)
         request_headers.update(headers or {})
         self._acquire_rate_limit_slot()
@@ -633,7 +951,18 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         requested_url: str,
         method: str,
     ) -> None:
-        """Reject unsuccessful or scope-escaping custom/redirected responses."""
+        """
+        Reject unsuccessful or scope-escaping custom/redirected responses.
+
+        Example:
+            >>> driver._validate_response(response, requested_url=driver.root_uri, method="HEAD")  # doctest: +SKIP
+
+
+        :param response:
+        :param requested_url:
+        :param method:
+        :return:
+        """
 
         try:
             status = int(getattr(response, "status", 200) or 200)
@@ -687,6 +1016,16 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
             raise
 
     def _acquire_rate_limit_slot(self) -> None:
+        """
+        Reserve the next request time using a thread-safe fixed interval.
+
+        Example:
+            >>> driver._acquire_rate_limit_slot()  # doctest: +SKIP
+
+
+        :return:
+        """
+
         if self._requests_per_hour is None:
             return
         interval = 3600.0 / self._requests_per_hour
@@ -706,10 +1045,37 @@ def _default_request_opener(
     request: urllib.request.Request,
     timeout_s: float | None,
 ) -> HttpResponseAPI:
+    """
+    Open one standard-library HTTP request with the configured timeout.
+
+    Example:
+        >>> response = _default_request_opener(request, 30)  # doctest: +SKIP
+
+
+    :param request:
+    :param timeout_s:
+    :return:
+    """
+
     return urllib.request.urlopen(request, timeout=timeout_s)  # type: ignore[return-value]
 
 
 def _http_error_message(method: str, url: str, status: int, reason: str) -> str:
+    """
+    Render a safe one-line HTTP status failure.
+
+    Example:
+        >>> _http_error_message("GET", "https://example.test/a", 404, "object not found")
+        "HTTP GET failed for 'https://example.test/a': object not found (status 404)."
+
+
+    :param method:
+    :param url:
+    :param status:
+    :param reason:
+    :return:
+    """
+
     return driver_failure_message(
         "HTTP",
         method,
@@ -723,7 +1089,19 @@ def _http_status_failure(
     url: str,
     status: int,
 ) -> StorageError | None:
-    """Map a returned status even when an injected opener did not raise it."""
+    """
+    Map a returned status even when an injected opener did not raise it.
+
+    Example:
+        >>> type(_http_status_failure("GET", "https://example.test/a", 404))
+        <class 'LiuXin_alpha.storage.api.errors.StorageNotFound'>
+
+
+    :param method:
+    :param url:
+    :param status:
+    :return:
+    """
 
     if 200 <= status < 300:
         return None
@@ -781,6 +1159,18 @@ def _http_status_failure(
 
 
 def _canonical_root_url(value: str) -> str:
+    """
+    Canonicalize a credential-free HTTP root and ensure its trailing slash.
+
+    Example:
+        >>> _canonical_root_url("HTTPS://BÜCHER.example/books")
+        'https://xn--bcher-kva.example/books/'
+
+
+    :param value:
+    :return:
+    """
+
     text = str(value).strip()
     reject_malformed_unicode(text, label="HTTP root URL")
     try:
@@ -812,7 +1202,17 @@ def _canonical_root_url(value: str) -> str:
 
 
 def _canonical_http_authority(parsed: SplitResult) -> str:
-    """Render one credential-free authority with an ASCII DNS hostname."""
+    """
+    Render one credential-free authority with an ASCII DNS hostname.
+
+    Example:
+        >>> _canonical_http_authority(urlsplit("https://BÜCHER.example/books"))
+        'xn--bcher-kva.example'
+
+
+    :param parsed:
+    :return:
+    """
 
     if parsed.username is not None or parsed.password is not None:
         raise StorageInvalidAddress("HTTP URLs must not embed credentials.")
@@ -832,6 +1232,18 @@ def _canonical_http_authority(parsed: SplitResult) -> str:
 
 
 def _canonical_relative_reference(value: str) -> str:
+    """
+    Canonicalize one safe relative URL reference for durable storage.
+
+    Example:
+        >>> _canonical_relative_reference("authors/Caf%C3%A9.epub")
+        'authors/Caf%C3%A9.epub'
+
+
+    :param value:
+    :return:
+    """
+
     key = str(value)
     reject_malformed_unicode(key, label="HTTP object address")
     parsed = urlsplit(key)
@@ -879,7 +1291,16 @@ def _canonical_relative_reference(value: str) -> str:
 
 
 def _reject_sensitive_query(query: str) -> None:
-    """Reject credentials and signed-request material from durable addresses."""
+    """
+    Reject credentials and signed-request material from durable addresses.
+
+    Example:
+        >>> _reject_sensitive_query("page=2&format=epub")
+
+
+    :param query:
+    :return:
+    """
 
     sensitive_names = {
         "access_token",
@@ -910,6 +1331,19 @@ def _reject_sensitive_query(query: str) -> None:
 
 
 def _header(headers: Mapping[str, str], name: str) -> str | None:
+    """
+    Look up one case-insensitive response header and strip empty values.
+
+    Example:
+        >>> _header({"content-type": " application/epub+zip "}, "Content-Type")
+        'application/epub+zip'
+
+
+    :param headers:
+    :param name:
+    :return:
+    """
+
     wanted = name.lower()
     for key, value in headers.items():
         if str(key).lower() == wanted:
@@ -919,6 +1353,18 @@ def _header(headers: Mapping[str, str], name: str) -> str | None:
 
 
 def _response_size(response: HttpResponseAPI) -> int | None:
+    """
+    Derive total object size from Content-Range or Content-Length.
+
+    Example:
+        >>> _response_size(response)  # doctest: +SKIP
+        42
+
+
+    :param response:
+    :return:
+    """
+
     content_range = _header(response.headers, "Content-Range")
     if content_range is not None:
         _start, _end, total = _parse_content_range(content_range)
@@ -928,6 +1374,18 @@ def _response_size(response: HttpResponseAPI) -> int | None:
 
 
 def _response_content_length(response: HttpResponseAPI) -> int | None:
+    """
+    Parse and validate a non-negative Content-Length header.
+
+    Example:
+        >>> _response_content_length(response)  # doctest: +SKIP
+        42
+
+
+    :param response:
+    :return:
+    """
+
     content_length = _header(response.headers, "Content-Length")
     if content_length is None:
         return None
@@ -947,6 +1405,18 @@ _CONTENT_RANGE = re.compile(
 
 
 def _parse_content_range(value: str) -> tuple[int, int, int | None]:
+    """
+    Parse and validate one HTTP bytes Content-Range value.
+
+    Example:
+        >>> _parse_content_range("bytes 2-5/10")
+        (2, 5, 10)
+
+
+    :param value:
+    :return:
+    """
+
     matched = _CONTENT_RANGE.fullmatch(value.strip())
     if matched is None:
         raise StorageUnavailable(
@@ -969,7 +1439,19 @@ def _validated_response_length(
     offset: int,
     length: int | None,
 ) -> int | None:
-    """Validate HTTP range evidence and return the declared body length."""
+    """
+    Validate HTTP range evidence and return the declared body length.
+
+    Example:
+        >>> _validated_response_length(response, offset=2, length=4)  # doctest: +SKIP
+        4
+
+
+    :param response:
+    :param offset:
+    :param length:
+    :return:
+    """
 
     ranged = offset != 0 or length is not None
     status = int(getattr(response, "status", 200) or 200)
@@ -1018,6 +1500,18 @@ def _validated_response_length(
 
 
 def _http_datetime(value: str | None) -> datetime | None:
+    """
+    Parse an HTTP date and normalize it to UTC.
+
+    Example:
+        >>> _http_datetime("Sat, 22 Aug 2026 12:30:45 GMT").isoformat()
+        '2026-08-22T12:30:45+00:00'
+
+
+    :param value:
+    :return:
+    """
+
     if not value:
         return None
     try:
@@ -1030,11 +1524,36 @@ def _http_datetime(value: str | None) -> datetime | None:
 
 
 def _suggested_filename(url: str) -> str | None:
+    """
+    Decode the final URL path component as a filename hint.
+
+    Example:
+        >>> _suggested_filename("https://example.test/books/Caf%C3%A9.epub")
+        'Café.epub'
+
+
+    :param url:
+    :return:
+    """
+
     name = unquote(urlsplit(url).path.rsplit("/", 1)[-1])
     return name or None
 
 
 def _media_type(headers: Mapping[str, str], url: str) -> str | None:
+    """
+    Prefer the response media type and otherwise guess from the URL path.
+
+    Example:
+        >>> _media_type({}, "https://example.test/book.epub")
+        'application/epub+zip'
+
+
+    :param headers:
+    :param url:
+    :return:
+    """
+
     content_type = _header(headers, "Content-Type")
     if content_type:
         return content_type.split(";", 1)[0].strip() or None
@@ -1042,6 +1561,20 @@ def _media_type(headers: Mapping[str, str], url: str) -> str | None:
 
 
 def _positive_rate(value: float | None) -> float | None:
+    """
+    Normalize a positive request rate and disable invalid or zero values.
+
+    Example:
+        >>> _positive_rate("12")
+        12.0
+        >>> _positive_rate(0) is None
+        True
+
+
+    :param value:
+    :return:
+    """
+
     if value is None:
         return None
     try:

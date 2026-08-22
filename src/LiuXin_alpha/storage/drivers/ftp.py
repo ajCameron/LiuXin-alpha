@@ -1,4 +1,6 @@
-"""Read-only FTP/FTPS storage driver."""
+"""
+Read-only FTP/FTPS storage driver.
+"""
 
 from __future__ import annotations
 
@@ -50,7 +52,13 @@ from LiuXin_alpha.storage.drivers._validation import (
 
 @dataclasses.dataclass(slots=True)
 class FtpDriverOptions:
-    """Connection options for one FTP-family endpoint."""
+    """
+    Connection options for one FTP-family endpoint.
+
+    Example:
+        >>> FtpDriverOptions(timeout_s=10).passive
+        True
+    """
 
     timeout_s: float | None = 30.0
     passive: bool = True
@@ -63,6 +71,17 @@ class FtpDriverOptions:
     max_inventory_entries: int = 100_000
 
     def __post_init__(self) -> None:
+        """
+        Reject resource limits that cannot bound an inventory or spool.
+
+        Example:
+            >>> FtpDriverOptions(max_inventory_depth=2).max_inventory_depth
+            2
+
+
+        :return:
+        """
+
         if self.spool_limit_bytes < 0:
             raise ValueError("spool_limit_bytes must not be negative.")
         if self.max_inventory_depth < 1:
@@ -75,11 +94,24 @@ class FtpDriverOptions:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class FtpObjectAddress(DriverObjectAddress):
-    """Canonical POSIX relative path beneath one configured FTP root."""
+    """
+    Canonical POSIX relative path beneath one configured FTP root.
+
+    Example:
+        >>> FtpObjectAddress("books/novel.epub", UUID(int=1)).value
+        'books/novel.epub'
+    """
 
 
 class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
-    """Enumerate, stat, and retrieve files from one FTP/FTPS root."""
+    """
+    Enumerate, stat, and retrieve files from one FTP/FTPS root.
+
+    Example:
+        >>> driver = FtpStorageDriver("ftp://example.test/books/", address_space_uuid=UUID(int=1))
+        >>> driver.root_uri
+        'ftp://example.test/books/'
+    """
 
     def __init__(
         self,
@@ -88,6 +120,20 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         address_space_uuid: UUID,
         options: FtpDriverOptions | None = None,
     ) -> None:
+        """
+        Parse one endpoint, retaining credentials only for live connections.
+
+        Example:
+            >>> FtpStorageDriver("ftps://example.test/books/", address_space_uuid=UUID(int=1)).root_uri
+            'ftps://example.test/books/'
+
+
+        :param url:
+        :param address_space_uuid:
+        :param options:
+        :return:
+        """
+
         self.options = options or FtpDriverOptions()
         url_text = str(url)
         reject_malformed_unicode(url_text, label="FTP root URL")
@@ -139,20 +185,62 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
     def object_address_checker(
         self,
     ) -> ScopedDriverObjectAddressChecker[FtpObjectAddress]:
+        """
+        Return the checker that scopes paths to this endpoint.
+
+        Example:
+            >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
+            UUID('00000000-0000-0000-0000-000000000001')
+
+
+        :return:
+        """
+
         return self._checker
 
     @property
     def root_uri(self) -> str:
-        """Return a credential-free endpoint URI."""
+        """
+        Return a credential-free endpoint URI.
+
+        Example:
+            >>> driver.root_uri  # doctest: +SKIP
+            'ftp://example.test/books/'
+
+
+        :return:
+        """
 
         return self._root_uri
 
     @property
     def ftp_root_path(self) -> str:
+        """
+        Return the decoded absolute path used after login.
+
+        Example:
+            >>> driver.ftp_root_path  # doctest: +SKIP
+            '/books'
+
+
+        :return:
+        """
+
         return self._ftp_root_path
 
     @property
     def capabilities(self) -> DriverCapabilities:
+        """
+        Describe read-only range, hierarchy, URI, and inventory support.
+
+        Example:
+            >>> driver.capabilities.enumeration is EnumerationCompleteness.COMPLETE  # doctest: +SKIP
+            True
+
+
+        :return:
+        """
+
         return DriverCapabilities(
             range_reads=True,
             enumeration=EnumerationCompleteness.COMPLETE,
@@ -168,9 +256,31 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         )
 
     def startup(self) -> DriverStatus:
+        """
+        Connect and perform the initial endpoint probe.
+
+        Example:
+            >>> driver.startup().available  # doctest: +SKIP
+            True
+
+
+        :return:
+        """
+
         return self.probe()
 
     def probe(self) -> DriverStatus:
+        """
+        Verify login, command access, and root-directory listing.
+
+        Example:
+            >>> driver.probe().writable  # doctest: +SKIP
+            False
+
+
+        :return:
+        """
+
         try:
             with self._connected_client(operation="probe") as client:
                 noop = getattr(client, "voidcmd", None)
@@ -203,26 +313,83 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         return self._last_status
 
     def status(self) -> DriverStatus:
+        """
+        Return the most recently observed endpoint status.
+
+        Example:
+            >>> driver.status().available  # doctest: +SKIP
+            True
+
+
+        :return:
+        """
+
         return self._last_status
 
     def close(self) -> None:
+        """
+        Complete lifecycle cleanup; each operation owns its connection.
+
+        Example:
+            >>> driver.close()  # doctest: +SKIP
+
+
+        :return:
+        """
+
         return None
 
     def parse_object_address(
         self,
         identifier: DriverObjectAddressInput[FtpObjectAddress],
     ) -> FtpObjectAddress:
+        """
+        Validate a persisted canonical path in this endpoint's address space.
+
+        Example:
+            >>> str(driver.parse_object_address("authors/book.epub"))  # doctest: +SKIP
+            'authors/book.epub'
+
+
+        :param identifier:
+        :return:
+        """
+
         if isinstance(identifier, DriverObjectAddress):
             return self.check_object_address(identifier)
         key = _canonical_ftp_key(str(identifier))
         return FtpObjectAddress(key, self._checker.address_space_uuid)
 
     def join_object_address(self, *tokens: str) -> FtpObjectAddress:
+        """
+        Join hierarchical tokens and validate the resulting FTP path.
+
+        Example:
+            >>> str(driver.join_object_address("authors", "book.epub"))  # doctest: +SKIP
+            'authors/book.epub'
+
+
+        :param tokens:
+        :return:
+        """
+
         if not tokens:
             raise StorageInvalidAddress("at least one FTP path token is required.")
         return self.parse_object_address("/".join(str(token) for token in tokens))
 
     def object_address_from_uri(self, uri: str) -> FtpObjectAddress:
+        """
+        Convert one credential-free, in-root FTP URI to an object address.
+
+        Example:
+            >>> str(driver.object_address_from_uri("ftp://example.test/books/a.epub"))  # doctest: +SKIP
+            'a.epub'
+
+
+        :param uri:
+        :return:
+        """
+
         uri_text = str(uri)
         reject_malformed_unicode(uri_text, label="FTP object URI")
         try:
@@ -246,6 +413,18 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         return self.parse_object_address(path[len(root_prefix) :])
 
     def object_uri(self, object_address: FtpObjectAddress) -> str:
+        """
+        Render a checked address as a credential-free FTP URI.
+
+        Example:
+            >>> driver.object_uri(driver.parse_object_address("a.epub"))  # doctest: +SKIP
+            'ftp://example.test/books/a.epub'
+
+
+        :param object_address:
+        :return:
+        """
+
         checked = self.check_object_address(object_address)
         encoded = "/".join(quote(part, safe="-._~") for part in str(checked).split("/"))
         return self._root_uri + encoded
@@ -254,6 +433,18 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         self,
         object_address: FtpObjectAddress,
     ) -> DriverObjectInfo[FtpObjectAddress]:
+        """
+        Return authoritative size and available MLSD facts for one file.
+
+        Example:
+            >>> driver.stat(address).size  # doctest: +SKIP
+            42
+
+
+        :param object_address:
+        :return:
+        """
+
         checked = self.check_object_address(object_address)
         with self._connected_client(
             operation="stat",
@@ -308,6 +499,22 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         length: int | None = None,
         if_version: str | None = None,
     ) -> BinaryIO:
+        """
+        Retrieve a selected range into an owned local spool.
+
+        Example:
+            >>> with driver.open_read(address, length=4) as source:  # doctest: +SKIP
+            ...     source.read()
+            b'book'
+
+
+        :param object_address:
+        :param offset:
+        :param length:
+        :param if_version:
+        :return:
+        """
+
         checked = self.check_object_address(object_address)
         if if_version is not None:
             raise StorageUnsupportedOperation(
@@ -333,6 +540,17 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         received = 0
 
         def _receive(chunk: bytes) -> None:
+            """
+            Append one transfer callback chunk within the selected length.
+
+            Example:
+                >>> _receive(b"book")  # doctest: +SKIP
+
+
+            :param chunk:
+            :return:
+            """
+
             nonlocal received, remaining
             if not isinstance(chunk, bytes):
                 raise StorageUnavailable(
@@ -388,6 +606,17 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
                     skip = offset
 
                     def _receive_without_rest(chunk: bytes) -> None:
+                        """
+                        Discard the requested prefix for clients lacking REST.
+
+                        Example:
+                            >>> _receive_without_rest(b"prefixbook")  # doctest: +SKIP
+
+
+                        :param chunk:
+                        :return:
+                        """
+
                         nonlocal skip
                         if skip:
                             discarded = min(skip, len(chunk))
@@ -432,6 +661,18 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         *,
         prefix: FtpObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[FtpObjectAddress]]:
+        """
+        Walk and yield file entries beneath an optional path prefix.
+
+        Example:
+            >>> [str(item.object_address) for item in driver.iter_inventory()]  # doctest: +SKIP
+            ['authors/book.epub']
+
+
+        :param prefix:
+        :return:
+        """
+
         prefix_key = None if prefix is None else str(self.check_object_address(prefix))
         with self._connected_client(
             operation="inventory",
@@ -473,6 +714,20 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         target: str | None = None,
         missing_as_not_found: bool = False,
     ):
+        """
+        Yield one logged-in client and translate connection-level failures.
+
+        Example:
+            >>> with driver._connected_client(operation="probe") as client:  # doctest: +SKIP
+            ...     client.voidcmd("NOOP")
+
+
+        :param operation:
+        :param target:
+        :param missing_as_not_found:
+        :return:
+        """
+
         client = None
         failure_target = self._root_uri if target is None else target
         try:
@@ -545,6 +800,17 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
                         break
 
     def _default_client_factory(self) -> Any:
+        """
+        Construct an FTP or FTP_TLS client from endpoint options.
+
+        Example:
+            >>> type(driver._default_client_factory()).__name__  # doctest: +SKIP
+            'FTP'
+
+
+        :return:
+        """
+
         if self._scheme == "ftps":
             return ftplib.FTP_TLS(
                 timeout=self.options.timeout_s,
@@ -561,6 +827,20 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
         relative_directory: str = "",
         depth: int = 0,
     ) -> Iterator[tuple[str, dict[str, str]]]:
+        """
+        Recursively yield normalized directory and file facts within limits.
+
+        Example:
+            >>> list(driver._walk_entries(client))  # doctest: +SKIP
+            [('a.epub', {'type': 'file', 'size': '42'})]
+
+
+        :param client:
+        :param relative_directory:
+        :param depth:
+        :return:
+        """
+
         for name, facts in self._list_dir(client, relative_directory):
             path = posixpath.join(relative_directory, name) if relative_directory else name
             normalized = dict(facts)
@@ -580,6 +860,19 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
                 yield path, normalized
 
     def _list_dir(self, client: Any, relative_directory: str) -> list[tuple[str, dict[str, str]]]:
+        """
+        List one directory through MLSD, with a conservative NLST fallback.
+
+        Example:
+            >>> driver._list_dir(client, "")  # doctest: +SKIP
+            [('a.epub', {'type': 'file', 'size': '42'})]
+
+
+        :param client:
+        :param relative_directory:
+        :return:
+        """
+
         target = relative_directory or "."
         try:
             entries: list[tuple[str, dict[str, str]]] = []
@@ -651,6 +944,19 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
             return entries
 
     def _entry_for(self, client: Any, path: str) -> dict[str, str] | None:
+        """
+        Find one exact basename in its parent directory listing.
+
+        Example:
+            >>> driver._entry_for(client, "authors/a.epub")  # doctest: +SKIP
+            {'type': 'file', 'size': '42'}
+
+
+        :param client:
+        :param path:
+        :return:
+        """
+
         parent = posixpath.dirname(path)
         basename = posixpath.basename(path)
         for name, facts in self._list_dir(client, parent):
@@ -666,6 +972,18 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
 
 
 def _canonical_ftp_key(value: str) -> str:
+    """
+    Require one control-free canonical relative POSIX FTP path.
+
+    Example:
+        >>> _canonical_ftp_key("authors/book.epub")
+        'authors/book.epub'
+
+
+    :param value:
+    :return:
+    """
+
     key = str(value)
     reject_malformed_unicode(key, label="FTP object address")
     if not key or "\x00" in key:
@@ -681,7 +999,17 @@ def _canonical_ftp_key(value: str) -> str:
 
 
 def _canonical_ftp_hostname(parsed: SplitResult) -> str:
-    """Return an unbracketed canonical hostname suitable for FTP clients."""
+    """
+    Return an unbracketed canonical hostname suitable for FTP clients.
+
+    Example:
+        >>> _canonical_ftp_hostname(urlsplit("ftp://BÜCHER.example/books"))
+        'xn--bcher-kva.example'
+
+
+    :param parsed:
+    :return:
+    """
 
     hostname = parsed.hostname
     if not hostname:
@@ -696,6 +1024,20 @@ def _canonical_ftp_hostname(parsed: SplitResult) -> str:
 
 
 def _validated_ftp_listing_name(value: object) -> str | None:
+    """
+    Accept one safe directory-entry component or ignore dot entries.
+
+    Example:
+        >>> _validated_ftp_listing_name("book.epub")
+        'book.epub'
+        >>> _validated_ftp_listing_name(".") is None
+        True
+
+
+    :param value:
+    :return:
+    """
+
     name = str(value)
     if name in {"", ".", ".."}:
         return None
@@ -718,6 +1060,20 @@ def _validated_ftp_listing_name(value: object) -> str | None:
 
 
 def _optional_int(value: Any) -> int | None:
+    """
+    Parse a non-negative integer fact, returning ``None`` when unusable.
+
+    Example:
+        >>> _optional_int("42")
+        42
+        >>> _optional_int("unknown") is None
+        True
+
+
+    :param value:
+    :return:
+    """
+
     if value in {None, ""}:
         return None
     try:
@@ -728,6 +1084,18 @@ def _optional_int(value: Any) -> int | None:
 
 
 def _ftp_modified_at(value: str | None) -> datetime | None:
+    """
+    Parse an MLSD UTC modification timestamp when present and valid.
+
+    Example:
+        >>> _ftp_modified_at("20260822123045").isoformat()
+        '2026-08-22T12:30:45+00:00'
+
+
+    :param value:
+    :return:
+    """
+
     if not value:
         return None
     raw = value.split(".", 1)[0]
@@ -744,6 +1112,22 @@ def _translated_ftp_permission_error(
     target: str,
     missing_as_not_found: bool,
 ) -> Exception:
+    """
+    Classify an FTP permission reply without exposing credentials.
+
+    Example:
+        >>> error = ftplib.error_perm("530 Login incorrect")
+        >>> type(_translated_ftp_permission_error(error, operation="probe", target="ftp://example.test/", missing_as_not_found=False))
+        <class 'LiuXin_alpha.storage.api.errors.StorageAuthenticationFailed'>
+
+
+    :param error:
+    :param operation:
+    :param target:
+    :param missing_as_not_found:
+    :return:
+    """
+
     message = str(error)
     code = message[:3]
     lowered = message.lower()

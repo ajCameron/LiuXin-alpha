@@ -147,6 +147,13 @@ class SchemaBackedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
         ids = {int(row_id) for row_id in ids}
         table = self._table_cache()
         table._refresh_ids(ids)
+        self.refresh_from_table(ids)
+
+    def refresh_from_table(self, ids: Iterable[int]) -> None:
+        """Refresh selected values after the owning table was refreshed."""
+
+        ids = {int(row_id) for row_id in ids}
+        table = self._table_cache()
         for row_id in ids:
             if table.has_id(row_id):
                 self._ids_values_map[row_id] = table.get_row_snapshot(row_id).get(self.column_name)

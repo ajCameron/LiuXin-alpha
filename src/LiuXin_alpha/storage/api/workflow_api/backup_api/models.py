@@ -202,9 +202,15 @@ class BackupWorkflowDeclaration:
         )
         if len(paths) != len(set(paths)):
             raise ValueError("backup archive paths must be unique.")
-        option_keys = tuple(key for key, _value in self.options)
+        normalized_options = tuple(
+            sorted((str(key), str(value)) for key, value in self.options)
+        )
+        option_keys = tuple(key for key, _value in normalized_options)
         if len(option_keys) != len(set(option_keys)):
             raise ValueError("backup workflow option keys must be unique.")
+        # Options are map-like durable intent.  Canonical ordering keeps
+        # equality stable across JSON object persistence and reconstruction.
+        object.__setattr__(self, "options", normalized_options)
 
     def option_map(self) -> dict[str, str]:
         """

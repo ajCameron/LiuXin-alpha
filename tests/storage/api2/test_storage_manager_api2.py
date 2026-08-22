@@ -1468,6 +1468,39 @@ def test_reference_manager_is_concrete_and_ingest_is_idempotent() -> None:
         manager.ingest_bytes(b"different", operation_id=operation_id)
 
 
+def test_operational_status_reports_replica_and_policy_recovery_actions() -> None:
+    store = _MemoryStore(MAIN_STORE_UUID)
+    manager = InMemoryStorageManager(
+        store_registrations=((store.configuration, store),),
+    )
+    result = manager.ingest_bytes(b"health payload", verify=True)
+
+    initial = manager.get_operational_status()
+    assert not initial.healthy
+    assert initial.issues_for("replication_policy_violation") == ()
+    assert len(initial.issues_for("backup_policy_violation")) == 1
+    assert any(
+        action.action == "plan_backup"
+        and action.digital_asset_id == result.asset_record.digital_asset_id
+        for action in initial.recovery_actions
+    )
+
+    store.files[result.location.key] = b"corrupt payload"
+    verification = manager.verify_replica(result.replica_record.replica_id)
+    assert verification.state is api.ReplicaState.CORRUPT
+
+    degraded = manager.get_operational_status(refresh_stores=True)
+    corrupt = degraded.issues_for("replica_corrupt")
+    assert len(corrupt) == 1
+    assert corrupt[0].replica_id == result.replica_record.replica_id
+    assert len(degraded.issues_for("replication_policy_violation")) == 1
+    assert any(
+        action.action == "replicate_digital_asset"
+        and action.replica_id == result.replica_record.replica_id
+        for action in degraded.recovery_actions
+    )
+
+
 def test_failed_manager_publication_leaves_no_phantom_asset(
     monkeypatch,
 ) -> None:

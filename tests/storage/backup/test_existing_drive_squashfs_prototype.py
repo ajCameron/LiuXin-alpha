@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import dataclasses
+import shutil
 
 from pathlib import Path, PurePosixPath
 
+import pytest
+
 from LiuXin_alpha.library import Library
 from LiuXin_alpha.storage import api
-from LiuXin_alpha.storage.backup import ExistingDriveSquashfsPrototype
+from LiuXin_alpha.storage.backup import (
+    BackupArtifactRegistry,
+    ExistingDriveSquashfsPrototype,
+)
 
 
 class _FakeWorkflow:
@@ -106,3 +112,67 @@ def test_existing_drive_prototype_indexes_plans_and_registers_packs(tmp_path: Pa
         assert len(library.db.driver_wrapper.read("backup_workflows")) == 3
         assert len(library.db.driver_wrapper.read("backup_workflow_sources")) == 3
         assert len(library.db.driver_wrapper.read("backup_presence_links")) == 3
+
+
+def test_existing_drive_prototype_pack_reads_after_database_restart_and_source_loss(
+    tmp_path: Path,
+) -> None:
+    if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
+        pytest.skip("squashfs-tools not available in environment")
+    source = tmp_path / "indexed-source"
+    expected = {
+        "Author/Café-Café.epub": b"epub payload\x00\xff",
+        "odd/100%-[draft]-question?.mobi": b"mobi payload",
+    }
+    for key, payload in expected.items():
+        path = source.joinpath(*PurePosixPath(key).parts)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+    (source / "ignored-cover.jpg").write_bytes(b"not an ebook")
+    database_path = tmp_path / "prototype-readback.sqlite"
+    output_dir = tmp_path / "packs"
+    prototype = ExistingDriveSquashfsPrototype(
+        database_path=database_path,
+        output_dir=output_dir,
+        target_pack_size_bytes=1024 * 1024,
+        verify_after_build=True,
+        cleanup_staging_after_success=True,
+    )
+
+    result = prototype.run([source])
+
+    assert result.total_indexed_stores == 1
+    assert result.total_executed_packs == 1
+    pack = result.executed_packs[0]
+    assert pack.source_count == len(expected)
+    assert Path(pack.output_url).is_file()
+
+    # Make the original indexed Store unavailable.  The next process must be
+    # reading the registered SquashFS Store, not accidentally falling back to
+    # the source tree or retaining the workflow's in-process Store object.
+    source.rename(tmp_path / "indexed-source-offline")
+    with Library(
+        database_path=database_path,
+        create=False,
+        backup=False,
+        storage_startup_on_add=True,
+    ) as library:
+        archive_store = library.storage.get_store(pack.backup_store_ref)
+
+        assert archive_store.status().available is True
+        discovered = {
+            location.key: location for location in archive_store.iter_locations()
+        }
+        assert set(discovered) == set(expected)
+        for key, payload in expected.items():
+            assert library.storage.read_bytes(discovered[key]) == payload
+
+        registrations = tuple(
+            BackupArtifactRegistry(
+                library.db,
+                storage_manager=library.storage,
+            ).iter_artifact_registrations()
+        )
+        assert len(registrations) == 1
+        assert registrations[0].backup_store_ref == pack.backup_store_ref
+        assert registrations[0].presence_links_created == len(expected)

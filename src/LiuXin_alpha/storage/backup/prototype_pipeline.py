@@ -399,10 +399,6 @@ class ExistingDriveSquashfsPrototype:
                     )
                     self.reporter.section(f"Building {declaration.workflow_name}")
                     self.reporter.info(f"Sources: {pack.source_count}  Estimated payload: {_format_bytes(pack.estimated_size_bytes)}")
-                    workflow_id = repo.save_workflow_declaration(
-                        declaration,
-                        status=WorkflowStatus.DRAFT,
-                    )
                     workflow = (
                         self.workflow_factory(declaration)
                         if self.workflow_factory is not None
@@ -412,8 +408,18 @@ class ExistingDriveSquashfsPrototype:
                         )
                     )
                     state = workflow.progress()
+                    # Persist the workflow's effective declaration.  Concrete
+                    # implementations may make implicit execution settings
+                    # explicit (for SquashFS: compression, executable,
+                    # deterministic mode, and the stable builder Store UUID).
+                    # Saving the planner's pre-construction declaration makes
+                    # the very first checkpoint look like changed intent.
+                    workflow_id = repo.save_workflow_declaration(
+                        state.declaration,
+                        status=WorkflowStatus.DRAFT,
+                    )
                     repo.save_checkpoint(workflow_id, state)
-                    total_sources = len(declaration.sources)
+                    total_sources = len(state.declaration.sources)
                     while state.status not in {WorkflowStatus.COMPLETE, WorkflowStatus.FAILED, WorkflowStatus.CANCELLED}:
                         state = workflow.run_next()
                         repo.save_checkpoint(workflow_id, state)

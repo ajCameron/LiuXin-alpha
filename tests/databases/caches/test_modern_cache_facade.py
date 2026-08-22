@@ -213,6 +213,37 @@ def test_modern_cache_external_write_requires_explicit_invalidation(modern_cache
     assert cache.state == CacheState.READY
 
 
+def test_schema_cache_external_id_write_uses_bounded_refresh(
+    modern_cache,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cache, database = modern_cache
+    if cache.storage.cache_type != "schema_backed":
+        pytest.skip("bounded row refresh is provided by the schema-backed plugin")
+
+    database.driver_wrapper.update_column("books", 1, "title", "One-row refresh")
+    original_get_row = database.get_row_from_id
+    row_reads: list[tuple[str, int]] = []
+
+    def tracked_get_row(table: str, row_id: int):
+        row_reads.append((str(table), int(row_id)))
+        return original_get_row(table, row_id)
+
+    def reject_full_read(*_args, **_kwargs):
+        raise AssertionError("ID invalidation must not scan a whole table")
+
+    monkeypatch.setattr(database, "get_row_from_id", tracked_get_row)
+    monkeypatch.setattr(database, "get_all_rows", reject_full_read)
+
+    cache.invalidate(ids={"books": (1,)})
+
+    assert cache.state == CacheState.DIRTY
+    assert cache.get("books", 1).value["title"] == "One-row refresh"
+    assert cache.get("books", 2).value["title"] == "Alpha"
+    assert row_reads == [("books", 1)]
+    assert cache.state == CacheState.READY
+
+
 def test_cache_bound_writer_preserves_preexisting_dirty_dependencies(
     modern_cache,
 ) -> None:

@@ -1,4 +1,6 @@
-"""Transactional SQLite BLOB storage driver."""
+"""
+Transactional SQLite BLOB storage driver.
+"""
 
 from __future__ import annotations
 
@@ -48,10 +50,25 @@ from LiuXin_alpha.storage.drivers._errors import (
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class SQLiteObjectAddress(DriverObjectAddress):
-    """Opaque BLOB key inside one SQLite database."""
+    """
+    Opaque BLOB key inside one SQLite database.
+
+    Example:
+        >>> SQLiteObjectAddress("object-42", UUID(int=1)).value
+        'object-42'
+    """
 
 
 class _SQLiteWriteSession:
+    """
+    Stage bytes locally before publishing them in one SQLite transaction.
+
+    Example:
+        >>> session = driver.begin_write(address)  # doctest: +SKIP
+        >>> session.write(b"book")  # doctest: +SKIP
+        4
+    """
+
     def __init__(
         self,
         driver: SQLiteStorageDriver,
@@ -61,6 +78,21 @@ class _SQLiteWriteSession:
         expected_size: int | None,
         expected_digest: Digest | None,
     ) -> None:
+        """
+        Create a single-use write session with optional integrity expectations.
+
+        Example:
+            >>> _SQLiteWriteSession(driver, address, mode=WriteMode.CREATE_ONLY, expected_size=4, expected_digest=None)  # doctest: +SKIP
+
+
+        :param driver:
+        :param address:
+        :param mode:
+        :param expected_size:
+        :param expected_digest:
+        :return:
+        """
+
         self._driver = driver
         self._address = address
         self._mode = mode
@@ -73,6 +105,18 @@ class _SQLiteWriteSession:
         self._committed = False
 
     def write(self, data: bytes) -> int:
+        """
+        Append bytes to the private spool and update staged integrity facts.
+
+        Example:
+            >>> session.write(b"book")  # doctest: +SKIP
+            4
+
+
+        :param data:
+        :return:
+        """
+
         if self._finished:
             raise StorageError("SQLite write session is finished.")
         if not isinstance(data, bytes):
@@ -91,6 +135,17 @@ class _SQLiteWriteSession:
         return accepted
 
     def commit(self) -> DriverObjectInfo[SQLiteObjectAddress]:
+        """
+        Validate and atomically publish the complete staged BLOB.
+
+        Example:
+            >>> session.commit().size  # doctest: +SKIP
+            4
+
+
+        :return:
+        """
+
         if self._finished:
             raise StorageError("SQLite write session is finished.")
         try:
@@ -132,6 +187,16 @@ class _SQLiteWriteSession:
             raise
 
     def abort(self) -> None:
+        """
+        Discard staged bytes without changing the database object.
+
+        Example:
+            >>> session.abort()  # doctest: +SKIP
+
+
+        :return:
+        """
+
         try:
             self._stream.close()
         except OSError:
@@ -139,6 +204,17 @@ class _SQLiteWriteSession:
         self._finished = True
 
     def __enter__(self) -> _SQLiteWriteSession:
+        """
+        Return the active session for context-managed staging.
+
+        Example:
+            >>> with driver.begin_write(address) as session:  # doctest: +SKIP
+            ...     session.write(b"book")
+
+
+        :return:
+        """
+
         if self._finished:
             raise StorageError("SQLite write session is finished.")
         return self
@@ -149,14 +225,44 @@ class _SQLiteWriteSession:
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
+        """
+        Abort automatically unless the context body committed explicitly.
+
+        Example:
+            >>> session.__exit__(None, None, None)  # doctest: +SKIP
+
+
+        :param exc_type:
+        :param exc:
+        :param traceback:
+        :return:
+        """
+
         if not self._committed:
             self.abort()
 
 
 class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
-    """Durable BLOB driver using one SQLite database file."""
+    """
+    Durable BLOB driver using one SQLite database file.
+
+    Example:
+        >>> driver = SQLiteStorageDriver("objects.sqlite", address_space_uuid=UUID(int=1))  # doctest: +SKIP
+    """
 
     def __init__(self, path: str | os.PathLike[str], *, address_space_uuid: UUID):
+        """
+        Configure a database path without opening or creating it yet.
+
+        Example:
+            >>> SQLiteStorageDriver("objects.sqlite", address_space_uuid=UUID(int=1))  # doctest: +SKIP
+
+
+        :param path:
+        :param address_space_uuid:
+        :return:
+        """
+
         self._path = Path(path).expanduser().resolve(strict=False)
         self._checker = ScopedDriverObjectAddressChecker(
             SQLiteObjectAddress,
@@ -166,18 +272,62 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
 
     @property
     def db_path(self) -> Path:
+        """
+        Return the resolved SQLite database path.
+
+        Example:
+            >>> driver.db_path.name  # doctest: +SKIP
+            'objects.sqlite'
+
+
+        :return:
+        """
+
         return self._path
 
     @property
     def object_address_checker(self):
+        """
+        Return the checker that scopes BLOB keys to this database.
+
+        Example:
+            >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
+            UUID('00000000-0000-0000-0000-000000000001')
+
+
+        :return:
+        """
+
         return self._checker
 
     @property
     def root_uri(self) -> str:
+        """
+        Return the credential-free file URI for the database.
+
+        Example:
+            >>> driver.root_uri.endswith("objects.sqlite")  # doctest: +SKIP
+            True
+
+
+        :return:
+        """
+
         return self._path.as_uri()
 
     @property
     def capabilities(self) -> DriverCapabilities:
+        """
+        Describe transactional BLOB reads, writes, deletion, and enumeration.
+
+        Example:
+            >>> driver.capabilities.atomic_publish  # doctest: +SKIP
+            True
+
+
+        :return:
+        """
+
         return DriverCapabilities(
             range_reads=True,
             conditional_read=True,
@@ -202,6 +352,17 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         )
 
     def startup(self) -> DriverStatus:
+        """
+        Create the object schema if needed and report current status.
+
+        Example:
+            >>> driver.startup().available  # doctest: +SKIP
+            True
+
+
+        :return:
+        """
+
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
         except OSError as error:
@@ -230,6 +391,17 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         return self.status()
 
     def probe(self) -> DriverStatus:
+        """
+        Check that SQLite can open and query the configured database.
+
+        Example:
+            >>> driver.probe().available  # doctest: +SKIP
+            True
+
+
+        :return:
+        """
+
         try:
             with self._connection("probe") as connection:
                 connection.execute("SELECT 1").fetchone()
@@ -243,6 +415,17 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
             )
 
     def status(self) -> DriverStatus:
+        """
+        Report availability, object count, and containing-volume capacity.
+
+        Example:
+            >>> driver.status().writable  # doctest: +SKIP
+            True
+
+
+        :return:
+        """
+
         if not self._path.exists():
             return DriverStatus(
                 False,
@@ -291,12 +474,34 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         )
 
     def close(self) -> None:
+        """
+        Mark the lifecycle closed; operations use short-lived connections.
+
+        Example:
+            >>> driver.close()  # doctest: +SKIP
+
+
+        :return:
+        """
+
         self._started = False
 
     def parse_object_address(
         self,
         identifier: DriverObjectAddressInput[SQLiteObjectAddress],
     ) -> SQLiteObjectAddress:
+        """
+        Validate an opaque, flat BLOB key in this address space.
+
+        Example:
+            >>> str(driver.parse_object_address("object-42"))  # doctest: +SKIP
+            'object-42'
+
+
+        :param identifier:
+        :return:
+        """
+
         if isinstance(identifier, DriverObjectAddress):
             return self.check_object_address(identifier)
         if not isinstance(identifier, str):
@@ -307,6 +512,18 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         return SQLiteObjectAddress(value, self._checker.address_space_uuid)
 
     def stat(self, object_address: SQLiteObjectAddress) -> DriverObjectInfo[SQLiteObjectAddress]:
+        """
+        Return authoritative size, SHA-256, version, and modification time.
+
+        Example:
+            >>> driver.stat(address).digest.algorithm  # doctest: +SKIP
+            'sha256'
+
+
+        :param object_address:
+        :return:
+        """
+
         checked = self.check_object_address(object_address)
         with self._connection("stat", target=self._target(checked)) as connection:
             row = connection.execute(
@@ -339,6 +556,21 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         length: int | None = None,
         if_version: str | None = None,
     ) -> io.BytesIO:
+        """
+        Return an in-memory stream for a checked object version and range.
+
+        Example:
+            >>> driver.open_read(address, offset=1, length=2).read()  # doctest: +SKIP
+            b'oo'
+
+
+        :param object_address:
+        :param offset:
+        :param length:
+        :param if_version:
+        :return:
+        """
+
         if offset < 0 or (length is not None and length < 0):
             raise StorageInvalidAddress("read ranges must not be negative.")
         checked = self.check_object_address(object_address)
@@ -374,6 +606,21 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         expected_digest: Digest | None = None,
         metadata: tuple[tuple[str, str], ...] = (),
     ) -> _SQLiteWriteSession:
+        """
+        Begin a staged create or replacement of one BLOB.
+
+        Example:
+            >>> session = driver.begin_write(address, expected_size=4)  # doctest: +SKIP
+
+
+        :param object_address:
+        :param mode:
+        :param expected_size:
+        :param expected_digest:
+        :param metadata:
+        :return:
+        """
+
         if metadata:
             raise StorageUnsupportedOperation(
                 "SQLite BLOB storage does not persist native metadata."
@@ -405,6 +652,20 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         sha256: str,
         mode: WriteMode,
     ) -> None:
+        """
+        Publish validated bytes with create-only or replace preconditions.
+
+        Example:
+            >>> driver._publish(address, b"book", sha256="00", mode=WriteMode.CREATE_ONLY)  # doctest: +SKIP
+
+
+        :param address:
+        :param payload:
+        :param sha256:
+        :param mode:
+        :return:
+        """
+
         now = datetime.now(timezone.utc).timestamp()
         with self._connection("publish", target=self._target(address)) as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -449,6 +710,19 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         missing_ok: bool = False,
         if_version: str | None = None,
     ) -> None:
+        """
+        Delete one BLOB, optionally protecting a known version.
+
+        Example:
+            >>> driver.delete(address, if_version="1")  # doctest: +SKIP
+
+
+        :param object_address:
+        :param missing_ok:
+        :param if_version:
+        :return:
+        """
+
         checked = self.check_object_address(object_address)
         with self._connection("delete", target=self._target(checked)) as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -479,6 +753,18 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         *,
         prefix: SQLiteObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[SQLiteObjectAddress]]:
+        """
+        Yield all BLOB records whose opaque keys share an optional prefix.
+
+        Example:
+            >>> [str(item.object_address) for item in driver.iter_inventory()]  # doctest: +SKIP
+            ['object-42']
+
+
+        :param prefix:
+        :return:
+        """
+
         prefix_value = "" if prefix is None else str(self.check_object_address(prefix))
         with self._connection("inventory") as connection:
             rows = connection.execute(
@@ -505,6 +791,20 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         expected_digest: Digest | None = None,
         name_hint: str | None = None,
     ) -> SQLiteObjectAddress:
+        """
+        Allocate a digest key when known, otherwise a random flat key.
+
+        Example:
+            >>> len(str(driver.allocate_object_address()))  # doctest: +SKIP
+            32
+
+
+        :param expected_size:
+        :param expected_digest:
+        :param name_hint:
+        :return:
+        """
+
         _ = (expected_size, name_hint)
         return self.parse_object_address(
             expected_digest.value if expected_digest is not None else uuid4().hex
@@ -515,6 +815,19 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         object_address: SQLiteObjectAddress,
         algorithm: str = "sha256",
     ) -> Digest:
+        """
+        Return stored SHA-256 directly or stream another requested algorithm.
+
+        Example:
+            >>> driver.native_compute_digest(address).algorithm  # doctest: +SKIP
+            'sha256'
+
+
+        :param object_address:
+        :param algorithm:
+        :return:
+        """
+
         if algorithm.lower() == "sha256":
             info = self.stat(object_address)
             assert info.digest is not None
@@ -531,6 +844,17 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         return Digest(algorithm, digest.hexdigest())
 
     def _connect(self) -> sqlite3.Connection:
+        """
+        Open one fully durable WAL-mode SQLite connection.
+
+        Example:
+            >>> connection = driver._connect()  # doctest: +SKIP
+            >>> connection.close()  # doctest: +SKIP
+
+
+        :return:
+        """
+
         connection = sqlite3.connect(self._path, timeout=30)
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA journal_mode = WAL")
@@ -544,6 +868,20 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         *,
         target: str | None = None,
     ):
+        """
+        Yield a transaction-scoped connection and translate SQLite failures.
+
+        Example:
+            >>> with driver._connection("probe") as connection:  # doctest: +SKIP
+            ...     connection.execute("SELECT 1").fetchone()
+            (1,)
+
+
+        :param operation:
+        :param target:
+        :return:
+        """
+
         try:
             with self._connect() as connection:
                 yield connection
@@ -555,6 +893,18 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
             ) from error
 
     def _target(self, address: SQLiteObjectAddress) -> str:
+        """
+        Render a safe database-and-key target for diagnostic messages.
+
+        Example:
+            >>> driver._target(address).endswith("object 'object-42'")  # doctest: +SKIP
+            True
+
+
+        :param address:
+        :return:
+        """
+
         return f"{self.root_uri} object {str(address)!r}"
 
 

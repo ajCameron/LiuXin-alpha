@@ -1,4 +1,6 @@
-"""Concrete reusable storage drivers shipped with LiuXin."""
+"""
+Concrete reusable storage drivers shipped with LiuXin.
+"""
 
 from LiuXin_alpha.storage.drivers.filesystem import (
     FilesystemObjectAddress,

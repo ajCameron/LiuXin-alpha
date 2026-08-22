@@ -36,7 +36,10 @@ The current schema-backed cache exposes the main Asset/Replica hot path and
 some related storage tables. Helper/workflow tables such as derivations may be
 excluded by the cache schema and remain direct repository reads. This mixed
 path is intentional until cache schema policy says those tables should be
-cached.
+cached. Single-record repository writes invalidate durable row IDs rather than
+whole tables. The schema-backed cache repairs those rows and its scalar and
+relation projections with bounded database reads; plugins without a targeted
+refresh retain a correct whole-table fallback.
 
 `TransientStorageManager` is the explicitly disposable implementation for
 focused contract tests and one-shot work. `InMemoryStorageManager` remains as a
@@ -58,37 +61,43 @@ Store rows referenced by live Replica claims use a restrictive foreign key:
 operators retire/offline a Store first and resolve its claims rather than
 deleting the row and cascading away storage evidence.
 
-## Remaining production work
+## Completed production-hardening checklist
 
-These are follow-ups, not reasons to redesign the public storage API:
-
-1. Run real PostgreSQL end-to-end storage and recovery tests in addition to
-   the portable schema contracts.
-2. Add explicit migrations and upgrade fixtures for pre-journal and older
-   storage catalogues, including versioned scratch-envelope migration.
-3. Replace process-local `max(id) + 1` allocation with database-safe identity
-   allocation and test concurrent managers/processes.
-4. Expose operational status for pending/failed ingest journal entries,
-   unavailable or corrupt Replicas, policy violations, and recovery actions.
-5. Review compound Store reconfiguration, Composite, derivation, policy, and
-   Item-link mutations for transaction/recovery guarantees equivalent to
-   ingest where necessary.
-6. Run the read-only live backend contracts in protected CI for the remote
-   backends LiuXin officially supports.
-7. Converge the manager's internal mapping-shaped orchestration seam onto the
-   existing storage persistence SPI and unit-of-work protocols. The present
-   repository views are non-caching and database-authoritative, but the SPI is
-   the clearer long-term internal contract.
-8. Benchmark cache invalidation and refresh costs with realistically large
-   storage catalogues. Prefer table-scoped/bounded cache work over introducing
-   another storage-specific object cache.
+1. A live PostgreSQL test covers concurrent manager allocation, ingest,
+   interrupted metadata publication, restart recovery, and idempotent replay.
+2. Storage schema migrations are versioned and older scratch envelopes upgrade
+   transactionally; future envelope versions are rejected rather than guessed.
+3. Database-generated record identities and UUID revisions replace
+   process-local `max(id) + 1` state. Concurrent SQLite/APSW and PostgreSQL
+   managers are covered.
+4. `get_operational_status()` aggregates Store availability, journal state,
+   Replica health, policy violations, deferred recovery, and concrete recovery
+   actions.
+5. Compound metadata mutations use a metadata transaction. Store replacement
+   prepares the new facade before the durable swap and Store removal forgets
+   its configuration only after persistence succeeds.
+6. The protected `Live Storage Read Contracts` CI lane exercises HTTP, FTP,
+   rclone, and S3 without PR triggers or credential-missing green skips.
+7. The concrete database Unit of Work exposes Asset, Replica, Composite, and
+   derivation repository ports with explicit commit and rollback. The manager's
+   mapping views are compatibility adapters over those ports, not the
+   persistence boundary.
+8. The shared schema cache now supports ID-scoped invalidation. A 50,000-book,
+   50,000-cover, 10,000-tag, 250,000-link synthetic run refreshed one row in
+   1.164 ms median using one row read and no table scan. Peak process RSS was
+   about 745 MiB during construction, reinforcing that storage must reuse an
+   already-configured Core cache and must not create a private one. See
+   `storage_cache_benchmark.md`.
 
 ## Current verification checkpoint
 
 The pre-refactor storage/ingest baseline was 796 passed and four credential-
-gated live tests skipped. The broad storage/ingest/Core run reached 868 passes
-and four skips while exposing two Store-delete cascade failures; both were
-repaired by the restrictive foreign key and passed on targeted rerun. The
-final focused database restart, cache-sharing, Core lifecycle, manager
-contract, and PostgreSQL schema suite passes all 80 tests. A fresh broad run is
-required after any further cache backend or identity-allocation work.
+gated live tests skipped. The earlier broad storage/ingest/Core run reached 868
+passes and four skips while exposing two Store-delete cascade failures; both
+were repaired by the restrictive foreign key. The live PostgreSQL scenario
+passes, and the cache suite currently passes 142 tests with twelve documented
+legacy/live-backend skips. The completed verification selection totals 1,058
+passes: 778 storage, 107 ingest/Core, 142 cache, 30 PostgreSQL adapter/schema,
+and one live PostgreSQL recovery scenario. Storage has five expected skips
+(four credential-gated remote reads plus the separately executed PostgreSQL
+case); the cache suite has twelve documented legacy/live-plugin skips.

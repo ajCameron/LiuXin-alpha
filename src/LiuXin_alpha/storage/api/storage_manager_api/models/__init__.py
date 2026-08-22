@@ -51,6 +51,12 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
     ReplicationPolicyID,
     ReplicaID,
 )
+from LiuXin_alpha.storage.api.storage_manager_api.models.operational import (
+    StorageOperationalIssue,
+    StorageOperationalSeverity,
+    StorageOperationalStatus,
+    StorageRecoveryAction,
+)
 from LiuXin_alpha.storage.api.storage_manager_api.models.policies import (
     DigitalAssetLossAction,
     DigitalAssetBackupPlan,
@@ -128,6 +134,10 @@ __all__ = [
     "StorageBootstrapIssue",
     "StorageBootstrapReport",
     "StoragePolicyAssessment",
+    "StorageOperationalIssue",
+    "StorageOperationalSeverity",
+    "StorageOperationalStatus",
+    "StorageRecoveryAction",
     "StoreConfiguration",
     "StoreStatusObservation",
     "TopologyRelation",

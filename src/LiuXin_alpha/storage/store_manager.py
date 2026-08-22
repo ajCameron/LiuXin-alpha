@@ -2,18 +2,29 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 from collections.abc import Iterable
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any, override
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from LiuXin_alpha.storage import api
 from LiuXin_alpha.storage.backend_registry import (
     DEFAULT_BACKEND_REGISTRY,
     StoreConstructionContext,
 )
+from LiuXin_alpha.storage.migrations import (
+    StorageMigrationReport,
+    can_migrate_storage_schema,
+    migrate_storage_schema,
+)
 from LiuXin_alpha.storage.storage_manager.database_repository import (
     DatabaseStorageMetadataRepository,
+)
+from LiuXin_alpha.storage.storage_manager.database_unit_of_work import (
+    DatabaseStorageUnitOfWorkFactory,
 )
 from LiuXin_alpha.storage.storage_manager.manager import (
     _StorageManagerOrchestrator,
@@ -77,6 +88,10 @@ class StorageManager(_StorageManagerOrchestrator):
             registrations.append((store.configuration, store))
         self.db = db
         self._metadata_repository: DatabaseStorageMetadataRepository | None = None
+        self._metadata_unit_of_work_factory: (
+            DatabaseStorageUnitOfWorkFactory | None
+        ) = None
+        self.storage_migration_report = StorageMigrationReport()
         self.ingest_recovery_issues: tuple[str, ...] = ()
         self.startup_on_add = bool(startup_on_add)
         supplied_context = backend_context or StoreConstructionContext()
@@ -107,9 +122,19 @@ class StorageManager(_StorageManagerOrchestrator):
             default_store_ref=None,
             **kwargs,
         )
+        resembles_catalogue = (
+            DatabaseStorageMetadataRepository.resembles_storage_catalogue(db)
+        )
+        if resembles_catalogue and can_migrate_storage_schema(db):
+            try:
+                self.storage_migration_report = migrate_storage_schema(db)
+            except Exception as error:
+                raise api.StorageManagementError(
+                    f"Storage schema migration failed: {error}"
+                ) from error
         if DatabaseStorageMetadataRepository.supports(db):
             self._bind_database_metadata(db, cache=cache)
-        elif DatabaseStorageMetadataRepository.resembles_storage_catalogue(db):
+        elif resembles_catalogue:
             missing = DatabaseStorageMetadataRepository.missing_tables(db)
             detail = (
                 f" Missing tables: {', '.join(missing)}."
@@ -158,23 +183,22 @@ class StorageManager(_StorageManagerOrchestrator):
             ),
             cache=cache,
         )
-        snapshot = repository.load()
+        envelopes_migrated = repository.migrate_envelopes()
+        self.storage_migration_report = dataclasses.replace(
+            self.storage_migration_report,
+            envelope_rows_upgraded=envelopes_migrated,
+        )
         self._metadata_repository = repository
-        self._assets = repository.asset_records()
-        self._replicas = repository.replica_records()
-        self._composites = repository.composite_records()
-        self._derivations = repository.derivation_records()
+        unit_of_work_factory = DatabaseStorageUnitOfWorkFactory(repository)
+        self._metadata_unit_of_work_factory = unit_of_work_factory
+        self._assets = unit_of_work_factory.asset_mapping()
+        self._replicas = unit_of_work_factory.replica_mapping()
+        self._composites = unit_of_work_factory.composite_mapping()
+        self._derivations = unit_of_work_factory.derivation_mapping()
         self._replication_policies = repository.replication_policy_records()
         self._backup_policies = repository.backup_policy_records()
         self._item_targets = repository.item_targets()
         self._ingest_operations = repository.ingest_operations()
-        self._next_asset_id = snapshot.next_asset_id
-        self._next_replica_id = snapshot.next_replica_id
-        self._next_composite_id = snapshot.next_composite_id
-        self._next_derivation_id = snapshot.next_derivation_id
-        self._next_replication_policy_id = snapshot.next_replication_policy_id
-        self._next_backup_policy_id = snapshot.next_backup_policy_id
-        self._revision_counter = snapshot.revision_counter
         self._replica_generation = len(self._replicas)
 
     def bind_metadata_cache(self, cache: Any | None) -> None:
@@ -195,6 +219,42 @@ class StorageManager(_StorageManagerOrchestrator):
         repository.set_cache(cache)
 
     @override
+    @contextmanager
+    def _metadata_transaction(self):
+        factory = self._metadata_unit_of_work_factory
+        if factory is None:
+            with super()._metadata_transaction():
+                yield
+            return
+        with factory.begin() as unit_of_work:
+            yield
+            unit_of_work.commit()
+
+    @property
+    def metadata_unit_of_work_factory(self):
+        """Return the implementation-facing durable metadata UoW factory."""
+
+        factory = self._metadata_unit_of_work_factory
+        if factory is None:
+            raise api.StorageManagementError(
+                "a transient StorageManager has no durable metadata unit of work."
+            )
+        return factory
+
+    @override
+    def _allocate_metadata_id_locked(self, kind) -> int:
+        repository = self._metadata_repository
+        if repository is None:
+            return super()._allocate_metadata_id_locked(kind)
+        return repository.allocate_record_id(kind)
+
+    @override
+    def _new_revision_locked(self) -> str:
+        if self._metadata_repository is None:
+            return super()._new_revision_locked()
+        return f"d-{uuid4().hex}"
+
+    @override
     def attach_store(
         self,
         configuration: api.StoreConfiguration,
@@ -213,6 +273,67 @@ class StorageManager(_StorageManagerOrchestrator):
             startup=startup,
             replace_existing=replace_existing,
         )
+
+    @override
+    def update_store(
+        self,
+        store_ref: api.StoreUUID,
+        configuration: api.StoreConfiguration,
+    ) -> api.StoreConfiguration:
+        """Prepare a replacement, commit its configuration, then swap it live."""
+
+        repository = self._metadata_repository
+        if repository is None:
+            return super().update_store(store_ref, configuration)
+        if configuration.store_uuid != store_ref:
+            raise api.StoreInvalidLocation(
+                "updated Store configuration must retain its Store UUID."
+            )
+        self.get_store_configuration(store_ref)
+        self._validate_store_policy_references(configuration)
+        replacement = self._require_store_factory()(configuration)
+        try:
+            replacement.startup()
+            repository.update_store(configuration)
+        except BaseException:
+            try:
+                replacement.close()
+            except Exception:
+                pass
+            raise
+        return super().attach_store(
+            configuration,
+            replacement,
+            startup=False,
+            replace_existing=True,
+        )
+
+    @override
+    def remove_store(
+        self,
+        store_ref: api.StoreUUID,
+        *,
+        forget_configuration: bool = False,
+    ) -> bool:
+        """Unload a Store and durably delete it only when explicitly forgotten."""
+
+        repository = self._metadata_repository
+        if repository is None or not forget_configuration:
+            return super().remove_store(
+                store_ref,
+                forget_configuration=forget_configuration,
+            )
+        with self._lock:
+            if any(
+                record.location.store_ref == store_ref
+                and record.state is not api.ReplicaState.DELETED
+                for record in self._replicas.values()
+            ):
+                raise api.StoragePreconditionFailed(
+                    "cannot forget Store configuration with live Replica claims."
+                )
+        repository.remove_store(store_ref)
+        return super().remove_store(store_ref, forget_configuration=True)
 
     @override
     def _journal_ingest_started(self, operation_id, request) -> None:
@@ -249,6 +370,13 @@ class StorageManager(_StorageManagerOrchestrator):
     def _journal_ingest_failed(self, operation_id, error) -> None:
         if self._metadata_repository is not None:
             self._metadata_repository.journal_failed(operation_id, error)
+
+    @override
+    def _ingest_journal_statuses(self):
+        repository = self._metadata_repository
+        if repository is None:
+            return super()._ingest_journal_statuses()
+        return repository.ingest_journal_statuses()
 
     def recover_pending_ingests(self) -> tuple[str, ...]:
         """Finish journalled publications left between Store and DB commits.
@@ -677,10 +805,20 @@ class StorageManager(_StorageManagerOrchestrator):
         """
 
         for store_ref in sorted(store_refs, key=lambda value: value.int):
-            try:
-                self.remove_store(store_ref, forget_configuration=True)
-            except api.StoragePreconditionFailed:
-                self.remove_store(store_ref, forget_configuration=False)
+            has_live_claims = any(
+                record.location.store_ref == store_ref
+                and record.state is not api.ReplicaState.DELETED
+                for record in self._replicas.values()
+            )
+            # These configurations have already disappeared from the
+            # authoritative database snapshot. Bypass the durable-delete
+            # override: only the process-local facade/configuration needs to
+            # be reconciled. Retain a claimed identity so Replica evidence can
+            # still be inspected and repaired.
+            super().remove_store(
+                store_ref,
+                forget_configuration=not has_live_claims,
+            )
 
     @classmethod
     def from_database(cls, db: Any, **kwargs):
