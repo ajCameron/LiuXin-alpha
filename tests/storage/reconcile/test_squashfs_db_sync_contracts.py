@@ -6,11 +6,13 @@ import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import InputIntegrityError
+from LiuXin_alpha.storage.api import FileInfo, Location
 from LiuXin_alpha.storage.reconcile import squashfs_db_sync as sync
 from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
     SquashfsBuildReport,
@@ -341,7 +343,7 @@ def test_schema_support_reports_missing_tables_and_columns() -> None:
     assert "file_store_links missing columns" in message
 
 
-def test_schema_support_returns_optional_derivation_columns() -> None:
+def test_schema_support_ignores_legacy_derivation_table() -> None:
     db = _SchemaDb(
         {"stores", "files", "file_store_links", "file_derivations"},
         {
@@ -356,10 +358,14 @@ def test_schema_support_returns_optional_derivation_columns() -> None:
         },
     )
 
-    tables, _stores, _files, _links, derivations = sync._ensure_schema_support(db)
+    tables, _stores, _files, links = sync._ensure_schema_support(db)
 
     assert "file_derivations" in tables
-    assert derivations == {"file_derivation_parent_file_id"}
+    assert links == {
+        "file_store_link_file_id",
+        "file_store_link_store_id",
+        "file_store_link_type",
+    }
 
 
 def test_schema_support_succeeds_without_optional_derivation_table() -> None:
@@ -378,7 +384,7 @@ def test_schema_support_succeeds_without_optional_derivation_table() -> None:
 
     result = sync._ensure_schema_support(db)
 
-    assert result[-1] == set()
+    assert len(result) == 4
 
 
 @pytest.mark.parametrize(
@@ -756,7 +762,7 @@ def test_link_state_locking_primary_links_and_current_state(
     assert sync._current_store_state(fallback_row) == sync.STORE_STATE_LOCKED  # type: ignore[arg-type]
 
 
-def test_duplicate_rows_primary_links_and_derivations_use_one_transaction(
+def test_duplicate_rows_and_primary_links_use_one_transaction(
     mini_db,
     tmp_path: Path,
 ) -> None:
@@ -865,40 +871,8 @@ def test_duplicate_rows_primary_links_and_derivations_use_one_transaction(
         store_id=int(target_store.row_id),
         link_columns=link_columns,
     )
-    derivation_columns = set(mini_db.get_column_headings("file_derivations"))
-    assert sync._supports_file_derivations(
-        tables=set(mini_db.get_tables()),
-        derivation_columns=derivation_columns,
-    )
-    assert not sync._supports_file_derivations(
-        tables=set(),
-        derivation_columns=derivation_columns,
-    )
-    assert not sync._supports_file_derivations(
-        tables={"file_derivations"},
-        derivation_columns=set(),
-    )
-
-    sync._insert_file_derivation_tx(
-        mini_db.conn,
-        parent_file_id=int(source_row.row_id),
-        child_file_id=int(source_row.row_id),
-        derivation_columns=derivation_columns,
-    )
-    sync._insert_file_derivation_tx(
-        mini_db.conn,
-        parent_file_id=int(source_row.row_id),
-        child_file_id=int(child_id),
-        derivation_columns=derivation_columns,
-    )
-    sync._insert_file_derivation_tx(
-        mini_db.conn,
-        parent_file_id=int(source_row.row_id),
-        child_file_id=int(child_id),
-        derivation_columns=derivation_columns,
-    )
     rows = mini_db.conn.execute("SELECT * FROM file_derivations").fetchall()
-    assert len(rows) == 1
+    assert rows == []
 
 
 def test_reproducibility_metadata_filters_unknown_build_fields() -> None:
@@ -999,29 +973,25 @@ class _NonClosingConnection:
         return None
 
 
-class _ArchiveStatus:
-    hash = ""
-    size = 0
-
-    def recheck_self(self, *, all: bool) -> None:
-        assert all
-
-
 class _MixedArchiveBackend:
     def __init__(self, *, url: str, name: str | None) -> None:
         self.url = url
         self.name = name
+        self.store_ref = UUID(int=1)
+
+    def locate(self, key: str) -> Location:
+        return Location(self.store_ref, key)
 
     @staticmethod
-    def exists(archive_path: str) -> bool:
-        return not archive_path.startswith("missing/")
+    def exists(location: Location) -> bool:
+        return not location.key.startswith("missing/")
 
     @staticmethod
-    def stat(_archive_path: str) -> _ArchiveStatus:
-        return _ArchiveStatus()
+    def stat(location: Location) -> FileInfo:
+        return FileInfo(location=location, size=0)
 
     @staticmethod
-    def read_file_bytes(_archive_path: str) -> bytes:
+    def read_bytes(_location: Location) -> bytes:
         return b"WRONG-ARCHIVE-PAYLOAD"
 
 
@@ -1085,8 +1055,9 @@ def test_publish_persists_missing_and_hash_mismatch_states(
         get_connection=lambda: _NonClosingConnection(mini_db.conn)
     )
 
-    def fail_bootstrap(*, clear_existing: bool) -> None:
+    def fail_bootstrap(*, clear_existing: bool, strict: bool) -> None:
         assert clear_existing
+        assert strict
         raise RuntimeError("refresh failed")
 
     mini_db.bootstrap_storage_manager = fail_bootstrap  # type: ignore[attr-defined]

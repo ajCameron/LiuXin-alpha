@@ -7,6 +7,7 @@ import dataclasses
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
+from uuid import UUID
 
 
 def _plain(value: Any) -> Any:
@@ -309,12 +310,25 @@ def run_conversion_job(
 
 
 def backup_workflow_spec_from_mapping(payload: Mapping[str, Any]) -> Any:
-    from LiuXin_alpha.storage.api.backup_api import (
+    from LiuXin_alpha.storage.api import (
         BackupSourceKind,
-        BackupSourceSpec,
+        BackupSourceDeclaration,
         BackupWorkflowKind,
-        BackupWorkflowSpec,
+        BackupWorkflowDeclaration,
+        Digest,
+        Location,
     )
+
+    def reference(value: Any) -> str | Location:
+        if not isinstance(value, Mapping):
+            return str(value)
+        store_ref = value.get("store_ref", value.get("store_uuid"))
+        key = value.get("key")
+        if store_ref in (None, "") or key in (None, ""):
+            raise TypeError(
+                "Location references require `store_uuid` and `key`."
+            )
+        return Location(UUID(str(store_ref)), str(key))
 
     raw_sources = payload.get("sources", ())
     if not isinstance(raw_sources, (list, tuple)):
@@ -323,10 +337,21 @@ def backup_workflow_spec_from_mapping(payload: Mapping[str, Any]) -> Any:
     for raw in raw_sources:
         if not isinstance(raw, Mapping):
             raise TypeError("Every workflow source must be an object")
+        source_kind = BackupSourceKind(str(raw["source_kind"]))
+        identifier = reference(raw["source_identifier"])
+        expected_digest_raw = raw.get("expected_digest")
+        expected_digest = None
+        if isinstance(expected_digest_raw, Mapping):
+            expected_digest = Digest(
+                str(expected_digest_raw.get("algorithm", "sha256")),
+                str(expected_digest_raw["value"]),
+            )
+        elif raw.get("expected_hash") is not None:
+            expected_digest = Digest("sha256", str(raw["expected_hash"]))
         sources.append(
-            BackupSourceSpec(
-                source_kind=BackupSourceKind(str(raw["source_kind"])),
-                source_identifier=str(raw["source_identifier"]),
+            BackupSourceDeclaration(
+                source_kind=source_kind,
+                source_identifier=identifier,
                 archive_path=(
                     None
                     if raw.get("archive_path") is None
@@ -337,25 +362,16 @@ def backup_workflow_spec_from_mapping(payload: Mapping[str, Any]) -> Any:
                     if raw.get("expected_size") is None
                     else int(cast(Any, raw["expected_size"]))
                 ),
-                expected_hash=(
+                expected_digest=expected_digest,
+                source_digital_asset_id=(
                     None
-                    if raw.get("expected_hash") is None
-                    else str(raw["expected_hash"])
+                    if raw.get("source_digital_asset_id") is None
+                    else int(cast(Any, raw["source_digital_asset_id"]))
                 ),
-                source_file_id=(
-                    None
-                    if raw.get("source_file_id") is None
-                    else int(cast(Any, raw["source_file_id"]))
-                ),
-                source_asset_replica_id=(
+                source_replica_id=(
                     None
                     if raw.get("source_asset_replica_id") is None
                     else int(cast(Any, raw["source_asset_replica_id"]))
-                ),
-                source_store_id=(
-                    None
-                    if raw.get("source_store_id") is None
-                    else int(cast(Any, raw["source_store_id"]))
                 ),
             )
         )
@@ -370,19 +386,23 @@ def backup_workflow_spec_from_mapping(payload: Mapping[str, Any]) -> Any:
             (str(item[0]), str(item[1]))
             for item in raw_options
         )
-    return BackupWorkflowSpec(
+    output_raw = payload.get("output_target", payload.get("output_url"))
+    if output_raw is None:
+        raise TypeError("workflow_spec requires `output_target`.")
+    staging_raw = payload.get("staging_target", payload.get("staging_root"))
+    return BackupWorkflowDeclaration(
         workflow_name=str(payload["workflow_name"]),
         workflow_kind=BackupWorkflowKind(str(payload["workflow_kind"])),
-        output_url=str(payload["output_url"]),
+        output_target=reference(output_raw),
         sources=tuple(sources),
         verify_after_build=bool(payload.get("verify_after_build", True)),
         cleanup_staging_after_success=bool(
             payload.get("cleanup_staging_after_success", False)
         ),
-        staging_root=(
+        staging_target=(
             None
-            if payload.get("staging_root") is None
-            else str(payload["staging_root"])
+            if staging_raw is None
+            else reference(staging_raw)
         ),
         options=options,
     )
@@ -400,10 +420,10 @@ def run_squashfs_backup_job(
     """Execute a serializable SquashFS backup workflow specification."""
 
     from LiuXin_alpha.library import Library
-    from LiuXin_alpha.storage.api.backup_api import BackupWorkflowSpec
+    from LiuXin_alpha.storage.api import BackupWorkflowDeclaration
     from LiuXin_alpha.storage.backup import SquashfsBackupWorkflow
 
-    spec: BackupWorkflowSpec = backup_workflow_spec_from_mapping(workflow_spec)
+    spec: BackupWorkflowDeclaration = backup_workflow_spec_from_mapping(workflow_spec)
     if (
         spec.verify_after_build != bool(verify_after_build)
         or spec.cleanup_staging_after_success
@@ -416,10 +436,10 @@ def run_squashfs_backup_job(
             cleanup_staging_after_success=bool(
                 cleanup_staging_after_success
             ),
-            staging_root=(
+            staging_target=(
                 str(staging_root)
                 if staging_root is not None
-                else spec.staging_root
+                else spec.staging_target
             ),
         )
 
@@ -430,11 +450,9 @@ def run_squashfs_backup_job(
         create=False,
         backup=False,
     ) as library:
-        workflow = SquashfsBackupWorkflow.from_spec(
+        workflow = SquashfsBackupWorkflow.from_declaration(
             spec,
-            location_loader=lambda file_url: library.retrieve_file(
-                file_url=file_url
-            ),
+            storage_manager=library.storage,
         )
         result = workflow.run_to_completion()
         plain = _plain(result)
@@ -532,7 +550,7 @@ def run_persisted_backup_job(
     """Resume and checkpoint one database-backed backup workflow."""
 
     from LiuXin_alpha.library import Library
-    from LiuXin_alpha.storage.api.backup_api import BackupWorkflowStatus
+    from LiuXin_alpha.storage.api import WorkflowStatus
     from LiuXin_alpha.storage.backup import (
         BackupArtifactRegistry,
         BackupWorkflowRepository,
@@ -547,38 +565,33 @@ def run_persisted_backup_job(
         backup=False,
     ) as library:
         repository = BackupWorkflowRepository(library.db)
-        resume_state = repository.load_resume_state(int(workflow_id))
-        workflow = SquashfsBackupWorkflow.from_resume_state(
-            resume_state,
-            location_loader=lambda file_url: library.retrieve_file(
-                file_url=file_url
-            ),
+        checkpoint = repository.load_checkpoint(int(workflow_id))
+        workflow = SquashfsBackupWorkflow.from_checkpoint(
+            checkpoint,
+            storage_manager=library.storage,
         )
         state = workflow.progress()
-        repository.save_resume_state(int(workflow_id), state)
-        while state.status not in {
-            BackupWorkflowStatus.COMPLETE,
-            BackupWorkflowStatus.FAILED,
-            BackupWorkflowStatus.CANCELLED,
-        }:
+        repository.save_checkpoint(int(workflow_id), state)
+        while not state.status.terminal:
             state = workflow.run_next()
-            repository.save_resume_state(int(workflow_id), state)
+            repository.save_checkpoint(int(workflow_id), state)
 
         registered: dict[str, Any] | None = None
-        if (
-            state.status is BackupWorkflowStatus.COMPLETE
-            and state.output_artifact_url
-        ):
+        result = workflow.run_to_completion()
+        if result.status is WorkflowStatus.COMPLETE:
             registration = BackupArtifactRegistry(
-                library.db
-            ).register_workflow_output_as_store(
+                library.db,
+                storage_manager=library.storage,
+            ).register_artifact(
                 int(workflow_id),
-                artifact_url=state.output_artifact_url,
+                result,
                 link_sources=True,
             )
             registered_plain = _plain(registration)
             if isinstance(registered_plain, dict):
                 registered = cast(dict[str, Any], registered_plain)
+        else:
+            repository.record_result(int(workflow_id), result)
 
         result_payload = {
             "workflow_id": int(workflow_id),

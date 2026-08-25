@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 
@@ -40,6 +41,16 @@ def _count_relation(conn: sqlite3.Connection, name: str) -> int:
     if not _relation_exists(conn, name):
         return 0
     return int(conn.execute(f"SELECT COUNT(*) FROM {name};").fetchone()[0])
+
+
+def _read_stored_bytes(db: Database, *, store_id: int, storage_key: str) -> bytes:
+    """Read a fixture asset through the public Store/Location API."""
+
+    assert db.storage is not None
+    store_row = db.get_row_from_id("stores", int(store_id))
+    assert store_row is not None
+    store = db.storage.get_store(UUID(str(store_row["store_uuid"])))
+    return db.storage.read_bytes(store.locate(storage_key))
 
 
 def _expected_book_count(name: str) -> int:
@@ -513,13 +524,12 @@ def test_stores_assets_db_0_provisions_real_store_backed_assets(provision_test_d
     ) as db:
         assert db.storage is not None
         first_file = db.get_all_rows("files", iterator_return=False)[0]
-        got = db.storage.locate_file(
-            metadata={
-                "file_storage_key": str(first_file["file_storage_key"]),
-                "file_store_id": int(first_file["file_store_id"]),
-            }
+        got = _read_stored_bytes(
+            db,
+            storage_key=str(first_file["file_storage_key"]),
+            store_id=int(first_file["file_store_id"]),
         )
-        assert got.as_bytes() == b"EPUB-ASSET-ONE\n"
+        assert got == b"EPUB-ASSET-ONE\n"
 
 
 @pytest.mark.catalog
@@ -560,20 +570,18 @@ def test_stores_assets_db_1_provisions_multi_store_assets(provision_test_databas
         rows = db.get_all_rows("files", iterator_return=False)
         primary = next(row for row in rows if str(row["file_name"]).endswith(".epub"))
         secondary = next(row for row in rows if str(row["file_name"]).endswith(".mobi"))
-        got_primary = db.storage.locate_file(
-            metadata={
-                "file_storage_key": str(primary["file_storage_key"]),
-                "file_store_id": int(primary["file_store_id"]),
-            }
+        got_primary = _read_stored_bytes(
+            db,
+            storage_key=str(primary["file_storage_key"]),
+            store_id=int(primary["file_store_id"]),
         )
-        got_secondary = db.storage.locate_file(
-            metadata={
-                "file_storage_key": str(secondary["file_storage_key"]),
-                "file_store_id": int(secondary["file_store_id"]),
-            }
+        got_secondary = _read_stored_bytes(
+            db,
+            storage_key=str(secondary["file_storage_key"]),
+            store_id=int(secondary["file_store_id"]),
         )
-        assert got_primary.as_bytes() == b"PRIMARY-EPUB-ONE\n"
-        assert got_secondary.as_bytes() == b"MOBI-TWO\n"
+        assert got_primary == b"PRIMARY-EPUB-ONE\n"
+        assert got_secondary == b"MOBI-TWO\n"
 
 
 @pytest.mark.catalog
@@ -622,13 +630,12 @@ def test_images_covers_db_0_provisions_cover_heavy_store_assets(provision_test_d
     ) as db:
         assert db.storage is not None
         first_image = db.get_all_rows("images", iterator_return=False)[0]
-        got = db.storage.locate_file(
-            metadata={
-                "file_storage_key": str(first_image["image_storage_key"]),
-                "file_store_id": int(first_image["image_store_id"]),
-            }
+        got = _read_stored_bytes(
+            db,
+            storage_key=str(first_image["image_storage_key"]),
+            store_id=int(first_image["image_store_id"]),
         )
-        assert got.as_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+        assert got.startswith(b"\x89PNG\r\n\x1a\n")
 
 
 @pytest.mark.catalog
@@ -667,13 +674,12 @@ def test_images_covers_db_1_provisions_cover_variants_and_gaps(provision_test_da
         storage_startup_on_add=False,
     ) as db:
         first_image = db.get_all_rows("images", iterator_return=False)[0]
-        got = db.storage.locate_file(
-            metadata={
-                "file_storage_key": str(first_image["image_storage_key"]),
-                "file_store_id": int(first_image["image_store_id"]),
-            }
+        got = _read_stored_bytes(
+            db,
+            storage_key=str(first_image["image_storage_key"]),
+            store_id=int(first_image["image_store_id"]),
         )
-        assert got.as_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+        assert got.startswith(b"\x89PNG\r\n\x1a\n")
 
 
 @pytest.mark.catalog

@@ -1,25 +1,24 @@
+"""A Location must never escape Store policy through os.PathLike."""
 
 from __future__ import annotations
 
+import os
 import pathlib
 
 import pytest
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
-    OnDiskExistingManagedStoreLocation,
-)
 
-from .conftest import fs_path
-
-
-def test_builtin_open_accepts_location(store) -> None:
-    loc = OnDiskExistingManagedStoreLocation("x.txt", store=store)
-    with open(loc, "w", encoding="utf-8") as f:
-        f.write("hello")
-    assert fs_path(store, "x.txt").read_text(encoding="utf-8") == "hello"
+def test_builtin_open_and_pathlib_reject_location(location) -> None:
+    assert not isinstance(location, os.PathLike)
+    with pytest.raises(TypeError):
+        open(location, "rb")  # type: ignore[arg-type]
+    with pytest.raises(TypeError):
+        pathlib.Path(location)  # type: ignore[arg-type]
 
 
-def test_pathlib_path_accepts_location(store) -> None:
-    loc = OnDiskExistingManagedStoreLocation("y.bin", store=store)
-    p = pathlib.Path(loc)
-    assert p == fs_path(store, "y.bin")
+def test_store_open_file_is_read_only_and_context_managed(store, location, payload) -> None:
+    store.write_bytes(location, payload)
+
+    with store.open_file(location) as source:
+        assert source.read() == payload
+        assert not source.writable()

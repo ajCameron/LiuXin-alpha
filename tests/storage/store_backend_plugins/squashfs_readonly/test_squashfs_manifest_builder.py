@@ -11,6 +11,7 @@ import pytest
 from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
     SquashfsReadOnlyStorageBackend,
     build_squashfs_from_manifest,
+    load_manifest_entries,
 )
 
 
@@ -55,8 +56,8 @@ def test_build_squashfs_from_manifest_roundtrip(tmp_path: pathlib.Path) -> None:
     store = SquashfsReadOnlyStorageBackend(url=str(archive))
     got_one = store.locate(str(archive.resolve()) + "/A/one.epub")
     got_two = store.locate("B/two.mobi")
-    assert got_one.as_bytes() == b"ONE"
-    assert got_two.as_bytes() == b"TWO"
+    assert store.read_file(got_one) == b"ONE"
+    assert store.read_file(got_two) == b"TWO"
 
 
 def test_build_squashfs_from_manifest_duplicate_target_fails(tmp_path: pathlib.Path) -> None:
@@ -80,6 +81,23 @@ def test_build_squashfs_from_manifest_duplicate_target_fails(tmp_path: pathlib.P
 
     with pytest.raises(ValueError, match="Duplicate archive_path"):
         build_squashfs_from_manifest(manifest, tmp_path / "out.squashfs")
+
+
+def test_manifest_loader_preserves_significant_archive_path_spaces(
+    tmp_path: pathlib.Path,
+) -> None:
+    source = tmp_path / "source.epub"
+    source.write_bytes(b"book")
+    manifest = tmp_path / "manifest.json"
+    archive_path = "directory/ leading name.epub "
+    manifest.write_text(
+        json.dumps([{"source": str(source), "archive_path": archive_path}]),
+        encoding="utf-8",
+    )
+
+    [entry] = load_manifest_entries(manifest)
+
+    assert entry.archive_path == archive_path
 
 
 def test_build_squashfs_script_smoke(tmp_path: pathlib.Path) -> None:

@@ -104,15 +104,10 @@ def _insert_file_row(
     return int(row["file_id"])
 
 
-class _UnsupportedStoredFile:
-    def as_bytes(self) -> bytes:
-        raise NotImplementedError("no byte access")
-
-
 class _UnsupportedStorageManager:
-    def locate_file(self, *, metadata=None, preferred_store=None, file_url=None):
-        del metadata, preferred_store, file_url
-        return _UnsupportedStoredFile()
+    def read_bytes(self, location) -> bytes:
+        del location
+        raise NotImplementedError("no byte access")
 
 
 def _insert_label_row(db: Database, *, text: str) -> int:
@@ -314,12 +309,23 @@ def test_web_readonly_file_download_uses_store_manager_for_blob_store(driver_spe
         )
         store_id = int(store_row["store_id"])
         db.bootstrap_storage_manager(startup_on_add=False, clear_existing=True)
-        stored = db.storage.store_bytes(b"blob-store-payload", preferred_store="blob_store")
-        file_hash = str(stored.file_url).rstrip("/").split("/")[-1]
+        store = next(
+            store
+            for store in db.storage.iter_stores()
+            if store.configuration.store_name == "blob_store"
+        )
+        stored = db.storage.store_bytes(
+            b"blob-store-payload",
+            store=store,
+        )
+        location = db.storage.locate_digital_asset(
+            stored.digital_asset_id,
+            preferred_store_ref=store.store_ref,
+        )
         file_id = _insert_file_row(
             db,
             store_id=store_id,
-            file_storage_key=file_hash,
+            file_storage_key=location.key,
             file_name="blob-book.epub",
             file_source="",
         )

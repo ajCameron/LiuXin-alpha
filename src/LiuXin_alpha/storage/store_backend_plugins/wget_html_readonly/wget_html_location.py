@@ -1,11 +1,9 @@
-"""Read-only location wrapper for URLs discovered via wget crawling."""
+"""Compatibility name for the second-generation opaque Location value."""
 
-from __future__ import annotations
-
-from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly.native_html_location import (
-    NativeHtmlReadOnlyStoreLocation,
-)
+from LiuXin_alpha.storage.api import Location
 
 
-class WgetHtmlReadOnlyStoreLocation(NativeHtmlReadOnlyStoreLocation):
-    pass
+WgetHtmlReadOnlyStoreLocation = Location
+
+
+__all__ = ["WgetHtmlReadOnlyStoreLocation"]

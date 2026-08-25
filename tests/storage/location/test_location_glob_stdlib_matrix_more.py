@@ -1,38 +1,22 @@
+"""Prefix inventory matrix replaces pathlib glob emulation."""
 
 from __future__ import annotations
 
-import pathlib
-
 import pytest
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
-    OnDiskExistingManagedStoreLocation,
+
+@pytest.mark.parametrize(
+    ("prefix", "expected"),
+    [
+        ("a", {"a/1.txt", "a/2.bin", "a/b/3.txt", "a/b/c/4.txt"}),
+        ("a/b", {"a/b/3.txt", "a/b/c/4.txt"}),
+        ("a/b/c", {"a/b/c/4.txt"}),
+        ("missing", set()),
+    ],
 )
+def test_prefix_inventory_matrix(store, prefix, expected) -> None:
+    for key in ("a/1.txt", "a/2.bin", "a/b/3.txt", "a/b/c/4.txt"):
+        if not store.exists(store.locate(key)):
+            store.store_bytes(key.encode(), location=key)
 
-from .conftest import fs_path
-
-
-def _mk(store, rel: str, content: str = "x") -> None:
-    p = fs_path(store, *pathlib.PurePosixPath(rel).parts)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(content)
-
-
-def test_glob_matrix(store) -> None:
-    _mk(store, "a/1.txt")
-    _mk(store, "a/2.bin")
-    _mk(store, "a/b/3.txt")
-    _mk(store, "a/b/c/4.txt")
-    root = OnDiskExistingManagedStoreLocation(store=store)
-
-    # glob in root
-    assert {p.as_posix() for p in root.glob("a/*.txt")} == {"a/1.txt"}
-    assert {p.as_posix() for p in root.glob("a/*.*")} == {"a/1.txt", "a/2.bin"}
-
-    # rglob
-    assert {p.as_posix() for p in root.rglob("*.txt")} == {"a/1.txt", "a/b/3.txt", "a/b/c/4.txt"}
-    assert {p.as_posix() for p in root.rglob("b/**/*.txt")} == {"a/b/3.txt", "a/b/c/4.txt"}
-
-    # glob from subdir location
-    a = OnDiskExistingManagedStoreLocation("a", store=store)
-    assert {p.as_posix() for p in a.glob("**/*.txt")} == {"a/1.txt", "a/b/3.txt", "a/b/c/4.txt"}
+    assert {item.key for item in store.iter_locations(prefix=store.locate(prefix))} == expected

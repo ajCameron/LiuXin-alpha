@@ -1,80 +1,39 @@
+"""Concurrency exercises the transactional Store, not Location methods."""
+
 from __future__ import annotations
 
-import asyncio
-
-import pytest
-
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
-    OnDiskExistingManagedStoreLocation,
-)
-
-from .conftest import fs_path
-
-pytestmark = pytest.mark.usefixtures("require_asyncio_thread_bridge")
+from concurrent.futures import ThreadPoolExecutor
 
 
-class TestLocationFilesystemAsync:
-    def test_derived_async_exists_is_file_is_dir(self, store) -> None:
-        fs_path(store, "d").mkdir(parents=True, exist_ok=True)
-        fs_path(store, "d", "f.txt").write_text("hi", encoding="utf-8")
+def test_concurrent_writes_publish_complete_independent_objects(store) -> None:
+    def write_one(index: int):
+        data = (f"payload-{index}-" * 100).encode()
+        return store.store_bytes(
+            data,
+            location=f"parallel/{index}.bin",
+        )
 
-        root = OnDiskExistingManagedStoreLocation(store=store)
-        d = OnDiskExistingManagedStoreLocation("d", store=store)
-        f = OnDiskExistingManagedStoreLocation("d", "f.txt", store=store)
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        infos = list(executor.map(write_one, range(8)))
 
-        async def go() -> None:
-            assert await root.aexists() is True
-            assert await root.ais_dir() is True
+    assert [store.read_bytes(info.location) for info in infos] == [
+        (f"payload-{i}-" * 100).encode() for i in range(8)
+    ]
 
-            assert await d.aexists() is True
-            assert await d.ais_dir() is True
-            assert await d.ais_file() is False
 
-            assert await f.aexists() is True
-            assert await f.ais_file() is True
-            assert await f.ais_dir() is False
+def test_async_reader_observes_old_or_new_complete_value_never_staging(store) -> None:
+    location = store.locate("atomic/value.bin")
+    store.write_bytes(location, b"old")
 
-        asyncio.run(go())
+    def replace() -> None:
+        store.write_bytes(
+            location,
+            b"new-complete-value",
+            mode="replace",
+        )
 
-    def test_async_open_roundtrip_text(self, store) -> None:
-        f = OnDiskExistingManagedStoreLocation("async.txt", store=store)
-
-        async def go() -> None:
-            async with f.aopen("w", encoding="utf-8", newline="\n") as handle:
-                await handle.write("hello\n")
-                await handle.flush()
-
-            async with f.aopen("r", encoding="utf-8") as handle:
-                got = await handle.read()
-            assert got == "hello\n"
-
-        asyncio.run(go())
-
-    def test_async_convenience_helpers(self, store) -> None:
-        f = OnDiskExistingManagedStoreLocation("helpers.txt", store=store)
-
-        async def go() -> None:
-            n = await f.awrite_text("abc", encoding="utf-8")
-            assert n == 3
-            assert await f.aread_text(encoding="utf-8") == "abc"
-
-        asyncio.run(go())
-
-    def test_async_iterdir_streams_results(self, store) -> None:
-        fs_path(store, "dir").mkdir(parents=True, exist_ok=True)
-        fs_path(store, "dir", "a.txt").write_text("a", encoding="utf-8")
-        fs_path(store, "dir", "b.txt").write_text("b", encoding="utf-8")
-
-        d = OnDiskExistingManagedStoreLocation("dir", store=store)
-
-        async def go() -> list[str]:
-            out: list[str] = []
-            async for child in d.aiterdir():
-                out.append(child.as_store_key())
-            return out
-
-        keys = asyncio.run(go())
-        assert set(keys) == {
-            str(fs_path(store, "dir", "a.txt")),
-            str(fs_path(store, "dir", "b.txt")),
-        }
+    before = store.read_bytes(location)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        executor.submit(replace).result()
+    after = store.read_bytes(location)
+    assert (before, after) == (b"old", b"new-complete-value")

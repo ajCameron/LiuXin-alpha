@@ -5,7 +5,8 @@ Workflow:
 1. Create/reuse an "open" SquashFS store row.
 2. Designate source files via `file_store_links` (type: squashfs_designation).
 3. Build the SquashFS archive, lock the store, verify hashes from the archive.
-4. Duplicate verified file rows into the locked archive store.
+4. Duplicate verified legacy file rows into the locked archive store.
+5. Register each archived member as a Replica of its source Digital Asset.
 """
 
 from __future__ import annotations
@@ -21,9 +22,15 @@ import time
 from contextlib import contextmanager
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Optional
+from uuid import UUID, uuid4
 
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import InputIntegrityError
+from LiuXin_alpha.storage.api import (
+    DigitalAssetMetadata,
+    Location,
+    ReplicaMode,
+)
 from LiuXin_alpha.storage.reconcile.models import (
     SquashfsArchivePublishReport,
     SquashfsDesignationReport,
@@ -402,7 +409,7 @@ def _insert_row_in_tx(conn, *, table: str, payload: Mapping[str, object]) -> int
     return int(cur.lastrowid)
 
 
-def _ensure_schema_support(db) -> tuple[set[str], set[str], set[str], set[str], set[str]]:
+def _ensure_schema_support(db) -> tuple[set[str], set[str], set[str], set[str]]:
     tables = set(db.get_tables())
     required_tables = {"stores", "files", "file_store_links"}
     missing_tables = sorted(required_tables - tables)
@@ -414,8 +421,6 @@ def _ensure_schema_support(db) -> tuple[set[str], set[str], set[str], set[str], 
     store_columns = _table_columns(db, "stores")
     file_columns = _table_columns(db, "files")
     link_columns = _table_columns(db, "file_store_links")
-    derivation_columns = _table_columns(db, "file_derivations") if "file_derivations" in tables else set()
-
     required_store_cols = {"store_root_uri", "store_kind"}
     required_file_cols = {"file_store_id", "file_storage_key"}
     required_link_cols = {"file_store_link_file_id", "file_store_link_store_id", "file_store_link_type"}
@@ -433,7 +438,7 @@ def _ensure_schema_support(db) -> tuple[set[str], set[str], set[str], set[str], 
             chunks.append("file_store_links missing columns: {}".format(", ".join(missing_link_cols)))
         raise InputIntegrityError("; ".join(chunks))
 
-    return tables, store_columns, file_columns, link_columns, derivation_columns
+    return tables, store_columns, file_columns, link_columns
 
 
 def _store_row_id(store_row: Row) -> int:
@@ -551,7 +556,7 @@ def ensure_open_squashfs_store(
     """
     Create or refresh a store row representing an open (not yet locked) SquashFS archive target.
     """
-    _, store_columns, _, _, _ = _ensure_schema_support(db)
+    _, store_columns, _, _ = _ensure_schema_support(db)
 
     archive = pathlib.Path(archive_path).expanduser().resolve()
     if archive.exists() and archive.is_dir():
@@ -575,6 +580,12 @@ def ensure_open_squashfs_store(
                 detail="reopened",
             )
             updates = {
+                "store_uuid": (
+                    existing["store_uuid"]
+                    if "store_uuid" in existing.allowed_columns
+                    and existing["store_uuid"] not in (None, "")
+                    else str(uuid4())
+                ),
                 "store_name": store_name or existing["store_name"] or safe_path_to_name(str(archive)),
                 "store_kind": OPEN_SQUASHFS_STORE_KIND,
                 "store_access_protocol": "squashfs",
@@ -602,6 +613,7 @@ def ensure_open_squashfs_store(
         detail="created",
     )
     payload = {
+        "store_uuid": str(uuid4()),
         "store_name": store_name or safe_path_to_name(str(archive)),
         "store_kind": OPEN_SQUASHFS_STORE_KIND,
         "store_access_protocol": "squashfs",
@@ -637,7 +649,7 @@ def designate_files_for_squashfs_store(
     - mappings with `file_id` and optional `archive_path`
     - file `Row` objects
     """
-    _, _, _, link_columns, _ = _ensure_schema_support(db)
+    _, _, _, link_columns = _ensure_schema_support(db)
     store_row = _get_store_row(db, store_id=int(store_id))
 
     if not _is_open_store_kind(_coerce_text(store_row["store_kind"])):
@@ -1102,54 +1114,94 @@ def _best_effort_mark_store_failed(db, *, store_row: Row, detail: str) -> None:
         return
 
 
-def _supports_file_derivations(*, tables: set[str], derivation_columns: set[str]) -> bool:
-    if "file_derivations" not in tables:
-        return False
-    required = {
-        "file_derivation_parent_file_id",
-        "file_derivation_child_file_id",
-    }
-    return required.issubset(derivation_columns)
-
-
-def _insert_file_derivation_tx(
-    tx_conn,
+def _register_verified_digital_asset_replicas(
+    db,
     *,
-    parent_file_id: int,
-    child_file_id: int,
-    derivation_columns: set[str],
-    derivation_kind: str = "repacked",
-    derivation_note: str = "published_to_squashfs_store",
-) -> None:
-    if int(parent_file_id) == int(child_file_id):
-        return
+    locked_store_id: int,
+    outcomes: Sequence[Mapping[str, object]],
+) -> tuple[int, int]:
+    """Register verified archive members without inventing derivation edges.
 
-    existing = tx_conn.execute(
-        """
-        SELECT file_derivation_id
-        FROM file_derivations
-        WHERE file_derivation_parent_file_id = ?
-          AND file_derivation_child_file_id = ?
-        LIMIT 1
-        """,
-        (int(parent_file_id), int(child_file_id)),
-    ).fetchone()
-    if existing is not None:
-        return
+    Packing bytes into a SquashFS address space does not change the member
+    bytes. The source and archived locations are consequently two Replicas of
+    one Digital Asset. The surrounding portable transaction makes the group
+    all-or-nothing; callers reload the manager if it rolls back so its in-memory
+    views cannot retain uncommitted records.
+    """
 
-    now_epk = _now_ep_ms()
-    payload = {
-        "file_derivation_parent_file_id": int(parent_file_id),
-        "file_derivation_child_file_id": int(child_file_id),
-        "file_derivation_kind": str(derivation_kind),
-        "file_derivation_note": str(derivation_note),
-        "file_derivation_started_timestamp_ep_k": now_epk,
-        "file_derivation_finished_timestamp_ep_k": now_epk,
-        "file_derivation_created_timestamp_ep_k": now_epk,
-        "file_derivation_modified_timestamp_ep_k": now_epk,
-    }
-    row_dict = {k: v for k, v in payload.items() if k in derivation_columns and v is not None}
-    _insert_row_in_tx(tx_conn, table="file_derivations", payload=row_dict)
+    manager = getattr(db, "storage", None)
+    if manager is None:
+        raise InputIntegrityError(
+            "SquashFS publication cannot register Digital Asset replicas: "
+            "the database has no StorageManager."
+        )
+    locked_store_row = db.get_row_from_id("stores", int(locked_store_id))
+    locked_store_uuid = (
+        None
+        if locked_store_row is None
+        else _coerce_text(locked_store_row["store_uuid"])
+    )
+    if locked_store_uuid is None:
+        raise InputIntegrityError(
+            "Locked SquashFS Store {} has no durable store_uuid.".format(
+                locked_store_id
+            )
+        )
+
+    asset_count = 0
+    replica_count = 0
+    with db.macros.transaction():
+        for outcome in outcomes:
+            if not bool(outcome.get("should_duplicate")):
+                continue
+            item = outcome["designation"]
+            if not isinstance(item, _SquashfsDesignation):
+                raise InputIntegrityError(
+                    "SquashFS verification outcome has no designation context."
+                )
+            source_store_id = _coerce_int(item.source_row["file_store_id"])
+            source_storage_key = _coerce_text(item.source_row["file_storage_key"])
+            if source_store_id is None or source_storage_key is None:
+                raise InputIntegrityError(
+                    "Source file {} has no resolvable Store location.".format(
+                        item.file_id
+                    )
+                )
+            source_store_row = db.get_row_from_id("stores", source_store_id)
+            source_store_uuid = (
+                None
+                if source_store_row is None
+                else _coerce_text(source_store_row["store_uuid"])
+            )
+            if source_store_uuid is None:
+                raise InputIntegrityError(
+                    "Source Store {} has no durable store_uuid.".format(
+                        source_store_id
+                    )
+                )
+
+            metadata = DigitalAssetMetadata(
+                original_name=(
+                    _coerce_text(item.source_row["file_name"])
+                    or pathlib.PurePosixPath(source_storage_key).name
+                ),
+            )
+            source_result = manager.adopt_location(
+                Location(UUID(source_store_uuid), source_storage_key),
+                metadata=metadata,
+                replica_mode=ReplicaMode.ACTIVE,
+                verify=True,
+            )
+            archive_result = manager.adopt_location(
+                Location(UUID(locked_store_uuid), item.archive_path),
+                digital_asset_id=source_result.asset_record.digital_asset_id,
+                replica_mode=ReplicaMode.ARCHIVE,
+                verify=True,
+            )
+            asset_count += int(source_result.asset_created)
+            replica_count += int(source_result.replica_created)
+            replica_count += int(archive_result.replica_created)
+    return asset_count, replica_count
 
 
 def _add_reproducibility_metadata_to_scratch(
@@ -1202,7 +1254,7 @@ def publish_open_squashfs_store(
 
     If `strict=True`, any verification or persistence error raises and aborts publication.
     """
-    tables, _, file_columns, link_columns, derivation_columns = _ensure_schema_support(db)
+    _, _, file_columns, link_columns = _ensure_schema_support(db)
 
     store_row = _get_store_row(db, store_id=int(store_id))
     if not _is_open_store_kind(_coerce_text(store_row["store_kind"])):
@@ -1232,6 +1284,7 @@ def publish_open_squashfs_store(
         store_name=str(store_row["store_name"] or ""),
         designated_files=len(designations),
     )
+    designation_results: list[dict[str, object]] = []
 
     # Guard against source drift before we build the archive.
     snapshot_errors = _validate_snapshot_consistency(designations)
@@ -1287,9 +1340,9 @@ def publish_open_squashfs_store(
                 continue
             existing_rows_by_key[key] = existing
 
-        designation_results: list[dict[str, object]] = []
         for item in designations:
-            if not archive_backend.exists(item.archive_path):
+            archive_location = archive_backend.locate(item.archive_path)
+            if not archive_backend.exists(archive_location):
                 detail = "missing_in_archive"
                 report.errors.append(
                     "file_id={} archive_path={!r} :: {}".format(item.file_id, item.archive_path, detail)
@@ -1306,12 +1359,16 @@ def publish_open_squashfs_store(
                 )
                 continue
 
-            status = archive_backend.stat(item.archive_path)
-            status.recheck_self(all=True)
-            archive_hash = _normalize_sha256(str(status.hash or ""))
-            archive_size = int(status.size or 0)
+            status = archive_backend.stat(archive_location)
+            archive_hash = (
+                status.digest.value
+                if status.digest is not None
+                and status.digest.algorithm == "sha256"
+                else None
+            )
+            archive_size = status.size
             if not archive_hash:
-                payload = archive_backend.read_file_bytes(item.archive_path)
+                payload = archive_backend.read_bytes(archive_location)
                 archive_hash = hashlib.sha256(payload).hexdigest()
                 archive_size = len(payload)
 
@@ -1360,11 +1417,6 @@ def publish_open_squashfs_store(
                     len(report.errors), len(report.hash_mismatches)
                 )
             )
-
-        derivations_enabled = _supports_file_derivations(
-            tables=tables,
-            derivation_columns=derivation_columns,
-        )
 
         with _db_transaction(db) as tx_conn:
             now_epk = _now_ep_ms()
@@ -1456,7 +1508,7 @@ def publish_open_squashfs_store(
                 if not bool(outcome["should_duplicate"]):
                     continue
 
-                inserted, skipped, child_file_id = _duplicate_verified_file_row(
+                inserted, skipped, _child_file_id = _duplicate_verified_file_row(
                     tx_conn,
                     source_row=item.source_row,
                     source_path=item.source_path,
@@ -1472,21 +1524,6 @@ def publish_open_squashfs_store(
                     report.duplicated_files += 1
                 if skipped:
                     report.skipped_existing_duplicates += 1
-                if inserted and derivations_enabled and child_file_id is not None:
-                    source_file_id = _coerce_int(
-                        item.source_row.row_id if item.source_row.row_id is not None else item.source_row["file_id"]
-                    )
-                    if source_file_id is not None:
-                        _insert_file_derivation_tx(
-                            tx_conn,
-                            parent_file_id=int(source_file_id),
-                            child_file_id=int(child_file_id),
-                            derivation_columns=derivation_columns,
-                            derivation_kind="repacked",
-                            derivation_note="published_to_squashfs_store",
-                        )
-                        report.provenance_links_created += 1
-
             if final_store_state == STORE_STATE_LOCKED:
                 final_scratch = _store_scratch_with_state(
                     building_scratch,
@@ -1566,9 +1603,35 @@ def publish_open_squashfs_store(
 
     if refresh_storage_manager and hasattr(db, "bootstrap_storage_manager"):
         try:
-            db.bootstrap_storage_manager(clear_existing=True)
+            db.bootstrap_storage_manager(clear_existing=True, strict=True)
         except Exception as exc:
-            report.errors.append("storage_manager_bootstrap_failed :: {!r}".format(exc))
+            report.errors.append(
+                "storage_manager_bootstrap_failed :: {!r}".format(exc)
+            )
+        else:
+            try:
+                if not report.errors and not report.hash_mismatches:
+                    assets, replicas = _register_verified_digital_asset_replicas(
+                        db,
+                        locked_store_id=int(store_id),
+                        outcomes=designation_results,
+                    )
+                    report.digital_assets_registered += assets
+                    report.replicas_registered += replicas
+            except Exception as exc:
+                report.errors.append(
+                    "storage_replica_registration_failed :: {!r}".format(exc)
+                )
+                # Registration is database-atomic, but manager maps are
+                # mutated as calls proceed. Reload after rollback to discard
+                # those views.
+                try:
+                    db.bootstrap_storage_manager(
+                        clear_existing=True,
+                        strict=True,
+                    )
+                except Exception:
+                    pass
 
     report.finished_timestamp_ep_k = _now_ep_ms()
     if strict and report.errors:

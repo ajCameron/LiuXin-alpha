@@ -1,42 +1,33 @@
+"""Canonical persisted keys replace generic relative-path tokenization."""
+
 from __future__ import annotations
 
-import pathlib
-
 import pytest
+from uuid import uuid4
 
-from LiuXin_alpha.utils.storage.local.relative_path_tokenizer import relative_path_tokens
+from LiuXin_alpha.storage import api
+from LiuXin_alpha.storage.drivers import FilesystemStorageDriver
 
 
-class TestRelativePathTokens:
-    def test_same_path_returns_dot(self) -> None:
-        base = pathlib.Path("a/b")
-        target = pathlib.Path("a/b")
-        rel, tokens = relative_path_tokens(base, target)
-        assert rel == pathlib.Path(".")
-        # In pathlib, Path(".").parts is an empty tuple.
-        assert tokens == ()
+def test_driver_parses_and_round_trips_its_own_canonical_token(tmp_path) -> None:
+    driver = FilesystemStorageDriver(tmp_path, address_space_uuid=uuid4())
+    address = driver.parse_object_address("a/b/object.bin")
 
-    def test_sibling(self) -> None:
-        base = pathlib.Path("a/b")
-        target = pathlib.Path("a/c")
-        rel, tokens = relative_path_tokens(base, target)
-        assert rel == pathlib.Path("..") / "c"
-        assert tokens == ("..", "c")
+    assert str(address) == "a/b/object.bin"
+    assert driver.parse_object_address(str(address)) == address
 
-    def test_child(self) -> None:
-        base = pathlib.Path("a/b")
-        target = pathlib.Path("a/b/c/d")
-        rel, tokens = relative_path_tokens(base, target)
-        assert rel == pathlib.Path("c") / "d"
-        assert tokens == ("c", "d")
 
-    def test_base_is_file(self) -> None:
-        base_file = pathlib.Path("a/b/file.txt")
-        target = pathlib.Path("a/b/other.txt")
-        rel, tokens = relative_path_tokens(base_file, target, base_is_file=True)
-        assert rel == pathlib.Path("other.txt")
-        assert tokens == ("other.txt",)
+@pytest.mark.parametrize("raw", ["", "../x", "/x", "a//b", "a/./b", "a\\b"])
+def test_driver_rejects_ambiguous_relative_tokens(tmp_path, raw) -> None:
+    driver = FilesystemStorageDriver(tmp_path, address_space_uuid=uuid4())
+    with pytest.raises(api.StorageInvalidAddress):
+        driver.parse_object_address(raw)
 
-    def test_mixed_absolute_relative_raises(self) -> None:
-        with pytest.raises(ValueError):
-            relative_path_tokens(pathlib.Path("/a/b"), pathlib.Path("c/d"))
+
+def test_driver_uri_roundtrip_does_not_leak_path_logic_to_location(tmp_path) -> None:
+    driver = FilesystemStorageDriver(tmp_path, address_space_uuid=uuid4())
+    driver.startup()
+    info = driver.store_bytes(b"object", object_address="objects/value")
+
+    uri = driver.object_uri(info.object_address)
+    assert driver.object_address_from_uri(uri) == info.object_address

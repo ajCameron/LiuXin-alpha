@@ -4,8 +4,10 @@
 -- -----------------------------------------------------
 -- Table `file_derivations`
 -- Legacy file-row provenance edges.
--- New storage work should prefer digital_asset_derivations, but SquashFS and
--- file-oriented CLI flows still publish provenance between legacy `files` rows.
+-- Retained to read older catalogues and file-oriented integrations. New
+-- storage work uses Digital Assets: transformations use
+-- `digital_asset_derivations`, while byte-identical SquashFS members are
+-- Replicas of the same Asset and therefore require no derivation edge.
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `file_derivations` (
   `file_derivation_id` INTEGER PRIMARY KEY,

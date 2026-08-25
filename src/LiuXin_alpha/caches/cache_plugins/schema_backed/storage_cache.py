@@ -324,8 +324,10 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         return (str(src_table_name), str(dst_table_name))
 
     def _ensure_main_table_fresh(self, table_name: str) -> None:
-        if table_name in self._stale_main_tables or self._stale_ids.get(table_name):
+        if table_name in self._stale_main_tables:
             self.reload_main_table(table_name)
+        elif self._stale_ids.get(table_name):
+            self.reload_ids(table_name, self._stale_ids[table_name])
 
     def _ensure_link_table_fresh(self, key: tuple[str, str]) -> None:
         if key in self._stale_link_tables:
@@ -333,10 +335,8 @@ class SchemaBackedStorageCache(StorageCacheAPI):
 
     def _ensure_field_fresh(self, field_name: str) -> None:
         field = self.fields[field_name]
-        for table_name in sorted(
-            self._field_tables(field) & self._stale_main_tables
-        ):
-            self.reload_main_table(table_name)
+        for table_name in sorted(self._field_tables(field)):
+            self._ensure_main_table_fresh(table_name)
         link_key = self._field_link_key(field)
         if link_key is not None and link_key in self._stale_link_tables:
             self.reload_link_table(*link_key)
@@ -487,6 +487,42 @@ class SchemaBackedStorageCache(StorageCacheAPI):
                 field.read(self.db)
                 self._stale_fields.discard(field.field_key)
 
+    def reload_ids(
+        self,
+        table: Union[str, StorageCacheSingleTableAPI],
+        ids: Iterable[int],
+        db: Any = None,
+    ) -> None:
+        table_name = (
+            table.table
+            if isinstance(table, StorageCacheSingleTableAPI)
+            else str(table)
+        )
+        if table_name in self._stale_main_tables:
+            self.reload_main_table(table_name, db=db)
+            return
+        table_cache = self.main_tables[table_name]
+        changed_ids = {int(row_id) for row_id in ids}
+        if not changed_ids:
+            return
+        self._require_db(db)
+        table_cache._refresh_ids(changed_ids)
+        for field in self._field_objects.values():
+            if table_name not in self._field_tables(field):
+                continue
+            refresh_from_table = getattr(field, "refresh_from_table", None)
+            if callable(refresh_from_table) and self._field_owner_table(field) == table_name:
+                refresh_from_table(changed_ids)
+                continue
+            refresh_table_ids = getattr(field, "refresh_table_ids", None)
+            if callable(refresh_table_ids):
+                refresh_table_ids(table_name, changed_ids)
+        stale_ids = self._stale_ids.get(table_name)
+        if stale_ids is not None:
+            stale_ids.difference_update(changed_ids)
+            if not stale_ids:
+                self._stale_ids.pop(table_name, None)
+
     def reload_link_table(
         self,
         src_table: Union[str, StorageCacheSingleTableAPI],
@@ -590,7 +626,6 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         if table_name not in self.main_tables:
             raise KeyError(table_name)
         self._stale_ids[table_name].update(int(row_id) for row_id in ids)
-        self._stale_main_tables.add(table_name)
 
 
 __all__ = ["SchemaBackedStorageCache"]

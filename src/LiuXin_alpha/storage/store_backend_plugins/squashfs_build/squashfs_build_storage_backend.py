@@ -1,76 +1,239 @@
-"""Writable staging plugin for building SquashFS archives.
-
-This plugin is intentionally narrow. It stages files locally, allows limited
-write/update/delete operations against that staging area, and then seals the
-whole pack into one SquashFS archive. It is closer to a backup/snapshot builder
-than to a normal mutable store.
-"""
+"""Transactional staging Store that seals snapshots into SquashFS archives."""
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
+import math
+import os
 import pathlib
 import shutil
+import stat as stat_module
 import subprocess
 import tempfile
-from typing import Iterator, Optional, Type
+import threading
 
-from LiuXin_alpha.storage.api import StoreCheckStatus, StoreLocationMixinAPI, StorePluginAPI, StoreStatus
+from contextlib import contextmanager
+from types import TracebackType
+from typing import BinaryIO, Optional
+from uuid import UUID, uuid4
+
+from LiuXin_alpha.storage.api import (
+    Digest,
+    FileInfo,
+    Location,
+    StorageCharacteristics,
+    StorageLimitation,
+    StoragePublicationModel,
+    StorageTemporarySpaceRequirement,
+    StorageWriteUsage,
+    StoreConfiguration,
+    StoreAlreadyExists,
+    StoreIntegrityError,
+    StorePreconditionFailed,
+    StoreStatus,
+    StoreUnavailable,
+    StoreUnsupportedOperation,
+    StorageTimeout,
+    WriteMode,
+)
+from LiuXin_alpha.storage.drivers.archive_common import (
+    DEFAULT_MAX_ARCHIVE_DEPTH,
+    DEFAULT_MAX_ARCHIVE_INVENTORY_ENTRIES,
+    archive_file_signature,
+    canonical_archive_key,
+)
+from LiuXin_alpha.storage.drivers.squashfs import (
+    DEFAULT_MAX_SQUASHFS_COMPRESSION_RATIO,
+    DEFAULT_MAX_SQUASHFS_HEADER_BYTES,
+    DEFAULT_MAX_SQUASHFS_MEMBER_BYTES,
+    DEFAULT_MAX_SQUASHFS_PATH_BYTES,
+    DEFAULT_MAX_SQUASHFS_STDERR_BYTES,
+    DEFAULT_MAX_SQUASHFS_TOTAL_UNCOMPRESSED_BYTES,
+)
 from LiuXin_alpha.storage.errors import SquashfsBuildImplicitOverwriteError
-from LiuXin_alpha.storage.single_file import SingleFileStatus
-from LiuXin_alpha.storage.store_backend_plugins.squashfs_build.squashfs_build_location import SquashfsBuildStoreLocation
-from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import SquashfsReadOnlyStorageBackend
-from LiuXin_alpha.utils.logging.event_logs import DefaultEventLog
-from LiuXin_alpha.utils.storage.local.file_properties import get_file_hash
-from LiuXin_alpha.utils.storage.local.local_store_properties import get_free_bytes
+from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
+    SquashfsReadOnlyStorageBackend,
+)
+from LiuXin_alpha.storage.stores import FilesystemStore
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 
-class SquashfsBuildStorageBackend(StorePluginAPI):
-    """Writable staging plugin that seals to one SquashFS archive.
+@dataclasses.dataclass(slots=True, frozen=True)
+class _StagedMember:
+    """Immutable evidence used to validate a sealed archive candidate."""
 
-    Design notes:
-    - the configured ``url`` is the output archive file path
-    - staged files live in a local staging root until ``seal()`` is called
-    - implicit writes use a deterministic hash layout under ``objects/``
-    - explicit writes are allowed to overwrite staged content; implicit writes
-      must never silently overwrite incompatible existing bytes
-    - designated source files are *copied* into staging so the pack behaves like
-      a snapshot, not a moving hardlink target
-    """
+    size: int
+    sha256: str
 
+
+class _TrackedWriteSession:
+    """Release a builder's active-write lease exactly once."""
+
+    def __init__(self, session, release, *, max_size: int) -> None:
+        self._session = session
+        self._release = release
+        self._max_size = max_size
+        self._size = 0
+        self._released = False
+
+    def write(self, data: bytes) -> int:
+        if self._size + len(data) > self._max_size:
+            raise StoreUnsupportedOperation(
+                f"SquashFS staged members are limited to {self._max_size} bytes."
+            )
+        written = self._session.write(data)
+        self._size += written
+        return written
+
+    def commit(self) -> FileInfo:
+        try:
+            return self._session.commit()
+        finally:
+            self._finish()
+
+    def abort(self) -> None:
+        try:
+            self._session.abort()
+        finally:
+            self._finish()
+
+    def __enter__(self):
+        self._session.__enter__()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        try:
+            self._session.__exit__(exc_type, exc, traceback)
+        finally:
+            self._finish()
+
+    def _finish(self) -> None:
+        if self._released:
+            return
+        self._released = True
+        self._release()
+
+
+class SquashfsBuildStorageBackend(FilesystemStore):
+    """Collect committed staged objects, then atomically publish one archive."""
+
+    store_kind = "squashfs_build"
     DEFAULT_OBJECTS_DIRNAME = "objects"
     AUTO_WRITE_BUCKET_LENGTH = 5
-
-    location_cls: Type[SquashfsBuildStoreLocation] = SquashfsBuildStoreLocation
 
     def __init__(
         self,
         url: str,
         name: Optional[str] = None,
-        uuid: Optional[str] = None,
+        uuid: str | UUID | None = None,
         *,
         mksquashfs_exe: str = "mksquashfs",
         compression: str = "zstd",
         deterministic: bool = False,
         staging_root: str | None = None,
+        unsquashfs_exe: str = "unsquashfs",
+        command_timeout_s: float = 300.0,
+        max_inventory_entries: int = DEFAULT_MAX_ARCHIVE_INVENTORY_ENTRIES,
+        max_member_bytes: int = DEFAULT_MAX_SQUASHFS_MEMBER_BYTES,
+        max_total_uncompressed_bytes: int = DEFAULT_MAX_SQUASHFS_TOTAL_UNCOMPRESSED_BYTES,
+        max_compression_ratio: float = DEFAULT_MAX_SQUASHFS_COMPRESSION_RATIO,
+        max_header_bytes: int = DEFAULT_MAX_SQUASHFS_HEADER_BYTES,
+        max_depth: int = DEFAULT_MAX_ARCHIVE_DEPTH,
+        max_path_bytes: int = DEFAULT_MAX_SQUASHFS_PATH_BYTES,
+        configuration: StoreConfiguration | None = None,
     ) -> None:
-        super().__init__(url=url, name=name, uuid=uuid)
-        self._archive_path = pathlib.Path(self.url).expanduser().resolve()
+        self._archive_path = pathlib.Path(url).expanduser().resolve(strict=False)
         self._archive_path.parent.mkdir(parents=True, exist_ok=True)
-        self._event_log = DefaultEventLog()
-        self._cached_status: Optional[StoreStatus] = None
         self._mksquashfs_exe = str(mksquashfs_exe)
         self._compression = str(compression)
         self._deterministic = bool(deterministic)
+        for label, value in (
+            ("command_timeout_s", command_timeout_s),
+            ("max_inventory_entries", max_inventory_entries),
+            ("max_member_bytes", max_member_bytes),
+            ("max_total_uncompressed_bytes", max_total_uncompressed_bytes),
+            ("max_header_bytes", max_header_bytes),
+            ("max_depth", max_depth),
+            ("max_path_bytes", max_path_bytes),
+        ):
+            if value <= 0:
+                raise ValueError(f"{label} must be positive.")
+        if not math.isfinite(max_compression_ratio) or max_compression_ratio < 1:
+            raise ValueError("max_compression_ratio must be finite and at least 1.")
+        self._unsquashfs_exe = str(unsquashfs_exe)
+        self._command_timeout_s = float(command_timeout_s)
+        self._max_inventory_entries = int(max_inventory_entries)
+        self._max_member_bytes = int(max_member_bytes)
+        self._max_total_uncompressed_bytes = int(max_total_uncompressed_bytes)
+        self._effective_member_limit = min(
+            self._max_member_bytes,
+            self._max_total_uncompressed_bytes,
+        )
+        self._max_compression_ratio = float(max_compression_ratio)
+        self._max_header_bytes = int(max_header_bytes)
+        self._max_depth = int(max_depth)
+        self._max_path_bytes = int(max_path_bytes)
         self._tempdir: tempfile.TemporaryDirectory[str] | None = None
         if staging_root is None:
-            self._tempdir = tempfile.TemporaryDirectory(prefix="liuxin-squashfs-build-")
-            self._staging_root = pathlib.Path(self._tempdir.name).resolve()
+            self._tempdir = tempfile.TemporaryDirectory(
+                prefix="liuxin-squashfs-build-"
+            )
+            stage = pathlib.Path(self._tempdir.name).resolve()
         else:
-            self._staging_root = pathlib.Path(staging_root).expanduser().resolve()
-            self._staging_root.mkdir(parents=True, exist_ok=True)
+            stage = pathlib.Path(staging_root).expanduser().resolve(strict=False)
+            stage.mkdir(parents=True, exist_ok=True)
+        store_uuid = (
+            configuration.store_uuid
+            if configuration is not None
+            else uuid4() if uuid is None else uuid if isinstance(uuid, UUID) else UUID(uuid)
+        )
+        if configuration is not None and uuid is not None and UUID(str(uuid)) != store_uuid:
+            raise ValueError("configuration and explicit uuid identify different Stores.")
+        options: list[tuple[str, object]] = [
+            ("mksquashfs_exe", self._mksquashfs_exe),
+            ("compression", self._compression),
+            ("deterministic", self._deterministic),
+            ("unsquashfs_exe", self._unsquashfs_exe),
+            ("command_timeout_s", self._command_timeout_s),
+            ("max_inventory_entries", self._max_inventory_entries),
+            ("max_member_bytes", self._max_member_bytes),
+            (
+                "max_total_uncompressed_bytes",
+                self._max_total_uncompressed_bytes,
+            ),
+            ("max_compression_ratio", self._max_compression_ratio),
+            ("max_header_bytes", self._max_header_bytes),
+            ("max_depth", self._max_depth),
+            ("max_path_bytes", self._max_path_bytes),
+        ]
+        if staging_root is not None:
+            options.append(("staging_root", str(stage)))
+        effective_configuration = configuration or StoreConfiguration(
+            store_uuid=store_uuid,
+            store_name=name or self.url_to_name(str(self._archive_path)),
+            store_kind=self.store_kind,
+            store_root_uri=self._archive_path.as_uri(),
+            store_url=self._archive_path.as_uri(),
+            store_access_protocol="squashfs-build",
+            read_only=False,
+            supports_folders=True,
+            backend_options=tuple(options),
+        )
+        super().__init__(
+            stage,
+            configuration=effective_configuration,
+            allocation_prefix=self.DEFAULT_OBJECTS_DIRNAME,
+        )
         self._built_store: SquashfsReadOnlyStorageBackend | None = None
+        self._state_condition = threading.Condition(threading.RLock())
+        self._active_mutations = 0
+        self._sealing = False
 
     @property
     def archive_path(self) -> pathlib.Path:
@@ -78,304 +241,600 @@ class SquashfsBuildStorageBackend(StorePluginAPI):
 
     @property
     def staging_root(self) -> pathlib.Path:
-        return self._staging_root
+        return super().root_path
 
     @property
     def root_path(self) -> pathlib.Path:
-        return self._staging_root
+        return self.staging_root
 
     @property
     def built_store(self) -> SquashfsReadOnlyStorageBackend | None:
         return self._built_store
 
-    def close(self) -> None:
-        if self._tempdir is not None:
-            self._tempdir.cleanup()
-            self._tempdir = None
+    @property
+    def characteristics(self) -> StorageCharacteristics:
+        """Describe mutable staging followed by explicit archive sealing.
 
-    def url_to_name(self, url: str) -> str:
+        Example:
+            >>> store.characteristics.publication_model  # doctest: +SKIP
+            <StoragePublicationModel.STAGING_THEN_SEAL: 'staging_then_seal'>
+
+        :return: Buildable SquashFS lifecycle characteristics.
+        """
+
+        return StorageCharacteristics(
+            publication_model=StoragePublicationModel.STAGING_THEN_SEAL,
+            temporary_space=StorageTemporarySpaceRequirement.STORE_COPY,
+            recommended_write_usage=StorageWriteUsage.ARCHIVAL_SNAPSHOT,
+            max_object_bytes=self._effective_member_limit,
+            max_component_bytes=self._max_path_bytes,
+            max_path_depth=self._max_depth,
+            preserves_unmodelled_entries=True,
+            rewrites_container_format=True,
+            limitations=(
+                StorageLimitation(
+                    "explicit_seal_required",
+                    "Staged objects enter the SquashFS archive only after seal().",
+                ),
+                StorageLimitation(
+                    "sealed_store_read_only",
+                    "A successfully sealed staging Store refuses further mutation.",
+                ),
+                StorageLimitation(
+                    "external_mksquashfs_required",
+                    "Sealing requires a compatible mksquashfs executable.",
+                ),
+                StorageLimitation(
+                    "validated_bounded_seal",
+                    "Sealing preflights the staging tree and verifies the candidate inventory and bytes within configured expansion limits before publication.",
+                ),
+                StorageLimitation(
+                    "nested_expansion_budget_external",
+                    "Recursive ingest must impose its own cumulative cross-container budget.",
+                ),
+            ),
+        )
+
+    @staticmethod
+    def url_to_name(url: str) -> str:
         return safe_path_to_name(url)
 
     def startup(self) -> StoreStatus:
-        self._cached_status = self.self_test()
-        return self._cached_status
+        return self._decorate_status(super().startup())
 
-    def status(self) -> StoreStatus:
-        return self.self_test() if self._cached_status is None else self._cached_status
+    def probe(self) -> StoreStatus:
+        return self._decorate_status(super().probe())
 
-    def _count_staged_files(self) -> int:
-        return sum(1 for path in self._staging_root.rglob("*") if path.is_file())
+    def status(self, *, refresh: bool = False) -> StoreStatus:
+        return self._decorate_status(super().status(refresh=refresh))
 
     def self_test(self) -> StoreStatus:
-        staging_ok = self._staging_root.exists() and self._staging_root.is_dir()
-        archive_parent_ok = self._archive_path.parent.exists() and self._archive_path.parent.is_dir()
-        read_ok = bool(staging_ok)
-        write_ok = bool(staging_ok and archive_parent_ok)
-        build_ok = shutil.which(self._mksquashfs_exe) is not None
-        try:
-            free_space = int(get_free_bytes(str(self._staging_root)))
-        except Exception:
-            free_space = None
-        check = StoreCheckStatus(
-            store_marker_file=staging_ok,
-            read=read_ok,
-            write=write_ok,
-            sundry=build_ok,
-        )
-        status = StoreStatus(
-            name=self.name,
-            uuid=self.uuid or self.name,
-            url=str(self._archive_path),
-            file_count=self._count_staged_files() if staging_ok else None,
-            store_free_space=free_space,
-            check_status=check,
-            checked=bool(staging_ok and archive_parent_ok),
-            good=bool(staging_ok and archive_parent_ok),
-            event_log=self._event_log,
-            details={
+        return self.probe()
+
+    def _decorate_status(self, status: StoreStatus) -> StoreStatus:
+        details = dict(status.details)
+        details.update(
+            {
                 "mode": "staging_then_seal",
-                "plugin_layer": "raw_storage",
-                "container": "squashfs_builder",
-                "staging_root": str(self._staging_root),
+                "staging_root": str(self.staging_root),
                 "output_archive": str(self._archive_path),
                 "compression": self._compression,
-                "deterministic": self._deterministic,
-                "build_tool_available": build_ok,
-            },
+                "deterministic": str(self._deterministic).lower(),
+                "build_tool_available": str(
+                    shutil.which(self._mksquashfs_exe) is not None
+                ).lower(),
+            }
         )
-        self._cached_status = status
-        return status
-
-    def location(self, *tokens: str) -> SquashfsBuildStoreLocation:
-        return self.location_cls(*tokens, store=self)
-
-    def _normalize_internal_path(self, file_identifier: str | None) -> str | None:
-        if file_identifier is None:
-            return None
-        text = str(file_identifier).strip()
-        prefix = self.url.rstrip("/") + "/"
-        if text.startswith(prefix):
-            text = text[len(prefix):]
-        text = text.replace("\\", "/")
-        text = text.lstrip("/")
-        if not text:
-            return None
-        parts: list[str] = []
-        for part in text.split("/"):
-            if part in {"", "."}:
-                continue
-            if part == "..":
-                raise ValueError("Malformed staged archive path with '..': {!r}".format(file_identifier))
-            parts.append(part)
-        if not parts:
-            return None
-        return "/".join(parts)
-
-    def _location_from_identifier(self, file_identifier: str | StoreLocationMixinAPI) -> SquashfsBuildStoreLocation:
-        if isinstance(file_identifier, StoreLocationMixinAPI):
-            if file_identifier.store is self:
-                return file_identifier
-            file_identifier = file_identifier.file_url
-        internal = self._normalize_internal_path(str(file_identifier))
-        if internal is None:
-            return self.location()
-        return self.location(*internal.split("/"))
-
-    def locate(self, file_identifier: str | StoreLocationMixinAPI) -> SquashfsBuildStoreLocation:
-        return self._location_from_identifier(file_identifier)
-
-    def exists(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
-        try:
-            return self._location_from_identifier(file_identifier)._loc_path.is_file()
-        except ValueError:
-            return False
-
-    def file_size(self, file_identifier: str | StoreLocationMixinAPI) -> int | None:
-        path = self._location_from_identifier(file_identifier)._loc_path
-        if not path.is_file():
-            return None
-        return int(path.stat().st_size)
-
-    def stat(self, file_identifier: str | StoreLocationMixinAPI) -> SingleFileStatus:
-        path = self._location_from_identifier(file_identifier)._loc_path
-        if not path.exists():
-            raise FileNotFoundError(str(path))
-
-        def _exists(url: str) -> bool:
-            return self.exists(url)
-
-        def _size(url: str) -> int:
-            size = self.file_size(url)
-            return int(size or 0)
-
-        def _hash(url: str) -> str:
-            loc = self._location_from_identifier(url)
-            if not loc._loc_path.is_file():
-                return ""
-            return get_file_hash(str(loc._loc_path))
-
-        return SingleFileStatus(
-            url=self._location_from_identifier(file_identifier).file_url,
-            check_exists_function=_exists,
-            check_size_function=_size,
-            check_hash_function=_hash,
+        return dataclasses.replace(
+            status,
+            details=tuple(sorted(details.items())),
         )
 
-    def iter_locations(self) -> Iterator[SquashfsBuildStoreLocation]:
-        for path in self._staging_root.rglob("*"):
-            if not path.is_file():
-                continue
-            rel = path.relative_to(self._staging_root)
-            yield self.location(*rel.parts)
-
-    def _implicit_write_target_path(self, file_bytes: bytes) -> pathlib.Path:
-        digest = hashlib.sha256(file_bytes).hexdigest()
-        bucket = digest[: self.AUTO_WRITE_BUCKET_LENGTH]
-        return self._staging_root / self.DEFAULT_OBJECTS_DIRNAME / bucket / digest
-
-    def _existing_path_matches_payload(self, target: pathlib.Path, file_bytes: bytes) -> bool:
-        if not target.exists() or not target.is_file():
-            return False
-        try:
-            return target.read_bytes() == file_bytes
-        except Exception:
-            return False
-
-    def _raise_implicit_overwrite_error(self, target: pathlib.Path, file_bytes: bytes) -> None:
-        if not target.exists():
-            return
-        if not target.is_file():
-            raise SquashfsBuildImplicitOverwriteError(
-                "Implicit SquashFS build write would collide with a non-file path at {!r}.".format(str(target))
-            )
-        try:
-            existing = target.read_bytes()
-        except Exception as exc:
-            raise SquashfsBuildImplicitOverwriteError(
-                "Implicit SquashFS build write could not verify existing staged target {!r}.".format(str(target))
-            ) from exc
-        if existing != file_bytes:
-            raise SquashfsBuildImplicitOverwriteError(
-                "Implicit SquashFS build write would overwrite existing bytes at {!r}. Use an explicit archive path if you really mean to replace that staged file.".format(
-                    str(target)
-                )
-            )
-
-    def _write_implicit_bytes_to_path(self, target: pathlib.Path, file_bytes: bytes) -> pathlib.Path:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if target.exists():
-            self._raise_implicit_overwrite_error(target, file_bytes)
-            return target
-        try:
-            with target.open("xb") as fh:
-                fh.write(file_bytes)
-        except FileExistsError:
-            self._raise_implicit_overwrite_error(target, file_bytes)
-        return target
-
-    def _write_bytes_to_path(self, target: pathlib.Path, file_bytes: bytes, *, ensure_parents: bool) -> pathlib.Path:
-        if ensure_parents:
-            target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(file_bytes)
-        return target
-
-    def write_bytes(
+    def begin_write(
         self,
-        file_bytes: bytes,
+        location: Location,
         *,
+        mode: WriteMode = WriteMode.CREATE_ONLY,
+        expected_size: int | None = None,
+        expected_digest: Digest | None = None,
+        placement_hints=None,
+    ):
+        if expected_size is not None and expected_size > self._effective_member_limit:
+            raise StoreUnsupportedOperation(
+                f"SquashFS staged members are limited to {self._effective_member_limit} bytes."
+            )
+        self._acquire_mutation()
+        try:
+            session = super().begin_write(
+                location,
+                mode=mode,
+                expected_size=expected_size,
+                expected_digest=expected_digest,
+                placement_hints=placement_hints,
+            )
+        except BaseException:
+            self._release_mutation()
+            raise
+        return _TrackedWriteSession(
+            session,
+            self._release_mutation,
+            max_size=self._effective_member_limit,
+        )
+
+    def store_bytes(
+        self,
+        data: bytes,
+        *,
+        location: str | Location | None = None,
+        name: str | None = None,
         metadata=None,
-        location: str | None = None,
-    ) -> SquashfsBuildStoreLocation:
+        write_mode: WriteMode | str | None = None,
+        expected_digest: Digest | None = None,
+        mode: WriteMode | str | None = None,
+    ) -> FileInfo:
+        digest = expected_digest or Digest("sha256", hashlib.sha256(data).hexdigest())
+        destination = location
+        implicit = destination is None
+        if implicit:
+            destination = self._content_address(digest)
+            existing = self.try_stat(self.locate(destination))
+            if existing is not None:
+                observed = self.compute_digest(existing.location, digest.algorithm)
+                if observed == digest:
+                    return existing
+                raise SquashfsBuildImplicitOverwriteError(
+                    "Implicit SquashFS staging target contains incompatible bytes."
+                )
+        try:
+            return super().store_bytes(
+                data,
+                location=destination,
+                name=name,
+                metadata=metadata,
+                write_mode=write_mode,
+                expected_digest=digest,
+                mode=mode,
+            )
+        except (StoreAlreadyExists, StoreIntegrityError) as error:
+            if implicit:
+                raise SquashfsBuildImplicitOverwriteError(str(error)) from error
+            raise
+
+    def store_file(
+        self,
+        path: str | os.PathLike[str],
+        *,
+        location: str | Location | None = None,
+        name: str | None = None,
+        metadata=None,
+        write_mode: WriteMode | str | None = None,
+        expected_size: int | None = None,
+        expected_digest: Digest | None = None,
+        mode: WriteMode | str | None = None,
+    ) -> FileInfo:
+        source = pathlib.Path(path)
+        digest = expected_digest or _file_digest(source)
+        destination = location or self._content_address(digest)
         if location is None:
-            target = self._implicit_write_target_path(file_bytes)
-            self._write_implicit_bytes_to_path(target, file_bytes)
-        else:
-            target = self._location_from_identifier(str(location))._loc_path
-            self._write_bytes_to_path(target, file_bytes, ensure_parents=True)
-        rel = target.relative_to(self._staging_root)
-        return self.location(*rel.parts)
+            existing = self.try_stat(self.locate(destination))
+            if existing is not None:
+                if self.compute_digest(existing.location, digest.algorithm) == digest:
+                    return existing
+                raise SquashfsBuildImplicitOverwriteError(
+                    "Implicit SquashFS staging target contains incompatible bytes."
+                )
+        return super().store_file(
+            source,
+            location=destination,
+            name=name,
+            metadata=metadata,
+            write_mode=write_mode,
+            expected_size=expected_size,
+            expected_digest=digest,
+            mode=mode,
+        )
+
+    def store_stream(
+        self,
+        source: BinaryIO,
+        *,
+        location: str | Location | None = None,
+        expected_digest: Digest | None = None,
+        **kwargs,
+    ) -> FileInfo:
+        if location is None and expected_digest is None:
+            raise StoreUnsupportedOperation(
+                "implicit SquashFS streaming writes require an expected digest."
+            )
+        destination = location or self._content_address(expected_digest)
+        return super().store_stream(
+            source,
+            location=destination,
+            expected_digest=expected_digest,
+            **kwargs,
+        )
 
     def designate_file(
         self,
         source_path: str | pathlib.Path,
         *,
         archive_path: str | None = None,
-    ) -> SquashfsBuildStoreLocation:
-        source = pathlib.Path(source_path).expanduser().resolve()
-        if not source.exists() or not source.is_file():
-            raise FileNotFoundError(str(source))
-        payload = source.read_bytes()
-        return self.write_bytes(payload, location=archive_path)
+    ) -> FileInfo:
+        """Copy a source snapshot into staged, commit-protected storage."""
 
-    def delete(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
-        path = self._location_from_identifier(file_identifier)._loc_path
-        if not path.is_file():
-            return False
-        path.unlink()
-        return True
+        return self.store_file(source_path, location=archive_path)
 
-    def update_bytes(
+    def delete(
         self,
-        file_identifier: str | StoreLocationMixinAPI,
-        file_bytes: bytes,
+        location: Location,
         *,
-        append: bool = False,
-    ) -> bool:
-        path = self._location_from_identifier(file_identifier)._loc_path
-        if not path.is_file():
-            raise FileNotFoundError(str(path))
-        mode = "ab" if append else "wb"
-        with path.open(mode) as fh:
-            fh.write(file_bytes)
-        return True
+        missing_ok: bool = False,
+        if_version: str | None = None,
+    ) -> None:
+        with self._mutation_operation():
+            super().delete(
+                location,
+                missing_ok=missing_ok,
+                if_version=if_version,
+            )
 
-    def copy_within_plugin(
+    def copy(self, source: Location, destination: Location, *, mode=WriteMode.CREATE_ONLY):
+        with self._mutation_operation():
+            return super().copy(source, destination, mode=mode)
+
+    def move(self, source: Location, destination: Location, *, mode=WriteMode.CREATE_ONLY):
+        with self._mutation_operation():
+            return super().move(source, destination, mode=mode)
+
+    def seal(
         self,
-        src_location: str | StoreLocationMixinAPI,
-        dst_location: str | StoreLocationMixinAPI,
-    ) -> SquashfsBuildStoreLocation:
-        src = self._location_from_identifier(src_location)._loc_path
-        if not src.is_file():
-            raise FileNotFoundError(str(src))
-        dst = self._location_from_identifier(dst_location)._loc_path
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
-        rel = dst.relative_to(self._staging_root)
-        return self.location(*rel.parts)
+        *,
+        force: bool = False,
+        quiet: bool = True,
+    ) -> SquashfsReadOnlyStorageBackend:
+        """Build and atomically publish a complete archive snapshot.
 
-    def _run_mksquashfs(self, *, force: bool, quiet: bool) -> None:
-        mksquashfs = shutil.which(self._mksquashfs_exe) or self._mksquashfs_exe
-        if self._archive_path.exists():
-            if not force:
-                raise FileExistsError(
-                    "Output archive already exists (use force=True to overwrite): {!r}".format(str(self._archive_path))
+        Existing archives remain untouched if the build fails. Sealing refuses
+        to race an active staged write and blocks new mutations until the
+        archive has either published or failed.
+        """
+
+        with self._state_condition:
+            if self._built_store is not None:
+                raise StorePreconditionFailed(
+                    "SquashFS staging has already been sealed."
                 )
-            self._archive_path.unlink()
-        cmd = [
-            mksquashfs,
-            str(self._staging_root),
-            str(self._archive_path),
+            if self._sealing:
+                raise StorePreconditionFailed("SquashFS sealing is already in progress.")
+            if self._active_mutations:
+                raise StorePreconditionFailed(
+                    "cannot seal while staged mutations are active."
+                )
+            self._sealing = True
+        temporary: pathlib.Path | None = None
+        try:
+            manifest = self._staging_manifest()
+            if not manifest:
+                raise ValueError(
+                    "Cannot build a SquashFS archive from an empty staging area."
+                )
+            if self._archive_path.exists() and not force:
+                raise FileExistsError(
+                    f"Output archive already exists: {self._archive_path}"
+                )
+            temporary = self._temporary_archive_path()
+            self._run_mksquashfs(temporary, quiet=quiet)
+            try:
+                candidate_stat = temporary.lstat()
+            except OSError as error:
+                raise StoreIntegrityError(
+                    "mksquashfs reported success without producing an archive."
+                ) from error
+            if (
+                not stat_module.S_ISREG(candidate_stat.st_mode)
+                or candidate_stat.st_nlink != 1
+            ):
+                raise StoreIntegrityError(
+                    "mksquashfs output is not a private regular archive file."
+                )
+            self._validate_candidate(temporary, manifest)
+            if archive_file_signature(temporary.lstat()) != archive_file_signature(
+                candidate_stat
+            ):
+                raise StorePreconditionFailed(
+                    "SquashFS candidate changed after validation."
+                )
+            if not temporary.is_file():
+                raise StoreIntegrityError(
+                    "mksquashfs reported success without producing an archive."
+                )
+            self._publish_archive(temporary, force=force)
+            temporary = None
+            built = SquashfsReadOnlyStorageBackend(
+                url=str(self._archive_path),
+                name=f"{self.configuration.store_name} (sealed)",
+                unsquashfs_exe=self._unsquashfs_exe,
+                timeout_s=self._command_timeout_s,
+                max_inventory_entries=self._max_inventory_entries,
+                max_member_bytes=self._max_member_bytes,
+                max_total_uncompressed_bytes=self._max_total_uncompressed_bytes,
+                max_compression_ratio=self._max_compression_ratio,
+                max_header_bytes=self._max_header_bytes,
+                max_depth=self._max_depth,
+                max_path_bytes=self._max_path_bytes,
+            )
+            built.startup()
+            self._built_store = built
+            return self._built_store
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+            with self._state_condition:
+                self._sealing = False
+                self._state_condition.notify_all()
+
+    def _run_mksquashfs(
+        self,
+        output: pathlib.Path,
+        *,
+        quiet: bool,
+    ) -> None:
+        executable = shutil.which(self._mksquashfs_exe) or self._mksquashfs_exe
+        command = [
+            executable,
+            str(self.staging_root),
+            str(output),
             "-noappend",
             "-comp",
             self._compression,
         ]
         if self._deterministic:
-            cmd.extend(["-all-root", "-no-xattrs", "-all-time", "0", "-mkfs-time", "0"])
+            command.extend(
+                ["-all-root", "-no-xattrs", "-all-time", "0", "-mkfs-time", "0"]
+            )
         if quiet:
-            cmd.append("-quiet")
-        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
-        if proc.returncode != 0:
-            raise RuntimeError(
-                "mksquashfs failed (rc={}): {}".format(
-                    proc.returncode,
-                    proc.stderr.decode("utf-8", "replace").strip(),
-                )
+            command.append("-quiet")
+        stderr_buffer = bytearray()
+        try:
+            process = subprocess.Popen(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+            )
+        except OSError as error:
+            raise StoreUnavailable(
+                f"Could not start mksquashfs for {self._archive_path}: {error}."
+            ) from error
+        if process.stderr is None:
+            process.kill()
+            raise StoreUnavailable("mksquashfs did not provide a diagnostics pipe.")
+        process_stderr = process.stderr
+
+        def drain_stderr() -> None:
+            while chunk := process_stderr.read(64 * 1024):
+                remaining = DEFAULT_MAX_SQUASHFS_STDERR_BYTES - len(stderr_buffer)
+                if remaining > 0:
+                    stderr_buffer.extend(chunk[:remaining])
+
+        stderr_thread = threading.Thread(target=drain_stderr, daemon=True)
+        stderr_thread.start()
+        try:
+            try:
+                return_code = process.wait(timeout=self._command_timeout_s)
+            except subprocess.TimeoutExpired as error:
+                process.kill()
+                process.wait()
+                raise StorageTimeout(
+                    f"mksquashfs exceeded {self._command_timeout_s:g} seconds."
+                ) from error
+        finally:
+            stderr_thread.join(timeout=2)
+            process_stderr.close()
+        if stderr_thread.is_alive():
+            raise StoreUnavailable("mksquashfs diagnostics pipe did not close.")
+        if return_code:
+            detail = bytes(stderr_buffer).decode("utf-8", "replace").strip()
+            raise StoreUnavailable(
+                f"mksquashfs failed (rc={return_code}): "
+                f"{detail or 'no diagnostic was produced'}"
             )
 
-    def seal(self, *, force: bool = False, quiet: bool = True) -> SquashfsReadOnlyStorageBackend:
-        if self._count_staged_files() <= 0:
-            raise ValueError("Cannot build a SquashFS archive from an empty staging area.")
-        self._archive_path.parent.mkdir(parents=True, exist_ok=True)
-        self._run_mksquashfs(force=force, quiet=quiet)
-        self._built_store = SquashfsReadOnlyStorageBackend(url=str(self._archive_path))
-        return self._built_store
+    def _staging_manifest(self) -> dict[str, _StagedMember]:
+        """Preflight every staged entry and hash every regular file."""
+
+        manifest: dict[str, _StagedMember] = {}
+        entry_count = 0
+        total_bytes = 0
+        pending = [self.staging_root]
+        while pending:
+            directory = pending.pop()
+            try:
+                entries = tuple(os.scandir(directory))
+            except OSError as error:
+                raise StoreUnavailable(
+                    f"Could not inventory SquashFS staging directory {directory}: {error}."
+                ) from error
+            for entry in entries:
+                entry_count += 1
+                if entry_count > self._max_inventory_entries:
+                    raise StoreUnsupportedOperation(
+                        "SquashFS staging inventory exceeds "
+                        f"{self._max_inventory_entries} entries."
+                    )
+                path = pathlib.Path(entry.path)
+                if entry.is_symlink():
+                    raise StoreUnsupportedOperation(
+                        f"SquashFS staging contains symbolic link {path}."
+                    )
+                if entry.is_dir(follow_symlinks=False):
+                    pending.append(path)
+                    continue
+                if not entry.is_file(follow_symlinks=False):
+                    raise StoreUnsupportedOperation(
+                        f"SquashFS staging contains non-regular entry {path}."
+                    )
+                key = path.relative_to(self.staging_root).as_posix()
+                canonical = canonical_archive_key(
+                    key,
+                    format_name="SquashFS",
+                    max_depth=self._max_depth,
+                    max_path_bytes=self._max_path_bytes,
+                )
+                if canonical != key:
+                    raise StoreUnsupportedOperation(
+                        f"SquashFS staging path {key!r} is not canonical."
+                    )
+                before = entry.stat(follow_symlinks=False)
+                size = before.st_size
+                if size < 0 or size > self._effective_member_limit:
+                    raise StoreUnsupportedOperation(
+                        f"SquashFS staged member {key!r} exceeds "
+                        f"{self._effective_member_limit} bytes."
+                    )
+                total_bytes += size
+                if total_bytes > self._max_total_uncompressed_bytes:
+                    raise StoreUnsupportedOperation(
+                        "SquashFS staged total size exceeds "
+                        f"{self._max_total_uncompressed_bytes} bytes."
+                    )
+                digest = _file_digest(path).value
+                after = path.stat(follow_symlinks=False)
+                if archive_file_signature(before) != archive_file_signature(after):
+                    raise StorePreconditionFailed(
+                        f"SquashFS staged member {key!r} changed while hashing."
+                    )
+                manifest[key] = _StagedMember(size=size, sha256=digest)
+        return manifest
+
+    def _validate_candidate(
+        self,
+        candidate: pathlib.Path,
+        manifest: dict[str, _StagedMember],
+    ) -> None:
+        """Verify candidate names, sizes, safety limits, and complete bytes."""
+
+        validator = SquashfsReadOnlyStorageBackend(
+            str(candidate),
+            unsquashfs_exe=self._unsquashfs_exe,
+            timeout_s=self._command_timeout_s,
+            max_inventory_entries=self._max_inventory_entries,
+            max_member_bytes=self._max_member_bytes,
+            max_total_uncompressed_bytes=self._max_total_uncompressed_bytes,
+            max_compression_ratio=self._max_compression_ratio,
+            max_header_bytes=self._max_header_bytes,
+            max_depth=self._max_depth,
+            max_path_bytes=self._max_path_bytes,
+        )
+        try:
+            status = validator.startup()
+            if not status.available:
+                raise StoreIntegrityError(
+                    f"SquashFS candidate validation failed: {status.message}"
+                )
+            inventory = {
+                location.key: validator.stat_file(location).size
+                for location in validator.iter_locations()
+            }
+            expected_sizes = {key: item.size for key, item in manifest.items()}
+            if inventory != expected_sizes:
+                raise StoreIntegrityError(
+                    "SquashFS candidate inventory differs from the staged manifest."
+                )
+            for key, expected in manifest.items():
+                digest = validator.compute_digest(validator.locate(key), "sha256")
+                if digest.value != expected.sha256:
+                    raise StoreIntegrityError(
+                        f"SquashFS candidate member {key!r} differs from staging."
+                    )
+        finally:
+            validator.close()
+
+    def _temporary_archive_path(self) -> pathlib.Path:
+        descriptor, name = tempfile.mkstemp(
+            prefix=f".{self._archive_path.name}.",
+            suffix=".part",
+            dir=self._archive_path.parent,
+        )
+        os.close(descriptor)
+        path = pathlib.Path(name)
+        path.unlink()
+        return path
+
+    def _publish_archive(self, temporary: pathlib.Path, *, force: bool) -> None:
+        if force:
+            os.replace(temporary, self._archive_path)
+        else:
+            try:
+                os.link(temporary, self._archive_path)
+            except FileExistsError as error:
+                raise FileExistsError(
+                    f"Output archive appeared during build: {self._archive_path}"
+                ) from error
+            temporary.unlink()
+        with self._archive_path.open("rb") as archive:
+            os.fsync(archive.fileno())
+        if hasattr(os, "O_DIRECTORY"):
+            descriptor = os.open(
+                self._archive_path.parent,
+                os.O_RDONLY | os.O_DIRECTORY,
+            )
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+
+    def _content_address(self, digest: Digest | None) -> str:
+        if digest is None:
+            raise StoreUnsupportedOperation(
+                "content-addressed staging requires an expected digest."
+            )
+        return "/".join(
+            (
+                self.DEFAULT_OBJECTS_DIRNAME,
+                digest.value[: self.AUTO_WRITE_BUCKET_LENGTH],
+                digest.value,
+            )
+        )
+
+    def _acquire_mutation(self) -> None:
+        with self._state_condition:
+            if self._built_store is not None:
+                raise StorePreconditionFailed(
+                    "SquashFS staging has already been sealed."
+                )
+            if self._sealing:
+                raise StorePreconditionFailed(
+                    "SquashFS staging is sealed for snapshot publication."
+                )
+            self._active_mutations += 1
+
+    def _release_mutation(self) -> None:
+        with self._state_condition:
+            self._active_mutations -= 1
+            self._state_condition.notify_all()
+
+    @contextmanager
+    def _mutation_operation(self):
+        self._acquire_mutation()
+        try:
+            yield
+        finally:
+            self._release_mutation()
+
+    def close(self) -> None:
+        super().close()
+        if self._tempdir is not None:
+            self._tempdir.cleanup()
+            self._tempdir = None
+
+
+def _file_digest(path: pathlib.Path) -> Digest:
+    hasher = hashlib.sha256()
+    with path.open("rb") as source:
+        while chunk := source.read(1024 * 1024):
+            hasher.update(chunk)
+    return Digest("sha256", hasher.hexdigest())
+
+
+__all__ = ["SquashfsBuildStorageBackend"]

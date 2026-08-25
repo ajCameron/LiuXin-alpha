@@ -126,7 +126,7 @@ class _CoreStoredFile:
     kind: str
     resource_id: int
 
-    def as_bytes(self) -> bytes:
+    def read_bytes(self) -> bytes:
         _resource, payload = self.model.acquisition_read(
             self.kind,
             self.resource_id,
@@ -2615,7 +2615,7 @@ class ReadOnlyWebApplication:
         stored_file = self._resolve_storage_file(row)
         if stored_file is not None:
             try:
-                payload = stored_file.as_bytes()
+                payload = stored_file.read_bytes()
                 if isinstance(payload, str):
                     payload = payload.encode("utf-8")
                 elif not isinstance(payload, bytes):
@@ -2674,7 +2674,7 @@ class ReadOnlyWebApplication:
         stored_file = self._resolve_storage_file(row)
         if stored_file is not None:
             try:
-                payload = stored_file.as_bytes()
+                payload = stored_file.read_bytes()
                 if isinstance(payload, str):
                     payload = payload.encode("utf-8")
                 elif not isinstance(payload, bytes):

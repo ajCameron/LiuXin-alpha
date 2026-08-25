@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import json
+from uuid import UUID
 
+import pytest
+
+from LiuXin_alpha.storage.api import StorageInvalidAddress
 from LiuXin_alpha.storage.reconcile import (
+    ensure_rclone_http_readonly_store,
     register_rclone_http_readonly_store_files,
     register_rclone_http_readonly_with_database_path,
 )
@@ -69,6 +74,8 @@ def test_register_rclone_http_store_files_inserts_rows_and_tracks_policy(db, mon
         store_name="web_mirror",
         max_http_requests_per_hour=10.0,
         enforce_global_rate_limit=False,
+        max_inventory_entries=23,
+        max_json_token_chars=4096,
         refresh_storage_manager=False,
     )
 
@@ -92,6 +99,8 @@ def test_register_rclone_http_store_files_inserts_rows_and_tracks_policy(db, mon
     policy = json.loads(str(policy_raw))
     assert policy["backend"] == "rclone_http_readonly"
     assert policy["rclone"]["max_http_requests_per_hour"] == 10.0
+    assert policy["rclone"]["max_inventory_entries"] == 23
+    assert policy["rclone"]["max_json_token_chars"] == 4096
     assert int(store_row["store_supports_checksums"] or 0) == 1
 
     # Ensure the configured rate limit is translated into rclone TPS flags.
@@ -172,8 +181,10 @@ def test_rclone_rate_limit_is_restored_when_storage_manager_bootstraps(db, monke
     )
 
     assert db.storage is not None
-    store = db.storage.get_store_container("web_mirror_bootstrap")
-    assert getattr(store.plugin.options, "max_http_requests_per_hour", None) == 5.0
+    rows = db.search("stores", "store_name", "web_mirror_bootstrap")
+    assert len(rows) == 1
+    store = db.storage.get_store(UUID(str(rows[0]["store_uuid"])))
+    assert getattr(store.options, "max_http_requests_per_hour", None) == 5.0
 
 
 def test_register_rclone_http_with_database_path_helper(provision_test_database, driver_spec, monkeypatch) -> None:
@@ -205,3 +216,26 @@ def test_register_rclone_http_with_database_path_helper(provision_test_database,
     )
     assert report.inserted_files == 1
     assert report.errors == []
+
+
+@pytest.mark.parametrize(
+    "invalid_root",
+    [
+        "remote:\ud800",
+        "remote:path\nsecond-command",
+        ':s3,secret_access_key="do-not-store":bucket',
+    ],
+)
+def test_rclone_invalid_or_secret_roots_create_no_database_rows(
+    db,
+    invalid_root: str,
+) -> None:
+    ensure_surface_asset_tables(db)
+    before = len(db.get_all_rows("stores", iterator_return=False) or ())
+
+    with pytest.raises(StorageInvalidAddress) as raised:
+        ensure_rclone_http_readonly_store(db, invalid_root)
+
+    assert "do-not-store" not in str(raised.value)
+    after = len(db.get_all_rows("stores", iterator_return=False) or ())
+    assert after == before

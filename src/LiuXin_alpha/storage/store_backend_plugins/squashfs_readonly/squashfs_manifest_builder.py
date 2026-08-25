@@ -45,7 +45,7 @@ class SquashfsBuildReport:
 
 
 def _normalize_archive_path(raw: str) -> str:
-    text = str(raw).strip().replace("\\", "/")
+    text = str(raw).replace("\\", "/")
     if not text:
         raise ValueError("archive_path cannot be empty.")
     if text.startswith("/"):

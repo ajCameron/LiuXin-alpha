@@ -36,6 +36,7 @@ DEFAULT_SCENARIOS = (
     "initialize_tables_only",
     "read_fields_only",
     "initialize_fields_only",
+    "targeted_id_refresh",
     "scalar_get_cached_value_loop",
     "scalar_get_cached_row_values_loop",
     "relation_single_get_value_loop",
@@ -267,6 +268,35 @@ def _scenario_initialize_fields_only(db: Any, cache_type: str) -> dict[str, obje
     }
 
 
+def _scenario_targeted_id_refresh(
+    db: Any,
+    cache: Any,
+    cache_type: str,
+    mutation_number: int,
+    read_counts: dict[str, int],
+) -> dict[str, object]:
+    """Measure the external-write path for one existing catalogue row."""
+
+    target_id = (int(mutation_number) % len(db._rows_by_table["books"])) + 1
+    title = f"Refreshed {mutation_number:06d}"
+    before_row_reads = int(read_counts["rows"])
+    before_table_reads = int(read_counts["tables"])
+    db.driver_wrapper.update_column("books", target_id, "title", title)
+    cache.invalidate_ids("books", (target_id,))
+    refreshed = cache.get_main_table("books").get_row_snapshot(target_id)
+    row_reads = int(read_counts["rows"]) - before_row_reads
+    table_reads = int(read_counts["tables"]) - before_table_reads
+    if refreshed["title"] != title:
+        raise AssertionError("targeted invalidation did not expose the committed row")
+    return {
+        "cache_type": cache_type,
+        "target_id": target_id,
+        "row_reads": row_reads,
+        "full_table_reads": table_reads,
+        "bounded": row_reads == 1 and table_reads == 0,
+    }
+
+
 def _scenario_scalar_get_cached_value_loop(cache: Any, owner_ids: tuple[int, ...], cache_type: str) -> dict[str, object]:
     total_length = 0
     for owner_id in owner_ids:
@@ -366,6 +396,20 @@ def run_internal_cache_benchmarks(
     progress: Optional[Callable[[str], None]] = None,
 ) -> dict[str, object]:
     db = _build_synthetic_cache_db(books=books, tag_pool=tag_pool, tags_per_book=tags_per_book)
+    read_counts = {"rows": 0, "tables": 0}
+    original_get_row = db.get_row_from_id
+    original_get_all_rows = db.get_all_rows
+
+    def counted_get_row(table: str, row_id: int):
+        read_counts["rows"] += 1
+        return original_get_row(table, row_id)
+
+    def counted_get_all_rows(table: str, iterator_return: bool = False):
+        read_counts["tables"] += 1
+        return original_get_all_rows(table, iterator_return=iterator_return)
+
+    db.get_row_from_id = counted_get_row
+    db.get_all_rows = counted_get_all_rows
     owner_ids = _expanded_ids(max(1, int(books)), sample_size)
     results: list[dict[str, object]] = []
 
@@ -375,6 +419,17 @@ def run_internal_cache_benchmarks(
 
         loaded_cache = _create_cache(db, cache_type)
         loaded_cache.read()
+        mutation_number = [0]
+
+        def targeted_id_refresh(cache_type: str = cache_type) -> dict[str, object]:
+            mutation_number[0] += 1
+            return _scenario_targeted_id_refresh(
+                db,
+                loaded_cache,
+                cache_type,
+                mutation_number[0],
+                read_counts,
+            )
 
         scenario_map: dict[str, Callable[[], dict[str, object]]] = {
             "load_cache": lambda cache_type=cache_type: _scenario_load_cache(db, cache_type),
@@ -382,6 +437,7 @@ def run_internal_cache_benchmarks(
             "initialize_tables_only": lambda cache_type=cache_type: _scenario_initialize_tables_only(db, cache_type),
             "read_fields_only": lambda cache_type=cache_type: _scenario_read_fields_only(db, cache_type),
             "initialize_fields_only": lambda cache_type=cache_type: _scenario_initialize_fields_only(db, cache_type),
+            "targeted_id_refresh": targeted_id_refresh,
             "scalar_get_cached_value_loop": lambda cache_type=cache_type: _scenario_scalar_get_cached_value_loop(loaded_cache, owner_ids, cache_type),
             "scalar_get_cached_row_values_loop": lambda cache_type=cache_type: _scenario_scalar_get_cached_row_values_loop(loaded_cache, owner_ids, cache_type),
             "relation_single_get_value_loop": lambda cache_type=cache_type: _scenario_relation_single_get_value_loop(loaded_cache, owner_ids, cache_type),

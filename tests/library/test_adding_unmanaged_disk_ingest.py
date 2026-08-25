@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 
+from LiuXin_alpha.storage.api import StoreConfigurationNotFound
 from LiuXin_alpha.storage.reconcile import (
     register_existing_disk_as_unmanaged_store,
     register_existing_disk_with_database_path,
@@ -144,11 +146,13 @@ def test_register_existing_disk_refreshes_db_storage_manager(db, tmp_path: Path)
     )
 
     assert db.storage is not None
-    store = db.storage.get_store_container("refresh_store")
-    assert store.store_url == str(disk_root.resolve())
+    row = db.get_row_from_id("stores", report.store_row_id)
+    assert row is not None
+    store = db.storage.get_store(UUID(str(row["store_uuid"])))
+    assert store.root_path == disk_root.resolve()
 
-    got = db.storage.locate_file(metadata={"file_storage_key": "book.epub", "file_store_id": report.store_row_id})
-    assert got.as_bytes() == b"payload"
+    location = store.locate("book.epub")
+    assert db.storage.read_bytes(location) == b"payload"
 
 
 def test_register_existing_disk_can_skip_storage_manager_refresh(db, tmp_path: Path) -> None:
@@ -164,5 +168,7 @@ def test_register_existing_disk_can_skip_storage_manager_refresh(db, tmp_path: P
     )
 
     assert db.storage is not None
-    with pytest.raises(KeyError):
-        db.storage.get_store_container("no_refresh_store")
+    rows = db.search("stores", "store_name", "no_refresh_store")
+    assert len(rows) == 1
+    with pytest.raises(StoreConfigurationNotFound):
+        db.storage.get_store(UUID(str(rows[0]["store_uuid"])))

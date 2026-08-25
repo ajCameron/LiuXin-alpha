@@ -1,14 +1,20 @@
+"""Rich-placement and transactional tests for the Calibre-like Store."""
+
 from __future__ import annotations
 
-import pathlib
+from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.storage.api import ItemStorageHints, WorkStorageHints
+from LiuXin_alpha.storage import api
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like import (
     OnDiskCalibreLikeStorageBackend,
 )
-from LiuXin_alpha.storage.errors import CalibreLikeImplicitOverwriteError
+from tests.fixtures.storage_unicode import (
+    UNICODE_AUTHORS,
+    UNICODE_PAYLOAD,
+    UNICODE_TITLE,
+)
 
 
 class _DummyFileRow(dict):
@@ -31,16 +37,42 @@ class _DummyDb:
 
 
 class _HintsOnlyMetadata:
-    def __init__(self, hints: WorkStorageHints):
+    def __init__(self, hints: api.WorkStorageHints):
         self._hints = hints
 
-    def storage_hints(self) -> WorkStorageHints:
+    def storage_hints(self) -> api.WorkStorageHints:
         return self._hints
 
 
-def test_calibre_like_layout_from_basic_metadata(tmp_path) -> None:
-    store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
-    file_obj = store.write_bytes(
+def test_calibre_like_unicode_metadata_drives_lossless_rich_layout(
+    tmp_path: Path,
+) -> None:
+    store = OnDiskCalibreLikeStorageBackend(tmp_path)
+    author_text = " & ".join(UNICODE_AUTHORS)
+
+    info = store.store_bytes(
+        UNICODE_PAYLOAD,
+        metadata={
+            "title": UNICODE_TITLE,
+            "authors": UNICODE_AUTHORS,
+            "work_id": 314,
+            "format": "EPUB",
+        },
+    )
+    expected = (
+        f"{author_text}/{UNICODE_TITLE} (314)/"
+        f"{UNICODE_TITLE} - {author_text}.epub"
+    )
+
+    assert info.location.key == expected
+    assert store.stat_file(info).hints.suggested_filename == expected.rsplit("/", 1)[-1]
+    assert [location.key for location in store.iter_locations()] == [expected]
+    assert store.read_file(info) == UNICODE_PAYLOAD
+
+
+def test_calibre_like_layout_from_basic_metadata(tmp_path: Path) -> None:
+    store = OnDiskCalibreLikeStorageBackend(tmp_path)
+    info = store.store_bytes(
         b"abc",
         metadata={
             "title": "Dune",
@@ -49,15 +81,15 @@ def test_calibre_like_layout_from_basic_metadata(tmp_path) -> None:
             "format": "EPUB",
         },
     )
+    assert info.location.key == (
+        "Frank Herbert/Dune (9)/Dune - Frank Herbert.epub"
+    )
+    assert store.read_file(info) == b"abc"
 
-    expected = (tmp_path / "Frank Herbert" / "Dune (9)" / "Dune - Frank Herbert.epub").resolve()
-    assert pathlib.Path(file_obj.file_url) == expected
-    assert expected.exists() is True
 
-
-def test_calibre_like_layout_uses_author_combo_folder(tmp_path) -> None:
-    store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
-    file_obj = store.write_bytes(
+def test_calibre_like_layout_uses_author_combo_folder(tmp_path: Path) -> None:
+    store = OnDiskCalibreLikeStorageBackend(tmp_path)
+    info = store.store_bytes(
         b"abc",
         metadata={
             "title": "Good Omens",
@@ -66,40 +98,41 @@ def test_calibre_like_layout_uses_author_combo_folder(tmp_path) -> None:
             "file_extension": "pdf",
         },
     )
-
-    expected = (
-        tmp_path
-        / "Neil Gaiman & Terry Pratchett"
-        / "Good Omens (17)"
-        / "Good Omens - Neil Gaiman & Terry Pratchett.pdf"
-    ).resolve()
-    assert pathlib.Path(file_obj.file_url) == expected
+    assert info.location.key == (
+        "Neil Gaiman & Terry Pratchett/Good Omens (17)/"
+        "Good Omens - Neil Gaiman & Terry Pratchett.pdf"
+    )
 
 
-def test_calibre_like_collision_dedupes_same_bytes_and_rejects_incompatible_overwrite(tmp_path) -> None:
-    store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
+def test_calibre_like_collision_requires_explicit_replacement(tmp_path: Path) -> None:
+    store = OnDiskCalibreLikeStorageBackend(tmp_path)
     metadata = {
         "title": "Dune",
         "authors": ["Frank Herbert"],
         "work_id": 9,
         "format": "epub",
     }
+    first = store.store_bytes(b"one", metadata=metadata)
+    with pytest.raises(api.StoreAlreadyExists):
+        store.store_bytes(b"one", metadata=metadata)
+    replacement = store.store_bytes(
+        b"two",
+        location=first.location,
+        metadata=metadata,
+        write_mode="replace",
+    )
+    assert store.read_file(replacement) == b"two"
 
-    file_one = store.write_bytes(b"one", metadata=metadata)
-    file_same = store.write_bytes(b"one", metadata=metadata)
 
-    assert file_one.file_url == file_same.file_url
-
-    with pytest.raises(CalibreLikeImplicitOverwriteError, match="overwrite existing bytes"):
-        store.write_bytes(b"two", metadata=metadata)
-
-
-def test_calibre_like_updates_database_file_row(tmp_path) -> None:
+def test_calibre_like_updates_database_file_row(tmp_path: Path) -> None:
     row = _DummyFileRow(file_storage_key=None)
-    db = _DummyDb(rows_by_id={11: row})
-    store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path), database=db, store_id=77)
-
-    file_obj = store.write_bytes(
+    database = _DummyDb({11: row})
+    store = OnDiskCalibreLikeStorageBackend(
+        tmp_path,
+        database=database,
+        store_id=77,
+    )
+    info = store.store_bytes(
         b"payload",
         metadata={
             "title": "Children of Dune",
@@ -109,30 +142,23 @@ def test_calibre_like_updates_database_file_row(tmp_path) -> None:
         },
     )
 
-    expected = (
-        tmp_path
-        / "Frank Herbert"
-        / "Children of Dune (11)"
-        / "Children of Dune - Frank Herbert.epub"
-    ).resolve()
-    assert pathlib.Path(file_obj.file_url) == expected
-
-    assert row["file_storage_key"] == "Frank Herbert/Children of Dune (11)/Children of Dune - Frank Herbert.epub"
-    assert row["file_url"] == str(expected)
+    assert row["file_storage_key"] == info.location.key
+    assert row["file_url"] == str(tmp_path / Path(info.location.key))
     assert row["file_name"] == "Children of Dune - Frank Herbert.epub"
     assert row["file_store_id"] == 77
     assert isinstance(row["file_modified_timestamp_ep_k"], int)
     assert row.sync_calls == 1
-    assert ("files", 11) in db.calls
+    assert database.calls == [("files", 11)]
 
 
-def test_calibre_like_uses_storage_hints_when_direct_fields_absent(tmp_path) -> None:
+def test_calibre_like_uses_storage_hints_when_direct_fields_absent(
+    tmp_path: Path,
+) -> None:
     row = _DummyFileRow(file_storage_key=None)
-    db = _DummyDb(rows_by_id={8: row})
-    store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path), database=db)
-
+    database = _DummyDb({8: row})
+    store = OnDiskCalibreLikeStorageBackend(tmp_path, database=database)
     metadata = _HintsOnlyMetadata(
-        WorkStorageHints(
+        api.WorkStorageHints(
             work_id=5,
             title="Permutation City",
             primary_agents=("Greg Egan",),
@@ -140,50 +166,37 @@ def test_calibre_like_uses_storage_hints_when_direct_fields_absent(tmp_path) -> 
             extra={"file_id": 8},
         )
     )
-
-    file_obj = store.write_bytes(b"hints", metadata=metadata)
-    expected = (
-        tmp_path
-        / "Greg Egan"
-        / "Permutation City (5)"
-        / "Permutation City - Greg Egan.mobi"
-    ).resolve()
-
-    assert pathlib.Path(file_obj.file_url) == expected
-    assert row["file_storage_key"] == "Greg Egan/Permutation City (5)/Permutation City - Greg Egan.mobi"
+    info = store.store_bytes(b"hints", metadata=metadata)
+    assert info.location.key == (
+        "Greg Egan/Permutation City (5)/Permutation City - Greg Egan.mobi"
+    )
+    assert row["file_storage_key"] == info.location.key
 
 
-def test_calibre_like_uses_item_storage_hints_when_available(tmp_path) -> None:
-    store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
-
-    class _ItemHintsOnlyMetadata:
-        def storage_hints(self) -> ItemStorageHints:
-            return ItemStorageHints(
-                item_id=44,
-                work_id=5,
-                title="Permutation City",
-                primary_agents=("Greg Egan",),
-                file_formats=("EPUB",),
-                preferred_filename_stem="Permutation City - Greg Egan",
-            )
-
-    file_obj = store.write_bytes(b"hints", metadata=_ItemHintsOnlyMetadata())
-    expected = (
-        tmp_path
-        / "Greg Egan"
-        / "Permutation City (5)"
-        / "Permutation City - Greg Egan.epub"
-    ).resolve()
-
-    assert pathlib.Path(file_obj.file_url) == expected
+def test_calibre_like_uses_item_storage_hints_when_available(
+    tmp_path: Path,
+) -> None:
+    store = OnDiskCalibreLikeStorageBackend(tmp_path)
+    hints = api.ItemStorageHints(
+        item_id=44,
+        work_id=5,
+        title="Permutation City",
+        primary_agents=("Greg Egan",),
+        file_formats=("EPUB",),
+        preferred_filename_stem="Permutation City - Greg Egan",
+    )
+    info = store.store_bytes(b"hints", metadata=hints)
+    assert info.location.key == (
+        "Greg Egan/Permutation City (5)/Permutation City - Greg Egan.epub"
+    )
 
 
-def test_calibre_like_without_metadata_falls_back_to_managed_hash_layout(tmp_path) -> None:
-    store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
-    payload = b"abc"
-    expected_hash = __import__("hashlib").sha256(payload).hexdigest()
-
-    file_obj = store.write_bytes(payload, metadata=None)
-
-    expected = (tmp_path / ".liuxin" / "managed_drive" / expected_hash[:5] / expected_hash).resolve()
-    assert pathlib.Path(file_obj.file_url) == expected
+def test_calibre_like_without_metadata_uses_managed_hash_layout(
+    tmp_path: Path,
+) -> None:
+    store = OnDiskCalibreLikeStorageBackend(tmp_path)
+    info = store.store_bytes(b"abc")
+    digest = __import__("hashlib").sha256(b"abc").hexdigest()
+    assert info.location.key == (
+        f".liuxin/managed_drive/{digest[:5]}/{digest}"
+    )

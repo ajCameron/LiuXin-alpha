@@ -67,8 +67,10 @@ test-port assumptions were later invalidated.
    - `bootstrap_storage_manager()` had drifted enough to create a
      `StorageManager` without binding the live database first; this was fixed
      during validation of the moved surfaces
-   - SquashFS provenance is still wired to legacy `file_derivations`, while
-     the live FRBR schema exposes `digital_asset_derivations`
+   - Resolved: verified SquashFS archive members are registered as additional
+     Replicas of the same Digital Assets. Packing identical bytes is not a
+     derivation, so the sync path no longer creates legacy `file_derivations`
+     rows.
 
 4. Still-open code seam outside storage
 
@@ -80,7 +82,5 @@ test-port assumptions were later invalidated.
 
 1. Decide whether to restore/port `surfaces.gui2` or redirect those imports to
    the real current Qt helper location.
-2. Port SquashFS provenance from `file_derivations` to
-   `digital_asset_derivations`.
-3. Revisit any remaining stale xfails only after those live source seams are
+2. Revisit any remaining stale xfails only after those live source seams are
    cleared.

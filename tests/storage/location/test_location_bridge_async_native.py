@@ -1,46 +1,38 @@
+"""Async applications keep adaptation outside the durable value object."""
+
 from __future__ import annotations
 
-import threading
-
-import pytest
-
-from .conftest import AsyncOnDiskLocation, fs_path
-
-pytestmark = pytest.mark.usefixtures("require_async_native_sync_bridge")
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 
-class TestAsyncNativePretendSyncBridge:
-    def test_sync_facade_exists_and_open_work(self, store) -> None:
-        loc = AsyncOnDiskLocation("bridges", store=store)
-        fs_path(store, "bridges").mkdir(parents=True, exist_ok=True)
+def test_async_code_can_call_the_explicit_sync_boundary_without_a_fake_value(
+    manager, location, payload,
+) -> None:
+    async def run() -> bytes:
+        bound = manager.bind(location)
+        bound.write_bytes(payload)
+        await asyncio.sleep(0)
+        return bound.read_bytes()
 
-        assert loc.exists() is True
-        assert loc.is_dir() is True
+    assert asyncio.run(run()) == payload
 
-        f = AsyncOnDiskLocation("bridges", "hello.txt", store=store)
-        with f.open("w", encoding="utf-8", newline="\n") as handle:
-            handle.write("hello\n")
 
-        with f.open("r", encoding="utf-8") as handle:
-            assert handle.read() == "hello\n"
+def test_thread_adaptation_keeps_one_durable_location(manager, location, payload) -> None:
+    manager.write_bytes(location, payload)
+    bound = manager.bind(location)
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [
+            executor.submit(bound.read_bytes, offset=i, length=3)
+            for i in range(5)
+        ]
+    assert [future.result() for future in futures] == [
+        payload[i : i + 3] for i in range(5)
+    ]
 
-    def test_sync_facade_from_multiple_threads(self, store) -> None:
-        fs_path(store, "t").mkdir(parents=True, exist_ok=True)
-        loc = AsyncOnDiskLocation("t", store=store)
 
-        results: list[bool] = []
-        lock = threading.Lock()
-
-        def worker() -> None:
-            for _ in range(25):
-                ok = loc.exists()
-                with lock:
-                    results.append(ok)
-
-        threads = [threading.Thread(target=worker) for _ in range(8)]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-
-        assert all(results)
+def test_location_and_bound_location_do_not_pretend_to_be_async(manager, location) -> None:
+    bound = manager.bind(location)
+    for operation in ("aopen", "aread_bytes", "awrite_bytes", "aexists"):
+        assert not hasattr(location, operation)
+        assert not hasattr(bound, operation)

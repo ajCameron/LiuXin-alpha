@@ -11,18 +11,35 @@ from __future__ import annotations
 
 import pathlib
 
-from collections.abc import Iterator
-from typing import Any, Mapping, Optional
+from collections.abc import Iterable, Iterator
+from typing import Any, BinaryIO, Mapping, Optional
+from uuid import UUID
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.ingest import (
     RemoteHtmlRegistrationReport,
+    StoreIngestObjectCheckpoint,
+    StoreIngestReport,
+    adopt_store as adopt_configured_store,
+    ingest_store as ingest_configured_store,
     register_native_html_readonly_store_files,
     register_wget_html_readonly_store_files,
 )
 from LiuXin_alpha.metadata.containers import ItemMetadata, ItemMetadataHydrator
-from LiuXin_alpha.storage.api import StoreContainerAPI, StoreLocationMixinAPI, StorePluginAPI
+from LiuXin_alpha.storage.api import (
+    Digest,
+    DigitalAssetID,
+    DigitalAssetRecord,
+    Location,
+    ReplicaID,
+    ReplicaMode,
+    ReplicaRecord,
+    ReplicaRemovalReport,
+    StoreAPI,
+    StoreConfiguration,
+    StoreUUID,
+)
 from LiuXin_alpha.storage.reconcile import (
     SquashfsArchivePublishReport,
     SquashfsDesignationReport,
@@ -382,40 +399,260 @@ class Library:
             strict=strict,
         )
 
-    def get_store(self, store_identifier: str) -> StorePluginAPI:
-        return self.storage.get_store(store_identifier)
+    def get_store(
+        self,
+        store: StoreUUID | StoreConfiguration | StoreAPI,
+    ) -> StoreAPI:
+        """Return one configured Store by stable UUID or Store value."""
 
-    def iter_stores(self) -> Iterator[StoreContainerAPI]:
-        return self.storage.iter_store_containers()
+        return self.storage.get_store(self._store_ref(store))
+
+    def iter_stores(self) -> Iterator[StoreAPI]:
+        """Iterate live Store facades, not persistence containers."""
+
+        return self.storage.iter_stores()
 
     def add_file(
         self,
         file_bytes: bytes,
         metadata: Optional[Any] = None,
         *,
-        preferred_store: Optional[str] = None,
-    ) -> StoreLocationMixinAPI:
-        return self.storage.store_bytes(file_bytes=file_bytes, metadata=metadata, preferred_store=preferred_store)
+        store: StoreUUID | StoreConfiguration | StoreAPI | None = None,
+        name: str | None = None,
+        media_type: str | None = None,
+        original_name: str | None = None,
+        verify: bool = True,
+    ) -> DigitalAssetRecord:
+        """Store bytes transactionally and return their logical Asset record."""
+
+        return self.storage.store_bytes(
+            file_bytes,
+            metadata=metadata,
+            store=store,
+            name=name,
+            media_type=media_type,
+            original_name=original_name,
+            verify=verify,
+        )
+
+    def ingest_store(
+        self,
+        source: StoreUUID | StoreConfiguration | StoreAPI,
+        *,
+        destination: StoreUUID | StoreConfiguration | StoreAPI | None = None,
+        prefix: str | Location | None = None,
+        extensions: Iterable[str] | None = None,
+        metadata: Any = None,
+        placement_hints: Any = None,
+        inspect: bool = True,
+        replica_mode: ReplicaMode | str = ReplicaMode.ACTIVE,
+        verify: bool = True,
+        continue_on_error: bool = True,
+        cursor: str | None = None,
+        snapshot_token: str | None = None,
+        page_size: int | None = None,
+        max_files: int | None = None,
+        workers: int | None = 1,
+        object_staging_directory: str | pathlib.Path | None = None,
+        resume_checkpoints: Iterable[StoreIngestObjectCheckpoint] = (),
+    ) -> StoreIngestReport:
+        """Copy files from any enumerable Store into managed storage."""
+
+        return ingest_configured_store(
+            self.storage,
+            source,
+            destination=destination,
+            prefix=prefix,
+            extensions=extensions,
+            metadata=metadata,
+            placement_hints=placement_hints,
+            inspect=inspect,
+            replica_mode=replica_mode,
+            verify=verify,
+            continue_on_error=continue_on_error,
+            cursor=cursor,
+            snapshot_token=snapshot_token,
+            page_size=page_size,
+            max_files=max_files,
+            workers=workers,
+            object_staging_directory=object_staging_directory,
+            resume_checkpoints=resume_checkpoints,
+        )
+
+    def adopt_store(
+        self,
+        source: StoreUUID | StoreConfiguration | StoreAPI,
+        *,
+        prefix: str | Location | None = None,
+        extensions: Iterable[str] | None = None,
+        metadata: Any = None,
+        inspect: bool = True,
+        replica_mode: ReplicaMode | str = ReplicaMode.UNMANAGED,
+        verify: bool = False,
+        continue_on_error: bool = True,
+        cursor: str | None = None,
+        snapshot_token: str | None = None,
+        page_size: int | None = None,
+        max_files: int | None = None,
+        workers: int | None = 1,
+    ) -> StoreIngestReport:
+        """Register files already present in an attached managed Store."""
+
+        return adopt_configured_store(
+            self.storage,
+            source,
+            prefix=prefix,
+            extensions=extensions,
+            metadata=metadata,
+            inspect=inspect,
+            replica_mode=replica_mode,
+            verify=verify,
+            continue_on_error=continue_on_error,
+            cursor=cursor,
+            snapshot_token=snapshot_token,
+            page_size=page_size,
+            max_files=max_files,
+            workers=workers,
+        )
+
+    def open_file(
+        self,
+        identifier: int | DigitalAssetRecord | Digest | str,
+        *,
+        store: StoreUUID | StoreConfiguration | StoreAPI | None = None,
+        verified: bool = False,
+        offset: int = 0,
+        length: int | None = None,
+    ) -> BinaryIO:
+        """Open an Asset by ID or digest as a read-only binary stream."""
+
+        return self.storage.open_file(
+            identifier,
+            store=store,
+            verified=verified,
+            offset=offset,
+            length=length,
+        )
+
+    def read_file(
+        self,
+        identifier: int | DigitalAssetRecord | Digest | str,
+        *,
+        store: StoreUUID | StoreConfiguration | StoreAPI | None = None,
+        verified: bool = False,
+        offset: int = 0,
+        length: int | None = None,
+    ) -> bytes:
+        """Read an Asset by ID or digest fully into memory."""
+
+        return self.storage.read_file(
+            identifier,
+            store=store,
+            verified=verified,
+            offset=offset,
+            length=length,
+        )
 
     def retrieve_file(
         self,
-        file_url: Optional[str] = None,
-        metadata: Optional[Any] = None,
+        identifier: int | DigitalAssetRecord | Digest | str,
         *,
-        preferred_store: Optional[str] = None,
-    ) -> StoreLocationMixinAPI:
-        return self.storage.locate_file(file_url=file_url, metadata=metadata, preferred_store=preferred_store)
+        store: StoreUUID | StoreConfiguration | StoreAPI | None = None,
+        verified: bool = False,
+        offset: int = 0,
+        length: int | None = None,
+    ) -> BinaryIO:
+        """Return the same read-only stream as :meth:`open_file`."""
+
+        return self.open_file(
+            identifier,
+            store=store,
+            verified=verified,
+            offset=offset,
+            length=length,
+        )
+
+    def locate_file(
+        self,
+        asset: int | DigitalAssetRecord,
+        *,
+        store: StoreUUID | StoreConfiguration | StoreAPI | None = None,
+        mode: ReplicaMode = ReplicaMode.ACTIVE,
+        verified: bool = False,
+    ) -> Location:
+        """Resolve a logical Asset to its selected concrete Location."""
+
+        asset_id = (
+            asset.digital_asset_id
+            if isinstance(asset, DigitalAssetRecord)
+            else DigitalAssetID(int(asset))
+        )
+        return self.storage.locate_digital_asset(
+            asset_id,
+            preferred_store_ref=(None if store is None else self._store_ref(store)),
+            mode=mode,
+            require_verified=verified,
+        )
+
+    def open_location(
+        self,
+        location: Location,
+        *,
+        offset: int = 0,
+        length: int | None = None,
+    ) -> BinaryIO:
+        """Open one exact routed Location without catalogue selection."""
+
+        return self.storage.get(location, offset=offset, length=length)
+
+    def read_location(
+        self,
+        location: Location,
+        *,
+        offset: int = 0,
+        length: int | None = None,
+    ) -> bytes:
+        """Read one exact routed Location fully into memory."""
+
+        return self.storage.read_bytes(location, offset=offset, length=length)
 
     def delete_file(
         self,
-        file_url: Optional[str] = None,
-        metadata: Optional[Any] = None,
-        file_container: Optional[StoreLocationMixinAPI] = None,
-    ) -> bool:
-        return self.storage.delete_location(file_url=file_url, metadata=metadata, location=file_container)
+        replica: ReplicaID | ReplicaRecord | int,
+        *,
+        delete_bytes: bool = True,
+        retain_tombstone: bool = True,
+    ) -> ReplicaRemovalReport:
+        """Remove one exact Replica; never guess which copies an Asset means."""
 
-    def iter_files(self) -> Iterator[StoreLocationMixinAPI]:
-        return self.storage.iter_locations()
+        replica_id = (
+            replica.replica_id
+            if isinstance(replica, ReplicaRecord)
+            else ReplicaID(int(replica))
+        )
+        return self.storage.remove_replica(
+            replica_id,
+            delete_bytes=delete_bytes,
+            retain_tombstone=retain_tombstone,
+        )
+
+    def iter_files(self) -> Iterator[DigitalAssetRecord]:
+        """Iterate logical Asset records rather than path-like locations."""
+
+        return self.storage.iter_digital_asset_records()
+
+    @staticmethod
+    def _store_ref(
+        store: StoreUUID | StoreConfiguration | StoreAPI,
+    ) -> StoreUUID:
+        if isinstance(store, UUID):
+            return store
+        if isinstance(store, StoreConfiguration):
+            return store.store_uuid
+        store_ref = getattr(store, "store_ref", None)
+        if isinstance(store_ref, UUID):
+            return store_ref
+        raise TypeError("store must be a Store UUID, configuration, or Store facade.")
 
     def register_unmanaged_disk(
         self,

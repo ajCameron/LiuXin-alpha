@@ -15,6 +15,18 @@ _EXPORT_MODULES = {
     "register_native_html_readonly_store_files": "LiuXin_alpha.ingest.remote_html",
     "register_native_html_readonly_with_database_path": "LiuXin_alpha.ingest.remote_html",
     "RemoteHtmlRegistrationReport": "LiuXin_alpha.ingest.models",
+    "StoreIngestCheckpointedError": "LiuXin_alpha.ingest.models",
+    "StoreIngestFailure": "LiuXin_alpha.ingest.models",
+    "StoreIngestItem": "LiuXin_alpha.ingest.models",
+    "StoreIngestMode": "LiuXin_alpha.ingest.models",
+    "StoreIngestObjectCheckpoint": "LiuXin_alpha.ingest.models",
+    "StoreIngestReport": "LiuXin_alpha.ingest.models",
+    "StoreIngestInfo": "LiuXin_alpha.ingest.stores",
+    "StoreIngestSource": "LiuXin_alpha.ingest.stores",
+    "StoreMetadataInput": "LiuXin_alpha.ingest.stores",
+    "StorePlacementInput": "LiuXin_alpha.ingest.stores",
+    "adopt_store": "LiuXin_alpha.ingest.stores",
+    "ingest_store": "LiuXin_alpha.ingest.stores",
 }
 
 __all__ = list(_EXPORT_MODULES.keys())

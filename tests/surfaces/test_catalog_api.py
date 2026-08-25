@@ -324,7 +324,7 @@ def test_catalog_backend_discovers_files_and_images_and_resolves_targets(driver_
         assert target is None
         stored = backend.resolve_storage_image(image_row)
         assert stored is not None
-        assert stored.as_bytes() == image_path.read_bytes()
+        assert stored.read_bytes() == image_path.read_bytes()
 
         metadata = backend.image_storage_lookup_metadata(image_row)
         assert metadata["file_store_id"] == store_id

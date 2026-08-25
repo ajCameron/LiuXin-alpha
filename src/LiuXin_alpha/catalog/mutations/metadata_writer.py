@@ -47,7 +47,8 @@ class MetadataWriter:
         Callers provide repository payloads for each level; every Item is
         assigned to the newly created Manifestation.
 
-        :param work: New Work repository payload.
+        :param work: New Work repository payload, or replacement values for
+            ``work_id``. May be empty only when ``work_id`` already exists.
         :param expression: New preferred or alternate Expression payload.
         :param manifestation: New Manifestation payload.
         :param items: Zero or more new Item payloads.
@@ -56,12 +57,19 @@ class MetadataWriter:
             supplied, the new preferred Expression replaces that Work's
             existing Work-to-Expression links.
         :return: IDs of every created WEMI entity.
-        :raises CatalogMutationError: If a payload is empty, an Item targets a
-            different Manifestation, or link metadata cannot be represented.
+        :raises CatalogMutationError: If a required creation payload is empty,
+            an Item targets a different Manifestation, or link metadata cannot
+            be represented.
         """
 
+        if work_id is not None and (
+            not isinstance(work_id, int) or isinstance(work_id, bool) or work_id < 0
+        ):
+            raise TypeError("work_id must be a non-negative integer or None")
+        existing_work = (
+            None if work_id is None else self.repositories.works.get(work_id)
+        )
         payloads = {
-            "work": work,
             "expression": expression,
             "manifestation": manifestation,
         }
@@ -70,6 +78,10 @@ class MetadataWriter:
                 raise CatalogMutationError(
                     f"WEMI stack requires a non-empty {level} payload"
                 )
+        if not self.policy.can_create(level="work", data=work) and existing_work is None:
+            raise CatalogMutationError(
+                "WEMI stack requires a non-empty work payload"
+            )
         raw_items: object = items
         if not isinstance(raw_items, Sequence) or isinstance(raw_items, (str, bytes)):
             raise TypeError("items must be a sequence of mappings")
@@ -80,15 +92,10 @@ class MetadataWriter:
             item_payloads.append(dict(item))
         if origin is not None and not isinstance(origin, str):
             raise TypeError("origin must be a string or None")
-        if work_id is not None and (
-            not isinstance(work_id, int) or isinstance(work_id, bool) or work_id < 0
-        ):
-            raise TypeError("work_id must be a non-negative integer or None")
-
         with self.db.macros.transaction():
             if work_id is None:
                 created_work_id = self.repositories.works.create(work)
-            elif self.repositories.works.get(work_id) is None:
+            elif existing_work is None:
                 payload = self.repositories.works.normalise_input(work)
                 payload["work_id"] = work_id
                 inserted_work_id = self.db.macros.insert_row(
@@ -101,8 +108,10 @@ class MetadataWriter:
                         "database did not preserve the requested Work ID"
                     )
                 created_work_id = work_id
-            else:
+            elif work:
                 self.repositories.works.update(work_id, work)
+                created_work_id = work_id
+            else:
                 created_work_id = work_id
             expression_id = self.repositories.expressions.create(expression)
             work_expression_extra = self._wemi_link_extra(

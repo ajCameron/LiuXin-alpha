@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+from uuid import UUID
+
+import pytest
 
 from LiuXin_alpha.ingest import (
     register_wget_html_readonly_store_files,
     register_wget_html_readonly_with_database_path,
 )
+from LiuXin_alpha.ingest.remote_html import ensure_wget_html_readonly_store
 from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
     wget_html_storage_backend as backend_module,
 )
@@ -38,6 +42,8 @@ def test_register_wget_html_store_files_inserts_rows_and_tracks_policy(db, monke
         remote_url="https://example.com/",
         store_name="wget_web_mirror",
         max_http_requests_per_hour=60.0,
+        max_observed_urls=17,
+        max_output_chars=4096,
         refresh_storage_manager=False,
     )
 
@@ -60,6 +66,8 @@ def test_register_wget_html_store_files_inserts_rows_and_tracks_policy(db, monke
     policy = json.loads(str(policy_raw))
     assert policy["backend"] == "wget_html_readonly"
     assert policy["wget"]["max_http_requests_per_hour"] == 60.0
+    assert policy["wget"]["max_observed_urls"] == 17
+    assert policy["wget"]["max_output_chars"] == 4096
     assert int(store_row["store_supports_checksums"] or 0) == 0
 
     assert captured_args
@@ -110,12 +118,18 @@ def test_wget_rate_limit_is_restored_when_storage_manager_bootstraps(db, monkeyp
         remote_url="https://example.com/",
         store_name="wget_web_mirror_bootstrap",
         max_http_requests_per_hour=30.0,
+        max_observed_urls=31,
+        max_output_chars=8192,
         refresh_storage_manager=True,
     )
 
     assert db.storage is not None
-    store = db.storage.get_store_container("wget_web_mirror_bootstrap")
-    assert getattr(store.plugin.options, "max_http_requests_per_hour", None) == 30.0
+    rows = db.search("stores", "store_name", "wget_web_mirror_bootstrap")
+    assert len(rows) == 1
+    store = db.storage.get_store(UUID(str(rows[0]["store_uuid"])))
+    assert getattr(store.options, "max_http_requests_per_hour", None) == 30.0
+    assert store.options.max_observed_urls == 31
+    assert store.options.max_output_chars == 8192
 
 
 def test_register_wget_html_with_database_path_helper(provision_test_database, driver_spec, monkeypatch) -> None:
@@ -235,3 +249,66 @@ def test_register_wget_html_store_files_tracks_crawler_observation_counts(db, mo
         "not_file_like": 1,
         "out_of_scope": 1,
     }
+
+
+@pytest.mark.parametrize(
+    "invalid_root",
+    [
+        "https://example.test/library/bad-%GG/",
+        "https://example.test/library/bad%00path/",
+        "https://example.test/library/\ud800/",
+        "https://user:secret@example.test/library/",
+    ],
+)
+def test_wget_html_invalid_roots_create_no_database_rows(
+    db,
+    invalid_root: str,
+) -> None:
+    ensure_surface_asset_tables(db)
+    before = len(db.get_all_rows("stores", iterator_return=False) or ())
+
+    with pytest.raises(ValueError, match="valid safe HTTP"):
+        ensure_wget_html_readonly_store(db, invalid_root)
+
+    after = len(db.get_all_rows("stores", iterator_return=False) or ())
+    assert after == before
+
+
+def test_wget_db_ingest_canonicalizes_unicode_and_filters_malformed_output(
+    db,
+    monkeypatch,
+) -> None:
+    ensure_surface_asset_tables(db)
+    normalized_root = (
+        "https://xn--bcher-kva.example/%E6%96%87%E5%BA%93/"
+    )
+
+    def _fake_run_wget(args, **kwargs):
+        return _ok_wget_result(
+            args=list(args),
+            stdout="\n".join(
+                (
+                    normalized_root + "valid-书.epub",
+                    normalized_root + "bad-%GG.epub",
+                    normalized_root + "bad\udcff.epub",
+                    normalized_root + "%2e%2e/escape.epub",
+                )
+            ),
+        )
+
+    monkeypatch.setattr(backend_module, "run_wget", _fake_run_wget)
+
+    report = register_wget_html_readonly_store_files(
+        db,
+        remote_url="HTTPS://Bücher.example/文库/",
+        refresh_storage_manager=False,
+    )
+
+    assert report.errors == []
+    assert report.inserted_files == 1
+    assert report.store_root_uri == normalized_root
+    [row] = db.search("files", "file_store_id", report.store_row_id)
+    assert row["file_storage_key"] == "valid-%E4%B9%A6.epub"
+    store_row = db.get_row_from_id("stores", report.store_row_id)
+    assert store_row is not None
+    assert store_row["store_root_uri"] == normalized_root

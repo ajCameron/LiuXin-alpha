@@ -6,10 +6,11 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 
 from dataclasses import dataclass
 from typing import Callable, Mapping, Sequence
-from urllib.parse import urlparse, urlunparse
+from LiuXin_alpha.ingest.sources.html_common import normalize_http_url
 
 
 class WgetNotInstalledError(RuntimeError):
@@ -44,7 +45,10 @@ def run_wget(
     timeout_s: float | None = None,
     check: bool = True,
     line_callback: Callable[[str], None] | None = None,
+    max_output_chars: int | None = 8 * 1024 * 1024,
 ) -> WgetResult:
+    if max_output_chars is not None and max_output_chars < 1:
+        raise ValueError("max_output_chars must be positive or None.")
     exe = which_wget(wget_exe)
     cmd = [exe]
     if extra_args:
@@ -64,6 +68,8 @@ def run_wget(
             timeout=timeout_s,
             check=False,
             text=True,
+            encoding="utf-8",
+            errors="surrogateescape",
         )
         result = WgetResult(
             args=cmd,
@@ -71,6 +77,12 @@ def run_wget(
             stdout=p.stdout,
             stderr=p.stderr,
         )
+        if (
+            max_output_chars is not None
+            and len(result.stdout or "") + len(result.stderr or "")
+            > max_output_chars
+        ):
+            raise RuntimeError("wget output exceeded its configured size limit")
     else:
         proc = subprocess.Popen(
             cmd,
@@ -78,29 +90,90 @@ def run_wget(
             stderr=subprocess.STDOUT,
             env=merged_env,
             text=True,
+            encoding="utf-8",
+            errors="surrogateescape",
             bufsize=1,
         )
         merged_lines: list[str] = []
+        pending_line = ""
+        output_chars = 0
+        timed_out = threading.Event()
+
+        def _kill_timed_out_process() -> None:
+            if proc.poll() is None:
+                timed_out.set()
+                proc.kill()
+
+        timer = (
+            None
+            if timeout_s is None
+            else threading.Timer(timeout_s, _kill_timed_out_process)
+        )
+        if timer is not None:
+            timer.daemon = True
+            timer.start()
         try:
             assert proc.stdout is not None
             while True:
-                line = proc.stdout.readline()
-                if line:
-                    merged_lines.append(line)
-                    try:
-                        line_callback(line.rstrip("\r\n"))
-                    except Exception:
-                        pass
-                if line == "" and proc.poll() is not None:
+                try:
+                    chunk = proc.stdout.readline(64 * 1024)
+                except TypeError:
+                    # Minimal injected test streams may expose only readline().
+                    chunk = proc.stdout.readline()
+                if chunk:
+                    output_chars += len(chunk)
+                    if (
+                        max_output_chars is not None
+                        and output_chars > max_output_chars
+                    ):
+                        try:
+                            proc.kill()
+                        except Exception:
+                            pass
+                        raise RuntimeError(
+                            "wget output exceeded its configured size limit"
+                        )
+                    merged_lines.append(chunk)
+                    if line_callback is not None:
+                        pending_line += chunk
+                        while "\n" in pending_line:
+                            line, pending_line = pending_line.split("\n", 1)
+                            try:
+                                line_callback(line.rstrip("\r"))
+                            except Exception:
+                                try:
+                                    proc.kill()
+                                except Exception:
+                                    pass
+                                raise
+                if chunk == "" and proc.poll() is not None:
                     break
-            returncode = int(proc.wait(timeout=timeout_s))
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait()
-            raise
+            returncode = int(proc.wait())
+            if line_callback is not None and pending_line:
+                line_callback(pending_line.rstrip("\r"))
+            if timed_out.is_set():
+                raise subprocess.TimeoutExpired(cmd, timeout_s)
         finally:
+            if timer is not None:
+                timer.cancel()
             if proc.stdout is not None:
-                proc.stdout.close()
+                try:
+                    proc.stdout.close()
+                except Exception:
+                    pass
+            try:
+                running = proc.poll() is None
+            except Exception:
+                running = True
+            if running:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+            try:
+                proc.wait(timeout=1)
+            except Exception:
+                pass
 
         result = WgetResult(
             args=cmd,
@@ -118,16 +191,7 @@ _URL_TOKEN_PATTERN = re.compile(r"https?://[^\s\"'<>]+", flags=re.IGNORECASE)
 
 
 def _normalize_url(url: str) -> str | None:
-    text = str(url or "").strip()
-    if not text:
-        return None
-    parsed = urlparse(text)
-    if parsed.scheme.lower() not in {"http", "https"}:
-        return None
-    if not parsed.netloc:
-        return None
-    normalized = parsed._replace(fragment="")
-    return urlunparse(normalized)
+    return normalize_http_url(url)
 
 
 def extract_http_urls_from_wget_output(output: str) -> list[str]:

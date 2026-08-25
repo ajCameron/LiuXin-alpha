@@ -40,6 +40,7 @@ class MetadataWriterAPI(Protocol):
         """Atomically create and link one Work-to-Items WEMI path.
 
         :param work: New Work values, or replacement values for ``work_id``.
+            May be empty when ``work_id`` identifies an existing Work.
         :param expression: New preferred Expression values.
         :param manifestation: New preferred Manifestation values.
         :param items: Zero or more Items owned by the new Manifestation.

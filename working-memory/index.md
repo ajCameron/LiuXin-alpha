@@ -1,10 +1,16 @@
 # Working Memory Index
 
-Updated: 2026-07-28
+Updated: 2026-08-21
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [storage-cache-composition-2026-08-21.md](storage-cache-composition-2026-08-21.md)
+  Removes the production manager's inheritance from transient in-memory state,
+  replaces private record dictionaries with database repository views, shares
+  Core's cache for the storage hot path, and records the remaining production
+  work in durable developer documentation.
 
 - [core-interface-consolidation-2026-07-28.md](core-interface-consolidation-2026-07-28.md)
   Completes migration of maintained web, API, OPDS, acquisition, terminal, Tk,

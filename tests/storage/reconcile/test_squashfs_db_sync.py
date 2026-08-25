@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from uuid import UUID
+
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import InputIntegrityError
@@ -142,6 +144,9 @@ def test_squashfs_db_workflow_publishes_and_duplicates_verified_files(driver_spe
         assert publish_report.packed_files == 2
         assert publish_report.verified_files == 2
         assert publish_report.duplicated_files == 2
+        assert publish_report.digital_assets_registered == 2
+        assert publish_report.replicas_registered == 4
+        assert publish_report.provenance_links_created == 0
 
         locked_store = db.get_row_from_id("stores", open_store_id)
         assert locked_store is not None
@@ -174,13 +179,12 @@ def test_squashfs_db_workflow_publishes_and_duplicates_verified_files(driver_spe
         )
 
         assert db.storage is not None
-        retrieved = db.storage.locate_file(
-            metadata={
-                "file_store_id": open_store_id,
-                "file_storage_key": "Author One/Book One (1)/Book One - ONE.epub",
-            }
+        location = db.storage.get_store(
+            UUID(str(locked_store["store_uuid"]))
+        ).locate(
+            "Author One/Book One (1)/Book One - ONE.epub"
         )
-        assert retrieved.read_bytes() == b"ONE"
+        assert db.storage.read_bytes(location) == b"ONE"
 
         link_rows = db.search("file_store_links", "file_store_link_store_id", open_store_id)
         designation_links = [row for row in link_rows if row["file_store_link_type"] == "squashfs_designation"]
@@ -194,15 +198,30 @@ def test_squashfs_db_workflow_publishes_and_duplicates_verified_files(driver_spe
             assert "building" in states
             assert "verified" in states
 
+        # Packing does not alter member bytes. Each source/archive pair is two
+        # Replicas of one Digital Asset, never a self-derivation disguised by
+        # creating a second legacy file identity.
+        assets = tuple(db.storage.iter_digital_asset_records())
+        assert len(assets) == 2
+        for asset in assets:
+            replicas = tuple(
+                db.storage.iter_replica_records(
+                    digital_asset_id=asset.digital_asset_id
+                )
+            )
+            assert len(replicas) == 2
+            assert {replica.location.store_ref for replica in replicas} == {
+                UUID(str(db.get_row_from_id("stores", source_store_id)["store_uuid"])),
+                UUID(str(locked_store["store_uuid"])),
+            }
+            assert {replica.location.key for replica in replicas} & {
+                "books/one.epub",
+                "books/two.mobi",
+            }
         if "file_derivations" in set(db.get_tables()):
-            derivations = db.search("file_derivations", "file_derivation_kind", "repacked")
-            assert derivations
-            child_ids = {int(row["file_derivation_child_file_id"]) for row in derivations}
-            duplicated_ids = {int(row["file_id"]) for row in duplicated_rows}
-            assert duplicated_ids.issubset(child_ids)
-            assert publish_report.provenance_links_created >= 1
-        else:
-            assert publish_report.provenance_links_created == 0
+            assert db.search(
+                "file_derivations", "file_derivation_kind", "repacked"
+            ) == []
         assert publish_report.reproducibility_metadata is not None
         assert publish_report.reproducibility_metadata.get("output_sha256")
 

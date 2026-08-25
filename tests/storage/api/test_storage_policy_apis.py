@@ -1,85 +1,106 @@
 from __future__ import annotations
 
+from uuid import uuid4
+
 import pytest
 
 from LiuXin_alpha.storage.api import (
     BackupPolicy,
-    DistinctBy,
-    ReplicationMode,
-    ReplicationPlan,
+    DigitalAssetBackupPlan,
+    DigitalAssetID,
+    DigitalAssetLossAction,
+    DigitalAssetReplicationPlan,
+    ReplicaID,
+    ReplicaMode,
+    ReplicaSeparationDimension,
     ReplicationPolicy,
-    ReplicationStatus,
+    StoragePolicyAssessment,
 )
 
 
-def test_replication_policy_defaults_are_reasonable() -> None:
-    policy = ReplicationPolicy(name="two_copies_min", min_copies=2)
+def test_replication_policy_defaults_are_explicit_and_safe() -> None:
+    policy = ReplicationPolicy(name="two_copies", min_copies=2)
 
-    assert policy.name == "two_copies_min"
-    assert policy.min_copies == 2
-    assert policy.target_copies is None
     assert policy.effective_target_copies == 2
-    assert policy.distinct_by == (DistinctBy.STORE,)
-    assert policy.max_copies_per_bucket == 1
+    assert policy.distinct_by == (ReplicaSeparationDimension.STORE,)
     assert policy.synchronous_write_copies == 1
     assert policy.auto_heal is True
-    assert policy.mode == ReplicationMode.ACTIVE
+    assert policy.mode is ReplicaMode.ACTIVE
+    assert policy.loss_action is DigitalAssetLossAction.REQUIRE_COPY
 
 
-def test_replication_policy_validation_rejects_bad_counts() -> None:
-    with pytest.raises(ValueError):
+def test_replication_policy_validates_zero_copy_and_durability_constraints() -> None:
+    with pytest.raises(ValueError, match="zero-copy"):
         ReplicationPolicy(min_copies=0)
-
-    with pytest.raises(ValueError):
+    assert ReplicationPolicy(
+        min_copies=0,
+        synchronous_write_copies=0,
+        loss_action=DigitalAssetLossAction.ACCEPT_LOSS,
+    ).effective_target_copies == 0
+    with pytest.raises(ValueError, match="copy target"):
         ReplicationPolicy(min_copies=2, target_copies=1)
-
-    with pytest.raises(ValueError):
-        ReplicationPolicy(min_copies=2, target_copies=2, synchronous_write_copies=3)
-
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="synchronous"):
+        ReplicationPolicy(
+            min_copies=2,
+            target_copies=2,
+            synchronous_write_copies=3,
+        )
+    with pytest.raises(ValueError, match="distinct_by"):
         ReplicationPolicy(distinct_by=())
 
 
-def test_backup_policy_defaults_and_validation() -> None:
-    policy = BackupPolicy(name="deep_archive", min_backup_copies=2)
+def test_backup_policy_modes_counts_and_retention_are_validated() -> None:
+    policy = BackupPolicy(
+        name="deep_archive",
+        min_copies=2,
+        mode=ReplicaMode.ARCHIVE,
+        retention_locked=True,
+    )
 
-    assert policy.name == "deep_archive"
-    assert policy.effective_target_backup_copies == 2
+    assert policy.effective_target_copies == 2
     assert policy.verify_after_write is True
     assert policy.periodic_verification is True
-    assert policy.mode == ReplicationMode.BACKUP
-
-    with pytest.raises(ValueError):
-        BackupPolicy(min_backup_copies=0)
-
-    with pytest.raises(ValueError):
-        BackupPolicy(min_backup_copies=2, target_backup_copies=1)
-
-    with pytest.raises(ValueError):
-        BackupPolicy(distinct_by=())
+    with pytest.raises(ValueError, match="backup or archive"):
+        BackupPolicy(mode=ReplicaMode.ACTIVE)
+    with pytest.raises(ValueError, match="copy target"):
+        BackupPolicy(min_copies=2, target_copies=1)
+    with pytest.raises(ValueError, match="retention locked"):
+        BackupPolicy(min_copies=0, target_copies=0, retention_locked=True)
 
 
-def test_replication_status_and_plan_are_smoke_usable() -> None:
-    status = ReplicationStatus(
-        digital_asset_identifier="dummy://file",
-        policy_name="two_copies_min",
-        present_store_identifiers=("store-a",),
-        healthy_store_identifiers=("store-a",),
-        copy_count=1,
-        healthy_copy_count=1,
+def test_policy_assessment_and_plans_keep_typed_asset_replica_and_store_ids() -> None:
+    asset_id = DigitalAssetID(7)
+    replica_id = ReplicaID(12)
+    store_ref = uuid4()
+    assessment = StoragePolicyAssessment(
+        digital_asset_id=asset_id,
+        policy_name="two_copies",
+        mode=ReplicaMode.ACTIVE,
+        present_replica_ids=(replica_id,),
+        healthy_replica_ids=(replica_id,),
         meets_minimum=False,
         meets_target=False,
         errors=("missing second copy",),
     )
-    plan = ReplicationPlan(
-        digital_asset_identifier="dummy://file",
-        policy_name="two_copies_min",
-        stores_to_add=("store-b",),
-        stores_to_verify=("store-a",),
-        warnings=("only one eligible store currently healthy",),
+    replication = DigitalAssetReplicationPlan(
+        digital_asset_id=asset_id,
+        destination_store_refs=(store_ref,),
+        replica_ids_to_verify=(replica_id,),
+    )
+    backup = DigitalAssetBackupPlan(
+        digital_asset_id=asset_id,
+        destination_store_refs=(store_ref,),
+        source_replica_ids=(replica_id,),
     )
 
-    assert status.copy_count == 1
-    assert status.errors == ("missing second copy",)
-    assert plan.stores_to_add == ("store-b",)
-    assert plan.stores_to_verify == ("store-a",)
+    assert assessment.errors == ("missing second copy",)
+    assert replication.destination_store_refs == (store_ref,)
+    assert backup.source_replica_ids == (replica_id,)
+    with pytest.raises(ValueError, match="meeting a target"):
+        StoragePolicyAssessment(
+            digital_asset_id=asset_id,
+            policy_name="invalid",
+            mode=ReplicaMode.ACTIVE,
+            meets_minimum=False,
+            meets_target=True,
+        )

@@ -19,6 +19,7 @@ from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.ingest.models import RemoteHtmlRegistrationReport
 from LiuXin_alpha.ingest.pipelines import ingest_html_discovery_store_files
 from LiuXin_alpha.ingest.sources import get_default_crawler_http_requests_per_hour
+from LiuXin_alpha.ingest.sources.html_common import normalize_http_url
 from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
     NativeHtmlBackendOptions,
     NativeHtmlReadOnlyStorageBackend,
@@ -38,10 +39,10 @@ def _now_ep_ms() -> int:
 
 
 def _normalize_remote_root(url: str) -> str:
-    text = str(url).strip()
-    if not text:
-        raise ValueError("Remote store URL cannot be blank.")
-    return text
+    normalized = normalize_http_url(url)
+    if normalized is None:
+        raise ValueError("Remote store URL must be a valid safe HTTP(S) URL.")
+    return normalized
 
 
 def _table_columns(db, table_name: str) -> set[str]:
@@ -69,10 +70,12 @@ def _upsert_remote_store_row(
     access_protocol: str,
     supports_checksums: bool,
     policy_json: str,
+    store_uuid: str,
 ) -> Row:
     store_columns = _ensure_remote_store_schema_support(db)
 
     common_payload = {
+        "store_uuid": store_uuid,
         "store_name": backend_name,
         "store_kind": store_kind,
         "store_access_protocol": access_protocol,
@@ -129,6 +132,8 @@ def ensure_wget_html_readonly_store(
     respect_robots: bool = True,
     user_agent: str | None = None,
     no_verbose: bool = True,
+    max_observed_urls: int = 100_000,
+    max_output_chars: int = 8 * 1024 * 1024,
 ) -> tuple[Row, WgetHtmlReadOnlyStorageBackend]:
     """Create or reuse a `stores` row and wget-backed read-only store for a remote URL."""
     root = _normalize_remote_root(remote_url)
@@ -139,6 +144,14 @@ def ensure_wget_html_readonly_store(
     )
 
     backend_name = store_name or safe_path_to_name(root)
+    existing_rows = db.search("stores", "store_root_uri", root)
+    persisted_uuid = (
+        None
+        if not existing_rows
+        or "store_uuid" not in existing_rows[0].allowed_columns
+        or existing_rows[0]["store_uuid"] in (None, "")
+        else str(existing_rows[0]["store_uuid"])
+    )
     options = WgetBackendOptions(
         wget_exe=wget_exe,
         wget_args=tuple(wget_args or ()),
@@ -151,8 +164,15 @@ def ensure_wget_html_readonly_store(
         respect_robots=bool(respect_robots),
         user_agent=user_agent,
         no_verbose=bool(no_verbose),
+        max_observed_urls=max_observed_urls,
+        max_output_chars=max_output_chars,
     )
-    backend = WgetHtmlReadOnlyStorageBackend(url=root, name=backend_name, options=options)
+    backend = WgetHtmlReadOnlyStorageBackend(
+        url=root,
+        name=backend_name,
+        uuid=persisted_uuid,
+        options=options,
+    )
     policy_json = json.dumps(
         {
             "backend": "wget_html_readonly",
@@ -168,6 +188,8 @@ def ensure_wget_html_readonly_store(
                 "respect_robots": bool(options.respect_robots),
                 "user_agent": options.user_agent,
                 "no_verbose": bool(options.no_verbose),
+                "max_observed_urls": options.max_observed_urls,
+                "max_output_chars": options.max_output_chars,
             },
         },
         sort_keys=True,
@@ -175,11 +197,12 @@ def ensure_wget_html_readonly_store(
     store_row = _upsert_remote_store_row(
         db,
         root=root,
-        backend_name=backend.name,
+        backend_name=backend.configuration.store_name,
         store_kind=store_kind,
         access_protocol="wget",
         supports_checksums=False,
         policy_json=policy_json,
+        store_uuid=str(backend.store_ref),
     )
     return store_row, backend
 
@@ -199,6 +222,8 @@ def ensure_native_html_readonly_store(
     respect_robots: bool = True,
     user_agent: str | None = None,
     max_html_bytes: int = 2_000_000,
+    max_pages: int = 10_000,
+    max_observed_urls: int = 100_000,
 ) -> tuple[Row, NativeHtmlReadOnlyStorageBackend]:
     """Create or reuse a `stores` row and native-HTTP read-only store for a remote URL."""
     root = _normalize_remote_root(remote_url)
@@ -209,6 +234,14 @@ def ensure_native_html_readonly_store(
     )
 
     backend_name = store_name or safe_path_to_name(root)
+    existing_rows = db.search("stores", "store_root_uri", root)
+    persisted_uuid = (
+        None
+        if not existing_rows
+        or "store_uuid" not in existing_rows[0].allowed_columns
+        or existing_rows[0]["store_uuid"] in (None, "")
+        else str(existing_rows[0]["store_uuid"])
+    )
     options = NativeHtmlBackendOptions(
         timeout_s=timeout_s,
         max_http_requests_per_hour=effective_max_http_requests_per_hour,
@@ -219,8 +252,15 @@ def ensure_native_html_readonly_store(
         respect_robots=bool(respect_robots),
         user_agent=user_agent,
         max_html_bytes=max(1024, int(max_html_bytes)),
+        max_pages=max_pages,
+        max_observed_urls=max_observed_urls,
     )
-    backend = NativeHtmlReadOnlyStorageBackend(url=root, name=backend_name, options=options)
+    backend = NativeHtmlReadOnlyStorageBackend(
+        url=root,
+        name=backend_name,
+        uuid=persisted_uuid,
+        options=options,
+    )
     policy_json = json.dumps(
         {
             "backend": "native_html_readonly",
@@ -234,6 +274,8 @@ def ensure_native_html_readonly_store(
                 "respect_robots": bool(options.respect_robots),
                 "user_agent": options.user_agent,
                 "max_html_bytes": int(options.max_html_bytes),
+                "max_pages": options.max_pages,
+                "max_observed_urls": options.max_observed_urls,
             },
         },
         sort_keys=True,
@@ -241,11 +283,12 @@ def ensure_native_html_readonly_store(
     store_row = _upsert_remote_store_row(
         db,
         root=root,
-        backend_name=backend.name,
+        backend_name=backend.configuration.store_name,
         store_kind=store_kind,
         access_protocol="native_html",
         supports_checksums=False,
         policy_json=policy_json,
+        store_uuid=str(backend.store_ref),
     )
     return store_row, backend
 
@@ -267,6 +310,8 @@ def register_wget_html_readonly_store_files(
     respect_robots: bool = True,
     user_agent: str | None = None,
     no_verbose: bool = True,
+    max_observed_urls: int = 100_000,
+    max_output_chars: int = 8 * 1024 * 1024,
     ebook_extensions: Optional[Iterable[str]] = None,
     source_label: str = "wget_html_import",
     attach_store_links: bool = True,
@@ -291,12 +336,14 @@ def register_wget_html_readonly_store_files(
         respect_robots=respect_robots,
         user_agent=user_agent,
         no_verbose=no_verbose,
+        max_observed_urls=max_observed_urls,
+        max_output_chars=max_output_chars,
     )
     return ingest_html_discovery_store_files(
         db,
         store_row=store_row,
         store_url=str(backend.url),
-        store_name_value=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.name,
+        store_name_value=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.configuration.store_name,
         discovery_source=backend,
         mode="wget",
         ebook_extensions=ebook_extensions,
@@ -323,6 +370,8 @@ def register_native_html_readonly_store_files(
     respect_robots: bool = True,
     user_agent: str | None = None,
     max_html_bytes: int = 2_000_000,
+    max_pages: int = 10_000,
+    max_observed_urls: int = 100_000,
     ebook_extensions: Optional[Iterable[str]] = None,
     source_label: str = "native_html_import",
     attach_store_links: bool = True,
@@ -345,12 +394,14 @@ def register_native_html_readonly_store_files(
         respect_robots=respect_robots,
         user_agent=user_agent,
         max_html_bytes=max_html_bytes,
+        max_pages=max_pages,
+        max_observed_urls=max_observed_urls,
     )
     return ingest_html_discovery_store_files(
         db,
         store_row=store_row,
         store_url=str(backend.url),
-        store_name_value=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.name,
+        store_name_value=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.configuration.store_name,
         discovery_source=backend,
         mode="native_html",
         ebook_extensions=ebook_extensions,
@@ -380,6 +431,8 @@ def register_wget_html_readonly_with_database_path(
     respect_robots: bool = True,
     user_agent: str | None = None,
     no_verbose: bool = True,
+    max_observed_urls: int = 100_000,
+    max_output_chars: int = 8 * 1024 * 1024,
     ebook_extensions: Optional[Iterable[str]] = None,
     source_label: str = "wget_html_import",
     attach_store_links: bool = True,
@@ -408,6 +461,8 @@ def register_wget_html_readonly_with_database_path(
             respect_robots=respect_robots,
             user_agent=user_agent,
             no_verbose=no_verbose,
+            max_observed_urls=max_observed_urls,
+            max_output_chars=max_output_chars,
             ebook_extensions=ebook_extensions,
             source_label=source_label,
             attach_store_links=attach_store_links,
@@ -433,6 +488,8 @@ def register_native_html_readonly_with_database_path(
     respect_robots: bool = True,
     user_agent: str | None = None,
     max_html_bytes: int = 2_000_000,
+    max_pages: int = 10_000,
+    max_observed_urls: int = 100_000,
     ebook_extensions: Optional[Iterable[str]] = None,
     source_label: str = "native_html_import",
     attach_store_links: bool = True,
@@ -459,6 +516,8 @@ def register_native_html_readonly_with_database_path(
             respect_robots=respect_robots,
             user_agent=user_agent,
             max_html_bytes=max_html_bytes,
+            max_pages=max_pages,
+            max_observed_urls=max_observed_urls,
             ebook_extensions=ebook_extensions,
             source_label=source_label,
             attach_store_links=attach_store_links,
