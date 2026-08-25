@@ -41,6 +41,10 @@ class SquashfsBuildImplicitOverwriteError(StorageImplicitOverwriteError):
     """Implicit SquashFS build write collided with an incompatible staged path."""
 
 
+class RarBuildImplicitOverwriteError(StorageImplicitOverwriteError):
+    """Implicit RAR build write collided with an incompatible staged path."""
+
+
 __all__ = [
     'StorageError',
     'StorageWriteError',
@@ -50,4 +54,5 @@ __all__ = [
     'FlatStoreImplicitOverwriteError',
     'SqliteBlobImplicitOverwriteError',
     'SquashfsBuildImplicitOverwriteError',
+    'RarBuildImplicitOverwriteError',
 ]

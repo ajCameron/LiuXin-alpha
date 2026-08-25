@@ -17,10 +17,12 @@ from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
 )
 from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly.wget_utils import WgetResult
 from tests.fixtures.storage_unicode import (
+    TORTURED_UNICODE_PATH_CASES,
     UNICODE_FILENAME,
     UNICODE_PAYLOAD,
     UNICODE_URL_KEY,
 )
+from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
 
 
 def _ok_wget_result(*, args: list[str], stdout: str = "", stderr: str = "") -> WgetResult:
@@ -95,6 +97,84 @@ def test_wget_backend_preserves_unicode_url_names_and_bytes(
     assert item.source_info.location.key == UNICODE_URL_KEY
     assert item.result.asset_record.metadata.original_name == UNICODE_FILENAME
     assert manager.read_file(item.result.asset_record) == UNICODE_PAYLOAD
+
+
+def test_wget_backend_applies_generic_unicode_torture_contract(monkeypatch) -> None:
+    root = "https://example.com/books/"
+    payloads = {
+        root + case.url_key: case.payload
+        for case in TORTURED_UNICODE_PATH_CASES
+    }
+    monkeypatch.setattr(
+        backend_module,
+        "run_wget",
+        lambda args, **kwargs: _ok_wget_result(
+            args=list(args),
+            stdout="\n".join(payloads),
+        ),
+    )
+
+    class _Response(io.BytesIO):
+        def __init__(
+            self,
+            url: str,
+            payload: bytes,
+            *,
+            status: int,
+            total: int,
+            range_start: int = 0,
+        ) -> None:
+            super().__init__(payload)
+            self.status = status
+            self.headers = {
+                "Content-Length": str(len(payload) if status == 206 else total),
+                "Content-Type": "application/epub+zip",
+            }
+            if status == 206:
+                self.headers["Content-Range"] = (
+                    f"bytes {range_start}-{range_start + len(payload) - 1}/{total}"
+                )
+            self._url = url
+
+        def geturl(self) -> str:
+            return self._url
+
+    def _open_http(request, timeout_s):
+        del timeout_s
+        complete = payloads[request.full_url]
+        if request.method == "HEAD":
+            return _Response(request.full_url, b"", status=200, total=len(complete))
+        byte_range = request.get_header("Range")
+        if byte_range:
+            interval = byte_range.removeprefix("bytes=")
+            start_text, end_text = interval.split("-", 1)
+            start = int(start_text)
+            end = len(complete) - 1 if not end_text else int(end_text)
+            return _Response(
+                request.full_url,
+                complete[start : end + 1],
+                status=206,
+                total=len(complete),
+                range_start=start,
+            )
+        return _Response(request.full_url, complete, status=200, total=len(complete))
+
+    monkeypatch.setattr(
+        backend_module.WgetHtmlReadOnlyStorageBackend,
+        "_open_http_request",
+        staticmethod(_open_http),
+    )
+    store = WgetHtmlReadOnlyStorageBackend(
+        root,
+        options=WgetBackendOptions(max_http_requests_per_hour=0),
+    )
+
+    exercise_unicode_path_cases(
+        store,
+        TORTURED_UNICODE_PATH_CASES,
+        key_for_case=lambda case: case.url_key,
+        check_uri_round_trip=True,
+    )
 
 
 def test_wget_backend_default_rate_limit_is_20_per_minute(monkeypatch) -> None:

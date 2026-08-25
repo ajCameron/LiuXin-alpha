@@ -336,6 +336,9 @@ class DriverInventoryPage(Generic[DriverObjectAddressT]):
             Traceback (most recent call last):
             ...
             ValueError: driver inventory cursor must not be empty.
+
+
+        :return:
         """
 
         if self.next_cursor == "":
@@ -358,6 +361,9 @@ class DriverInventoryPage(Generic[DriverObjectAddressT]):
         Example:
             >>> DriverInventoryPage[DriverObjectAddress]((), None).finished
             True
+
+
+        :return:
         """
 
         return self.next_cursor is None

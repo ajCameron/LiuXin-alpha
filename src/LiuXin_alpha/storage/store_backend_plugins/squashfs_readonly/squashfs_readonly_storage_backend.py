@@ -13,8 +13,17 @@ from LiuXin_alpha.storage.api import (
     StoreConfiguration,
 )
 from LiuXin_alpha.storage.drivers.squashfs import (
+    DEFAULT_MAX_SQUASHFS_COMPRESSION_RATIO,
+    DEFAULT_MAX_SQUASHFS_HEADER_BYTES,
+    DEFAULT_MAX_SQUASHFS_MEMBER_BYTES,
+    DEFAULT_MAX_SQUASHFS_PATH_BYTES,
+    DEFAULT_MAX_SQUASHFS_TOTAL_UNCOMPRESSED_BYTES,
     SquashfsObjectAddress,
     SquashfsStorageDriver,
+)
+from LiuXin_alpha.storage.drivers.archive_common import (
+    DEFAULT_MAX_ARCHIVE_DEPTH,
+    DEFAULT_MAX_ARCHIVE_INVENTORY_ENTRIES,
 )
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
@@ -34,17 +43,34 @@ class SquashfsReadOnlyStorageBackend(
         *,
         unsquashfs_exe: str = "unsquashfs",
         timeout_s: float = 60.0,
+        max_inventory_entries: int = DEFAULT_MAX_ARCHIVE_INVENTORY_ENTRIES,
+        max_member_bytes: int = DEFAULT_MAX_SQUASHFS_MEMBER_BYTES,
+        max_total_uncompressed_bytes: int = DEFAULT_MAX_SQUASHFS_TOTAL_UNCOMPRESSED_BYTES,
+        max_compression_ratio: float = DEFAULT_MAX_SQUASHFS_COMPRESSION_RATIO,
+        max_header_bytes: int = DEFAULT_MAX_SQUASHFS_HEADER_BYTES,
+        max_depth: int = DEFAULT_MAX_ARCHIVE_DEPTH,
+        max_path_bytes: int = DEFAULT_MAX_SQUASHFS_PATH_BYTES,
+        configuration: StoreConfiguration | None = None,
     ) -> None:
-        store_uuid = uuid4() if uuid is None else (
-            uuid if isinstance(uuid, UUID) else UUID(uuid)
+        store_uuid = configuration.store_uuid if configuration is not None else (
+            uuid4() if uuid is None else (
+                uuid if isinstance(uuid, UUID) else UUID(uuid)
+            )
         )
         self.__driver = SquashfsStorageDriver(
             url,
             address_space_uuid=store_uuid,
             unsquashfs_exe=unsquashfs_exe,
             timeout_s=timeout_s,
+            max_inventory_entries=max_inventory_entries,
+            max_member_bytes=max_member_bytes,
+            max_total_uncompressed_bytes=max_total_uncompressed_bytes,
+            max_compression_ratio=max_compression_ratio,
+            max_header_bytes=max_header_bytes,
+            max_depth=max_depth,
+            max_path_bytes=max_path_bytes,
         )
-        self._configuration = StoreConfiguration(
+        self._configuration = configuration or StoreConfiguration(
             store_uuid=store_uuid,
             store_name=name or self.url_to_name(str(self.__driver.archive_path)),
             store_kind=self.store_kind,
@@ -53,6 +79,20 @@ class SquashfsReadOnlyStorageBackend(
             store_access_protocol="squashfs",
             read_only=True,
             supports_folders=True,
+            backend_options=(
+                ("unsquashfs_exe", str(unsquashfs_exe)),
+                ("timeout_s", float(timeout_s)),
+                ("max_inventory_entries", int(max_inventory_entries)),
+                ("max_member_bytes", int(max_member_bytes)),
+                (
+                    "max_total_uncompressed_bytes",
+                    int(max_total_uncompressed_bytes),
+                ),
+                ("max_compression_ratio", float(max_compression_ratio)),
+                ("max_header_bytes", int(max_header_bytes)),
+                ("max_depth", int(max_depth)),
+                ("max_path_bytes", int(max_path_bytes)),
+            ),
         )
 
     @property

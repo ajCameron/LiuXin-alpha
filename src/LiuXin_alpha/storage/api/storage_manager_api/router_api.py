@@ -17,6 +17,7 @@ from LiuXin_alpha.storage.api.errors import (
 from LiuXin_alpha.storage.api.models import (
     Digest, FileInfo, Location, StoreCapabilities, StoreUUID, StoreStatus, WriteMode,
 )
+from LiuXin_alpha.storage.api.characteristics_api import StorageCharacteristics
 from LiuXin_alpha.storage.api.storage_manager_api.location_api import BoundLocation
 
 
@@ -156,6 +157,23 @@ class StorageRouterAPI(abc.ABC):
         :return:
         """
         ...
+
+    def characteristics(self, store_ref: StoreUUID) -> StorageCharacteristics:
+        """Return structured constraints for a configured Store when known.
+
+        Minimal routers may retain this unknown-safe default. Full managers
+        override it and delegate to the selected Store's optional contract.
+
+        Example:
+            >>> manager.characteristics(UUID(int=1)).publication_model  # doctest: +SKIP
+            <StoragePublicationModel.UNKNOWN: 'unknown'>
+
+        :param store_ref: Configured Store UUID.
+        :return: Structured characteristics or an explicitly unknown profile.
+        """
+
+        del store_ref
+        return StorageCharacteristics()
 
     @abc.abstractmethod
     def status(self, store_ref: StoreUUID) -> StoreStatus:

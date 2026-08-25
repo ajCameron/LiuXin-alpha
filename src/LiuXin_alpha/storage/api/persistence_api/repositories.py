@@ -295,6 +295,7 @@ class DigitalAssetDerivationRepositoryAPI(Protocol):
             CompositeDigitalAssetID | None
         ) = None,
         workflow_id: int | None = None,
+        workflow_reference: str | None = None,
         exact_only: bool = False,
     ) -> Iterator[DigitalAssetDerivationRecord]:
         """Iterate provenance edges matching optional graph filters.

@@ -26,6 +26,7 @@ from tests.fixtures.storage_unicode import (
     UNICODE_KEY,
     UNICODE_PAYLOAD,
 )
+from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
 
 
 class _FakeRcloneRemote:
@@ -145,6 +146,17 @@ def test_writable_rclone_roundtrip_replace_and_delete(writable_store) -> None:
     assert store.capabilities.replace
     assert store.capabilities.delete
     assert store.capabilities.atomic_publish is False
+    assert (
+        store.characteristics.publication_model
+        is api.StoragePublicationModel.PER_OBJECT
+    )
+    assert (
+        store.characteristics.temporary_space
+        is api.StorageTemporarySpaceRequirement.OBJECT_STAGE
+    )
+    assert store.characteristics.limitation(
+        "rclone_backend_dependent_limits"
+    ) is not None
     assert durable_options["local_staging_directory"]
     assert "env" not in durable_options
     assert store.read_bytes(first.location, offset=1, length=3) == b"irs"
@@ -191,17 +203,17 @@ def test_writable_rclone_reads_tortured_unicode_paths_exactly(
 ) -> None:
     store, remote = writable_store
 
-    for case in TORTURED_UNICODE_PATH_CASES:
-        stored = store.store_bytes(case.payload, location=case.key)
-        assert stored.location.key == case.key
-        assert store.read_file(stored) == case.payload
-        assert store.location_uri(stored.location) == f"remote:{case.key}"
-        assert store.location_from_uri(f"remote:{case.key}") == stored.location
+    results = exercise_unicode_path_cases(
+        store,
+        TORTURED_UNICODE_PATH_CASES,
+        seed=lambda key, payload: store.store_bytes(payload, location=key),
+        check_uri_round_trip=True,
+    )
 
     assert set(remote.objects) == {
         case.key for case in TORTURED_UNICODE_PATH_CASES
     }
-    assert {location.key for location in store.iter_locations()} == set(remote.objects)
+    assert {result.location.key for result in results} == set(remote.objects)
 
 
 def test_store_ingest_publishes_to_writable_rclone(

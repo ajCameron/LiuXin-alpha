@@ -19,7 +19,7 @@ from contextlib import nullcontext
 from datetime import UTC, datetime
 from threading import RLock
 from typing import BinaryIO, Literal, Protocol, cast, override
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import LiuXin_alpha.storage.api as api
 
@@ -176,6 +176,33 @@ def _backup_policy_id(
     if identifier <= 0:
         raise TypeError("backup must be a positive policy ID or policy record.")
     return api.BackupPolicyID(identifier)
+
+
+def _backed_store_uuid(
+    asset_record: api.DigitalAssetRecord,
+    kind: str,
+    options: tuple[tuple[str, object], ...],
+) -> api.StoreUUID:
+    """Derive globally stable Store-view identity from content identity."""
+
+    ordered_digests = sorted(
+        asset_record.digests,
+        key=lambda value: (
+            value.algorithm != "sha256",
+            value.algorithm,
+            value.value,
+        ),
+    )
+    preferred_digest = ordered_digests[0]
+    normalized_kind = kind.strip().lower().replace("-", "_")
+    normalized_options = repr(tuple(sorted(options, key=lambda item: item[0])))
+    identity = (
+        "liuxin-backed-store:v1:"
+        f"{asset_record.size_bytes}:{preferred_digest.algorithm}:"
+        f"{preferred_digest.value}:{normalized_kind}:"
+        f"{normalized_options}"
+    )
+    return uuid5(NAMESPACE_URL, identity)
 
 
 class _StorageManagerOrchestrator(api.StorageManagerAPI):
@@ -424,6 +451,61 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
         return self.create_store(configuration, startup=start)
 
     @override
+    def add_backed_store(
+        self,
+        name: str,
+        kind: str,
+        digital_asset_id: api.DigitalAssetID,
+        *,
+        source_replica_id: api.ReplicaID | None = None,
+        materialization_store_ref: api.StoreUUID | None = None,
+        store_uuid: api.StoreUUID | None = None,
+        protocol: str | None = None,
+        tags: Iterable[str] = (),
+        modes: Iterable[api.ReplicaMode | str] = (api.ReplicaMode.ARCHIVE,),
+        operational_role: str | None = "archive",
+        folders: bool = True,
+        options: (
+            Mapping[str, object] | Iterable[tuple[str, object]]
+        ) = (),
+        start: bool = True,
+    ) -> api.StoreConfiguration:
+        """Create a read-only Store view over a catalogued container Asset."""
+
+        asset_record = self.get_digital_asset_record(digital_asset_id)
+        if source_replica_id is not None:
+            source = self.get_replica_record(source_replica_id)
+            if source.digital_asset_id != digital_asset_id:
+                raise api.StoragePreconditionFailed(
+                    "source Replica belongs to another Digital Asset."
+                )
+        option_pairs = (
+            tuple(cast(Mapping[str, object], options).items())
+            if isinstance(options, Mapping)
+            else tuple(options)
+        )
+        effective_store_uuid = store_uuid or _backed_store_uuid(
+            asset_record,
+            kind,
+            option_pairs,
+        )
+        configuration = api.StoreConfiguration.for_backed_backend(
+            name,
+            kind,
+            digital_asset_id,
+            preferred_replica_id=source_replica_id,
+            materialization_store_ref=materialization_store_ref,
+            store_uuid=effective_store_uuid,
+            protocol=protocol,
+            tags=tags,
+            modes=modes,
+            operational_role=operational_role,
+            folders=folders,
+            options=option_pairs,
+        )
+        return self.create_store(configuration, startup=start)
+
+    @override
     def update_store(
         self,
         store_ref: api.StoreUUID,
@@ -552,6 +634,15 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
         actions: list[api.StorageRecoveryAction] = []
 
         for observation in store_statuses:
+            for warning in observation.status.warnings:
+                issues.append(
+                    api.StorageOperationalIssue(
+                        "store_warning",
+                        api.StorageOperationalSeverity.WARNING,
+                        warning,
+                        store_ref=observation.store_ref,
+                    )
+                )
             if observation.status.available:
                 continue
             message = (
@@ -858,6 +949,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> api.FileInfo:
         """Route one transactional Store publication."""
 
+        self._require_supported_object_size(location.store_ref, expected_size)
         return self.get_store(location.store_ref).put(
             location,
             source,
@@ -910,6 +1002,18 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
         """Return one routed Store's inherent capabilities."""
 
         return self.get_store(store_ref).capabilities
+
+    @override
+    def characteristics(
+        self,
+        store_ref: api.StoreUUID,
+    ) -> api.StorageCharacteristics:
+        """Return structured constraints for one routed Store."""
+
+        store = self.get_store(store_ref)
+        if isinstance(store, api.StoreCharacteristicsAPI):
+            return store.characteristics
+        return api.StorageCharacteristics()
 
     @override
     def status(self, store_ref: api.StoreUUID) -> api.StoreStatus:
@@ -1775,35 +1879,120 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
         digital_asset_id: api.DigitalAssetID,
         *,
         preferred_store_ref: api.StoreUUID | None = None,
+        source_replica_id: api.ReplicaID | None = None,
+        source_modes: Iterable[api.ReplicaMode | str] = (
+            api.ReplicaMode.ACTIVE,
+        ),
         cache_store_ref: api.StoreUUID | None = None,
         verify: bool = True,
     ) -> api.DigitalAssetResolution:
-        """Return an existing readable copy or create one in the cache Store."""
+        """Return an existing readable copy or create one in the cache Store.
 
+        Exact Replica selection permits materializing container members and
+        unmanaged source bytes without pretending they are ACTIVE Replicas.
+        """
+
+        if cache_store_ref is not None:
+            try:
+                cached = self.resolve_digital_asset(
+                    digital_asset_id,
+                    preferred_store_ref=cache_store_ref,
+                    mode=api.ReplicaMode.CACHE,
+                    require_verified=verify,
+                )
+            except api.NoReadableReplica:
+                pass
+            else:
+                if cached.location.store_ref == cache_store_ref:
+                    return cached
+
+        source_record = self._select_materialization_source(
+            digital_asset_id,
+            preferred_store_ref=preferred_store_ref,
+            source_replica_id=source_replica_id,
+            source_modes=source_modes,
+            require_verified=verify and cache_store_ref is None,
+        )
         if cache_store_ref is None:
-            return self.resolve_digital_asset(
-                digital_asset_id,
-                preferred_store_ref=preferred_store_ref,
-                require_verified=verify,
-            )
-        try:
-            return self.resolve_digital_asset(
-                digital_asset_id,
-                preferred_store_ref=cache_store_ref,
-                mode=api.ReplicaMode.CACHE,
-                require_verified=verify,
-            )
-        except api.NoReadableReplica:
-            replica_record = self.replicate_digital_asset(
-                digital_asset_id,
-                destination_store_ref=cache_store_ref,
-                mode=api.ReplicaMode.CACHE,
-                verify=verify,
-            )
             return api.DigitalAssetResolution(
                 self.get_digital_asset_record(digital_asset_id),
-                replica_record,
+                source_record,
             )
+        replica_record = self.replicate_digital_asset(
+            digital_asset_id,
+            destination_store_ref=cache_store_ref,
+            source_replica_id=source_record.replica_id,
+            mode=api.ReplicaMode.CACHE,
+            verify=verify,
+        )
+        return api.DigitalAssetResolution(
+            self.get_digital_asset_record(digital_asset_id),
+            replica_record,
+        )
+
+    def _select_materialization_source(
+        self,
+        digital_asset_id: api.DigitalAssetID,
+        *,
+        preferred_store_ref: api.StoreUUID | None,
+        source_replica_id: api.ReplicaID | None,
+        source_modes: Iterable[api.ReplicaMode | str],
+        require_verified: bool,
+    ) -> api.ReplicaRecord:
+        """Select one readable source using exact identity or ordered modes."""
+
+        if source_replica_id is not None:
+            record = self.get_replica_record(source_replica_id)
+            if record.digital_asset_id != digital_asset_id:
+                raise api.StoragePreconditionFailed(
+                    "source Replica belongs to another Digital Asset."
+                )
+            if require_verified and record.state is not api.ReplicaState.VERIFIED:
+                raise api.NoReadableReplica(
+                    f"Replica {source_replica_id} is not verified."
+                )
+            if record.state not in {
+                api.ReplicaState.VERIFIED,
+                api.ReplicaState.PRESENT,
+                api.ReplicaState.UNVERIFIED,
+            }:
+                raise api.NoReadableReplica(
+                    f"Replica {source_replica_id} is not currently readable."
+                )
+            try:
+                info = self.stat(record.location)
+            except api.StorageError as error:
+                raise api.NoReadableReplica(
+                    f"Replica {source_replica_id} is not currently readable."
+                ) from error
+            asset = self.get_digital_asset_record(digital_asset_id)
+            if info.size != asset.size_bytes:
+                raise api.NoReadableReplica(
+                    f"Replica {source_replica_id} has the wrong size."
+                )
+            return record
+
+        modes = tuple(
+            mode if isinstance(mode, api.ReplicaMode) else api.ReplicaMode(mode)
+            for mode in source_modes
+        )
+        if not modes:
+            raise ValueError("source_modes must contain at least one Replica mode.")
+        for mode in dict.fromkeys(modes):
+            try:
+                return self.select_replica(
+                    digital_asset_id,
+                    preferred_store_ref=preferred_store_ref,
+                    mode=mode,
+                    require_verified=require_verified,
+                )
+            except api.NoReadableReplica:
+                continue
+        rendered = ", ".join(mode.value for mode in dict.fromkeys(modes))
+        raise api.NoReadableReplica(
+            f"Digital Asset {digital_asset_id} has no readable Replica in "
+            f"source modes: {rendered}."
+        )
 
     @override
     def resolve_item_digital_asset(
@@ -1880,7 +2069,11 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
             if destination_store_ref is None
             else destination_store_ref
         )
-        store = self._require_writable_destination(destination_store_ref, mode)
+        store = self._require_writable_destination(
+            destination_store_ref,
+            mode,
+            expected_size=asset_record.size_bytes,
+        )
         location = self._allocate_asset_location(
             store,
             asset_record,
@@ -2420,6 +2613,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> api.DigitalAssetReplicationPlan:
         """Plan verification, placement, removal, or exact recreation."""
 
+        asset = self.get_digital_asset_record(digital_asset_id)
         policies = self.resolve_effective_policies(digital_asset_id)
         policy = policies.replication
         records = tuple(
@@ -2440,6 +2634,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
             policy,
             healthy,
             needed,
+            expected_size=asset.size_bytes,
         )
         remove = (
             tuple(record.replica_id for record in records)
@@ -2499,6 +2694,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
     ) -> api.DigitalAssetBackupPlan:
         """Plan backup placement, verification, and surplus removal."""
 
+        asset = self.get_digital_asset_record(digital_asset_id)
         policy = self.resolve_effective_policies(digital_asset_id).backup
         records = tuple(
             self.iter_replica_records(
@@ -2518,6 +2714,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
             policy,
             healthy,
             needed,
+            expected_size=asset.size_bytes,
         )
         sources = tuple(
             record.replica_id
@@ -2865,12 +3062,17 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
             api.CompositeDigitalAssetID | None
         ) = None,
         workflow_id: int | None = None,
+        workflow_reference: str | None = None,
         exact_only: bool = False,
     ) -> Iterator[api.DigitalAssetDerivationRecord]:
         """Iterate over an ID-ordered, provenance-filtered snapshot."""
 
         if workflow_id is not None and workflow_id <= 0:
             raise ValueError("workflow_id must be positive when supplied.")
+        if workflow_reference is not None and not workflow_reference.strip():
+            raise ValueError(
+                "workflow_reference must not be empty when supplied."
+            )
 
         with self._lock:
             records = tuple(
@@ -2900,6 +3102,11 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
                     workflow_id is None
                     or record.declaration.workflow_id == workflow_id
                 )
+                and (
+                    workflow_reference is None
+                    or record.declaration.workflow_reference
+                    == workflow_reference
+                )
                 and (not exact_only or record.can_recreate_exactly)
             )
         return iter(records)
@@ -2914,6 +3121,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
         ) = api.DigitalAssetDerivationGraphDirection.BOTH,
         max_depth: int | None = None,
         workflow_id: int | None = None,
+        workflow_reference: str | None = None,
         exact_only: bool = False,
     ) -> api.DigitalAssetDerivationGraph:
         """Return a stable breadth-first provenance graph around one Asset."""
@@ -2933,6 +3141,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
         records = tuple(
             self.iter_digital_asset_derivation_records(
                 workflow_id=workflow_id,
+                workflow_reference=workflow_reference,
                 exact_only=exact_only,
             )
         )
@@ -3466,6 +3675,7 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
                 store = self._require_writable_destination(
                     destination_ref,
                     replica_mode,
+                    expected_size=asset_record.size_bytes,
                 )
                 location = self._allocate_asset_location(
                     store,
@@ -3830,6 +4040,8 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
         self,
         store_ref: api.StoreUUID,
         mode: api.ReplicaMode,
+        *,
+        expected_size: int | None = None,
     ) -> api.StoreAPI:
         """Require a configured, online Store supporting the Replica mode."""
 
@@ -3851,7 +4063,29 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
             raise api.StoreUnsupportedOperation(
                 f"Store {configuration.store_name!r} cannot create objects."
             )
+        self._require_supported_object_size(store_ref, expected_size)
         return store
+
+    def _require_supported_object_size(
+        self,
+        store_ref: api.StoreUUID,
+        expected_size: int | None,
+    ) -> None:
+        """Reject a declared write that exceeds a Store's advertised limit."""
+
+        if expected_size is None:
+            return
+        if expected_size < 0:
+            raise ValueError("expected_size must not be negative.")
+        characteristics = self.characteristics(store_ref)
+        if characteristics.accepts_object_size(expected_size):
+            return
+        assert characteristics.max_object_bytes is not None
+        raise api.StoreUnsupportedOperation(
+            f"Store {store_ref} accepts objects up to "
+            f"{characteristics.max_object_bytes} bytes; requested "
+            f"{expected_size} bytes."
+        )
 
     def _allocate_asset_location(
         self,
@@ -4164,6 +4398,8 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
         policy: api.ReplicationPolicy | api.BackupPolicy,
         existing: tuple[api.ReplicaRecord, ...],
         needed: int,
+        *,
+        expected_size: int | None = None,
     ) -> tuple[api.StoreUUID, ...]:
         """Select writable policy-compliant Stores without mutating state."""
 
@@ -4194,7 +4430,18 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
             ):
                 continue
             try:
-                self._require_writable_destination(store_ref, policy.mode)
+                characteristics = self.characteristics(store_ref)
+                if (
+                    characteristics.recommended_write_usage
+                    is api.StorageWriteUsage.ARCHIVAL_SNAPSHOT
+                    and policy.mode is not api.ReplicaMode.ARCHIVE
+                ):
+                    continue
+                self._require_writable_destination(
+                    store_ref,
+                    policy.mode,
+                    expected_size=expected_size,
+                )
             except api.StorageError:
                 continue
             if any(

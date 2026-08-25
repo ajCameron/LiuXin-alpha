@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 import hashlib
 import pathlib
 import shutil
@@ -20,8 +19,13 @@ from LiuXin_alpha.storage.api import (
     BackupWorkflowKind,
     BackupWorkflowResult,
     BackupWorkflowStepKind,
+    DigitalAssetID,
+    DigitalAssetIngestResult,
+    DigitalAssetRecord,
+    DigitalAssetResolution,
     Digest,
     Location,
+    ReplicaState,
     StoreAlreadyExists,
     StoreIntegrityError,
     StorePreconditionFailed,
@@ -128,15 +132,36 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         source_path: str,
         *,
         archive_path: str | None = None,
+        asset: (
+            DigitalAssetID
+            | DigitalAssetRecord
+            | DigitalAssetIngestResult
+            | DigitalAssetResolution
+            | None
+        ) = None,
     ) -> BackupSourceDeclaration:
         self._require_draft()
         source = pathlib.Path(source_path).expanduser().resolve(strict=False)
         expected_size = source.stat().st_size if source.is_file() else None
+        source_asset = self._source_asset_record(asset)
+        expected_digest = None
+        if source_asset is not None:
+            if expected_size != source_asset.size_bytes:
+                raise StoreIntegrityError(
+                    "local backup source size differs from its Digital Asset."
+                )
+            expected_digest = _preferred_digest(source_asset.digests)
         declaration = BackupSourceDeclaration(
             source_kind=BackupSourceKind.LOCAL_PATH,
             source_identifier=str(source),
             archive_path=archive_path or source.name,
             expected_size=expected_size,
+            expected_digest=expected_digest,
+            source_digital_asset_id=(
+                None
+                if source_asset is None
+                else source_asset.digital_asset_id
+            ),
         )
         self._append_source(declaration)
         return declaration
@@ -146,26 +171,102 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         source_location: Location,
         *,
         archive_path: str | None = None,
+        asset: (
+            DigitalAssetID
+            | DigitalAssetRecord
+            | DigitalAssetIngestResult
+            | DigitalAssetResolution
+            | None
+        ) = None,
     ) -> BackupSourceDeclaration:
         self._require_draft()
         if not isinstance(source_location, Location):
             raise TypeError("source_location must be a Location.")
         expected_size = None
         expected_digest = None
+        source_asset = self._source_asset_record(asset)
+        source_replica_id = None
         if self._storage_manager is not None:
             info = self._storage_manager.stat(source_location)
             expected_size = info.size
             expected_digest = info.digest
+            matching_replicas = tuple(
+                replica
+                for replica in self._storage_manager.iter_replica_records(
+                    store_ref=source_location.store_ref,
+                )
+                if replica.location == source_location
+                and replica.state is not ReplicaState.DELETED
+            )
+            if matching_replicas:
+                replica = matching_replicas[0]
+                if (
+                    source_asset is not None
+                    and source_asset.digital_asset_id != replica.digital_asset_id
+                ):
+                    raise StoreIntegrityError(
+                        "backup Location belongs to a different Digital Asset."
+                    )
+                source_asset = self._storage_manager.get_digital_asset_record(
+                    replica.digital_asset_id
+                )
+                source_replica_id = replica.replica_id
+        if source_asset is not None:
+            if (
+                expected_size is not None
+                and expected_size != source_asset.size_bytes
+            ):
+                raise StoreIntegrityError(
+                    "backup Location size differs from its Digital Asset."
+                )
+            expected_size = source_asset.size_bytes
+            expected_digest = _preferred_digest(source_asset.digests)
         declaration = BackupSourceDeclaration(
             source_kind=BackupSourceKind.STORE_LOCATION,
             source_identifier=source_location,
             archive_path=archive_path or f"source-{len(self._sources):06d}",
             expected_size=expected_size,
             expected_digest=expected_digest,
+            source_digital_asset_id=(
+                None
+                if source_asset is None
+                else source_asset.digital_asset_id
+            ),
+            source_replica_id=source_replica_id,
             source_store_ref=source_location.store_ref,
         )
         self._append_source(declaration)
         return declaration
+
+    def _source_asset_record(
+        self,
+        asset: (
+            DigitalAssetID
+            | DigitalAssetRecord
+            | DigitalAssetIngestResult
+            | DigitalAssetResolution
+            | None
+        ),
+    ) -> DigitalAssetRecord | None:
+        if asset is None:
+            return None
+        if isinstance(asset, DigitalAssetRecord):
+            asset_id = asset.digital_asset_id
+        elif isinstance(asset, DigitalAssetIngestResult):
+            asset_id = asset.asset_record.digital_asset_id
+        elif isinstance(asset, DigitalAssetResolution):
+            asset_id = asset.asset_record.digital_asset_id
+        elif isinstance(asset, int) and not isinstance(asset, bool) and asset > 0:
+            asset_id = DigitalAssetID(asset)
+        else:
+            raise TypeError(
+                "asset must be a positive ID or an atomic Asset result/record."
+            )
+        if self._storage_manager is None:
+            raise StorePreconditionFailed(
+                "catalogued backup sources require a storage manager."
+            )
+        return self._storage_manager.get_digital_asset_record(asset_id)
 
     def run_next(self) -> BackupWorkflowCheckpoint:
         if self._status in {WorkflowStatus.COMPLETE, WorkflowStatus.CANCELLED}:
@@ -449,6 +550,15 @@ def _file_digest(path: pathlib.Path) -> Digest:
         while chunk := source.read(1024 * 1024):
             digest.update(chunk)
     return Digest("sha256", digest.hexdigest())
+
+
+def _preferred_digest(digests: tuple[Digest, ...]) -> Digest:
+    """Prefer SHA-256 while retaining compatibility with older identities."""
+
+    return next(
+        (digest for digest in digests if digest.algorithm == "sha256"),
+        digests[0],
+    )
 
 
 __all__ = ["SquashfsBackupWorkflow"]

@@ -565,6 +565,11 @@ Manager graph traversal exposes the complete ancestry or descendant branches,
 while recreation planning selects a currently viable exact route and orders
 its recipes from prerequisites to requested result.
 
+The integer `workflow_id` belongs to the legacy transform-run identity space.
+Work outside that table uses a namespaced `workflow_reference`, such as
+`backup:42`, so IDs from unrelated durable workflow repositories cannot be
+confused or violate database relationships.
+
 This gives LiuXin a chain of provenance rather than silently replacing one representation with another. 
 It also permits a source Asset to be retained even where a more convenient derived format is normally used for access.
 

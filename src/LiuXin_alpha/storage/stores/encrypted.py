@@ -22,9 +22,15 @@ from LiuXin_alpha.storage.api import (
     FileHints,
     FileInfo,
     Location,
+    StorageCharacteristics,
+    StorageLimitation,
     StoragePlacementHints,
+    StoragePublicationModel,
+    StorageTemporarySpaceRequirement,
+    StorageWriteUsage,
     StoreAPI,
     StoreCapabilities,
+    StoreCharacteristicsAPI,
     StoreConcurrencyCapabilities,
     StoreError,
     StoreIntegrityError,
@@ -590,6 +596,65 @@ class EncryptedStore(StoreAPI):
                     inner.concurrency.recommended_parallel_reads
                 ),
             ),
+        )
+
+    @property
+    def characteristics(self) -> StorageCharacteristics:
+        """Project inner mechanics while exposing encryption staging overhead.
+
+        The wrapper cannot copy an inner byte limit directly to plaintext:
+        authenticated headers and per-chunk tags consume part of that limit.
+        It therefore leaves the plaintext maximum unknown unless a future
+        inner-aware calculation can prove one.
+
+        Example:
+            >>> store.characteristics.temporary_space  # doctest: +SKIP
+            <StorageTemporarySpaceRequirement.OBJECT_STAGE: 'object_stage'>
+
+        :return: Encryption-aware configured Store characteristics.
+        """
+
+        inner = (
+            self._inner.characteristics
+            if isinstance(self._inner, StoreCharacteristicsAPI)
+            else StorageCharacteristics()
+        )
+        read_only = not (self.capabilities.create or self.capabilities.replace)
+        wrapper_limitations = (
+            StorageLimitation(
+                "encrypted_ciphertext_overhead",
+                "Ciphertext adds a header and one authentication tag per chunk.",
+            ),
+            StorageLimitation(
+                "inner_store_constraints_apply",
+                "Inner Store limits apply to the larger encrypted object.",
+            ),
+        )
+        inner_codes = {item.code for item in inner.limitations}
+        limitations = inner.limitations + tuple(
+            item for item in wrapper_limitations if item.code not in inner_codes
+        )
+        return StorageCharacteristics(
+            publication_model=(
+                StoragePublicationModel.READ_ONLY
+                if read_only
+                else inner.publication_model
+            ),
+            temporary_space=(
+                StorageTemporarySpaceRequirement.NONE
+                if read_only
+                else StorageTemporarySpaceRequirement.OBJECT_STAGE
+            ),
+            recommended_write_usage=(
+                StorageWriteUsage.NOT_APPLICABLE
+                if read_only
+                else inner.recommended_write_usage
+            ),
+            max_component_bytes=inner.max_component_bytes,
+            max_path_depth=inner.max_path_depth,
+            preserves_unmodelled_entries=inner.preserves_unmodelled_entries,
+            rewrites_container_format=inner.rewrites_container_format,
+            limitations=limitations,
         )
 
     def startup(self) -> StoreStatus:

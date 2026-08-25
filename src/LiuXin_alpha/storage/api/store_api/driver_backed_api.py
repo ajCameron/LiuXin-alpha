@@ -11,6 +11,12 @@ from collections.abc import Iterator
 from types import TracebackType
 from typing import BinaryIO, Generic, cast
 
+from LiuXin_alpha.storage.api.characteristics_api import (
+    StorageCharacteristics,
+    StoragePublicationModel,
+    StorageTemporarySpaceRequirement,
+    StorageWriteUsage,
+)
 from LiuXin_alpha.storage.api.errors import (
     StoreIntegrityError,
     StoreInvalidLocation,
@@ -56,6 +62,7 @@ from LiuXin_alpha.storage.api.store_driver_api import (
     ObjectAddressAllocatorStorageDriverAPI,
     PagedEnumerableStorageDriverAPI,
     StorageDriverAPI,
+    StorageDriverCharacteristicsAPI,
     WritableStorageDriverAPI,
 )
 from LiuXin_alpha.storage.api.store_api.facade_api import StoreAPI
@@ -269,6 +276,40 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         )
 
     @property
+    def characteristics(self) -> StorageCharacteristics:
+        """Expose structured driver constraints without leaking the driver.
+
+        Drivers that do not implement the optional characteristics protocol
+        produce an explicitly unknown profile rather than an optimistic one.
+
+        Example:
+            >>> store.characteristics.publication_model  # doctest: +SKIP
+            <StoragePublicationModel.PER_OBJECT: 'per_object'>
+
+        :return: Configured backend constraints and workload characteristics.
+        """
+
+        characteristics = (
+            self._driver.storage_characteristics
+            if isinstance(self._driver, StorageDriverCharacteristicsAPI)
+            else StorageCharacteristics()
+        )
+        if not self.configuration.read_only:
+            return characteristics
+        temporary_space = characteristics.temporary_space
+        if temporary_space is StorageTemporarySpaceRequirement.STORE_COPY:
+            # A configuration-pinned read-only view cannot invoke whole-store
+            # publication, so publication-only staging is not required.  Keep
+            # OBJECT_STAGE intact for readers that spool individual objects.
+            temporary_space = StorageTemporarySpaceRequirement.NONE
+        return dataclasses.replace(
+            characteristics,
+            publication_model=StoragePublicationModel.READ_ONLY,
+            temporary_space=temporary_space,
+            recommended_write_usage=StorageWriteUsage.NOT_APPLICABLE,
+        )
+
+    @property
     def ingest_capabilities(self) -> IngestSourceCapabilities:
         """Describe advanced source behavior derived from driver mechanics.
 
@@ -443,7 +484,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """Project Store hints into backend-native metadata when supported.
 
         Example:
-            >>> store._native_write_metadata(None)
+            >>> store._native_write_metadata(None)  # doctest: +SKIP
             ()
 
         :param placement_hints: Optional advisory library placement metadata.

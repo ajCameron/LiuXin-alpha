@@ -111,6 +111,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         source_digital_asset_id: DigitalAssetID | None = None,
         source_composite_digital_asset_id: CompositeDigitalAssetID | None = None,
         workflow_id: int | None = None,
+        workflow_reference: str | None = None,
         exact_only: bool = False,
     ) -> Iterator[DigitalAssetDerivationRecord]:
         """
@@ -129,6 +130,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         :param source_digital_asset_id:
         :param source_composite_digital_asset_id:
         :param workflow_id: Restrict results to one workflow execution.
+        :param workflow_reference: Restrict results to one namespaced workflow.
         :param exact_only:
         :return:
         """
@@ -140,6 +142,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         *,
         max_depth: int | None = None,
         workflow_id: int | None = None,
+        workflow_reference: str | None = None,
         exact_only: bool = False,
     ) -> Iterator[DigitalAssetDerivationRecord]:
         """
@@ -157,6 +160,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         :param digital_asset_id:
         :param max_depth: Maximum number of derivation edges from the root.
         :param workflow_id: Restrict traversal to one workflow execution.
+        :param workflow_reference: Restrict traversal to one namespaced workflow.
         :param exact_only: Follow only complete exact recipes.
         :return:
         """
@@ -166,6 +170,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
             direction=DigitalAssetDerivationGraphDirection.ANCESTORS,
             max_depth=max_depth,
             workflow_id=workflow_id,
+            workflow_reference=workflow_reference,
             exact_only=exact_only,
         )
         return iter(graph.derivation_records)
@@ -176,6 +181,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         *,
         max_depth: int | None = None,
         workflow_id: int | None = None,
+        workflow_reference: str | None = None,
         exact_only: bool = False,
     ) -> Iterator[DigitalAssetDerivationRecord]:
         """
@@ -192,6 +198,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         :param digital_asset_id:
         :param max_depth: Maximum number of derivation edges from the root.
         :param workflow_id: Restrict traversal to one workflow execution.
+        :param workflow_reference: Restrict traversal to one namespaced workflow.
         :param exact_only: Follow only complete exact recipes.
         :return:
         """
@@ -201,6 +208,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
             direction=DigitalAssetDerivationGraphDirection.DESCENDANTS,
             max_depth=max_depth,
             workflow_id=workflow_id,
+            workflow_reference=workflow_reference,
             exact_only=exact_only,
         )
         return iter(graph.derivation_records)
@@ -215,6 +223,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         ) = DigitalAssetDerivationGraphDirection.BOTH,
         max_depth: int | None = None,
         workflow_id: int | None = None,
+        workflow_reference: str | None = None,
         exact_only: bool = False,
     ) -> DigitalAssetDerivationGraph:
         """
@@ -234,6 +243,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         :param direction:
         :param max_depth:
         :param workflow_id:
+        :param workflow_reference:
         :param exact_only:
         :return:
         """

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 
@@ -146,6 +147,45 @@ def test_assimilate_existing_disk_example(tmp_path: Path) -> None:
     assert all(item["retrievable"] is True for item in items)
 
 
+def test_ingest_squashfs_drive_example(tmp_path: Path) -> None:
+    if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
+        pytest.skip("squashfs-tools not available in environment")
+    source = tmp_path / "source"
+    drive = tmp_path / "drive"
+    source.mkdir()
+    drive.mkdir()
+    (source / "book.epub").write_bytes(b"example epub")
+    subprocess.run(
+        [
+            "mksquashfs",
+            str(source),
+            str(drive / "pack.squashfs"),
+            "-noappend",
+            "-quiet",
+            "-processors",
+            "1",
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+    result = _run_example(
+        "storage/ingest_squashfs_drive_example.py",
+        "--drive-root",
+        str(drive),
+        "--database",
+        str(tmp_path / "catalogue.sqlite"),
+    )
+
+    assert result["metadata_is_durable"] is True
+    assert result["archives_discovered"] == 1
+    assert result["archives_succeeded"] == 1
+    assert result["members_discovered"] == 1
+    assert result["member_assets_created"] == 1
+    assert result["member_replicas_created"] == 1
+    assert result["ok"] is True
+
+
 class _QuietRequestHandler(SimpleHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:
         del format, args
@@ -204,6 +244,7 @@ EXAMPLE_SCRIPTS = (
     "storage/assimilate_existing_disk_example.py",
     "storage/filesystem_driver_example.py",
     "storage/http_remote_read_example.py",
+    "storage/ingest_squashfs_drive_example.py",
     "storage/library_register_unmanaged_disk_example.py",
     "storage/reconcile_with_database_path_example.py",
     "storage/sqlite_driver_example.py",

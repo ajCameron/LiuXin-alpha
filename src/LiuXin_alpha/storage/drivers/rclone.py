@@ -1,5 +1,5 @@
 """
-Read-only storage driver backed by rclone commands.
+Read-only and staged-write storage drivers backed by rclone commands.
 """
 
 from __future__ import annotations
@@ -37,16 +37,21 @@ from LiuXin_alpha.storage.api import (
     ScopedDriverObjectAddressChecker,
     StorageAuthenticationFailed,
     StorageAlreadyExists,
+    StorageCharacteristics,
     StorageDriverAPI,
     StorageError,
     StorageIntegrityError,
     StorageInvalidAddress,
+    StorageLimitation,
     StorageNotFound,
     StoragePermissionDenied,
     StoragePreconditionFailed,
+    StoragePublicationModel,
+    StorageTemporarySpaceRequirement,
     StorageTimeout,
     StorageUnavailable,
     StorageUnsupportedOperation,
+    StorageWriteUsage,
     WriteMode,
 )
 from LiuXin_alpha.storage.drivers._errors import (
@@ -697,6 +702,23 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
             ),
         )
 
+    @property
+    def storage_characteristics(self) -> StorageCharacteristics:
+        """Advertise a generic rclone filesystem as read-only.
+
+        Example:
+            >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
+            <StoragePublicationModel.READ_ONLY: 'read_only'>
+
+        :return: Read-only rclone characteristics.
+        """
+
+        return StorageCharacteristics(
+            publication_model=StoragePublicationModel.READ_ONLY,
+            temporary_space=StorageTemporarySpaceRequirement.NONE,
+            recommended_write_usage=StorageWriteUsage.NOT_APPLICABLE,
+        )
+
     def startup(self) -> DriverStatus:
         """
         Probe the configured filesystem before first use.
@@ -1018,8 +1040,8 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
                 )
             ) from error
         except Exception:
-            # Compatibility for injected runners that do not expose a process
-            # form. Healthy production scans always take the streaming path.
+            # Retain compatibility with injected or legacy runners that do not
+            # expose a process form.  A successful production scan streams.
             process = None
 
         if process is not None and not _valid_rclone_process(process):
@@ -1060,9 +1082,9 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
                         yield item
                     return
                 except StorageError as error:
-                    # Some injected/legacy runners expose only the JSON call.
-                    # Fall back solely when process startup failed before any
-                    # output; malformed successful output must remain fatal.
+                    # Some injected or legacy runners expose only the JSON call.
+                    # Fall back only when the process failed before yielding;
+                    # malformed successful output remains fatal.
                     try:
                         process_status = process.poll()
                     except Exception:
@@ -1308,6 +1330,35 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
                 concurrent_reads=True,
                 concurrent_writes=False,
                 recommended_parallel_reads=4,
+            ),
+        )
+
+    @property
+    def storage_characteristics(self) -> StorageCharacteristics:
+        """Describe complete local staging and per-object remote upload.
+
+        Rclone remotes differ in their publication atomicity and object-size
+        limits; those service-specific facts remain unknown rather than being
+        inferred from the rclone transport.
+
+        Example:
+            >>> driver.storage_characteristics.temporary_space  # doctest: +SKIP
+            <StorageTemporarySpaceRequirement.OBJECT_STAGE: 'object_stage'>
+
+        :return: Conservative writable-rclone characteristics.
+        """
+
+        return StorageCharacteristics(
+            publication_model=StoragePublicationModel.PER_OBJECT,
+            temporary_space=StorageTemporarySpaceRequirement.OBJECT_STAGE,
+            recommended_write_usage=StorageWriteUsage.GENERAL,
+            preserves_unmodelled_entries=True,
+            rewrites_container_format=False,
+            limitations=(
+                StorageLimitation(
+                    "rclone_backend_dependent_limits",
+                    "Object limits and publication atomicity depend on the selected rclone backend.",
+                ),
             ),
         )
 

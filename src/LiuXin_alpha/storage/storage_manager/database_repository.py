@@ -709,9 +709,13 @@ class DatabaseStorageMetadataRepository:
 
     def upsert_asset(self, record: api.DigitalAssetRecord) -> None:
         values = {
-            "digital_asset_name": record.metadata.name,
-            "digital_asset_mime_type": record.metadata.media_type,
-            "digital_asset_original_name": record.metadata.original_name,
+            "digital_asset_name": _database_scalar_text(record.metadata.name),
+            "digital_asset_mime_type": _database_scalar_text(
+                record.metadata.media_type
+            ),
+            "digital_asset_original_name": _database_scalar_text(
+                record.metadata.original_name
+            ),
             "digital_asset_size_bytes": record.size_bytes,
             "digital_asset_hash_sha256": _digest_value(record.digests, "sha256"),
             "digital_asset_hash_blake3": _digest_value(record.digests, "blake3"),
@@ -736,7 +740,9 @@ class DatabaseStorageMetadataRepository:
         values = {
             "asset_replica_digital_asset_id": int(record.digital_asset_id),
             "asset_replica_store_id": store_id,
-            "asset_replica_storage_key": record.location.key,
+            "asset_replica_storage_key": _database_scalar_text(
+                record.location.key
+            ),
             "asset_replica_mode": record.mode.value,
             "asset_replica_presence_status": record.state.value,
             "asset_replica_integrity_status": record.state.value,
@@ -755,7 +761,9 @@ class DatabaseStorageMetadataRepository:
             "asset_replica_observed_hash_blake3": _digest_value(
                 record.observation.observed_digests, "blake3"
             ),
-            "asset_replica_failure_reason": record.observation.failure_reason,
+            "asset_replica_failure_reason": _database_scalar_text(
+                record.observation.failure_reason
+            ),
             "asset_replica_scratch": self._dump(record),
         }
         self._upsert(
@@ -1113,9 +1121,9 @@ class DatabaseStorageMetadataRepository:
             row["storage_ingest_operation_id"],
             {
                 "storage_ingest_operation_state": "failed",
-                "storage_ingest_operation_last_error": (
-                    str(error) or type(error).__name__
-                )[:2000],
+                "storage_ingest_operation_last_error": _database_scalar_text(
+                    (str(error) or type(error).__name__)[:2000]
+                ),
             },
         )
 
@@ -1129,7 +1137,7 @@ class DatabaseStorageMetadataRepository:
             "storage_ingest_operation_store_uuid": str(
                 operation.result.replica_record.location.store_ref
             ),
-            "storage_ingest_operation_storage_key": (
+            "storage_ingest_operation_storage_key": _database_scalar_text(
                 operation.result.replica_record.location.key
             ),
             "storage_ingest_operation_digital_asset_id": int(
@@ -1701,7 +1709,9 @@ class DatabaseStorageMetadataRepository:
             updates.update(
                 {
                     "storage_ingest_operation_store_uuid": str(location.store_ref),
-                    "storage_ingest_operation_storage_key": location.key,
+                    "storage_ingest_operation_storage_key": (
+                        _database_scalar_text(location.key)
+                    ),
                 }
             )
         if isinstance(asset, api.DigitalAssetRecord):
@@ -1765,7 +1775,7 @@ class DatabaseStorageMetadataRepository:
                 "version": _FORMAT_VERSION,
                 "payload": payload,
             },
-            ensure_ascii=False,
+            ensure_ascii=True,
             sort_keys=True,
             separators=(",", ":"),
         )
@@ -1777,7 +1787,11 @@ class DatabaseStorageMetadataRepository:
                 "version": _FORMAT_VERSION,
                 "payload": _encode(value),
             },
-            ensure_ascii=False,
+            # ASCII JSON escapes lone surrogate code points losslessly.  This
+            # matters for POSIX filenames decoded with ``surrogateescape``;
+            # SQLite and PostgreSQL text bindings reject those code points if
+            # they are placed in a Python string literally.
+            ensure_ascii=True,
             sort_keys=True,
             separators=(",", ":"),
         )
@@ -1791,6 +1805,24 @@ class DatabaseStorageMetadataRepository:
         ):
             raise ValueError("unsupported storage record envelope.")
         return _decode(envelope.get("payload"), self._types)
+
+
+def _database_scalar_text(value: str | None) -> str | None:
+    """Make fallback text columns safe without weakening scratch envelopes.
+
+    Well-formed Unicode is kept exactly.  Lone surrogates originating from a
+    POSIX ``surrogateescape`` filename are rendered visibly as ``\\udcXX`` in
+    legacy scalar columns; the authoritative JSON envelope retains and reloads
+    the exact original string.
+    """
+
+    if value is None:
+        return None
+    try:
+        value.encode("utf-8", "strict")
+    except UnicodeEncodeError:
+        return value.encode("utf-8", "backslashreplace").decode("utf-8")
+    return value
 
 
 def _storage_value_types(additional: Iterable[type[Any]]) -> dict[str, type[Any]]:

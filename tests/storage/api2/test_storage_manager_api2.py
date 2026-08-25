@@ -282,6 +282,27 @@ class _PlacementAwareMemoryStore(_MemoryStore):
         )
 
 
+class _CharacteristicMemoryStore(_MemoryStore):
+    def __init__(
+        self,
+        store_ref: api.StoreUUID,
+        characteristics: api.StorageCharacteristics,
+        *,
+        warnings: tuple[str, ...] = (),
+    ) -> None:
+        super().__init__(store_ref)
+        self._characteristics = characteristics
+        self._status_warnings = warnings
+
+    @property
+    def characteristics(self) -> api.StorageCharacteristics:
+        return self._characteristics
+
+    def status(self, *, refresh: bool = False) -> api.StoreStatus:
+        del refresh
+        return replace(super().status(), warnings=self._status_warnings)
+
+
 class _MemoryManager(api.StorageRouterAPI):
     def __init__(self, store: _MemoryStore) -> None:
         self.store = store
@@ -918,6 +939,73 @@ def test_manager_routes_primitives_and_derives_only_small_conveniences() -> None
     assert manager.read_bytes(moved) == b"payload"
 
 
+def test_manager_exposes_characteristics_and_preflights_declared_size() -> None:
+    profile = api.StorageCharacteristics(
+        publication_model=api.StoragePublicationModel.PER_OBJECT,
+        max_object_bytes=4,
+    )
+    store = _CharacteristicMemoryStore(MAIN_STORE_UUID, profile)
+    manager = InMemoryStorageManager(
+        store_registrations=((store.configuration, store),),
+    )
+    source = io.BytesIO(b"payload")
+    location = api.Location(MAIN_STORE_UUID, "too-large.bin")
+
+    assert manager.characteristics(MAIN_STORE_UUID) is profile
+    with pytest.raises(api.StoreUnsupportedOperation, match="up to 4 bytes"):
+        manager.put(location, source, expected_size=7)
+    assert source.tell() == 0
+    assert store.files == {}
+
+    accepted = manager.write_bytes(
+        api.Location(MAIN_STORE_UUID, "fits.bin"),
+        b"four",
+    )
+    assert accepted.size == 4
+
+
+def test_automatic_active_placement_avoids_archival_snapshot_writers() -> None:
+    profile = api.StorageCharacteristics(
+        publication_model=api.StoragePublicationModel.WHOLE_STORE_REBUILD,
+        recommended_write_usage=api.StorageWriteUsage.ARCHIVAL_SNAPSHOT,
+    )
+    archive = _CharacteristicMemoryStore(ARCHIVE_STORE_UUID, profile)
+    manager = InMemoryStorageManager(
+        store_registrations=((archive.configuration, archive),),
+    )
+
+    assert manager._plan_destination_stores(
+        api.ReplicationPolicy(min_copies=1),
+        (),
+        1,
+        expected_size=4,
+    ) == ()
+    assert manager._plan_destination_stores(
+        api.BackupPolicy(min_copies=1, mode=api.ReplicaMode.ARCHIVE),
+        (),
+        1,
+        expected_size=4,
+    ) == (ARCHIVE_STORE_UUID,)
+
+
+def test_store_status_warnings_are_promoted_to_operational_issues() -> None:
+    store = _CharacteristicMemoryStore(
+        MAIN_STORE_UUID,
+        api.StorageCharacteristics(),
+        warnings=("normalization requires explicit approval",),
+    )
+    manager = InMemoryStorageManager(
+        store_registrations=((store.configuration, store),),
+    )
+
+    status = manager.get_operational_status(refresh_stores=True)
+
+    warnings = status.issues_for("store_warning")
+    assert len(warnings) == 1
+    assert warnings[0].store_ref == MAIN_STORE_UUID
+    assert "explicit approval" in warnings[0].message
+
+
 def test_location_topology_distinguishes_same_different_and_unknown() -> None:
     main = api.StoreConfiguration(
         MAIN_STORE_UUID,
@@ -1298,6 +1386,18 @@ def test_exact_complete_recipe_rejects_missing_replay_evidence() -> None:
             ),
             api.DigitalAssetDerivationKind.CONVERT,
             workflow_id=0,
+        )
+    with pytest.raises(ValueError, match="workflow_reference"):
+        api.DigitalAssetDerivationDeclaration(
+            api.DigitalAssetID(8),
+            (
+                api.DigitalAssetDerivationSourceReference(
+                    0,
+                    digital_asset_id=api.DigitalAssetID(7),
+                ),
+            ),
+            api.DigitalAssetDerivationKind.CONVERT,
+            workflow_reference=" ",
         )
 
 
@@ -1974,6 +2074,45 @@ def test_derivation_graph_traverses_chains_branches_and_workflows() -> None:
         for record in shallow.derivation_records
     ) == (epub_to_mobi.digital_asset_derivation_id,)
     assert shallow.truncated
+
+
+def test_namespaced_workflow_references_filter_derivations_and_graphs() -> None:
+    store = _MemoryStore(MAIN_STORE_UUID)
+    manager = InMemoryStorageManager(
+        store_registrations=((store.configuration, store),),
+    )
+    source = manager.ingest_bytes(b"source").asset_record
+    packaged = manager.ingest_bytes(b"package").asset_record
+    recorded = manager.record_derivation(
+        packaged,
+        [source],
+        kind="package",
+        workflow_reference="backup:17",
+    )
+
+    assert tuple(
+        manager.iter_digital_asset_derivation_records(
+            workflow_reference="backup:17",
+        )
+    ) == (recorded,)
+    assert tuple(
+        manager.get_derivation_graph(
+            packaged.digital_asset_id,
+            direction="ancestors",
+            workflow_reference="backup:17",
+        ).derivation_records
+    ) == (recorded,)
+    assert not tuple(
+        manager.iter_digital_asset_derivation_records(
+            workflow_reference="backup:18",
+        )
+    )
+    with pytest.raises(ValueError, match="workflow_reference"):
+        tuple(
+            manager.iter_digital_asset_derivation_records(
+                workflow_reference="",
+            )
+        )
 
 
 def test_recreation_plan_selects_shortest_route_and_orders_chain() -> None:

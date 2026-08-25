@@ -10,7 +10,7 @@ import os
 from collections.abc import Iterable, Mapping
 from enum import StrEnum
 from pathlib import Path
-from typing import Self
+from typing import Self, cast
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
@@ -23,6 +23,7 @@ from LiuXin_alpha.storage.api.models import (
 from LiuXin_alpha.storage.api.storage_manager_api.models.assets import ReplicaMode
 from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
     BackupPolicyID,
+    DigitalAssetID,
     ReplicationPolicyID,
     ReplicaID,
 )
@@ -43,6 +44,56 @@ class TopologyRelation(StrEnum):
     SAME = "same"
     DIFFERENT = "different"
     UNKNOWN = "unknown"
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class StoreBackingReference:
+    """Durably identify the Digital Asset whose bytes back a Store view.
+
+    The Asset is authoritative. ``preferred_replica_id`` is only a routing
+    hint and may be replaced by another readable Replica of the same Asset.
+    A materialization Store is required when the selected Replica cannot be
+    exposed to a local-file container driver directly.
+
+    Example:
+        >>> backing = StoreBackingReference(
+        ...     DigitalAssetID(7), preferred_replica_id=ReplicaID(12),
+        ... )
+        >>> int(backing.digital_asset_id)
+        7
+    """
+
+    digital_asset_id: DigitalAssetID
+    preferred_replica_id: ReplicaID | None = None
+    materialization_store_ref: StoreUUID | None = None
+
+    def __post_init__(self) -> None:
+        """Reject invalid catalogue identifiers and Store references.
+
+        Example:
+            >>> StoreBackingReference(DigitalAssetID(0))
+            Traceback (most recent call last):
+            ...
+            ValueError: digital_asset_id must be a positive integer.
+        """
+
+        if (
+            isinstance(self.digital_asset_id, bool)
+            or int(self.digital_asset_id) <= 0
+        ):
+            raise ValueError("digital_asset_id must be a positive integer.")
+        if self.preferred_replica_id is not None and (
+            isinstance(self.preferred_replica_id, bool)
+            or int(self.preferred_replica_id) <= 0
+        ):
+            raise ValueError(
+                "preferred_replica_id must be a positive integer or None."
+            )
+        if (
+            self.materialization_store_ref is not None
+            and not isinstance(self.materialization_store_ref, UUID)
+        ):
+            raise TypeError("materialization_store_ref must be a UUID or None.")
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -87,6 +138,7 @@ class StoreConfiguration:
     read_only: bool = False
     supports_folders: bool = True
     backend_options: tuple[tuple[str, object], ...] = ()
+    backing: StoreBackingReference | None = None
 
     @classmethod
     def for_backend(
@@ -116,6 +168,7 @@ class StoreConfiguration:
         options: (
             Mapping[str, object] | Iterable[tuple[str, object]]
         ) = (),
+        backing: StoreBackingReference | None = None,
     ) -> Self:
         """Build portable configuration without spelling out model fields.
 
@@ -131,6 +184,7 @@ class StoreConfiguration:
             's3'
         """
 
+        option_pairs = _option_pairs(options)
         return cls(
             store_uuid=uuid4() if store_uuid is None else store_uuid,
             store_name=name,
@@ -152,7 +206,67 @@ class StoreConfiguration:
             operational_role=operational_role,
             read_only=read_only,
             supports_folders=folders,
-            backend_options=_option_pairs(options),
+            backend_options=option_pairs,
+            backing=backing,
+        )
+
+    @classmethod
+    def for_backed_backend(
+        cls,
+        name: str,
+        kind: str,
+        digital_asset_id: DigitalAssetID,
+        *,
+        preferred_replica_id: ReplicaID | None = None,
+        materialization_store_ref: StoreUUID | None = None,
+        store_uuid: StoreUUID | None = None,
+        protocol: str | None = None,
+        failure_domain: str | None = None,
+        region: str | None = None,
+        tags: Iterable[str] = (),
+        modes: Iterable[ReplicaMode | str] = (ReplicaMode.ARCHIVE,),
+        operational_role: str | None = "archive",
+        folders: bool = True,
+        options: (
+            Mapping[str, object] | Iterable[tuple[str, object]]
+        ) = (),
+    ) -> Self:
+        """Build a read-only Store view over one container Asset.
+
+        Manager convenience APIs supply a content-derived stable UUID when
+        none is requested. This lower-level value constructor otherwise uses
+        the same generated-UUID convention as ``for_backend``. Physical
+        Replica selection remains replaceable.
+
+        Example:
+            >>> configuration = StoreConfiguration.for_backed_backend(
+            ...     "book pack", "zip_readonly", DigitalAssetID(7),
+            ...     preferred_replica_id=ReplicaID(12),
+            ... )
+            >>> configuration.store_root_uri
+            'asset://digital-asset/7'
+        """
+
+        backing = StoreBackingReference(
+            digital_asset_id,
+            preferred_replica_id=preferred_replica_id,
+            materialization_store_ref=materialization_store_ref,
+        )
+        return cls.for_backend(
+            name,
+            kind,
+            f"asset://digital-asset/{int(digital_asset_id)}",
+            store_uuid=store_uuid,
+            protocol=protocol,
+            failure_domain=failure_domain,
+            region=region,
+            tags=tags,
+            modes=modes,
+            operational_role=operational_role,
+            read_only=True,
+            folders=folders,
+            options=options,
+            backing=backing,
         )
 
     @classmethod
@@ -232,6 +346,15 @@ class StoreConfiguration:
 
         if not isinstance(self.store_uuid, UUID):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise TypeError("store_uuid must be a UUID.")
+        if self.backing is not None:
+            if not isinstance(self.backing, StoreBackingReference):
+                raise TypeError("backing must be a StoreBackingReference or None.")
+            if not self.read_only:
+                raise ValueError(
+                    "a Store backed by a catalogued Asset must be read-only."
+                )
+            if self.backing.materialization_store_ref == self.store_uuid:
+                raise ValueError("a backed Store cannot materialize into itself.")
         for name, value in (
             ("store_host_uuid", self.store_host_uuid),
             ("store_device_uuid", self.store_device_uuid),
@@ -315,7 +438,8 @@ def _option_pairs(
     """
 
     if isinstance(options, Mapping):
-        return tuple(options.items())
+        mapping = cast(Mapping[str, object], options)
+        return tuple(mapping.items())
     return tuple(options)
 
 

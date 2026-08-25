@@ -19,6 +19,7 @@ from tests.fixtures.storage_unicode import (
     UNICODE_FILENAME,
     UNICODE_PAYLOAD,
 )
+from tests.storage.contracts.unicode_paths import exercise_unicode_path_case
 
 
 def test_single_file_sqlite_init_creates_database_file(tmp_path: Path) -> None:
@@ -27,6 +28,14 @@ def test_single_file_sqlite_init_creates_database_file(tmp_path: Path) -> None:
     assert store.db_path == path.resolve()
     assert path.is_file()
     assert store.status().available
+    assert (
+        store.characteristics.publication_model
+        is api.StoragePublicationModel.PER_OBJECT
+    )
+    assert (
+        store.characteristics.temporary_space
+        is api.StorageTemporarySpaceRequirement.OBJECT_STAGE
+    )
 
 
 def test_single_file_sqlite_unicode_identifier_and_bytes_roundtrip(
@@ -60,12 +69,12 @@ def test_single_file_sqlite_reads_tortured_opaque_identifiers_exactly(
 ) -> None:
     store = SingleFileSqliteStorageBackend(tmp_path / "tortured.sqlite")
 
-    stored = store.store_bytes(case.payload, location=case.key)
-    [discovered] = list(store.iter_locations())
-
-    assert stored.location.key == case.key
-    assert discovered.key == case.key
-    assert store.read_file(discovered) == case.payload
+    exercise_unicode_path_case(
+        store,
+        case,
+        seed=lambda key, payload: store.store_bytes(payload, location=key),
+        check_filename_hint=False,
+    )
 
 
 def test_single_file_sqlite_store_locate_and_delete_roundtrip(tmp_path: Path) -> None:

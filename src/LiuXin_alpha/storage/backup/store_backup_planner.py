@@ -13,6 +13,7 @@ from LiuXin_alpha.storage.api import (
     BackupSourceKind,
     BackupWorkflowDeclaration,
     BackupWorkflowKind,
+    ReplicaState,
     StoreUUID,
 )
 from LiuXin_alpha.storage.utils.workflow import normalize_archive_path
@@ -52,12 +53,23 @@ class StoreBackupPlanner(BackupPlannerAPI):
             }
         )
         entries = []
+        replicas_by_location = {
+            replica.location: replica
+            for replica in self.storage_manager.iter_replica_records(
+                store_ref=source_store_ref,
+            )
+            if replica.state is not ReplicaState.DELETED
+        }
         for info in source_store.iter_file_infos():
             extension = pathlib.PurePosixPath(info.location.key).suffix.lower().lstrip(".")
             if extension_filter is not None and extension not in extension_filter:
                 continue
             archive_path = normalize_archive_path(info.location.key)
             digest = info.digest or source_store.compute_digest(info.location)
+            replica = replicas_by_location.get(info.location)
+            source_asset_id = (
+                None if replica is None else replica.digital_asset_id
+            )
             entries.append(
                 BackupSourceDeclaration(
                     BackupSourceKind.STORE_LOCATION,
@@ -65,6 +77,10 @@ class StoreBackupPlanner(BackupPlannerAPI):
                     archive_path=archive_path,
                     expected_size=info.size,
                     expected_digest=digest,
+                    source_digital_asset_id=source_asset_id,
+                    source_replica_id=(
+                        None if replica is None else replica.replica_id
+                    ),
                     source_store_ref=source_store_ref,
                 )
             )

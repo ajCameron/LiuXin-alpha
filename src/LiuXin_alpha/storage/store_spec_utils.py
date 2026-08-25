@@ -10,8 +10,11 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 from LiuXin_alpha.storage.api import (
     BackupPolicyID,
+    DigitalAssetID,
     ReplicaMode,
+    ReplicaID,
     ReplicationPolicyID,
+    StoreBackingReference,
     StoreConfiguration,
     StoreUnsupportedOperation,
 )
@@ -26,6 +29,10 @@ _SENSITIVE_OPTION_MARKERS = (
     "api_key",
     "secret",
     "token",
+)
+_CONFIGURATION_EXTENSION_KEY = "_liuxin_storage"
+_EXTENDED_REPLICA_MODES = frozenset(
+    {ReplicaMode.CACHE, ReplicaMode.TRANSIENT, ReplicaMode.UNMANAGED}
 )
 
 
@@ -60,6 +67,23 @@ def store_configuration_from_row(
         supported_modes.add(ReplicaMode.BACKUP)
     if _boolish(_row_get(row, "store_supports_archive_replica_mode"), default=True):
         supported_modes.add(ReplicaMode.ARCHIVE)
+    extension = _parse_configuration_extension(
+        _row_get(row, "store_policy_json")
+    )
+    extended_modes = extension.get("replica_modes")
+    if extended_modes is not None:
+        if not isinstance(extended_modes, list) or not all(
+            isinstance(value, str) for value in extended_modes
+        ):
+            raise ValueError(
+                "Store policy _liuxin_storage.replica_modes must be a string list."
+            )
+        try:
+            supported_modes = {ReplicaMode(value) for value in extended_modes}
+        except ValueError as error:
+            raise ValueError(
+                "Store policy contains an unknown Replica mode."
+            ) from error
 
     return StoreConfiguration(
         store_uuid=store_uuid,
@@ -104,6 +128,7 @@ def store_configuration_from_row(
             kind,
             _row_get(row, "store_policy_json"),
         ),
+        backing=_parse_backing_reference(extension.get("backing")),
     )
 
 
@@ -300,24 +325,109 @@ def _parse_backend_options(
     return tuple(sorted(options))
 
 
+def _parse_configuration_extension(policy_json: Any) -> Mapping[str, Any]:
+    """Return manager-owned Store metadata from an otherwise backend policy."""
+
+    if policy_json is None or policy_json == "":
+        return {}
+    try:
+        payload = json.loads(str(policy_json))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, Mapping):
+        return {}
+    extension = payload.get(_CONFIGURATION_EXTENSION_KEY)
+    if extension is None:
+        return {}
+    if not isinstance(extension, Mapping):
+        raise ValueError(
+            "Store policy _liuxin_storage extension must be an object."
+        )
+    version = extension.get("version", 1)
+    if version != 1:
+        raise ValueError(
+            f"Unsupported Store policy _liuxin_storage version: {version!r}."
+        )
+    return extension
+
+
+def _parse_backing_reference(value: Any) -> StoreBackingReference | None:
+    """Parse one durable Asset-backed Store relationship."""
+
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError("Store policy backing reference must be an object.")
+    asset_id = _to_int(value.get("digital_asset_id"))
+    if asset_id is None:
+        raise ValueError(
+            "Store policy backing reference requires digital_asset_id."
+        )
+    replica_id = _to_int(value.get("preferred_replica_id"))
+    raw_materialization_ref = value.get("materialization_store_uuid")
+    try:
+        materialization_ref = (
+            None
+            if raw_materialization_ref is None
+            or raw_materialization_ref == ""
+            else UUID(str(raw_materialization_ref))
+        )
+    except ValueError as error:
+        raise ValueError(
+            "Store policy materialization_store_uuid must be a UUID."
+        ) from error
+    return StoreBackingReference(
+        DigitalAssetID(asset_id),
+        preferred_replica_id=(
+            None if replica_id is None else ReplicaID(replica_id)
+        ),
+        materialization_store_ref=materialization_ref,
+    )
+
+
 def _backend_policy_json(configuration: StoreConfiguration) -> str | None:
     section_name = _policy_section(configuration.store_kind)
-    if section_name is None or not configuration.backend_options:
+    payload: dict[str, object] = {}
+    if section_name is not None and configuration.backend_options:
+        options = {
+            key: list(value) if isinstance(value, tuple) else value
+            for key, value in configuration.backend_options
+            if _safe_option_name(key)
+        }
+        if options:
+            payload.update(
+                {
+                    "backend": configuration.store_kind,
+                    section_name: options,
+                }
+            )
+
+    extension: dict[str, object] = {"version": 1}
+    modes = configuration.supported_replica_modes
+    if modes & _EXTENDED_REPLICA_MODES:
+        extension["replica_modes"] = [
+            mode.value for mode in ReplicaMode if mode in modes
+        ]
+    if configuration.backing is not None:
+        backing = configuration.backing
+        extension["backing"] = {
+            "digital_asset_id": int(backing.digital_asset_id),
+            "preferred_replica_id": (
+                None
+                if backing.preferred_replica_id is None
+                else int(backing.preferred_replica_id)
+            ),
+            "materialization_store_uuid": (
+                None
+                if backing.materialization_store_ref is None
+                else str(backing.materialization_store_ref)
+            ),
+        }
+    if len(extension) > 1:
+        payload[_CONFIGURATION_EXTENSION_KEY] = extension
+    if not payload:
         return None
-    options = {
-        key: list(value) if isinstance(value, tuple) else value
-        for key, value in configuration.backend_options
-        if _safe_option_name(key)
-    }
-    if not options:
-        return None
-    return json.dumps(
-        {
-            "backend": configuration.store_kind,
-            section_name: options,
-        },
-        sort_keys=True,
-    )
+    return json.dumps(payload, sort_keys=True)
 
 
 __all__ = [

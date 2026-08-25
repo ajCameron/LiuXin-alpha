@@ -54,6 +54,7 @@ from LiuXin_alpha.storage.api.store_driver_api.optional_api import (
     PagedEnumerableStorageDriverAPI,
     HierarchicalStorageDriverAPI,
     ObjectAddressAllocatorStorageDriverAPI,
+    StorageDriverCharacteristicsAPI,
     WritableStorageDriverAPI,
 )
 from LiuXin_alpha.storage.api.store_driver_api.readable_api import (
@@ -144,6 +145,7 @@ __all__ = [
     "ReadableStorageDriverAPI",
     "ScopedDriverObjectAddressChecker",
     "StorageDriverAPI",
+    "StorageDriverCharacteristicsAPI",
     "StorageDriverConvenienceAPI",
     "StorageDriverSource",
     "StorageDriverLifecycleAPI",

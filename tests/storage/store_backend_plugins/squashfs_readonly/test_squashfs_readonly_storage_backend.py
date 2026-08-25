@@ -7,16 +7,24 @@ import shutil
 import subprocess
 
 from concurrent.futures import ThreadPoolExecutor
+from uuid import uuid4
 
 import pytest
 
 from LiuXin_alpha.storage.api import (
     EnumerationCompleteness,
+    StorageIntegrityError,
     StorageInvalidAddress,
     StorageNotFound,
+    StoragePreconditionFailed,
+    StoragePublicationModel,
+    StorageTemporarySpaceRequirement,
+    StorageTimeout,
+    StorageUnsupportedOperation,
     StoreReadOnly,
     StoreStatus,
 )
+from LiuXin_alpha.storage.drivers.squashfs import SquashfsStorageDriver
 from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
     SquashfsReadOnlyStorageBackend,
 )
@@ -30,6 +38,7 @@ from tests.fixtures.storage_unicode import (
     UNICODE_KEY,
     UNICODE_PAYLOAD,
 )
+from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
 
 
 def _build_squashfs(tmp_path: pathlib.Path) -> pathlib.Path:
@@ -105,11 +114,16 @@ def test_squashfs_readonly_reads_tortured_and_undecodable_archive_paths(
     )
     store = SquashfsReadOnlyStorageBackend(str(image))
 
-    discovered = {location.key: location for location in store.iter_locations()}
+    results = exercise_unicode_path_cases(store, TORTURED_UNICODE_PATH_CASES)
 
-    assert set(discovered) == set(expected)
-    for key, payload in expected.items():
-        assert store.read_file(discovered[key]) == payload
+    discovered = {result.location.key for result in results}
+    assert discovered == {case.key for case in TORTURED_UNICODE_PATH_CASES}
+    bad_location = next(
+        location
+        for location in store.iter_locations()
+        if location.key == POSIX_BAD_BYTES_FILENAME
+    )
+    assert store.read_file(bad_location) == POSIX_BAD_BYTES_PAYLOAD
 
 
 def test_squashfs_readonly_init_and_status(tmp_path: pathlib.Path) -> None:
@@ -124,6 +138,17 @@ def test_squashfs_readonly_init_and_status(tmp_path: pathlib.Path) -> None:
     assert status.object_count == 2
     assert store.configuration.store_root_uri == image.resolve().as_uri()
     assert store.capabilities.enumeration is EnumerationCompleteness.COMPLETE
+    assert store.characteristics.publication_model is StoragePublicationModel.READ_ONLY
+    assert (
+        store.characteristics.temporary_space
+        is StorageTemporarySpaceRequirement.OBJECT_STAGE
+    )
+    assert store.characteristics.limitation("regular_files_only") is not None
+    assert store.characteristics.limitation("bounded_squashfs_expansion") is not None
+    assert store.characteristics.limitation("nested_expansion_budget_external")
+    options = dict(store.configuration.backend_options)
+    assert options["max_compression_ratio"] == 200.0
+    assert options["max_header_bytes"] == 128 * 1024 * 1024
 
 
 def test_squashfs_readonly_locate_stat_read_and_range(tmp_path: pathlib.Path) -> None:
@@ -300,3 +325,165 @@ def test_squashfs_readonly_missing_stat_remains_typed(tmp_path: pathlib.Path) ->
     store = SquashfsReadOnlyStorageBackend(url=str(image))
     with pytest.raises(StorageNotFound):
         store.stat_file("missing.epub")
+
+
+@pytest.mark.parametrize(
+    ("header", "message"),
+    (
+        (
+            b"node R 0 600 0 0 1 0 0\nnode/child R 0 600 0 0 1 0 0\n",
+            "descends through file",
+        ),
+        (
+            b"node/child R 0 600 0 0 1 0 0\nnode R 0 600 0 0 1 0 0\n",
+            "overwrite a required directory",
+        ),
+        (
+            b"same R 0 600 0 0 1 0 0\nsame R 0 600 0 0 1 0 0\n",
+            "duplicate or conflicting",
+        ),
+    ),
+)
+def test_squashfs_rejects_ambiguous_member_topology(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    header: bytes,
+    message: str,
+) -> None:
+    image = _build_squashfs(tmp_path)
+    driver = SquashfsStorageDriver(image, address_space_uuid=uuid4())
+    monkeypatch.setattr(driver, "_read_pseudo_header", lambda: header)
+
+    with pytest.raises(StorageIntegrityError, match=message):
+        driver.startup()
+
+
+def test_squashfs_rejects_non_regular_members(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = _build_squashfs(tmp_path)
+    driver = SquashfsStorageDriver(image, address_space_uuid=uuid4())
+    monkeypatch.setattr(
+        driver,
+        "_read_pseudo_header",
+        lambda: b"unsafe S 0 777 0 0 target\n",
+    )
+
+    with pytest.raises(StorageUnsupportedOperation, match="non-regular"):
+        driver.startup()
+
+
+def test_squashfs_bounds_member_total_ratio_entry_count_and_header(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = _build_squashfs(tmp_path)
+    records = (
+        b"first R 0 600 0 0 8 0 0\n"
+        b"second R 0 600 0 0 8 0 0\n"
+    )
+
+    member_driver = SquashfsStorageDriver(
+        image,
+        address_space_uuid=uuid4(),
+        max_member_bytes=4,
+        max_compression_ratio=10_000,
+    )
+    monkeypatch.setattr(member_driver, "_read_pseudo_header", lambda: records)
+    with pytest.raises(StorageUnsupportedOperation, match="member.*exceeds 4"):
+        member_driver.startup()
+
+    total_driver = SquashfsStorageDriver(
+        image,
+        address_space_uuid=uuid4(),
+        max_total_uncompressed_bytes=12,
+        max_compression_ratio=10_000,
+    )
+    monkeypatch.setattr(total_driver, "_read_pseudo_header", lambda: records)
+    with pytest.raises(StorageUnsupportedOperation, match="total expanded size"):
+        total_driver.startup()
+
+    ratio_driver = SquashfsStorageDriver(
+        image,
+        address_space_uuid=uuid4(),
+        max_compression_ratio=1,
+    )
+    huge_record = f"bomb R 0 600 0 0 {image.stat().st_size + 1} 0 0\n".encode()
+    monkeypatch.setattr(ratio_driver, "_read_pseudo_header", lambda: huge_record)
+    with pytest.raises(StorageUnsupportedOperation, match="expansion ratio"):
+        ratio_driver.startup()
+
+    count_driver = SquashfsStorageDriver(
+        image,
+        address_space_uuid=uuid4(),
+        max_inventory_entries=1,
+    )
+    monkeypatch.setattr(
+        count_driver,
+        "_read_pseudo_header",
+        lambda: b"one D 0 755 0 0\ntwo D 0 755 0 0\n",
+    )
+    with pytest.raises(StorageUnsupportedOperation, match="inventory exceeds 1"):
+        count_driver.startup()
+
+    with pytest.raises(StorageUnsupportedOperation, match="header exceeds 1"):
+        SquashfsStorageDriver(
+            image,
+            address_space_uuid=uuid4(),
+            max_header_bytes=1,
+        ).startup()
+
+
+def test_squashfs_extraction_rejects_output_beyond_indexed_size(
+    tmp_path: pathlib.Path,
+) -> None:
+    image = _build_squashfs(tmp_path)
+    driver = SquashfsStorageDriver(image, address_space_uuid=uuid4())
+    driver.startup()
+    fake = tmp_path / "oversized-unsquashfs"
+    fake.write_text("#!/bin/sh\nprintf 'hello!'\n", encoding="utf-8")
+    fake.chmod(0o700)
+    driver._unsquashfs_exe = str(fake)
+
+    with pytest.raises(StorageIntegrityError, match="more bytes"):
+        driver.open_read(driver.parse_object_address("book one.txt"))
+
+
+def test_squashfs_extraction_timeout_is_enforced(tmp_path: pathlib.Path) -> None:
+    image = _build_squashfs(tmp_path)
+    driver = SquashfsStorageDriver(
+        image,
+        address_space_uuid=uuid4(),
+        timeout_s=0.05,
+    )
+    driver.startup()
+    fake = tmp_path / "slow-unsquashfs"
+    fake.write_text("#!/bin/sh\nsleep 2\nprintf 'hello'\n", encoding="utf-8")
+    fake.chmod(0o700)
+    driver._unsquashfs_exe = str(fake)
+
+    with pytest.raises(StorageTimeout, match="timed out"):
+        driver.open_read(driver.parse_object_address("book one.txt"))
+
+
+def test_squashfs_conditional_read_rejects_archive_replacement(
+    tmp_path: pathlib.Path,
+) -> None:
+    image = _build_squashfs(tmp_path)
+    store = SquashfsReadOnlyStorageBackend(str(image))
+    info = store.stat_file("book one.txt")
+    replacement_root = tmp_path / "replacement"
+    replacement_root.mkdir()
+    (replacement_root / "book one.txt").write_bytes(b"other")
+    replacement = tmp_path / "replacement.squashfs"
+    subprocess.run(
+        ["mksquashfs", str(replacement_root), str(replacement), "-noappend", "-quiet"],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    os.replace(replacement, image)
+
+    with pytest.raises(StoragePreconditionFailed, match="version changed"):
+        store.open_read(info.location, if_version=info.version)

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import dataclasses
+import os
 
 from collections.abc import Iterable
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any, override
+from urllib.parse import unquote_to_bytes, urlparse
 from uuid import UUID, uuid4
 
 from LiuXin_alpha.storage import api
@@ -108,6 +110,10 @@ class StorageManager(_StorageManagerOrchestrator):
                 supplied_context.encryption_key_provider
                 if encryption_key_provider is None
                 else encryption_key_provider
+            ),
+            backing_path_resolver=(
+                supplied_context.backing_path_resolver
+                or self._resolve_backing_path
             ),
         )
         selected_factory = store_factory or (
@@ -217,6 +223,75 @@ class StorageManager(_StorageManagerOrchestrator):
                 )
             return
         repository.set_cache(cache)
+
+    def _resolve_backing_path(
+        self,
+        configuration: api.StoreConfiguration,
+    ) -> str:
+        """Materialize a container Asset and expose its local driver path."""
+
+        backing = configuration.backing
+        if backing is None:
+            raise api.StoragePreconditionFailed(
+                "backing-path resolution requires an Asset-backed Store."
+            )
+        preferred_replica_id = backing.preferred_replica_id
+        if preferred_replica_id is not None:
+            try:
+                preferred = self.get_replica_record(preferred_replica_id)
+            except api.ReplicaNotFound:
+                preferred_replica_id = None
+            else:
+                if preferred.digital_asset_id != backing.digital_asset_id:
+                    raise api.StoragePreconditionFailed(
+                        "backed Store preferred Replica belongs to another "
+                        "Digital Asset."
+                    )
+                if preferred.location.store_ref == configuration.store_uuid:
+                    raise api.StoragePreconditionFailed(
+                        "backed Store cannot source its own container bytes."
+                    )
+
+        source_modes = (
+            api.ReplicaMode.ACTIVE,
+            api.ReplicaMode.ARCHIVE,
+            api.ReplicaMode.UNMANAGED,
+            api.ReplicaMode.BACKUP,
+            api.ReplicaMode.CACHE,
+            api.ReplicaMode.TRANSIENT,
+        )
+        try:
+            resolution = self.materialize_digital_asset(
+                backing.digital_asset_id,
+                source_replica_id=preferred_replica_id,
+                source_modes=source_modes,
+                cache_store_ref=backing.materialization_store_ref,
+                verify=False,
+            )
+        except api.NoReadableReplica:
+            if preferred_replica_id is None:
+                raise
+            resolution = self.materialize_digital_asset(
+                backing.digital_asset_id,
+                source_modes=source_modes,
+                cache_store_ref=backing.materialization_store_ref,
+                verify=False,
+            )
+
+        store = self.get_store(resolution.location.store_ref)
+        uri = store.location_uri(resolution.location)
+        if uri is None:
+            raise api.StoreUnsupportedOperation(
+                "selected backing Replica has no local file URI; configure a "
+                "local materialization Store."
+            )
+        parsed = urlparse(uri)
+        if parsed.scheme != "file" or parsed.netloc not in {"", "localhost"}:
+            raise api.StoreUnsupportedOperation(
+                "selected backing Replica is not a local file; configure a "
+                "local materialization Store."
+            )
+        return os.fsdecode(unquote_to_bytes(parsed.path))
 
     @override
     @contextmanager
@@ -656,7 +731,7 @@ class StorageManager(_StorageManagerOrchestrator):
         issues: list[api.StorageBootstrapIssue] = []
         loaded = skipped = failed = 0
         should_start = self.startup_on_add if startup is None else startup
-        ordered_rows = sorted(rows, key=_is_encrypted_row)
+        ordered_rows = _order_store_rows(self, rows)
 
         for row in ordered_rows:
             store_id = _row_int(row, "store_id")
@@ -905,6 +980,107 @@ def _is_encrypted_row(row: Any) -> bool:
         return DEFAULT_BACKEND_REGISTRY.canonical_kind(kind) == "encrypted"
     except (ValueError, api.StoreUnsupportedOperation):
         return False
+
+
+def _configuration_dependencies(
+    manager: StorageManager,
+    configuration: api.StoreConfiguration,
+) -> frozenset[api.StoreUUID]:
+    """Return Store identities that should be live before this Store."""
+
+    dependencies: set[api.StoreUUID] = set()
+    backing = configuration.backing
+    if backing is not None:
+        if backing.materialization_store_ref is not None:
+            dependencies.add(backing.materialization_store_ref)
+        if backing.preferred_replica_id is not None:
+            try:
+                replica = manager.get_replica_record(
+                    backing.preferred_replica_id
+                )
+            except api.ReplicaNotFound:
+                pass
+            else:
+                if replica.digital_asset_id == backing.digital_asset_id:
+                    dependencies.add(replica.location.store_ref)
+
+    try:
+        kind = DEFAULT_BACKEND_REGISTRY.canonical_kind(
+            configuration.store_kind
+        )
+    except (ValueError, api.StoreUnsupportedOperation):
+        kind = configuration.store_kind
+    if kind == "encrypted":
+        raw_inner_ref = dict(configuration.backend_options).get(
+            "inner_store_uuid"
+        )
+        if raw_inner_ref is None:
+            parsed = urlparse(configuration.store_root_uri)
+            raw_inner_ref = parsed.netloc or parsed.path.strip("/") or None
+        try:
+            if raw_inner_ref is not None:
+                dependencies.add(UUID(str(raw_inner_ref)))
+        except ValueError:
+            pass
+    dependencies.discard(configuration.store_uuid)
+    return frozenset(dependencies)
+
+
+def _order_store_rows(
+    manager: StorageManager,
+    rows: tuple[Any, ...],
+) -> tuple[Any, ...]:
+    """Topologically order wrapper and Asset-backed Store rows."""
+
+    translated: list[tuple[Any, api.StoreConfiguration | None]] = []
+    for row in rows:
+        try:
+            configuration = store_configuration_from_row(
+                row,
+                fallback_store_id=_row_int(row, "store_id"),
+            )
+        except Exception:
+            configuration = None
+        translated.append((row, configuration))
+
+    configured_refs = {
+        configuration.store_uuid
+        for _, configuration in translated
+        if configuration is not None
+    }
+    remaining = list(translated)
+    ordered: list[Any] = []
+    while remaining:
+        remaining_refs = {
+            configuration.store_uuid
+            for _, configuration in remaining
+            if configuration is not None
+        }
+        ready = [
+            item
+            for item in remaining
+            if item[1] is None
+            or not (
+                _configuration_dependencies(manager, item[1])
+                & remaining_refs
+                & configured_refs
+            )
+        ]
+        if not ready:
+            # Keep deterministic reporting when malformed rows declare a
+            # dependency cycle; construction will provide the useful error.
+            ready = list(remaining)
+        ready.sort(
+            key=lambda item: (
+                item[1] is not None and item[1].backing is not None,
+                _is_encrypted_row(item[0]),
+                _row_int(item[0], "store_id") or 0,
+            )
+        )
+        for item in ready:
+            ordered.append(item[0])
+            remaining.remove(item)
+    return tuple(ordered)
 
 
 __all__ = [

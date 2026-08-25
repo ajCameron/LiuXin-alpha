@@ -29,6 +29,13 @@ from LiuXin_alpha.storage.api.workflow_api.models import (
     WorkflowStateAPI,
     WorkflowStatus,
 )
+from LiuXin_alpha.storage.api.workflow_api.sealed_artifact_api import (
+    SealedArtifactAssetInput,
+    SealedArtifactFormat,
+    SealedArtifactRegistration,
+    SealedArtifactSources,
+    SealedArtifactWorkflowAPI,
+)
 
 
 __all__ = [
@@ -46,6 +53,11 @@ __all__ = [
     "BackupWorkflowDeclaration",
     "BackupWorkflowStepKind",
     "BackupArtifactRegistration",
+    "SealedArtifactAssetInput",
+    "SealedArtifactFormat",
+    "SealedArtifactRegistration",
+    "SealedArtifactSources",
+    "SealedArtifactWorkflowAPI",
     "StorageWorkflowAPI",
     "WorkflowID",
     "WorkflowStateAPI",

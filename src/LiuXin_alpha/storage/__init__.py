@@ -70,6 +70,22 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
         "SquashfsBackupWorkflow",
     ),
     "StoreBackupPlanner": ("LiuXin_alpha.storage.backup", "StoreBackupPlanner"),
+    "SealedArtifactWorkflow": (
+        "LiuXin_alpha.storage.workflows",
+        "SealedArtifactWorkflow",
+    ),
+    "SquashfsDriveIngestWorkflow": (
+        "LiuXin_alpha.storage.ingest",
+        "SquashfsDriveIngestWorkflow",
+    ),
+    "SquashfsDriveIngestReport": (
+        "LiuXin_alpha.storage.ingest",
+        "SquashfsDriveIngestReport",
+    ),
+    "ingest_squashfs_drive": (
+        "LiuXin_alpha.storage.ingest",
+        "ingest_squashfs_drive",
+    ),
     "ConsoleReporter": ("LiuXin_alpha.storage.backup", "ConsoleReporter"),
     "ExistingDriveSquashfsPrototype": (
         "LiuXin_alpha.storage.backup",
@@ -104,10 +120,14 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
         "LiuXin_alpha.storage.errors",
         "SquashfsBuildImplicitOverwriteError",
     ),
+    "RarBuildImplicitOverwriteError": (
+        "LiuXin_alpha.storage.errors",
+        "RarBuildImplicitOverwriteError",
+    ),
 }
 
 
-__all__ = ["api", "reconcile", "utils", *_LAZY_EXPORTS]
+__all__ = ["api", "ingest", "reconcile", "utils", *_LAZY_EXPORTS]
 
 
 def __getattr__(name: str) -> Any:
@@ -120,6 +140,8 @@ def __getattr__(name: str) -> Any:
     """
     if name == "api":
         value: Any = import_module("LiuXin_alpha.storage.api")
+    elif name == "ingest":
+        value = import_module("LiuXin_alpha.storage.ingest")
     elif name == "utils":
         value = import_module("LiuXin_alpha.storage.utils")
     elif name == "reconcile":

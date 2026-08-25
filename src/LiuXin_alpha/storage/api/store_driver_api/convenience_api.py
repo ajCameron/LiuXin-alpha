@@ -1,4 +1,6 @@
-"""Low-cognitive-overhead file operations for one reusable driver."""
+"""
+Low-cognitive-overhead file operations for one reusable driver.
+"""
 
 from __future__ import annotations
 
@@ -517,6 +519,10 @@ def _bytes_stream(data: bytes) -> BinaryIO:
     Example:
         >>> _bytes_stream(b"book").read()
         b'book'
+
+
+    :param data:
+    :return:
     """
 
     import io
@@ -533,6 +539,10 @@ def _native_metadata(
     Example:
         >>> _native_metadata({"content-type": "text/plain"})
         (('content-type', 'text/plain'),)
+
+
+    :param metadata:
+    :return:
     """
 
     if isinstance(metadata, Mapping):
@@ -552,6 +562,11 @@ def _driver_file_address(
 
     Example:
         >>> address = _driver_file_address(driver, stored)  # doctest: +SKIP
+
+
+    :param address_api:
+    :param identifier:
+    :return:
     """
 
     if isinstance(identifier, DriverObjectInfo):
@@ -576,6 +591,15 @@ def _driver_object_address(
         ...     driver, driver, "incoming/book.epub", name=None,
         ...     expected_size=4, expected_digest=None,
         ... )
+
+
+    :param address_api:
+    :param reader:
+    :param object_address:
+    :param name:
+    :param expected_size:
+    :param expected_digest:
+    :return:
     """
 
     if object_address is not None:
@@ -608,6 +632,10 @@ def _write_mode(mode: WriteMode | str) -> WriteMode:
     Example:
         >>> _write_mode("create_only") is WriteMode.CREATE_ONLY
         True
+
+
+    :param mode:
+    :return:
     """
 
     return mode if isinstance(mode, WriteMode) else WriteMode(mode)
@@ -623,6 +651,11 @@ def _write_mode_argument(
     Example:
         >>> _write_mode_argument("replace", None) is WriteMode.REPLACE
         True
+
+
+    :param write_mode:
+    :param mode:
+    :return:
     """
 
     if write_mode is not None and mode is not None:

@@ -16,10 +16,12 @@ from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
     native_html_storage_backend as backend_module,
 )
 from tests.fixtures.storage_unicode import (
+    TORTURED_UNICODE_PATH_CASES,
     UNICODE_FILENAME,
     UNICODE_PAYLOAD,
     UNICODE_URL_KEY,
 )
+from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
 
 
 def _html_result(url: str, body: str) -> object:
@@ -105,6 +107,84 @@ def test_native_backend_preserves_unicode_url_names_and_bytes(
     assert item.source_info.location.key == UNICODE_URL_KEY
     assert item.result.asset_record.metadata.original_name == UNICODE_FILENAME
     assert manager.read_file(item.result.asset_record) == UNICODE_PAYLOAD
+
+
+def test_native_backend_applies_generic_unicode_torture_contract(monkeypatch) -> None:
+    root = "https://example.com/library/"
+    payloads = {
+        root + case.url_key: case.payload
+        for case in TORTURED_UNICODE_PATH_CASES
+    }
+    links = "".join(
+        f'<a href="{case.url_key}">{case.case_id}</a>'
+        for case in TORTURED_UNICODE_PATH_CASES
+    )
+    monkeypatch.setattr(
+        backend_module.NativeHtmlReadOnlyStorageBackend,
+        "_fetch_url",
+        lambda self, url: _html_result(url, f"<html><body>{links}</body></html>"),
+    )
+
+    class _Response(io.BytesIO):
+        def __init__(self, url: str, payload: bytes, *, status: int, total: int) -> None:
+            super().__init__(payload)
+            self.status = status
+            self.headers = {
+                "Content-Length": str(len(payload) if status == 206 else total),
+                "Content-Type": "application/epub+zip",
+                "ETag": '"unicode-v1"',
+            }
+            if status == 206:
+                start = int(self._range_start)
+                self.headers["Content-Range"] = (
+                    f"bytes {start}-{start + len(payload) - 1}/{total}"
+                )
+            self._url = url
+
+        _range_start = 0
+
+        def geturl(self) -> str:
+            return self._url
+
+    def _open_http(request, timeout_s):
+        del timeout_s
+        complete = payloads[request.full_url]
+        if request.method == "HEAD":
+            return _Response(request.full_url, b"", status=200, total=len(complete))
+        byte_range = request.get_header("Range")
+        if byte_range:
+            interval = byte_range.removeprefix("bytes=")
+            start_text, end_text = interval.split("-", 1)
+            start = int(start_text)
+            end = len(complete) - 1 if not end_text else int(end_text)
+            _Response._range_start = start
+            return _Response(
+                request.full_url,
+                complete[start : end + 1],
+                status=206,
+                total=len(complete),
+            )
+        return _Response(request.full_url, complete, status=200, total=len(complete))
+
+    monkeypatch.setattr(
+        backend_module.NativeHtmlReadOnlyStorageBackend,
+        "_open_http_request",
+        staticmethod(_open_http),
+    )
+    store = NativeHtmlReadOnlyStorageBackend(
+        root,
+        options=NativeHtmlBackendOptions(
+            max_http_requests_per_hour=0,
+            respect_robots=False,
+        ),
+    )
+
+    exercise_unicode_path_cases(
+        store,
+        TORTURED_UNICODE_PATH_CASES,
+        key_for_case=lambda case: case.url_key,
+        check_uri_round_trip=True,
+    )
 
 
 def test_native_backend_crawl_descends_through_non_file_like_pages(monkeypatch) -> None:

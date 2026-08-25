@@ -36,16 +36,21 @@ from LiuXin_alpha.storage.api import (
     ScopedDriverObjectAddressChecker,
     StorageAlreadyExists,
     StorageAuthenticationFailed,
+    StorageCharacteristics,
     StorageDriverAPI,
     StorageError,
     StorageIntegrityError,
     StorageInvalidAddress,
+    StorageLimitation,
     StorageNotFound,
     StoragePermissionDenied,
     StoragePreconditionFailed,
+    StoragePublicationModel,
+    StorageTemporarySpaceRequirement,
     StorageTimeout,
     StorageUnavailable,
     StorageUnsupportedOperation,
+    StorageWriteUsage,
     WriteMode,
 )
 from LiuXin_alpha.storage.drivers._errors import (
@@ -221,7 +226,7 @@ class S3ObjectAddress(DriverObjectAddress):
 
 class _S3BodyReader(io.RawIOBase):
     """
-    Adapt a boto streaming body and enforce the requested byte limit.
+    Adapt a boto3-compatible streaming body and enforce the requested byte limit.
 
     Example:
         >>> reader = _S3BodyReader(io.BytesIO(b"book"), 4, target="s3://books/book.epub")
@@ -238,7 +243,7 @@ class _S3BodyReader(io.RawIOBase):
             True
 
 
-        :param body: Boto-compatible streaming body.
+        :param body: boto3-compatible streaming body.
         :param remaining: Maximum bytes still expected, or ``None``.
         :param target: Safe object description for diagnostics.
         :return:
@@ -606,7 +611,7 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
 
         :param bucket: S3 bucket name.
         :param address_space_uuid: Stable identity of this address space.
-        :param client: Boto3-compatible client owned by this driver by default.
+        :param client: boto3-compatible client owned by this driver by default.
         :param prefix: Optional bucket key prefix that scopes all objects.
         :param multipart_threshold: Size at which multipart upload is selected.
         :param multipart_part_size: Bytes per multipart upload part.
@@ -796,6 +801,31 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
                 concurrent_reads=True,
                 concurrent_writes=True,
                 recommended_parallel_reads=8,
+            ),
+        )
+
+    @property
+    def storage_characteristics(self) -> StorageCharacteristics:
+        """Describe complete local staging and per-object S3 publication.
+
+        Example:
+            >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
+            <StoragePublicationModel.PER_OBJECT: 'per_object'>
+
+        :return: S3-compatible object Store characteristics.
+        """
+
+        return StorageCharacteristics(
+            publication_model=StoragePublicationModel.PER_OBJECT,
+            temporary_space=StorageTemporarySpaceRequirement.OBJECT_STAGE,
+            recommended_write_usage=StorageWriteUsage.GENERAL,
+            preserves_unmodelled_entries=True,
+            rewrites_container_format=False,
+            limitations=(
+                StorageLimitation(
+                    "s3_service_limits_apply",
+                    "Object and multipart limits are imposed by the configured S3-compatible service.",
+                ),
             ),
         )
 

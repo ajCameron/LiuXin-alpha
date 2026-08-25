@@ -283,6 +283,7 @@ class DatabaseDerivationRepository(api.DigitalAssetDerivationRepositoryAPI):
         source_digital_asset_id=None,
         source_composite_digital_asset_id=None,
         workflow_id=None,
+        workflow_reference=None,
         exact_only=False,
     ):
         records = self._repository._load_derivations()
@@ -313,6 +314,11 @@ class DatabaseDerivationRepository(api.DigitalAssetDerivationRepositoryAPI):
             and (
                 workflow_id is None
                 or record.declaration.workflow_id == workflow_id
+            )
+            and (
+                workflow_reference is None
+                or record.declaration.workflow_reference
+                == workflow_reference
             )
             and (not exact_only or record.can_recreate_exactly)
         )

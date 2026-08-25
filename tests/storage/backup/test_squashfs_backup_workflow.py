@@ -14,11 +14,29 @@ def _fake_mksquashfs(self, output: Path, *, quiet: bool) -> None:
     output.write_bytes(b"fake-squashfs-archive")
 
 
-def test_local_sources_checkpoint_resume_and_complete(monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(
-        "LiuXin_alpha.storage.store_backend_plugins.squashfs_build.squashfs_build_storage_backend.SquashfsBuildStorageBackend._run_mksquashfs",
-        _fake_mksquashfs,
+def _accept_fake_candidate(self, candidate: Path, manifest: object) -> None:
+    """Keep workflow tests independent of SquashFS tools.
+
+    Hostile-candidate validation is exercised by the backend tests; these tests
+    substitute both sides of the external builder boundary.
+    """
+
+    del self
+    assert candidate.read_bytes() == b"fake-squashfs-archive"
+    assert manifest
+
+
+def _install_fake_builder(monkeypatch) -> None:
+    backend = (
+        "LiuXin_alpha.storage.store_backend_plugins.squashfs_build."
+        "squashfs_build_storage_backend.SquashfsBuildStorageBackend"
     )
+    monkeypatch.setattr(f"{backend}._run_mksquashfs", _fake_mksquashfs)
+    monkeypatch.setattr(f"{backend}._validate_candidate", _accept_fake_candidate)
+
+
+def test_local_sources_checkpoint_resume_and_complete(monkeypatch, tmp_path: Path) -> None:
+    _install_fake_builder(monkeypatch)
     first = tmp_path / "first.txt"
     second = tmp_path / "second.txt"
     first.write_bytes(b"alpha")
@@ -52,10 +70,7 @@ def test_local_sources_checkpoint_resume_and_complete(monkeypatch, tmp_path: Pat
 
 
 def test_store_location_source_streams_through_manager(monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(
-        "LiuXin_alpha.storage.store_backend_plugins.squashfs_build.squashfs_build_storage_backend.SquashfsBuildStorageBackend._run_mksquashfs",
-        _fake_mksquashfs,
-    )
+    _install_fake_builder(monkeypatch)
     source_store = FilesystemStore(tmp_path / "source")
     manager = StorageManager(stores=[source_store], startup_on_add=True)
     source = source_store.store_bytes(b"managed-source", location="objects/source")
@@ -98,10 +113,7 @@ def test_source_snapshot_change_fails_without_publishing_archive(tmp_path: Path)
 
 
 def test_location_output_is_committed_through_manager(monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(
-        "LiuXin_alpha.storage.store_backend_plugins.squashfs_build.squashfs_build_storage_backend.SquashfsBuildStorageBackend._run_mksquashfs",
-        _fake_mksquashfs,
-    )
+    _install_fake_builder(monkeypatch)
     destination = FilesystemStore(tmp_path / "destination")
     manager = StorageManager(stores=[destination], startup_on_add=True)
     target = destination.locate("packs/nightly.sqsh")
@@ -139,10 +151,7 @@ def test_existing_output_without_sealed_checkpoint_is_never_adopted(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setattr(
-        "LiuXin_alpha.storage.store_backend_plugins.squashfs_build.squashfs_build_storage_backend.SquashfsBuildStorageBackend._run_mksquashfs",
-        _fake_mksquashfs,
-    )
+    _install_fake_builder(monkeypatch)
     output = tmp_path / "preexisting.sqsh"
     output.write_bytes(b"not-created-by-this-workflow")
     source = tmp_path / "source.epub"

@@ -38,6 +38,14 @@ There are two deliberately different assimilation workflows:
   LiuXin database as an unmanaged Store. They do not copy or take ownership of
   the source bytes.
 
+`ingest_squashfs_drive_example.py` is the first mess-ingestion workflow. It
+walks an existing drive without following symlinks, recognizes SquashFS images
+by suffix or magic, and registers each readable image as a separate immutable
+Store. The image itself and every regular member become durable Digital Assets
+and in-place Replicas; no archive is unpacked or copied. A broken image is
+reported without preventing later images from being processed, and rerunning
+the command resumes idempotently.
+
 `storage_bootstrap_report_example.py` then shows how persisted Store rows are
 loaded and how bootstrap issues are reported.
 
@@ -46,4 +54,8 @@ python examples/storage/assimilate_existing_disk_example.py \
   --source-root /media/existing-books \
   --destination-root /srv/liuxin/managed \
   --extension epub --extension mobi --workers 4
+
+python examples/storage/ingest_squashfs_drive_example.py \
+  --drive-root /media/archive-drives/disk-01 \
+  --database /srv/liuxin/catalogue.sqlite
 ```

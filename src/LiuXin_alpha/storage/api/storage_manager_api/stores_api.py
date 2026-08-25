@@ -16,7 +16,9 @@ from LiuXin_alpha.storage.api.models import Location, StoreStatus, StoreUUID
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
     BackupPolicyID,
     BackupPolicyRecord,
+    DigitalAssetID,
     ReplicaMode,
+    ReplicaID,
     ReplicationPolicyID,
     ReplicationPolicyRecord,
     StorageBootstrapReport,
@@ -175,6 +177,41 @@ class StoreAdministrationAPI(abc.ABC):
         :param options: Non-secret backend-specific configuration values.
         :param start: Whether to start the backend before returning.
         :return: The registered portable Store configuration.
+        """
+        ...
+
+    @abc.abstractmethod
+    def add_backed_store(
+        self,
+        name: str,
+        kind: str,
+        digital_asset_id: DigitalAssetID,
+        *,
+        source_replica_id: ReplicaID | None = None,
+        materialization_store_ref: StoreUUID | None = None,
+        store_uuid: StoreUUID | None = None,
+        protocol: str | None = None,
+        tags: Iterable[str] = (),
+        modes: Iterable[ReplicaMode | str] = (ReplicaMode.ARCHIVE,),
+        operational_role: str | None = "archive",
+        folders: bool = True,
+        options: (
+            Mapping[str, object] | Iterable[tuple[str, object]]
+        ) = (),
+        start: bool = True,
+    ) -> StoreConfiguration:
+        """Configure a read-only container Store backed by an Asset.
+
+        A preferred source Replica can identify archive or unmanaged bytes.
+        ``materialization_store_ref`` names a writable local CACHE Store when
+        the source itself is nested inside another Store.
+
+        Example:
+            >>> mounted = manager.add_backed_store(  # doctest: +SKIP
+            ...     "book pack", "zip_readonly", asset_id,
+            ...     source_replica_id=archive_replica_id,
+            ...     materialization_store_ref=cache_uuid,
+            ... )
         """
         ...
 

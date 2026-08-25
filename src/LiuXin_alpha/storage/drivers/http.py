@@ -41,15 +41,19 @@ from LiuXin_alpha.storage.api import (
     EnumerationCompleteness,
     ScopedDriverObjectAddressChecker,
     StorageAuthenticationFailed,
+    StorageCharacteristics,
     StorageDriverAPI,
     StorageError,
     StorageInvalidAddress,
     StorageNotFound,
     StoragePermissionDenied,
     StoragePreconditionFailed,
+    StoragePublicationModel,
+    StorageTemporarySpaceRequirement,
     StorageTimeout,
     StorageUnavailable,
     StorageUnsupportedOperation,
+    StorageWriteUsage,
 )
 from LiuXin_alpha.storage.drivers._errors import driver_failure_message
 from LiuXin_alpha.storage.drivers._validation import (
@@ -417,6 +421,24 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
                 concurrent_reads=True,
                 recommended_parallel_reads=4,
             ),
+        )
+
+    @property
+    def storage_characteristics(self) -> StorageCharacteristics:
+        """Advertise HTTP as a read-only remote source.
+
+        Example:
+            >>> driver = HttpStorageDriver("https://example.test/books/", address_space_uuid=UUID(int=1))
+            >>> driver.storage_characteristics.publication_model
+            <StoragePublicationModel.READ_ONLY: 'read_only'>
+
+        :return: Read-only HTTP characteristics.
+        """
+
+        return StorageCharacteristics(
+            publication_model=StoragePublicationModel.READ_ONLY,
+            temporary_space=StorageTemporarySpaceRequirement.NONE,
+            recommended_write_usage=StorageWriteUsage.NOT_APPLICABLE,
         )
 
     def startup(self) -> DriverStatus:

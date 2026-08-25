@@ -3,16 +3,23 @@ from __future__ import annotations
 import hashlib
 import os
 import pathlib
-import subprocess
+import shutil
 
 from uuid import uuid4
 
 import pytest
 
 from LiuXin_alpha.storage.api import (
+    StoragePublicationModel,
+    StorageTemporarySpaceRequirement,
+    StorageWriteUsage,
     StoreAlreadyExists,
     StoreConfiguration,
     StorePreconditionFailed,
+    StoreIntegrityError,
+    StoreUnavailable,
+    StoreUnsupportedOperation,
+    StorageTimeout,
     WriteMode,
 )
 from LiuXin_alpha.storage.errors import SquashfsBuildImplicitOverwriteError
@@ -31,6 +38,7 @@ from tests.fixtures.storage_unicode import (
     UNICODE_KEY,
     UNICODE_PAYLOAD,
 )
+from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
 
 
 def test_squashfs_build_staging_preserves_unicode_names_and_bytes(
@@ -44,6 +52,16 @@ def test_squashfs_build_staging_preserves_unicode_names_and_bytes(
 
     info = store.store_bytes(UNICODE_PAYLOAD, location=UNICODE_KEY)
 
+    assert (
+        store.characteristics.publication_model
+        is StoragePublicationModel.STAGING_THEN_SEAL
+    )
+    assert (
+        store.characteristics.temporary_space
+        is StorageTemporarySpaceRequirement.STORE_COPY
+    )
+    assert store.characteristics.recommended_write_usage is StorageWriteUsage.ARCHIVAL_SNAPSHOT
+    assert store.characteristics.limitation("explicit_seal_required") is not None
     assert info.location.key == UNICODE_KEY
     assert store.stat_file(info).hints.suggested_filename == UNICODE_FILENAME
     assert [location.key for location in store.iter_locations()] == [UNICODE_KEY]
@@ -59,12 +77,13 @@ def test_squashfs_build_staging_reads_tortured_unicode_paths_exactly(
         staging_root=str(tmp_path / "stage"),
     )
 
-    for case in TORTURED_UNICODE_PATH_CASES:
-        info = store.store_bytes(case.payload, location=case.key)
-        assert info.location.key == case.key
-        assert store.read_file(info) == case.payload
+    results = exercise_unicode_path_cases(
+        store,
+        TORTURED_UNICODE_PATH_CASES,
+        seed=lambda key, payload: store.store_bytes(payload, location=key),
+    )
 
-    assert {location.key for location in store.iter_locations()} == {
+    assert {result.location.key for result in results} == {
         case.key for case in TORTURED_UNICODE_PATH_CASES
     }
 
@@ -192,8 +211,9 @@ def test_squashfs_build_refuses_to_seal_with_active_write_session(
 
 def test_squashfs_build_seal_publishes_atomically_and_returns_readonly_store(
     tmp_path: pathlib.Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
+        pytest.skip("squashfs-tools not available in environment")
     archive = tmp_path / "backup.squashfs"
     stage = tmp_path / "stage"
     store = SquashfsBuildStorageBackend(
@@ -203,33 +223,18 @@ def test_squashfs_build_seal_publishes_atomically_and_returns_readonly_store(
         deterministic=True,
     )
     store.store_bytes(b"ONE", location="docs/one.txt")
-    calls: list[list[str]] = []
-
-    def fake_run(cmd, stdout=None, stderr=None, check=False):
-        del stdout, stderr, check
-        calls.append(list(cmd))
-        pathlib.Path(cmd[2]).write_bytes(b"FAKE-SQUASHFS")
-        return subprocess.CompletedProcess(cmd, 0, b"", b"")
-
-    module = (
-        "LiuXin_alpha.storage.store_backend_plugins.squashfs_build."
-        "squashfs_build_storage_backend"
-    )
-    monkeypatch.setattr(f"{module}.shutil.which", lambda executable: executable)
-    monkeypatch.setattr(f"{module}.subprocess.run", fake_run)
 
     built = store.seal(force=True, quiet=True)
 
     assert isinstance(built, SquashfsReadOnlyStorageBackend)
     assert built.archive_path == archive.resolve()
-    assert archive.read_bytes() == b"FAKE-SQUASHFS"
-    assert calls[0][0] == "mksquashfs"
-    assert calls[0][1] == str(stage.resolve())
-    assert pathlib.Path(calls[0][2]).parent == archive.parent
-    assert pathlib.Path(calls[0][2]) != archive
-    assert not pathlib.Path(calls[0][2]).exists()
-    assert "-comp" in calls[0] and "gzip" in calls[0]
-    assert "-quiet" in calls[0] and "-all-time" in calls[0]
+    assert built.read_file("docs/one.txt") == b"ONE"
+    assert archive.stat().st_size > 0
+    assert not list(archive.parent.glob(f".{archive.name}.*.part"))
+    with pytest.raises(StorePreconditionFailed, match="already been sealed"):
+        store.store_bytes(b"TWO", location="docs/two.txt")
+    with pytest.raises(StorePreconditionFailed, match="already been sealed"):
+        store.seal(force=True)
 
 
 def test_failed_force_seal_preserves_existing_archive(
@@ -244,22 +249,121 @@ def test_failed_force_seal_preserves_existing_archive(
     )
     store.store_bytes(b"ONE", location="one.txt")
 
-    def fake_failure(cmd, **kwargs):
-        del kwargs
-        pathlib.Path(cmd[2]).write_bytes(b"INCOMPLETE")
-        return subprocess.CompletedProcess(cmd, 1, b"", b"failed")
+    def fake_failure(_output: pathlib.Path, *, quiet: bool) -> None:
+        del quiet
+        raise StoreUnavailable("mksquashfs failed")
 
-    module = (
-        "LiuXin_alpha.storage.store_backend_plugins.squashfs_build."
-        "squashfs_build_storage_backend"
-    )
-    monkeypatch.setattr(f"{module}.shutil.which", lambda executable: executable)
-    monkeypatch.setattr(f"{module}.subprocess.run", fake_failure)
+    monkeypatch.setattr(store, "_run_mksquashfs", fake_failure)
 
-    with pytest.raises(RuntimeError, match="mksquashfs failed"):
+    with pytest.raises(StoreUnavailable, match="mksquashfs failed"):
         store.seal(force=True)
     assert archive.read_bytes() == b"OLD-ARCHIVE"
     assert not list(archive.parent.glob(f".{archive.name}.*.part"))
+
+
+@pytest.mark.skipif(os.name != "posix", reason="symbolic links are a POSIX contract")
+def test_squashfs_seal_rejects_symbolic_links_before_build(
+    tmp_path: pathlib.Path,
+) -> None:
+    archive = tmp_path / "backup.squashfs"
+    archive.write_bytes(b"OLD-ARCHIVE")
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    (stage / "target.bin").write_bytes(b"target")
+    (stage / "link.bin").symlink_to("target.bin")
+    store = SquashfsBuildStorageBackend(str(archive), staging_root=str(stage))
+
+    with pytest.raises(StoreUnsupportedOperation, match="symbolic link"):
+        store.seal(force=True)
+
+    assert archive.read_bytes() == b"OLD-ARCHIVE"
+
+
+def test_squashfs_seal_rejects_total_budget_without_publication(
+    tmp_path: pathlib.Path,
+) -> None:
+    archive = tmp_path / "backup.squashfs"
+    store = SquashfsBuildStorageBackend(
+        str(archive),
+        staging_root=str(tmp_path / "stage"),
+        max_total_uncompressed_bytes=6,
+    )
+    store.store_bytes(b"1234", location="one.bin")
+    store.store_bytes(b"5678", location="two.bin")
+
+    with pytest.raises(StoreUnsupportedOperation, match="total size"):
+        store.seal()
+
+    assert not archive.exists()
+
+
+def test_squashfs_seal_rejects_invalid_candidate_before_force_replace(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    archive = tmp_path / "backup.squashfs"
+    archive.write_bytes(b"OLD-ARCHIVE")
+    store = SquashfsBuildStorageBackend(
+        str(archive),
+        staging_root=str(tmp_path / "stage"),
+    )
+    store.store_bytes(b"ONE", location="one.txt")
+
+    def fake_build(output: pathlib.Path, *, quiet: bool) -> None:
+        del quiet
+        output.write_bytes(b"NOT-A-SQUASHFS")
+
+    monkeypatch.setattr(store, "_run_mksquashfs", fake_build)
+
+    with pytest.raises(StoreIntegrityError, match="candidate validation"):
+        store.seal(force=True)
+
+    assert archive.read_bytes() == b"OLD-ARCHIVE"
+
+
+def test_squashfs_build_enforces_external_command_timeout(
+    tmp_path: pathlib.Path,
+) -> None:
+    fake = tmp_path / "slow-mksquashfs"
+    fake.write_text("#!/bin/sh\nsleep 2\n", encoding="utf-8")
+    fake.chmod(0o700)
+    archive = tmp_path / "backup.squashfs"
+    store = SquashfsBuildStorageBackend(
+        str(archive),
+        staging_root=str(tmp_path / "stage"),
+        mksquashfs_exe=str(fake),
+        command_timeout_s=0.05,
+    )
+    store.store_bytes(b"ONE", location="one.txt")
+
+    with pytest.raises(StorageTimeout, match="exceeded"):
+        store.seal()
+
+    assert not archive.exists()
+
+
+def test_squashfs_build_bounds_streaming_stage_and_persists_policy(
+    tmp_path: pathlib.Path,
+) -> None:
+    store = SquashfsBuildStorageBackend(
+        str(tmp_path / "backup.squashfs"),
+        staging_root=str(tmp_path / "stage"),
+        max_member_bytes=4,
+        max_total_uncompressed_bytes=20,
+        max_compression_ratio=50,
+    )
+
+    with store.begin_write(store.locate("large.bin")) as session:
+        with pytest.raises(StoreUnsupportedOperation, match="limited to 4"):
+            session.write(b"12345")
+
+    assert not store.file_exists("large.bin")
+    options = dict(store.configuration.backend_options)
+    assert options["max_member_bytes"] == 4
+    assert options["max_total_uncompressed_bytes"] == 20
+    assert options["max_compression_ratio"] == 50.0
+    assert options["staging_root"] == str((tmp_path / "stage").resolve())
+    assert store.characteristics.limitation("nested_expansion_budget_external")
 
 
 def test_storage_manager_can_instantiate_squashfs_builder_from_configuration(

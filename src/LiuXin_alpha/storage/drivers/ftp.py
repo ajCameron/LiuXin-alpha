@@ -31,14 +31,18 @@ from LiuXin_alpha.storage.api import (
     EnumerationCompleteness,
     ScopedDriverObjectAddressChecker,
     StorageAuthenticationFailed,
+    StorageCharacteristics,
     StorageDriverAPI,
     StorageError,
     StorageInvalidAddress,
     StorageNotFound,
     StoragePermissionDenied,
+    StoragePublicationModel,
+    StorageTemporarySpaceRequirement,
     StorageTimeout,
     StorageUnavailable,
     StorageUnsupportedOperation,
+    StorageWriteUsage,
 )
 from LiuXin_alpha.storage.drivers._errors import (
     driver_failure_message,
@@ -253,6 +257,24 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
                 concurrent_reads=True,
                 recommended_parallel_reads=4,
             ),
+        )
+
+    @property
+    def storage_characteristics(self) -> StorageCharacteristics:
+        """Advertise FTP/FTPS as a read-only remote source.
+
+        Example:
+            >>> driver = FtpStorageDriver("ftp://example.test/books/", address_space_uuid=UUID(int=1))
+            >>> driver.storage_characteristics.publication_model
+            <StoragePublicationModel.READ_ONLY: 'read_only'>
+
+        :return: Read-only FTP-family characteristics.
+        """
+
+        return StorageCharacteristics(
+            publication_model=StoragePublicationModel.READ_ONLY,
+            temporary_space=StorageTemporarySpaceRequirement.NONE,
+            recommended_write_usage=StorageWriteUsage.NOT_APPLICABLE,
         )
 
     def startup(self) -> DriverStatus:
@@ -601,8 +623,8 @@ class FtpStorageDriver(StorageDriverAPI[FtpObjectAddress]):
                 try:
                     client.retrbinary(command, _receive, rest=offset or None)
                 except TypeError:
-                    # Some small or legacy clients do not accept REST. Fall
-                    # back to streaming and discarding the prefix exactly.
+                    # Some injected or legacy client adapters do not accept the
+                    # ``rest`` argument.  Discard the streamed prefix exactly.
                     skip = offset
 
                     def _receive_without_rest(chunk: bytes) -> None:

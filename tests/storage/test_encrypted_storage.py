@@ -22,6 +22,7 @@ from tests.fixtures.storage_unicode import (
     StoragePathCase,
     TORTURED_UNICODE_PATH_CASES,
 )
+from tests.storage.contracts.unicode_paths import exercise_unicode_path_case
 
 
 class _HintRecordingFilesystemStore(FilesystemStore):
@@ -80,6 +81,16 @@ def test_encrypted_store_round_trips_plaintext_and_cross_chunk_ranges(tmp_path) 
     assert store.stat(info.location).size == len(plaintext)
     assert not store.capabilities.external_uri_rendering
     assert store.location_uri(info.location) is None
+    assert (
+        store.characteristics.publication_model
+        is api.StoragePublicationModel.PER_OBJECT
+    )
+    assert (
+        store.characteristics.temporary_space
+        is api.StorageTemporarySpaceRequirement.OBJECT_STAGE
+    )
+    assert store.characteristics.limitation("encrypted_ciphertext_overhead") is not None
+    assert store.characteristics.limitation("inner_store_constraints_apply") is not None
     ciphertext = inner.read_file("books/example.epub")
     assert ciphertext.startswith(b"LXENC01\0")
     assert plaintext not in ciphertext
@@ -331,12 +342,11 @@ def test_encrypted_store_reads_tortured_unicode_paths_exactly(
 ) -> None:
     _inner, store = _stores(tmp_path)
 
-    stored = store.store_bytes(case.payload, location=case.key)
-    [discovered] = list(store.iter_locations())
-
-    assert stored.location.key == case.key
-    assert discovered.key == case.key
-    assert store.read_file(discovered) == case.payload
+    exercise_unicode_path_case(
+        store,
+        case,
+        seed=lambda key, payload: store.store_bytes(payload, location=key),
+    )
 
 
 @pytest.mark.skipif(os.name != "posix", reason="surrogateescape is a POSIX filename contract")

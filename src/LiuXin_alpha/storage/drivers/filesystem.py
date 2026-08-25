@@ -32,14 +32,18 @@ from LiuXin_alpha.storage.api import (
     EnumerationCompleteness,
     ScopedDriverObjectAddressChecker,
     StorageAlreadyExists,
+    StorageCharacteristics,
     StorageDriverAPI,
     StorageError,
     StorageIntegrityError,
     StorageInvalidAddress,
     StorageNotFound,
     StoragePreconditionFailed,
+    StoragePublicationModel,
     StorageReadOnly,
+    StorageTemporarySpaceRequirement,
     StorageUnsupportedOperation,
+    StorageWriteUsage,
     WriteMode,
 )
 from LiuXin_alpha.storage.drivers._errors import (
@@ -539,6 +543,31 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
             ),
         )
 
+    @property
+    def storage_characteristics(self) -> StorageCharacteristics:
+        """Describe local per-object staging or configured read-only access.
+
+        Example:
+            >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
+            <StoragePublicationModel.PER_OBJECT: 'per_object'>
+
+        :return: Configured filesystem characteristics.
+        """
+
+        if self._read_only:
+            return StorageCharacteristics(
+                publication_model=StoragePublicationModel.READ_ONLY,
+                temporary_space=StorageTemporarySpaceRequirement.NONE,
+                recommended_write_usage=StorageWriteUsage.NOT_APPLICABLE,
+            )
+        return StorageCharacteristics(
+            publication_model=StoragePublicationModel.PER_OBJECT,
+            temporary_space=StorageTemporarySpaceRequirement.OBJECT_STAGE,
+            recommended_write_usage=StorageWriteUsage.GENERAL,
+            preserves_unmodelled_entries=True,
+            rewrites_container_format=False,
+        )
+
     def startup(self) -> DriverStatus:
         """
         Validate or create the configured root and report its status.
@@ -754,7 +783,7 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         parsed = urlparse(uri)
         if parsed.scheme != "file" or parsed.netloc not in ("", "localhost"):
             raise StorageInvalidAddress(f"not a local file URI: {uri!r}")
-        # ``Path.as_uri()`` quotes the filesystem's original bytes. Decode
+        # ``Path.as_uri()`` quotes the filesystem's original bytes.  Decode
         # through the platform filesystem codec so POSIX surrogate-escaped
         # names survive a Location -> URI -> Location round trip.
         candidate = Path(os.fsdecode(unquote_to_bytes(parsed.path))).resolve(

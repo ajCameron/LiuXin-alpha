@@ -23,6 +23,7 @@ from tests.fixtures.storage_unicode import (
     StoragePathCase,
     TORTURED_UNICODE_PATH_CASES,
 )
+from tests.storage.contracts.unicode_paths import exercise_unicode_path_case
 
 
 class _FakeS3Error(RuntimeError):
@@ -220,6 +221,15 @@ def test_s3_small_object_roundtrip_range_metadata_and_delete(s3_store) -> None:
 
     assert store.capabilities.atomic_publish
     assert store.capabilities.placement_hints
+    assert (
+        store.characteristics.publication_model
+        is api.StoragePublicationModel.PER_OBJECT
+    )
+    assert (
+        store.characteristics.temporary_space
+        is api.StorageTemporarySpaceRequirement.OBJECT_STAGE
+    )
+    assert store.characteristics.limitation("s3_service_limits_apply") is not None
     assert stored.digest == api.Digest("sha256", hashlib.sha256(payload).hexdigest())
     assert store.read_bytes(stored.location, offset=2, length=4) == b"2345"
     assert client.objects["liuxin/books/book.epub"]["metadata"] == {
@@ -458,16 +468,15 @@ def test_s3_reads_tortured_unicode_keys_without_normalizing_them(
 ) -> None:
     store, client = s3_store
 
-    stored = store.store_bytes(case.payload, location=case.key)
-    [discovered] = list(store.iter_locations())
-    uri = store.location_uri(discovered)
+    result = exercise_unicode_path_case(
+        store,
+        case,
+        seed=lambda key, payload: store.store_bytes(payload, location=key),
+        check_uri_round_trip=True,
+    )
 
-    assert stored.location.key == case.key
-    assert discovered.key == case.key
     assert client.objects[f"liuxin/{case.key}"]["payload"] == case.payload
-    assert store.read_file(discovered) == case.payload
-    assert uri == f"s3://library/liuxin/{case.url_key}"
-    assert store.location_from_uri(uri) == discovered
+    assert result.uri == f"s3://library/liuxin/{case.url_key}"
 
 
 def _pathological_s3_driver(

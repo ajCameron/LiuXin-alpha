@@ -93,4 +93,7 @@ def json_sanitize(
 
 
 def dump_json(data: Any) -> str:
-    return json.dumps(json_sanitize(data), ensure_ascii=False, indent=2, sort_keys=True)
+    # ASCII escaping keeps example output valid even when a POSIX filename was
+    # decoded with ``surrogateescape``. JSON readers reconstruct the exact
+    # Python string while terminal encoders never see a lone surrogate.
+    return json.dumps(json_sanitize(data), ensure_ascii=True, indent=2, sort_keys=True)

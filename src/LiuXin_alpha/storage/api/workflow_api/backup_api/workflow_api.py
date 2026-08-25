@@ -10,6 +10,12 @@ from typing import TYPE_CHECKING, Self
 from uuid import UUID
 
 from LiuXin_alpha.storage.api.models import Location
+from LiuXin_alpha.storage.api.storage_manager_api.models import (
+    DigitalAssetID,
+    DigitalAssetIngestResult,
+    DigitalAssetRecord,
+    DigitalAssetResolution,
+)
 from LiuXin_alpha.storage.api.workflow_api.backup_api.models import (
     BackupSourceDeclaration,
     BackupWorkflowKind,
@@ -66,6 +72,13 @@ class BackupWorkflowAPI(
         source_path: str,
         *,
         archive_path: str | None = None,
+        asset: (
+            DigitalAssetID
+            | DigitalAssetRecord
+            | DigitalAssetIngestResult
+            | DigitalAssetResolution
+            | None
+        ) = None,
     ) -> BackupSourceDeclaration:
         """
         Add a local filesystem source to immutable workflow intent.
@@ -78,6 +91,7 @@ class BackupWorkflowAPI(
 
         :param source_path:
         :param archive_path:
+        :param asset: Optional catalogue identity for the source bytes.
         :return:
         """
         ...
@@ -88,6 +102,13 @@ class BackupWorkflowAPI(
         source_location: Location,
         *,
         archive_path: str | None = None,
+        asset: (
+            DigitalAssetID
+            | DigitalAssetRecord
+            | DigitalAssetIngestResult
+            | DigitalAssetResolution
+            | None
+        ) = None,
     ) -> BackupSourceDeclaration:
         """
         Add a managed storage Location to immutable workflow intent.
@@ -101,6 +122,8 @@ class BackupWorkflowAPI(
 
         :param source_location:
         :param archive_path:
+        :param asset: Optional catalogue identity; inferred from a registered
+            Replica at this Location when omitted.
         :return:
         """
         ...

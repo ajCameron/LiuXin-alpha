@@ -1297,6 +1297,7 @@ class StorageConvenienceAPI:
         operator: str | None = None,
         notes: str | None = None,
         workflow_id: int | None = None,
+        workflow_reference: str | None = None,
     ) -> DigitalAssetDerivationRecord:
         """
         Record ordinary provenance without constructing source references.
@@ -1320,6 +1321,8 @@ class StorageConvenienceAPI:
         :param operator:
         :param notes:
         :param workflow_id: Optional workflow execution grouping this step.
+        :param workflow_reference: Optional namespaced reference for a workflow
+            outside the legacy transform-run identity space.
         :return:
         """
 
@@ -1354,6 +1357,7 @@ class StorageConvenienceAPI:
             operator=operator,
             notes=notes,
             workflow_id=workflow_id,
+            workflow_reference=workflow_reference,
         )
         return cast(
             DigitalAssetDerivationRegistryAPI,

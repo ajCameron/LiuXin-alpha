@@ -14,6 +14,8 @@ from LiuXin_alpha.storage.api import (
     StorageAuthenticationFailed,
     StorageInvalidAddress,
     StorageNotFound,
+    StoragePublicationModel,
+    StorageTemporarySpaceRequirement,
     StorageTimeout,
     StorageUnavailable,
     StoreReadOnly,
@@ -35,6 +37,7 @@ from tests.fixtures.storage_unicode import (
     UNICODE_PAYLOAD,
     UNICODE_URL_KEY,
 )
+from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
 
 
 @dataclass(slots=True)
@@ -219,6 +222,11 @@ def test_ftp_backend_preserves_unicode_names_uris_hints_and_bytes() -> None:
     assert info.hints.suggested_filename == UNICODE_FILENAME
     assert info.version == "unicode-v1"
     assert store.read_file(info) == UNICODE_PAYLOAD
+    assert store.characteristics.publication_model is StoragePublicationModel.READ_ONLY
+    assert (
+        store.characteristics.temporary_space
+        is StorageTemporarySpaceRequirement.NONE
+    )
     uri = store.location_uri(location)
     assert uri == f"ftp://example.com/library/{UNICODE_URL_KEY}"
     assert store.location_from_uri(uri) == location
@@ -240,17 +248,19 @@ def test_ftp_backend_reads_tortured_unicode_paths_without_normalizing_them() -> 
         )
     store = _make_store(tree=tree)
 
-    discovered = {location.key: location for location in store.iter_locations()}
+    results = exercise_unicode_path_cases(
+        store,
+        TORTURED_UNICODE_PATH_CASES,
+        check_uri_round_trip=True,
+    )
 
-    assert set(discovered) == {case.key for case in TORTURED_UNICODE_PATH_CASES}
-    for case in TORTURED_UNICODE_PATH_CASES:
-        location = discovered[case.key]
-        info = store.stat_file(location)
-        uri = store.location_uri(location)
-        assert info.hints.suggested_filename == case.filename
-        assert store.read_file(info) == case.payload
-        assert uri == f"ftp://example.com/library/{case.url_key}"
-        assert store.location_from_uri(uri) == location
+    assert {result.location.key for result in results} == {
+        case.key for case in TORTURED_UNICODE_PATH_CASES
+    }
+    assert {result.uri for result in results} == {
+        f"ftp://example.com/library/{case.url_key}"
+        for case in TORTURED_UNICODE_PATH_CASES
+    }
 
 
 def test_ftp_unicode_object_ingests_end_to_end(tmp_path) -> None:

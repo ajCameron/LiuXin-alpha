@@ -404,6 +404,7 @@ class DigitalAssetDerivationDeclaration:
     operator: str | None = None
     notes: str | None = None
     workflow_id: int | None = None
+    workflow_reference: str | None = None
 
     def __post_init__(self) -> None:
         """
@@ -437,6 +438,7 @@ class DigitalAssetDerivationDeclaration:
         _require_optional_text(self.output_role, "output_role")
         _require_optional_text(self.operator, "operator")
         _require_optional_text(self.notes, "notes")
+        _require_optional_text(self.workflow_reference, "workflow_reference")
         if self.workflow_id is not None and self.workflow_id <= 0:
             raise ValueError("workflow_id must be positive when supplied.")
         if self.created_at is not None:

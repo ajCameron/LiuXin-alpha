@@ -30,15 +30,19 @@ from LiuXin_alpha.storage.api import (
     EnumerationCompleteness,
     ScopedDriverObjectAddressChecker,
     StorageAlreadyExists,
+    StorageCharacteristics,
     StorageDriverAPI,
     StorageError,
     StorageIntegrityError,
     StorageInvalidAddress,
     StorageNotFound,
     StoragePreconditionFailed,
+    StoragePublicationModel,
+    StorageTemporarySpaceRequirement,
     StorageTimeout,
     StorageUnavailable,
     StorageUnsupportedOperation,
+    StorageWriteUsage,
     WriteMode,
 )
 from LiuXin_alpha.storage.drivers._errors import (
@@ -349,6 +353,25 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
                 concurrent_writes=True,
                 recommended_parallel_reads=4,
             ),
+        )
+
+    @property
+    def storage_characteristics(self) -> StorageCharacteristics:
+        """Describe transactional per-object BLOB publication.
+
+        Example:
+            >>> driver.storage_characteristics.temporary_space  # doctest: +SKIP
+            <StorageTemporarySpaceRequirement.OBJECT_STAGE: 'object_stage'>
+
+        :return: SQLite BLOB Store characteristics.
+        """
+
+        return StorageCharacteristics(
+            publication_model=StoragePublicationModel.PER_OBJECT,
+            temporary_space=StorageTemporarySpaceRequirement.OBJECT_STAGE,
+            recommended_write_usage=StorageWriteUsage.GENERAL,
+            preserves_unmodelled_entries=True,
+            rewrites_container_format=False,
         )
 
     def startup(self) -> DriverStatus:

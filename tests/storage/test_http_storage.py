@@ -26,6 +26,7 @@ from tests.fixtures.storage_unicode import (
     StoragePathCase,
     TORTURED_UNICODE_PATH_CASES,
 )
+from tests.storage.contracts.unicode_paths import exercise_unicode_path_case
 
 
 class _Response(io.BytesIO):
@@ -118,6 +119,14 @@ def test_http_store_reads_stats_ranges_and_exposes_opaque_locations() -> None:
     assert store.capabilities.range_reads is True
     assert store.capabilities.conditional_read is True
     assert store.capabilities.enumeration is EnumerationCompleteness.PARTIAL
+    assert (
+        store.characteristics.publication_model
+        is api.StoragePublicationModel.READ_ONLY
+    )
+    assert (
+        store.characteristics.temporary_space
+        is api.StorageTemporarySpaceRequirement.NONE
+    )
     assert any(request.get_header("Range") == "bytes=3-6" for request in requests)
     assert store.read_bytes(info.location, if_version=info.version) == b"0123456789"
     with pytest.raises(api.StorePreconditionFailed):
@@ -292,14 +301,14 @@ def test_http_store_reads_percent_encoded_tortured_paths_exactly(
         max_requests_per_hour=0,
     )
 
-    [location] = list(store.iter_locations())
-    info = store.stat_file(location)
+    result = exercise_unicode_path_case(
+        store,
+        case,
+        key=case.url_key,
+        check_uri_round_trip=True,
+    )
 
-    assert location.key == case.url_key
-    assert store.location_uri(location) == object_url
-    assert store.location_from_uri(object_url) == location
-    assert info.hints.suggested_filename == case.filename
-    assert store.read_file(info) == case.payload
+    assert result.uri == object_url
 
 
 def test_http_store_reads_non_utf8_octets_as_opaque_percent_encoded_keys() -> None:

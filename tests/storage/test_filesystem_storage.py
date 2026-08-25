@@ -20,6 +20,7 @@ from tests.fixtures.storage_unicode import (
     StoragePathCase,
     TORTURED_UNICODE_PATH_CASES,
 )
+from tests.storage.contracts.unicode_paths import exercise_unicode_path_case
 
 
 def _digest(data: bytes) -> api.Digest:
@@ -29,6 +30,14 @@ def _digest(data: bytes) -> api.Digest:
 def test_filesystem_driver_stages_verifies_and_commits_atomically(tmp_path) -> None:
     driver = FilesystemStorageDriver(tmp_path, address_space_uuid=uuid4())
     assert driver.startup().available
+    assert (
+        driver.storage_characteristics.publication_model
+        is api.StoragePublicationModel.PER_OBJECT
+    )
+    assert (
+        driver.storage_characteristics.temporary_space
+        is api.StorageTemporarySpaceRequirement.OBJECT_STAGE
+    )
     address = driver.parse_object_address("books/book.epub")
 
     with driver.begin_write(
@@ -160,6 +169,14 @@ def test_filesystem_store_round_trips_results_and_enforces_read_only(tmp_path) -
     read_only = FilesystemStore(read_only_root, read_only=True)
     assert read_only.startup().available
     assert not read_only.status().writable
+    assert (
+        read_only.characteristics.publication_model
+        is api.StoragePublicationModel.READ_ONLY
+    )
+    assert (
+        read_only.characteristics.recommended_write_usage
+        is api.StorageWriteUsage.NOT_APPLICABLE
+    )
     assert read_only.read_file("existing.bin") == b"existing"
     with pytest.raises(api.StoreReadOnly):
         read_only.store_bytes(b"forbidden", location="forbidden.bin")
@@ -190,16 +207,12 @@ def test_filesystem_store_reads_tortured_unicode_paths_exactly(
 ) -> None:
     store = FilesystemStore(tmp_path / "tortured")
 
-    stored = store.store_bytes(case.payload, location=case.key)
-    [discovered] = list(store.iter_locations())
-    uri = store.location_uri(discovered)
-
-    assert stored.location.key == case.key
-    assert discovered.key == case.key
-    assert store.stat_file(discovered).hints.suggested_filename == case.filename
-    assert store.read_file(discovered) == case.payload
-    assert uri is not None
-    assert store.location_from_uri(uri) == discovered
+    exercise_unicode_path_case(
+        store,
+        case,
+        seed=lambda key, payload: store.store_bytes(payload, location=key),
+        check_uri_round_trip=True,
+    )
 
 
 def test_filesystem_store_reads_control_characters_without_normalizing_them(

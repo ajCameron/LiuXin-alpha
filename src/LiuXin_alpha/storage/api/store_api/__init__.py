@@ -38,6 +38,14 @@ from LiuXin_alpha.storage.api.store_api.ingest_source_api import (
     PreparedIngestObject,
 )
 from LiuXin_alpha.storage.api.store_api.lifecycle_api import StoreLifecycleAPI
+from LiuXin_alpha.storage.api.characteristics_api import (
+    StorageCharacteristics,
+    StorageLimitation,
+    StoragePublicationModel,
+    StorageTemporarySpaceRequirement,
+    StorageWriteUsage,
+    StoreCharacteristicsAPI,
+)
 
 
 from LiuXin_alpha.storage.api.store_api.driver_backed_api import DriverBackedStoreAPI
@@ -66,5 +74,11 @@ __all__ = [
     "StoreIdentityAPI",
     "StoreLifecycleAPI",
     "StoreConfigurationAPI",
+    "StorageCharacteristics",
+    "StorageLimitation",
+    "StoragePublicationModel",
+    "StorageTemporarySpaceRequirement",
+    "StorageWriteUsage",
+    "StoreCharacteristicsAPI",
     "WriteSessionAPI",
 ]

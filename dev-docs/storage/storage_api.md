@@ -111,6 +111,241 @@ Prefix filtering is independent of listing itself. A driver sets
 Otherwise an unfiltered inventory remains valid, while a prefix request raises
 `StorageUnsupportedOperation` rather than being silently ignored.
 
+### Store characteristics and limitations
+
+`StoreCapabilities` remains the compact answer to whether a Store can perform
+an operation. `StorageCharacteristics` separately describes constraints and
+costs callers need before choosing where to perform it: publication and
+temporary-space granularity, recommended write usage, maximum object and path
+sizes, container-normalization behaviour, and stable limitation codes with
+operator-facing explanations. Unknown values remain explicitly unknown rather
+than being treated as unlimited or inexpensive.
+
+Drivers may implement the optional `StorageDriverCharacteristicsAPI`; the
+driver-backed Store bridge exposes that profile through
+`StoreCharacteristicsAPI`. `StorageManagerAPI.characteristics(store_ref)` is
+the simple universal lookup, with an unknown-safe profile for older Stores.
+Manager writes reject declared sizes above a known maximum before consuming the
+source stream. Automatic replication and backup placement applies the same
+limit and reserves `ARCHIVAL_SNAPSHOT` writers for archive-mode plans.
+
+Every built-in backend now advertises a catalogue-time profile, and every
+built-in concrete driver exposes the configured profile used by its Store.
+Ordinary filesystem, SQLite, writable rclone, and S3 Stores publish per object;
+HTTP, FTP, read-only rclone, SquashFS, and ISO readers advertise no write path;
+SquashFS builders advertise mutable staging followed by an explicit seal; and
+writable ISO advertises a whole-Store rebuild. Encrypted Stores project the
+inner Store's publication model while adding ciphertext staging overhead and
+inner-limit warnings. S3-compatible and rclone drivers retain unknown size and
+atomicity values where those facts depend on the selected service, paired with
+stable limitation codes explaining why no stronger claim is safe.
+
+Dynamic, per-instance evidence remains in `StoreStatus`. Status warnings are
+promoted to attributable `store_warning` operational issues, while static
+limitations do not by themselves make an otherwise usable Store unhealthy.
+
+### ISO images
+
+`IsoStorageDriver` and the registered `iso_readonly` Store expose ordinary
+ISO 9660 images without mounting them or requiring a shell utility. Namespace
+selection is explicit and deterministic: standard Rock Ridge is preferred,
+then an available UDF namespace on an ISO/UDF bridge image, then the highest
+available Joliet supplementary volume, then the primary ISO 9660 volume. UDF
+selection uses the optional `pycdlib` dependency; without it, a hybrid image
+remains readable through its direct ISO/Joliet namespace. The selected
+namespace is reported in Store status and object hints.
+
+Inventory parses bounded directory and SUSP continuation records. Reads stream
+directly across recorded extents, including multi-extent files, and support
+conditional range reads pinned to the containing image identity. Rock Ridge
+byte names use surrogate escapes so an old image with incorrectly encoded
+directory entries remains addressable on POSIX rather than being silently
+renamed. A symbolic link, other non-regular entry, ambiguous topology, or
+unsafe name rejects the selected read-only namespace; it is never followed or
+silently omitted from an ingest inventory.
+
+UDF reads stage the selected member in a bounded private temporary file before
+returning a full or ranged reader. `enable_udf`, member and total logical-byte
+ceilings, the logical/image expansion-ratio ceiling, and the path-byte ceiling
+are durable backend options. The current optional parser requires an ISO/UDF bridge,
+so UDF-only images remain explicitly unsupported. zisofs-compressed members are
+also rejected rather than being returned as compressed bytes.
+
+`WritableIsoStorageDriver` and the registered `iso_writable` Store provide the
+same read surface plus create, replace, upsert, conditional delete, and address
+allocation. ISO filesystems do not have an in-place transactional mutation
+primitive, so each commit streams every retained member and the new payload
+into a complete sibling image. LiuXin parses and verifies that candidate before
+using an atomic filesystem replacement to publish it. The old image remains
+untouched if staging, copying, layout, validation, or publication fails; no
+extracted mirror or in-memory payload cache is retained.
+
+Writable images contain a conservative primary ISO 9660 namespace, Rock Ridge
+byte names, and—when all names fit the format—a Joliet supplementary namespace.
+Opening an existing primary, Joliet, or Rock Ridge image for writing preserves
+its regular-file keys and bytes, then publishes this hybrid form on the first
+mutation. Before doing so, the parser audits skipped symbolic links and other
+non-regular entries, unpreserved SUSP/Rock Ridge fields, boot and partition
+descriptors, unrecognised supplementary descriptors, and hybrid-UDF markers.
+Detected loss makes the Store dynamically non-writable and blocks every rebuild
+by default. `allow_lossy_rebuild=True` is the explicit durable opt-in for a
+normalizing conversion; the detected reasons remain visible as Store warnings.
+
+`volume_id`, `include_joliet`, `deterministic`, `allow_lossy_rebuild`, allocation
+prefix, and reader safety limits are durable backend options. Current writes
+enforce their member ceiling while bytes are staged, preflight the complete
+logical-byte total before building, reject individual members of 4 GiB or
+larger, and reject Rock Ridge components longer than 255 encoded bytes. The registry and configured Store
+advertise these limits, whole-image publication, store-copy staging, container
+rewriting, and archival-snapshot usage structurally. Whole-image rebuilding
+makes this backend appropriate for occasional archive mutation; high-volume
+ingest should target an ordinary writable Store before producing an ISO
+snapshot.
+
+### ZIP, TAR, RAR, and 7z archives
+
+ZIP and TAR follow the same container-Store model as ISO. Registered
+`zip_readonly` and `tar_readonly` Stores provide complete regular-file
+inventory, exact full and ranged reads, and conditional reads whose version
+token identifies the containing archive. `zip_writable` and `tar_writable`
+add create, replace, upsert, allocation, and conditional deletion by streaming
+a complete sibling archive, validating it, and atomically replacing the old
+file. They do not keep an extracted directory tree or accumulate member
+payloads in memory.
+
+Every archive member name is treated as an opaque relative POSIX key. Absolute
+paths, dot components, empty components, backslashes, NULs, over-deep paths,
+duplicate keys, and entries beyond configured inventory or size bounds fail
+with typed storage errors. Unicode is not normalized, so NFC and NFD names
+remain distinct. TAR uses UTF-8 with surrogate escapes, preserving legacy
+non-UTF-8 POSIX byte names where Python's TAR format support can represent
+them. Only regular files are exposed. A link, device, other special entry,
+duplicate record, file/directory collision, or file used as another member's
+parent rejects a ZIP or TAR archive rather than producing an ambiguous partial
+projection. Nothing is extracted into a caller-selected host path.
+
+ZIP central-directory records are counted with an allocation-free preflight
+before `zipfile` constructs its inventory. The declared count must agree with
+the records actually present, local and central member names must agree, local
+headers may not be shared or overlap, and path validation happens before any
+member is opened. The durable ZIP policy independently bounds inventory count,
+central-directory bytes, per-member expanded bytes, total expanded bytes, path
+depth, and per-member compression ratio. Defaults cap the central directory at
+128 MiB, each member at 4 GiB, total declared expansion at 64 GiB, and
+expansion ratio at 200:1; operators may lower these for ebook-only ingest or
+explicitly raise them for a known large archive. Invalid UTF-8 metadata becomes
+a contextual integrity error rather than leaking a codec exception.
+
+ZIP writes support stored, Deflate, BZIP2, and LZMA methods. Encrypted members,
+unknown compression methods, symbolic links, special files, and multi-disk ZIP
+sets are unsupported. A write session enforces the member limit while staging,
+and a rebuild plan is rejected before I/O if its keys collide or its expanded
+size exceeds policy. Candidate validation applies the same read-side limits,
+create-only publication never replaces an existing archive, and a whole-file
+rebuild checks the source archive identity immediately before atomic replace.
+TAR reads auto-detect
+uncompressed, gzip, bzip2, and xz archives; the writable Store publishes PAX
+TAR in the explicitly configured compression. Ranged reads from compressed TAR
+may have to decompress from an earlier stream position. Its parser bounds the
+decompressed TAR stream and individual metadata records before `tarfile` can
+allocate them. The durable policy caps all entries, member bytes, total logical
+bytes, compression ratio, depth, aggregate metadata, and a single PAX/GNU
+metadata record. Defaults match ZIP's 4 GiB member, 64 GiB total, and 200:1
+ratio ceilings, with 128 MiB of aggregate parser metadata.
+
+As with writable ISO, mutation is a normalizing conversion. ZIP comments and
+ordinary member metadata, and TAR ownership, permissions, sparse maps,
+and unusual PAX metadata cannot all be preserved by the regular-file Store
+model. Inspection therefore marks the Store non-writable and every mutation
+fails closed when such material is present. Unsafe ZIP entries and ambiguous
+topology reject the archive outright; `allow_lossy_rebuild` does not turn them
+into conversion candidates. The durable
+`allow_lossy_rebuild=True` option is the explicit conversion opt-in; warnings
+continue to advertise what will be discarded. These whole-archive writers are
+classified for archival snapshots, not high-volume ingest targets.
+
+`rar_readonly` indexes RAR 3/4/5 archives in process and reads stored members
+without an external command. The vendored parser remains a dependency-free
+RAR 3/4 fallback; RAR 5 requires the maintained optional `rarfile` dependency.
+Compressed members require a configured or discoverable `unrar`/`rar`
+executable. Its stdout and stderr are bounded, the subprocess is timed out,
+stdout is written to a private temporary file, and the
+declared size and available CRC-32 or BLAKE2sp digest are verified before any
+requested range is returned. Password-protected and multi-volume archives are
+rejected explicitly, and links or other redirections reject inventory. The
+durable read policy bounds all entries, member and total logical bytes,
+per-member and aggregate compression ratio, path bytes/depth, and extraction
+time. Defaults are 4 GiB per member, 64 GiB total, and 200:1.
+
+`sevenzip_readonly` exposes a bounded regular-file projection of a 7z archive
+through optional `py7zr` support. It preserves opaque Unicode member names,
+provides complete inventory and conditional ranges, and verifies each selected
+member's declared size and CRC in a private temporary file. Solid archives are
+supported but advertise their per-member decompression amplification. Encrypted
+and multi-volume archives remain explicit limitations. There is no mutable 7z
+Store. Like RAR and SquashFS packs, a completed 7z image can be catalogued as a
+sealed archival artifact rather than pretending the container supports cheap
+object commits. Before reads, the durable policy bounds parser/header bytes,
+all entries, member and total logical bytes, available per-member and aggregate
+compression ratios, path bytes, and depth; the default size and ratio ceilings
+are the same 4 GiB/64 GiB/200:1 envelope.
+
+RAR intentionally has no mutable whole-archive Store. The optional `rar_build`
+backend instead provides a build-once lifecycle: ordinary Store writes collect
+committed files in a durable filesystem staging directory, and the explicit
+`seal()` transition creates one RAR 4, non-solid archive. Sealing requires an
+operator-installed and appropriately licensed `rar` creator. LiuXin neither
+downloads nor bundles that proprietary tool. A candidate is built beside the
+destination, tested with `rar t`, checked against the staged key/size/CRC
+manifest using LiuXin's independent reader, and then published create-only.
+The destination is never adopted, overwritten, or modified; successful
+publication permanently locks the builder and returns a `rar_readonly` facade.
+Failed builds leave the durable staging tree available for diagnosis or retry.
+Staging writes are member-bounded, and sealing first rejects links, special
+files, topology conflicts, excessive paths, entry counts, member sizes, and
+total bytes. Creator output and runtime are bounded. LiuXin then opens the
+candidate with the fully configured hostile RAR reader and verifies every
+member before create-only publication.
+
+The SquashFS reader follows the same fail-closed boundary. `unsquashfs` listing
+output, all entries, topology, paths, member/total logical bytes, and archive
+expansion ratio are bounded. Every selected member is extracted through a
+timed subprocess into size-bounded private staging, with bounded diagnostics
+and archive-identity checks before and after. `squashfs_build` preflights its
+durable staging tree without following links, bounds creator execution and
+output, then independently inventories and hashes every candidate member before
+publication. A successful builder remains sealed and immutable.
+
+These limits apply to one container. Recursive ingest must additionally own a
+cumulative budget for nesting depth, members, expanded bytes, wall time,
+temporary space, and ancestry/cycles; it must not multiply each container's
+allowance at every level.
+
+All archive backends are registered plugins. Their paths, Store identity,
+safety limits, compression choices, rebuild/build policy, durable RAR staging,
+and optional tools round-trip through `StoreConfiguration`, so normal database
+loading and reload recreates the same Store rather than requiring application
+wiring. Installing the `archives` project extra supplies `py7zr`, `pycdlib`,
+and maintained `rarfile` support; importing the storage package itself does not
+require those dependencies.
+
+### Unicode path conformance
+
+Concrete Store tests share `tests.storage.contracts.unicode_paths`. The common
+contract requires exact opaque-key identity through locate, inventory, stat,
+full reads, ranged reads, and—where advertised—external URI round trips. Its
+case set keeps NFC and NFD spellings distinct and exercises case-sensitive
+scripts, bidi and format controls, astral characters, emoji sequences,
+variation selectors, noncharacters, private-use characters, significant
+spacing, URL punctuation, and combining-mark storms.
+
+Every registered backend family, including both ISO modes and every ZIP, TAR,
+RAR, and 7z mode, is exercised through this contract. Media that
+can contain non-Unicode POSIX byte names also has a supplementary
+surrogateescape case; URL backends separately retain opaque percent-encoded
+octets. A backend may reject an unpaired surrogate supplied through a Unicode
+API, but it must do so with a typed invalid-address error before backend I/O.
+
 ## Transactional writes
 
 `begin_write()` is the write primitive; a generic `open(mode=...)` is not. It
@@ -371,6 +606,132 @@ the latest resumable or terminal execution state, each
 `BackupWorkflowResult` is the terminal operational return. Registering the
 sealed artifact produces a `BackupArtifactRegistration`; that value describes
 the registration and is not the artifact's bytes.
+
+### Sealed containers as derived artifacts
+
+The physical lifecycle and the catalogue lifecycle are deliberately separate.
+SquashFS and RAR build Stores stage members and seal an immutable image. A
+read-only archive Store exposes the members of that image. Neither layer
+decides what the image means in the Digital Asset graph.
+
+`SealedArtifactWorkflow` supplies that missing workflow boundary. It accepts a
+managed `Location` or local artifact path plus a mapping of archive paths to
+ordinary Asset IDs or records. A managed output is adopted in place; a local
+output is streamed into a selected writable Store. The workflow then records:
+
+- the image bytes as an ordinary atomic `DigitalAssetRecord`;
+- an archive-mode Replica for those bytes;
+- a `PACKAGE` derivation from the ordered member Assets;
+- exact input sizes, digests, and logical archive paths;
+- a digest-pinned executor and dependencies;
+- canonical build settings, environment, replay command, and output identity;
+  and
+- a namespaced `backup:<id>` workflow reference when the build came from
+  durable backup intent.
+
+The simple surface is:
+
+```python
+from LiuXin_alpha.storage import SealedArtifactWorkflow
+
+sealed = SealedArtifactWorkflow(manager)
+tool = sealed.pin_local_executor("mksquashfs", version="4.6.1")
+registration = sealed.record_artifact(
+    output_location,
+    {"books/book.epub": source_asset},
+    artifact_format="squashfs",
+    executor=tool,
+    command=("mksquashfs", ".", "artifact.squashfs", "-noappend"),
+    parameters={"compression": "zstd"},
+    reproducibility="exact",
+)
+```
+
+Completed `SquashfsBackupWorkflow` results have a specific adapter:
+
+```python
+result = backup.run_to_completion()
+registration = sealed.record_backup_result(result, executor=tool)
+```
+
+Managed backup source Locations automatically retain their Asset and Replica
+IDs in `BackupSourceDeclaration`. Store-backup planning does the same whenever
+the inventory Location is already a registered Replica. A local or legacy
+source without a catalogue identity must be supplied explicitly through
+`source_assets`; the workflow refuses to invent provenance.
+
+The SquashFS adapter claims exact reproducibility only when the physical build
+used its deterministic settings. RAR output is recorded as best effort because
+the supported creator does not currently promise byte-identical output. The
+generic recorder supports 7z, ISO/UDF, ZIP, TAR, and other sealed images when a
+caller can provide the actual pinned command and settings.
+
+The container image Asset is distinct from the read-only Store configured over
+its members. Member bytes in that Store are Replicas/presence of their existing
+Assets, not derivations. `BackupArtifactRegistry` remains responsible for
+registering that Store and its protected presence links.
+
+### Asset-backed and nested Stores
+
+`StoreBackingReference` now makes the image-Asset/Store-view relationship
+durable rather than asking generic code to infer it from matching URIs. It
+contains the backing `DigitalAssetID`, an optional preferred `ReplicaID`, and
+an optional local materialization Store UUID. The Asset is authoritative; the
+preferred Replica is replaceable routing evidence, not Store identity.
+
+`manager.add_backed_store()` is the ordinary construction surface:
+
+```python
+outer = manager.add_backed_store(
+    "outer pack",
+    "zip_readonly",
+    outer_asset_id,
+    source_replica_id=outer_replica_id,
+)
+inner = manager.add_backed_store(
+    "inner pack",
+    "zip_readonly",
+    inner_asset_id,
+    source_replica_id=inner_replica_id,
+    materialization_store_ref=local_cache_store_uuid,
+)
+```
+
+When no UUID is supplied, the manager derives Store-view identity from the
+Asset's preferred content digest and size plus backend kind and view options.
+It never derives public Store identity from a database-local Asset ID or from
+the preferred physical Replica.
+
+The first form can use a local source Replica in place. The second copies a
+container member through normal manager publication into a Store supporting
+`ReplicaMode.CACHE`, then supplies that local file to the archive driver. The
+copy is a normal durable Replica record and is reused after restart; it is not
+an unmanaged temporary file. Store bootstrap orders the source Store,
+materialization Store, outer view, and inner view by their declared
+dependencies.
+
+No automatic cache eviction currently removes these materializations. Before
+such eviction is enabled, live Asset-backed Stores will need explicit cache
+pin/lease ownership so an open driver cannot lose its container path.
+
+Backed Stores are deliberately read-only. Mutating a container behind the
+catalogue would invalidate the backing Asset's digest and every member claim.
+A rebuilt or resealed archive is instead a new Asset produced by the sealed
+artifact/derivation workflow. Current file-container support covers the
+read-only SquashFS, ISO, ZIP, TAR, RAR, and 7z backend families.
+
+`materialize_digital_asset()` also accepts `source_replica_id=` and ordered
+`source_modes=`. This permits exact ARCHIVE or UNMANAGED sources without
+misclassifying them as ACTIVE. Its default source search remains ACTIVE-only
+for compatibility.
+
+This is the recursive Store foundation, not an unbounded recursive scanner.
+The ZIP driver now enforces a complete per-container expansion policy, so each
+nested ZIP is bounded when opened. Automatic nested-container discovery still
+belongs in the future mixed-format coordinator, which must additionally impose
+cumulative cross-container depth, member-count, expanded-byte, compression
+ratio, time, temporary-space, and ancestry/cycle limits. Per-ZIP limits are not
+a substitute for that global budget.
 
 ## Error model
 
@@ -764,6 +1125,49 @@ default. `stop_after_first_healthy=` selects either policy explicitly;
 `all_replicas=` remains as the compatibility spelling for callers using the
 older boolean surface.
 
+### Existing SquashFS drive ingestion
+
+`SquashfsDriveIngestWorkflow` is the first deliberately narrow mess-ingestion
+surface. Given a local directory, it:
+
+1. registers or reuses the directory as a read-only unmanaged filesystem
+   Store;
+2. walks it without following symlinks and recognizes SquashFS images by a
+   common suffix or the `hsqs` on-disk magic;
+3. registers every readable image as its own immutable
+   `squashfs_readonly` Store backed by the image's Digital Asset;
+4. adopts the image file as an `UNMANAGED` Replica and each regular member as
+   an `ARCHIVE` Replica; and
+5. returns bounded per-drive/per-archive counts and contextual issues while
+   optionally publishing progress events.
+
+Adoption calculates SHA-256 identities but does not copy or extract the drive's
+bytes. Repeated scans use operation identities derived from the source file
+version and archive identity; unchanged work is idempotent across manager
+restart. Database-backed callers must load existing Store configurations before
+the scan (normally `manager.load_from_database(startup=True)`). A changed image
+at a previously claimed path fails closed as a Location identity conflict.
+
+The default metadata is intentionally technical and path-derived: original
+filename, guessed media type, ingest origin, and container format. A
+`member_metadata_factory` can enrich this without coupling storage to ebook
+parsers. This initial workflow creates Digital Assets and Replicas, not
+bibliographic Items; it does not recursively interpret archive members as
+containers automatically and does not invent provenance for pre-existing
+packs. The Asset-backed Store surface above is now the tested mechanism that a
+later bounded mixed RAR/ISO/ebook ingestion coordinator will invoke.
+
+Discovery, archive opening, inventory, archive-image adoption, and individual
+member failures are distinguishable in the report. The default continues after
+a bad image/member. `max_archives` and `max_members_per_archive` make an
+operator-selected partial scan explicit through `truncated` and an issue rather
+than silently claiming completion.
+
+POSIX surrogate-escaped byte names remain lossless through local file-URI
+reconstruction and the authoritative database scratch envelope. Legacy scalar
+columns render lone surrogates visibly as backslash escapes so SQLite and
+PostgreSQL text bindings do not reject the entire ingest.
+
 ### Persistence SPI
 
 Repository and transaction contracts live under
@@ -850,10 +1254,14 @@ EPUB Asset -- epub-to-mobi recipe --> MOBI Asset
 
 This retains the intermediate byte identity, permits branching and caching,
 and allows each step to make its own reproducibility claim. An optional
-`workflow_id` groups edges produced by one pipeline execution without making
-that operational grouping the provenance relationship itself. A single recipe
-may still contain an internally multi-stage command when its intermediates are
-deliberately ephemeral and never become managed Assets.
+`workflow_id` groups edges produced by one legacy transform-run execution.
+Other workflow families use the durable namespaced `workflow_reference`
+instead—for example, `backup:42`. Keeping those identity spaces distinct
+avoids accidentally treating a backup workflow ID as a foreign key to a
+transform run. Neither operational grouping becomes the provenance
+relationship itself. A single recipe may still contain an internally
+multi-stage command when its intermediates are deliberately ephemeral and
+never become managed Assets.
 
 Its sources are `DigitalAssetDerivationSourceReference` values. An exact recipe
 pins `ReproductionRecipeInputReference` and
@@ -915,15 +1323,13 @@ selected root derivation and other viable alternatives, and reports readable
 leaf Assets, unavailable Assets, and warnings. Planning is read-only; executing
 recipes and publishing their verified output is a separate workflow concern.
 
-The existing `transform_runs`, `transform_run_inputs`,
-`transform_run_outputs`, and `digital_asset_derivations` schema is a useful
-legacy starting point, but it cannot yet persist this contract losslessly. A
-schema migration must preserve canonical environment data, replay commands,
-executor/dependency digests and Asset IDs, recipe completeness and
-reproducibility claims, ordered inputs with roles and paths, and Composite
-provenance sources. Until that migration exists, adapters must reject exact
-recipe persistence rather than dropping fields or downgrading the claim
-silently.
+The database repository persists the complete public derivation record in its
+versioned storage envelope while also projecting the legacy parent, child,
+kind, workflow, timestamp, and note columns. Canonical environment data,
+commands, executor/dependency identities, recipe claims, ordered input paths,
+and Composite provenance therefore survive manager restart losslessly. Future
+normalized schema work may project more of that envelope for SQL querying, but
+is not a prerequisite for safe persistence.
 
 ### Durability of recreatable derivatives
 

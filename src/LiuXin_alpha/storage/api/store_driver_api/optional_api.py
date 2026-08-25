@@ -10,6 +10,7 @@ from collections.abc import Iterator
 from types import TracebackType
 from typing import Protocol, TypeVar, runtime_checkable
 
+from LiuXin_alpha.storage.api.characteristics_api import StorageCharacteristics
 from LiuXin_alpha.storage.api.models import Digest, WriteMode
 from LiuXin_alpha.storage.api.store_driver_api.models import (
     DriverObjectInfo,
@@ -30,6 +31,27 @@ _DriverObjectAddressCoT = TypeVar(
     bound=DriverObjectAddress,
     covariant=True,
 )
+
+
+@runtime_checkable
+class StorageDriverCharacteristicsAPI(Protocol):
+    """Optional raw-driver contract for structured storage constraints.
+
+    Example:
+        >>> isinstance(driver, StorageDriverCharacteristicsAPI)  # doctest: +SKIP
+        True
+    """
+
+    @property
+    def storage_characteristics(self) -> StorageCharacteristics:
+        """Return characteristics inherent to this configured driver.
+
+        Example:
+            >>> driver.storage_characteristics.max_object_bytes  # doctest: +SKIP
+            4294967295
+        """
+
+        ...
 
 
 @runtime_checkable
@@ -193,6 +215,7 @@ class PagedEnumerableStorageDriverAPI(Protocol[DriverObjectAddressT]):
             ...     snapshot_token=page.snapshot_token,
             ... )
 
+
         :param prefix:
         :param cursor:
         :param limit:
@@ -352,5 +375,6 @@ __all__ = [
     "PagedEnumerableStorageDriverAPI",
     "HierarchicalStorageDriverAPI",
     "ObjectAddressAllocatorStorageDriverAPI",
+    "StorageDriverCharacteristicsAPI",
     "WritableStorageDriverAPI",
 ]

@@ -70,6 +70,32 @@ def test_planner_count_limit_and_oversized_single_source_are_deterministic(tmp_p
     assert [pack.estimated_size_bytes for pack in packs] == [10, 11, 12]
 
 
+def test_planner_preserves_catalogue_identity_for_registered_replicas(
+    tmp_path: Path,
+) -> None:
+    manager, source, destination = _manager(tmp_path)
+    physical = source.store_bytes(
+        b"catalogued",
+        location="registered/book4.epub",
+    )
+    adopted = manager.adopt_location(physical.location)
+
+    packs = StoreBackupPlanner(manager).plan_store_backup(
+        source_store_ref=source.store_ref,
+        destination_store_ref=destination.store_ref,
+        target_artifact_size_bytes=1_000,
+        allowed_extensions=["epub"],
+    )
+    planned = next(
+        source
+        for source in packs[0].workflow_declaration.sources
+        if source.archive_path == "registered/book4.epub"
+    )
+
+    assert planned.source_digital_asset_id == adopted.asset_record.digital_asset_id
+    assert planned.source_replica_id == adopted.replica_record.replica_id
+
+
 @pytest.mark.parametrize("size", [0, -1])
 def test_planner_rejects_nonpositive_target_size(tmp_path: Path, size: int) -> None:
     manager, source, destination = _manager(tmp_path)

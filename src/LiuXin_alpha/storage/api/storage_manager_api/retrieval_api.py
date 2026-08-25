@@ -4,6 +4,8 @@ Asset-oriented retrieval facade.
 
 import abc
 
+from collections.abc import Iterable
+
 from LiuXin_alpha.storage.api.models import Location, StoreUUID
 from LiuXin_alpha.storage.api.storage_manager_api.location_factory import LocationFactory
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
@@ -153,11 +155,17 @@ class DigitalAssetRetrievalAPI(abc.ABC):
         digital_asset_id: DigitalAssetID,
         *,
         preferred_store_ref: StoreUUID | None = None,
+        source_replica_id: ReplicaID | None = None,
+        source_modes: Iterable[ReplicaMode | str] = (ReplicaMode.ACTIVE,),
         cache_store_ref: StoreUUID | None = None,
         verify: bool = True,
     ) -> DigitalAssetResolution:
         """
         Ensure an Asset is locally readable and return the resulting copy.
+
+        ``source_replica_id`` selects an exact known copy, including an
+        archive or unmanaged Replica. Otherwise ``source_modes`` is searched
+        in order. The historical default remains ACTIVE-only.
 
         Example:
             >>> resolved = manager.materialize_digital_asset(  # doctest: +SKIP
@@ -167,6 +175,8 @@ class DigitalAssetRetrievalAPI(abc.ABC):
 
         :param digital_asset_id:
         :param preferred_store_ref:
+        :param source_replica_id:
+        :param source_modes:
         :param cache_store_ref:
         :param verify:
         :return:

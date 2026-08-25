@@ -16,6 +16,8 @@ from LiuXin_alpha.storage.api import (
     Location,
     StorageInvalidAddress,
     StorageNotFound,
+    StoragePublicationModel,
+    StorageTemporarySpaceRequirement,
     StorageTimeout,
     StorageUnavailable,
     StoreReadOnly,
@@ -38,6 +40,7 @@ from tests.fixtures.storage_unicode import (
     UNICODE_KEY,
     UNICODE_PAYLOAD,
 )
+from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
 
 
 def _extract_tpslimit(extra_args: tuple[str, ...]) -> float | None:
@@ -105,6 +108,11 @@ def test_rclone_readonly_preserves_unicode_inventory_hints_and_bytes(
     assert info.hints.suggested_filename == UNICODE_FILENAME
     assert info.digest is not None and info.digest.value == digest
     assert store.read_file(info) == UNICODE_PAYLOAD
+    assert store.characteristics.publication_model is StoragePublicationModel.READ_ONLY
+    assert (
+        store.characteristics.temporary_space
+        is StorageTemporarySpaceRequirement.NONE
+    )
 
     destination = FilesystemStore(tmp_path / "rclone-ingest-destination")
     manager = InMemoryStorageManager(
@@ -201,6 +209,10 @@ def test_rclone_readonly_reads_tortured_unicode_paths_exactly(monkeypatch) -> No
     def _fake_spawn(self, args):
         del self
         payload = payloads[args[1].removeprefix("remote:")]
+        if "--offset" in args:
+            payload = payload[int(args[args.index("--offset") + 1]) :]
+        if "--count" in args:
+            payload = payload[: int(args[args.index("--count") + 1])]
         return SimpleNamespace(
             stdout=io.BytesIO(payload),
             stderr=io.BytesIO(),
@@ -224,15 +236,13 @@ def test_rclone_readonly_reads_tortured_unicode_paths_exactly(monkeypatch) -> No
         ),
     )
 
-    discovered = {location.key: location for location in store.iter_locations()}
+    results = exercise_unicode_path_cases(
+        store,
+        TORTURED_UNICODE_PATH_CASES,
+        check_uri_round_trip=True,
+    )
 
-    assert set(discovered) == set(payloads)
-    for case in TORTURED_UNICODE_PATH_CASES:
-        location = discovered[case.key]
-        info = store.stat_file(location)
-        assert info.hints.suggested_filename == case.filename
-        assert store.read_file(info) == case.payload
-        assert store.location_from_uri(store.location_uri(location)) == location
+    assert {result.location.key for result in results} == set(payloads)
 
 
 def test_rclone_backend_default_rate_limit_is_20_per_minute(monkeypatch) -> None:
