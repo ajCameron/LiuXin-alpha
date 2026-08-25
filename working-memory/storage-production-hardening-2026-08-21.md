@@ -274,3 +274,63 @@ localhost test socket, and that exact test passed outside the socket restriction
 errors in every hardened driver, builder, and facade. Direct doctest execution
 across the shared/archive drivers and facade passes 94 examples, with 271
 integration-only examples explicitly skipped.
+
+## Mixed-format coordinator - 2026-08-25
+
+The formerly deferred generic layer now exists as
+`storage.ingest.MixedFormatIngestCoordinator`. It composes the hardened
+SquashFS, ISO/UDF, ZIP, TAR, RAR, and 7z Stores; adopts loose source files;
+recurses through Asset-backed Stores; and materializes nested container Assets
+into an explicitly managed CACHE Store. It does not extract into the source
+tree, follow symlinks, invent derivations, or expand ebook containers unless
+asked.
+
+The coordinator owns cumulative source/container/member, depth, path, expanded
+byte, expansion-ratio, materialization, temporary-space, wall-time,
+cancellation, and issue ceilings. SHA-256 ancestry detects cycles and equal
+container content is expanded once per run. Stable operation IDs, durable
+backed Store configuration, and CACHE Replica reuse make reruns and database
+restart idempotent. `ingest_mixed_tree_example.py` supplies a non-mutating
+top-level discovery mode and a database-backed real-run mode.
+
+Remaining adjacent work is intentionally separate:
+
+- bibliographic recognition, Item matching, and metadata enrichment above the
+  technical Asset/Replica catalogue;
+- a live Store pin/lease before any automatic cache eviction can overlap nested
+  materialization; and
+- process-level resource supervision for untrusted runs, because an in-process
+  optional parser cannot be preempted safely in the middle of one bounded call.
+
+Verification: all 16 focused coordinator tests pass. The preceding complete
+storage checkpoint is 993 passed and 24 expected skips; skips are limited to
+missing optional `py7zr`/`rarfile`/`pycdlib` support and disabled live
+backend/PostgreSQL contracts. Direct basedpyright checking of the coordinator
+and its public exports reports zero errors and zero warnings.
+
+## Unattended mixed-ingest observability - 2026-08-25
+
+The first remote run now has a durable LiuXin logging session rather than only
+terminal progress and a final JSON report. `EventLogHandler` maps Python and
+`CompatLogger` records into `EventLogAPI`; `RunLoggingSession` writes an
+authoritative append-only JSONL audit plus a bounded rotating UTC text log.
+Every run gets one explicit UUID, printed with both paths before database
+startup and retained through Store bootstrap, every DEBUG-level source/member
+event, INFO checkpoints/lifecycle events, warning/error issues, exception
+tracebacks, final counters, and CLI completion/failure.
+
+The event-log implementation is no longer treated as an untested prototype.
+Its ring, filters, resizing, followers, close semantics, runtime validation,
+level names, and JSONL persistence are active tests. Persistence keeps one
+line-buffered append handle and flushes each event, avoids the old recursive
+level-name deadlock, and ASCII-escapes JSON so surrogateescaped legacy POSIX
+paths round-trip without breaking an unattended write. Legacy database stdout
+is captured as structured `captured_output`; process environments, bytes, rows,
+and credentials are not dumped.
+
+The complete focused logging/coordinator/executable-example selection passes 48
+tests. The complete `tests/storage` checkpoint passes 997 tests with 24 expected
+skips for missing optional `py7zr`/`rarfile`/`pycdlib` support and disabled live
+backend/PostgreSQL contracts. Direct basedpyright checking of the event
+API/implementation, handler, run session, and coordinator reports zero errors
+and zero warnings.

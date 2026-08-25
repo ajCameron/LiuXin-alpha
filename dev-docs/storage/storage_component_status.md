@@ -1,6 +1,6 @@
 # Storage component status and runtime composition
 
-Updated: 2026-08-22
+Updated: 2026-08-25
 
 ## Current decision
 
@@ -283,6 +283,55 @@ then passed in the focused regression selection; current collection is 950
 tests (933 runnable and 17 expected skips). The affected
 manager/database/archive matrix passes 195 tests with eight optional-dependency
 skips.
+
+The generic run-level layer is now `MixedFormatIngestCoordinator`. Its handler
+registry recognizes SquashFS, ISO/UDF, ZIP, TAR, RAR, and 7z by suffix or
+bounded magic probe, while ordinary ebooks remain terminal by default. It
+adopts every top-level file, recursively exposes container Assets as immutable
+Stores, materializes nested bytes only into an explicit managed CACHE Store,
+and uses stable operation and backed-Store identities for database-restart
+resume. Identical container content is expanded once per run and ancestry
+digests stop cycles.
+
+`MixedIngestBudget` closes the security boundary previously left above the
+drivers: source/container/member counts, nesting and member-path depth, member
+bytes, per-container and cumulative expanded bytes, logical expansion ratio,
+materialization and single-spool bytes, wall time, cancellation, and issue
+count. Limits are passed down into backend Store configuration as well as
+accounted cumulatively. Reports retain contextual container chains and identify
+branch truncation versus a run-wide halt. A non-mutating discovery pass and the
+database-backed `ingest_mixed_tree_example.py` provide the practical run
+surface; operational details are in `mixed_ingest_operations.md`.
+
+The operational surface now starts a LiuXin `RunLoggingSession` before
+database construction. An internal `EventLogHandler` bridges standard and
+`CompatLogger` records into a complete append-only JSONL stream, while a
+rotating UTC text handler supplies the quick human view. One run UUID
+correlates command, environment/configuration preamble, Store bootstrap,
+per-source and per-member events, periodic counters, recoverable exceptions and
+tracebacks, safety halts, the final coordinator report, and CLI termination.
+Legacy database stdout is captured into structured events. JSONL persistence
+uses ASCII JSON escapes for surrogateescaped paths, retains a flushed append
+handle for large archives, and fixes the former level-name lock recursion.
+
+Bibliographic Item matching/enrichment remains deliberately above this
+technical byte catalogue. Cache eviction still needs a live Store pin/lease
+before it may run concurrently with nested materialization. Python-hosted
+parser calls can only observe the coordinator wall deadline between calls, so
+untrusted production runs should also use OS process/resource supervision.
+
+The coordinator's focused module contains 18 tests covering non-mutating
+classification, mixed ZIP/TAR ingestion, nested ZIP materialization, durable
+restart/idempotency, duplicate content, corrupt candidates, run-wide member and
+expanded-byte ceilings, depth, cache preconditions, cancellation, hostile ZIP
+ratio/traversal input, metadata hooks, the complete built-in signature
+registry, explicit ebook expansion, tortured/undecodable paths, correlated
+object/checkpoint logging, and recoverable-exception tracebacks. Its final
+focused run passes all 18. The complete `tests/storage` checkpoint passes 997
+tests with 24 explicit skips for
+uninstalled optional `py7zr`/`rarfile`/`pycdlib` parsers and disabled live
+backend/PostgreSQL contracts. The coordinator and public exports pass direct
+basedpyright checking with zero errors or warnings.
 
 The hostile-ZIP checkpoint adds allocation-free central-directory preflight,
 strict entry-count agreement, path-topology and local-header validation,

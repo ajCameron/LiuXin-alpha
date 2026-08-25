@@ -8,6 +8,7 @@ import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 
 def bootstrap_src_path() -> Path:
@@ -39,6 +40,8 @@ def json_sanitize(
             return obj.isoformat()
         except Exception:
             return repr(obj)
+    if isinstance(obj, UUID):
+        return str(obj)
     if isinstance(obj, (bytes, bytearray, memoryview)):
         raw = bytes(obj)
         return {

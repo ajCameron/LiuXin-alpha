@@ -7,6 +7,7 @@ import json
 import shutil
 import subprocess
 import sys
+import zipfile
 
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -186,6 +187,108 @@ def test_ingest_squashfs_drive_example(tmp_path: Path) -> None:
     assert result["ok"] is True
 
 
+def test_ingest_mixed_tree_example_discovery_and_real_run(tmp_path: Path) -> None:
+    source = tmp_path / "mixed"
+    source.mkdir()
+    with zipfile.ZipFile(source / "pack.zip", "w") as archive:
+        archive.writestr("book.txt", b"book")
+    (source / "loose.mobi").write_bytes(b"mobi")
+
+    discovered = _run_example(
+        "storage/ingest_mixed_tree_example.py",
+        "--source-root",
+        str(source),
+        "--discover-only",
+        "--log-directory",
+        str(tmp_path / "discovery-logs"),
+    )
+
+    discovery_report = cast(dict[str, object], discovered["report"])
+    assert discovery_report["discovery_only"] is True
+    assert discovery_report["files_adopted"] == 0
+    assert discovery_report["top_level_containers"] == 1
+    discovery_events = [
+        json.loads(line)
+        for line in Path(cast(str, discovered["event_log"]))
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert discovery_events[0]["context"]["event"] == "cli_started"
+    assert discovery_events[-1]["context"]["event"] == "cli_complete"
+    assert discovery_report["run_id"] == discovered["run_id"]
+
+    result = _run_example(
+        "storage/ingest_mixed_tree_example.py",
+        "--source-root",
+        str(source),
+        "--database",
+        str(tmp_path / "catalogue.sqlite"),
+        "--log-directory",
+        str(tmp_path / "real-logs"),
+        "--log-checkpoint-every",
+        "1",
+    )
+
+    report = cast(dict[str, object], result["report"])
+    assert result["metadata_is_durable"] is True
+    assert report["files_adopted"] == 2
+    assert report["loose_files"] == 1
+    assert report["containers_processed"] == 1
+    assert report["members_adopted"] == 1
+    assert result["ok"] is True
+    assert report["run_id"] == result["run_id"]
+    human_log = Path(cast(str, result["human_log"]))
+    event_log = Path(cast(str, result["event_log"]))
+    assert human_log.is_file()
+    assert event_log.is_file()
+    events = [json.loads(line) for line in event_log.read_text().splitlines()]
+    event_names = [event["context"].get("event") for event in events]
+    assert event_names[0] == "cli_started"
+    assert "database_open_started" in event_names
+    assert "source_checkpoint" in event_names
+    assert "member_checkpoint" in event_names
+    assert "complete" in event_names
+    assert event_names[-1] == "cli_complete"
+    assert all(
+        event["context"].get("details", {}).get("run_id") == result["run_id"]
+        for event in events
+        if event["context"].get("event") not in {None, "captured_output"}
+    )
+
+
+def test_ingest_mixed_tree_example_fatal_failure_is_durably_logged(
+    tmp_path: Path,
+) -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(EXAMPLES / "storage/ingest_mixed_tree_example.py"),
+            "--source-root",
+            str(tmp_path / "missing"),
+            "--discover-only",
+            "--log-directory",
+            str(tmp_path / "failure-logs"),
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 1
+    assert completed.stdout == ""
+    event_line = next(
+        line for line in completed.stderr.splitlines() if line.startswith("Event log: ")
+    )
+    event_log = Path(event_line.removeprefix("Event log: "))
+    events = [json.loads(line) for line in event_log.read_text().splitlines()]
+    assert [event["context"].get("event") for event in events[-2:]] == [
+        "run_unhandled_exception",
+        "cli_failed",
+    ]
+    assert "FileNotFoundError" in events[-1]["context"]["traceback"]
+
+
 class _QuietRequestHandler(SimpleHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:
         del format, args
@@ -244,6 +347,7 @@ EXAMPLE_SCRIPTS = (
     "storage/assimilate_existing_disk_example.py",
     "storage/filesystem_driver_example.py",
     "storage/http_remote_read_example.py",
+    "storage/ingest_mixed_tree_example.py",
     "storage/ingest_squashfs_drive_example.py",
     "storage/library_register_unmanaged_disk_example.py",
     "storage/reconcile_with_database_path_example.py",

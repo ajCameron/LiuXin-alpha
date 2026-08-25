@@ -46,6 +46,26 @@ and in-place Replicas; no archive is unpacked or copied. A broken image is
 reported without preventing later images from being processed, and rerunning
 the command resumes idempotently.
 
+`ingest_mixed_tree_example.py` is the operational generalization. It adopts
+all regular source files and recursively catalogues SquashFS, ISO/UDF, ZIP,
+TAR, RAR, and 7z members through immutable Asset-backed Stores. EPUB and other
+ordinary ebook files remain terminal Assets unless expansion is explicitly
+requested. Run-wide depth, member, expanded-byte, compression-ratio,
+materialization, temporary-space, wall-time, and issue budgets prevent a nest
+of individually valid archives from multiplying each backend's own limits.
+`--discover-only` is genuinely non-mutating and classifies top-level files; a
+real recursive run needs a managed cache outside the source tree only when it
+encounters a nested container. See
+`dev-docs/storage/mixed_ingest_operations.md` for the run contract.
+
+The mixed command is also the unattended-run surface. It creates a complete
+append-only JSONL event stream through LiuXin's internal event-log handler and
+a rotating human-readable log before database startup. Both are correlated to
+the JSON report by one run UUID; stderr prints their paths immediately, while
+stdout remains machine-readable. Use `--log-directory` to put them on a
+monitored filesystem outside the source tree, and keep the default `DEBUG`
+level for a member-by-member first-run audit.
+
 `storage_bootstrap_report_example.py` then shows how persisted Store rows are
 loaded and how bootstrap issues are reported.
 
@@ -58,4 +78,14 @@ python examples/storage/assimilate_existing_disk_example.py \
 python examples/storage/ingest_squashfs_drive_example.py \
   --drive-root /media/archive-drives/disk-01 \
   --database /srv/liuxin/catalogue.sqlite
+
+python examples/storage/ingest_mixed_tree_example.py \
+  --source-root /media/archive-drives/disk-01 \
+  --discover-only
+
+python examples/storage/ingest_mixed_tree_example.py \
+  --source-root /media/archive-drives/disk-01 \
+  --database /srv/liuxin/catalogue.sqlite \
+  --materialization-root /srv/liuxin/ingest-materialized \
+  --log-directory /srv/liuxin/ingest-logs
 ```
