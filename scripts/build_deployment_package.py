@@ -35,10 +35,29 @@ REQUIRED_DEPLOYMENT_PATHS = (
     Path("README.md"),
     Path("src/LiuXin_alpha"),
     Path("src/LiuXin_alpha/surfaces/cli/__main__.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/app.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/capabilities.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/catalogue.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/common.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/completion.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/config_cli.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/core_cli.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/diagnostics.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/ingest_runs.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/jobs.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/initialize.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/metadata.py"),
     Path("src/LiuXin_alpha/surfaces/cli/postgres.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/serve.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/storage.py"),
+    Path("src/LiuXin_alpha/surfaces/cli/workflows.py"),
+    Path("src/LiuXin_alpha/surfaces/system_profile.py"),
     Path("scripts/create_venv.sh"),
     Path("scripts/run_postgres_live_smoke.py"),
+    Path("dev-docs/metadata-cli.md"),
+    Path("dev-docs/operational-cli.md"),
     Path("dev-docs/postgresql-backend.md"),
+    Path("dev-docs/storage/mixed_ingest_operations.md"),
 )
 
 DEFAULT_EXCLUDED_TOP_LEVEL = {
@@ -233,8 +252,9 @@ def build_source_metadata(
         },
         "runtime": {
             "python": ">=3.12",
-            "default_install_extras": "postgres,search",
+            "default_install_extras": "postgres,search,archives",
             "cli_module": "LiuXin_alpha.surfaces.cli",
+            "cli_executable": "liuxin",
         },
         "postgres": {
             "runbook": "dev-docs/postgresql-backend.md",
@@ -302,7 +322,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BUNDLE_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 VENV_DIR="${VENV_DIR:-${BUNDLE_ROOT}/.venv}"
-LIUXIN_INSTALL_EXTRAS="${LIUXIN_INSTALL_EXTRAS:-postgres,search}"
+LIUXIN_INSTALL_EXTRAS="${LIUXIN_INSTALL_EXTRAS:-postgres,search,archives}"
 RECREATE=0
 SKIP_INSTALL=0
 
@@ -316,7 +336,7 @@ this extracted bundle.
 Options:
   --python <path>       Python interpreter to use (default: python3)
   --venv <path>         Virtual environment path (default: <bundle>/.venv)
-  --extras <csv>        Extras to install (default: postgres,search; use none for plain install)
+  --extras <csv>        Extras to install (default: postgres,search,archives; use none for plain install)
   --recreate            Remove and recreate the virtual environment
   --skip-install        Create/reuse the venv but do not run pip install
   -h, --help            Show this help
@@ -410,7 +430,22 @@ cat <<EOF
 LiuXin deployment environment ready.
 
 CLI:
-  "${VENV_PYTHON}" -m LiuXin_alpha.surfaces.cli --help
+  "${VENV_DIR}/bin/liuxin" --help
+
+Mixed-ingest preflight:
+  "${VENV_DIR}/bin/liuxin" storage ingest --help
+
+First-run local system:
+  "${VENV_DIR}/bin/liuxin" init --help
+  "${VENV_DIR}/bin/liuxin" ingest --help
+
+Metadata operations:
+  "${VENV_DIR}/bin/liuxin" metadata --help
+
+Core jobs and operational families:
+  "${VENV_DIR}/bin/liuxin" jobs --help
+  "${VENV_DIR}/bin/liuxin" storage --help
+  "${VENV_DIR}/bin/liuxin" core --help
 
 PostgreSQL setup helper:
   "${SCRIPT_DIR}/postgres_remote_setup.sh" --help
@@ -732,7 +767,105 @@ deploy/remote_install.sh
 ```
 
 The installer creates `.venv` in the extracted bundle and installs LiuXin with
-the `postgres,search` extras by default.
+the `postgres,search,archives` extras by default. SquashFS archives additionally
+need the operating system's `squashfs-tools` package.
+
+## Storage-ingest preflight and run
+
+For a fresh path-backed installation, create the durable layout first:
+
+```bash
+.venv/bin/liuxin init /srv/liuxin
+.venv/bin/liuxin ingest /media/archive-drives/disk-01 \
+  --system-root /srv/liuxin
+```
+
+This creates `/srv/liuxin/catalogue.sqlite`, a managed primary Store,
+materialization and ingest-log directories, and a non-secret system manifest.
+The second command uses the hardened mixed-tree pipeline. The detailed form
+below remains useful for explicit preflight and service configuration.
+
+For an attended first run, `.venv/bin/liuxin init --wizard` can instead select
+SQLite, APSW, or PostgreSQL and confirm a redacted plan. Its PostgreSQL route
+expects the database/login to exist, initializes LiuXin's schema, and runs the
+full readiness checker; server role/database provisioning remains available
+through `postgres setup-sql`.
+
+Run from the remote host which can read the source filesystem. Keep the
+catalogue, materialization cache, logs, report, and lock outside that source.
+Preflight performs discovery and readiness checks without creating the SQLite
+catalogue or cache:
+
+```bash
+.venv/bin/liuxin storage ingest \\
+  --source-root /media/archive-drives/disk-01 \\
+  --database /srv/liuxin/catalogue.sqlite \\
+  --materialization-root /srv/liuxin/ingest-materialized \\
+  --log-directory /srv/liuxin/ingest-logs \\
+  --report-file /srv/liuxin/reports/disk-01-preflight.json \\
+  --preflight-only
+```
+
+Then run with an operator-generated UUID. The stable run lock prevents two
+processes from ingesting into the same catalogue accidentally:
+
+```bash
+RUN_ID="$(python3 -c 'import uuid; print(uuid.uuid4())')"
+.venv/bin/liuxin storage ingest \\
+  --source-root /media/archive-drives/disk-01 \\
+  --database /srv/liuxin/catalogue.sqlite \\
+  --materialization-root /srv/liuxin/ingest-materialized \\
+  --log-directory /srv/liuxin/ingest-logs \\
+  --report-file "/srv/liuxin/reports/${RUN_ID}.json" \\
+  --run-id "${RUN_ID}" \\
+  --no-console-progress
+```
+
+Exit 0 is complete/ready, 1 is a completed run with issues or a runtime
+failure, 2 is command configuration, 130 is SIGINT, and 143 is SIGTERM. A
+graceful signal writes a cancelled report; send a second signal only to force
+the Python boundary to unwind. See
+`dev-docs/storage/mixed_ingest_operations.md` for supervision, logging, resume,
+and safety details.
+
+## Metadata operations
+
+Read one Item or create an atomic, deterministic all-Item JSON dump:
+
+```bash
+.venv/bin/liuxin metadata show --database /srv/liuxin/catalogue.sqlite 42
+.venv/bin/liuxin metadata dump-json \
+  --database /srv/liuxin/catalogue.sqlite \
+  --all --output /srv/liuxin/exports/metadata.json
+```
+
+The same leaf commands accept `--core-endpoint`. Embedded-file commands always
+read paths on this CLI host, transfer bounded bytes, and create a new artifact
+by default. See `dev-docs/metadata-cli.md` for catalogue writes, OPF, safe file
+rewrite, online identify/cover jobs, and the explicit unmanaged in-place mode.
+
+## Operational Core and workflows
+
+The packaged tree also exposes Core health/contracts, managed jobs, semantic
+catalogue search and acquisition, Store/Replica administration, managed
+ingest/conversion/backup, database upkeep, guarded maintenance, HTTP surfaces,
+and capability inspection:
+
+```bash
+.venv/bin/liuxin connect /srv/liuxin
+.venv/bin/liuxin status
+.venv/bin/liuxin storage repair plan
+.venv/bin/liuxin storage recovery list
+.venv/bin/liuxin jobs list
+.venv/bin/liuxin plugins inspect
+```
+
+Every Core-backed leaf accepts `--database` or `--core-endpoint`. File-transfer
+commands read and write CLI-host paths; workflow paths are resolved on the Core
+host. Mutating maintenance commands preview unless `--yes` is supplied. HTTP
+surfaces bind to loopback by default because they have no built-in TLS or
+authentication. See `dev-docs/operational-cli.md` for the complete map and
+safety contract.
 
 ## PostgreSQL Setup
 

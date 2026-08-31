@@ -4,6 +4,8 @@ import time
 
 from pathlib import Path
 
+import pytest
+
 from LiuXin_alpha.utils.jobs import JobRequest, submit_job
 from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 
@@ -142,3 +144,51 @@ def test_submit_job_uses_default_manager() -> None:
     job_id = submit_job(JobRequest(module_name="math", function_name="sqrt", args=(64,)), backend="serial", no_output=True)
     assert isinstance(job_id, str)
     assert job_id
+
+
+def test_job_retry_creates_a_linked_run_without_rewriting_history() -> None:
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    try:
+        original_id = manager.submit(
+            JobRequest(module_name="math", function_name="sqrt", args=(81,)),
+            no_output=True,
+            label="original",
+        )
+        original = manager.wait(original_id, timeout=2.0)
+        assert original.state == "succeeded"
+        with pytest.raises(ValueError, match="succeeded"):
+            manager.retry(original_id)
+
+        retry_id = manager.retry(
+            original_id,
+            allow_succeeded=True,
+            label="deliberate-retry",
+        )
+        retried = manager.wait(retry_id, timeout=2.0)
+
+        assert retry_id != original_id
+        assert retried.retry_of_job_id == original_id
+        assert retried.label == "deliberate-retry"
+        assert retried.execution is not None
+        assert retried.execution.result == 9.0
+        assert manager.get(original_id) == original
+
+        failing_source = """
+def run():
+    raise RuntimeError("still broken")
+"""
+        failed_id = manager.submit(
+            JobRequest(
+                module_name=failing_source,
+                function_name="run",
+                module_is_source_code=True,
+            ),
+            no_output=True,
+        )
+        assert manager.wait(failed_id, timeout=2.0).state == "failed"
+        failed_retry_id = manager.retry(failed_id)
+        failed_retry = manager.wait(failed_retry_id, timeout=2.0)
+        assert failed_retry.retry_of_job_id == failed_id
+        assert failed_retry.state == "failed"
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)

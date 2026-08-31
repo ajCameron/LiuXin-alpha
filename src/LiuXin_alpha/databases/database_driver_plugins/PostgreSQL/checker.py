@@ -21,6 +21,7 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
 )
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
     DEFAULT_POSTGRES_STATEMENT_TIMEOUT_MS,
+    POSTGRES_DRIVER_INSTALL_HINT,
     check_required_tables,
     connect_postgres,
     postgres_cursor,
@@ -123,7 +124,11 @@ def run_postgres_self_test(
         result,
         "driver",
         driver_present,
-        "psycopg2 is importable" if driver_present else "psycopg2 is not installed",
+        (
+            "psycopg2 is importable"
+            if driver_present
+            else POSTGRES_DRIVER_INSTALL_HINT
+        ),
     )
     if not driver_present:
         return result

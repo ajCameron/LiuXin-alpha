@@ -56,6 +56,7 @@ def _run_job(core, operation: str, payload: Mapping[str, Any]) -> dict[str, Any]
             "failed",
             "cancelled",
             "timed_out",
+            "aborted",
         }:
             break
         time.sleep(0.1)
@@ -346,22 +347,14 @@ def build_squashfs_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="LiuXin CLI surfaces")
-    subparsers = parser.add_subparsers(dest="surface", required=True)
-    build_squashfs_parser(subparsers)
-    build_postgres_parser(subparsers)
-    args = parser.parse_args(argv)
+    """Compatibility entry point for callers that imported this module's main."""
 
-    handler = getattr(args, "handler", None)
-    if handler is None:
-        parser.print_help()
-        return 2
+    # Keep the app import lazy: historical callers import this module as a
+    # SquashFS library as well as invoking its compatibility CLI.  Delegating
+    # also prevents this entry point from drifting behind the installed tree.
+    from LiuXin_alpha.surfaces.cli import main as app_main
 
-    try:
-        return int(handler(args))
-    except Exception as exc:
-        print("ERROR: {}".format(exc), file=sys.stderr)
-        return 2
+    return app_main(argv)
 
 
 __all__ = [

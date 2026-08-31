@@ -29,11 +29,15 @@ class CoreHttpDaemon:
         host: str = "127.0.0.1",
         port: int = 0,
         endpoint_namespace: str | None = None,
+        max_request_bytes: int = 1024 * 1024 * 1024,
     ) -> None:
         self.runtime = runtime
         self.host = str(host)
         self.port = int(port)
         self.endpoint_namespace = self._normalize_namespace(endpoint_namespace)
+        self.max_request_bytes = int(max_request_bytes)
+        if self.max_request_bytes < 1:
+            raise ValueError("max_request_bytes must be >= 1.")
 
         self._server: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
@@ -48,6 +52,20 @@ class CoreHttpDaemon:
     def _normalize_namespace(namespace: str | None) -> str:
         token = str(namespace or "").strip().strip("/")
         return token
+
+    def validate_request_body_length(self, content_length: int) -> int:
+        """Validate a declared body size before reading from the socket."""
+
+        length = int(content_length)
+        if length <= 0:
+            raise ValueError("Request body cannot be empty.")
+        if length > self.max_request_bytes:
+            raise ValueError(
+                "Request body exceeds the configured {} byte limit.".format(
+                    self.max_request_bytes
+                )
+            )
+        return length
 
     @property
     def is_running(self) -> bool:
@@ -138,8 +156,7 @@ class CoreHttpDaemon:
                     content_length = int(raw_length)
                 except Exception:
                     raise ValueError("Invalid Content-Length header.")
-                if content_length <= 0:
-                    raise ValueError("Request body cannot be empty.")
+                content_length = daemon.validate_request_body_length(content_length)
                 raw = self.rfile.read(content_length)
                 try:
                     payload = json.loads(raw.decode("utf-8"))

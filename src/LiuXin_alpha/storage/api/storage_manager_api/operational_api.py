@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import abc
 
+from collections.abc import Mapping
+from uuid import UUID
+
 from LiuXin_alpha.storage.api.storage_manager_api.models.operational import (
     StorageOperationalStatus,
+)
+from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import (
+    DigitalAssetIngestResult,
 )
 
 
@@ -30,6 +36,30 @@ class StorageOperationalStatusAPI(abc.ABC):
             >>> status.healthy  # doctest: +SKIP
             True
         """
+
+        ...
+
+    @abc.abstractmethod
+    def list_ingest_operations(self) -> tuple[Mapping[str, object], ...]:
+        """Return operator-safe durable ingest-journal summaries."""
+
+        ...
+
+    @abc.abstractmethod
+    def recover_pending_ingests(
+        self,
+        operation_id: UUID | None = None,
+    ) -> tuple[str, ...]:
+        """Recover all, or one selected, interrupted publication."""
+
+        ...
+
+    @abc.abstractmethod
+    def retry_ingest_operation(
+        self,
+        operation_id: UUID,
+    ) -> DigitalAssetIngestResult:
+        """Replay one durable ingest when its original source is recoverable."""
 
         ...
 

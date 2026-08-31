@@ -17,6 +17,23 @@ python -m pip install -e '.[postgres,test,search]'
 The PostgreSQL extra installs `psycopg2-binary`. System `psycopg2` is also fine
 when available in the active Python environment.
 
+## Guided Initialization
+
+When the target database and login role already exist, the top-level wizard
+can select a PostgreSQL URL or `PGSERVICE` profile, initialize LiuXin's schema,
+and immediately run the full readiness checker:
+
+```bash
+liuxin init --wizard
+```
+
+The wizard displays a credential-redacted plan and requires confirmation
+before schema creation. It can optionally write a mode-0600 connection
+environment file, but it does not add a separately prompted password. Prefer
+`.pgpass`, a service profile, or your normal secret manager. The explicit
+commands below remain the reproducible route for automation and for creating
+server roles/databases.
+
 ## Create Roles, Database, And Schema
 
 Generate server-level setup SQL first. Run this as a PostgreSQL admin from a
@@ -146,6 +163,27 @@ small driver CRUD path, and drops the disposable schema when requested. Use
 instead of `--url` when that better matches the environment.
 
 ## Common Failures
+
+`PostgreSQL Python support is not installed` means the active LiuXin
+environment lacks the optional driver. From a source checkout run:
+
+```bash
+python -m pip install -e '.[postgres]'
+```
+
+For an installed package, use `python -m pip install
+'liuxin-alpha[postgres]'`. The init wizard detects this before asking for a
+target.
+
+`database "..." does not exist` means the server was reached but the selected
+database has not been provisioned. The CLI points to `liuxin postgres
+setup-sql --help`; generate and apply its server section as a PostgreSQL admin,
+then its database section against the new database.
+
+Connection-refused, missing local socket, and host-resolution failures include
+a reachability hint. For a local target, check installation/service state with
+`pg_isready` and the operating system's PostgreSQL service manager. For a
+remote target, verify host, port, firewall, and remote service state.
 
 `role "... " does not exist` means PostgreSQL accepted the socket/network
 connection but the login role has not been created. Generate and apply the

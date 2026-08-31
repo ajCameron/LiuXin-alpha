@@ -1182,6 +1182,29 @@ class DatabaseStorageMetadataRepository:
             )
         return tuple(pending)
 
+    def ingest_journal_entry(
+        self,
+        operation_id: UUID,
+    ) -> tuple[str, dict[str, Any], str | None] | None:
+        """Return one decoded durable ingest entry for explicit recovery."""
+
+        if not self.has_ingest_journal:
+            return None
+        row = self._journal_row(operation_id)
+        if row is None:
+            return None
+        payload = self._load(row["storage_ingest_operation_scratch"])
+        if not isinstance(payload, dict):
+            raise api.StorageManagementError(
+                "invalid durable ingest journal payload."
+            )
+        error = row.get("storage_ingest_operation_last_error")
+        return (
+            str(row["storage_ingest_operation_state"]),
+            payload,
+            None if error in (None, "") else str(error),
+        )
+
     def ingest_journal_statuses(self) -> tuple[dict[str, object], ...]:
         """Return operator-safe journal summaries without decoded requests."""
 

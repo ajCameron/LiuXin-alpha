@@ -4,6 +4,9 @@ import argparse
 import json
 import sys
 
+from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.checker import (
     format_postgres_self_test,
     run_postgres_self_test,
@@ -12,12 +15,16 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
     configured_postgres_password,
     configured_postgres_schema,
     configured_postgres_target,
+    is_postgres_service_name,
+    is_postgres_url,
     redact_postgres_target,
     write_postgres_env_file,
 )
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
+    POSTGRES_DRIVER_INSTALL_HINT,
     PostgresConnectionAdapter,
     connect_postgres,
+    postgres_driver_is_available,
 )
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.runtime_privileges import (
     build_postgres_setup_statements,
@@ -27,6 +34,12 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.runtime_privilege
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.schema import (
     build_schema_statements,
     create_postgres_schema,
+)
+from LiuXin_alpha.surfaces.cli.common import emit_bytes, json_bytes
+from LiuXin_alpha.surfaces.system_profile import (
+    SYSTEM_MANIFEST_FORMAT,
+    SYSTEM_MANIFEST_NAME,
+    SYSTEM_MANIFEST_VERSION,
 )
 
 
@@ -78,7 +91,10 @@ def cmd_postgres_schema_sql(args: argparse.Namespace) -> int:
 
 
 def _check_passed(result: dict[str, object], name: str) -> bool:
-    for check in result.get("checks") or []:
+    checks = result.get("checks")
+    if not isinstance(checks, list):
+        return False
+    for check in checks:
         if isinstance(check, dict) and check.get("name") == name:
             return bool(check.get("ok"))
     return False
@@ -100,11 +116,75 @@ def cmd_postgres_init(args: argparse.Namespace) -> int:
         conn.close()
 
     if args.check:
-        return cmd_postgres_check(args)
+        result = cmd_postgres_check(args)
+        if result == 0 and getattr(args, "system_root", None):
+            _write_postgres_system_manifest(args, schema=schema)
+        return result
 
     target = redact_postgres_target(configured_postgres_target(_metadata_from_args(args)))
     print("PostgreSQL schema initialised: target={}, schema={}".format(target, schema))
+    if getattr(args, "system_root", None):
+        _write_postgres_system_manifest(args, schema=schema)
     return 0
+
+
+def _write_postgres_system_manifest(
+    args: argparse.Namespace,
+    *,
+    schema: str,
+) -> Path:
+    root = Path(args.system_root).expanduser().resolve(strict=False)
+    root.mkdir(parents=True, exist_ok=True)
+    log_directory = root / "logs" / "ingest"
+    materialization_root = root / "ingest-materialized"
+    log_directory.mkdir(parents=True, exist_ok=True)
+    materialization_root.mkdir(parents=True, exist_ok=True)
+    target = configured_postgres_target(
+        explicit_url=getattr(args, "url", None),
+        explicit_service=getattr(args, "service", None),
+    )
+    if not target.configured:
+        target = configured_postgres_target(_metadata_from_args(args))
+    if not target.configured:
+        raise ValueError("Cannot write a PostgreSQL profile without a connection target.")
+    database_target = target.value
+    if target.kind == "url":
+        parsed = urlsplit(database_target)
+        userinfo, separator, hostinfo = parsed.netloc.rpartition("@")
+        netloc = parsed.netloc
+        if separator and ":" in userinfo:
+            username = userinfo.split(":", 1)[0]
+            netloc = username + "@" + hostinfo
+        safe_query = urlencode(
+            [
+                (key, value)
+                for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+                if not any(
+                    marker in key.casefold()
+                    for marker in ("pass", "password", "token", "secret", "key")
+                )
+            ],
+            doseq=True,
+        )
+        database_target = urlunsplit(
+            (parsed.scheme, netloc, parsed.path, safe_query, parsed.fragment)
+        )
+    manifest = {
+        "format": SYSTEM_MANIFEST_FORMAT,
+        "version": SYSTEM_MANIFEST_VERSION,
+        "system_root": str(root),
+        "database": database_target,
+        "db_type": "PostgreSQL",
+        "database_metadata": {"schema": str(schema)},
+        "store_root": None,
+        "store_name": None,
+        "materialization_root": str(materialization_root),
+        "log_directory": str(log_directory),
+    }
+    path = root / SYSTEM_MANIFEST_NAME
+    emit_bytes(json_bytes(manifest), output=path, replace=True, mode=0o600)
+    print("PostgreSQL LiuXin system manifest written: {}".format(path), file=sys.stderr)
+    return path
 
 
 def cmd_postgres_write_env(args: argparse.Namespace) -> int:
@@ -179,7 +259,9 @@ def cmd_postgres_grant_runtime_role(args: argparse.Namespace) -> int:
     return 0
 
 
-def build_postgres_parser(subparsers: argparse._SubParsersAction) -> None:
+def build_postgres_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
     parser = subparsers.add_parser(
         "postgres",
         help="PostgreSQL backend setup and readiness checks.",
@@ -215,6 +297,10 @@ def build_postgres_parser(subparsers: argparse._SubParsersAction) -> None:
     init = postgres_subparsers.add_parser("init", help="Create the LiuXin PostgreSQL schema.")
     _add_connection_args(init)
     init.add_argument("--check", action="store_true", help="Run readiness checks after creating schema.")
+    init.add_argument(
+        "--system-root",
+        help="Write a reusable secret-free liuxin-system.json after successful setup.",
+    )
     init.add_argument("--json", action="store_true", help="When used with --check, print JSON.")
     init.add_argument("--skip-core", action="store_true", help=argparse.SUPPRESS)
     init.add_argument("--skip-storage", action="store_true", help=argparse.SUPPRESS)
@@ -324,4 +410,12 @@ __all__ = [
     "cmd_postgres_schema_sql",
     "cmd_postgres_setup_sql",
     "cmd_postgres_write_env",
+    "POSTGRES_DRIVER_INSTALL_HINT",
+    "configured_postgres_schema",
+    "configured_postgres_target",
+    "is_postgres_service_name",
+    "is_postgres_url",
+    "postgres_driver_is_available",
+    "redact_postgres_target",
+    "write_postgres_env_file",
 ]

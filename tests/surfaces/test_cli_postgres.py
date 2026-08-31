@@ -22,7 +22,10 @@ def test_postgres_check_json_success(monkeypatch, capsys) -> None:
             "postgres",
             "check",
             "--url",
-            "postgresql://liuxin:secret@example.invalid/library",
+            (
+                "postgresql://liuxin:secret@example.invalid/library"
+                "?sslmode=require&password=query-secret"
+            ),
             "--json",
             "--no-password-prompt",
         ]
@@ -231,7 +234,9 @@ class _FakeRawConnection:
         self.closed = True
 
 
-def test_postgres_init_uses_connection_and_schema_builder(monkeypatch, capsys) -> None:
+def test_postgres_init_uses_connection_and_schema_builder(
+    tmp_path, monkeypatch, capsys
+) -> None:
     raw = _FakeRawConnection()
     calls: list[tuple[object, str]] = []
     connect_calls = []
@@ -246,18 +251,24 @@ def test_postgres_init_uses_connection_and_schema_builder(monkeypatch, capsys) -
         calls.append((conn, schema))
 
     monkeypatch.setattr(pg_cli, "create_postgres_schema", fake_create)
+    system_root = tmp_path / "postgres-system"
 
     rc = cli_main(
         [
             "postgres",
             "init",
             "--url",
-            "postgresql://liuxin:secret@example.invalid/library",
+            (
+                "postgresql://liuxin:secret@example.invalid/library"
+                "?sslmode=require&password=query-secret"
+            ),
             "--schema",
             "liuxin_test",
             "--password",
             "init-secret",
             "--no-password-prompt",
+            "--system-root",
+            str(system_root),
         ]
     )
 
@@ -269,6 +280,13 @@ def test_postgres_init_uses_connection_and_schema_builder(monkeypatch, capsys) -
     assert "liuxin_test" in output
     assert "secret" not in output
     assert "init-secret" not in output
+    manifest = json.loads(
+        (system_root / "liuxin-system.json").read_text(encoding="utf-8")
+    )
+    assert manifest["database"] == (
+        "postgresql://liuxin@example.invalid/library?sslmode=require"
+    )
+    assert manifest["database_metadata"] == {"schema": "liuxin_test"}
 
 
 def test_postgres_write_env_redacts_output_and_sets_private_mode(tmp_path, capsys) -> None:

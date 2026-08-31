@@ -76,6 +76,7 @@ class SurfaceCoreSession:
         database_path: str | Path | None = None,
         endpoint: str | None = None,
         db_type: str = "SQLite",
+        database_metadata: Mapping[str, Any] | None = None,
         create: bool = False,
         backup: bool = False,
         cache_type: str | None = None,
@@ -99,11 +100,23 @@ class SurfaceCoreSession:
                 )
             )
 
+        assert database_path is not None
+
         # The application boundary owns composition. Surface modules never
         # construct Database, Library, Catalog, Cache, or StorageManager.
+        server_database = str(db_type).strip().casefold() in {
+            "postgres",
+            "postgresql",
+            "pg",
+        }
         runtime = create_core(
-            database_path=Path(database_path).expanduser(),
+            database_path=(
+                str(database_path)
+                if server_database
+                else Path(database_path).expanduser()
+            ),
             db_type=str(db_type),
+            database_metadata=database_metadata,
             create=bool(create),
             backup=bool(backup),
             cache_type=cache_type,
@@ -961,11 +974,22 @@ def add_core_client_arguments(
     *,
     database_help: str = "Path to the LiuXin database.",
 ) -> argparse.ArgumentParser:
-    group = parser.add_mutually_exclusive_group(required=True)
+    group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument("--database", help=database_help)
     group.add_argument(
         "--core-endpoint",
         help="HTTP endpoint of an existing LiuXin Core daemon.",
+    )
+    group.add_argument(
+        "--system-root",
+        help="Read the Core connection from SYSTEM_ROOT/liuxin-system.json.",
+    )
+    group.add_argument(
+        "--profile",
+        help=(
+            "Named profile, manifest path, or directory containing "
+            "liuxin-system.json."
+        ),
     )
     parser.add_argument(
         "--core-timeout",
@@ -989,10 +1013,14 @@ def open_surface_core_from_args(
     enable_maintenance: bool = False,
     repair_bootstrap_rows: bool = False,
 ) -> SurfaceCoreSession:
+    from LiuXin_alpha.surfaces.system_profile import apply_system_profile
+
+    apply_system_profile(args)
     return SurfaceCoreSession.open(
         database_path=getattr(args, "database", None),
         endpoint=getattr(args, "core_endpoint", None),
         db_type=str(getattr(args, "db_type", "SQLite")),
+        database_metadata=getattr(args, "database_metadata", None),
         create=create,
         backup=backup,
         cache_type=cache_type,

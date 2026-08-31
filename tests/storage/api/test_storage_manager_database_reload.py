@@ -306,6 +306,7 @@ def test_database_bound_manager_metadata_and_operation_ids_survive_restart(
     store_ref = uuid4()
     operation_id = uuid4()
     interrupted_operation_id = uuid4()
+    unreplayable_operation_id = uuid4()
     payload = "durable bytes — 😀".encode()
     interrupted_payload = b"published before metadata commit"
     root = tmp_path / "durable-store"
@@ -350,6 +351,30 @@ def test_database_bound_manager_metadata_and_operation_ids_survive_restart(
             attributes={"source": "résumé", "emoji": "📚"},
             operation_id=operation_id,
         )
+        with pytest.raises(StoreConfigurationNotFound):
+            manager.store_bytes(
+                b"source bytes are gone after this call",
+                original_name="unreplayable.epub",
+                store=uuid4(),
+                operation_id=unreplayable_operation_id,
+            )
+        started = {
+            value["operation_id"]: value
+            for value in manager.list_ingest_operations()
+        }
+        assert started[unreplayable_operation_id]["state"] == "started"
+        recovery_issues = manager.recover_pending_ingests(
+            unreplayable_operation_id
+        )
+        assert len(recovery_issues) == 1
+        assert str(unreplayable_operation_id) in recovery_issues[0]
+        failed = {
+            value["operation_id"]: value
+            for value in manager.list_ingest_operations()
+        }
+        assert failed[unreplayable_operation_id]["state"] == "failed"
+        with pytest.raises(StoragePreconditionFailed, match="non-replayable"):
+            manager.retry_ingest_operation(unreplayable_operation_id)
         replication = manager.create_replication_policy(
             ReplicationPolicy(
                 name="restart replication",
@@ -451,6 +476,11 @@ def test_database_bound_manager_metadata_and_operation_ids_survive_restart(
         assert reopened.storage is not None
         manager = reopened.storage
         assert manager.metadata_is_durable
+        persisted_operations = {
+            value["operation_id"]: value
+            for value in manager.list_ingest_operations()
+        }
+        assert persisted_operations[unreplayable_operation_id]["state"] == "failed"
         assert manager.read_asset(result.digital_asset_id) == payload
         assert manager.get_digital_asset_record(result.digital_asset_id) == result
         assert manager.get_replication_policy_record(
@@ -484,6 +514,13 @@ def test_database_bound_manager_metadata_and_operation_ids_survive_restart(
         )
         assert manager.read_asset(recovered.digital_asset_id) == interrupted_payload
         assert manager.ingest_recovery_issues == ()
+        missing_operation_id = uuid4()
+        missing_issues = manager.recover_pending_ingests(
+            missing_operation_id
+        )
+        assert missing_issues == (
+            f"{missing_operation_id}: ingest operation is not journalled",
+        )
 
         retried = manager.store_bytes(
             payload,

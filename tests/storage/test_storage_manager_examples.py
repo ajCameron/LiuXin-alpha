@@ -275,18 +275,25 @@ def test_ingest_mixed_tree_example_fatal_failure_is_durably_logged(
         text=True,
     )
 
-    assert completed.returncode == 1
-    assert completed.stdout == ""
+    assert completed.returncode == 2
+    payload = cast(dict[str, object], json.loads(completed.stdout))
+    assert payload["ok"] is False
+    assert payload["status"] == "configuration_error"
+    assert payload["exit_code"] == 2
+    error = cast(dict[str, object], payload["error"])
+    assert error["type"] == "CLIUsageError"
+    assert "source root does not exist" in cast(str, error["message"])
+    assert "CLIUsageError" in cast(str, error["traceback"])
+    assert Path(cast(str, payload["report_file"])).is_file()
     event_line = next(
         line for line in completed.stderr.splitlines() if line.startswith("Event log: ")
     )
     event_log = Path(event_line.removeprefix("Event log: "))
     events = [json.loads(line) for line in event_log.read_text().splitlines()]
-    assert [event["context"].get("event") for event in events[-2:]] == [
-        "run_unhandled_exception",
-        "cli_failed",
+    assert [event["context"].get("event") for event in events] == [
+        "cli_configuration_error",
     ]
-    assert "FileNotFoundError" in events[-1]["context"]["traceback"]
+    assert "CLIUsageError" in events[-1]["context"]["traceback"]
 
 
 class _QuietRequestHandler(SimpleHTTPRequestHandler):

@@ -67,16 +67,36 @@ def test_collect_package_files_prunes_excluded_directories(tmp_path: Path) -> No
 def test_generated_remote_helpers_cover_install_and_postgres_workflow() -> None:
     install_script = build_deployment_package.render_remote_install_script()
     postgres_script = build_deployment_package.render_postgres_setup_script()
+    bundle_readme = build_deployment_package.render_bundle_readme()
 
-    assert "LIUXIN_INSTALL_EXTRAS=\"${LIUXIN_INSTALL_EXTRAS:-postgres,search}\"" in install_script
+    assert (
+        "LIUXIN_INSTALL_EXTRAS=\"${LIUXIN_INSTALL_EXTRAS:-postgres,search,archives}\""
+        in install_script
+    )
     assert "-m venv" in install_script
     assert "pip install -e" in install_script
+    assert '"${VENV_DIR}/bin/liuxin" storage ingest --help' in install_script
+    assert '"${VENV_DIR}/bin/liuxin" metadata --help' in install_script
+    assert '"${VENV_DIR}/bin/liuxin" jobs --help' in install_script
+    assert '"${VENV_DIR}/bin/liuxin" core --help' in install_script
+    assert '"${VENV_DIR}/bin/liuxin" init --help' in install_script
     assert "postgres setup-sql" in postgres_script
     assert "--section server" in postgres_script
     assert "--section database" in postgres_script
     assert "--apply-server" in postgres_script
     assert "--init-schema" in postgres_script
     assert "scripts/run_postgres_live_smoke.py" in postgres_script
+    assert ".venv/bin/liuxin storage ingest" in bundle_readme
+    assert ".venv/bin/liuxin metadata dump-json" in bundle_readme
+    assert ".venv/bin/liuxin plugins inspect" in bundle_readme
+    assert ".venv/bin/liuxin connect /srv/liuxin" in bundle_readme
+    assert ".venv/bin/liuxin storage repair plan" in bundle_readme
+    assert ".venv/bin/liuxin storage recovery list" in bundle_readme
+    assert ".venv/bin/liuxin init /srv/liuxin" in bundle_readme
+    assert ".venv/bin/liuxin init --wizard" in bundle_readme
+    assert "dev-docs/operational-cli.md" in bundle_readme
+    assert "--preflight-only" in bundle_readme
+    assert "143 is SIGTERM" in bundle_readme
 
 
 def test_build_deployment_package_writes_tarball_with_generated_helpers(tmp_path: Path) -> None:
@@ -106,6 +126,9 @@ def test_build_deployment_package_writes_tarball_with_generated_helpers(tmp_path
     assert f"{prefix}/deployment_manifest.json" in names
     assert f"{prefix}/src/LiuXin_alpha/__init__.py" in names
     assert f"{prefix}/dev-docs/postgresql-backend.md" in names
+    assert f"{prefix}/dev-docs/metadata-cli.md" in names
+    assert f"{prefix}/dev-docs/operational-cli.md" in names
+    assert f"{prefix}/dev-docs/storage/mixed_ingest_operations.md" in names
     assert f"{prefix}/LiuXin_alpha_data/private.db" not in names
     assert f"{prefix}/tests/test_example.py" not in names
 
@@ -114,13 +137,47 @@ def _write_minimal_repo(repo: Path) -> None:
     (repo / "src" / "LiuXin_alpha" / "surfaces" / "cli").mkdir(parents=True)
     (repo / "src" / "LiuXin_alpha" / "__init__.py").write_text("", encoding="utf-8")
     (repo / "src" / "LiuXin_alpha" / "surfaces" / "cli" / "__main__.py").write_text("", encoding="utf-8")
-    (repo / "src" / "LiuXin_alpha" / "surfaces" / "cli" / "postgres.py").write_text("", encoding="utf-8")
+    for filename in (
+        "app.py",
+        "capabilities.py",
+        "catalogue.py",
+        "common.py",
+        "completion.py",
+        "config_cli.py",
+        "core_cli.py",
+        "diagnostics.py",
+        "ingest_runs.py",
+        "jobs.py",
+        "initialize.py",
+        "metadata.py",
+        "postgres.py",
+        "serve.py",
+        "storage.py",
+        "workflows.py",
+    ):
+        (repo / "src" / "LiuXin_alpha" / "surfaces" / "cli" / filename).write_text("", encoding="utf-8")
+    (
+        repo / "src" / "LiuXin_alpha" / "surfaces" / "system_profile.py"
+    ).write_text("", encoding="utf-8")
     (repo / "scripts").mkdir()
     (repo / "scripts" / "create_venv.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
     (repo / "scripts" / "run_postgres_live_smoke.py").write_text("", encoding="utf-8")
     (repo / "dev-docs").mkdir()
     (repo / "dev-docs" / "postgresql-backend.md").write_text(
         "# PostgreSQL\n",
+        encoding="utf-8",
+    )
+    (repo / "dev-docs" / "metadata-cli.md").write_text(
+        "# Metadata CLI\n",
+        encoding="utf-8",
+    )
+    (repo / "dev-docs" / "operational-cli.md").write_text(
+        "# Operational CLI\n",
+        encoding="utf-8",
+    )
+    (repo / "dev-docs" / "storage").mkdir()
+    (repo / "dev-docs" / "storage" / "mixed_ingest_operations.md").write_text(
+        "# Mixed ingest\n",
         encoding="utf-8",
     )
     (repo / "tests").mkdir()

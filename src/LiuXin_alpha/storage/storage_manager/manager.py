@@ -2635,6 +2635,13 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
             healthy,
             needed,
             expected_size=asset.size_bytes,
+            excluded_store_refs={
+                record.location.store_ref
+                for record in self.iter_replica_records(
+                    digital_asset_id=digital_asset_id
+                )
+                if record.state is not api.ReplicaState.DELETED
+            },
         )
         remove = (
             tuple(record.replica_id for record in records)
@@ -2715,6 +2722,13 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
             healthy,
             needed,
             expected_size=asset.size_bytes,
+            excluded_store_refs={
+                record.location.store_ref
+                for record in self.iter_replica_records(
+                    digital_asset_id=digital_asset_id
+                )
+                if record.state is not api.ReplicaState.DELETED
+            },
         )
         sources = tuple(
             record.replica_id
@@ -3460,6 +3474,31 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
         """Return no durable journal entries for the transient manager."""
 
         return ()
+
+    def list_ingest_operations(self) -> tuple[Mapping[str, object], ...]:
+        """Return operator-safe durable ingest summaries when available."""
+
+        return self._ingest_journal_statuses()
+
+    def recover_pending_ingests(
+        self,
+        operation_id: UUID | None = None,
+    ) -> tuple[str, ...]:
+        """Recover durable publication gaps; transient managers have none."""
+
+        del operation_id
+        return ()
+
+    def retry_ingest_operation(
+        self,
+        operation_id: UUID,
+    ) -> api.DigitalAssetIngestResult:
+        """Retry one durable ingest when its original source is replayable."""
+
+        del operation_id
+        raise api.StoragePreconditionFailed(
+            "transient storage managers have no durable ingest journal."
+        )
 
     def _allocate_metadata_id_locked(
         self,
@@ -4400,12 +4439,14 @@ class _StorageManagerOrchestrator(api.StorageManagerAPI):
         needed: int,
         *,
         expected_size: int | None = None,
+        excluded_store_refs: set[api.StoreUUID] | None = None,
     ) -> tuple[api.StoreUUID, ...]:
         """Select writable policy-compliant Stores without mutating state."""
 
         if needed <= 0:
             return ()
         occupied = {record.location.store_ref for record in existing}
+        occupied.update(excluded_store_refs or ())
         configurations = list(self.iter_store_configurations())
         configurations.sort(
             key=lambda configuration: (

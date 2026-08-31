@@ -6,6 +6,8 @@ import zipfile
 from dataclasses import dataclass, field
 from typing import Any
 
+import pytest
+
 from LiuXin_alpha.core import CoreHttpDaemon, CoreRuntime, RemoteCoreClient
 from LiuXin_alpha.library import Library
 from LiuXin_alpha.utils.jobs import JobRequest
@@ -157,6 +159,350 @@ def test_managed_storage_graph_local_and_rpc_round_trip(db) -> None:
                 )
             except Exception:
                 pass
+        runtime.shutdown()
+
+
+def test_storage_integrity_reconcile_and_migration_operations_are_real(
+    db,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = CoreRuntime(
+        library=Library(database=db, close_database_on_close=False),
+    )
+    root = tmp_path / "integrity-store"
+    root.mkdir()
+    backup_root = tmp_path / "backup-store"
+    backup_root.mkdir()
+    evacuation_root = tmp_path / "evacuation-store"
+    evacuation_root.mkdir()
+    offline_root = tmp_path / "offline-folder-store"
+    try:
+        saved = runtime.command(
+            "storage.store.save",
+            {
+                "store": {
+                    "store_name": "integrity-{}".format(uuid.uuid4().hex),
+                    "store_kind": "filesystem",
+                    "store_access_protocol": "file",
+                    "store_root_uri": str(root),
+                    "store_is_read_only": 0,
+                    "store_online_status": "online",
+                    "store_operational_role": "live",
+                }
+            },
+        )
+        store_name = str(saved["store"]["store_name"])
+        backup_saved = runtime.command(
+            "storage.store.save",
+            {
+                "store": {
+                    "store_name": "backup-{}".format(uuid.uuid4().hex),
+                    "store_kind": "filesystem",
+                    "store_access_protocol": "file",
+                    "store_root_uri": str(backup_root),
+                    "store_is_read_only": 0,
+                    "store_online_status": "online",
+                    "store_operational_role": "backup",
+                }
+            },
+        )
+        backup_store_name = str(backup_saved["store"]["store_name"])
+        evacuation_saved = runtime.command(
+            "storage.store.save",
+            {
+                "store": {
+                    "store_name": "evacuation-{}".format(uuid.uuid4().hex),
+                    "store_kind": "filesystem",
+                    "store_access_protocol": "file",
+                    "store_root_uri": str(evacuation_root),
+                    "store_is_read_only": 0,
+                    "store_online_status": "online",
+                    "store_operational_role": "live",
+                }
+            },
+        )
+        evacuation_store_name = str(evacuation_saved["store"]["store_name"])
+        offline_saved = runtime.command(
+            "storage.store.save",
+            {
+                "store": {
+                    "store_name": "offline-{}".format(uuid.uuid4().hex),
+                    "store_kind": "filesystem",
+                    "store_access_protocol": "file",
+                    "store_root_uri": str(offline_root),
+                    "store_is_read_only": 1,
+                    "store_online_status": "offline",
+                    "store_operational_role": "archive",
+                }
+            },
+        )
+        offline_store_name = str(offline_saved["store"]["store_name"])
+        runtime.command(
+            "storage.refresh",
+            {
+                "startup_on_add": True,
+                "include_offline": False,
+                "clear_existing": True,
+                "strict": True,
+            },
+        )
+        runtime.command("storage.default.set", {"store": store_name})
+        stored = runtime.command(
+            "storage.file.put",
+            {
+                "content_base64": base64.b64encode(b"integrity-test").decode("ascii"),
+                "original_name": "integrity.epub",
+            },
+        )
+        asset_id = int(stored["asset"]["digital_asset_id"])
+        replica_id = int(stored["replica_id"])
+        recovery_operations = runtime.query(
+            "storage.recovery.list", {"limit": 10, "offset": 0}
+        )
+        assert recovery_operations["total"] >= 1
+        assert any(
+            operation["state"] == "committed"
+            for operation in recovery_operations["operations"]
+        )
+
+        backup_plan = runtime.query(
+            "backup.plan",
+            {
+                "source_store": store_name,
+                "destination_store": backup_store_name,
+                "target_pack_size_bytes": 1024 * 1024,
+                "output_key_prefix": "packs/naïve # set",
+            },
+        )
+        assert backup_plan["count"] == 1
+        assert backup_plan["packs"][0]["source_count"] == 1
+
+        replica = runtime.command(
+            "storage.replica.verify", {"replica_id": replica_id}
+        )
+        assert replica["healthy"] is True
+        asset = runtime.command(
+            "storage.asset.verify",
+            {"asset_id": asset_id, "all_replicas": True},
+        )
+        assert asset["healthy"] is True
+        audit = runtime.command("storage.audit", {"limit": 10000})
+        assert audit["checked"] >= 1
+        assert any(
+            int(value["replica_id"]) == replica_id
+            for value in audit["results"]
+        )
+
+        status = runtime.query("storage.status")
+        assert "healthy" in status
+        assert status["summary"]["configured_stores"] >= 4
+        assert status["summary"]["folder_stores"] >= 4
+        assert status["summary"]["digital_assets"] >= 1
+        assert status["summary"]["live_replicas"] >= 1
+        primary_overview = next(
+            store
+            for store in status["stores"]
+            if store["name"] == store_name
+        )
+        assert primary_overview["root"] == str(root)
+        assert primary_overview["role"] == "live"
+        assert primary_overview["supports_folders"] is True
+        assert primary_overview["available"] is True
+        assert primary_overview["writable"] is True
+        assert primary_overview["is_default"] is True
+        assert primary_overview["assets"] == 1
+        assert primary_overview["replicas"] == 1
+        assert primary_overview["logical_bytes"] == len(b"integrity-test")
+        assert primary_overview["replica_bytes"] == len(b"integrity-test")
+        assert primary_overview["replica_states"] == {"verified": 1}
+        offline_overview = next(
+            store
+            for store in status["stores"]
+            if store["name"] == offline_store_name
+        )
+        assert offline_overview["root"] == str(offline_root)
+        assert offline_overview["online_status"] == "offline"
+        assert offline_overview["health"] == "offline"
+        assert offline_overview["available"] is False
+        assert offline_overview["read_only"] is True
+        assert offline_overview["registered"] is False
+        assert offline_overview["loaded"] is False
+        durable_only_show = runtime.query(
+            "storage.store.get", {"store": offline_store_name}
+        )
+        assert durable_only_show["loaded"] is False
+        assert durable_only_show["status"]["available"] is False
+        durable_only_update = runtime.command(
+            "storage.store.update",
+            {
+                "store": offline_store_name,
+                "changes": {"add_tags": ["durable-only"]},
+            },
+        )
+        assert durable_only_update["configuration"]["store_tags"] == [
+            "durable-only"
+        ]
+        offline_store_ref = uuid.UUID(
+            str(durable_only_update["store_uuid"])
+        )
+        assert runtime.library.storage.remove_store(
+            offline_store_ref,
+            forget_configuration=False,
+        )
+        durable_only_delete = runtime.command(
+            "storage.store.delete",
+            {
+                "store": offline_store_name,
+                "delete_from_database": True,
+            },
+        )
+        assert durable_only_delete["unregistered"] is True
+        assert durable_only_delete["deleted_from_database"] is True
+        assert not runtime.database.search(
+            "stores", "store_uuid", str(offline_store_ref)
+        )
+        plan = runtime.query("storage.reconcile.plan")
+        assert "safe_apply_scope" in plan
+        reconciled = runtime.command(
+            "storage.reconcile.apply", {"max_actions": 10}
+        )
+        assert "actions" in reconciled
+
+        updated = runtime.command(
+            "storage.store.update",
+            {
+                "store": backup_store_name,
+                "changes": {"add_tags": ["offsite", "verified-target"]},
+            },
+        )
+        assert updated["configuration"]["store_tags"] == [
+            "offsite",
+            "verified-target",
+        ]
+
+        repair_plan = runtime.query(
+            "storage.repair.plan",
+            {"asset_id": asset_id, "max_assets": 1},
+        )
+        assert repair_plan["deletes_bytes"] is False
+        assert repair_plan["asset_id"] == asset_id
+        repaired = runtime.command(
+            "storage.repair.apply",
+            {
+                "asset_id": asset_id,
+                "max_assets": 1,
+                "max_actions": 10,
+                "max_transfer_bytes": 1024 * 1024,
+            },
+        )
+        assert all(action["ok"] for action in repaired["actions"]), repaired[
+            "actions"
+        ]
+        assert repaired["ok"] is True, repaired
+        assert repaired["deletes_bytes"] is False
+        assert repaired["after"]["action_count"] == 0
+
+        evacuation_plan = runtime.query(
+            "storage.store.evacuate.plan",
+            {
+                "store": store_name,
+                "destination_store": evacuation_store_name,
+                "max_assets": 10,
+            },
+        )
+        assert evacuation_plan["blocked"] is False
+        assert evacuation_plan["replicas_planned"] >= 1
+        assert any(path.is_file() for path in root.rglob("*"))
+        manager = runtime.library.storage
+        original_replicate = manager.replicate_digital_asset
+
+        def _fail_replacement(*_args: Any, **_kwargs: Any) -> None:
+            raise RuntimeError("simulated replacement failure")
+
+        monkeypatch.setattr(manager, "replicate_digital_asset", _fail_replacement)
+        refused = runtime.command(
+            "storage.store.evacuate.apply",
+            {
+                "store": store_name,
+                "destination_store": evacuation_store_name,
+                "max_assets": 10,
+                "max_actions": 20,
+                "max_transfer_bytes": 1024 * 1024,
+                "keep_source_bytes": True,
+            },
+        )
+        assert refused["ok"] is False
+        assert any(
+            action["action"] == "retain_source_replicas"
+            for action in refused["actions"]
+        )
+        assert not any(
+            action["action"] == "remove_source_replica"
+            for action in refused["actions"]
+        )
+        assert any(path.is_file() for path in root.rglob("*"))
+        monkeypatch.setattr(
+            manager, "replicate_digital_asset", original_replicate
+        )
+        evacuated = runtime.command(
+            "storage.store.evacuate.apply",
+            {
+                "store": store_name,
+                "destination_store": evacuation_store_name,
+                "max_assets": 10,
+                "max_actions": 20,
+                "max_transfer_bytes": 1024 * 1024,
+                "keep_source_bytes": False,
+            },
+        )
+        assert evacuated["ok"] is True
+        assert evacuated["after"]["replicas_planned"] == 0
+        assert not any(path.is_file() for path in root.rglob("*"))
+        assert runtime.library.storage.read_asset(asset_id) == b"integrity-test"
+
+        migration_status = runtime.query("database.migrations.status")
+        assert "storage" in migration_status
+        migration_plan = runtime.query("database.migrations.plan")
+        assert "actions" in migration_plan
+        migrated = runtime.command("database.migrations.apply")
+        assert migrated["migrated"] is True
+
+        backup_path = tmp_path / "core program # naïve backup.sqlite"
+        backed_up = runtime.command(
+            "database.backup",
+            {"output_path": str(backup_path), "verify": True},
+        )
+        assert backed_up["backed_up"] is True
+        assert backed_up["verification"]["ok"] is True
+        assert backup_path.is_file()
+
+        described = runtime.describe_api(include_targets=False)
+        operations = {
+            value["name"]
+            for family in ("queries", "commands")
+            for value in described[family]
+        }
+        assert {
+            "storage.status",
+            "storage.replica.verify",
+            "storage.asset.verify",
+            "storage.audit",
+            "storage.reconcile.plan",
+            "storage.reconcile.apply",
+            "storage.repair.plan",
+            "storage.repair.apply",
+            "storage.store.evacuate.plan",
+            "storage.store.evacuate.apply",
+            "storage.recovery.list",
+            "storage.recovery.recover-pending",
+            "storage.recovery.retry-ingest",
+            "storage.store.update",
+            "database.migrations.status",
+            "database.migrations.plan",
+            "database.migrations.apply",
+        }.issubset(operations)
+    finally:
         runtime.shutdown()
 
 
@@ -605,6 +951,18 @@ def test_program_discovery_and_local_support_cover_every_capability_family(
         assert "sources" in runtime.query("metadata.online.sources")
         assert runtime.query("conversion.formats")["output"]
         assert runtime.query("storage.sources.supported")["kinds"]
+        storage_backends = runtime.query("storage.backends.list")
+        assert storage_backends["count"] >= 10
+        filesystem_backend = next(
+            backend
+            for backend in storage_backends["backends"]
+            if backend["kind"] == "filesystem"
+        )
+        assert filesystem_backend["location_type"] == "dir"
+        assert filesystem_backend["read_only_default"] is False
+        assert filesystem_backend["capabilities"]["folders"] is True
+        assert filesystem_backend["capabilities"]["random_write"] is True
+        assert "credentials" in storage_backends
         assert "plugins" in runtime.query("maintenance.status")
 
         daemon = CoreHttpDaemon(

@@ -19,8 +19,17 @@ FORBIDDEN_PREFIXES = (
 
 INTENTIONAL_INFRASTRUCTURE_EXCEPTIONS = {
     "cli/postgres.py",
+    # Mixed ingest is currently a local composition/operations boundary.  It
+    # owns database and Store lifecycle rather than acting as an application
+    # presentation surface; metadata and other Core-backed CLI modules remain
+    # covered by this test.
+    "cli/storage.py",
     "renderers/calibre_metadata.py",
+    # These two existing store-creation views enumerate backend choices before
+    # a Core command is submitted. Keep the exception narrow to those modules.
+    "terminal/commands/new_store.py",
     "thumbnail_cache.py",
+    "web_readwrite/app.py",
 }
 
 

@@ -34,10 +34,50 @@ EPUB, CBZ, CBR, MOBI, AZW, PDF, FB2/FBZ, LIT, PDB, DOCX, ODT, and HTMLZ are
 terminal ebook Assets by default. `--expand-ebook-containers` deliberately
 opts ZIP/RAR-like ebook containers into recursive expansion.
 
-## Preflight without writes
+## Command surface
+
+The shortest first-run workflow is:
 
 ```bash
-python examples/storage/ingest_mixed_tree_example.py \
+liuxin init /srv/liuxin
+liuxin connect /srv/liuxin
+liuxin ingest /media/archive-drives/disk-01
+```
+
+After `liuxin connect /srv/liuxin`, the system selector can be omitted from
+this command and from `ingest runs` inspection/resume commands. An explicit
+selector or environment selector still takes precedence over that persisted
+connection.
+
+`init` creates the catalogue, managed primary Store, nested-materialization
+area, ingest log directory, and a non-secret system manifest. The concise
+`ingest SOURCE` form expands to the same bounded local operator described
+below. It is intentionally different from `liuxin ingest disk`, which submits
+a managed job whose path belongs to the Core host.
+
+For an attended first run, `liuxin init --wizard` guides the database choice
+and location. Mixed local ingest currently consumes the SQLite/APSW
+system-root manifest; choosing PostgreSQL initializes and checks that catalogue
+backend but does not silently change this CLI-host ingest transport contract.
+
+The detailed operational entry point is:
+
+```bash
+liuxin storage ingest --help
+```
+
+`python -m LiuXin_alpha.surfaces.cli storage ingest ...` is equivalent when an
+installation does not expose console scripts. The example script remains a
+thin compatibility wrapper, but production automation should use the packaged
+command. The current ingest catalogue target is SQLite; run the command on the
+host which can read the source tree. Remote operation means SSH, a service
+manager, or a batch scheduler starts this same local-filesystem command on that
+host rather than sending source paths to a remote LiuXin process.
+
+## Discovery and preflight without catalogue writes
+
+```bash
+liuxin storage ingest \
   --source-root /media/archive-drives/disk-01 \
   --discover-only
 ```
@@ -48,10 +88,31 @@ corrupt archive is still reported as a candidate; validity is established only
 by the real backend. Discovery-only does not claim to inventory members or find
 nested containers.
 
+Before a real unattended run, use `--preflight-only`. It requires the intended
+`--database`, performs the same non-mutating discovery, and checks source
+access, catalogue/cache parent writability and free space, plus the optional
+readers actually needed by the recognized top-level formats. It does not create
+the database or materialization cache:
+
+```bash
+liuxin storage ingest \
+  --source-root /media/archive-drives/disk-01 \
+  --database /srv/liuxin/catalogue.sqlite \
+  --materialization-root /srv/liuxin/ingest-materialized \
+  --log-directory /srv/liuxin/ingest-logs \
+  --report-file /srv/liuxin/reports/disk-01-preflight.json \
+  --preflight-only
+```
+
+Warnings describe degraded optional coverage; failed error-severity checks make
+`preflight.ready` false and return exit 1. Preflight deliberately cannot prove
+that nested containers use no additional backend, so keep the complete archive
+extras installed for recursive runs.
+
 ## Durable run and resume
 
 ```bash
-python examples/storage/ingest_mixed_tree_example.py \
+liuxin storage ingest \
   --source-root /media/archive-drives/disk-01 \
   --database /srv/liuxin/catalogue.sqlite \
   --materialization-root /srv/liuxin/ingest-materialized
@@ -71,6 +132,27 @@ durable safety options, and existing CACHE Replicas are reused. The JSON report
 distinguishes newly created catalogue records and materialized bytes from
 already-known ones. An isolated corrupt or unsupported container does not stop
 later work unless `--strict` is selected.
+
+Pass `--require-existing-database` after the first successful catalogue
+creation when an unexpected fresh database would be more dangerous than a
+failed job.
+
+The installed CLI indexes those durable artifacts directly:
+
+```bash
+liuxin ingest runs list --system-root /srv/liuxin
+liuxin ingest runs show RUN_UUID --system-root /srv/liuxin
+liuxin ingest runs issues RUN_UUID --system-root /srv/liuxin
+liuxin ingest runs resume RUN_UUID --system-root /srv/liuxin
+```
+
+`list` groups repeated attempts under their stable UUID. `show` preserves every
+attempt and returns the latest complete report. `issues` combines report issues
+with warning/error JSONL events. `resume` reconstructs the original paths,
+limits, backend settings and correlation UUID from the authoritative
+`cli_started` event, writes a fresh attempt log/report, and still takes the
+normal catalogue run lock. It refuses discovery/preflight attempts; rerunning a
+cleanly completed ingest requires `--yes`.
 
 ## Unattended logging and run correlation
 
@@ -97,16 +179,36 @@ first unattended run, make the destination a monitored filesystem with room
 for an unbounded JSONL audit:
 
 ```bash
-python examples/storage/ingest_mixed_tree_example.py \
+liuxin storage ingest \
   --source-root /media/archive-drives/disk-01 \
   --database /srv/liuxin/catalogue.sqlite \
   --materialization-root /srv/liuxin/ingest-materialized \
   --log-directory /srv/liuxin/ingest-logs \
+  --report-file /srv/liuxin/reports/disk-01.json \
+  --run-id 018fd3c4-9916-7e37-bf41-a925436feeba \
   --log-level DEBUG \
   --log-checkpoint-every 1000 \
   --log-max-mib 100 \
   --log-backup-count 10
 ```
+
+The complete, untruncated final report is written atomically. A default report
+is placed next to the run logs; `--report-file` gives schedulers a predictable
+artifact path. An existing explicit report is never overwritten unless
+`--replace-report` is supplied. Use `--no-stdout-report` when a scheduler only
+wants the durable file. Human progress and artifact paths remain on stderr, so
+stdout is either one JSON document or empty.
+
+A real ingest takes an advisory exclusive lock. Its default stable path is in
+the log directory and is derived from the catalogue name. `--lock-file` makes
+that path explicit and `--lock-timeout-seconds` allows a bounded wait. Avoid
+`--no-run-lock` unless a higher-level scheduler already provides equivalent
+single-writer exclusion. Discovery and preflight do not take the real-run lock.
+
+The first SIGINT or SIGTERM requests cooperative cancellation. The coordinator
+stops at a safe boundary, closes the catalogue, and writes a terminal report
+with exit 130 or 143. A second signal forces the Python workflow boundary to
+unwind; SIGKILL, host loss, or power failure cannot write a terminal report.
 
 `cli_started` records the resolved paths, safe command options, complete safety
 budget, LiuXin/Python/platform versions, host, process, and working directory.
@@ -120,6 +222,16 @@ with `complete`, followed by `cli_complete`; a process-level exception ends
 with `cli_failed`, including its traceback. Absence of either CLI terminal
 event indicates termination outside normal Python handling (for example power
 loss or an unconditional process kill).
+
+The stable process exit contract is:
+
+| Exit | Meaning |
+| ---: | --- |
+| 0 | Ingest completed cleanly, or preflight is ready |
+| 1 | Ingest completed with issues, preflight is not ready, or runtime failed |
+| 2 | Invalid or unsafe command configuration |
+| 130 | Graceful cancellation requested with SIGINT |
+| 143 | Graceful cancellation requested with SIGTERM |
 
 Each JSONL line has stable top-level event-log fields (`id`, `ts`, `level`,
 `level_name`, `message`) and a `context` object. The LiuXin event name is
@@ -146,6 +258,38 @@ process environment, file contents, database rows, or credential values.
 `--log-level INFO` suppresses per-object DEBUG events when storage pressure is
 more important than a complete object audit; checkpoints and lifecycle events
 remain. `--no-console-progress` affects stderr only and never durable logs.
+
+## Remote supervision
+
+Install the deployment bundle with its `archives` extra and the operating
+system's `squashfs-tools`. Run preflight interactively first. For a simple
+survivable SSH launch, a transient systemd unit keeps stdout, stderr, resource
+accounting, and exit status under the service manager while LiuXin retains its
+own authoritative logs and report:
+
+```bash
+RUN_ID="$(python3 -c 'import uuid; print(uuid.uuid4())')"
+sudo systemd-run \
+  --unit="liuxin-ingest-${RUN_ID}" \
+  --property=Type=exec \
+  --property=TimeoutStopSec=15min \
+  --collect \
+  /opt/liuxin/.venv/bin/liuxin storage ingest \
+    --source-root /media/archive-drives/disk-01 \
+    --database /srv/liuxin/catalogue.sqlite \
+    --materialization-root /srv/liuxin/ingest-materialized \
+    --log-directory /srv/liuxin/ingest-logs \
+    --report-file "/srv/liuxin/reports/${RUN_ID}.json" \
+    --run-id "${RUN_ID}" \
+    --require-existing-database \
+    --no-console-progress
+```
+
+Inspect it with `systemctl status liuxin-ingest-$RUN_ID` and
+`journalctl -fu liuxin-ingest-$RUN_ID`. Mount the source read-only where
+possible. Give the catalogue, cache, report, log and lock directories stable
+storage and ensure the service account can traverse the source and write only
+those destinations.
 
 ## Safety budgets
 

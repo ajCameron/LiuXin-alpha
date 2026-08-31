@@ -364,7 +364,6 @@ class StorageManager(_StorageManagerOrchestrator):
             raise api.StoreInvalidLocation(
                 "updated Store configuration must retain its Store UUID."
             )
-        self.get_store_configuration(store_ref)
         self._validate_store_policy_references(configuration)
         replacement = self._require_store_factory()(configuration)
         try:
@@ -408,7 +407,8 @@ class StorageManager(_StorageManagerOrchestrator):
                     "cannot forget Store configuration with live Replica claims."
                 )
         repository.remove_store(store_ref)
-        return super().remove_store(store_ref, forget_configuration=True)
+        super().remove_store(store_ref, forget_configuration=True)
+        return True
 
     @override
     def _journal_ingest_started(self, operation_id, request) -> None:
@@ -453,7 +453,10 @@ class StorageManager(_StorageManagerOrchestrator):
             return super()._ingest_journal_statuses()
         return repository.ingest_journal_statuses()
 
-    def recover_pending_ingests(self) -> tuple[str, ...]:
+    def recover_pending_ingests(
+        self,
+        operation_id: UUID | None = None,
+    ) -> tuple[str, ...]:
         """Finish journalled publications left between Store and DB commits.
 
         Recovery verifies the published bytes before creating a Replica claim.
@@ -467,14 +470,48 @@ class StorageManager(_StorageManagerOrchestrator):
             self.ingest_recovery_issues = ()
             return ()
         issues: list[str] = []
-        for operation_id, state, payload in repository.pending_ingests():
+        pending = list(repository.pending_ingests())
+        if operation_id is not None:
+            pending = [
+                entry for entry in pending if entry[0] == operation_id
+            ]
+            if not pending:
+                entry = repository.ingest_journal_entry(operation_id)
+                if entry is None:
+                    issue = f"{operation_id}: ingest operation is not journalled"
+                    self.ingest_recovery_issues = (issue,)
+                    return self.ingest_recovery_issues
+                if entry[0] == "failed":
+                    pending = [(operation_id, entry[0], entry[1])]
+        for current_operation_id, state, payload in pending:
             request = payload.get("request")
+            if not isinstance(
+                request,
+                (
+                    _StreamIngestRequest,
+                    _IdentifiedStreamIngestRequest,
+                    _StoreObjectIngestRequest,
+                    _AdoptIngestRequest,
+                ),
+            ):
+                error = api.StorageManagementError(
+                    "publication journal has an invalid ingest request."
+                )
+                repository.journal_failed(current_operation_id, error)
+                issues.append(
+                    f"{current_operation_id}: publication recovery failed: {error}"
+                )
+                continue
             if state == "started":
+                error = api.StorageManagementError(
+                    "process stopped before Store publication began."
+                )
                 repository.journal_failed(
-                    operation_id,
-                    api.StorageManagementError(
-                        "process stopped before Store publication began."
-                    ),
+                    current_operation_id,
+                    error,
+                )
+                issues.append(
+                    f"{current_operation_id}: publication recovery failed: {error}"
                 )
                 continue
             asset_value = payload.get("asset_record")
@@ -484,7 +521,7 @@ class StorageManager(_StorageManagerOrchestrator):
                 location, api.Location
             ):
                 repository.journal_failed(
-                    operation_id,
+                    current_operation_id,
                     api.StorageManagementError(
                         "publication journal has incomplete recovery metadata."
                     ),
@@ -541,7 +578,7 @@ class StorageManager(_StorageManagerOrchestrator):
                     )
                 )
                 result = api.DigitalAssetIngestResult(
-                    operation_id,
+                    current_operation_id,
                     asset_record,
                     replica_record,
                     bool(payload.get("asset_created")),
@@ -559,7 +596,7 @@ class StorageManager(_StorageManagerOrchestrator):
                         ),
                     )
                 with self._lock:
-                    self._ingest_operations[operation_id] = _IngestOperation(
+                    self._ingest_operations[current_operation_id] = _IngestOperation(
                         request, result
                     )
             except (
@@ -568,7 +605,7 @@ class StorageManager(_StorageManagerOrchestrator):
                 api.StorageTimeout,
             ) as error:
                 issues.append(
-                    f"{operation_id}: publication remains pending: "
+                    f"{current_operation_id}: publication remains pending: "
                     f"{str(error) or type(error).__name__}"
                 )
             except (
@@ -576,18 +613,97 @@ class StorageManager(_StorageManagerOrchestrator):
                 api.StorageIntegrityError,
                 api.StoragePreconditionFailed,
             ) as error:
-                repository.journal_failed(operation_id, error)
+                repository.journal_failed(current_operation_id, error)
                 issues.append(
-                    f"{operation_id}: publication recovery failed: "
+                    f"{current_operation_id}: publication recovery failed: "
                     f"{str(error) or type(error).__name__}"
                 )
             except Exception as error:
                 issues.append(
-                    f"{operation_id}: publication recovery deferred: "
+                    f"{current_operation_id}: publication recovery deferred: "
                     f"{str(error) or type(error).__name__}"
                 )
         self.ingest_recovery_issues = tuple(issues)
         return self.ingest_recovery_issues
+
+    def retry_ingest_operation(
+        self,
+        operation_id: UUID,
+    ) -> api.DigitalAssetIngestResult:
+        """Retry one journalled ingest without pretending lost streams exist."""
+
+        repository = self._metadata_repository
+        if repository is None:
+            return super().retry_ingest_operation(operation_id)
+        existing = self._ingest_operations.get(operation_id)
+        if existing is not None:
+            return existing.result
+        entry = repository.ingest_journal_entry(operation_id)
+        if entry is None:
+            raise api.StoragePreconditionFailed(
+                f"ingest operation {operation_id} is not journalled."
+            )
+        state, payload, last_error = entry
+        request = payload.get("request")
+        if state in {"publishing", "published"} or isinstance(
+            payload.get("location"), api.Location
+        ):
+            self.recover_pending_ingests(operation_id)
+            recovered = self._ingest_operations.get(operation_id)
+            if recovered is not None:
+                return recovered.result
+            refreshed = repository.ingest_journal_entry(operation_id)
+            detail = (
+                last_error
+                if refreshed is None or refreshed[2] in (None, "")
+                else refreshed[2]
+            )
+            raise api.StoragePreconditionFailed(
+                "journalled publication could not be recovered{}".format(
+                    "." if not detail else f": {detail}"
+                )
+            )
+        if isinstance(request, _AdoptIngestRequest):
+            return self.adopt_location(
+                request.location,
+                operation_id=operation_id,
+                digital_asset_id=request.digital_asset_id,
+                item_id=request.item_id,
+                role=request.role,
+                metadata=request.metadata,
+                replica_mode=request.replica_mode,
+                verify=request.verify,
+            )
+        if isinstance(request, _StoreObjectIngestRequest):
+            source = self.get_store(request.source_location.store_ref)
+            info = source.stat(request.source_location)
+            if (
+                request.source_version is not None
+                and info.version != request.source_version
+            ):
+                raise api.StoragePreconditionFailed(
+                    "ingest source changed after the original operation."
+                )
+            return self.ingest_store_object(
+                source,
+                info,
+                operation_id=operation_id,
+                item_id=request.item_id,
+                role=request.role,
+                metadata=request.metadata,
+                placement_hints=request.placement_hints,
+                preferred_store_ref=request.preferred_store_ref,
+                replica_mode=request.replica_mode,
+                verify=request.verify,
+            )
+        request_kind = (
+            type(request).__name__ if request is not None else "unknown"
+        )
+        raise api.StoragePreconditionFailed(
+            "ingest operation {} used a non-replayable {} source; retry it "
+            "through the original caller with the same operation UUID and "
+            "source bytes.".format(operation_id, request_kind)
+        )
 
     def add_store(
         self,
@@ -755,6 +871,12 @@ class StorageManager(_StorageManagerOrchestrator):
                     row,
                     fallback_store_id=store_id,
                 )
+                _persist_derived_store_uuid(
+                    database,
+                    row=row,
+                    store_id=store_id,
+                    store_ref=configuration.store_uuid,
+                )
                 if online in {"offline", "retired"} and not include_offline:
                     skipped += 1
                     issues.append(
@@ -767,12 +889,6 @@ class StorageManager(_StorageManagerOrchestrator):
                     continue
 
                 active_database_refs.add(configuration.store_uuid)
-                _persist_derived_store_uuid(
-                    database,
-                    row=row,
-                    store_id=store_id,
-                    store_ref=configuration.store_uuid,
-                )
                 with self._lock:
                     already_live = configuration.store_uuid in self._stores
                     already_configured = (
