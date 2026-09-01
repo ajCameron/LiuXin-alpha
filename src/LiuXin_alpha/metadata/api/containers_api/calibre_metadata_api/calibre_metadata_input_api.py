@@ -6,12 +6,12 @@ Minimal metadata shape which can be read from calibre adapters.
 
 from __future__ import annotations
 
-from typing import Protocol, Sequence, TYPE_CHECKING
+from typing import Protocol, Sequence
 
-if TYPE_CHECKING:
-
-    from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api import CalibreIdentifierSnapshot, \
-        CalibreIdentifierMapping
+from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api.calibre_metadata_types import (
+    CalibreIdentifierMapping,
+    CalibreIdentifierSnapshot,
+)
 
 
 class CalibreMetadataInputAPI(Protocol):
@@ -20,7 +20,9 @@ class CalibreMetadataInputAPI(Protocol):
     title: str | None
     authors: Sequence[str] | None
 
-    def get_identifiers(self) -> "CalibreIdentifierSnapshot | CalibreIdentifierMapping":
+    def get_identifiers(
+        self,
+    ) -> CalibreIdentifierSnapshot | CalibreIdentifierMapping:
         """
         Returns all the identifiers for the given metadata object.
 

@@ -6,9 +6,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
-from typing import Any, cast, TYPE_CHECKING
+from typing import Any, cast
 
 from LiuXin_alpha.catalog.write.base_writer import CatalogValueWriter
+from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
 from LiuXin_alpha.catalog.write.link_update import LinkUpdate
 from LiuXin_alpha.databases.db_types import DstTableID, SrcTableID
 from LiuXin_alpha.databases.macro_types import (
@@ -21,10 +22,6 @@ from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
     StorageLinkSpec,
 )
-
-if TYPE_CHECKING:
-    from LiuXin_alpha.catalog.api import CatalogAPI
-
 
 type CatalogLinkTypeScope = str | UnsetLinkType | None
 type CatalogLinkValues[RawValueT] = (
@@ -68,7 +65,7 @@ class CatalogLinkWriter[RawValueT, ValueT](
 
     def __init__(
         self,
-        catalog: CatalogAPI,
+        catalog: CatalogWriterHostAPI,
         link_spec: StorageLinkSpec,
     ) -> None:
         """

@@ -1,5 +1,11 @@
 """
-LiuXin-aware domain, policy, routing, and persistence-port contracts.
+LiuXin-aware storage-manager contracts and public domain values.
+
+The facade is composed from small responsibility-specific APIs ordered along
+the normal application journey. Store plugins own byte mechanics; manager
+components own Asset identity, Replica claims, provenance, policy, and
+operator workflows. Persistence ports are re-exported for compatibility but
+database rows never form part of the consumer-facing contract.
 """
 
 from __future__ import annotations
@@ -127,16 +133,16 @@ from LiuXin_alpha.storage.api.storage_manager_api.stores_api import StoreAdminis
 
 class StorageManagerAPI(
     StorageConvenienceAPI,
-    StorageRouterAPI,
     StoreAdministrationAPI,
+    StorageRouterAPI,
     DigitalAssetRegistryAPI,
     DigitalAssetIngestAPI,
     DigitalAssetRetrievalAPI,
-    ItemDigitalAssetLinkAPI,
     ReplicaLifecycleAPI,
-    StoragePolicyAPI,
+    ItemDigitalAssetLinkAPI,
     CompositeDigitalAssetAPI,
     DigitalAssetDerivationRegistryAPI,
+    StoragePolicyAPI,
     StorageReconciliationAPI,
     StorageOperationalStatusAPI,
     abc.ABC,
@@ -144,11 +150,21 @@ class StorageManagerAPI(
     """
     Complete manager facade over storage domain values and configured Stores.
 
+    The component order follows the normal application journey: configure
+    Stores, route bytes, register and ingest Assets, retrieve and manage their
+    Replicas, assemble higher-level records, apply policy, then inspect or
+    reconcile operational state.
+
     Concrete managers orchestrate byte publication and domain repositories.
     Database records, ORM models, and raw driver addresses do not cross this
     boundary. Concrete convenience methods accept ordinary bytes, paths, IDs,
     records, and keyword metadata, then delegate to the explicit domain
     methods. The context manager closes configured Stores on exit.
+
+    The facade's mixin order is architectural documentation as well as Python
+    method resolution order. Implementations should mirror it when composing
+    responsibility slices so contract and implementation remain easy to
+    navigate together.
 
     Example:
         >>> def read_asset(manager: StorageManagerAPI, asset_id: int) -> bytes:

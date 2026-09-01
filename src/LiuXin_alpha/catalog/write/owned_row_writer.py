@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 from LiuXin_alpha.catalog.write.base_writer import CatalogValueWriter
+from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
 from LiuXin_alpha.catalog.write.owned_row_update import CatalogOwnedRowUpdate
 from LiuXin_alpha.databases.db_types import SrcTableID
 from LiuXin_alpha.databases.macro_types import LinkRow
@@ -14,10 +15,6 @@ from LiuXin_alpha.databases.schema_specs import (
     StorageLinkSpec,
     StorageTableSpec,
 )
-
-if TYPE_CHECKING:
-    from LiuXin_alpha.catalog.api import CatalogAPI
-
 
 class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
     CatalogValueWriter[
@@ -43,7 +40,7 @@ class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
 
     def __init__(
         self,
-        catalog: CatalogAPI,
+        catalog: CatalogWriterHostAPI,
         link_spec: StorageLinkSpec,
         destination_table: StorageTableSpec,
         destination_column: StorageColumnSpec,
