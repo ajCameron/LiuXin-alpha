@@ -57,6 +57,15 @@ class _OperatorCore:
                         "read_only_default": False,
                         "user_selectable": True,
                         "policy_section": None,
+                        "capabilities": {
+                            "folders": True,
+                            "hierarchical_list": True,
+                            "random_read": True,
+                            "random_write": True,
+                            "delete": True,
+                            "checksums": True,
+                            "immutable_objects": False,
+                        },
                         "limitations": [],
                     },
                     {
@@ -68,6 +77,15 @@ class _OperatorCore:
                         "read_only_default": False,
                         "user_selectable": True,
                         "policy_section": "s3",
+                        "capabilities": {
+                            "folders": True,
+                            "hierarchical_list": True,
+                            "random_read": True,
+                            "random_write": True,
+                            "delete": True,
+                            "checksums": True,
+                            "immutable_objects": False,
+                        },
                         "limitations": [
                             {
                                 "code": "s3_service_limits_apply",
@@ -503,6 +521,58 @@ def test_storage_add_wizard_confirms_a_registry_backed_folder_store(
         "storage.backends.list",
         {"include_internal": False},
     )
+
+
+def test_storage_add_wizard_preserves_advanced_backend_configuration(
+    operator_core: _OperatorCore,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    answers = iter(
+        [
+            "2",                         # S3 backend
+            "s3://archive/books",
+            "",                          # generated name
+            "",                          # live role
+            "",                          # writable
+            "",                          # online
+            "y",                         # advanced configuration
+            "cloud-eu-west-2",
+            "eu-west-2",
+            "offsite, archive",
+            "multipart_threshold=16777216",
+            "",                          # backend options complete
+            "y",                         # default Store
+            "",                          # probe after save
+            "y",                         # final confirmation
+        ]
+    )
+    monkeypatch.setattr(storage_cli, "_storage_stdin_is_interactive", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+
+    assert cli_main(
+        [
+            "storage",
+            "add",
+            "--database",
+            "catalogue.sqlite",
+            "--compact",
+        ]
+    ) == 0
+    result = json.loads(capsys.readouterr().out.splitlines()[-1])
+    store = result["store"]
+    assert store["store_name"] == "books"
+    assert store["store_failure_domain"] == "cloud-eu-west-2"
+    assert store["store_region"] == "eu-west-2"
+    assert json.loads(store["store_tags_json"]) == ["archive", "offsite"]
+    assert json.loads(store["store_policy_json"]) == {
+        "backend": "s3",
+        "s3": {
+            "multipart_threshold": 16777216,
+        },
+    }
+    assert result["default"]["selected"] is True
+    assert result["probe"]["ok"] is True
 
 
 def test_storage_add_rejects_persisted_credentials_before_writing(

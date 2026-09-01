@@ -92,9 +92,18 @@ class NewStoreWizardCommand(TerminalCommandAPI):
 
     @staticmethod
     def _bootstrap_report_field(report: object, key: str, default=0):
+        current_names = {
+            "discovered_rows": "discovered_configurations",
+            "skipped_rows": "skipped_configurations",
+            "failed_rows": "failed_configurations",
+        }
         if isinstance(report, dict):
-            return report.get(key, default)
-        return getattr(report, key, default)
+            return report.get(key, report.get(current_names.get(key, ""), default))
+        return getattr(
+            report,
+            key,
+            getattr(report, current_names.get(key, ""), default),
+        )
 
     @staticmethod
     def _refresh_storage_manager(browser):

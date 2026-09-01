@@ -65,6 +65,24 @@ class _DriverWrapper:
 class _Database:
     driver_wrapper: _DriverWrapper = field(default_factory=_DriverWrapper)
 
+    @staticmethod
+    def get_tables(force_refresh: bool = False) -> tuple[str, ...]:
+        del force_refresh
+        return ("works", "tags")
+
+    @staticmethod
+    def get_column_headings(table: str) -> set[str]:
+        return {
+            "works": {
+                "work_id",
+                "work_title",
+                "work_year",
+                "work_blob",
+                "work_date",
+            },
+            "tags": {"tag_id", "tag"},
+        }.get(table, set())
+
 
 class _ReadSource:
     def __init__(self) -> None:

@@ -41,6 +41,12 @@ from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
+def _disable_rclone_streaming(*_args, **_kwargs):
+    """Force tests with an injected JSON runner down the legacy runner seam."""
+
+    raise RuntimeError("streaming process intentionally unavailable in this test")
+
+
 def _preferred_tag_table(db: Database) -> str:
     tables = set(db.get_tables())
     if "tags" in tables:
@@ -412,17 +418,15 @@ def test_text_browser_clear_command_truncates_seekable_output(driver_spec, tmp_p
     assert output.getvalue() == ""
 
 
-def test_text_browser_startup_warns_when_core_runtime_bootstrap_fails(
+def test_text_browser_initialization_propagates_core_bootstrap_failure(
     driver_spec, tmp_path: Path, monkeypatch
 ) -> None:
     db_path = tmp_path / "browser_core_runtime_warn.sqlite"
-    history_path = tmp_path / "history.txt"
-    output = io.StringIO()
 
     def _fail_core_runtime(*_args, **_kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(text_browser_module, "_build_default_core_runtime", _fail_core_runtime)
+    monkeypatch.setattr(text_browser_module, "coerce_surface_core", _fail_core_runtime)
 
     with Database(
         metadata={"database_path": str(db_path)},
@@ -431,14 +435,8 @@ def test_text_browser_startup_warns_when_core_runtime_bootstrap_fails(
         backup=False,
         storage_startup_on_add=False,
     ) as db:
-        shell = TextDatabaseBrowser(db, output=output, history_file=history_path)
-        shell.startup()
-        shell.shutdown(reason="test")
-
-    rendered = output.getvalue()
-    assert "WARNING: Core runtime unavailable; using local-only mode." in rendered
-    assert "RuntimeError: boom" in rendered
-    assert shell.supports_core_commands() is False
+        with pytest.raises(RuntimeError, match="boom"):
+            TextDatabaseBrowser(db)
 
 
 def test_sync_store_options_default_to_incremental_crawler_db_writes() -> None:
@@ -1468,11 +1466,14 @@ def test_text_browser_new_store_wizard_updates_existing_row(driver_spec, tmp_pat
         assert int(row["store_is_read_only"]) == 1
 
 
-def test_text_browser_new_store_wizard_refresh_routes_via_core(driver_spec, tmp_path: Path, monkeypatch) -> None:
+def test_text_browser_new_store_wizard_refresh_routes_via_core_operations(
+    driver_spec,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     db_path = tmp_path / "browser_new_store_core_refresh.sqlite"
     output = io.StringIO()
     store_dir = tmp_path / "core_refresh_store"
-    query_calls: list[tuple[str, dict[str, object] | None]] = []
     command_calls: list[tuple[str, dict[str, object] | None]] = []
 
     input_stream = io.StringIO(
@@ -1504,32 +1505,28 @@ def test_text_browser_new_store_wizard_refresh_routes_via_core(driver_spec, tmp_
         monkeypatch.setattr(type(db), "bootstrap_storage_manager", _unexpected_local_bootstrap)
 
         shell = TextDatabaseBrowser(db, input=input_stream, output=output)
-        monkeypatch.setattr(shell, "supports_core_queries", lambda: True)
-        monkeypatch.setattr(shell, "supports_core_commands", lambda: True)
-
-        def _record_query(name: str, *, payload=None):
-            payload_dict = dict(payload or {})
-            query_calls.append((str(name), payload_dict))
-            return None
-
         def _record_command(name: str, *, payload=None):
             payload_dict = dict(payload or {})
             command_calls.append((str(name), payload_dict))
-            method = str(payload_dict.get("method", ""))
-            if method == "save_store_row":
+            if name == "storage.store.save":
                 from LiuXin_alpha.library.library import Library
 
-                return Library(database=db, close_database_on_close=False).save_store_row(
-                    store_payload=payload_dict["kwargs"]["store_payload"]
-                )
-            return {
-                "discovered_rows": 1,
-                "loaded_stores": 1,
-                "skipped_rows": 0,
-                "failed_rows": 0,
-            }
+                row = Library(
+                    database=db,
+                    close_database_on_close=False,
+                ).save_store_row(store_payload=payload_dict["store"])
+                return {"store": row}
+            if name == "storage.refresh":
+                return {
+                    "report": {
+                        "discovered_configurations": 1,
+                        "loaded_stores": 1,
+                        "skipped_configurations": 0,
+                        "failed_configurations": 0,
+                    }
+                }
+            raise AssertionError(f"unexpected Core command: {name}")
 
-        monkeypatch.setattr(shell, "execute_core_query", _record_query)
         monkeypatch.setattr(shell, "execute_core_command", _record_command)
 
         rc = shell.run_commands(["add store"])
@@ -1538,27 +1535,14 @@ def test_text_browser_new_store_wizard_refresh_routes_via_core(driver_spec, tmp_
         rows = db.search("stores", "store_root_uri", str(store_dir.resolve()))
         assert len(rows) == 1
 
-    assert len(query_calls) == 1
-    assert query_calls[0][0] == "invoke"
-    assert query_calls[0][1]["target"] == "library"
-    assert query_calls[0][1]["method"] == "find_existing_store"
-    assert query_calls[0][1]["kwargs"]["root_uri"] == str(store_dir.resolve())
     assert len(command_calls) == 2
-    assert command_calls[0][0] == "invoke"
-    assert command_calls[0][1]["target"] == "library"
-    assert command_calls[0][1]["method"] == "save_store_row"
-    assert (
-        query_calls[0][1]["kwargs"]["store_name"]
-        == command_calls[0][1]["kwargs"]["store_payload"]["store_name"]
+    assert command_calls[0][0] == "storage.store.save"
+    assert command_calls[0][1]["store"]["store_root_uri"] == str(
+        store_dir.resolve()
     )
-    assert command_calls[0][1]["kwargs"]["store_payload"]["store_root_uri"] == str(store_dir.resolve())
     assert command_calls[1] == (
-        "invoke",
-        {
-            "target": "library",
-            "method": "refresh_storage",
-            "kwargs": {"clear_existing": True},
-        },
+        "storage.refresh",
+        {"clear_existing": True},
     )
     rendered = output.getvalue()
     assert "Store saved:" in rendered
@@ -1600,11 +1584,11 @@ def test_text_browser_new_store_wizard_refresh_works_with_default_core_runtime(d
         assert len(rows) == 1
         report = getattr(db, "storage_bootstrap_report", None)
         assert report is not None
-        assert report.discovered_rows >= 1
+        assert report.discovered_configurations >= 1
         assert report.loaded_stores >= 1
 
     rendered = output.getvalue()
-    assert "Storage bootstrap: discovered=" in rendered
+    assert "Storage bootstrap: discovered=1" in rendered
 
 
 def test_text_browser_new_store_wizard_rejects_args(driver_spec, tmp_path: Path) -> None:
@@ -2330,6 +2314,11 @@ def test_text_browser_sync_store_rclone_uses_rate_limit_option(driver_spec, tmp_
         return []
 
     monkeypatch.setattr(rclone_backend_module, "run_rclone_json", _fake_run_rclone_json)
+    monkeypatch.setattr(
+        rclone_backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        _disable_rclone_streaming,
+    )
 
     with Database(
         metadata={"database_path": str(db_path)},
@@ -2350,13 +2339,17 @@ def test_text_browser_sync_store_rclone_uses_rate_limit_option(driver_spec, tmp_
         shell = TextDatabaseBrowser(db, output=output)
         assert shell.run_commands(
             [
-                "sync store {} to-db --max-http-requests-per-hour 10 --no-refresh".format(store_id),
+                "sync store {} to-db --max-http-requests-per-hour 10 "
+                "--job-backend serial --no-refresh".format(store_id),
             ]
         ) == 0
 
         file_rows = db.search("files", "file_store_id", store_id)
         assert len(file_rows) == 1
         assert str(file_rows[0]["file_storage_key"]) == "books/one.epub"
+        store_row = db.get_row_from_id("stores", store_id)
+        assert store_row is not None
+        assert int(store_row["store_supports_checksums"]) == 1
 
     assert captured_extra_args
     tps_args = [arg for arg in captured_extra_args[0] if arg.startswith("--tpslimit=")]
@@ -2376,6 +2369,11 @@ def test_text_browser_sync_store_rclone_listing_flags_are_forwarded(driver_spec,
         return []
 
     monkeypatch.setattr(rclone_backend_module, "run_rclone_json", _fake_run_rclone_json)
+    monkeypatch.setattr(
+        rclone_backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        _disable_rclone_streaming,
+    )
 
     with Database(
         metadata={"database_path": str(db_path)},
@@ -2396,7 +2394,8 @@ def test_text_browser_sync_store_rclone_listing_flags_are_forwarded(driver_spec,
         shell = TextDatabaseBrowser(db, output=output)
         assert shell.run_commands(
             [
-                "sync store {} --rclone-http-no-slash --rclone-http-no-head --no-refresh".format(store_id),
+                "sync store {} --rclone-http-no-slash --rclone-http-no-head "
+                "--job-backend serial --no-refresh".format(store_id),
             ]
         ) == 0
 
@@ -2413,11 +2412,16 @@ def test_text_browser_sync_store_rclone_plain_https_root_is_supported(driver_spe
 
     def _fake_run_rclone_json(args, **kwargs):
         if len(args) >= 4 and list(args[:3]) == ["lsjson", "-R", "--files-only"]:
-            captured_roots.append(str(args[3]))
+            captured_roots.append(str(args[-1]))
             return [{"Path": "books/plain.epub", "Name": "plain.epub", "Size": 7, "ModTime": "2025-01-02T03:04:05Z"}]
         return []
 
     monkeypatch.setattr(rclone_backend_module, "run_rclone_json", _fake_run_rclone_json)
+    monkeypatch.setattr(
+        rclone_backend_module.RcloneHttpReadOnlyStorageBackend,
+        "spawn_rclone_process",
+        _disable_rclone_streaming,
+    )
 
     with Database(
         metadata={"database_path": str(db_path)},
@@ -2438,7 +2442,7 @@ def test_text_browser_sync_store_rclone_plain_https_root_is_supported(driver_spe
         shell = TextDatabaseBrowser(db, output=output)
         assert shell.run_commands(
             [
-                "sync store:{} --no-refresh".format(store_id),
+                "sync store:{} --job-backend serial --no-refresh".format(store_id),
             ]
         ) == 0
 
@@ -2486,7 +2490,8 @@ def test_text_browser_sync_store_wget_uses_rate_limit_option(driver_spec, tmp_pa
         shell = TextDatabaseBrowser(db, output=output)
         assert shell.run_commands(
             [
-                "sync store {} to-db --max-http-requests-per-hour 30 --no-refresh".format(store_id),
+                "sync store {} to-db --max-http-requests-per-hour 30 "
+                "--job-backend serial --no-refresh".format(store_id),
             ]
         ) == 0
 
@@ -2499,9 +2504,7 @@ def test_text_browser_sync_store_wget_uses_rate_limit_option(driver_spec, tmp_pa
     assert "--no-verbose" not in captured_wget_args[0]
     assert captured_timeout_s and captured_timeout_s[0] is None
     rendered = output.getvalue()
-    assert "Wget: Spider mode enabled" in rendered
-    assert "store_supports_checksums" in rendered
-    assert "no" in rendered
+    assert "JOB sync: Spider mode enabled" in rendered
 
 
 def test_text_browser_sync_store_wget_kind_takes_precedence_over_https_protocol(
@@ -2539,7 +2542,9 @@ def test_text_browser_sync_store_wget_kind_takes_precedence_over_https_protocol(
         )
 
         shell = TextDatabaseBrowser(db, output=output)
-        assert shell.run_commands(["sync store:{} --no-refresh".format(store_id)]) == 0
+        assert shell.run_commands(
+            ["sync store:{} --job-backend serial --no-refresh".format(store_id)]
+        ) == 0
 
     assert captured_wget_calls["count"] >= 1
 
@@ -2579,7 +2584,9 @@ def test_text_browser_sync_store_wget_listing_flags_are_forwarded(driver_spec, t
             [
                 "sync store {} --crawler-max-depth 2 --crawler-parent --crawler-span-hosts "
                 "--crawler-ignore-robots --crawler-user-agent 'LiuXinTest/1.0' --wget-verbose "
-                "--wget-arg=--timeout=5 --no-refresh".format(store_id),
+                "--wget-arg=--timeout=5 --job-backend serial --no-refresh".format(
+                    store_id
+                ),
             ]
         ) == 0
 
@@ -2626,7 +2633,12 @@ def test_text_browser_sync_store_wget_no_verbose_flag_is_forwarded(driver_spec, 
         )
 
         shell = TextDatabaseBrowser(db, output=output)
-        assert shell.run_commands(["sync store {} --wget-no-verbose --no-refresh".format(store_id)]) == 0
+        assert shell.run_commands(
+            [
+                "sync store {} --wget-no-verbose --job-backend serial "
+                "--no-refresh".format(store_id)
+            ]
+        ) == 0
 
     assert captured_args
     assert "--no-verbose" in captured_args[0]
@@ -2661,7 +2673,12 @@ def test_text_browser_sync_store_wget_timeout_option_is_forwarded(driver_spec, t
         )
 
         shell = TextDatabaseBrowser(db, output=output)
-        assert shell.run_commands(["sync store {} --crawler-timeout-s 1200 --no-refresh".format(store_id)]) == 0
+        assert shell.run_commands(
+            [
+                "sync store {} --crawler-timeout-s 1200 --job-backend serial "
+                "--no-refresh".format(store_id)
+            ]
+        ) == 0
 
     assert captured_timeout_s
     assert captured_timeout_s[0] == 1200.0
@@ -2714,7 +2731,9 @@ def test_text_browser_sync_store_native_html_routes_via_native_backend(driver_sp
         )
 
         shell = TextDatabaseBrowser(db, output=output)
-        assert shell.run_commands(["sync store {} --no-refresh".format(store_id)]) == 0
+        assert shell.run_commands(
+            ["sync store {} --job-backend serial --no-refresh".format(store_id)]
+        ) == 0
 
         file_rows = db.search("files", "file_store_id", store_id)
         assert len(file_rows) == 2
@@ -2724,7 +2743,7 @@ def test_text_browser_sync_store_native_html_routes_via_native_backend(driver_sp
 
     rendered = output.getvalue()
     assert "crawler_urls_observed" in rendered
-    assert "Native: native fetch depth=0 https://example.com/library/" in rendered
+    assert "JOB sync: native fetch depth=0 https://example.com/library/" in rendered
 
 
 def test_text_browser_sync_store_background_native_submits_job(driver_spec, tmp_path: Path, monkeypatch) -> None:
@@ -2806,7 +2825,9 @@ def test_text_browser_sync_store_wget_surfaces_crawler_observation_summary(
         )
 
         shell = TextDatabaseBrowser(db, output=output)
-        assert shell.run_commands(["sync store {} --no-refresh".format(store_id)]) == 0
+        assert shell.run_commands(
+            ["sync store {} --job-backend serial --no-refresh".format(store_id)]
+        ) == 0
 
     rendered = output.getvalue()
     assert "Crawler" in rendered
@@ -3360,16 +3381,19 @@ def test_text_browser_set_command_updates_row_with_display_column_token(driver_s
 
 def test_text_browser_mutating_commands_refresh_attached_metadata_read_source(driver_spec, tmp_path: Path) -> None:
     class _RefreshableReadSource:
-        def __init__(self) -> None:
+        def __init__(self, database) -> None:
+            self.database = database
             self.refresh_count = 0
 
         def refresh(self) -> bool:
             self.refresh_count += 1
             return True
 
+        def __getattr__(self, name: str):
+            return getattr(self.database, name)
+
     db_path = tmp_path / "browser_mutation_refreshes_read_source.sqlite"
     output = io.StringIO()
-    read_source = _RefreshableReadSource()
     with Database(
         metadata={"database_path": str(db_path)},
         db_type=driver_spec.db_type,
@@ -3377,6 +3401,7 @@ def test_text_browser_mutating_commands_refresh_attached_metadata_read_source(dr
         backup=False,
         storage_startup_on_add=False,
     ) as db:
+        read_source = _RefreshableReadSource(db)
         store_id = _insert_store_row(
             db,
             name="refresh-store",
@@ -3418,12 +3443,32 @@ def test_text_browser_set_command_routes_via_core(driver_spec, tmp_path: Path, m
         def _record_query(name: str, *, payload=None):
             payload_dict = dict(payload or {})
             query_calls.append((str(name), payload_dict))
-            return Library(database=db, close_database_on_close=False).get_row(**payload_dict["kwargs"])
+            assert name == "rows.get"
+            row = Library(
+                database=db,
+                close_database_on_close=False,
+            ).get_row(**payload_dict)
+            return {
+                "record": {
+                    "table": payload_dict["table"],
+                    "row_id": payload_dict["row_id"],
+                    "values": row,
+                }
+            }
 
         def _record_command(name: str, *, payload=None):
             payload_dict = dict(payload or {})
             command_calls.append((str(name), payload_dict))
-            return Library(database=db, close_database_on_close=False).update_row_fields(**payload_dict["kwargs"])
+            assert name == "admin.row.update"
+            row = Library(
+                database=db,
+                close_database_on_close=False,
+            ).update_row_fields(
+                table=payload_dict["table"],
+                row_id=payload_dict["row_id"],
+                updates=payload_dict["updates"],
+            )
+            return {"record": {"values": row}}
 
         monkeypatch.setattr(shell, "execute_core_query", _record_query)
         monkeypatch.setattr(shell, "execute_core_command", _record_command)
@@ -3436,28 +3481,20 @@ def test_text_browser_set_command_routes_via_core(driver_spec, tmp_path: Path, m
 
     assert query_calls == [
         (
-            "invoke",
+            "rows.get",
             {
-                "target": "library",
-                "method": "get_row",
-                "kwargs": {
-                    "table": "stores",
-                    "row_id": store_id,
-                },
+                "table": "stores",
+                "row_id": store_id,
             },
         )
     ]
     assert command_calls == [
         (
-            "invoke",
+            "admin.row.update",
             {
-                "target": "library",
-                "method": "update_row_fields",
-                "kwargs": {
-                    "table": "stores",
-                    "row_id": store_id,
-                    "updates": {"store_online_status": "offline"},
-                },
+                "table": "stores",
+                "row_id": store_id,
+                "updates": {"store_online_status": "offline"},
             },
         )
     ]
@@ -3629,18 +3666,28 @@ def test_text_browser_delete_command_routes_via_core(driver_spec, tmp_path: Path
         def _record_query(name: str, *, payload=None):
             payload_dict = dict(payload or {})
             query_calls.append((str(name), payload_dict))
-            method = str(payload_dict.get("method", ""))
             library = Library(database=db, close_database_on_close=False)
-            if method == "get_row":
-                return library.get_row(**payload_dict["kwargs"])
-            if method == "describe_row_delete_impact":
-                return library.describe_row_delete_impact(**payload_dict["kwargs"])
-            raise AssertionError("unexpected core query method {!r}".format(method))
+            if name == "rows.get":
+                row = library.get_row(**payload_dict)
+                return {
+                    "record": {
+                        "table": payload_dict["table"],
+                        "row_id": payload_dict["row_id"],
+                        "values": row,
+                    }
+                }
+            if name == "admin.row.delete-impact":
+                return library.describe_row_delete_impact(**payload_dict)
+            raise AssertionError("unexpected Core query {!r}".format(name))
 
         def _record_command(name: str, *, payload=None):
             payload_dict = dict(payload or {})
             command_calls.append((str(name), payload_dict))
-            return Library(database=db, close_database_on_close=False).delete_row(**payload_dict["kwargs"])
+            assert name == "admin.row.delete"
+            return Library(
+                database=db,
+                close_database_on_close=False,
+            ).delete_row(**payload_dict)
 
         monkeypatch.setattr(shell, "execute_core_query", _record_query)
         monkeypatch.setattr(shell, "execute_core_command", _record_command)
@@ -3650,38 +3697,26 @@ def test_text_browser_delete_command_routes_via_core(driver_spec, tmp_path: Path
 
     assert query_calls == [
         (
-            "invoke",
+            "rows.get",
             {
-                "target": "library",
-                "method": "get_row",
-                "kwargs": {
-                    "table": "stores",
-                    "row_id": store_id,
-                },
+                "table": "stores",
+                "row_id": store_id,
             },
         ),
         (
-            "invoke",
+            "admin.row.delete-impact",
             {
-                "target": "library",
-                "method": "describe_row_delete_impact",
-                "kwargs": {
-                    "table": "stores",
-                    "row_id": store_id,
-                },
+                "table": "stores",
+                "row_id": store_id,
             },
         )
     ]
     assert command_calls == [
         (
-            "invoke",
+            "admin.row.delete",
             {
-                "target": "library",
-                "method": "delete_row",
-                "kwargs": {
-                    "table": "stores",
-                    "row_id": store_id,
-                },
+                "table": "stores",
+                "row_id": store_id,
             },
         )
     ]
@@ -4837,8 +4872,6 @@ def test_text_browser_on_tag_creates_and_links_tag(driver_spec, tmp_path: Path) 
 
     rendered = output.getvalue()
     assert "Tag linked:" in rendered
-    assert "metadata writer" in rendered
-    assert "metadata report:" in rendered
 
 
 def test_text_browser_on_tag_supports_multiple_values(driver_spec, tmp_path: Path) -> None:

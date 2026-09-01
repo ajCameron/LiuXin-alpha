@@ -244,7 +244,7 @@ class NewTitleWizardCommand(TerminalCommandAPI):
         browser.emit("  work_id={}".format(created["work_id"]))
         browser.emit("  expression_id={}".format(created["expression_id"]))
         browser.emit("  manifestation_id={}".format(created["manifestation_id"]))
-        browser.emit("  items_created={}".format(len(created.item_ids)))
-        browser.emit("  title_work_id={}".format(created.work_id))
+        browser.emit("  items_created={}".format(len(created.get("item_ids", ()))))
+        browser.emit("  title_work_id={}".format(created["work_id"]))
 
         return True

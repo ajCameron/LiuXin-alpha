@@ -2,26 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from pathlib import Path
-from typing import Any
-
 import pytest
 
 from LiuXin_alpha.surfaces.images.api import ImageBackend
-
-
-class _Storage:
-    def __init__(self, *outcomes: object) -> None:
-        self.outcomes = list(outcomes)
-        self.calls: list[dict[str, object]] = []
-
-    def locate_file(self, *, metadata: dict[str, object]):
-        self.calls.append(metadata)
-        outcome = self.outcomes.pop(0) if self.outcomes else None
-        if isinstance(outcome, Exception):
-            raise outcome
-        return outcome
 
 
 class _DiscoverySource:
@@ -60,9 +43,6 @@ class _DiscoverySource:
 
 
 class _ReadModel(_DiscoverySource):
-    def __init__(self, store_rows: dict[int, object] | None = None) -> None:
-        self.store_rows = store_rows or {}
-
     def interlinked_rows(
         self,
         expression_row: dict[str, object],
@@ -79,75 +59,53 @@ class _ReadModel(_DiscoverySource):
     ) -> list[dict[str, object]]:
         return self._search(table, column, value)
 
-    def row_by_id(self, table: str, row_id: int):
-        assert table == "stores"
-        value = self.store_rows.get(row_id)
-        if isinstance(value, Exception):
-            raise value
-        return value
-
-
-class _Db(_DiscoverySource):
+class _Core:
     def __init__(
         self,
         *,
-        storage: object | None = None,
-        store_rows: dict[int, object] | None = None,
+        resolutions: dict[int, object] | None = None,
+        contents: dict[int, bytes] | None = None,
     ) -> None:
-        self.storage = storage
-        self.store_rows = store_rows or {}
+        self.resolutions = resolutions or {}
+        self.contents = contents or {}
+        self.queries: list[tuple[str, dict[str, object]]] = []
 
-    def get_interlinked_rows(
-        self,
-        *,
-        target_row: dict[str, object],
-        secondary_table: str,
-    ) -> list[dict[str, object]]:
-        assert secondary_table == "manifestations"
-        return self._manifestations(target_row)
-
-    def search(
-        self,
-        table: str,
-        column: str,
-        value: object,
-    ) -> list[dict[str, object]]:
-        return self._search(table, column, value)
-
-    def get_row_from_id(self, table: str, row_id: int):
-        assert table == "stores"
-        value = self.store_rows.get(row_id)
-        if isinstance(value, Exception):
-            raise value
-        return value
+    def query(self, name: str, payload=None):
+        request = dict(payload or {})
+        self.queries.append((name, request))
+        resource_id = int(request["id"])
+        outcome = self.resolutions.get(
+            resource_id,
+            {"delivery": "unavailable", "readable": False},
+        )
+        if isinstance(outcome, Exception):
+            raise outcome
+        if name == "acquisition.resolve":
+            return dict(outcome)
+        if name == "acquisition.read":
+            return {
+                "resource": dict(outcome),
+                "content": self.contents[resource_id],
+            }
+        raise AssertionError(f"Unexpected Core query: {name}")
 
 
 class _Host:
     def __init__(
         self,
         *,
-        db: _Db | None = None,
         read_model: _ReadModel | None = None,
+        core: _Core | None = None,
         title: str = "Example",
     ) -> None:
-        self.db = db or _Db()
         self.read_model = read_model
+        self.core = core or _Core()
         self.title = title
         self.related: dict[str, list[object]] = {}
-        self.refresh_actions: list[tuple[bool, object | None]] = []
-        self.refresh_count = 0
 
     @staticmethod
     def _row_dict(_table: str, row: object) -> dict[str, object]:
         return dict(row)  # type: ignore[arg-type]
-
-    def _refresh_storage_manager(self) -> bool:
-        self.refresh_count += 1
-        if not self.refresh_actions:
-            return False
-        result, storage = self.refresh_actions.pop(0)
-        self.db.storage = storage
-        return result
 
     def _related_rows_by_table(self, _work_row: object) -> dict[str, list[object]]:
         return self.related
@@ -183,8 +141,11 @@ def test_image_discovery_walks_expressions_and_ignores_bad_rows(
 
     rows = backend.work_image_rows(related)
 
-    assert _image_ids(rows) == [1, 2]
-    assert next(row for row in rows if row["image_id"] == 2)["image_name"] == "2.jpg"
+    assert _image_ids(rows) == ([1, 2] if use_read_model else [1])
+    if use_read_model:
+        assert next(row for row in rows if row["image_id"] == 2)[
+            "image_name"
+        ] == "2.jpg"
 
 
 def test_duplicate_image_ids_are_deduplicated_by_the_latest_row() -> None:
@@ -236,246 +197,88 @@ def test_image_names_content_types_and_storage_aliases() -> None:
     assert metadata["image_row"] is not named
 
 
-def test_storage_resolution_uses_an_existing_storage_manager() -> None:
-    located = object()
-    storage = _Storage(located)
-    host = _Host(db=_Db(storage=storage))
-    backend = ImageBackend(host)
-
-    assert backend.resolve_storage_image({"image_name": "cover.jpg"}) is located
-    assert host.refresh_count == 0
-    assert storage.calls[0]["image_name"] == "cover.jpg"
-
-
-def test_storage_resolution_can_install_or_refresh_the_manager() -> None:
-    installed_result = object()
-    installed = _Storage(installed_result)
-    install_host = _Host()
-    install_host.refresh_actions = [(True, installed)]
-
-    assert (
-        ImageBackend(install_host).resolve_storage_image(
-            {"image_store_id": 7, "image_name": "cover.jpg"}
-        )
-        is installed_result
+def test_storage_resolution_returns_a_core_backed_file() -> None:
+    core = _Core(
+        resolutions={7: {"delivery": "core", "readable": True}},
+        contents={7: b"cover-bytes"},
     )
-    assert install_host.refresh_count == 1
-
-    refreshed_result = object()
-    stale = _Storage(RuntimeError("stale"))
-    refreshed = _Storage(refreshed_result)
-    refresh_host = _Host(db=_Db(storage=stale))
-    refresh_host.refresh_actions = [(True, refreshed)]
-
-    assert (
-        ImageBackend(refresh_host).resolve_storage_image(
-            {"image_store_id": 7, "image_name": "cover.jpg"}
-        )
-        is refreshed_result
-    )
-    assert refresh_host.refresh_count == 1
-    assert len(stale.calls) == 1
-    assert len(refreshed.calls) == 1
-
-
-def test_storage_resolution_uses_manager_attached_by_a_false_refresh() -> None:
-    located = object()
-    storage = _Storage(located)
-    host = _Host()
-    host.refresh_actions = [(False, storage)]
-
-    assert ImageBackend(host).resolve_storage_image({}) is located
-    assert host.refresh_count == 1
-
-
-def test_storage_resolution_returns_none_when_refresh_cannot_supply_storage() -> None:
-    host = _Host()
-    host.refresh_actions = [(False, None), (True, None)]
-    backend = ImageBackend(host)
-
-    assert backend.resolve_storage_image({"image_store_id": 7}) is None
-    assert host.refresh_count == 2
-
-    failing = _Storage(RuntimeError("unavailable"))
-    no_retry_host = _Host(db=_Db(storage=failing))
-    assert ImageBackend(no_retry_host).resolve_storage_image({}) is None
-    assert no_retry_host.refresh_count == 0
-
-
-def test_direct_local_and_remote_image_targets_are_resolved(tmp_path: Path) -> None:
-    cover = tmp_path / "cover.png"
-    cover.write_bytes(b"png")
-    backend = ImageBackend(_Host())
-
-    local = backend.resolve_image_target(
-        {
-            "image_original_path": "",
-            "image_path": str(cover),
-            "image_name": "cover.png",
-        }
-    )
-    remote = backend.resolve_image_target(
-        {
-            "image_source": "",
-            "image_original_path": "https://images.example/cover.jpg",
-            "image_name": "cover.jpg",
-        }
+    stored = ImageBackend(_Host(core=core)).resolve_storage_image(
+        {"image_id": 7, "image_name": "cover.jpg"}
     )
 
-    assert local is not None
-    assert local.mode == "local"
-    assert Path(local.location) == cover
-    assert remote is not None
-    assert remote.mode == "redirect"
-    assert remote.location == "https://images.example/cover.jpg"
-
-
-@pytest.mark.parametrize(
-    ("store_row", "expected"),
-    (
-        (
-            {
-                "store_root_uri": "https://cdn.example/books",
-                "store_access_protocol": "https",
-            },
-            "https://cdn.example/books/covers/cover.jpg",
-        ),
-        (
-            {
-                "store_root_uri": "https://cdn.example/books/",
-                "store_access_protocol": "https",
-            },
-            "https://cdn.example/books/covers/cover.jpg",
-        ),
-    ),
-)
-def test_remote_store_roots_resolve_to_redirects(
-    store_row: dict[str, object],
-    expected: str,
-) -> None:
-    read_model = _ReadModel({7: store_row})
-    backend = ImageBackend(_Host(read_model=read_model))
-
-    target = backend.resolve_image_target(
-        {
-            "image_store_id": 7,
-            "image_storage_key": "covers/cover.jpg",
-            "image_name": "cover.jpg",
-        }
-    )
-
-    assert target is not None
-    assert target.mode == "redirect"
-    assert target.location == expected
-
-
-@pytest.mark.parametrize(
-    "root_factory",
-    (
-        lambda root: f"file://{root}",
-        lambda root: str(root),
-    ),
-    ids=("file-uri", "absolute-path"),
-)
-def test_local_store_roots_resolve_existing_files(
-    tmp_path: Path,
-    root_factory: Callable[[Path], str],
-) -> None:
-    cover = tmp_path / "covers" / "cover.jpg"
-    cover.parent.mkdir()
-    cover.write_bytes(b"jpeg")
-    store_row = {
-        "store_root_uri": root_factory(tmp_path),
-        "store_access_protocol": "custom",
-    }
-    backend = ImageBackend(_Host(db=_Db(store_rows={7: store_row})))
-
-    target = backend.resolve_image_target(
-        {
-            "image_store_id": 7,
-            "image_storage_key": "covers/cover.jpg",
-            "image_name": "cover.jpg",
-        }
-    )
-
-    assert target is not None
-    assert target.mode == "local"
-    assert Path(target.location) == cover
-
-
-def test_relative_file_store_roots_are_supported(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    cover = tmp_path / "assets" / "cover.jpg"
-    cover.parent.mkdir()
-    cover.write_bytes(b"jpeg")
-    monkeypatch.chdir(tmp_path)
-    backend = ImageBackend(
-        _Host(
-            db=_Db(
-                store_rows={
-                    7: {
-                        "store_root_uri": "assets",
-                        "store_access_protocol": "file",
-                    }
-                }
-            )
-        )
-    )
-
-    target = backend.resolve_image_target(
-        {
-            "image_store_id": 7,
-            "image_storage_key": "cover.jpg",
-        }
-    )
-
-    assert target is not None
-    assert Path(target.location) == Path("assets/cover.jpg")
+    assert stored is not None
+    assert stored.read_bytes() == b"cover-bytes"
+    assert core.queries == [
+        ("acquisition.resolve", {"kind": "image", "id": 7}),
+        ("acquisition.read", {"kind": "image", "id": 7}),
+    ]
 
 
 @pytest.mark.parametrize(
     "image_row",
+    ({}, {"image_id": None}, {"image_id": "not-an-integer"}),
+)
+def test_storage_resolution_rejects_images_without_a_valid_id(
+    image_row: dict[str, object],
+) -> None:
+    core = _Core()
+
+    assert ImageBackend(_Host(core=core)).resolve_storage_image(image_row) is None
+    assert core.queries == []
+
+
+@pytest.mark.parametrize(
+    "resolution",
     (
-        {},
-        {"image_storage_key": "cover.jpg"},
-        {"image_store_id": 7, "image_storage_key": ""},
-        {"image_store_id": 7, "image_storage_key": "cover.jpg"},
+        {"delivery": "redirect", "readable": False},
+        RuntimeError("Core unavailable"),
     ),
 )
-def test_unresolvable_store_targets_return_none(image_row: dict[str, object]) -> None:
-    backend = ImageBackend(
-        _Host(
-            read_model=_ReadModel({7: RuntimeError("store unavailable")}),
-        )
+def test_storage_resolution_rejects_unreadable_or_failed_core_results(
+    resolution: object,
+) -> None:
+    core = _Core(resolutions={7: resolution})
+
+    assert ImageBackend(_Host(core=core)).resolve_storage_image({"image_id": 7}) is None
+
+
+def test_redirect_targets_come_from_core_resolution() -> None:
+    core = _Core(
+        resolutions={
+            7: {
+                "delivery": "redirect",
+                "readable": False,
+                "location": "https://cdn.example/covers/cover.jpg",
+            }
+        }
     )
 
-    assert backend.resolve_image_target(image_row) is None
+    target = ImageBackend(_Host(core=core)).resolve_image_target(
+        {"image_id": 7, "image_name": "cover.jpg"}
+    )
+
+    assert target is not None
+    assert target.mode == "redirect"
+    assert target.location == "https://cdn.example/covers/cover.jpg"
+    assert target.download_name == "cover.jpg"
 
 
-def test_non_file_relative_roots_and_missing_files_are_not_targets(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    ("image_row", "resolution"),
+    (
+        ({}, None),
+        ({"image_id": "bad"}, None),
+        ({"image_id": 7}, {"delivery": "core", "readable": True}),
+        ({"image_id": 7}, RuntimeError("Core unavailable")),
+    ),
+)
+def test_non_redirect_core_results_are_not_redirect_targets(
+    image_row: dict[str, object],
+    resolution: object | None,
 ) -> None:
-    monkeypatch.chdir(tmp_path)
-    rows = {
-        1: {"store_root_uri": "", "store_access_protocol": "file"},
-        2: {"store_root_uri": "relative", "store_access_protocol": "https"},
-        3: {"store_root_uri": str(tmp_path), "store_access_protocol": "file"},
-    }
-    backend = ImageBackend(_Host(db=_Db(store_rows=rows)))
+    core = _Core(resolutions={} if resolution is None else {7: resolution})
 
-    for store_id in rows:
-        assert (
-            backend.resolve_image_target(
-                {
-                    "image_store_id": store_id,
-                    "image_storage_key": "missing.jpg",
-                }
-            )
-            is None
-        )
+    assert ImageBackend(_Host(core=core)).resolve_image_target(image_row) is None
 
 
 def test_work_image_row_returns_the_first_image_or_none() -> None:

@@ -9,6 +9,7 @@ import subprocess
 import sys
 import zipfile
 
+from argparse import Namespace
 from pathlib import Path
 from typing import cast
 
@@ -206,6 +207,45 @@ def test_require_existing_database_fails_before_creating_it(
     assert payload["status"] == "configuration_error"
     assert "database does not exist" in payload["error"]["message"]
     assert not database.exists()
+
+
+@pytest.mark.parametrize(
+    ("path_kind", "expected_message"),
+    [
+        ("report", "--report-file must be outside --source-root"),
+        ("lock", "--lock-file must be outside --source-root"),
+        (
+            "materialization",
+            "--materialization-root must be outside --source-root",
+        ),
+    ],
+)
+def test_path_validation_rejects_run_outputs_inside_source_root(
+    tmp_path: Path,
+    path_kind: str,
+    expected_message: str,
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    report = source / "report.json" if path_kind == "report" else tmp_path / "report.json"
+    lock = source / "ingest.lock" if path_kind == "lock" else tmp_path / "ingest.lock"
+    materialization = (
+        source / "materialized" if path_kind == "materialization" else None
+    )
+    args = Namespace(
+        replace_report=False,
+        database=None,
+        require_existing_database=False,
+        materialization_root=materialization,
+    )
+
+    with pytest.raises(storage_cli.CLIUsageError, match=expected_message):
+        storage_cli._validate_paths(
+            args,
+            source_root=source,
+            report_path=report,
+            lock_path=lock,
+        )
 
 
 def test_existing_report_is_never_overwritten_without_explicit_opt_in(

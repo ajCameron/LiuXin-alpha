@@ -19,27 +19,21 @@ import threading
 import traceback
 
 from collections.abc import Callable, Generator, Mapping
-from contextlib import contextmanager, nullcontext, redirect_stdout
+from contextlib import contextmanager, nullcontext
 from datetime import date, datetime, time
 from enum import Enum
 from pathlib import Path
 from types import FrameType
-from typing import Any, final
+from typing import Any, cast, final
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
 from LiuXin_alpha.constants import __version__ as liuxin_version
-from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.storage import api
-from LiuXin_alpha.storage.backend_registry import (
-    DEFAULT_BACKEND_REGISTRY,
-    StorageBackendDescriptor,
-)
-from LiuXin_alpha.storage.ingest import (
-    MixedFormatIngestCoordinator,
+from LiuXin_alpha.ingest.mixed_application import (
+    MixedIngestApplicationRequest,
     MixedIngestBudget,
+    execute_mixed_ingest,
 )
-from LiuXin_alpha.storage.store_manager import StorageManager
 from LiuXin_alpha.surfaces.cli.common import (
     add_connection_arguments,
     add_json_output,
@@ -131,7 +125,7 @@ class SignalCancellation:
         for signal_number, previous in self._previous.items():
             _ = signal.signal(
                 signal_number,
-                previous,  # pyright: ignore[reportArgumentType]
+                cast("signal._HANDLER", previous),
             )
         self._installed = False
 
@@ -498,35 +492,44 @@ def _storage_prompt_choice(
         try:
             index = int(selected)
         except ValueError:
-            value = aliases.get(selected.casefold())
-            if value is not None:
-                return value
+            matched = aliases.get(selected.casefold())
+            if matched is not None:
+                return matched
         else:
             if 1 <= index <= len(choices):
                 return choices[index - 1][1]
         print("Choose a number from 1 to {} or a displayed id.".format(len(choices)))
 
 
-def _descriptor_for_kind(kind: str) -> StorageBackendDescriptor:
-    try:
-        return DEFAULT_BACKEND_REGISTRY.descriptor(kind)
-    except Exception as error:
-        choices = ", ".join(
-            descriptor.kind
-            for descriptor in DEFAULT_BACKEND_REGISTRY.iter_descriptors(
-                user_selectable_only=True
-            )
+def _descriptor_for_kind(
+    kind: str,
+    providers: list[Mapping[str, Any]],
+) -> Mapping[str, Any]:
+    normalized = str(kind).strip().lower().replace("-", "_")
+    for descriptor in providers:
+        aliases = descriptor.get("aliases", ())
+        names = [str(descriptor.get("kind") or "")]
+        if isinstance(aliases, list):
+            names.extend(str(alias) for alias in aliases)
+        if normalized in {
+            name.strip().lower().replace("-", "_") for name in names
+        }:
+            return descriptor
+    choices = ", ".join(
+        sorted(str(descriptor.get("kind")) for descriptor in providers)
+    )
+    raise ValueError(
+        "Unknown storage backend {!r}. Available backends: {}.".format(
+            kind,
+            choices or "none",
         )
-        raise ValueError(
-            "Unknown storage backend {!r}. Available backends: {}."
-            .format(kind, choices)
-        ) from error
+    )
 
 
-def _default_store_role(descriptor: StorageBackendDescriptor) -> str:
-    if descriptor.location_type == "file":
+def _default_store_role(descriptor: Mapping[str, Any]) -> str:
+    if descriptor.get("location_type") == "file":
         return "archive"
-    if descriptor.read_only_default:
+    if bool(descriptor.get("read_only_default", False)):
         return "source"
     return "live"
 
@@ -591,7 +594,7 @@ def _reject_sensitive_policy(value: object, *, path: str = "policy") -> None:
 
 def _backend_policy(
     args: argparse.Namespace,
-    descriptor: StorageBackendDescriptor,
+    descriptor: Mapping[str, Any],
 ) -> dict[str, object]:
     policy: dict[str, object] = {}
     policy_file = getattr(args, "policy_file", None)
@@ -604,40 +607,50 @@ def _backend_policy(
     ]
     if not assignments:
         return policy
-    if descriptor.policy_section is None:
+    policy_section = descriptor.get("policy_section")
+    if policy_section is None:
         raise ValueError(
             "Backend {!r} does not expose durable backend options."
-            .format(descriptor.kind)
+            .format(descriptor.get("kind"))
         )
-    existing = policy.get(descriptor.policy_section, {})
+    existing = policy.get(str(policy_section), {})
     if not isinstance(existing, Mapping):
         raise ValueError(
             "Policy section {!r} must be a JSON object."
-            .format(descriptor.policy_section)
+            .format(policy_section)
         )
     options = dict(existing)
     for assignment in assignments:
         key, value = _parse_backend_option(assignment)
         options[key] = value
-    policy["backend"] = descriptor.kind
-    policy[descriptor.policy_section] = options
+    policy["backend"] = str(descriptor.get("kind"))
+    policy[str(policy_section)] = options
     return policy
 
 
 def _store_add_payload(
     args: argparse.Namespace,
-) -> tuple[dict[str, Any], StorageBackendDescriptor]:
-    descriptor = _descriptor_for_kind(str(args.kind))
+    descriptor: Mapping[str, Any],
+) -> dict[str, Any]:
+    descriptor_kind = str(descriptor.get("kind") or "")
+    capabilities = descriptor.get("capabilities", {})
+    if not isinstance(capabilities, Mapping):
+        raise ValueError(
+            "Core returned invalid capabilities for backend {!r}.".format(
+                descriptor_kind
+            )
+        )
     requested_read_only = getattr(args, "read_only", None)
+    read_only_default = bool(descriptor.get("read_only_default", False))
     read_only = (
-        descriptor.read_only_default
+        read_only_default
         if requested_read_only is None
         else bool(requested_read_only)
     )
-    if descriptor.read_only_default and not read_only:
+    if read_only_default and not read_only:
         raise ValueError(
             "Backend {!r} is intrinsically read-only."
-            .format(descriptor.kind)
+            .format(descriptor_kind)
         )
     role = getattr(args, "role", None) or _default_store_role(descriptor)
     root = str(args.root).strip()
@@ -654,30 +667,35 @@ def _store_add_payload(
         )
     store: dict[str, Any] = {
         "store_name": name,
-        "store_kind": descriptor.kind,
+        "store_kind": descriptor_kind,
         "store_root_uri": root,
         "store_access_protocol": (
-            getattr(args, "protocol", None) or descriptor.access_protocol
+            getattr(args, "protocol", None)
+            or str(descriptor.get("access_protocol") or "file")
         ),
         "store_is_read_only": int(read_only),
         "store_online_status": (
             "offline" if bool(getattr(args, "offline", False)) else "online"
         ),
         "store_operational_role": role,
-        "store_supports_folders": int(descriptor.supports_folders),
+        "store_supports_folders": int(bool(capabilities.get("folders", False))),
         "store_supports_hierarchical_list": int(
-            descriptor.supports_hierarchical_list
+            bool(capabilities.get("hierarchical_list", False))
         ),
-        "store_supports_random_read": int(descriptor.supports_random_read),
+        "store_supports_random_read": int(
+            bool(capabilities.get("random_read", False))
+        ),
         "store_supports_random_write": int(
-            descriptor.supports_random_write and not read_only
+            bool(capabilities.get("random_write", False)) and not read_only
         ),
         "store_supports_delete": int(
-            descriptor.supports_delete and not read_only
+            bool(capabilities.get("delete", False)) and not read_only
         ),
-        "store_supports_checksums": int(descriptor.supports_checksums),
+        "store_supports_checksums": int(
+            bool(capabilities.get("checksums", False))
+        ),
         "store_supports_immutable_objects": int(
-            descriptor.supports_immutable_objects
+            bool(capabilities.get("immutable_objects", False))
         ),
     }
     for option, field in (
@@ -697,7 +715,7 @@ def _store_add_payload(
             ensure_ascii=True,
             sort_keys=True,
         )
-    return store, descriptor
+    return store
 
 
 def _refresh_failure_count(value: object) -> int:
@@ -714,7 +732,6 @@ def _refresh_failure_count(value: object) -> int:
 
 
 def cmd_storage_store_add(args: argparse.Namespace) -> int:
-    store, descriptor = _store_add_payload(args)
     check = bool(getattr(args, "check", False))
     with open_cli_core(args, enable_storage_manager=True) as core:
         provider_result = core.query(
@@ -726,17 +743,11 @@ def cmd_storage_store_add(args: argparse.Namespace) -> int:
             if isinstance(provider_result, Mapping)
             else []
         )
-        advertised_kinds = {
-            str(value.get("kind"))
-            for value in provider_values
-            if isinstance(value, Mapping)
-        } if isinstance(provider_values, list) else set()
-        if descriptor.kind not in advertised_kinds:
-            raise ValueError(
-                "Core does not advertise backend {!r} as a selectable Store "
-                "provider. Run `liuxin storage backends` against this Core."
-                .format(descriptor.kind)
-            )
+        providers = [
+            value for value in provider_values if isinstance(value, Mapping)
+        ] if isinstance(provider_values, list) else []
+        descriptor = _descriptor_for_kind(str(args.kind), providers)
+        store = _store_add_payload(args, descriptor)
         saved = core.command("storage.store.save", {"store": store})
         refreshed = core.command(
             "storage.refresh",
@@ -786,10 +797,12 @@ def cmd_storage_store_add(args: argparse.Namespace) -> int:
         {
             "ok": ok,
             "backend": {
-                "kind": descriptor.kind,
-                "label": descriptor.label,
-                "location_type": descriptor.location_type,
-                "read_only_default": descriptor.read_only_default,
+                "kind": descriptor.get("kind"),
+                "label": descriptor.get("label"),
+                "location_type": descriptor.get("location_type"),
+                "read_only_default": bool(
+                    descriptor.get("read_only_default", False)
+                ),
             },
             "saved": saved,
             "refresh": refreshed,
@@ -859,51 +872,28 @@ def _wizard_backend(
     return next(item for item in providers if str(item.get("kind")) == chosen)
 
 
-def _run_storage_add_wizard(
-    args: argparse.Namespace,
-    providers_payload: Mapping[str, Any],
-) -> int:
-    raw_providers = providers_payload.get("backends", [])
-    providers = [
-        item
-        for item in raw_providers
-        if isinstance(item, Mapping) and bool(item.get("user_selectable", True))
-    ] if isinstance(raw_providers, list) else []
-    selected = _wizard_backend(providers, getattr(args, "kind", None))
-    kind = str(selected["kind"])
-    descriptor = _descriptor_for_kind(kind)
+@dataclasses.dataclass(frozen=True)
+class _StorageAddWizardPlan:
+    descriptor: Mapping[str, Any]
+    kind: str
+    root: str
+    name: str
+    role: str
+    read_only: bool
+    online: bool
+    failure_domain: str | None
+    region: str | None
+    tags: tuple[str, ...]
+    option_values: tuple[str, ...]
+    make_default: bool
+    check: bool
 
-    location_label = {
-        "dir": "Folder path on the Core host",
-        "file": "File/archive path on the Core host",
-        "remote": "Remote root URI or backend address",
-    }.get(str(selected.get("location_type")), "Store root")
-    root = _storage_prompt_text(
-        location_label,
-        default=getattr(args, "root", None),
-    )
-    name = _storage_prompt_text(
-        "Store name",
-        default=(
-            getattr(args, "name", None)
-            or _default_store_name(root, kind)
-        ),
-    )
-    default_role = getattr(args, "role", None) or _default_store_role(
-        descriptor
-    )
-    role = _storage_prompt_choice(
-        "Choose the Store's operational role:",
-        (
-            ("Primary/live storage", "live"),
-            ("Backup copy", "backup"),
-            ("Archive or sealed artifact", "archive"),
-            ("Read-only ingest source", "source"),
-            ("Rebuildable cache", "cache"),
-        ),
-        default_value=default_role,
-    )
-    if descriptor.read_only_default:
+
+def _wizard_access(
+    args: argparse.Namespace,
+    descriptor: Mapping[str, Any],
+) -> tuple[bool, bool]:
+    if bool(descriptor.get("read_only_default", False)):
         read_only = True
         print("This backend is intrinsically read-only.")
     else:
@@ -920,43 +910,57 @@ def _run_storage_add_wizard(
         "Mark this Store online?",
         default=not bool(getattr(args, "offline", False)),
     )
+    return read_only, online
 
+
+def _wizard_advanced_configuration(
+    args: argparse.Namespace,
+    descriptor: Mapping[str, Any],
+) -> tuple[str | None, str | None, tuple[str, ...], tuple[str, ...]]:
     failure_domain = getattr(args, "failure_domain", None)
     region = getattr(args, "region", None)
     tags: list[str] = list(getattr(args, "tag", ()) or ())
     option_values: list[str] = list(getattr(args, "option", ()) or ())
-    if _storage_prompt_yes_no("Edit advanced configuration?", default=False):
-        failure_domain = _storage_prompt_text(
-            "Failure domain (blank for none)",
-            default=failure_domain,
-            required=False,
-        ) or None
-        region = _storage_prompt_text(
-            "Region (blank for none)",
-            default=region,
-            required=False,
-        ) or None
-        raw_tags = _storage_prompt_text(
-            "Comma-separated tags (blank for none)",
-            default=",".join(tags) if tags else None,
-            required=False,
-        )
-        tags = [value.strip() for value in raw_tags.split(",") if value.strip()]
-        if descriptor.policy_section is not None:
-            print(
-                "Enter non-secret backend options as NAME=VALUE. "
-                "Use a blank line when finished."
-            )
-            while True:
-                assignment = _storage_prompt_text(
-                    "Backend option",
-                    required=False,
-                )
-                if not assignment:
-                    break
-                _parse_backend_option(assignment)
-                option_values.append(assignment)
+    if not _storage_prompt_yes_no("Edit advanced configuration?", default=False):
+        return failure_domain, region, tuple(tags), tuple(option_values)
 
+    failure_domain = _storage_prompt_text(
+        "Failure domain (blank for none)",
+        default=failure_domain,
+        required=False,
+    ) or None
+    region = _storage_prompt_text(
+        "Region (blank for none)",
+        default=region,
+        required=False,
+    ) or None
+    raw_tags = _storage_prompt_text(
+        "Comma-separated tags (blank for none)",
+        default=",".join(tags) if tags else None,
+        required=False,
+    )
+    tags = [value.strip() for value in raw_tags.split(",") if value.strip()]
+    if descriptor.get("policy_section") is not None:
+        print(
+            "Enter non-secret backend options as NAME=VALUE. "
+            "Use a blank line when finished."
+        )
+        while assignment := _storage_prompt_text(
+            "Backend option",
+            required=False,
+        ):
+            _parse_backend_option(assignment)
+            option_values.append(assignment)
+    return failure_domain, region, tuple(tags), tuple(option_values)
+
+
+def _wizard_post_save_actions(
+    args: argparse.Namespace,
+    *,
+    online: bool,
+    read_only: bool,
+    role: str,
+) -> tuple[bool, bool]:
     make_default = False
     if online and not read_only and role == "live":
         make_default = _storage_prompt_yes_no(
@@ -970,17 +974,90 @@ def _run_storage_add_wizard(
             "Probe the Store after saving it?",
             default=True if configured_check is None else bool(configured_check),
         )
+    return make_default, check
 
-    limitations = selected.get("limitations", [])
+
+def _storage_add_wizard_plan(
+    args: argparse.Namespace,
+    providers_payload: Mapping[str, Any],
+) -> _StorageAddWizardPlan:
+    raw_providers = providers_payload.get("backends", [])
+    providers = (
+        [
+            item
+            for item in raw_providers
+            if isinstance(item, Mapping)
+            and bool(item.get("user_selectable", True))
+        ]
+        if isinstance(raw_providers, list)
+        else []
+    )
+    descriptor = _wizard_backend(providers, getattr(args, "kind", None))
+    kind = str(descriptor["kind"])
+    location_label = {
+        "dir": "Folder path on the Core host",
+        "file": "File/archive path on the Core host",
+        "remote": "Remote root URI or backend address",
+    }.get(str(descriptor.get("location_type")), "Store root")
+    root = _storage_prompt_text(
+        location_label,
+        default=getattr(args, "root", None),
+    )
+    name = _storage_prompt_text(
+        "Store name",
+        default=getattr(args, "name", None) or _default_store_name(root, kind),
+    )
+    role = _storage_prompt_choice(
+        "Choose the Store's operational role:",
+        (
+            ("Primary/live storage", "live"),
+            ("Backup copy", "backup"),
+            ("Archive or sealed artifact", "archive"),
+            ("Read-only ingest source", "source"),
+            ("Rebuildable cache", "cache"),
+        ),
+        default_value=getattr(args, "role", None)
+        or _default_store_role(descriptor),
+    )
+    read_only, online = _wizard_access(args, descriptor)
+    failure_domain, region, tags, option_values = (
+        _wizard_advanced_configuration(args, descriptor)
+    )
+    make_default, check = _wizard_post_save_actions(
+        args,
+        online=online,
+        read_only=read_only,
+        role=role,
+    )
+    return _StorageAddWizardPlan(
+        descriptor=descriptor,
+        kind=kind,
+        root=root,
+        name=name,
+        role=role,
+        read_only=read_only,
+        online=online,
+        failure_domain=failure_domain,
+        region=region,
+        tags=tags,
+        option_values=option_values,
+        make_default=make_default,
+        check=check,
+    )
+
+
+def _print_storage_add_wizard_plan(plan: _StorageAddWizardPlan) -> None:
+    descriptor = plan.descriptor
     print("\nStore configuration plan")
-    print("  name: {}".format(name))
-    print("  backend: {} ({})".format(selected.get("label"), kind))
-    print("  root: {} (interpreted on the Core host)".format(root))
-    print("  role: {}".format(role))
-    print("  access: {}".format("read-only" if read_only else "read/write"))
-    print("  declared state: {}".format("online" if online else "offline"))
-    print("  default Store: {}".format("yes" if make_default else "no"))
-    print("  probe after save: {}".format("yes" if check else "no"))
+    print("  name: {}".format(plan.name))
+    print("  backend: {} ({})".format(descriptor.get("label"), plan.kind))
+    print("  root: {} (interpreted on the Core host)".format(plan.root))
+    print("  role: {}".format(plan.role))
+    print("  access: {}".format("read-only" if plan.read_only else "read/write"))
+    print("  declared state: {}".format("online" if plan.online else "offline"))
+    print("  default Store: {}".format("yes" if plan.make_default else "no"))
+    print("  probe after save: {}".format("yes" if plan.check else "no"))
+    limitations = descriptor.get("limitations", [])
     if limitations and isinstance(limitations, list):
         print("  advertised limitations:")
         for limitation in limitations:
@@ -995,21 +1072,35 @@ def _run_storage_add_wizard(
         "  credentials: not persisted; use backend-native profiles, "
         "environment injection, or a secret provider"
     )
+
+
+def _apply_storage_add_wizard_plan(
+    args: argparse.Namespace,
+    plan: _StorageAddWizardPlan,
+) -> None:
+    args.name = plan.name
+    args.kind = plan.kind
+    args.root = plan.root
+    args.role = plan.role
+    args.read_only = plan.read_only
+    args.offline = not plan.online
+    args.failure_domain = plan.failure_domain
+    args.region = plan.region
+    args.tag = list(plan.tags)
+    args.option = list(plan.option_values)
+    args.default = plan.make_default
+    args.check = plan.check
+
+
+def _run_storage_add_wizard(
+    args: argparse.Namespace,
+    providers_payload: Mapping[str, Any],
+) -> int:
+    plan = _storage_add_wizard_plan(args, providers_payload)
+    _print_storage_add_wizard_plan(plan)
     if not _storage_prompt_yes_no("Save this Store?", default=False):
         raise _StorageAddCancelled
-
-    args.name = name
-    args.kind = kind
-    args.root = root
-    args.role = role
-    args.read_only = read_only
-    args.offline = not online
-    args.failure_domain = failure_domain
-    args.region = region
-    args.tag = tags
-    args.option = option_values
-    args.default = make_default
-    args.check = check
+    _apply_storage_add_wizard_plan(args, plan)
     return cmd_storage_store_add(args)
 
 
@@ -2236,17 +2327,61 @@ def _run_ingest(
     run_id: UUID,
     cancellation_callback: Callable[[], bool],
 ) -> tuple[int, dict[str, object]]:
-    if bool(args.discover_only) or bool(args.preflight_only):
-        with StorageManager() as manager:
-            report = _coordinator(
-                manager,
-                args,
-                cancellation_callback=cancellation_callback,
-            ).ingest(source_root, discovery_only=True, run_id=run_id)
+    discovery_only = bool(args.discover_only) or bool(args.preflight_only)
+    database_path = (
+        None
+        if discovery_only
+        else Path(str(args.database)).expanduser().resolve(strict=False)
+    )
+    captured_stdout = (
+        None
+        if discovery_only
+        else LoggingTextStream(
+            _LOGGER,
+            level=logging.DEBUG,
+            stream_name="database_stdout",
+        )
+    )
+
+    def application_event(
+        level: int,
+        event: str,
+        message: str,
+        details: Mapping[str, object],
+    ) -> None:
+        _log(level, event, message, run_id=run_id, **dict(details))
+
+    result = execute_mixed_ingest(
+        MixedIngestApplicationRequest(
+            source_root=source_root,
+            run_id=run_id,
+            budget=_budget(args),
+            discovery_only=discovery_only,
+            database_path=database_path,
+            recursive_filesystem=not bool(args.no_recursive_filesystem),
+            recurse_containers=not bool(args.no_nested_containers),
+            expand_ebook_containers=bool(args.expand_ebook_containers),
+            continue_on_error=not bool(args.strict),
+            verify=bool(args.verify),
+            materialization_root=args.materialization_root,
+            unsquashfs_exe=str(args.unsquashfs_exe),
+            rar_extractor_exe=args.rar_extractor_exe,
+            backend_timeout_s=float(args.backend_timeout_seconds),
+            log_checkpoint_every=int(args.log_checkpoint_every),
+            progress_callback=(
+                None if bool(args.no_console_progress) else _console_progress
+            ),
+            cancellation_callback=cancellation_callback,
+            event_callback=application_event,
+            database_stdout=captured_stdout,
+        )
+    )
+    report = result.report
+    if discovery_only:
         payload: dict[str, object] = {
             "mode": "preflight" if args.preflight_only else "discovery",
             "ok": report.ok,
-            "budget": _budget(args),
+            "budget": result.budget,
             "report": report,
         }
         if args.preflight_only:
@@ -2271,111 +2406,16 @@ def _run_ingest(
                 failed_checks=sum(not bool(check["ok"]) for check in checks),
             )
         return (EXIT_OK if bool(payload["ok"]) else EXIT_ISSUES), payload
-
-    assert args.database
-    database_path = Path(args.database).expanduser().resolve(strict=False)
-    create = not database_path.exists()
-    _log(
-        logging.INFO,
-        "database_open_started",
-        "Opening LiuXin catalogue",
-        run_id=run_id,
-        database=str(database_path),
-        create=create,
-    )
-    captured_stdout = LoggingTextStream(
-        _LOGGER,
-        level=logging.DEBUG,
-        stream_name="database_stdout",
-    )
-    try:
-        with redirect_stdout(captured_stdout):
-            database = Database(
-                metadata={"database_path": str(database_path)},
-                db_type="SQLite",
-                create=create,
-                backup=False,
-                enable_storage_manager=False,
-            )
-    finally:
-        captured_stdout.flush()
-    _log(
-        logging.INFO,
-        "database_open_complete",
-        "LiuXin catalogue opened",
-        run_id=run_id,
-        database=str(database_path),
-        created=create,
-    )
-    manager = StorageManager(db=database, startup_on_add=True)
-    with database, manager:
-        if not create:
-            bootstrap = manager.load_from_database(startup=True)
-            for issue in bootstrap.issues:
-                _log(
-                    logging.WARNING,
-                    "store_bootstrap_issue",
-                    "Store bootstrap warning",
-                    run_id=run_id,
-                    store_ref=(
-                        None if issue.store_ref is None else str(issue.store_ref)
-                    ),
-                    store_name=issue.store_name,
-                    reason=issue.reason,
-                )
-            _log(
-                logging.INFO if bootstrap.ok else logging.WARNING,
-                "store_bootstrap_complete",
-                "Store bootstrap complete",
-                run_id=run_id,
-                discovered_configurations=bootstrap.discovered_configurations,
-                loaded_stores=bootstrap.loaded_stores,
-                skipped_configurations=bootstrap.skipped_configurations,
-                failed_configurations=bootstrap.failed_configurations,
-                issue_count=len(bootstrap.issues),
-                ok=bootstrap.ok,
-            )
-        report = _coordinator(
-            manager,
-            args,
-            cancellation_callback=cancellation_callback,
-        ).ingest(source_root, run_id=run_id)
-        payload = {
-            "mode": "ingest",
-            "database": str(database_path),
-            "metadata_is_durable": manager.metadata_is_durable,
-            "budget": _budget(args),
-            "ok": report.ok,
-            "report": report,
-        }
-    return (EXIT_OK if report.ok else EXIT_ISSUES), payload
-
-
-def _coordinator(
-    manager: api.StorageManagerAPI,
-    args: argparse.Namespace,
-    *,
-    cancellation_callback: Callable[[], bool],
-) -> MixedFormatIngestCoordinator:
-    return MixedFormatIngestCoordinator(
-        manager,
-        budget=_budget(args),
-        recursive_filesystem=not bool(args.no_recursive_filesystem),
-        recurse_containers=not bool(args.no_nested_containers),
-        expand_ebook_containers=bool(args.expand_ebook_containers),
-        continue_on_error=not bool(args.strict),
-        verify_source_files=bool(args.verify),
-        verify_members=bool(args.verify),
-        materialization_root=args.materialization_root,
-        unsquashfs_exe=str(args.unsquashfs_exe),
-        rar_extractor_exe=args.rar_extractor_exe,
-        backend_timeout_s=float(args.backend_timeout_seconds),
-        progress_callback=(
-            None if bool(args.no_console_progress) else _console_progress
-        ),
-        cancellation_callback=cancellation_callback,
-        log_checkpoint_every=int(args.log_checkpoint_every),
-    )
+    assert result.database_path is not None
+    payload = {
+        "mode": result.mode,
+        "database": str(result.database_path),
+        "metadata_is_durable": result.metadata_is_durable,
+        "budget": result.budget,
+        "ok": result.ok,
+        "report": report,
+    }
+    return (EXIT_OK if result.ok else EXIT_ISSUES), payload
 
 
 def _console_progress(event: str, details: Mapping[str, object]) -> None:
@@ -2611,10 +2651,31 @@ def _validate_paths(
     report_path: Path,
     lock_path: Path | None,
 ) -> None:
+    _validate_source_root(source_root)
+    _validate_run_control_paths(
+        args,
+        source_root=source_root,
+        report_path=report_path,
+        lock_path=lock_path,
+    )
+    _validate_database_path(args, source_root=source_root)
+    _validate_materialization_path(args, source_root=source_root)
+
+
+def _validate_source_root(source_root: Path) -> None:
     if not source_root.exists():
         raise CLIUsageError(f"source root does not exist: {source_root}")
     if not source_root.is_dir():
         raise CLIUsageError(f"source root is not a directory: {source_root}")
+
+
+def _validate_run_control_paths(
+    args: argparse.Namespace,
+    *,
+    source_root: Path,
+    report_path: Path,
+    lock_path: Path | None,
+) -> None:
     if _path_is_within(report_path, source_root):
         raise CLIUsageError("--report-file must be outside --source-root")
     if report_path.exists() and not bool(args.replace_report):
@@ -2623,22 +2684,38 @@ def _validate_paths(
         )
     if lock_path is not None and _path_is_within(lock_path, source_root):
         raise CLIUsageError("--lock-file must be outside --source-root")
-    if args.database:
-        database_path = Path(args.database).expanduser().resolve(strict=False)
-        if _path_is_within(database_path, source_root):
-            raise CLIUsageError("--database must be outside --source-root")
-        if database_path.exists() and not database_path.is_file():
-            raise CLIUsageError(f"database path is not a file: {database_path}")
-        if bool(args.require_existing_database) and not database_path.is_file():
-            raise CLIUsageError(f"database does not exist: {database_path}")
-    if args.materialization_root:
-        materialization = Path(args.materialization_root).expanduser().resolve(
-            strict=False
+
+
+def _validate_database_path(
+    args: argparse.Namespace,
+    *,
+    source_root: Path,
+) -> None:
+    if not args.database:
+        return
+    database_path = Path(args.database).expanduser().resolve(strict=False)
+    if _path_is_within(database_path, source_root):
+        raise CLIUsageError("--database must be outside --source-root")
+    if database_path.exists() and not database_path.is_file():
+        raise CLIUsageError(f"database path is not a file: {database_path}")
+    if bool(args.require_existing_database) and not database_path.is_file():
+        raise CLIUsageError(f"database does not exist: {database_path}")
+
+
+def _validate_materialization_path(
+    args: argparse.Namespace,
+    *,
+    source_root: Path,
+) -> None:
+    if not args.materialization_root:
+        return
+    materialization = Path(args.materialization_root).expanduser().resolve(
+        strict=False
+    )
+    if _path_is_within(materialization, source_root):
+        raise CLIUsageError(
+            "--materialization-root must be outside --source-root"
         )
-        if _path_is_within(materialization, source_root):
-            raise CLIUsageError(
-                "--materialization-root must be outside --source-root"
-            )
 
 
 def _log_directory(args: argparse.Namespace, source_root: Path) -> Path:

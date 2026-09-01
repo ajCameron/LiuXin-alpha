@@ -752,10 +752,9 @@ class CoreApplicationAPI:
         *,
         include_relations: bool = True,
     ) -> dict[str, Any]:
-        source = runtime.services.read_source
         database = runtime.services.database
         wrapper = database.driver_wrapper
-        columns = [str(value) for value in source.get_column_headings(table)]
+        columns = [str(value) for value in database.get_column_headings(table)]
         try:
             is_view = bool(wrapper.is_view(table))
         except Exception:
@@ -781,11 +780,20 @@ class CoreApplicationAPI:
                 )
             except Exception:
                 related_tables = []
+        write_block_reason: str | None = None
+        if is_view:
+            write_block_reason = "Views and compatibility surfaces are read-only."
+        elif table in {"database_version", "languages"}:
+            write_block_reason = (
+                "This table is managed reference data and is read-only."
+            )
         return {
             "name": table,
             "columns": columns,
             "id_column": id_column,
             "is_view": is_view,
+            "writable": write_block_reason is None,
+            "write_block_reason": write_block_reason,
             "related_tables": related_tables,
             "relations_included": include_relations,
         }
@@ -798,9 +806,7 @@ class CoreApplicationAPI:
         del query
         tables = sorted(
             str(value)
-            for value in runtime.services.read_source.get_tables(
-                force_refresh=False
-            )
+            for value in runtime.services.database.get_tables()
         )
         return {
             "tables": [
@@ -822,9 +828,7 @@ class CoreApplicationAPI:
         table = _required_text(_payload(query), "table")
         tables = {
             str(value)
-            for value in runtime.services.read_source.get_tables(
-                force_refresh=False
-            )
+            for value in runtime.services.database.get_tables()
         }
         if table not in tables:
             raise CoreDispatchError("Unknown readable table: {!r}.".format(table))
@@ -2052,10 +2056,13 @@ class CoreApplicationAPI:
         extra = payload.get("extra", {})
         if not isinstance(extra, Mapping):
             raise CoreDispatchError("`extra` must be an object.")
+        priority = payload.get("priority", "highest")
+        if priority is None:
+            priority = "highest"
         database.interlink_rows(
             primary_row=primary,
             secondary_row=secondary,
-            priority=payload.get("priority"),
+            priority=priority,
             type=payload.get("type"),
             **dict(extra),
         )

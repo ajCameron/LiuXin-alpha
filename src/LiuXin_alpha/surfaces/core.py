@@ -52,6 +52,8 @@ class CoreRow(Mapping[str, Any]):
 
 @dataclass(frozen=True)
 class CoreRowPage:
+    """Stable page of row mappings returned by a Core surface query."""
+
     records: tuple[CoreRow, ...]
     total_count: int
     offset: int
@@ -745,13 +747,23 @@ class CoreDriverView:
         return str(table).removesuffix("_links").removesuffix("_link")
 
     def get_datestamp_column(self, table: str) -> str | None:
-        for column in self.model.columns(table):
+        columns = self.model.columns(table)
+        if "datestamp" in columns:
+            return "datestamp"
+        candidates: list[str] = []
+        for column in columns:
             lowered = column.lower()
-            if "datestamp" in lowered or lowered.endswith(
-                ("_timestamp_ep_k", "_modified")
+            if lowered.endswith(
+                (
+                    "_datestamp",
+                    "_datestamp_ep_k",
+                    "_timestamp",
+                    "_timestamp_ep_k",
+                    "_modified",
+                )
             ):
-                return column
-        return None
+                candidates.append(column)
+        return min(candidates, key=len) if candidates else None
 
     def get_blank_row(self, table: str) -> dict[str, Any]:
         return {column: None for column in self.model.columns(table)}
@@ -974,6 +986,14 @@ def add_core_client_arguments(
     *,
     database_help: str = "Path to the LiuXin database.",
 ) -> argparse.ArgumentParser:
+    """
+    Add mutually exclusive LiuXin Core connection arguments to a parser.
+
+
+    :param parser:
+    :param database_help:
+    :return:
+    """
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument("--database", help=database_help)
     group.add_argument(
@@ -1013,6 +1033,22 @@ def open_surface_core_from_args(
     enable_maintenance: bool = False,
     repair_bootstrap_rows: bool = False,
 ) -> SurfaceCoreSession:
+    """
+    Open a local or remote surface Core session from parsed arguments.
+
+
+    :param args:
+    :param cache_type:
+    :param cache_allow_database_fallback:
+    :param enable_storage_manager:
+    :param create:
+    :param backup:
+    :param strict_storage_manager_bootstrap:
+    :param storage_startup_on_add:
+    :param enable_maintenance:
+    :param repair_bootstrap_rows:
+    :return:
+    """
     from LiuXin_alpha.surfaces.system_profile import apply_system_profile
 
     apply_system_profile(args)

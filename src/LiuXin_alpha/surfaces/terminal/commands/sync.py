@@ -575,8 +575,7 @@ class SyncStoreCommand(TerminalCommandAPI):
             )
             return True
 
-        browser.emit_detail_sections(
-            [
+        detail_sections = [
                 (
                     "Store",
                     [
@@ -601,7 +600,38 @@ class SyncStoreCommand(TerminalCommandAPI):
                         ("errors", len(report.get("errors", ()) or ())),
                     ],
                 ),
-            ],
+            ]
+        if mode in {"wget", "native"}:
+            detail_sections.append(
+                (
+                    "Crawler",
+                    [
+                        (
+                            "crawler_urls_observed",
+                            report.get("crawler_urls_observed", 0),
+                        ),
+                        ("crawler_html_seen", report.get("crawler_html_seen", 0)),
+                        (
+                            "crawler_book_like_found",
+                            report.get("crawler_book_like_found", 0),
+                        ),
+                        (
+                            "crawler_html_rejected",
+                            report.get("crawler_html_rejected", 0),
+                        ),
+                        (
+                            "crawler_rejections",
+                            json.dumps(
+                                report.get("crawler_rejection_counts", {}) or {},
+                                ensure_ascii=False,
+                                sort_keys=True,
+                            ),
+                        ),
+                    ],
+                )
+            )
+        browser.emit_detail_sections(
+            detail_sections,
             title="Sync completed:",
             max_cell_width=120,
         )
