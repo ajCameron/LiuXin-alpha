@@ -1,3 +1,5 @@
+"""Calibre-compatible file, cover, and thumbnail acquisition workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -46,6 +48,8 @@ def _cover_dimensions(*, suffix: str, query: dict[str, list[str]], thumb: bool) 
 
 @dataclass
 class AcquisitionCompatApi:
+    """Serve Calibre-compatible files and images through an explicit host port."""
+
     host: AcquisitionHostApi
 
     def __post_init__(self) -> None:

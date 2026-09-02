@@ -17,6 +17,8 @@ TaskCallback = Callable[["TkGuiTaskResult"], None]
 
 @dataclass(frozen=True)
 class TkGuiTaskResult:
+    """Success or failure delivered from a worker back to the Tk thread."""
+
     task_id: str
     name: str
     ok: bool
@@ -27,6 +29,8 @@ class TkGuiTaskResult:
 
 @dataclass(frozen=True)
 class TkGuiTaskHandle:
+    """Caller-facing identity and cancellation handle for background work."""
+
     task_id: str
     name: str
     future: Future

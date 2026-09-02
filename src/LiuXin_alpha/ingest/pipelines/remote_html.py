@@ -1,3 +1,5 @@
+"""Persist remote-HTML discovery results and their provenance metadata."""
+
 from __future__ import annotations
 
 import mimetypes
@@ -276,6 +278,24 @@ def ingest_html_discovery_store_files(
     incremental_db_writes: bool,
     progress_callback: Optional[ProgressCallback],
 ) -> RemoteHtmlRegistrationReport:
+    """
+    Register files discovered from a remote HTML store in the catalogue.
+
+
+    :param db:
+    :param store_row:
+    :param store_url:
+    :param store_name_value:
+    :param discovery_source:
+    :param mode:
+    :param ebook_extensions:
+    :param source_label:
+    :param attach_store_links:
+    :param refresh_storage_manager:
+    :param incremental_db_writes:
+    :param progress_callback:
+    :return:
+    """
     tables, _, file_columns, link_columns = _ensure_schema_support(db)
     store_id = int(store_row.row_id if store_row.row_id is not None else store_row["store_id"])
     report = RemoteHtmlRegistrationReport(

@@ -259,6 +259,13 @@ def collect_doctor_report(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
+    """
+    Execute the `doctor` CLI command.
+
+
+    :param args:
+    :return:
+    """
     report = collect_doctor_report(args)
     emit_json(_redact_diagnostic_value(report), args)
     return 0 if report["ok"] else 1
@@ -318,6 +325,13 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_diagnostics_collect(args: argparse.Namespace) -> int:
+    """
+    Execute the `diagnostics collect` CLI command.
+
+
+    :param args:
+    :return:
+    """
     report = collect_doctor_report(args)
     failed_job_logs: list[dict[str, Any]] = []
     jobs = report.get("sections", {}).get("failed_jobs", {})
@@ -371,6 +385,13 @@ def cmd_diagnostics_collect(args: argparse.Namespace) -> int:
 def build_diagnostics_parsers(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `diagnostics` command-line parser family.
+
+
+    :param subparsers:
+    :return:
+    """
     doctor = subparsers.add_parser(
         "doctor",
         help="Check whether the selected LiuXin system is ready to operate.",

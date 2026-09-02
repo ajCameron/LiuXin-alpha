@@ -1,3 +1,5 @@
+"""Public entry point for LiuXin's operator command-line interface."""
+
 from __future__ import annotations
 
 def main(argv: list[str] | None = None) -> int:

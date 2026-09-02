@@ -1,8 +1,4 @@
-"""
-COMMAND-LINE SPECIFIC STUFF
-=============================================================================
-
-"""
+"""Command-line entry point for the bundled Markdown converter."""
 from __future__ import annotations
 
 import sys

@@ -43,16 +43,20 @@ The full-suite helper also expects this repo-local venv:
 bash scripts/run_full_test_suite.sh
 ```
 
-Run the strict static typing target set with:
+Run the enforced modern maintainability and typing ratchet with:
 
 ```bash
 bash scripts/run_type_checks.sh
 ```
 
-The type-check helper installs the `typing` extra into `.venv`, verifies
-complete callable annotations across `file_formats`, and then runs
-`basedpyright` and `mypy` over the configured strict targets. Use
-`--skip-install` to reuse an already prepared environment.
+The helper runs offline against the prepared `.venv`: it verifies complete
+callable annotations across `file_formats`, rejects cycles in protected modern
+API seams, enforces a complexity ceiling on modern orchestration, lints newly
+ratcheted modules with Ruff, and runs `basedpyright` and `mypy` over a
+zero-error target. Use `--install` when the `typing` extra still needs to be
+installed or updated. The target is deliberately ratcheted rather than
+claiming that inherited compatibility code is already strict. See
+`dev-docs/maintainability-quality-gates.md` for scope and expansion rules.
 
 ## Storage ingest CLI
 

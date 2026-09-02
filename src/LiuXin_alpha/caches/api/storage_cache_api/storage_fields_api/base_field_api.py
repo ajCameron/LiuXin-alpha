@@ -1,3 +1,5 @@
+"""Field-level cache contracts for scalar values and table relations."""
+
 from __future__ import annotations
 
 import abc

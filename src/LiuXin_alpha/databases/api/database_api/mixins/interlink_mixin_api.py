@@ -1,3 +1,5 @@
+"""Database facade contracts for relationships between main tables."""
+
 from __future__ import annotations
 
 import abc
@@ -244,5 +246,3 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
     @abc.abstractmethod
     def unlink_all(self, primary_row: "RowAPI", secondary_table: str, type_filter: Optional[str] = None) -> None:
         """Remove all interlinks from primary_row to rows in secondary_table (optionally filtering by type)."""
-
-

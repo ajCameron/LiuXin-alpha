@@ -132,6 +132,8 @@ def column_options_from_json(
 
 
 class ColumnSemanticRole(str, Enum):
+    """Classify the application meaning of a physical database column."""
+
     MACHINE_VALUE = "machine_value"
     IDENTIFIER = "identifier"
     RELATIONSHIP_KEY = "relationship_key"
@@ -156,6 +158,8 @@ class ColumnSemanticRole(str, Enum):
 
 
 class ColumnNormalizationProfile(str, Enum):
+    """Name the canonical normalization applied before value comparison."""
+
     NONE = "none"
     UNICODE_NFC = "unicode_nfc"
     UNICODE_NFC_TRIM_CASEFOLD = "unicode_nfc_trim_casefold"
@@ -164,12 +168,16 @@ class ColumnNormalizationProfile(str, Enum):
 
 
 class ColumnEmptyValuePolicy(str, Enum):
+    """Define when null or blank column values count as missing."""
+
     NULL_IS_MISSING = "null_is_missing"
     NULL_OR_BLANK_IS_MISSING = "null_or_blank_is_missing"
     PRESERVE = "preserve"
 
 
 class ColumnMergePolicy(str, Enum):
+    """Define how an incoming value combines with an existing value."""
+
     REPLACE = "replace"
     SET_UNION = "set_union"
     APPEND = "append"
@@ -177,6 +185,8 @@ class ColumnMergePolicy(str, Enum):
 
 
 class ColumnValidationProfile(str, Enum):
+    """Name the semantic validation applied before a column write."""
+
     NONE = "none"
     IDENTIFIER = "identifier"
     CODE = "code"

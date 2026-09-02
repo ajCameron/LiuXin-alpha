@@ -1,7 +1,11 @@
+"""Metadata SQL macros for series catalogue rows."""
+
 
 
 
 class CMSeriesMacrosMixin:
+    """Implement series-row metadata macros."""
+
 
 
     def library_unset_series(self, title_id, series_id):

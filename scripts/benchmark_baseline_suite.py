@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Run and consolidate LiuXin's representative performance baselines."""
+
 from __future__ import annotations
 
 import argparse

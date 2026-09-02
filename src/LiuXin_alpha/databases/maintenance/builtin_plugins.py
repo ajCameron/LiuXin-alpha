@@ -20,6 +20,8 @@ from LiuXin_alpha.databases.maintenance.plugins import (
 
 
 class CreatorSortMaintenancePlugin(MaintenancePluginBase):
+    """Maintain normalized creator sort values after relevant row changes."""
+
     name = "creator-sort"
     priority = 50
 

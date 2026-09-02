@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Benchmark representative user-surface routing and rendering paths."""
+
 from __future__ import annotations
 
 import argparse

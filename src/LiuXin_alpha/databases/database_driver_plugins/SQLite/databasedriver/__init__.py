@@ -1,3 +1,5 @@
+"""SQLite implementation of LiuXin's portable database-driver contract."""
+
 # This class is intended to be linked to a specific instance of a DatabasePing.
 # The internals of the database are deliberately separated here, to make changes more directly without influencing the
 # DatabasePing class itself

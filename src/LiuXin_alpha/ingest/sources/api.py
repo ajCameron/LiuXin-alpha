@@ -1,3 +1,5 @@
+"""Protocol shared by URL discovery-source implementations."""
+
 from __future__ import annotations
 
 import abc

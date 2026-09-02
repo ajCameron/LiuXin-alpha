@@ -145,6 +145,13 @@ def _connection_json(parser: argparse.ArgumentParser) -> None:
 def build_core_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `core` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "core", help="Inspect Core health/contracts or serve a guarded local daemon."
     )

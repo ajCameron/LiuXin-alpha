@@ -1,3 +1,5 @@
+"""Database facade contracts for library identity and metadata access."""
+
 from __future__ import annotations
 
 import abc

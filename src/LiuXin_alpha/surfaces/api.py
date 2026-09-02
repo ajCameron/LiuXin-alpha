@@ -1,3 +1,5 @@
+"""Host protocols that keep user-interface surfaces independent of Core internals."""
+
 from __future__ import annotations
 
 from typing import Callable, Iterable, Optional, Protocol, TypeAlias
@@ -14,6 +16,8 @@ SurfaceWorkMetadataPayload: TypeAlias = dict[str, object]
 
 
 class SurfaceResponseAPI(Protocol):
+    """Minimal streaming HTTP response shape returned by surface adapters."""
+
     status: str
     headers: list[tuple[str, str]]
     body: Iterable[bytes]
@@ -21,12 +25,16 @@ class SurfaceResponseAPI(Protocol):
 
 
 class ResolvedFileTargetAPI(Protocol):
+    """Resolved acquisition target without exposing storage implementation state."""
+
     mode: str
     location: str
     download_name: str
 
 
 class ImageHostApi(Protocol):
+    """Host operations required by the reusable image backend."""
+
     @property
     def core(self) -> CoreClientAPI: ...
 
@@ -40,6 +48,8 @@ class ImageHostApi(Protocol):
 
 
 class ReadModelHostApi(Protocol):
+    """Host operations required to build surface-facing catalogue projections."""
+
     @property
     def core(self) -> CoreClientAPI: ...
 
@@ -72,10 +82,14 @@ class ReadModelHostApi(Protocol):
 
 
 class CalibreCatalogHostApi(ReadModelHostApi, Protocol):
+    """Additional search operation required by Calibre-compatible catalogues."""
+
     def _global_search_entries(self, query_text: str, *, table_filter: str = "") -> list[SurfaceSearchEntry]: ...
 
 
 class AcquisitionHostApi(Protocol):
+    """Host response and Core operations required by acquisition routes."""
+
     @property
     def core(self) -> CoreClientAPI: ...
 
@@ -98,6 +112,8 @@ class AcquisitionHostApi(Protocol):
 
 
 class OpdsHostApi(Protocol):
+    """Host projection and response operations required by OPDS routes."""
+
     @property
     def config(self) -> object: ...
 

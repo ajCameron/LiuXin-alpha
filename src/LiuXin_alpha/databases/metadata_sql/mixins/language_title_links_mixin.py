@@ -1,9 +1,13 @@
+"""Metadata SQL macros for language-to-title relationships."""
+
 
 
 from LiuXin_alpha.errors import DatabaseIntegrityError
 
 
 class CMLanguageTitleLinks:
+    """Implement language-to-title relationship macros."""
+
 
 
     # Todo: primary_language table

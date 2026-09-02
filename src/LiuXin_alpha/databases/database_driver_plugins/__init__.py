@@ -18,6 +18,13 @@ from LiuXin_alpha.databases.database_driver_plugins.registry import (
 # Todo: NO SHIMS
 # Backwards-compatible public name.
 def loadDatabaseDriver(db_type: str):
+    """
+    Load a registered database driver through the legacy public name.
+
+
+    :param db_type:
+    :return:
+    """
     return load_database_driver(db_type)
 
 

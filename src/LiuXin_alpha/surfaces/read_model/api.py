@@ -1,3 +1,5 @@
+"""Read-only catalogue facade used by web and protocol surfaces."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,6 +14,8 @@ from LiuXin_alpha.surfaces.web_readonly.app import _ResolvedFileTarget, _escape,
 
 @dataclass
 class ReadModelBackend:
+    """Project Core catalogue queries into stable surface-facing mappings."""
+
     host: ReadModelHostApi
     images: Optional[ImageBackend] = None
     model: CoreSurfaceModel | None = None

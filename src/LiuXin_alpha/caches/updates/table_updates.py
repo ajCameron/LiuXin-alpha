@@ -226,7 +226,7 @@ class ManyOneInterlinkTableUpdate:
 
 
 class ManyOneInterLinkTableUpdateResults(OneManyInterLinkTableUpdateResults):
-    ...
+    """Result aliases for a many-to-one update viewed from its source side."""
 
 
 
@@ -281,7 +281,6 @@ class ManyManyInterLinkTableUpdateResults(OneManyInterLinkTableUpdateResults):
     """
     The results of updating a Many to Many table.
     """
-
 
 
 

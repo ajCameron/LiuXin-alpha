@@ -1,3 +1,5 @@
+"""Read-side helpers shared by link-table storage-cache contracts."""
+
 from __future__ import annotations
 
 import abc

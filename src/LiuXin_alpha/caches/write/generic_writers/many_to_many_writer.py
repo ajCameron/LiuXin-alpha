@@ -1,3 +1,5 @@
+"""Generic writer for many-to-many cache-backed relationships."""
+
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 from copy import deepcopy
@@ -16,6 +18,8 @@ from LiuXin_alpha.utils.text.icu import safe_lower, strcmp
 
 
 class ManyToManyWriter(BaseWriter):
+    """Coordinate database and cache changes for legacy many-to-many fields."""
+
     def __init__(self, field):
         super(ManyToManyWriter, self).__init__(field)
         self.set_books_func = self.generic_many_many

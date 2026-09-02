@@ -1,3 +1,5 @@
+"""PostgreSQL validation, bootstrap, schema, and connection CLI commands."""
+
 from __future__ import annotations
 
 import argparse
@@ -55,6 +57,13 @@ def _metadata_from_args(args: argparse.Namespace) -> dict[str, object]:
 
 
 def cmd_postgres_check(args: argparse.Namespace) -> int:
+    """
+    Execute the `postgres check` CLI command.
+
+
+    :param args:
+    :return:
+    """
     check_schema = not bool(getattr(args, "connect_only", False))
     password = configured_postgres_password(getattr(args, "password", None))
     result = run_postgres_self_test(
@@ -85,6 +94,13 @@ def cmd_postgres_check(args: argparse.Namespace) -> int:
 
 
 def cmd_postgres_schema_sql(args: argparse.Namespace) -> int:
+    """
+    Execute the `postgres schema sql` CLI command.
+
+
+    :param args:
+    :return:
+    """
     for statement in build_schema_statements(schema=str(args.schema)):
         print(statement.rstrip(";") + ";")
     return 0
@@ -101,6 +117,13 @@ def _check_passed(result: dict[str, object], name: str) -> bool:
 
 
 def cmd_postgres_init(args: argparse.Namespace) -> int:
+    """
+    Execute the `postgres init` CLI command.
+
+
+    :param args:
+    :return:
+    """
     metadata = _metadata_from_args(args)
     schema = configured_postgres_schema(metadata)
     conn = connect_postgres(
@@ -188,6 +211,13 @@ def _write_postgres_system_manifest(
 
 
 def cmd_postgres_write_env(args: argparse.Namespace) -> int:
+    """
+    Execute the `postgres write env` CLI command.
+
+
+    :param args:
+    :return:
+    """
     path = write_postgres_env_file(
         args.output,
         url=args.url,
@@ -207,6 +237,13 @@ def cmd_postgres_write_env(args: argparse.Namespace) -> int:
 
 
 def cmd_postgres_grant_sql(args: argparse.Namespace) -> int:
+    """
+    Execute the `postgres grant sql` CLI command.
+
+
+    :param args:
+    :return:
+    """
     for statement in build_runtime_grant_statements(
         role=str(args.role),
         schema=str(args.schema),
@@ -217,6 +254,13 @@ def cmd_postgres_grant_sql(args: argparse.Namespace) -> int:
 
 
 def cmd_postgres_setup_sql(args: argparse.Namespace) -> int:
+    """
+    Execute the `postgres setup sql` CLI command.
+
+
+    :param args:
+    :return:
+    """
     for statement in build_postgres_setup_statements(
         database=str(args.database),
         owner_role=str(args.owner_role),
@@ -239,6 +283,13 @@ def _print_sql_statement(statement: str) -> None:
 
 
 def cmd_postgres_grant_runtime_role(args: argparse.Namespace) -> int:
+    """
+    Execute the `postgres grant runtime role` CLI command.
+
+
+    :param args:
+    :return:
+    """
     result = grant_runtime_role_privileges(
         _metadata_from_args(args),
         args.url,
@@ -262,6 +313,13 @@ def cmd_postgres_grant_runtime_role(args: argparse.Namespace) -> int:
 def build_postgres_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `postgres` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "postgres",
         help="PostgreSQL backend setup and readiness checks.",

@@ -1,8 +1,6 @@
 
 
-"""
-Path manip tools.
-"""
+"""Legacy path, preference-directory, and filename normalization helpers."""
 
 from __future__ import unicode_literals, print_function
 

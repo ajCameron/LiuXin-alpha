@@ -1,7 +1,5 @@
 
-"""
-Loads the plugins
-"""
+"""Discover native and Python plugins through LiuXin's fallback chain."""
 
 # LiuXin_alpha/utils/plugins/__init__.py
 from __future__ import annotations

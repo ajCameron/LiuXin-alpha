@@ -16,6 +16,13 @@ from .state import TableSchema, TkGuiConfig, coerce_positive_int
 
 
 def run_tkinter_gui(config: TkGuiConfig) -> int:
+    """
+    Start the Tkinter operator interface with the supplied configuration.
+
+
+    :param config:
+    :return:
+    """
     tk, _ttk, _filedialog, _messagebox = open_tk_modules()
     root = tk.Tk()
     backend = TkGuiBackend.open_database(config)
@@ -28,6 +35,12 @@ def run_tkinter_gui(config: TkGuiConfig) -> int:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Build the Tkinter operator-interface command-line parser.
+
+
+    :return:
+    """
     parser = argparse.ArgumentParser(description="Run the LiuXin Tkinter GUI.")
     add_core_client_arguments(
         parser,
@@ -71,6 +84,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def config_from_args(args: argparse.Namespace) -> TkGuiConfig:
+    """
+    Build Tkinter application configuration from parsed arguments.
+
+
+    :param args:
+    :return:
+    """
     return TkGuiConfig(
         database=(
             None
@@ -92,6 +112,13 @@ def config_from_args(args: argparse.Namespace) -> TkGuiConfig:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    """
+    Run the tkinter gui command-line entry point.
+
+
+    :param argv:
+    :return:
+    """
     parser = build_arg_parser()
     args = parser.parse_args(argv)
     return run_tkinter_gui(config_from_args(args))

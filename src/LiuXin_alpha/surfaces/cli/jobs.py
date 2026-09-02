@@ -164,6 +164,13 @@ def _connection_json(parser: argparse.ArgumentParser) -> None:
 def build_jobs_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `jobs` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "jobs",
         help="List, inspect, follow, retrieve, retry, and cancel managed jobs.",

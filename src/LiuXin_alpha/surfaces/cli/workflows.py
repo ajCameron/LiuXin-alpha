@@ -472,6 +472,13 @@ def _job_parser(parser: argparse.ArgumentParser) -> None:
 def build_ingest_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `ingest` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "ingest",
         help="Point LiuXin at local material or submit a managed Core-host ingest.",
@@ -514,6 +521,13 @@ def build_ingest_parser(
 def build_conversion_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `conversion` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "convert", aliases=["conversion"], help="Inspect or submit ebook conversions on the Core host."
     )
@@ -537,6 +551,13 @@ def build_conversion_parser(
 def build_backup_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `backup` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "backup",
         help="Manage storage backups and verify or restore database backups.",
@@ -603,6 +624,13 @@ def build_backup_parser(
 def build_database_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `database` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "database", aliases=["db"], help="Inspect and perform bounded database upkeep."
     )
@@ -652,6 +680,13 @@ def build_database_parser(
 def build_maintenance_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `maintenance` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "maintenance", help="Inspect duplicates and explicitly run guarded repair work."
     )

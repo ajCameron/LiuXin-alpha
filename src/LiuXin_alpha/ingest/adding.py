@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
+"""Legacy filesystem filtering and discovery helpers for book ingestion."""
+
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
@@ -192,6 +194,8 @@ def allow_path(path: Union[str, os.PathLike[str]],
 
 
 class ListdirFn(Protocol):
+    """Injectable directory-listing operation used by discovery tests and callers."""
+
     def __call__(
         self,
         root: str | os.PathLike[str],

@@ -76,6 +76,14 @@ def open_cli_core(
 
 
 def json_bytes(value: Any, *, compact: bool = False) -> bytes:
+    """
+    Serialize a value as UTF-8 JSON bytes for CLI output.
+
+
+    :param value:
+    :param compact:
+    :return:
+    """
     text = json.dumps(
         value,
         ensure_ascii=True,
@@ -175,11 +183,29 @@ def emit_bytes(
     replace: bool = False,
     mode: int | None = None,
 ) -> None:
+    """
+    Write bytes to the selected CLI output stream or file.
+
+
+    :param payload:
+    :param output:
+    :param replace:
+    :param mode:
+    :return:
+    """
     with atomic_binary_output(output, replace=replace, mode=mode) as stream:
         stream.write(payload)
 
 
 def emit_json(value: Any, args: argparse.Namespace) -> None:
+    """
+    Serialize and emit a value as CLI JSON output.
+
+
+    :param value:
+    :param args:
+    :return:
+    """
     emit_bytes(
         json_bytes(value, compact=bool(getattr(args, "compact", False))),
         output=getattr(args, "output", "-"),
@@ -188,6 +214,13 @@ def emit_json(value: Any, args: argparse.Namespace) -> None:
 
 
 def add_json_output(parser: argparse.ArgumentParser) -> None:
+    """
+    Add common JSON-output options to a command-line parser.
+
+
+    :param parser:
+    :return:
+    """
     parser.add_argument(
         "--output",
         default="-",
@@ -202,6 +235,14 @@ def add_json_output(parser: argparse.ArgumentParser) -> None:
 
 
 def load_json_file(path: str | Path, *, max_bytes: int = MAX_CONTROL_FILE_BYTES) -> Any:
+    """
+    Load JSON from a filesystem path for a CLI command.
+
+
+    :param path:
+    :param max_bytes:
+    :return:
+    """
     source = Path(path).expanduser()
     with source.open("rb") as stream:
         content = stream.read(max_bytes + 1)
@@ -218,6 +259,13 @@ def load_json_file(path: str | Path, *, max_bytes: int = MAX_CONTROL_FILE_BYTES)
 
 
 def load_json_object(path: str | Path) -> dict[str, Any]:
+    """
+    Load a JSON object and reject non-object top-level values.
+
+
+    :param path:
+    :return:
+    """
     value = load_json_file(path)
     if not isinstance(value, Mapping):
         raise ValueError("JSON control file must contain an object: {!s}".format(path))
@@ -241,6 +289,13 @@ def decode_wire_bytes(value: Any, *, label: str = "content") -> bytes:
 
 
 def add_job_execution_arguments(parser: argparse.ArgumentParser) -> None:
+    """
+    Add `job execution arguments` options to a command-line parser.
+
+
+    :param parser:
+    :return:
+    """
     group = parser.add_argument_group("managed job")
     group.add_argument(
         "--detach",
@@ -275,6 +330,14 @@ def add_job_execution_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def add_job_payload(payload: dict[str, Any], args: argparse.Namespace) -> None:
+    """
+    Add parsed execution controls to a managed-job payload.
+
+
+    :param payload:
+    :param args:
+    :return:
+    """
     if getattr(args, "job_timeout", None) is not None:
         payload["job_timeout_s"] = float(args.job_timeout)
     if getattr(args, "job_backend", None):
@@ -292,6 +355,16 @@ def wait_for_job(
     timeout: float | None,
     poll_interval: float,
 ) -> dict[str, Any]:
+    """
+    Wait for a submitted job and return its terminal record.
+
+
+    :param core:
+    :param job_id:
+    :param timeout:
+    :param poll_interval:
+    :return:
+    """
     started = time.monotonic()
     while True:
         response = core.query("jobs.get", {"job_id": str(job_id)})
@@ -320,6 +393,16 @@ def submit_job(
     payload: dict[str, Any],
     args: argparse.Namespace,
 ) -> dict[str, Any]:
+    """
+    Submit a job payload and apply the caller's wait policy.
+
+
+    :param core:
+    :param operation:
+    :param payload:
+    :param args:
+    :return:
+    """
     add_job_payload(payload, args)
     submitted = dict(core.command(operation, payload))
     if bool(getattr(args, "detach", False)):

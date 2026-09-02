@@ -302,6 +302,8 @@ class SavedSearchQueries:  # {{{
 
 
 class Parser(SearchQueryParser):  # {{{
+    """Evaluate parsed Calibre-compatible search expressions over a cache."""
+
     def __init__(
         self,
         dbcache,

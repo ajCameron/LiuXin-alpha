@@ -1,3 +1,5 @@
+"""Metadata SQL macros for creator-to-title relationships."""
+
 
 
 from LiuXin_alpha.utils.logging import default_log

@@ -6,6 +6,8 @@ from typing import Any, Callable
 
 
 class DatabaseToolbar:
+    """Toolbar view for database selection, refresh, and navigation actions."""
+
     def __init__(
         self,
         parent: Any,

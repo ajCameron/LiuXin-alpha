@@ -1,3 +1,5 @@
+"""Database facade contracts for relationships within one main table."""
+
 from __future__ import annotations
 
 import abc
@@ -112,4 +114,3 @@ class DatabaseIntralinkRowsMixinAPI(abc.ABC):
     @abc.abstractmethod
     def unlinked_intralink(self, primary_row: Optional["RowAPI"], secondary_row: Optional["RowAPI"]) -> None:
         """Remove an intralink between two rows."""
-

@@ -31,11 +31,19 @@ WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY = CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_PR
 
 
 def get_default_wget_http_requests_per_hour() -> float:
+    """
+    Return the default request-rate limit for wget-backed discovery.
+
+
+    :return:
+    """
     return get_default_crawler_http_requests_per_hour(LEGACY_WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY)
 
 
 @dataclass
 class WgetBackendOptions:
+    """Validated process and crawl limits for wget-backed discovery."""
+
     wget_exe: str = "wget"
     wget_args: Sequence[str] = ()
     env: Dict[str, str] | None = None

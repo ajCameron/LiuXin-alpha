@@ -1,3 +1,5 @@
+"""WEMI entity creation workflows for legacy metadata tools."""
+
 
 import datetime
 

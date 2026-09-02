@@ -9,6 +9,8 @@ from .inspector import set_readonly_text
 
 
 class MetadataPanel:
+    """Present editable metadata fields and delegate mutations to callbacks."""
+
     def __init__(
         self,
         parent: Any,

@@ -1,3 +1,5 @@
+"""High-level contracts for creating and evolving LiuXin databases."""
+
 from __future__ import annotations
 
 import abc

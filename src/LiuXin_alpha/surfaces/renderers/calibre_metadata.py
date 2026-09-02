@@ -34,6 +34,14 @@ default_sort = (
 
 
 def field_sort(metadata: object, name: str):
+    """
+    Return a stable display ordering key for a metadata field.
+
+
+    :param metadata:
+    :param name:
+    :return:
+    """
     try:
         title = metadata.metadata_for_field(name)["name"]  # type: ignore[attr-defined]
     except Exception:
@@ -45,6 +53,13 @@ def field_sort(metadata: object, name: str):
 
 
 def displayable_field_keys(metadata: object):
+    """
+    Return Calibre metadata keys suitable for human-facing rendering.
+
+
+    :param metadata:
+    :return:
+    """
     for key in metadata.all_field_keys():  # type: ignore[attr-defined]
         try:
             field_metadata = metadata.metadata_for_field(key)  # type: ignore[attr-defined]
@@ -61,6 +76,13 @@ def displayable_field_keys(metadata: object):
 
 
 def get_field_list(metadata: object):
+    """
+    Build the displayable field list for a metadata object.
+
+
+    :param metadata:
+    :return:
+    """
     for field in sorted(
         displayable_field_keys(metadata),
         key=partial(field_sort, metadata),
@@ -69,6 +91,14 @@ def get_field_list(metadata: object):
 
 
 def search_href(search_term: str, value: str) -> str:
+    """
+    Build a catalogue-search link for a rendered metadata value.
+
+
+    :param search_term:
+    :param value:
+    :return:
+    """
     search = '%s:"=%s"' % (search_term, value.replace('"', '\\"'))
     return prepare_string_for_xml(
         "search:" + hexlify(search.encode("utf-8")).decode("ascii"),

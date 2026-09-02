@@ -56,6 +56,8 @@ def _format_bytes(size: int) -> str:
 
 @dataclass(frozen=True)
 class ArtifactSpec:
+    """Declarative build, provenance, and validation rules for one artifact."""
+
     name: str
     relative_path: Path
     tracked_in_git: bool

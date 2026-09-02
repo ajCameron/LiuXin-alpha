@@ -1,3 +1,5 @@
+"""Filesystem-backed thumbnail cache used by presentation surfaces."""
+
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 import errno

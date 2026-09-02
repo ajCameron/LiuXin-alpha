@@ -1,3 +1,5 @@
+"""Tag creation and linking workflows for metadata tools."""
+
 from __future__ import unicode_literals
 
 from LiuXin_alpha.databases.row import Row

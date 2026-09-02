@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Build the reproducible SQLite fixture used by benchmark scripts."""
+
 from __future__ import annotations
 
 import argparse

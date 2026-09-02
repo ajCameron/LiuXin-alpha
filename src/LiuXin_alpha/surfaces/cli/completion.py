@@ -138,6 +138,13 @@ def cmd_completion(args: argparse.Namespace) -> int:
 def build_completion_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `completion` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "completion", help="Generate shell completion for the installed CLI."
     )

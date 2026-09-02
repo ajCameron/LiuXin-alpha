@@ -133,6 +133,8 @@ HTMLISH_CONTENT_TYPES = {"application/xhtml+xml", "text/html"}
 
 @dataclass(frozen=True)
 class QueueItem:
+    """One URL frontier entry with crawl depth and provenance."""
+
     url: str
     depth: int
     discovered_from: str | None
@@ -140,6 +142,8 @@ class QueueItem:
 
 @dataclass(frozen=True)
 class FetchResult:
+    """Bounded HTTP response retained by the site mapper."""
+
     url: str
     status: int
     content_type: str | None
@@ -147,6 +151,8 @@ class FetchResult:
 
 
 class LinkExtractor(HTMLParser):
+    """Collect navigational and embedded-resource URLs from HTML start tags."""
+
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.links: list[str] = []
@@ -161,6 +167,8 @@ class LinkExtractor(HTMLParser):
 
 
 class RobotsCache:
+    """Cache per-origin robots.txt decisions for one crawler user agent."""
+
     def __init__(self, user_agent: str, timeout_s: float) -> None:
         self.user_agent = user_agent
         self.timeout_s = timeout_s
@@ -191,6 +199,8 @@ class RobotsCache:
 
 
 class CrawlStateDB:
+    """Durable, resumable URL frontier and ebook observation database."""
+
     def __init__(self, path: str | Path, root_url: str) -> None:
         self.path = Path(path)
         self.conn = sqlite3.connect(str(self.path))

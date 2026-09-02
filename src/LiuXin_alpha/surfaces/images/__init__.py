@@ -1,3 +1,5 @@
+"""Image retrieval and transformation adapters for user-facing surfaces."""
+
 from __future__ import annotations
 
 from .api import ImageBackend, ImageHostApi

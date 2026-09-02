@@ -102,6 +102,8 @@ class RenameRequestEvent(MaintenanceEvent):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class TickEvent(MaintenanceEvent):
+    """Request one periodic maintenance scheduling pass."""
+
     def __init__(self) -> None:
         object.__setattr__(self, "kind", "tick")
         object.__setattr__(self, "created_at", time.monotonic())
@@ -110,6 +112,8 @@ class TickEvent(MaintenanceEvent):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ShutdownEvent(MaintenanceEvent):
+    """Request an orderly maintenance-engine shutdown with optional context."""
+
     reason: str = ""
 
     def __init__(self, reason: str = "") -> None:

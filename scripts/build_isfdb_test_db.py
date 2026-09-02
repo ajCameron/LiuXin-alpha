@@ -1102,6 +1102,8 @@ def _parse_mysql_insert_values(values_sql: str) -> Iterator[list[Any]]:
 
 @dataclass(frozen=True)
 class StageTableSpec:
+    """Define how one ISFDB source table projects into the staging database."""
+
     source_table: str
     create_sql: str
     insert_sql: str

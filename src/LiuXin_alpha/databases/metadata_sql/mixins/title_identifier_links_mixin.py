@@ -1,7 +1,11 @@
+"""Metadata SQL macros for title-to-identifier relationships."""
+
 
 
 
 class CMIdentifierTitleLinks:
+    """Implement title-to-identifier relationship macros."""
+
 
 
     def delete_title_identifiers(self, title_id, id_type=None):

@@ -1,7 +1,11 @@
+"""Metadata SQL helpers for removing generic catalogue relationships."""
+
 
 
 
 class CMLangTitleLinkMixin:
+    """Implement generic link-removal macros retained by metadata SQL."""
+
 
     # ------------------------------------------------------------------------------------------------------------------
     #

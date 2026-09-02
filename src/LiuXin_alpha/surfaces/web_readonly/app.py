@@ -99,6 +99,8 @@ def _closing_iterable(iterable: Iterable[bytes], closer: Callable[[], None]) -> 
 
 @dataclass(frozen=True)
 class ReadOnlyWebConfig:
+    """Shared database, Core, and HTTP settings for read-only web surfaces."""
+
     title: str = "LiuXin Read-Only Web"
     host: str = "127.0.0.1"
     port: int = 8080
@@ -2723,6 +2725,13 @@ class ReadOnlyWebApplication:
 
 
 def add_metadata_read_source_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """
+    Add metadata read-source selection arguments to a web parser.
+
+
+    :param parser:
+    :return:
+    """
     parser.add_argument(
         "--metadata-read-source",
         choices=("database", "cache"),
@@ -2743,6 +2752,13 @@ def add_metadata_read_source_arguments(parser: argparse.ArgumentParser) -> argpa
 
 
 def metadata_read_source_help_epilog(command: str) -> str:
+    """
+    Build help text describing metadata read-source selection.
+
+
+    :param command:
+    :return:
+    """
     return (
         "Examples:\n"
         "  {command} --database /path/to/library.sqlite\n"
@@ -2756,6 +2772,13 @@ def metadata_read_source_help_epilog(command: str) -> str:
 
 
 def metadata_read_source_config_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    """
+    Extract metadata read-source configuration from parsed arguments.
+
+
+    :param args:
+    :return:
+    """
     return {
         "metadata_read_source": str(args.metadata_read_source),
         "metadata_cache_type": str(args.cache_type),
@@ -2764,6 +2787,12 @@ def metadata_read_source_config_kwargs(args: argparse.Namespace) -> dict[str, ob
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Build the read-only web surface command-line parser.
+
+
+    :return:
+    """
     parser = argparse.ArgumentParser(
         description="Run the LiuXin read-only web interface.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -2789,6 +2818,16 @@ def build_metadata_read_source(
     cache_type: str = "schema_backed",
     allow_database_fallback: bool = True,
 ) -> CoreSurfaceModel:
+    """
+    Construct the configured metadata read source for a web surface.
+
+
+    :param core:
+    :param source:
+    :param cache_type:
+    :param allow_database_fallback:
+    :return:
+    """
     normalized_source = str(source or "database").strip().lower()
     if normalized_source not in {"database", "db", "cache", "storage_cache"}:
         raise ValueError(
@@ -2803,6 +2842,13 @@ def build_metadata_read_source(
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """
+    Run the web readonly command-line entry point.
+
+
+    :param argv:
+    :return:
+    """
     parser = build_arg_parser()
     args = parser.parse_args(argv)
     config = ReadOnlyWebConfig(

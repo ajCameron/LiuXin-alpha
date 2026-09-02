@@ -1,3 +1,5 @@
+"""SquashFS publication and provenance CLI commands."""
+
 from __future__ import annotations
 
 import argparse
@@ -101,6 +103,13 @@ def _collect_file_ids(args: argparse.Namespace) -> list[int]:
 
 
 def cmd_publish_store(args: argparse.Namespace) -> int:
+    """
+    Execute the `publish store` CLI command.
+
+
+    :param args:
+    :return:
+    """
     with open_surface_core_from_args(args) as session:
         report = _run_job(
             session.client,
@@ -124,6 +133,13 @@ def cmd_publish_store(args: argparse.Namespace) -> int:
 
 
 def cmd_publish_from_ids(args: argparse.Namespace) -> int:
+    """
+    Execute the `publish from ids` CLI command.
+
+
+    :param args:
+    :return:
+    """
     file_ids = _collect_file_ids(args)
     if not file_ids:
         raise ValueError("No file ids supplied. Use --file-id and/or --file-ids-file.")
@@ -223,6 +239,13 @@ def _build_provenance_payload(
 
 
 def cmd_provenance(args: argparse.Namespace) -> int:
+    """
+    Execute the `provenance` CLI command.
+
+
+    :param args:
+    :return:
+    """
     with open_surface_core_from_args(args) as session:
         payload = _build_provenance_payload(
             CoreSurfaceModel(session.client),
@@ -255,6 +278,13 @@ def cmd_provenance(args: argparse.Namespace) -> int:
 
 
 def build_squashfs_parser(subparsers: argparse._SubParsersAction) -> None:
+    """
+    Build the `squashfs` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "squashfs",
         help="SquashFS archival workflows (designated files -> archive -> locked store).",

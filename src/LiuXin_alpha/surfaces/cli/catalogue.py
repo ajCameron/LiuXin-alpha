@@ -455,6 +455,13 @@ def cmd_acquire_get(args: argparse.Namespace) -> int:
 def build_catalog_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `catalog` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "catalog", aliases=["catalogue"], help="Search, browse, and edit semantic catalogue entities."
     )
@@ -712,6 +719,13 @@ def build_catalog_parser(
 def build_acquisition_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `acquisition` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "acquire", aliases=["acquisition"], help="Resolve and safely retrieve catalogue resources."
     )

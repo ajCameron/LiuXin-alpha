@@ -1,3 +1,5 @@
+"""Apply normalized label metadata to catalogue entities."""
+
 
 from LiuXin_alpha.databases.api import RowAPI
 

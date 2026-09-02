@@ -1,3 +1,5 @@
+"""Calibre-compatible catalogue projection over LiuXin's Core read model."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -20,6 +22,8 @@ PLACEHOLDER_PNG = (
 
 @dataclass
 class CalibreCatalogBackend:
+    """Build Calibre-shaped catalogue payloads from the Core read model."""
+
     host: CalibreCatalogHostApi
     read_model: Optional[ReadModelBackend] = None
     images: Optional[ImageBackend] = None

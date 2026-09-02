@@ -310,6 +310,8 @@ def run_conversion_job(
 
 
 def backup_workflow_spec_from_mapping(payload: Mapping[str, Any]) -> Any:
+    """Decode an untrusted mapping into a validated backup workflow declaration."""
+
     from LiuXin_alpha.storage.api import (
         BackupSourceKind,
         BackupSourceDeclaration,

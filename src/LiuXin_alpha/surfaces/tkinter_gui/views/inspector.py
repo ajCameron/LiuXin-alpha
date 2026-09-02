@@ -6,6 +6,15 @@ from typing import Any
 
 
 def set_readonly_text(tk: Any, widget: Any, text: str) -> None:
+    """
+    Replace a Tk text widget's content while preserving read-only state.
+
+
+    :param tk:
+    :param widget:
+    :param text:
+    :return:
+    """
     widget.configure(state=tk.NORMAL)
     widget.delete("1.0", tk.END)
     widget.insert("1.0", text)
@@ -13,6 +22,8 @@ def set_readonly_text(tk: Any, widget: Any, text: str) -> None:
 
 
 class DetailInspector:
+    """Render selected row and schema details without owning application state."""
+
     def __init__(self, parent: Any, *, tk: Any, ttk: Any) -> None:
         self.tk = tk
         self.frame = ttk.Frame(parent)

@@ -35,6 +35,12 @@ from LiuXin_alpha.surfaces.cli.workflows import (
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """
+    Build the top-level ``liuxin`` command-line parser.
+
+
+    :return:
+    """
     parser = argparse.ArgumentParser(
         prog="liuxin",
         description="LiuXin operational command-line surfaces",
@@ -141,6 +147,13 @@ def _hoist_global_selectors(argv: list[str]) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Run the cli command-line entry point.
+
+
+    :param argv:
+    :return:
+    """
     parser = build_parser()
     selected = sys.argv[1:] if argv is None else argv
     args = parser.parse_args(_hoist_global_selectors(list(selected)))

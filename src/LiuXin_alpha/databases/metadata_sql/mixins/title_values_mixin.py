@@ -1,7 +1,11 @@
+"""Metadata SQL helpers for updating scalar title values."""
+
 from LiuXin_alpha.errors import DatabaseIntegrityError
 
 
 class TileMacrosMixin:
+    """Implement scalar title-value update macros."""
+
 
     def set_title_identifier(self, title_id, id_type, id_val):
         """Set the primary identifier of one scheme for a title.

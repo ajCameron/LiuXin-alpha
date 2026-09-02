@@ -42,6 +42,8 @@ _HELPER_SQL_FOLDERS = (
 
 @dataclass(frozen=True)
 class TableDefinition:
+    """Declarative PostgreSQL table fragments assembled by the schema builder."""
+
     name: str
     columns: tuple[str, ...]
     constraints: tuple[str, ...] = ()

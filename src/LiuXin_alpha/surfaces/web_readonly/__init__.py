@@ -1,3 +1,5 @@
+"""LiuXin-native read-only web surface package."""
+
 from __future__ import annotations
 
 from .app import (

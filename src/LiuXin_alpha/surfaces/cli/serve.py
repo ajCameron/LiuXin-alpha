@@ -107,6 +107,13 @@ def _surface_parser(
 def build_serve_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `serve` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "serve",
         help="Run packaged web, API, and OPDS surfaces with guarded binding.",

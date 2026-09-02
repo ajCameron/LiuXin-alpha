@@ -35,6 +35,8 @@ def _as_job_execution_dict(execution: object | None) -> dict[str, object] | None
 
 @dataclass(frozen=True)
 class TerminalJobView:
+    """Presentation-safe snapshot of one terminal-managed background job."""
+
     job_id: str
     label: str
     state: str
@@ -51,6 +53,8 @@ class TerminalJobView:
 
 @dataclass(frozen=True)
 class TerminalJobLogView:
+    """Bounded log-tail result for a terminal-managed background job."""
+
     status: str
     log_path: str
     lines: tuple[str, ...]
@@ -79,6 +83,13 @@ def _as_job_dict(info: object) -> dict[str, object]:
 
 
 def terminal_job_view_from_object(info: object) -> TerminalJobView:
+    """
+    Normalize a job record into the terminal presentation model.
+
+
+    :param info:
+    :return:
+    """
     payload = _as_job_dict(info)
     return TerminalJobView(
         job_id=str(payload.get("job_id", "") or ""),
@@ -103,6 +114,16 @@ def fetch_terminal_job_view(
     do_wait: bool,
     wait_timeout: Optional[float],
 ) -> TerminalJobView:
+    """
+    Fetch and normalize one job for terminal presentation.
+
+
+    :param browser:
+    :param job_id:
+    :param do_wait:
+    :param wait_timeout:
+    :return:
+    """
     if hasattr(browser, "supports_core_queries") and bool(browser.supports_core_queries()):
         payload: dict[str, object] = {"job_id": str(job_id)}
         if do_wait:
@@ -119,6 +140,13 @@ def fetch_terminal_job_view(
 
 
 def resolve_terminal_job_log_path(job: TerminalJobView) -> str:
+    """
+    Resolve the readable log path advertised by a job record.
+
+
+    :param job:
+    :return:
+    """
     if str(job.log_path).strip():
         return str(job.log_path).strip()
     execution = job.execution or {}
@@ -128,6 +156,13 @@ def resolve_terminal_job_log_path(job: TerminalJobView) -> str:
 
 
 def read_terminal_job_log_view(job: TerminalJobView) -> TerminalJobLogView:
+    """
+    Read a bounded terminal-safe view of a job log.
+
+
+    :param job:
+    :return:
+    """
     log_path = resolve_terminal_job_log_path(job)
     if not log_path:
         return TerminalJobLogView(

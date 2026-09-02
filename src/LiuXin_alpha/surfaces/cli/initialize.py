@@ -419,6 +419,13 @@ def _layout(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_init(args: argparse.Namespace) -> int:
+    """
+    Execute the `init` CLI command.
+
+
+    :param args:
+    :return:
+    """
     wants_wizard = bool(args.wizard) or (
         not args.system_root and not args.database and _stdin_is_interactive()
     )
@@ -619,6 +626,13 @@ def cmd_init(args: argparse.Namespace) -> int:
 def build_init_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `init` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "init",
         help="Create and validate a LiuXin catalogue and optional first Store.",

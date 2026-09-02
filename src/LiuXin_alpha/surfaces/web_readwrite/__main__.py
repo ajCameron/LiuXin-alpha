@@ -1,3 +1,5 @@
+"""Command-line entry point for LiuXin's read/write web surface."""
+
 from __future__ import annotations
 
 from .app import main

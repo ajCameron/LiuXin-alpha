@@ -40,11 +40,19 @@ _HTML_CONTENT_TYPES = {"text/html", "application/xhtml+xml"}
 
 
 def get_default_native_html_requests_per_hour() -> float:
+    """
+    Return the default request-rate limit for native HTML discovery.
+
+
+    :return:
+    """
     return get_default_crawler_http_requests_per_hour(LEGACY_NATIVE_HTML_MAX_REQUESTS_PER_HOUR_PREF_KEY)
 
 
 @dataclass
 class NativeHtmlBackendOptions:
+    """Validated crawl, rate, scope, and resource limits for native discovery."""
+
     timeout_s: float | None = 30.0
     max_http_requests_per_hour: float | None = None
     recurse: bool = True
@@ -72,6 +80,9 @@ class NativeHtmlBackendOptions:
 
 @dataclass(frozen=True)
 class _FetchResult:
+    """
+    Capture the response details from one native HTML fetch.
+    """
     requested_url: str
     final_url: str
     status: int

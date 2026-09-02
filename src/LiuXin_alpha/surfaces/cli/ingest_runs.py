@@ -148,6 +148,13 @@ def _find_run(args: argparse.Namespace) -> tuple[Path, list[dict[str, Any]]]:
 
 
 def cmd_ingest_runs_list(args: argparse.Namespace) -> int:
+    """
+    Execute the `ingest runs list` CLI command.
+
+
+    :param args:
+    :return:
+    """
     directory = _log_directory(args)
     grouped = _attempts(directory)
     runs = []
@@ -181,6 +188,13 @@ def cmd_ingest_runs_list(args: argparse.Namespace) -> int:
 
 
 def cmd_ingest_runs_show(args: argparse.Namespace) -> int:
+    """
+    Execute the `ingest runs show` CLI command.
+
+
+    :param args:
+    :return:
+    """
     directory, attempts = _find_run(args)
     latest = attempts[0]
     emit_json(
@@ -228,6 +242,13 @@ def _event_issues(path: Path, *, limit: int) -> list[dict[str, Any]]:
 
 
 def cmd_ingest_runs_issues(args: argparse.Namespace) -> int:
+    """
+    Execute the `ingest runs issues` CLI command.
+
+
+    :param args:
+    :return:
+    """
     _directory, attempts = _find_run(args)
     limit = max(1, min(int(args.limit), 10000))
     collection_limit = limit + 1
@@ -335,6 +356,13 @@ def _resume_namespace(args: argparse.Namespace, attempt: Mapping[str, Any]) -> a
 
 
 def cmd_ingest_runs_resume(args: argparse.Namespace) -> int:
+    """
+    Execute the `ingest runs resume` CLI command.
+
+
+    :param args:
+    :return:
+    """
     _directory, attempts = _find_run(args)
     latest = attempts[0]
     if latest.get("mode") not in {None, "ingest"}:
@@ -360,6 +388,13 @@ def _location_arguments(parser: argparse.ArgumentParser) -> None:
 def build_ingest_runs_parser(
     commands: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `ingest runs` command-line parser.
+
+
+    :param commands:
+    :return:
+    """
     runs = commands.add_parser(
         "runs", help="List, inspect, diagnose, or resume durable mixed-ingest runs."
     )

@@ -1,3 +1,5 @@
+"""URL normalization, scope, and safety rules shared by HTML crawlers."""
+
 from __future__ import annotations
 
 import string

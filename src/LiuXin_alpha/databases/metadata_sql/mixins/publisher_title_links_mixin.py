@@ -1,7 +1,11 @@
+"""Metadata SQL macros for publisher-to-title relationships."""
+
 
 
 
 class CMPublisherTitleLinkMacros:
+    """Implement publisher-to-title relationship macros."""
+
 
     def clear_publisher_title_links_by_title_id(self, title_id):
         """

@@ -33,6 +33,8 @@ from LiuXin_alpha.surfaces.web_readonly.app import (
 
 @dataclass(frozen=True)
 class ApiReadOnlyConfig(ReadOnlyWebConfig):
+    """Configuration for the machine-readable, read-only HTTP API."""
+
     title: str = "LiuXin API Read-Only"
     port: int = 8083
 
@@ -382,6 +384,12 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Build the read-only JSON API command-line parser.
+
+
+    :return:
+    """
     parser = argparse.ArgumentParser(
         description="Run the LiuXin read-only JSON API.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -400,6 +408,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """
+    Run the api readonly command-line entry point.
+
+
+    :param argv:
+    :return:
+    """
     parser = build_arg_parser()
     args = parser.parse_args(argv)
     config = ApiReadOnlyConfig(

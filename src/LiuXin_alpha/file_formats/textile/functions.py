@@ -1,11 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
-PyTextile
-
-A Humane Web Text Generator
-"""
+"""Inline and block transformation helpers for the bundled PyTextile port."""
 from __future__ import annotations
 
 import typing as _typing

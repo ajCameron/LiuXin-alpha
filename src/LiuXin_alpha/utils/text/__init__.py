@@ -1,7 +1,5 @@
 
-"""
-Text manipulation tools.
-"""
+"""Legacy byte/text coercion, URL, entity, and case-normalization helpers."""
 
 from typing import Optional, Union
 from copy import deepcopy

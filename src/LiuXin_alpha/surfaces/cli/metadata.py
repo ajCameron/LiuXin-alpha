@@ -284,6 +284,13 @@ def _metadata_get(core: Any, item_id: int, args: argparse.Namespace) -> dict[str
 
 
 def cmd_metadata_show(args: argparse.Namespace) -> int:
+    """
+    Execute the `metadata show` CLI command.
+
+
+    :param args:
+    :return:
+    """
     _ensure_json_output(args)
     with _open_metadata_core(args) as session:
         result = _metadata_get(session.client, int(args.item_id), args)
@@ -452,6 +459,13 @@ def _write_dump(
 
 
 def cmd_metadata_dump_json(args: argparse.Namespace) -> int:
+    """
+    Execute the `metadata dump json` CLI command.
+
+
+    :param args:
+    :return:
+    """
     _ensure_output_available(
         args.output,
         replace=bool(args.replace_output),
@@ -580,6 +594,13 @@ def _build_write_values(args: argparse.Namespace) -> tuple[dict[str, Any], list[
 
 
 def cmd_metadata_set(args: argparse.Namespace) -> int:
+    """
+    Execute the `metadata set` CLI command.
+
+
+    :param args:
+    :return:
+    """
     values, fields = _build_write_values(args)
     _ensure_json_output(args)
     payload = {
@@ -601,6 +622,13 @@ def cmd_metadata_set(args: argparse.Namespace) -> int:
 
 
 def cmd_metadata_export_opf(args: argparse.Namespace) -> int:
+    """
+    Execute the `metadata export opf` CLI command.
+
+
+    :param args:
+    :return:
+    """
     _ensure_output_available(
         args.output,
         replace=bool(args.replace_output),
@@ -671,6 +699,13 @@ def _file_payload(content: bytes, file_type: str) -> dict[str, str]:
 
 
 def cmd_metadata_file_formats(args: argparse.Namespace) -> int:
+    """
+    Execute the `metadata file formats` CLI command.
+
+
+    :param args:
+    :return:
+    """
     _ensure_json_output(args)
     with _open_metadata_core(args) as session:
         result = _mapping(
@@ -682,6 +717,13 @@ def cmd_metadata_file_formats(args: argparse.Namespace) -> int:
 
 
 def cmd_metadata_file_inspect(args: argparse.Namespace) -> int:
+    """
+    Execute the `metadata file inspect` CLI command.
+
+
+    :param args:
+    :return:
+    """
     _ensure_json_output(args)
     source, content, _details = _read_bounded_file(
         args.path,
@@ -797,6 +839,13 @@ def _validate_file_write_destinations(
 
 
 def cmd_metadata_file_write(args: argparse.Namespace) -> int:
+    """
+    Execute the `metadata file write` CLI command.
+
+
+    :param args:
+    :return:
+    """
     limit = _transfer_limit(args)
     source, original, details = _read_bounded_file(args.path, limit=limit)
     if args.in_place and source.is_symlink():
@@ -876,6 +925,13 @@ def cmd_metadata_file_write(args: argparse.Namespace) -> int:
 
 
 def cmd_metadata_online_sources(args: argparse.Namespace) -> int:
+    """
+    Execute the `metadata online sources` CLI command.
+
+
+    :param args:
+    :return:
+    """
     _ensure_json_output(args)
     with _open_metadata_core(args) as session:
         result = _mapping(
@@ -974,6 +1030,13 @@ def _run_online_job(args: argparse.Namespace, operation: str) -> dict[str, Any]:
 
 
 def cmd_metadata_online_identify(args: argparse.Namespace) -> int:
+    """
+    Execute the `metadata online identify` CLI command.
+
+
+    :param args:
+    :return:
+    """
     _ensure_json_output(args)
     result = _run_online_job(args, "metadata.identify.start")
     _emit_json(result, args)
@@ -981,6 +1044,13 @@ def cmd_metadata_online_identify(args: argparse.Namespace) -> int:
 
 
 def cmd_metadata_online_cover(args: argparse.Namespace) -> int:
+    """
+    Execute the `metadata online cover` CLI command.
+
+
+    :param args:
+    :return:
+    """
     _ensure_json_output(args)
     if args.detach and args.cover_output:
         raise ValueError("--cover-output cannot be used with --detach.")

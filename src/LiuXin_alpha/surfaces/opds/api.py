@@ -1,3 +1,5 @@
+"""Stable compatibility tokens and navigation helpers for OPDS feeds."""
+
 from __future__ import annotations
 
 import mimetypes
@@ -204,6 +206,8 @@ def opds_feed(
 
 @dataclass
 class OpdsApi:
+    """Render OPDS navigation, acquisition, and search feeds through a host port."""
+
     host: OpdsHostApi
 
     def page_size(self) -> int:

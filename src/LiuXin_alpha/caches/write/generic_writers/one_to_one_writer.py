@@ -16,6 +16,8 @@ from LiuXin_alpha.utils.logging import default_log
 
 
 class OneToOneWriter(BaseWriter):
+    """Coordinate database and cache changes for legacy scalar fields."""
+
     def __init__(self, field):
         super(OneToOneWriter, self).__init__(field)
         self.set_books_func = self.one_one_in_books if field.metadata["table"] == "books" else self.one_one_in_other

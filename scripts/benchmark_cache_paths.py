@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Benchmark scalar and relationship reads through the cache facade."""
+
 from __future__ import annotations
 
 import argparse
@@ -55,6 +57,8 @@ DEFAULT_SCENARIOS = (
 
 @dataclass(frozen=True)
 class ScalarProbe:
+    """One scalar field and representative owner IDs selected for timing."""
+
     field_key: str
     table_name: str
     column_name: str
@@ -64,6 +68,8 @@ class ScalarProbe:
 
 @dataclass(frozen=True)
 class RelationProbe:
+    """One relationship field and representative owners selected for timing."""
+
     field_key: str
     owner_ids: tuple[int, ...]
     relation_kind: str
@@ -71,6 +77,8 @@ class RelationProbe:
 
 @dataclass(frozen=True)
 class CacheProbeSet:
+    """Available scalar and relationship probes for one cache backend."""
+
     scalar: Optional[ScalarProbe]
     relation_single: Optional[RelationProbe]
     relation_multi: Optional[RelationProbe]

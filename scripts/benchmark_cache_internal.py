@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Benchmark cache loading and initialization internals in isolation."""
+
 from __future__ import annotations
 
 import argparse

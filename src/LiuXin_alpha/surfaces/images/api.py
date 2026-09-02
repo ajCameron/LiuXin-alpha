@@ -1,3 +1,5 @@
+"""Core-backed image, cover, and thumbnail retrieval facade."""
+
 from __future__ import annotations
 
 import mimetypes
@@ -18,6 +20,8 @@ from LiuXin_alpha.surfaces.web_readonly.app import (
 
 @dataclass
 class ImageBackend:
+    """Resolve and render catalogue images through a narrow surface host."""
+
     host: ImageHostApi
 
     def work_image_rows(self, related_rows_by_table: dict[str, list[object]]) -> list[object]:

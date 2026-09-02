@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Benchmark representative application read-model request paths."""
+
 from __future__ import annotations
 
 import argparse

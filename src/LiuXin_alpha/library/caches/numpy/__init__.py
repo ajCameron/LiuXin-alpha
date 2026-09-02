@@ -1,4 +1,2 @@
 
-"""
-Numpy based cache.
-"""
+"""NumPy-backed legacy library-cache implementation package."""

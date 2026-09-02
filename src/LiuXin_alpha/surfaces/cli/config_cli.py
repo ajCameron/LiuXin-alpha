@@ -35,6 +35,13 @@ from LiuXin_alpha.surfaces.system_profile import (
 
 
 def add_profile_selector(parser: argparse.ArgumentParser) -> None:
+    """
+    Add mutually exclusive system-profile selectors to a parser.
+
+
+    :param parser:
+    :return:
+    """
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument(
         "--system-root",
@@ -56,6 +63,13 @@ def _selected(args: argparse.Namespace):
 
 
 def cmd_config_path(args: argparse.Namespace) -> int:
+    """
+    Execute the `config path` CLI command.
+
+
+    :param args:
+    :return:
+    """
     path, source = selected_manifest_path(
         system_root=getattr(args, "system_root", None),
         profile=getattr(args, "profile", None),
@@ -71,6 +85,13 @@ def cmd_config_path(args: argparse.Namespace) -> int:
 
 
 def cmd_config_show(args: argparse.Namespace) -> int:
+    """
+    Execute the `config show` CLI command.
+
+
+    :param args:
+    :return:
+    """
     resolved = _selected(args)
     assert resolved is not None
     emit_json(
@@ -202,12 +223,26 @@ def validate_profile(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_config_validate(args: argparse.Namespace) -> int:
+    """
+    Execute the `config validate` CLI command.
+
+
+    :param args:
+    :return:
+    """
     result = validate_profile(args)
     emit_json(result, args)
     return 0 if result["ok"] else 1
 
 
 def cmd_config_profiles_list(args: argparse.Namespace) -> int:
+    """
+    Execute the `config profiles list` CLI command.
+
+
+    :param args:
+    :return:
+    """
     profiles: list[dict[str, Any]] = []
     for path in iter_named_profile_paths():
         value: dict[str, Any] = {
@@ -252,6 +287,13 @@ def cmd_config_profiles_list(args: argparse.Namespace) -> int:
 
 
 def cmd_config_profiles_add(args: argparse.Namespace) -> int:
+    """
+    Execute the `config profiles add` CLI command.
+
+
+    :param args:
+    :return:
+    """
     candidate = Path(args.target).expanduser()
     if candidate.is_dir():
         candidate = candidate / SYSTEM_MANIFEST_NAME
@@ -290,6 +332,13 @@ def cmd_config_profiles_add(args: argparse.Namespace) -> int:
 
 
 def cmd_config_profiles_remove(args: argparse.Namespace) -> int:
+    """
+    Execute the `config profiles remove` CLI command.
+
+
+    :param args:
+    :return:
+    """
     if not args.yes:
         raise ValueError("Named profile removal requires --yes.")
     path = default_named_profile_path(args.name)
@@ -418,6 +467,13 @@ def cmd_disconnect(args: argparse.Namespace) -> int:
 def build_connection_parsers(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `connection` command-line parser family.
+
+
+    :param subparsers:
+    :return:
+    """
     connect = subparsers.add_parser(
         "connect",
         help="Persist or inspect the default LiuXin system for later commands.",
@@ -451,6 +507,13 @@ def build_connection_parsers(
 def build_config_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `config` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "config",
         help="Inspect or validate a LiuXin system manifest/profile.",

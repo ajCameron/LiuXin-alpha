@@ -50,6 +50,13 @@ def cmd_plugins_inspect(args: argparse.Namespace) -> int:
 def build_plugins_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Build the `plugins` command-line parser.
+
+
+    :param subparsers:
+    :return:
+    """
     parser = subparsers.add_parser(
         "plugins",
         aliases=["capabilities"],

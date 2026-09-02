@@ -1,7 +1,11 @@
+"""Metadata SQL macros for tag catalogue rows."""
+
 
 
 
 class CMTagsMixin:
+    """Implement tag-row metadata macros."""
+
 
     def delete_tag_by_value(self, tag):
         """

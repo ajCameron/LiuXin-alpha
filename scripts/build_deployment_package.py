@@ -109,6 +109,8 @@ DEFAULT_EXCLUDED_GLOBS = (
 
 @dataclass(frozen=True)
 class PackagePlan:
+    """Resolved deployment archive inputs, outputs, checksum, and metadata."""
+
     bundle_name: str
     output_path: Path
     sha256_path: Path
