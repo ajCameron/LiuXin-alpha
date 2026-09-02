@@ -50,7 +50,7 @@ jobs:
           .venv/bin/python -m pip install ".[test,typing]"
 
       - name: Run ratcheted modern type and import checks
-        run: scripts/run_type_checks.sh
+        run: bash scripts/run_type_checks.sh
 
       - name: Enforce application-surface ownership
         env:
