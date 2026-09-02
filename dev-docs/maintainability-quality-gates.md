@@ -132,3 +132,31 @@ The next useful documentation work is human review of public metadata row and
 container families, followed by format-specific compatibility seams as those
 areas receive functional maintenance. Raw missing-docstring totals must not be
 reduced with generated restatements of symbol names.
+
+## Whole-project baseline and priority order
+
+The 2026-09-02 whole-project review rates readability at 6/10 and
+maintainability at 6.5/10. The modern application spine is materially stronger
+(about 8/10), as is the test system (about 8.5/10), but those areas coexist with
+a very large inherited compatibility tree. The review counted roughly 1,730
+production Python files and 1,005,000 raw lines; about 45% is generated or
+resource-lookup-style code. It also found seven modern import-cycle components
+covering 81 modules, about 1,267 TODO-like markers, and several 2,800–4,300-line
+modern orchestration files.
+
+The numbers are a navigation aid rather than new red gates. The order for
+improving them is:
+
+1. keep built/installable artifacts operational, with package discovery and
+   runtime data verified outside the checkout;
+2. cut modern cycles at leaf protocols and registries;
+3. split the largest modern orchestration modules along existing command and
+   service ownership seams;
+4. widen the zero-error typing, Ruff, and complexity ratchets only after each
+   selected package is green;
+5. consolidate duplicated CI and developer-documentation navigation.
+
+The first item now has an installed-catalogue wheel gate. See
+`dev-docs/packaging.md` and
+`working-memory/maintainability-and-packaging-2026-09-02.md` for the artifact
+contract, evidence, and remaining external-resource limitation.

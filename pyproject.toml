@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "liuxin-alpha"
 version = "0.0.0"
 description = "LiuXin alpha codebase"
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "chardet>=5.0",
@@ -50,6 +51,36 @@ typing = [
   "mypy>=1.20,<3",
   "ruff>=0.12,<1",
 ]
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["LiuXin_alpha*", "past*"]
+exclude = [
+  "LiuXin_tests*",
+  "LiuXin_alpha.file_formats.lrf.html.demo*",
+  "LiuXin_alpha.file_formats.oeb.display.test-cfi*",
+  "LiuXin_alpha.file_formats.oeb.polish.tests*",
+  "LiuXin_alpha.utils.decompression.rarfile.test*",
+  "LiuXin_alpha.working-memory*",
+]
+namespaces = true
+
+[tool.setuptools.package-data]
+"LiuXin_alpha.catalog" = ["py.typed"]
+"LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr" = [
+  "aggregate_sql/*.sql",
+  "*.toml",
+  "table_sql/*/*.sql",
+  "trigger_sql/*/*.sql",
+]
+"LiuXin_alpha.file_formats.oeb.display" = ["*.coffee"]
+"LiuXin_alpha.file_formats.oeb.polish" = ["*.coffee"]
+"LiuXin_alpha.startup_scripts" = ["LX_folders", "lx_folders.json"]
+"LiuXin_alpha.utils.libraries.iso639" = ["ISO-639-2_utf-8.txt"]
+"LiuXin_alpha.utils.libraries.liuxin_dateutil.zoneinfo" = ["zoneinfo-*.tar.gz"]
 
 [tool.ruff]
 target-version = "py312"
