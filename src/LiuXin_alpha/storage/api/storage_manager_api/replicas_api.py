@@ -149,6 +149,7 @@ class ReplicaLifecycleAPI(abc.ABC):
             ...     DigitalAssetID(7), all_replicas=True,
             ... )
 
+
         :param digital_asset_id:
         :param replica_ids: Exact Replica identities to check, or every live
             Replica belonging to the Asset when omitted.

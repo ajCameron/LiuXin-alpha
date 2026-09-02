@@ -54,6 +54,8 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
 
     A derived result is an ordinary atomic Digital Asset. This facade
     records how it was produced and whether it can be recreated exactly.
+    Recipes are immutable provenance evidence and replay plans; executing a
+    converter belongs to a separate workflow runner.
 
     Example:
         >>> record = manager.record_digital_asset_derivation(  # doctest: +SKIP

@@ -1,4 +1,5 @@
-"""Compatibility imports for the storage-manager persistence SPI.
+"""
+Compatibility imports for the storage-manager persistence SPI.
 
 New durable-manager implementations should import these ports from
 ``LiuXin_alpha.storage.api.persistence_api``. They remain available here so

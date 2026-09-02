@@ -964,7 +964,8 @@ class StorageConvenienceAPI:
         verify: bool = True,
         mode: ReplicaMode | str | None = None,
     ) -> CompositeDigitalAssetRecord:
-        """Ingest named atomic members and declare their Composite.
+        """
+        Ingest named atomic members and declare their Composite.
 
         Mapping keys are safe relative logical paths in the resulting
         Composite. Each value uses the same source forms as :meth:`store`.
@@ -977,6 +978,19 @@ class StorageConvenienceAPI:
             ...     {"book.epub": book_bytes, "images/cover.jpg": cover},
             ...     name="book package",
             ... )
+
+
+        :param members:
+        :param name:
+        :param attributes:
+        :param metadata:
+        :param item:
+        :param role:
+        :param store:
+        :param replica_mode:
+        :param verify:
+        :param mode:
+        :return:
         """
 
         if not members:
@@ -1011,7 +1025,8 @@ class StorageConvenienceAPI:
         store: StoreUUID | StoreConfiguration | StoreAPI | None = None,
         verified: bool = False,
     ) -> tuple[Path, ...]:
-        """Write resolved Composite members beneath one local directory.
+        """
+        Write resolved Composite members beneath one local directory.
 
         Logical member paths are validated as relative POSIX paths and
         resolved against the destination to prevent traversal or symlink
@@ -1021,6 +1036,14 @@ class StorageConvenienceAPI:
             >>> paths = manager.export_composite_to_directory(  # doctest: +SKIP
             ...     package, "/exports/book",
             ... )
+
+
+        :param composite:
+        :param destination:
+        :param overwrite:
+        :param store:
+        :param verified:
+        :return:
         """
 
         record = _composite_record(self, composite)
@@ -1060,7 +1083,8 @@ class StorageConvenienceAPI:
         store: StoreUUID | StoreConfiguration | StoreAPI | None = None,
         verified: bool = False,
     ) -> BinaryIO:
-        """Return a seekable temporary ZIP stream of resolved members.
+        """
+        Return a seekable temporary ZIP stream of resolved members.
 
         This is a transient delivery representation. Callers that persist it
         should ingest the ZIP as a new atomic Asset and record its derivation
@@ -1069,6 +1093,12 @@ class StorageConvenienceAPI:
         Example:
             >>> with manager.open_composite_zip(package) as source:  # doctest: +SKIP
             ...     header = source.read(4)
+
+
+        :param composite:
+        :param store:
+        :param verified:
+        :return:
         """
 
         record = _composite_record(self, composite)
@@ -1381,6 +1411,13 @@ def _file_asset_id(
         >>> asset_id = _file_asset_id(  # doctest: +SKIP
         ...     manager, "a" * 64, algorithm="sha256", size=None,
         ... )
+
+
+    :param manager:
+    :param identifier:
+    :param algorithm:
+    :param size:
+    :return:
     """
 
     if not isinstance(identifier, (str, Digest)):
@@ -1415,6 +1452,10 @@ def _positive_integer(value: object) -> int | None:
         7
         >>> _positive_integer(True) is None
         True
+
+
+    :param value:
+    :return:
     """
 
     return (
@@ -1433,6 +1474,10 @@ def _asset_id(value: _AssetInput | int) -> DigitalAssetID:
     Example:
         >>> _asset_id(DigitalAssetID(7))
         7
+
+
+    :param value:
+    :return:
     """
 
     if isinstance(value, DigitalAssetRecord):
@@ -1454,6 +1499,10 @@ def _composite_id(value: _CompositeInput) -> CompositeDigitalAssetID:
     Example:
         >>> _composite_id(CompositeDigitalAssetID(3))
         3
+
+
+    :param value:
+    :return:
     """
 
     if isinstance(value, CompositeDigitalAssetRecord):
@@ -1471,6 +1520,10 @@ def _store_ref(value: _StoreInput | None) -> StoreUUID | None:
     Example:
         >>> _store_ref(UUID(int=1))
         UUID('00000000-0000-0000-0000-000000000001')
+
+
+    :param value:
+    :return:
     """
 
     if value is None:
@@ -1493,6 +1546,10 @@ def _replica_id(value: _ReplicaInput | None) -> ReplicaID | None:
     Example:
         >>> _replica_id(ReplicaID(2))
         2
+
+
+    :param value:
+    :return:
     """
 
     if value is None:
@@ -1512,6 +1569,10 @@ def _item_id(value: ItemID | int | None) -> ItemID | None:
     Example:
         >>> _item_id(None) is None
         True
+
+
+    :param value:
+    :return:
     """
 
     return None if value is None else _required_item_id(value)
@@ -1524,6 +1585,10 @@ def _required_item_id(value: ItemID | int) -> ItemID:
     Example:
         >>> _required_item_id(9)
         9
+
+
+    :param value:
+    :return:
     """
 
     if isinstance(value, int) and not isinstance(value, bool) and value > 0:
@@ -1538,6 +1603,10 @@ def _attributes(value: _AttributeInput) -> tuple[tuple[str, str], ...]:
     Example:
         >>> _attributes({"language": "en"})
         (('language', 'en'),)
+
+
+    :param value:
+    :return:
     """
 
     if isinstance(value, Mapping):
@@ -1565,6 +1634,13 @@ def _metadata(
     Example:
         >>> _metadata("book", None, None, ()).name
         'book'
+
+
+    :param name:
+    :param media_type:
+    :param original_name:
+    :param attributes:
+    :return:
     """
 
     return DigitalAssetMetadata(
@@ -1584,6 +1660,10 @@ def _placement_hints(
     Example:
         >>> _placement_hints({"title": "Book"})["title"]
         'Book'
+
+
+    :param metadata:
+    :return:
     """
 
     return None if metadata is None else derive_storage_hints(metadata)
@@ -1596,6 +1676,10 @@ def _digests(value: _DigestInput) -> tuple[Digest, ...]:
     Example:
         >>> _digests({"sha256": "abcd"})[0].algorithm
         'sha256'
+
+
+    :param value:
+    :return:
     """
 
     if isinstance(value, Mapping):
@@ -1617,6 +1701,10 @@ def _replica_mode(value: ReplicaMode | str) -> ReplicaMode:
     Example:
         >>> _replica_mode("active") is ReplicaMode.ACTIVE
         True
+
+
+    :param value:
+    :return:
     """
 
     return value if isinstance(value, ReplicaMode) else ReplicaMode(value)
@@ -1632,6 +1720,11 @@ def _replica_mode_argument(
     Example:
         >>> _replica_mode_argument("backup", None) is ReplicaMode.BACKUP
         True
+
+
+    :param replica_mode:
+    :param mode:
+    :return:
     """
 
     if replica_mode is not None and mode is not None:
@@ -1649,6 +1742,10 @@ def _separation_dimension(
     Example:
         >>> _separation_dimension("host") is ReplicaSeparationDimension.HOST
         True
+
+
+    :param value:
+    :return:
     """
 
     return (
@@ -1667,6 +1764,10 @@ def _loss_action(
     Example:
         >>> _loss_action("accept_loss") is DigitalAssetLossAction.ACCEPT_LOSS
         True
+
+
+    :param value:
+    :return:
     """
 
     return (
@@ -1685,6 +1786,10 @@ def _derivation_kind(
     Example:
         >>> _derivation_kind("extract") is DigitalAssetDerivationKind.EXTRACT
         True
+
+
+    :param value:
+    :return:
     """
 
     return (
@@ -1703,6 +1808,10 @@ def _replication_policy_id(
     Example:
         >>> _replication_policy_id(ReplicationPolicyID(4))
         4
+
+
+    :param value:
+    :return:
     """
 
     if value is None:
@@ -1724,6 +1833,10 @@ def _backup_policy_id(
     Example:
         >>> _backup_policy_id(BackupPolicyID(5))
         5
+
+
+    :param value:
+    :return:
     """
 
     if value is None:
@@ -1747,6 +1860,12 @@ def _derivation_source(
     Example:
         >>> _derivation_source(0, DigitalAssetID(7), "source").role
         'source'
+
+
+    :param sequence_number:
+    :param value:
+    :param role:
+    :return:
     """
 
     if isinstance(value, CompositeDigitalAssetRecord):
@@ -1766,11 +1885,17 @@ def _composite_record(
     manager: object,
     value: CompositeDigitalAssetID | CompositeDigitalAssetRecord,
 ) -> CompositeDigitalAssetRecord:
-    """Resolve a Composite ID while preserving an existing record.
+    """
+    Resolve a Composite ID while preserving an existing record.
 
     Example:
         >>> _composite_record(manager, record) is record  # doctest: +SKIP
         True
+
+
+    :param manager:
+    :param value:
+    :return:
     """
 
     if isinstance(value, CompositeDigitalAssetRecord):
@@ -1782,11 +1907,16 @@ def _composite_record(
 
 
 def _composite_logical_path(value: str) -> str:
-    """Validate one portable, relative Composite delivery path.
+    """
+    Validate one portable, relative Composite delivery path.
 
     Example:
         >>> _composite_logical_path("images/cover.jpg")
         'images/cover.jpg'
+
+
+    :param value:
+    :return:
     """
 
     if not isinstance(value, str):
@@ -1810,11 +1940,16 @@ def _composite_logical_path(value: str) -> str:
 def _member_delivery_path(
     member: CompositeDigitalAssetMemberResolution,
 ) -> str:
-    """Choose and validate the portable path for one resolved member.
+    """
+    Choose and validate the portable path for one resolved member.
 
     Example:
         >>> _member_delivery_path(member)  # doctest: +SKIP
         'images/cover.jpg'
+
+
+    :param member:
+    :return:
     """
 
     membership = member.membership
@@ -1832,10 +1967,16 @@ def _resolved_composite_targets(
     root: Path,
     resolutions: tuple[CompositeDigitalAssetMemberResolution, ...],
 ) -> tuple[Path, ...]:
-    """Resolve unique member targets without permitting root escape.
+    """
+    Resolve unique member targets without permitting root escape.
 
     Example:
         >>> targets = _resolved_composite_targets(root, members)  # doctest: +SKIP
+
+
+    :param root:
+    :param resolutions:
+    :return:
     """
 
     targets: list[Path] = []

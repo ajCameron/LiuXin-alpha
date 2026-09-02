@@ -1,6 +1,6 @@
 # Storage component status and runtime composition
 
-Updated: 2026-08-27
+Updated: 2026-09-01
 
 ## Current decision
 
@@ -8,6 +8,27 @@ The application `StorageManager` is database-authoritative. It does not
 inherit from the transient manager and does not retain private dictionaries of
 Assets, Replicas, policies, Composites, derivations, Item links, or ingest
 operations.
+
+The repository-neutral orchestration implementation is composed in
+`storage/storage_manager/manager.py`. Its ordered mixins mirror the public API:
+
+```text
+StorageManagerAPI
+    convenience -> Store administration -> router -> Asset registry -> ingest
+    -> retrieval -> Replicas -> Item links -> Composites -> derivations
+    -> policies -> reconciliation -> operational status
+                                  ^
+                                  |
+                  _StorageManagerOrchestrator
+                     /                     \
+       database-backed StorageManager   TransientStorageManager
+```
+
+Shared state, durable ingest wire values, and cross-component publication or
+policy mechanics are private mixin modules. The composition root contains no
+workflow implementation. This keeps the transient and database-backed managers
+on one behavioural core without making either concrete manager inherit from
+the other.
 
 ```text
 StorageManager

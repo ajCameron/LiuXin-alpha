@@ -551,6 +551,9 @@ class DigitalAssetDerivationGraph:
             Traceback (most recent call last):
             ...
             ValueError: root_digital_asset_id must be positive.
+
+
+        :return:
         """
 
         if self.root_digital_asset_id <= 0:
@@ -607,6 +610,9 @@ class DigitalAssetRecreationPlan:
             Traceback (most recent call last):
             ...
             ValueError: digital_asset_id must be positive.
+
+
+        :return:
         """
 
         if self.digital_asset_id <= 0:
@@ -658,6 +664,9 @@ class DigitalAssetRecreationPlan:
             ...     available_digital_asset_ids=(DigitalAssetID(8),),
             ... ).already_available
             True
+
+
+        :return:
         """
 
         return self.digital_asset_id in self.available_digital_asset_ids
@@ -670,6 +679,9 @@ class DigitalAssetRecreationPlan:
         Example:
             >>> DigitalAssetRecreationPlan(DigitalAssetID(8)).requires_replay
             False
+
+
+        :return:
         """
 
         return bool(self.steps)
@@ -685,6 +697,9 @@ class DigitalAssetRecreationPlan:
             ...     available_digital_asset_ids=(DigitalAssetID(8),),
             ... ).can_recreate_exactly
             True
+
+
+        :return:
         """
 
         return self.already_available or (

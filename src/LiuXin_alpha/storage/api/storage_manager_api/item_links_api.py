@@ -15,6 +15,10 @@ class ItemDigitalAssetLinkAPI(abc.ABC):
     """
     Create and remove the Item-role links used by asset retrieval.
 
+    One ``(ItemID, role)`` selects at most one atomic or Composite target.
+    These methods change reference metadata only; they do not mutate the Item,
+    target Asset, or any physical Replica.
+
     Example:
         >>> manager.link_item_to_digital_asset(  # doctest: +SKIP
         ...     ItemID(9), DigitalAssetID(7), role="cover",

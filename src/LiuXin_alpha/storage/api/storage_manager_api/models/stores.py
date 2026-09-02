@@ -48,7 +48,8 @@ class TopologyRelation(StrEnum):
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreBackingReference:
-    """Durably identify the Digital Asset whose bytes back a Store view.
+    """
+    Durably identify the Digital Asset whose bytes back a Store view.
 
     The Asset is authoritative. ``preferred_replica_id`` is only a routing
     hint and may be replaced by another readable Replica of the same Asset.
@@ -68,22 +69,27 @@ class StoreBackingReference:
     materialization_store_ref: StoreUUID | None = None
 
     def __post_init__(self) -> None:
-        """Reject invalid catalogue identifiers and Store references.
+        """
+        Reject invalid catalogue identifiers and Store references.
 
         Example:
             >>> StoreBackingReference(DigitalAssetID(0))
             Traceback (most recent call last):
             ...
             ValueError: digital_asset_id must be a positive integer.
+
+
+        :return:
         """
 
-        if (
-            isinstance(self.digital_asset_id, bool)
-            or int(self.digital_asset_id) <= 0
-        ):
+        raw_digital_asset_id: object = self.digital_asset_id
+        if isinstance(raw_digital_asset_id, bool) or int(
+            self.digital_asset_id
+        ) <= 0:
             raise ValueError("digital_asset_id must be a positive integer.")
+        raw_preferred_replica_id: object = self.preferred_replica_id
         if self.preferred_replica_id is not None and (
-            isinstance(self.preferred_replica_id, bool)
+            isinstance(raw_preferred_replica_id, bool)
             or int(self.preferred_replica_id) <= 0
         ):
             raise ValueError(
@@ -170,7 +176,8 @@ class StoreConfiguration:
         ) = (),
         backing: StoreBackingReference | None = None,
     ) -> Self:
-        """Build portable configuration without spelling out model fields.
+        """
+        Build portable configuration without spelling out model fields.
 
         Path-like roots are rendered as absolute ``file:`` URIs. String roots
         are preserved for remote and backend-native endpoint syntax.
@@ -182,6 +189,28 @@ class StoreConfiguration:
             ... )
             >>> configuration.store_kind
             's3'
+
+
+        :param name:
+        :param kind:
+        :param root:
+        :param store_uuid:
+        :param url:
+        :param protocol:
+        :param failure_domain:
+        :param region:
+        :param host:
+        :param device:
+        :param tags:
+        :param replication_policy:
+        :param backup_policy:
+        :param modes:
+        :param operational_role:
+        :param read_only:
+        :param folders:
+        :param options:
+        :param backing:
+        :return:
         """
 
         option_pairs = _option_pairs(options)
@@ -231,7 +260,8 @@ class StoreConfiguration:
             Mapping[str, object] | Iterable[tuple[str, object]]
         ) = (),
     ) -> Self:
-        """Build a read-only Store view over one container Asset.
+        """
+        Build a read-only Store view over one container Asset.
 
         Manager convenience APIs supply a content-derived stable UUID when
         none is requested. This lower-level value constructor otherwise uses
@@ -245,6 +275,23 @@ class StoreConfiguration:
             ... )
             >>> configuration.store_root_uri
             'asset://digital-asset/7'
+
+
+        :param name:
+        :param kind:
+        :param digital_asset_id:
+        :param preferred_replica_id:
+        :param materialization_store_ref:
+        :param store_uuid:
+        :param protocol:
+        :param failure_domain:
+        :param region:
+        :param tags:
+        :param modes:
+        :param operational_role:
+        :param folders:
+        :param options:
+        :return:
         """
 
         backing = StoreBackingReference(
@@ -294,7 +341,8 @@ class StoreConfiguration:
             Mapping[str, object] | Iterable[tuple[str, object]]
         ) = (),
     ) -> Self:
-        """Build configuration for a local transactional filesystem Store.
+        """
+        Build configuration for a local transactional filesystem Store.
 
         Plain paths and ``Path`` objects become absolute ``file:`` URIs;
         existing local file URIs remain valid. Non-file URI schemes are
@@ -306,6 +354,23 @@ class StoreConfiguration:
             ... )
             >>> configuration.store_kind
             'filesystem'
+
+
+        :param name:
+        :param root:
+        :param store_uuid:
+        :param failure_domain:
+        :param region:
+        :param host:
+        :param device:
+        :param tags:
+        :param replication_policy:
+        :param backup_policy:
+        :param modes:
+        :param operational_role:
+        :param read_only:
+        :param options:
+        :return:
         """
 
         return cls.for_backend(
@@ -355,32 +420,32 @@ class StoreConfiguration:
                 )
             if self.backing.materialization_store_ref == self.store_uuid:
                 raise ValueError("a backed Store cannot materialize into itself.")
-        for name, value in (
+        for name, uuid_value in (
             ("store_host_uuid", self.store_host_uuid),
             ("store_device_uuid", self.store_device_uuid),
         ):
-            if value is not None and not isinstance(value, UUID):  # pyright: ignore[reportUnnecessaryIsInstance]
+            if uuid_value is not None and not isinstance(uuid_value, UUID):  # pyright: ignore[reportUnnecessaryIsInstance]
                 raise TypeError(f"{name} must be a UUID or None.")
-        for name, value in (
+        for name, text_value in (
             ("store_name", self.store_name),
             ("store_kind", self.store_kind),
             ("store_root_uri", self.store_root_uri),
         ):
-            if not value.strip():
+            if not text_value.strip():
                 raise ValueError(f"{name} must not be empty.")
         option_names: set[str] = set()
-        for key, value in self.backend_options:
+        for key, option_value in self.backend_options:
             if not isinstance(key, str) or not key.strip():
                 raise ValueError("backend option names must be non-empty strings.")
             if key in option_names:
                 raise ValueError(f"duplicate backend option: {key!r}.")
             option_names.add(key)
             if not (
-                value is None
-                or isinstance(value, (str, int, float, bool))
+                option_value is None
+                or isinstance(option_value, (str, int, float, bool))
                 or (
-                    isinstance(value, tuple)
-                    and all(isinstance(item, str) for item in value)
+                    isinstance(option_value, tuple)
+                    and all(isinstance(item, str) for item in option_value)
                 )
             ):
                 raise TypeError(
@@ -389,11 +454,16 @@ class StoreConfiguration:
 
 
 def _endpoint_text(root: str | os.PathLike[str]) -> str:
-    """Render a path-like root while preserving endpoint strings.
+    """
+    Render a path-like root while preserving endpoint strings.
 
     Example:
         >>> _endpoint_text("s3://books/archive")
         's3://books/archive'
+
+
+    :param root:
+    :return:
     """
 
     if isinstance(root, os.PathLike):
@@ -405,11 +475,16 @@ def _endpoint_text(root: str | os.PathLike[str]) -> str:
 
 
 def _filesystem_root_uri(root: str | os.PathLike[str]) -> str:
-    """Render one local filesystem root as a portable file URI.
+    """
+    Render one local filesystem root as a portable file URI.
 
     Example:
         >>> _filesystem_root_uri("/srv/liuxin").startswith("file:")
         True
+
+
+    :param root:
+    :return:
     """
 
     if isinstance(root, os.PathLike):
@@ -430,11 +505,16 @@ def _filesystem_root_uri(root: str | os.PathLike[str]) -> str:
 def _option_pairs(
     options: Mapping[str, object] | Iterable[tuple[str, object]],
 ) -> tuple[tuple[str, object], ...]:
-    """Freeze mapping or pair input for immutable configuration storage.
+    """
+    Freeze mapping or pair input for immutable configuration storage.
 
     Example:
         >>> _option_pairs({"region": "local"})
         (('region', 'local'),)
+
+
+    :param options:
+    :return:
     """
 
     if isinstance(options, Mapping):

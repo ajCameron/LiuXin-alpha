@@ -1,4 +1,6 @@
-"""Operator-facing storage health and recovery values."""
+"""
+Operator-facing storage health and recovery values.
+"""
 
 from __future__ import annotations
 
@@ -19,7 +21,8 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.stores import (
 
 
 class StorageOperationalSeverity(StrEnum):
-    """Severity of an operator-visible storage condition.
+    """
+    Severity of an operator-visible storage condition.
 
     Example:
         >>> StorageOperationalSeverity.ERROR.value
@@ -33,7 +36,8 @@ class StorageOperationalSeverity(StrEnum):
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageOperationalIssue:
-    """One attributable storage condition requiring attention or context.
+    """
+    One attributable storage condition requiring attention or context.
 
     Example:
         >>> StorageOperationalIssue(
@@ -53,13 +57,17 @@ class StorageOperationalIssue:
     store_ref: StoreUUID | None = None
 
     def __post_init__(self) -> None:
-        """Validate stable code and operator-facing message.
+        """
+        Validate stable code and operator-facing message.
 
         Example:
             >>> StorageOperationalIssue("", StorageOperationalSeverity.ERROR, "bad")
             Traceback (most recent call last):
             ...
             ValueError: operational issue code must not be empty.
+
+
+        :return:
         """
 
         if not self.code.strip():
@@ -70,7 +78,8 @@ class StorageOperationalIssue:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageRecoveryAction:
-    """Suggested public operation for resolving one reported condition.
+    """
+    Suggested public operation for resolving one reported condition.
 
     Example:
         >>> StorageRecoveryAction("verify_replica", "integrity is unknown").action
@@ -85,13 +94,17 @@ class StorageRecoveryAction:
     store_ref: StoreUUID | None = None
 
     def __post_init__(self) -> None:
-        """Validate the suggested operation and its rationale.
+        """
+        Validate the suggested operation and its rationale.
 
         Example:
             >>> StorageRecoveryAction("", "missing action")
             Traceback (most recent call last):
             ...
             ValueError: recovery action must not be empty.
+
+
+        :return:
         """
 
         if not self.action.strip():
@@ -102,7 +115,8 @@ class StorageRecoveryAction:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageOperationalStatus:
-    """Point-in-time health report across Stores, metadata, and policy.
+    """
+    Point-in-time health report across Stores, metadata, and policy.
 
     Example:
         >>> from datetime import UTC, datetime
@@ -116,7 +130,8 @@ class StorageOperationalStatus:
     recovery_actions: tuple[StorageRecoveryAction, ...] = ()
 
     def __post_init__(self) -> None:
-        """Require an unambiguous timezone-aware observation time.
+        """
+        Require an unambiguous timezone-aware observation time.
 
         Example:
             >>> from datetime import datetime
@@ -124,6 +139,9 @@ class StorageOperationalStatus:
             Traceback (most recent call last):
             ...
             ValueError: checked_at must be timezone-aware.
+
+
+        :return:
         """
 
         if self.checked_at.tzinfo is None or self.checked_at.utcoffset() is None:
@@ -131,12 +149,16 @@ class StorageOperationalStatus:
 
     @property
     def healthy(self) -> bool:
-        """Return whether no warning or error condition is currently known.
+        """
+        Return whether no warning or error condition is currently known.
 
         Example:
             >>> from datetime import UTC, datetime
             >>> StorageOperationalStatus(datetime.now(UTC)).healthy
             True
+
+
+        :return:
         """
 
         return not any(
@@ -149,13 +171,18 @@ class StorageOperationalStatus:
         )
 
     def issues_for(self, code: str) -> tuple[StorageOperationalIssue, ...]:
-        """Return issues matching one stable machine-readable code.
+        """
+        Return issues matching one stable machine-readable code.
 
         Example:
             >>> from datetime import UTC, datetime
             >>> status = StorageOperationalStatus(datetime.now(UTC))
             >>> status.issues_for("store_unavailable")
             ()
+
+
+        :param code:
+        :return:
         """
 
         return tuple(issue for issue in self.issues if issue.code == code)

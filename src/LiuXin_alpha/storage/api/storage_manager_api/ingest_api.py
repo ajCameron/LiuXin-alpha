@@ -39,7 +39,10 @@ class DigitalAssetIngestAPI(abc.ABC):
     Transactional entry points for creating or adopting managed assets.
 
     ``ingest_bytes`` is the small-payload convenience wrapper; implementations
-    provide streaming ingest and adoption of already stored bytes.
+    provide streaming ingest and adoption of already stored bytes. Store
+    publication and manager metadata are distinct commit boundaries, so a
+    durable implementation must journal enough state to resume or reconcile a
+    publication that survives a metadata failure.
 
     Example:
         >>> def ingest_cover(
@@ -116,7 +119,8 @@ class DigitalAssetIngestAPI(abc.ABC):
         replica_mode: ReplicaMode = ReplicaMode.ACTIVE,
         verify: bool = True,
     ) -> DigitalAssetIngestResult:
-        """Publish a stream whose identity was authoritatively established.
+        """
+        Publish a stream whose identity was authoritatively established.
 
         This fast path avoids manager-side spooling. It requires an exact size
         and an authoritative SHA-256 digest; the destination Store verifies
@@ -129,6 +133,7 @@ class DigitalAssetIngestAPI(abc.ABC):
             ...     stream, size_bytes=4,
             ...     authoritative_digests=(Digest("sha256", digest),),
             ... )
+
 
         :param stream: Binary source positioned at its start.
         :param size_bytes: Authoritative exact byte count.
@@ -212,7 +217,8 @@ class DigitalAssetIngestAPI(abc.ABC):
         replica_mode: ReplicaMode = ReplicaMode.ACTIVE,
         verify: bool = True,
     ) -> DigitalAssetIngestResult:
-        """Ingest one local file and return the complete ingest result.
+        """
+        Ingest one local file and return the complete ingest result.
 
         The observed file size is pinned as the stream expectation so a file
         that changes between inspection and reading fails rather than being
@@ -223,6 +229,20 @@ class DigitalAssetIngestAPI(abc.ABC):
             >>> result = manager.ingest_file(  # doctest: +SKIP
             ...     "/incoming/book.epub", item_id=ItemID(9),
             ... )
+
+
+        :param path:
+        :param operation_id:
+        :param expected_size:
+        :param expected_digests:
+        :param item_id:
+        :param role:
+        :param metadata:
+        :param placement_hints:
+        :param preferred_store_ref:
+        :param replica_mode:
+        :param verify:
+        :return:
         """
 
         source_path = Path(path)
@@ -271,7 +291,8 @@ class DigitalAssetIngestAPI(abc.ABC):
         replica_mode: ReplicaMode = ReplicaMode.ACTIVE,
         verify: bool = True,
     ) -> DigitalAssetIngestResult:
-        """Ingest one Store object using the safest available transfer path.
+        """
+        Ingest one Store object using the safest available transfer path.
 
         Implementations may use a native cross-Store transfer when the source
         identity is authoritative. The default opens a version-pinned stream
@@ -281,6 +302,7 @@ class DigitalAssetIngestAPI(abc.ABC):
             >>> result = manager.ingest_store_object(  # doctest: +SKIP
             ...     source_store, source_store.stat(location),
             ... )
+
 
         :param source: Configured source Store.
         :param info: Source inventory or stat information.
@@ -376,7 +398,8 @@ class DigitalAssetIngestAPI(abc.ABC):
         replica_mode: ReplicaMode = ReplicaMode.ACTIVE,
         verify: bool = True,
     ) -> DigitalAssetIngestResult:
-        """Ingest an object already prepared by its optional source Store.
+        """
+        Ingest an object already prepared by its optional source Store.
 
         This is the efficient companion to :meth:`ingest_store_object` for
         discovery pipelines. It preserves rich inspection results and avoids
@@ -387,6 +410,7 @@ class DigitalAssetIngestAPI(abc.ABC):
             >>> result = manager.ingest_prepared_store_object(  # doctest: +SKIP
             ...     source, prepared,
             ... )
+
 
         :param source: Store that produced ``prepared``.
         :param prepared: Bound per-object ingest observations.

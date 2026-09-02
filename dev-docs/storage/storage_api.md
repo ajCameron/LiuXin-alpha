@@ -807,6 +807,15 @@ serves eligible storage reads and receives explicit invalidation after storage
 writes; uncached helper/workflow tables remain direct repository reads. The
 manager does not retain a second private catalogue snapshot.
 
+The repository-neutral core is a composition rather than a monolith. Files in
+`storage/storage_manager/mixins` follow the same order and responsibility split
+as `StorageManagerAPI`: Store administration and routing first; Asset ingest,
+retrieval, and Replica lifecycle next; higher-level links, Composites,
+derivations, and policy after that; reconciliation and operational status last.
+Private state and support mixins hold only genuinely cross-cutting mechanics.
+`storage/storage_manager/manager.py` is the small composition and compatibility
+root.
+
 `TransientStorageManager` implements the complete facade for focused contract
 tests and deliberately disposable one-shot work. The former
 `InMemoryStorageManager` spelling is a compatibility alias. The production

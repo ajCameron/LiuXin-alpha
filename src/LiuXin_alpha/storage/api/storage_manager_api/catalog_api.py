@@ -21,6 +21,8 @@ class DigitalAssetRegistryAPI(abc.ABC):
 
     Implementations may use repositories internally, but this facade accepts
     and returns domain values rather than database records.
+    Registry operations own content identity and descriptive metadata; they do
+    not publish bytes or assert that a physical Replica currently exists.
 
     Example:
         >>> def lookup(

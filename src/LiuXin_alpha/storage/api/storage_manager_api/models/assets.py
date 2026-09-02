@@ -1,4 +1,5 @@
-"""Compatibility exports for storage-manager Asset domain values.
+"""
+Compatibility exports for storage-manager Asset domain values.
 
 The values are organized by responsibility in ``asset_identity``,
 ``replicas``, ``composites``, and ``resolutions``. This module remains as a

@@ -1,4 +1,6 @@
-"""Readable atomic, Composite, and Item resolution values."""
+"""
+Readable atomic, Composite, and Item resolution values.
+"""
 
 from __future__ import annotations
 
@@ -18,7 +20,8 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import Replica
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetResolution:
-    """Asset and Replica records selected for readable access.
+    """
+    Asset and Replica records selected for readable access.
 
     The value captures a manager selection at one point in time. Constructing
     it validates record identity; it does not claim that external storage can
@@ -33,7 +36,8 @@ class DigitalAssetResolution:
     replica_record: ReplicaRecord
 
     def __post_init__(self) -> None:
-        """Require the selected Replica to belong to the paired Asset.
+        """
+        Require the selected Replica to belong to the paired Asset.
 
         Example:
             >>> DigitalAssetResolution(  # doctest: +SKIP
@@ -42,6 +46,9 @@ class DigitalAssetResolution:
             Traceback (most recent call last):
             ...
             ValueError: Replica does not belong to the resolved Digital Asset.
+
+
+        :return:
         """
 
         if (
@@ -54,10 +61,14 @@ class DigitalAssetResolution:
 
     @property
     def location(self) -> Location:
-        """Return the selected Replica Location.
+        """
+        Return the selected Replica Location.
 
         Example:
             >>> location = resolved.location  # doctest: +SKIP
+
+
+        :return:
         """
 
         return self.replica_record.location
@@ -65,7 +76,8 @@ class DigitalAssetResolution:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class CompositeDigitalAssetMemberResolution:
-    """One Composite membership paired with a readable Asset selection.
+    """
+    One Composite membership paired with a readable Asset selection.
 
     Example:
         >>> member.location == member.resolution.location  # doctest: +SKIP
@@ -76,7 +88,8 @@ class CompositeDigitalAssetMemberResolution:
     resolution: DigitalAssetResolution
 
     def __post_init__(self) -> None:
-        """Require resolution of the declared member relationship.
+        """
+        Require resolution of the declared member relationship.
 
         Example:
             >>> CompositeDigitalAssetMemberResolution(  # doctest: +SKIP
@@ -85,6 +98,9 @@ class CompositeDigitalAssetMemberResolution:
             Traceback (most recent call last):
             ...
             ValueError: resolved Asset does not match the Composite member.
+
+
+        :return:
         """
 
         if (
@@ -97,10 +113,14 @@ class CompositeDigitalAssetMemberResolution:
 
     @property
     def location(self) -> Location:
-        """Return the selected Location for this member.
+        """
+        Return the selected Location for this member.
 
         Example:
             >>> location = member.location  # doctest: +SKIP
+
+
+        :return:
         """
 
         return self.resolution.location
@@ -108,7 +128,8 @@ class CompositeDigitalAssetMemberResolution:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ItemDigitalAssetResolution:
-    """Resolved atomic or Composite Asset selected for one Item role.
+    """
+    Resolved atomic or Composite Asset selected for one Item role.
 
     Example:
         >>> selection = ItemDigitalAssetResolution(  # doctest: +SKIP
@@ -125,13 +146,17 @@ class ItemDigitalAssetResolution:
     ] = ()
 
     def __post_init__(self) -> None:
-        """Require exactly one selected Asset and consistent resolutions.
+        """
+        Require exactly one selected Asset and consistent resolutions.
 
         Example:
             >>> ItemDigitalAssetResolution(ItemID(9), "cover")
             Traceback (most recent call last):
             ...
             ValueError: exactly one atomic or Composite Asset is required.
+
+
+        :return:
         """
 
         if (self.digital_asset_resolution is None) == (
@@ -173,10 +198,14 @@ class ItemDigitalAssetResolution:
 
     @property
     def locations(self) -> tuple[Location, ...]:
-        """Return selected readable Locations in delivery order.
+        """
+        Return selected readable Locations in delivery order.
 
         Example:
             >>> locations = selection.locations  # doctest: +SKIP
+
+
+        :return:
         """
 
         if self.digital_asset_resolution is not None:
