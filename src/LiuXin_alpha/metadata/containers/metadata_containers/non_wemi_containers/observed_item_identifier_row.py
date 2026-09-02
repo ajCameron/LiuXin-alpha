@@ -12,6 +12,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class ObservedItemIdentifierRow(MetadataTableRow):
+    """
+    Represent a source-observed identifier attached to one Item.
+    """
     TABLE_NAME: ClassVar[str] = "item_identifiers"
     ID_COLUMN: ClassVar[str] = "item_identifier_id"
 

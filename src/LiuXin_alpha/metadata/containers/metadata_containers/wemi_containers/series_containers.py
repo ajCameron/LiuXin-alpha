@@ -92,6 +92,9 @@ class SeriesEntryBase(MetadataValueStringMixin, abc.ABC):
 
 @dataclass(slots=True, kw_only=True)
 class WorkSeriesEntry(SeriesEntryBase):
+    """
+    Represent one numbered Series membership attached to a Work.
+    """
     work_id: WorkID
     canonical_for_work: bool = False
 
@@ -111,6 +114,9 @@ class WorkSeriesEntry(SeriesEntryBase):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionSeriesEntry(SeriesEntryBase):
+    """
+    Represent one numbered Series membership attached to an Expression.
+    """
     expression_id: ExpressionID
     applies_to_realisation: bool = True
 
@@ -130,6 +136,9 @@ class ExpressionSeriesEntry(SeriesEntryBase):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationSeriesEntry(SeriesEntryBase):
+    """
+    Represent one numbered Series membership attached to a Manifestation.
+    """
     manifestation_id: ManifestationID
     edition_specific: bool = True
 
@@ -149,6 +158,9 @@ class ManifestationSeriesEntry(SeriesEntryBase):
 
 @dataclass(slots=True, kw_only=True)
 class ItemSeriesEntry(SeriesEntryBase):
+    """
+    Represent one numbered Series membership attached to an Item.
+    """
     item_id: ItemID
     copy_specific: bool = True
 
@@ -168,6 +180,9 @@ class ItemSeriesEntry(SeriesEntryBase):
 
 @dataclass(slots=True, kw_only=True)
 class KindSeriesEntriesContainer(MetadataSequenceStringMixin, Generic[SeriesT], abc.ABC):
+    """
+    Manage ordered Series memberships of one kind for a WEMI target.
+    """
     series_kind: SeriesKind
     target_id: int
     _entries: list[SeriesT] = field(default_factory=list)
@@ -250,21 +265,33 @@ class KindSeriesEntriesContainer(MetadataSequenceStringMixin, Generic[SeriesT], 
 
 @dataclass(slots=True, kw_only=True)
 class WorkKindSeriesEntriesContainer(KindSeriesEntriesContainer[WorkSeriesEntry]):
+    """
+    Collect Series memberships of one kind for a Work.
+    """
     target_kind: Literal["work"] = "work"
 
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionKindSeriesEntriesContainer(KindSeriesEntriesContainer[ExpressionSeriesEntry]):
+    """
+    Collect Series memberships of one kind for an Expression.
+    """
     target_kind: Literal["expression"] = "expression"
 
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationKindSeriesEntriesContainer(KindSeriesEntriesContainer[ManifestationSeriesEntry]):
+    """
+    Collect Series memberships of one kind for a Manifestation.
+    """
     target_kind: Literal["manifestation"] = "manifestation"
 
 
 @dataclass(slots=True, kw_only=True)
 class ItemKindSeriesEntriesContainer(KindSeriesEntriesContainer[ItemSeriesEntry]):
+    """
+    Collect Series memberships of one kind for an Item.
+    """
     target_kind: Literal["item"] = "item"
 
 
@@ -274,6 +301,9 @@ class BaseTargetSeriesEntriesContainer(
     Generic[SeriesT, KindContainerT],
     abc.ABC,
 ):
+    """
+    Group all Series memberships for one WEMI target by relationship kind.
+    """
     _by_kind: dict[SeriesKind, KindContainerT] = field(default_factory=dict)
     STRING_COUNT_LABEL = "series entries"
 
@@ -332,6 +362,9 @@ class BaseTargetSeriesEntriesContainer(
 
 @dataclass(slots=True, kw_only=True)
 class WorkSeriesEntriesContainer(BaseTargetSeriesEntriesContainer[WorkSeriesEntry, WorkKindSeriesEntriesContainer]):
+    """
+    Group every Series membership attached to a Work.
+    """
     work_id: WorkID
 
     @property
@@ -348,6 +381,9 @@ class WorkSeriesEntriesContainer(BaseTargetSeriesEntriesContainer[WorkSeriesEntr
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionSeriesEntriesContainer(BaseTargetSeriesEntriesContainer[ExpressionSeriesEntry, ExpressionKindSeriesEntriesContainer]):
+    """
+    Group every Series membership attached to an Expression.
+    """
     expression_id: ExpressionID
 
     @property
@@ -364,6 +400,9 @@ class ExpressionSeriesEntriesContainer(BaseTargetSeriesEntriesContainer[Expressi
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationSeriesEntriesContainer(BaseTargetSeriesEntriesContainer[ManifestationSeriesEntry, ManifestationKindSeriesEntriesContainer]):
+    """
+    Group every Series membership attached to a Manifestation.
+    """
     manifestation_id: ManifestationID
 
     @property
@@ -380,6 +419,9 @@ class ManifestationSeriesEntriesContainer(BaseTargetSeriesEntriesContainer[Manif
 
 @dataclass(slots=True, kw_only=True)
 class ItemSeriesEntriesContainer(BaseTargetSeriesEntriesContainer[ItemSeriesEntry, ItemKindSeriesEntriesContainer]):
+    """
+    Group every Series membership attached to an Item.
+    """
     item_id: ItemID
 
     @property

@@ -52,6 +52,23 @@ This pass closes a few small but real consistency gaps:
 - Recorded the family-completeness state in this document so later cleanup stages
   can distinguish intentional asymmetry from accidental drift.
 
+## Public documentation ratchet
+
+The 2026-09-01 repository maintainability pass reviewed the metadata model at
+its public boundaries. Every module and top-level public class is now
+documented across:
+
+- main-table row and inline self-relation APIs;
+- concrete non-WEMI row and tree-relation containers;
+- WEMI identity and metadata API families;
+- WEMI identity, metadata bundle, typed-value, per-kind, and target-wide
+  implementation containers.
+
+`tests/scripts/test_public_documentation_boundaries.py` enforces that coverage
+and rejects known placeholder prose. The gate is deliberately semantic: it
+does not require generated docstrings on private helpers or invent example
+blocks for classes whose examples have not yet received human review.
+
 ## Known remaining rough edges
 
 These are not stage-8 blockers, but they are worth keeping visible:

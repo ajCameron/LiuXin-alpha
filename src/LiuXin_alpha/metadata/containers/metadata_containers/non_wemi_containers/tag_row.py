@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class TagRow(MetadataTableRow):
+    """
+    Represent a categorical tag vocabulary row.
+    """
     TABLE_NAME: ClassVar[str] = "tags"
     ID_COLUMN: ClassVar[str] = "tag_id"
 

@@ -141,6 +141,9 @@ class IdentifierBase(MetadataValueStringMixin, abc.ABC):
 
 @dataclass(slots=True, kw_only=True)
 class WorkIdentifier(IdentifierBase):
+    """
+    Represent a scheme-qualified Work identifier and whether it is canonical.
+    """
     work_id: WorkID
     canonical_for_work: bool = False
 
@@ -165,6 +168,9 @@ class WorkIdentifier(IdentifierBase):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionIdentifier(IdentifierBase):
+    """
+    Represent a scheme-qualified Expression identifier with optional language scope.
+    """
     expression_id: ExpressionID
     language_id: LanguageID | None = None
 
@@ -189,6 +195,9 @@ class ExpressionIdentifier(IdentifierBase):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationIdentifier(IdentifierBase):
+    """
+    Represent a scheme-qualified Manifestation identifier with edition context.
+    """
     manifestation_id: ManifestationID
     edition_note: str | None = None
 
@@ -213,6 +222,9 @@ class ManifestationIdentifier(IdentifierBase):
 
 @dataclass(slots=True, kw_only=True)
 class ItemIdentifier(IdentifierBase):
+    """
+    Represent a scheme-qualified, potentially copy-specific Item identifier.
+    """
     item_id: ItemID
     copy_specific: bool = True
     physical_marking: str | None = None
@@ -362,6 +374,9 @@ class SchemeIdentifiersContainer(
 
 @dataclass(slots=True, kw_only=True)
 class WorkSchemeIdentifiersContainer(SchemeIdentifiersContainer[WorkIdentifier]):
+    """
+    Collect identifiers of one scheme for a Work.
+    """
     target_kind: ClassVar[str] = "work"
 
     @property
@@ -373,6 +388,9 @@ class WorkSchemeIdentifiersContainer(SchemeIdentifiersContainer[WorkIdentifier])
 class ExpressionSchemeIdentifiersContainer(
     SchemeIdentifiersContainer[ExpressionIdentifier]
 ):
+    """
+    Collect identifiers of one scheme for an Expression.
+    """
     target_kind: ClassVar[str] = "expression"
 
     @property
@@ -384,6 +402,9 @@ class ExpressionSchemeIdentifiersContainer(
 class ManifestationSchemeIdentifiersContainer(
     SchemeIdentifiersContainer[ManifestationIdentifier]
 ):
+    """
+    Collect identifiers of one scheme for a Manifestation.
+    """
     target_kind: ClassVar[str] = "manifestation"
 
     @property
@@ -393,6 +414,9 @@ class ManifestationSchemeIdentifiersContainer(
 
 @dataclass(slots=True, kw_only=True)
 class ItemSchemeIdentifiersContainer(SchemeIdentifiersContainer[ItemIdentifier]):
+    """
+    Collect identifiers of one scheme for an Item.
+    """
     target_kind: ClassVar[str] = "item"
 
     @property
@@ -527,6 +551,9 @@ class WorkIdentifiersContainer(
         WorkSchemeIdentifiersContainer,
     ]
 ):
+    """
+    Group every supported identifier attached to a Work by scheme.
+    """
     work_id: WorkID
     ALLOWED_SCHEMES: ClassVar[frozenset[IdentifierScheme]] = WORK_IDENTIFIER_SCHEMES
 
@@ -549,6 +576,9 @@ class ExpressionIdentifiersContainer(
         ExpressionSchemeIdentifiersContainer,
     ]
 ):
+    """
+    Group every supported identifier attached to an Expression by scheme.
+    """
     expression_id: ExpressionID
     ALLOWED_SCHEMES: ClassVar[frozenset[IdentifierScheme]] = EXPRESSION_IDENTIFIER_SCHEMES
 
@@ -577,6 +607,9 @@ class ManifestationIdentifiersContainer(
         ManifestationSchemeIdentifiersContainer,
     ]
 ):
+    """
+    Group every supported identifier attached to a Manifestation by scheme.
+    """
     manifestation_id: ManifestationID
     ALLOWED_SCHEMES: ClassVar[frozenset[IdentifierScheme]] = MANIFESTATION_IDENTIFIER_SCHEMES
 
@@ -605,6 +638,9 @@ class ItemIdentifiersContainer(
         ItemSchemeIdentifiersContainer,
     ]
 ):
+    """
+    Group every supported identifier attached to an Item by scheme.
+    """
     item_id: ItemID
     ALLOWED_SCHEMES: ClassVar[frozenset[IdentifierScheme]] = ITEM_IDENTIFIER_SCHEMES
 

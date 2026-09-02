@@ -85,6 +85,9 @@ class RatingBase(MetadataValueStringMixin, abc.ABC):
 
 @dataclass(slots=True, kw_only=True)
 class WorkRating(RatingBase):
+    """
+    Represent one typed numeric rating attached to a Work.
+    """
     work_id: WorkID
     canonical_for_work: bool = False
 
@@ -104,6 +107,9 @@ class WorkRating(RatingBase):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionRating(RatingBase):
+    """
+    Represent one typed numeric rating attached to an Expression.
+    """
     expression_id: ExpressionID
     applies_to_realisation: bool = True
 
@@ -123,6 +129,9 @@ class ExpressionRating(RatingBase):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationRating(RatingBase):
+    """
+    Represent one typed numeric rating attached to a Manifestation.
+    """
     manifestation_id: ManifestationID
     edition_specific: bool = True
 
@@ -142,6 +151,9 @@ class ManifestationRating(RatingBase):
 
 @dataclass(slots=True, kw_only=True)
 class ItemRating(RatingBase):
+    """
+    Represent one typed numeric rating attached to an Item.
+    """
     item_id: ItemID
     copy_specific: bool = True
 
@@ -161,6 +173,9 @@ class ItemRating(RatingBase):
 
 @dataclass(slots=True, kw_only=True)
 class KindRatingsContainer(MetadataSequenceStringMixin, Generic[RatingT], abc.ABC):
+    """
+    Manage ordered rating assertions of one kind for a WEMI target.
+    """
     rating_kind: RatingKind
     target_id: int
     _ratings: list[RatingT] = field(default_factory=list)
@@ -243,21 +258,33 @@ class KindRatingsContainer(MetadataSequenceStringMixin, Generic[RatingT], abc.AB
 
 @dataclass(slots=True, kw_only=True)
 class WorkKindRatingsContainer(KindRatingsContainer[WorkRating]):
+    """
+    Collect ratings of one kind for a Work.
+    """
     target_kind: Literal["work"] = "work"
 
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionKindRatingsContainer(KindRatingsContainer[ExpressionRating]):
+    """
+    Collect ratings of one kind for an Expression.
+    """
     target_kind: Literal["expression"] = "expression"
 
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationKindRatingsContainer(KindRatingsContainer[ManifestationRating]):
+    """
+    Collect ratings of one kind for a Manifestation.
+    """
     target_kind: Literal["manifestation"] = "manifestation"
 
 
 @dataclass(slots=True, kw_only=True)
 class ItemKindRatingsContainer(KindRatingsContainer[ItemRating]):
+    """
+    Collect ratings of one kind for an Item.
+    """
     target_kind: Literal["item"] = "item"
 
 
@@ -267,6 +294,9 @@ class BaseTargetRatingsContainer(
     Generic[RatingT, KindContainerT],
     abc.ABC,
 ):
+    """
+    Group all rating assertions for one WEMI target by rating kind.
+    """
     _by_kind: dict[RatingKind, KindContainerT] = field(default_factory=dict)
     STRING_COUNT_LABEL = "ratings"
 
@@ -325,6 +355,9 @@ class BaseTargetRatingsContainer(
 
 @dataclass(slots=True, kw_only=True)
 class WorkRatingsContainer(BaseTargetRatingsContainer[WorkRating, WorkKindRatingsContainer]):
+    """
+    Group every typed rating attached to a Work.
+    """
     work_id: WorkID
 
     @property
@@ -341,6 +374,9 @@ class WorkRatingsContainer(BaseTargetRatingsContainer[WorkRating, WorkKindRating
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionRatingsContainer(BaseTargetRatingsContainer[ExpressionRating, ExpressionKindRatingsContainer]):
+    """
+    Group every typed rating attached to an Expression.
+    """
     expression_id: ExpressionID
 
     @property
@@ -357,6 +393,9 @@ class ExpressionRatingsContainer(BaseTargetRatingsContainer[ExpressionRating, Ex
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationRatingsContainer(BaseTargetRatingsContainer[ManifestationRating, ManifestationKindRatingsContainer]):
+    """
+    Group every typed rating attached to a Manifestation.
+    """
     manifestation_id: ManifestationID
 
     @property
@@ -373,6 +412,9 @@ class ManifestationRatingsContainer(BaseTargetRatingsContainer[ManifestationRati
 
 @dataclass(slots=True, kw_only=True)
 class ItemRatingsContainer(BaseTargetRatingsContainer[ItemRating, ItemKindRatingsContainer]):
+    """
+    Group every typed rating attached to an Item.
+    """
     item_id: ItemID
 
     @property

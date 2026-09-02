@@ -16,10 +16,10 @@ from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting imp
 
 class ItemIdentity(ItemIdentityAPI):
     """
-    Lightweight concrete container for one ``items`` row.
+    Represent an Item identity and its copy-specific location and provenance.
 
-    This intentionally mirrors the style of :class:`WorkIdentity`: it is only
-    the row itself plus a couple of construction/serialization helpers.
+    This mirrors only the ``items`` row plus mapping helpers; editable
+    relationships belong to :class:`ItemMetadata`.
     """
 
     def __init__(

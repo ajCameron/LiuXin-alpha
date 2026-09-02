@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class OrgAgentRelationRow(MetadataTableRow):
+    """
+    Represent a dated parent-child relationship between organisational Agents.
+    """
     TABLE_NAME: ClassVar[str] = "org_agent_relations"
     ID_COLUMN: ClassVar[str] = "org_agent_relation_id"
 

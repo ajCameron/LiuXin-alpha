@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class LanguageRow(MetadataTableRow):
+    """
+    Represent a persisted language vocabulary row and its standard codes.
+    """
     TABLE_NAME: ClassVar[str] = "languages"
     ID_COLUMN: ClassVar[str] = "language_id"
 

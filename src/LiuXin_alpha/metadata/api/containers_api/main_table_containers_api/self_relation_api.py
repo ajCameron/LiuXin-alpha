@@ -89,18 +89,27 @@ class InlineSelfRelationAPI(Protocol[RowAPIT]):
 
 @runtime_checkable
 class GenreTreeRelationAPI(InlineSelfRelationAPI[GenreRowAPI], Protocol):
+    """
+    Structural contract for an inline Genre parent relation.
+    """
     child: GenreRowAPI
     parent: GenreRowAPI | None
 
 
 @runtime_checkable
 class SubjectTreeRelationAPI(InlineSelfRelationAPI[SubjectRowAPI], Protocol):
+    """
+    Structural contract for an inline Subject parent relation.
+    """
     child: SubjectRowAPI
     parent: SubjectRowAPI | None
 
 
 @runtime_checkable
 class SeriesTreeRelationAPI(InlineSelfRelationAPI[SeriesRowAPI], Protocol):
+    """
+    Structural contract for an inline Series parent relation.
+    """
     child: SeriesRowAPI
     parent: SeriesRowAPI | None
 
@@ -174,7 +183,7 @@ class GenreTreeRelationsContainerAPI(
     Protocol,
 ):
     """
-    Represents a tree container in the genre metadata.
+    Structural contract for an editable forest of Genre parent relations.
     """
 
 
@@ -184,7 +193,7 @@ class SubjectTreeRelationsContainerAPI(
     Protocol,
 ):
     """
-    Represents a tree container in the subject metadata.
+    Structural contract for an editable forest of Subject parent relations.
     """
 
 
@@ -194,7 +203,7 @@ class SeriesTreeRelationsContainerAPI(
     Protocol,
 ):
     """
-    Represents a tree container in the series metadata.
+    Structural contract for an editable forest of Series parent relations.
     """
     pass
 

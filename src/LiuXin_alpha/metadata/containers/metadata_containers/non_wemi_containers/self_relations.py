@@ -138,6 +138,9 @@ class InlineSelfRelation(Generic[RowT]):
 
 @dataclass(slots=True, kw_only=True)
 class GenreTreeRelation(InlineSelfRelation[GenreRow]):
+    """
+    Represent the parent, position, and tree identity of one Genre row.
+    """
     ROW_TYPE: ClassVar[type[MetadataTableRow]] = GenreRow
     TABLE_NAME: ClassVar[str] = "genres"
     RELATION_NAME: ClassVar[str] = "genre_tree_parent"
@@ -149,6 +152,9 @@ class GenreTreeRelation(InlineSelfRelation[GenreRow]):
 
 @dataclass(slots=True, kw_only=True)
 class SubjectTreeRelation(InlineSelfRelation[SubjectRow]):
+    """
+    Represent the parent, position, and tree identity of one Subject row.
+    """
     ROW_TYPE: ClassVar[type[MetadataTableRow]] = SubjectRow
     TABLE_NAME: ClassVar[str] = "subjects"
     RELATION_NAME: ClassVar[str] = "subject_tree_parent"
@@ -160,6 +166,9 @@ class SubjectTreeRelation(InlineSelfRelation[SubjectRow]):
 
 @dataclass(slots=True, kw_only=True)
 class SeriesTreeRelation(InlineSelfRelation[SeriesRow]):
+    """
+    Represent the parent, position, and tree identity of one Series row.
+    """
     ROW_TYPE: ClassVar[type[MetadataTableRow]] = SeriesRow
     TABLE_NAME: ClassVar[str] = "series"
     RELATION_NAME: ClassVar[str] = "series_tree_parent"
@@ -224,16 +233,25 @@ class SelfRelationsContainer(Generic[RelationT]):
 
 @dataclass(slots=True, kw_only=True)
 class GenreTreeRelationsContainer(SelfRelationsContainer[GenreTreeRelation]):
+    """
+    Collect and validate Genre parent links as an editable forest.
+    """
     pass
 
 
 @dataclass(slots=True, kw_only=True)
 class SubjectTreeRelationsContainer(SelfRelationsContainer[SubjectTreeRelation]):
+    """
+    Collect and validate Subject parent links as an editable forest.
+    """
     pass
 
 
 @dataclass(slots=True, kw_only=True)
 class SeriesTreeRelationsContainer(SelfRelationsContainer[SeriesTreeRelation]):
+    """
+    Collect and validate Series parent links as an editable forest.
+    """
     pass
 
 

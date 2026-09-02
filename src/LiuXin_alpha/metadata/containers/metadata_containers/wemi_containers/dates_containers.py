@@ -91,6 +91,9 @@ class DateBase(MetadataValueStringMixin, abc.ABC):
 
 @dataclass(slots=True, kw_only=True)
 class WorkDate(DateBase):
+    """
+    Represent one typed date or date range attached to a Work.
+    """
     work_id: WorkID
     canonical_for_work: bool = False
 
@@ -110,6 +113,9 @@ class WorkDate(DateBase):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionDate(DateBase):
+    """
+    Represent one typed date or date range attached to an Expression.
+    """
     expression_id: ExpressionID
     applies_to_language_id: LanguageID | None = None
 
@@ -129,6 +135,9 @@ class ExpressionDate(DateBase):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationDate(DateBase):
+    """
+    Represent one typed date or date range attached to a Manifestation.
+    """
     manifestation_id: ManifestationID
     edition_specific: bool = True
 
@@ -148,6 +157,9 @@ class ManifestationDate(DateBase):
 
 @dataclass(slots=True, kw_only=True)
 class ItemDate(DateBase):
+    """
+    Represent one typed date or date range attached to an Item.
+    """
     item_id: ItemID
     copy_specific: bool = True
 
@@ -167,6 +179,9 @@ class ItemDate(DateBase):
 
 @dataclass(slots=True, kw_only=True)
 class KindDatesContainer(MetadataSequenceStringMixin, Generic[DateT], abc.ABC):
+    """
+    Manage ordered date assertions of one kind for a WEMI target.
+    """
     date_kind: DateKind
     target_id: int
     _dates: list[DateT] = field(default_factory=list)
@@ -249,21 +264,33 @@ class KindDatesContainer(MetadataSequenceStringMixin, Generic[DateT], abc.ABC):
 
 @dataclass(slots=True, kw_only=True)
 class WorkKindDatesContainer(KindDatesContainer[WorkDate]):
+    """
+    Collect date assertions of one kind for a Work.
+    """
     target_kind: Literal["work"] = "work"
 
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionKindDatesContainer(KindDatesContainer[ExpressionDate]):
+    """
+    Collect date assertions of one kind for an Expression.
+    """
     target_kind: Literal["expression"] = "expression"
 
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationKindDatesContainer(KindDatesContainer[ManifestationDate]):
+    """
+    Collect date assertions of one kind for a Manifestation.
+    """
     target_kind: Literal["manifestation"] = "manifestation"
 
 
 @dataclass(slots=True, kw_only=True)
 class ItemKindDatesContainer(KindDatesContainer[ItemDate]):
+    """
+    Collect date assertions of one kind for an Item.
+    """
     target_kind: Literal["item"] = "item"
 
 
@@ -273,6 +300,9 @@ class BaseTargetDatesContainer(
     Generic[DateT, KindContainerT],
     abc.ABC,
 ):
+    """
+    Group all date assertions for one WEMI target by date kind.
+    """
     _by_kind: dict[DateKind, KindContainerT] = field(default_factory=dict)
     STRING_COUNT_LABEL = "dates"
 
@@ -331,6 +361,9 @@ class BaseTargetDatesContainer(
 
 @dataclass(slots=True, kw_only=True)
 class WorkDatesContainer(BaseTargetDatesContainer[WorkDate, WorkKindDatesContainer]):
+    """
+    Group every typed date assertion attached to a Work.
+    """
     work_id: WorkID
 
     @property
@@ -347,6 +380,9 @@ class WorkDatesContainer(BaseTargetDatesContainer[WorkDate, WorkKindDatesContain
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionDatesContainer(BaseTargetDatesContainer[ExpressionDate, ExpressionKindDatesContainer]):
+    """
+    Group every typed date assertion attached to an Expression.
+    """
     expression_id: ExpressionID
 
     @property
@@ -363,6 +399,9 @@ class ExpressionDatesContainer(BaseTargetDatesContainer[ExpressionDate, Expressi
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationDatesContainer(BaseTargetDatesContainer[ManifestationDate, ManifestationKindDatesContainer]):
+    """
+    Group every typed date assertion attached to a Manifestation.
+    """
     manifestation_id: ManifestationID
 
     @property
@@ -379,6 +418,9 @@ class ManifestationDatesContainer(BaseTargetDatesContainer[ManifestationDate, Ma
 
 @dataclass(slots=True, kw_only=True)
 class ItemDatesContainer(BaseTargetDatesContainer[ItemDate, ItemKindDatesContainer]):
+    """
+    Group every typed date assertion attached to an Item.
+    """
     item_id: ItemID
 
     @property

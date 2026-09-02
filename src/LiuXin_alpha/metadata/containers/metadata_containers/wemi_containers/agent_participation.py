@@ -51,6 +51,9 @@ class AgentProfileSummary:
 
 @dataclass(slots=True, kw_only=True, frozen=True)
 class WorkSummary:
+    """
+    Provide the read-side Work summary used in Agent participation results.
+    """
     work_id: WorkID
     title: str
     sort_title: str | None = None
@@ -59,6 +62,9 @@ class WorkSummary:
 
 @dataclass(slots=True, kw_only=True, frozen=True)
 class ExpressionSummary:
+    """
+    Provide the read-side Expression summary used in Agent participation results.
+    """
     expression_id: ExpressionID
     work_id: WorkID
     title: str
@@ -68,6 +74,9 @@ class ExpressionSummary:
 
 @dataclass(slots=True, kw_only=True, frozen=True)
 class ManifestationSummary:
+    """
+    Provide the read-side Manifestation summary used in Agent participation results.
+    """
     manifestation_id: ManifestationID
     expression_id: ExpressionID
     title: str
@@ -78,6 +87,9 @@ class ManifestationSummary:
 
 @dataclass(slots=True, kw_only=True, frozen=True)
 class ItemSummary:
+    """
+    Provide the read-side copy summary used in Agent participation results.
+    """
     item_id: ItemID
     manifestation_id: ManifestationID
     shelfmark: str | None = None
@@ -87,6 +99,9 @@ class ItemSummary:
 
 @dataclass(slots=True, kw_only=True, frozen=True)
 class AgentParticipationEntry(Generic[CreditT, TargetSummaryT]):
+    """
+    Pair one Agent credit with the summarized WEMI target it describes.
+    """
     credit: CreditT
     target: TargetSummaryT
     display_label: str | None = None
@@ -95,6 +110,9 @@ class AgentParticipationEntry(Generic[CreditT, TargetSummaryT]):
 
 @dataclass(slots=True, kw_only=True, frozen=True)
 class AgentParticipationsByRole:
+    """
+    Group an Agent's WEMI participation entries by entity level and role.
+    """
     work_roles: dict[WorkAgentRole, tuple[AgentParticipationEntry[WorkAgentCredit, WorkSummary], ...]] = field(default_factory=dict)
     expression_roles: dict[ExpressionAgentRole, tuple[AgentParticipationEntry[ExpressionAgentCredit, ExpressionSummary], ...]] = field(default_factory=dict)
     manifestation_roles: dict[ManifestationAgentRole, tuple[AgentParticipationEntry[ManifestationAgentCredit, ManifestationSummary], ...]] = field(default_factory=dict)

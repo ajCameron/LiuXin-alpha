@@ -374,6 +374,9 @@ class KindTitlesContainer(MetadataSequenceStringMixin, Generic[TitleT], abc.ABC)
 
 @dataclass(slots=True, kw_only=True)
 class WorkKindTitlesContainer(KindTitlesContainer[WorkTitle]):
+    """
+    Collect title assertions of one kind for a Work.
+    """
     target_kind: ClassVar[str] = "work"
 
     @property
@@ -383,6 +386,9 @@ class WorkKindTitlesContainer(KindTitlesContainer[WorkTitle]):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionKindTitlesContainer(KindTitlesContainer[ExpressionTitle]):
+    """
+    Collect title assertions of one kind for an Expression.
+    """
     target_kind: ClassVar[str] = "expression"
 
     @property
@@ -392,6 +398,9 @@ class ExpressionKindTitlesContainer(KindTitlesContainer[ExpressionTitle]):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationKindTitlesContainer(KindTitlesContainer[ManifestationTitle]):
+    """
+    Collect title assertions of one kind for a Manifestation.
+    """
     target_kind: ClassVar[str] = "manifestation"
 
     @property
@@ -401,6 +410,9 @@ class ManifestationKindTitlesContainer(KindTitlesContainer[ManifestationTitle]):
 
 @dataclass(slots=True, kw_only=True)
 class ItemKindTitlesContainer(KindTitlesContainer[ItemTitle]):
+    """
+    Collect title assertions of one kind for an Item.
+    """
     target_kind: ClassVar[str] = "item"
 
     @property
