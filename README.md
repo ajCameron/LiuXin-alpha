@@ -14,6 +14,20 @@ bash scripts/create_venv.sh
 
 That creates `.venv/` in the repository root and installs the package in editable mode with the `test` and `search` extras.
 
+The normal wheel is separately checked as an installed artifact, including
+catalogue creation and reopen rather than only imports:
+
+```bash
+python -m pip wheel --no-deps --wheel-dir dist .
+python scripts/verify_wheel_install.py dist/liuxin_alpha-0.0.0-py3-none-any.whl
+```
+
+The wheel owns the database schema and smaller module-relative runtime data.
+The larger `LiuXin_resources/calibre_resources` compatibility tree remains a
+source-deployment resource, so conversion paths which need its templates,
+fonts, or localization bundles should use the deployment bundle or provide it
+under `LIUXIN_BASE_DIR`. See `dev-docs/packaging.md` for the exact boundary.
+
 Activate it with:
 
 ```bash

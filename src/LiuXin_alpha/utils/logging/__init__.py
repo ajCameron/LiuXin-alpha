@@ -32,10 +32,17 @@ def multi_string_print(*args: str) -> None:
     print("\n".join(args))
 
 
+def multi_string_warning(*args: str) -> None:
+    """Print warning text to stderr without contaminating data output."""
+
+    args = [str(arg) for arg in args]
+    print("\n".join(args), file=sys.stderr)
+
+
 
 LiuXin_print = multi_string_print
 LiuXin_debug_print = multi_string_print
-LiuXin_warning_print = multi_string_print
+LiuXin_warning_print = multi_string_warning
 
 
 def prints(*args, **kwargs):
