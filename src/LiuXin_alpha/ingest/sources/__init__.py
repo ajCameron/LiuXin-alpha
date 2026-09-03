@@ -1,3 +1,5 @@
+"""Discovery-source contracts and built-in remote content providers."""
+
 from .api import DiscoveredUrlCallback, DiscoverySourceAPI, LogLineCallback, ObservedUrlCallback
 from .crawler_defaults import (
     CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT,

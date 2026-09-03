@@ -1,3 +1,5 @@
+"""Consistency checks for generated FRBR database schemas."""
+
 # Verifies that the database is fine - checks for things which might cause problems
 
 from copy import deepcopy

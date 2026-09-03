@@ -1,3 +1,5 @@
+"""Read-only OPDS HTTP surface package."""
+
 from __future__ import annotations
 
 from .app import OpdsReadOnlyApplication, OpdsReadOnlyConfig, build_arg_parser, main

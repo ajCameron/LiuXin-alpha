@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class LabelRow(MetadataTableRow):
+    """
+    Represent a descriptive label row with normalized text.
+    """
     TABLE_NAME: ClassVar[str] = "labels"
     ID_COLUMN: ClassVar[str] = "label_id"
 

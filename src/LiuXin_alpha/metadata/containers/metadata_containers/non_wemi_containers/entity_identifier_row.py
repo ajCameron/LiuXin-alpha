@@ -12,6 +12,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class EntityIdentifierRow(MetadataTableRow):
+    """
+    Represent a scheme-qualified identifier attached to any supported entity type.
+    """
     TABLE_NAME: ClassVar[str] = "entity_identifiers"
     ID_COLUMN: ClassVar[str] = "entity_identifier_id"
 

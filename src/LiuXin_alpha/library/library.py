@@ -68,6 +68,7 @@ class Library:
         database: Optional[Database] = None,
         database_path: str | pathlib.Path | None = None,
         db_type: str = "SQLite",
+        database_metadata: Mapping[str, Any] | None = None,
         create: bool = False,
         backup: bool = False,
         enable_storage_manager: bool = True,
@@ -83,10 +84,27 @@ class Library:
             raise ValueError("Provide only one of `database` or `database_path`.")
 
         if database is None:
-            path = pathlib.Path(database_path).expanduser()
-            if create:
-                path.parent.mkdir(parents=True, exist_ok=True)
-            metadata = {"database_path": str(path)}
+            assert database_path is not None
+            server_database = str(db_type).strip().casefold() in {
+                "postgres",
+                "postgresql",
+                "pg",
+            }
+            if server_database:
+                target = str(database_path)
+                metadata = {
+                    "database_path": target,
+                    **dict(database_metadata or {}),
+                }
+                if target.startswith(("postgres://", "postgresql://")):
+                    metadata["postgres_url"] = target
+                else:
+                    metadata["postgres_service"] = target
+            else:
+                path = pathlib.Path(database_path).expanduser()
+                if create:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                metadata = {"database_path": str(path)}
             database = Database(
                 metadata=metadata,
                 db_type=db_type,

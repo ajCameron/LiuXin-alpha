@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class SynopsisRow(MetadataTableRow):
+    """
+    Represent a reusable synopsis row.
+    """
     TABLE_NAME: ClassVar[str] = "synopses"
     ID_COLUMN: ClassVar[str] = "synopsis_id"
 

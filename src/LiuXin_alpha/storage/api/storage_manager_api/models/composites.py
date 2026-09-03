@@ -1,4 +1,6 @@
-"""Composite Digital Asset declarations, records, and assessments."""
+"""
+Composite Digital Asset declarations, records, and assessments.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +14,8 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class CompositeDigitalAssetMembership:
-    """One ordered atomic member of a Composite Digital Asset.
+    """
+    One ordered atomic member of a Composite Digital Asset.
 
     Example:
         >>> member = CompositeDigitalAssetMembership(
@@ -31,13 +34,17 @@ class CompositeDigitalAssetMembership:
     required: bool = True
 
     def __post_init__(self) -> None:
-        """Reject invalid positions and empty optional labels.
+        """
+        Reject invalid positions and empty optional labels.
 
         Example:
             >>> CompositeDigitalAssetMembership(DigitalAssetID(7), -1)
             Traceback (most recent call last):
             ...
             ValueError: sequence_number must not be negative.
+
+
+        :return:
         """
 
         if self.digital_asset_id <= 0:
@@ -58,7 +65,8 @@ class CompositeDigitalAssetMembership:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class CompositeDigitalAssetDeclaration:
-    """Input for declaring an ordered logical assembly of atomic Assets.
+    """
+    Input for declaring an ordered logical assembly of atomic Assets.
 
     Example:
         >>> declaration = CompositeDigitalAssetDeclaration(
@@ -73,13 +81,17 @@ class CompositeDigitalAssetDeclaration:
     attributes: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
-        """Require a named, contiguous member sequence.
+        """
+        Require a named, contiguous member sequence.
 
         Example:
             >>> CompositeDigitalAssetDeclaration(())
             Traceback (most recent call last):
             ...
             ValueError: a Composite Digital Asset requires at least one member.
+
+
+        :return:
         """
 
         _validate_composite_members(self.members)
@@ -89,7 +101,8 @@ class CompositeDigitalAssetDeclaration:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class CompositeDigitalAssetRecord:
-    """Manager-maintained facts about one Composite Digital Asset.
+    """
+    Manager-maintained facts about one Composite Digital Asset.
 
     Example:
         >>> record = CompositeDigitalAssetRecord(
@@ -107,7 +120,8 @@ class CompositeDigitalAssetRecord:
     revision: str | None = None
 
     def __post_init__(self) -> None:
-        """Validate identity, members, and optional revision.
+        """
+        Validate identity, members, and optional revision.
 
         Example:
             >>> CompositeDigitalAssetRecord(
@@ -117,6 +131,9 @@ class CompositeDigitalAssetRecord:
             Traceback (most recent call last):
             ...
             ValueError: composite_digital_asset_id must be positive.
+
+
+        :return:
         """
 
         if self.composite_digital_asset_id <= 0:
@@ -128,7 +145,8 @@ class CompositeDigitalAssetRecord:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class CompositeDigitalAssetAvailabilityAssessment:
-    """Completeness and required-member readability assessment.
+    """
+    Completeness and required-member readability assessment.
 
     Example:
         >>> assessment = CompositeDigitalAssetAvailabilityAssessment(
@@ -147,13 +165,17 @@ class CompositeDigitalAssetAvailabilityAssessment:
 
     @property
     def readable(self) -> bool:
-        """Return whether every required member has a readable Replica.
+        """
+        Return whether every required member has a readable Replica.
 
         Example:
             >>> CompositeDigitalAssetAvailabilityAssessment(
             ...     CompositeDigitalAssetID(3), 1, 1, 1,
             ... ).readable
             True
+
+
+        :return:
         """
 
         return (
@@ -168,12 +190,17 @@ class CompositeDigitalAssetAvailabilityAssessment:
 def _validate_composite_members(
     members: tuple[CompositeDigitalAssetMembership, ...],
 ) -> None:
-    """Require a non-empty, uniquely ordered Composite membership.
+    """
+    Require a non-empty, uniquely ordered Composite membership.
 
     Example:
         >>> _validate_composite_members(
         ...     (CompositeDigitalAssetMembership(DigitalAssetID(7), 0),),
         ... )
+
+
+    :param members:
+    :return:
     """
 
     if not members:

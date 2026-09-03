@@ -1,3 +1,5 @@
+"""Database facade helpers for installing and inspecting triggers."""
+
 from __future__ import annotations
 
 import abc

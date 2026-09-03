@@ -9,6 +9,8 @@ from .inspector import set_readonly_text
 
 
 class TableSidebar:
+    """Selectable table list that delegates navigation to the controller."""
+
     def __init__(
         self,
         parent: Any,

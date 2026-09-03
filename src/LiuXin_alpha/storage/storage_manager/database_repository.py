@@ -1,4 +1,5 @@
-"""Durable database repository used by the application storage manager.
+"""
+Durable database repository used by the application storage manager.
 
 The public storage values deliberately remain independent of database rows.
 This adapter stores their useful scalar fields in the existing catalogue
@@ -31,7 +32,8 @@ _FORMAT_VERSION = 1
 
 
 class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
-    """Mapping-shaped orchestration port over an authoritative repository.
+    """
+    Mapping-shaped orchestration port over an authoritative repository.
 
     The mapping exists so the manager core can stay storage-neutral. It owns
     no record dictionary: reads go to the repository (and therefore the shared
@@ -47,6 +49,18 @@ class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
         remove: Callable[[_K], None],
         key_of: Callable[[_V], _K] | None = None,
     ) -> None:
+        """
+        Bind mapping operations to authoritative repository callables.
+
+
+        :param get_one:
+        :param load_all:
+        :param upsert:
+        :param remove:
+        :param key_of:
+        :return:
+        """
+
         self._get_one = get_one
         self._load_all = load_all
         self._upsert = upsert
@@ -54,9 +68,26 @@ class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
         self._key_of = key_of
 
     def __getitem__(self, key: _K) -> _V:
+        """
+        Load one value directly from the repository.
+
+
+        :param key:
+        :return:
+        """
+
         return self._get_one(key)
 
     def __setitem__(self, key: _K, value: _V) -> None:
+        """
+        Validate identity, when configured, and persist ``value``.
+
+
+        :param key:
+        :param value:
+        :return:
+        """
+
         if self._key_of is not None and self._key_of(value) != key:
             raise ValueError(
                 "repository mapping key does not match record identity."
@@ -64,16 +95,46 @@ class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
         self._upsert(value)
 
     def __delitem__(self, key: _K) -> None:
+        """
+        Require and remove one repository value.
+
+
+        :param key:
+        :return:
+        """
+
         self._get_one(key)
         self._remove(key)
 
     def __iter__(self) -> Iterator[_K]:
+        """
+        Iterate keys from a freshly loaded repository snapshot.
+
+
+        :return:
+        """
+
         return iter(self._load_all())
 
     def __len__(self) -> int:
+        """
+        Return the size of a freshly loaded repository snapshot.
+
+
+        :return:
+        """
+
         return len(self._load_all())
 
     def __contains__(self, key: object) -> bool:
+        """
+        Return whether the authoritative repository contains ``key``.
+
+
+        :param key:
+        :return:
+        """
+
         try:
             self._get_one(key)  # type: ignore[arg-type]
         except KeyError:
@@ -81,18 +142,50 @@ class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
         return True
 
     def get(self, key: _K, default: Any = None) -> _V | Any:
+        """
+        Load ``key`` or return ``default`` without retaining local state.
+
+
+        :param key:
+        :param default:
+        :return:
+        """
+
         try:
             return self._get_one(key)
         except KeyError:
             return default
 
     def values(self):
+        """
+        Return values from a freshly loaded repository snapshot.
+
+
+        :return:
+        """
+
         return self._load_all().values()
 
     def items(self):
+        """
+        Return items from a freshly loaded repository snapshot.
+
+
+        :return:
+        """
+
         return self._load_all().items()
 
     def pop(self, key: _K, default: Any = dataclasses.MISSING) -> _V | Any:
+        """
+        Load and remove ``key``, applying normal mapping default semantics.
+
+
+        :param key:
+        :param default:
+        :return:
+        """
+
         try:
             value = self._get_one(key)
         except KeyError:
@@ -109,18 +202,36 @@ class RepositoryItemTargetMapping(
         tuple[str, api.DigitalAssetID | api.CompositeDigitalAssetID],
     ]
 ):
-    """Repository-backed mapping for role-keyed Item targets."""
+    """
+    Repository-backed mapping for role-keyed Item targets.
+    """
 
     def __init__(
         self,
         *,
         repository: DatabaseStorageMetadataRepository,
     ) -> None:
+        """
+        Bind Item-target operations to one metadata repository.
+
+
+        :param repository:
+        :return:
+        """
+
         self._repository = repository
 
     def __getitem__(
         self, key: tuple[api.ItemID, str]
     ) -> tuple[str, api.DigitalAssetID | api.CompositeDigitalAssetID]:
+        """
+        Load the target assigned to one Item role.
+
+
+        :param key:
+        :return:
+        """
+
         return self._repository.get_item_target(key)
 
     def __setitem__(
@@ -128,31 +239,94 @@ class RepositoryItemTargetMapping(
         key: tuple[api.ItemID, str],
         value: tuple[str, api.DigitalAssetID | api.CompositeDigitalAssetID],
     ) -> None:
+        """
+        Persist the atomic or Composite target for one Item role.
+
+
+        :param key:
+        :param value:
+        :return:
+        """
+
         self._repository.upsert_item_target((key, value))
 
     def __delitem__(self, key: tuple[api.ItemID, str]) -> None:
+        """
+        Require and remove one Item-role target.
+
+
+        :param key:
+        :return:
+        """
+
         self._repository.get_item_target(key)
         self._repository.remove_item_target(key)
 
     def __iter__(self):
+        """
+        Iterate Item-role keys from a fresh database snapshot.
+
+
+        :return:
+        """
+
         return iter(self._repository.load_item_targets())
 
     def __len__(self) -> int:
+        """
+        Return the number of currently persisted Item-role targets.
+
+
+        :return:
+        """
+
         return len(self._repository.load_item_targets())
 
     def get(self, key, default=None):
+        """
+        Load an Item-role target or return ``default``.
+
+
+        :param key:
+        :param default:
+        :return:
+        """
+
         try:
             return self._repository.get_item_target(key)
         except KeyError:
             return default
 
     def values(self):
+        """
+        Return targets from a fresh database snapshot.
+
+
+        :return:
+        """
+
         return self._repository.load_item_targets().values()
 
     def items(self):
+        """
+        Return Item-role pairs from a fresh database snapshot.
+
+
+        :return:
+        """
+
         return self._repository.load_item_targets().items()
 
     def pop(self, key, default=dataclasses.MISSING):
+        """
+        Load and remove a target with normal mapping default semantics.
+
+
+        :param key:
+        :param default:
+        :return:
+        """
+
         try:
             value = self._repository.get_item_target(key)
         except KeyError:
@@ -164,7 +338,15 @@ class RepositoryItemTargetMapping(
 
 
 class DatabaseStorageMetadataRepository:
-    """Read and write storage-manager state through portable DB macros."""
+    """
+    Translate storage-manager values through portable database macros.
+
+    Scalar columns remain useful to queries and older LiuXin code, while a
+    versioned JSON envelope in each scratch column preserves the complete typed
+    public value.  Database rows are authoritative.  An attached shared cache
+    may serve reads, but every mutation commits through the macro interface and
+    invalidates affected records or relationship indexes.
+    """
 
     _RECORD_IDENTITIES = {
         "digital_asset": (
@@ -269,6 +451,16 @@ class DatabaseStorageMetadataRepository:
         additional_types: Iterable[type[Any]] = (),
         cache: Any | None = None,
     ) -> None:
+        """
+        Validate ``db`` and configure value decoding and optional caching.
+
+
+        :param db:
+        :param additional_types:
+        :param cache:
+        :return:
+        """
+
         if not self.supports(db):
             raise TypeError(
                 "database does not expose the portable storage metadata schema."
@@ -287,7 +479,13 @@ class DatabaseStorageMetadataRepository:
 
     @classmethod
     def supports(cls, db: Any) -> bool:
-        """Return whether a database can provide durable manager metadata."""
+        """
+        Return whether a database can provide durable manager metadata.
+
+
+        :param db:
+        :return:
+        """
 
         try:
             tables = set(db.get_tables())
@@ -308,11 +506,16 @@ class DatabaseStorageMetadataRepository:
 
     @classmethod
     def resembles_storage_catalogue(cls, db: Any) -> bool:
-        """Return whether ``db`` appears intended to own storage metadata.
+        """
+        Return whether ``db`` appears intended to own storage metadata.
 
         Tiny Store-row adapters are useful for focused bootstrap tests and do
         not claim to be a manager catalogue. A real catalogue that is merely
         incomplete must not silently turn an application manager volatile.
+
+
+        :param db:
+        :return:
         """
 
         try:
@@ -323,7 +526,13 @@ class DatabaseStorageMetadataRepository:
 
     @classmethod
     def missing_tables(cls, db: Any) -> tuple[str, ...]:
-        """Return durable catalogue tables absent from ``db``."""
+        """
+        Return durable catalogue tables absent from ``db``.
+
+
+        :param db:
+        :return:
+        """
 
         try:
             tables = set(db.get_tables())
@@ -332,12 +541,22 @@ class DatabaseStorageMetadataRepository:
         return tuple(sorted(cls._REQUIRED_TABLES - tables))
 
     def transaction(self):
-        """Return the portable database transaction used by manager mutations."""
+        """
+        Return the portable database transaction used by manager mutations.
+
+
+        :return:
+        """
 
         return self.macros.transaction()
 
     def migrate_envelopes(self) -> int:
-        """Upgrade known older storage envelopes transactionally in place."""
+        """
+        Upgrade known older storage envelopes transactionally in place.
+
+
+        :return:
+        """
 
         upgraded = 0
         with self.macros.transaction():
@@ -361,12 +580,17 @@ class DatabaseStorageMetadataRepository:
         return upgraded
 
     def allocate_record_id(self, kind: str) -> int:
-        """Reserve a database-generated identity inside the caller transaction.
+        """
+        Reserve a database-generated identity inside the caller transaction.
 
         The manager immediately replaces the reservation scratch value with a
         complete record before its surrounding transaction commits. This uses
         SQLite rowid or PostgreSQL identity allocation instead of a racy
         process-local ``max(id) + 1`` counter.
+
+
+        :param kind:
+        :return:
         """
 
         try:
@@ -391,7 +615,13 @@ class DatabaseStorageMetadataRepository:
         )
 
     def set_cache(self, cache: Any | None) -> None:
-        """Route catalogue reads through LiuXin's shared cache when supplied."""
+        """
+        Route catalogue reads through LiuXin's shared cache when supplied.
+
+
+        :param cache:
+        :return:
+        """
 
         if cache is None:
             self.cache = None
@@ -425,6 +655,13 @@ class DatabaseStorageMetadataRepository:
     def asset_records(self) -> RepositoryRecordMapping[
         api.DigitalAssetID, api.DigitalAssetRecord
     ]:
+        """
+        Return the compatibility mapping for authoritative Asset records.
+
+
+        :return:
+        """
+
         return RepositoryRecordMapping(
             get_one=self.get_asset,
             load_all=self._load_assets,
@@ -436,6 +673,13 @@ class DatabaseStorageMetadataRepository:
     def replica_records(self) -> RepositoryRecordMapping[
         api.ReplicaID, api.ReplicaRecord
     ]:
+        """
+        Return the compatibility mapping for authoritative Replica records.
+
+
+        :return:
+        """
+
         return RepositoryRecordMapping(
             get_one=self.get_replica,
             load_all=self._load_replicas,
@@ -447,6 +691,13 @@ class DatabaseStorageMetadataRepository:
     def composite_records(self) -> RepositoryRecordMapping[
         api.CompositeDigitalAssetID, api.CompositeDigitalAssetRecord
     ]:
+        """
+        Return the compatibility mapping for Composite records.
+
+
+        :return:
+        """
+
         return RepositoryRecordMapping(
             get_one=self.get_composite,
             load_all=self._load_composites,
@@ -458,6 +709,13 @@ class DatabaseStorageMetadataRepository:
     def derivation_records(self) -> RepositoryRecordMapping[
         api.DigitalAssetDerivationID, api.DigitalAssetDerivationRecord
     ]:
+        """
+        Return the compatibility mapping for derivation records.
+
+
+        :return:
+        """
+
         return RepositoryRecordMapping(
             get_one=self.get_derivation,
             load_all=self._load_derivations,
@@ -469,6 +727,13 @@ class DatabaseStorageMetadataRepository:
     def replication_policy_records(self) -> RepositoryRecordMapping[
         api.ReplicationPolicyID, api.ReplicationPolicyRecord
     ]:
+        """
+        Return the compatibility mapping for replication policies.
+
+
+        :return:
+        """
+
         return RepositoryRecordMapping(
             get_one=self.get_replication_policy,
             load_all=self._load_replication_policies,
@@ -480,6 +745,13 @@ class DatabaseStorageMetadataRepository:
     def backup_policy_records(self) -> RepositoryRecordMapping[
         api.BackupPolicyID, api.BackupPolicyRecord
     ]:
+        """
+        Return the compatibility mapping for backup policies.
+
+
+        :return:
+        """
+
         return RepositoryRecordMapping(
             get_one=self.get_backup_policy,
             load_all=self._load_backup_policies,
@@ -489,9 +761,23 @@ class DatabaseStorageMetadataRepository:
         )
 
     def item_targets(self) -> RepositoryItemTargetMapping:
+        """
+        Return the compatibility mapping for role-keyed Item targets.
+
+
+        :return:
+        """
+
         return RepositoryItemTargetMapping(repository=self)
 
     def ingest_operations(self) -> RepositoryRecordMapping[UUID, Any]:
+        """
+        Return the read/upsert facade for committed ingest operations.
+
+
+        :return:
+        """
+
         return RepositoryRecordMapping(
             get_one=self.get_committed_ingest_operation,
             load_all=self._load_committed_ingest_operations,
@@ -502,6 +788,14 @@ class DatabaseStorageMetadataRepository:
     def get_asset(
         self, digital_asset_id: api.DigitalAssetID
     ) -> api.DigitalAssetRecord:
+        """
+        Load one typed Digital Asset record by its database identity.
+
+
+        :param digital_asset_id:
+        :return:
+        """
+
         return self._get_record(
             "digital_assets",
             "digital_asset_id",
@@ -510,6 +804,14 @@ class DatabaseStorageMetadataRepository:
         )
 
     def get_replica(self, replica_id: api.ReplicaID) -> api.ReplicaRecord:
+        """
+        Load one typed Replica record by its database identity.
+
+
+        :param replica_id:
+        :return:
+        """
+
         return self._get_record(
             "asset_replicas",
             "asset_replica_id",
@@ -520,6 +822,14 @@ class DatabaseStorageMetadataRepository:
     def get_composite(
         self, composite_id: api.CompositeDigitalAssetID
     ) -> api.CompositeDigitalAssetRecord:
+        """
+        Load one typed Composite record by its database identity.
+
+
+        :param composite_id:
+        :return:
+        """
+
         return self._get_record(
             "composite_digital_assets",
             "composite_digital_asset_id",
@@ -530,6 +840,14 @@ class DatabaseStorageMetadataRepository:
     def get_derivation(
         self, derivation_id: api.DigitalAssetDerivationID
     ) -> api.DigitalAssetDerivationRecord:
+        """
+        Load one typed derivation record by its database identity.
+
+
+        :param derivation_id:
+        :return:
+        """
+
         return self._get_record(
             "digital_asset_derivations",
             "digital_asset_derivation_id",
@@ -540,6 +858,14 @@ class DatabaseStorageMetadataRepository:
     def get_replication_policy(
         self, policy_id: api.ReplicationPolicyID
     ) -> api.ReplicationPolicyRecord:
+        """
+        Load one typed replication-policy record by identity.
+
+
+        :param policy_id:
+        :return:
+        """
+
         return self._get_record(
             "replication_policies",
             "replication_policy_id",
@@ -550,6 +876,14 @@ class DatabaseStorageMetadataRepository:
     def get_backup_policy(
         self, policy_id: api.BackupPolicyID
     ) -> api.BackupPolicyRecord:
+        """
+        Load one typed backup-policy record by identity.
+
+
+        :param policy_id:
+        :return:
+        """
+
         return self._get_record(
             "backup_policies",
             "backup_policy_id",
@@ -563,17 +897,40 @@ class DatabaseStorageMetadataRepository:
         tuple[api.ItemID, str],
         tuple[str, api.DigitalAssetID | api.CompositeDigitalAssetID],
     ]:
+        """
+        Load every role-keyed Item target from both link tables.
+
+
+        :return:
+        """
+
         return self._load_item_targets()
 
     def get_item_target(
         self, key: tuple[api.ItemID, str]
     ) -> tuple[str, api.DigitalAssetID | api.CompositeDigitalAssetID]:
+        """
+        Load one role-keyed Item target or raise ``KeyError``.
+
+
+        :param key:
+        :return:
+        """
+
         try:
             return self._load_item_targets()[key]
         except KeyError:
             raise KeyError(key) from None
 
     def get_committed_ingest_operation(self, operation_id: UUID) -> Any:
+        """
+        Load one committed ingest operation or raise ``KeyError``.
+
+
+        :param operation_id:
+        :return:
+        """
+
         row = self._journal_row(operation_id)
         if row is None or row.get("storage_ingest_operation_state") != "committed":
             raise KeyError(operation_id)
@@ -590,6 +947,17 @@ class DatabaseStorageMetadataRepository:
         key: _K,
         loader: Callable[[Iterable[Mapping[str, Any]] | None], Mapping[_K, _V]],
     ) -> _V:
+        """
+        Load and decode one record while preserving mapping ``KeyError``.
+
+
+        :param table:
+        :param id_column:
+        :param key:
+        :param loader:
+        :return:
+        """
+
         row = self._record_row(table, id_column, int(key))
         if row is None:
             raise KeyError(key)
@@ -605,6 +973,16 @@ class DatabaseStorageMetadataRepository:
         id_column: str,
         row_id: int,
     ) -> Mapping[str, Any] | None:
+        """
+        Read one raw row through the shared cache when it covers ``table``.
+
+
+        :param table:
+        :param id_column:
+        :param row_id:
+        :return:
+        """
+
         if self.cache is None or table not in self._cached_tables:
             return self.macros.get_row(table, row_id, id_column=id_column)
         lookup = self.cache.get(table, row_id)
@@ -616,6 +994,15 @@ class DatabaseStorageMetadataRepository:
         *,
         order_by: tuple[str, ...],
     ) -> tuple[Mapping[str, Any], ...]:
+        """
+        Read an ordered raw-row snapshot through cache or database macros.
+
+
+        :param table:
+        :param order_by:
+        :return:
+        """
+
         if self.cache is None or table not in self._cached_tables:
             return tuple(self.macros.get_rows(table, order_by=order_by))
         from LiuXin_alpha.caches import CacheQuery, CacheSort
@@ -629,13 +1016,28 @@ class DatabaseStorageMetadataRepository:
         return tuple(record.values for record in result.records)
 
     def _invalidate_records(self, *tables: str) -> None:
+        """
+        Invalidate complete cached tables affected by a bulk mutation.
+
+
+        :param tables:
+        :return:
+        """
+
         if self.cache is not None:
             cached = tuple(table for table in tables if table in self._cache_tables)
             if cached:
                 self.cache.invalidate(tables=cached)
 
     def _invalidate_record_ids(self, table: str, *row_ids: int) -> None:
-        """Invalidate selected durable records without reloading their catalogue."""
+        """
+        Invalidate selected durable records without reloading their catalogue.
+
+
+        :param table:
+        :param row_ids:
+        :return:
+        """
 
         if (
             self.cache is not None
@@ -651,7 +1053,13 @@ class DatabaseStorageMetadataRepository:
     # ------------------------------------------------------------------
 
     def ensure_store(self, configuration: api.StoreConfiguration) -> int:
-        """Return the Store row ID, inserting a supplied configuration if needed."""
+        """
+        Return the Store row ID, inserting a supplied configuration if needed.
+
+
+        :param configuration:
+        :return:
+        """
 
         rows = self.macros.get_rows(
             "stores", where={"store_uuid": str(configuration.store_uuid)}
@@ -667,7 +1075,13 @@ class DatabaseStorageMetadataRepository:
         return store_id
 
     def update_store(self, configuration: api.StoreConfiguration) -> None:
-        """Persist a complete replacement configuration for one Store UUID."""
+        """
+        Persist a complete replacement configuration for one Store UUID.
+
+
+        :param configuration:
+        :return:
+        """
 
         rows = self.macros.get_rows(
             "stores", where={"store_uuid": str(configuration.store_uuid)}
@@ -690,7 +1104,13 @@ class DatabaseStorageMetadataRepository:
         self._invalidate_record_ids("stores", store_id)
 
     def remove_store(self, store_ref: api.StoreUUID) -> None:
-        """Delete one unclaimed durable Store configuration."""
+        """
+        Delete one unclaimed durable Store configuration.
+
+
+        :param store_ref:
+        :return:
+        """
 
         rows = self.macros.get_rows(
             "stores", where={"store_uuid": str(store_ref)}
@@ -708,6 +1128,14 @@ class DatabaseStorageMetadataRepository:
         self._invalidate_record_ids("stores", store_id)
 
     def upsert_asset(self, record: api.DigitalAssetRecord) -> None:
+        """
+        Persist searchable Asset scalars and its lossless typed envelope.
+
+
+        :param record:
+        :return:
+        """
+
         values = {
             "digital_asset_name": _database_scalar_text(record.metadata.name),
             "digital_asset_mime_type": _database_scalar_text(
@@ -732,10 +1160,26 @@ class DatabaseStorageMetadataRepository:
         self._invalidate_record_ids("digital_assets", int(record.digital_asset_id))
 
     def remove_asset(self, digital_asset_id: api.DigitalAssetID) -> None:
+        """
+        Delete one Asset row and invalidate its cached record.
+
+
+        :param digital_asset_id:
+        :return:
+        """
+
         self.macros.delete_row("digital_assets", int(digital_asset_id))
         self._invalidate_record_ids("digital_assets", int(digital_asset_id))
 
     def upsert_replica(self, record: api.ReplicaRecord) -> None:
+        """
+        Persist searchable Replica scalars and its lossless typed envelope.
+
+
+        :param record:
+        :return:
+        """
+
         store_id = self._store_id(record.location.store_ref)
         values = {
             "asset_replica_digital_asset_id": int(record.digital_asset_id),
@@ -775,10 +1219,26 @@ class DatabaseStorageMetadataRepository:
         self._invalidate_record_ids("asset_replicas", int(record.replica_id))
 
     def remove_replica(self, replica_id: api.ReplicaID) -> None:
+        """
+        Delete one Replica row and invalidate its cached record.
+
+
+        :param replica_id:
+        :return:
+        """
+
         self.macros.delete_row("asset_replicas", int(replica_id))
         self._invalidate_record_ids("asset_replicas", int(replica_id))
 
     def upsert_composite(self, record: api.CompositeDigitalAssetRecord) -> None:
+        """
+        Atomically replace a Composite envelope and ordered member links.
+
+
+        :param record:
+        :return:
+        """
+
         composite_id = int(record.composite_digital_asset_id)
         with self.macros.transaction():
             self._upsert(
@@ -833,6 +1293,14 @@ class DatabaseStorageMetadataRepository:
     def remove_composite(
         self, composite_digital_asset_id: api.CompositeDigitalAssetID
     ) -> None:
+        """
+        Delete one Composite and invalidate record and membership caches.
+
+
+        :param composite_digital_asset_id:
+        :return:
+        """
+
         self.macros.delete_row(
             "composite_digital_assets", int(composite_digital_asset_id)
         )
@@ -848,6 +1316,14 @@ class DatabaseStorageMetadataRepository:
             )
 
     def upsert_derivation(self, record: api.DigitalAssetDerivationRecord) -> None:
+        """
+        Persist queryable provenance scalars and its complete envelope.
+
+
+        :param record:
+        :return:
+        """
+
         declaration = record.declaration
         first_atomic_source = next(
             (
@@ -885,6 +1361,14 @@ class DatabaseStorageMetadataRepository:
     def remove_derivation(
         self, digital_asset_derivation_id: api.DigitalAssetDerivationID
     ) -> None:
+        """
+        Delete one derivation row and invalidate its cached record.
+
+
+        :param digital_asset_derivation_id:
+        :return:
+        """
+
         self.macros.delete_row(
             "digital_asset_derivations", int(digital_asset_derivation_id)
         )
@@ -893,6 +1377,14 @@ class DatabaseStorageMetadataRepository:
         )
 
     def upsert_replication_policy(self, record: api.ReplicationPolicyRecord) -> None:
+        """
+        Persist queryable replication settings and their complete envelope.
+
+
+        :param record:
+        :return:
+        """
+
         policy = record.policy
         self._upsert(
             "replication_policies",
@@ -929,12 +1421,28 @@ class DatabaseStorageMetadataRepository:
     def remove_replication_policy(
         self, replication_policy_id: api.ReplicationPolicyID
     ) -> None:
+        """
+        Delete one replication policy and invalidate its cached record.
+
+
+        :param replication_policy_id:
+        :return:
+        """
+
         self.macros.delete_row("replication_policies", int(replication_policy_id))
         self._invalidate_record_ids(
             "replication_policies", int(replication_policy_id)
         )
 
     def upsert_backup_policy(self, record: api.BackupPolicyRecord) -> None:
+        """
+        Persist queryable backup settings and their complete envelope.
+
+
+        :param record:
+        :return:
+        """
+
         policy = record.policy
         self._upsert(
             "backup_policies",
@@ -969,6 +1477,14 @@ class DatabaseStorageMetadataRepository:
         self._invalidate_record_ids("backup_policies", int(record.backup_policy_id))
 
     def remove_backup_policy(self, backup_policy_id: api.BackupPolicyID) -> None:
+        """
+        Delete one backup policy and invalidate its cached record.
+
+
+        :param backup_policy_id:
+        :return:
+        """
+
         self.macros.delete_row("backup_policies", int(backup_policy_id))
         self._invalidate_record_ids("backup_policies", int(backup_policy_id))
 
@@ -979,6 +1495,14 @@ class DatabaseStorageMetadataRepository:
             tuple[str, api.DigitalAssetID | api.CompositeDigitalAssetID],
         ],
     ) -> None:
+        """
+        Atomically replace one Item role's atomic or Composite target.
+
+
+        :param value:
+        :return:
+        """
+
         (item_id, role), (kind, target_id) = value
         with self.macros.transaction():
             self._delete_item_target(item_id, role)
@@ -1038,6 +1562,14 @@ class DatabaseStorageMetadataRepository:
             )
 
     def remove_item_target(self, key: tuple[api.ItemID, str]) -> None:
+        """
+        Remove one Item-role target and invalidate relationship indexes.
+
+
+        :param key:
+        :return:
+        """
+
         self._delete_item_target(*key)
         if self.cache is not None:
             self.cache.invalidate(
@@ -1054,6 +1586,15 @@ class DatabaseStorageMetadataRepository:
     # ------------------------------------------------------------------
 
     def journal_start(self, operation_id: UUID, request: Any) -> None:
+        """
+        Start or idempotently restart a durable ingest journal entry.
+
+
+        :param operation_id:
+        :param request:
+        :return:
+        """
+
         if not self.has_ingest_journal:
             return
         row = self._journal_row(operation_id)
@@ -1092,6 +1633,19 @@ class DatabaseStorageMetadataRepository:
         replica_mode: api.ReplicaMode,
         placement_hints: api.StoragePlacementHints | None,
     ) -> None:
+        """
+        Record enough planned publication state for crash recovery.
+
+
+        :param operation_id:
+        :param asset_record:
+        :param asset_created:
+        :param location:
+        :param replica_mode:
+        :param placement_hints:
+        :return:
+        """
+
         if not self.has_ingest_journal:
             return
         self._update_journal_payload(
@@ -1107,10 +1661,27 @@ class DatabaseStorageMetadataRepository:
         )
 
     def journal_published(self, operation_id: UUID) -> None:
+        """
+        Mark physical publication complete before metadata commit.
+
+
+        :param operation_id:
+        :return:
+        """
+
         if self.has_ingest_journal:
             self._update_journal_payload(operation_id, state="published", values={})
 
     def journal_failed(self, operation_id: UUID, error: BaseException) -> None:
+        """
+        Mark an existing ingest failed with an operator-safe error string.
+
+
+        :param operation_id:
+        :param error:
+        :return:
+        """
+
         if not self.has_ingest_journal:
             return
         row = self._journal_row(operation_id)
@@ -1128,6 +1699,14 @@ class DatabaseStorageMetadataRepository:
         )
 
     def commit_ingest_operation(self, operation: Any) -> None:
+        """
+        Persist a completed operation as the idempotent retry result.
+
+
+        :param operation:
+        :return:
+        """
+
         if not self.has_ingest_journal:
             return
         operation_id = operation.result.operation_id
@@ -1162,6 +1741,13 @@ class DatabaseStorageMetadataRepository:
             )
 
     def pending_ingests(self) -> tuple[tuple[UUID, str, dict[str, Any]], ...]:
+        """
+        Return decoded journal entries still eligible for recovery.
+
+
+        :return:
+        """
+
         if not self.has_ingest_journal:
             return ()
         pending: list[tuple[UUID, str, dict[str, Any]]] = []
@@ -1182,8 +1768,42 @@ class DatabaseStorageMetadataRepository:
             )
         return tuple(pending)
 
+    def ingest_journal_entry(
+        self,
+        operation_id: UUID,
+    ) -> tuple[str, dict[str, Any], str | None] | None:
+        """
+        Return one decoded durable ingest entry for explicit recovery.
+
+
+        :param operation_id:
+        :return:
+        """
+
+        if not self.has_ingest_journal:
+            return None
+        row = self._journal_row(operation_id)
+        if row is None:
+            return None
+        payload = self._load(row["storage_ingest_operation_scratch"])
+        if not isinstance(payload, dict):
+            raise api.StorageManagementError(
+                "invalid durable ingest journal payload."
+            )
+        error = row.get("storage_ingest_operation_last_error")
+        return (
+            str(row["storage_ingest_operation_state"]),
+            payload,
+            None if error in (None, "") else str(error),
+        )
+
     def ingest_journal_statuses(self) -> tuple[dict[str, object], ...]:
-        """Return operator-safe journal summaries without decoded requests."""
+        """
+        Return operator-safe journal summaries without decoded requests.
+
+
+        :return:
+        """
 
         if not self.has_ingest_journal:
             return ()
@@ -1215,6 +1835,14 @@ class DatabaseStorageMetadataRepository:
         self,
         rows: Iterable[Mapping[str, Any]] | None = None,
     ) -> dict[api.DigitalAssetID, api.DigitalAssetRecord]:
+        """
+        Decode Asset envelopes, falling back to usable legacy scalars.
+
+
+        :param rows:
+        :return:
+        """
+
         records: dict[api.DigitalAssetID, api.DigitalAssetRecord] = {}
         source = (
             self._record_rows("digital_assets", order_by=("digital_asset_id",))
@@ -1257,6 +1885,14 @@ class DatabaseStorageMetadataRepository:
         self,
         rows: Iterable[Mapping[str, Any]] | None = None,
     ) -> dict[api.ReplicaID, api.ReplicaRecord]:
+        """
+        Decode Replica envelopes, falling back to usable legacy scalars.
+
+
+        :param rows:
+        :return:
+        """
+
         records: dict[api.ReplicaID, api.ReplicaRecord] = {}
         source = (
             self._record_rows("asset_replicas", order_by=("asset_replica_id",))
@@ -1308,6 +1944,14 @@ class DatabaseStorageMetadataRepository:
         self,
         rows: Iterable[Mapping[str, Any]] | None = None,
     ) -> dict[api.CompositeDigitalAssetID, api.CompositeDigitalAssetRecord]:
+        """
+        Decode Composites, rebuilding legacy records from member links.
+
+
+        :param rows:
+        :return:
+        """
+
         records: dict[api.CompositeDigitalAssetID, api.CompositeDigitalAssetRecord] = {}
         source = (
             self._record_rows(
@@ -1385,6 +2029,14 @@ class DatabaseStorageMetadataRepository:
         self,
         rows: Iterable[Mapping[str, Any]] | None = None,
     ) -> dict[api.DigitalAssetDerivationID, api.DigitalAssetDerivationRecord]:
+        """
+        Decode derivations, rebuilding simple legacy parent-child records.
+
+
+        :param rows:
+        :return:
+        """
+
         records: dict[api.DigitalAssetDerivationID, api.DigitalAssetDerivationRecord] = {}
         source = (
             self._record_rows(
@@ -1434,6 +2086,14 @@ class DatabaseStorageMetadataRepository:
         self,
         rows: Iterable[Mapping[str, Any]] | None = None,
     ) -> dict[api.ReplicationPolicyID, api.ReplicationPolicyRecord]:
+        """
+        Decode replication policies with scalar-column compatibility.
+
+
+        :param rows:
+        :return:
+        """
+
         records: dict[api.ReplicationPolicyID, api.ReplicationPolicyRecord] = {}
         source = (
             self._record_rows(
@@ -1493,6 +2153,14 @@ class DatabaseStorageMetadataRepository:
         self,
         rows: Iterable[Mapping[str, Any]] | None = None,
     ) -> dict[api.BackupPolicyID, api.BackupPolicyRecord]:
+        """
+        Decode backup policies with scalar-column compatibility.
+
+
+        :param rows:
+        :return:
+        """
+
         records: dict[api.BackupPolicyID, api.BackupPolicyRecord] = {}
         source = (
             self._record_rows("backup_policies", order_by=("backup_policy_id",))
@@ -1546,6 +2214,13 @@ class DatabaseStorageMetadataRepository:
         return records
 
     def _load_item_targets(self) -> dict[tuple[api.ItemID, str], tuple[str, Any]]:
+        """
+        Merge atomic and Composite Item-link rows into one role-keyed map.
+
+
+        :return:
+        """
+
         targets: dict[tuple[api.ItemID, str], tuple[str, Any]] = {}
         specs = (
             (
@@ -1580,6 +2255,13 @@ class DatabaseStorageMetadataRepository:
         return targets
 
     def _load_committed_ingest_operations(self) -> dict[UUID, Any]:
+        """
+        Decode committed operations used to make ingest retries idempotent.
+
+
+        :return:
+        """
+
         if not self.has_ingest_journal:
             return {}
         operations: dict[UUID, Any] = {}
@@ -1606,6 +2288,17 @@ class DatabaseStorageMetadataRepository:
         row_id: int,
         values: Mapping[str, Any],
     ) -> None:
+        """
+        Insert or update only values supported by the bound table schema.
+
+
+        :param table:
+        :param id_column:
+        :param row_id:
+        :param values:
+        :return:
+        """
+
         payload = {
             key: value
             for key, value in values.items()
@@ -1626,12 +2319,31 @@ class DatabaseStorageMetadataRepository:
         id_column: str,
         where: Mapping[str, Any],
     ) -> None:
+        """
+        Delete every row matching ``where`` through portable macros.
+
+
+        :param table:
+        :param id_column:
+        :param where:
+        :return:
+        """
+
         for row in self.macros.get_rows(table, where=where):
             self.macros.delete_row(
                 table, row[id_column], id_column=id_column
             )
 
     def _delete_item_target(self, item_id: api.ItemID, role: str) -> None:
+        """
+        Delete matching atomic and Composite links for one Item role.
+
+
+        :param item_id:
+        :param role:
+        :return:
+        """
+
         for table, prefix in (
             ("digital_asset_item_links", "digital_asset_item_link"),
             (
@@ -1653,6 +2365,14 @@ class DatabaseStorageMetadataRepository:
                     self.macros.delete_row(table, row[f"{prefix}_id"])
 
     def _store_id(self, store_ref: api.StoreUUID) -> int:
+        """
+        Resolve a public Store UUID to its durable foreign-key identity.
+
+
+        :param store_ref:
+        :return:
+        """
+
         rows = self.macros.get_rows(
             "stores", where={"store_uuid": str(store_ref)}
         )
@@ -1663,6 +2383,14 @@ class DatabaseStorageMetadataRepository:
         return int(rows[0]["store_id"])
 
     def _store_uuid(self, store_id: int) -> api.StoreUUID:
+        """
+        Resolve a durable Store identity to its public UUID.
+
+
+        :param store_id:
+        :return:
+        """
+
         row = self.macros.get_row("stores", store_id, id_column="store_id")
         if row is None or row.get("store_uuid") in (None, ""):
             raise api.StoreConfigurationNotFound(
@@ -1671,6 +2399,14 @@ class DatabaseStorageMetadataRepository:
         return UUID(str(row["store_uuid"]))
 
     def _journal_row(self, operation_id: UUID) -> Mapping[str, Any] | None:
+        """
+        Return the unique raw journal row for an operation UUID.
+
+
+        :param operation_id:
+        :return:
+        """
+
         rows = self.macros.get_rows(
             "storage_ingest_operations",
             where={"storage_ingest_operation_uuid": str(operation_id)},
@@ -1688,6 +2424,16 @@ class DatabaseStorageMetadataRepository:
         state: str,
         values: Mapping[str, Any],
     ) -> None:
+        """
+        Merge typed recovery values and advance one journal state.
+
+
+        :param operation_id:
+        :param state:
+        :param values:
+        :return:
+        """
+
         row = self._journal_row(operation_id)
         if row is None:
             raise api.StorageManagementError(
@@ -1727,6 +2473,15 @@ class DatabaseStorageMetadataRepository:
     def _load_optional_record(
         self, row: Mapping[str, Any], scratch_column: str
     ) -> Any | None:
+        """
+        Decode our marked envelope while ignoring unrelated scratch text.
+
+
+        :param row:
+        :param scratch_column:
+        :return:
+        """
+
         raw = row.get(scratch_column)
         if raw in (None, ""):
             return None
@@ -1746,6 +2501,14 @@ class DatabaseStorageMetadataRepository:
             ) from error
 
     def _migrate_envelope(self, raw: Any) -> str | None:
+        """
+        Upgrade a recognised version-zero envelope or return no change.
+
+
+        :param raw:
+        :return:
+        """
+
         if raw in (None, ""):
             return None
         try:
@@ -1781,6 +2544,14 @@ class DatabaseStorageMetadataRepository:
         )
 
     def _dump(self, value: Any) -> str:
+        """
+        Encode one typed value in the current lossless ASCII JSON envelope.
+
+
+        :param value:
+        :return:
+        """
+
         return json.dumps(
             {
                 "format": _FORMAT,
@@ -1797,6 +2568,14 @@ class DatabaseStorageMetadataRepository:
         )
 
     def _load(self, raw: Any) -> Any:
+        """
+        Validate and decode one current-version storage envelope.
+
+
+        :param raw:
+        :return:
+        """
+
         envelope = json.loads(str(raw))
         if (
             not isinstance(envelope, dict)
@@ -1808,12 +2587,17 @@ class DatabaseStorageMetadataRepository:
 
 
 def _database_scalar_text(value: str | None) -> str | None:
-    """Make fallback text columns safe without weakening scratch envelopes.
+    """
+    Make fallback text columns safe without weakening scratch envelopes.
 
     Well-formed Unicode is kept exactly.  Lone surrogates originating from a
     POSIX ``surrogateescape`` filename are rendered visibly as ``\\udcXX`` in
     legacy scalar columns; the authoritative JSON envelope retains and reloads
     the exact original string.
+
+
+    :param value:
+    :return:
     """
 
     if value is None:
@@ -1826,6 +2610,14 @@ def _database_scalar_text(value: str | None) -> str | None:
 
 
 def _storage_value_types(additional: Iterable[type[Any]]) -> dict[str, type[Any]]:
+    """
+    Build the allowlist of enum and dataclass types accepted by decoding.
+
+
+    :param additional:
+    :return:
+    """
+
     values: set[type[Any]] = set(additional)
     for name in dir(api):
         value = getattr(api, name)
@@ -1837,10 +2629,26 @@ def _storage_value_types(additional: Iterable[type[Any]]) -> dict[str, type[Any]
 
 
 def _type_name(value: type[Any]) -> str:
+    """
+    Return the stable module-qualified name stored in typed envelopes.
+
+
+    :param value:
+    :return:
+    """
+
     return f"{value.__module__}.{value.__qualname__}"
 
 
 def _encode(value: Any) -> Any:
+    """
+    Convert a supported typed storage value into JSON-compatible data.
+
+
+    :param value:
+    :return:
+    """
+
     if isinstance(value, Enum):
         return {"$enum": _type_name(type(value)), "value": value.value}
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
@@ -1875,6 +2683,15 @@ def _encode(value: Any) -> Any:
 
 
 def _decode(value: Any, types: Mapping[str, type[Any]]) -> Any:
+    """
+    Reconstruct typed storage values using the supplied type allowlist.
+
+
+    :param value:
+    :param types:
+    :return:
+    """
+
     if isinstance(value, list):
         return [_decode(item, types) for item in value]
     if not isinstance(value, dict):
@@ -1911,12 +2728,30 @@ def _decode(value: Any, types: Mapping[str, type[Any]]) -> Any:
 
 
 def _digest_value(digests: Iterable[api.Digest], algorithm: str) -> str | None:
+    """
+    Return the first digest value for ``algorithm`` when present.
+
+
+    :param digests:
+    :param algorithm:
+    :return:
+    """
+
     return next(
         (digest.value for digest in digests if digest.algorithm == algorithm), None
     )
 
 
 def _row_digests(row: Mapping[str, Any], prefix: str) -> tuple[api.Digest, ...]:
+    """
+    Collect supported digest columns from one legacy database row.
+
+
+    :param row:
+    :param prefix:
+    :return:
+    """
+
     values: list[api.Digest] = []
     for algorithm in ("sha256", "blake3"):
         value = _optional_text(row.get(f"{prefix}{algorithm}"))
@@ -1926,15 +2761,39 @@ def _row_digests(row: Mapping[str, Any], prefix: str) -> tuple[api.Digest, ...]:
 
 
 def _epoch_ms(value: datetime | None) -> int | None:
+    """
+    Convert an optional timestamp to integer Unix milliseconds.
+
+
+    :param value:
+    :return:
+    """
+
     return None if value is None else int(value.timestamp() * 1000)
 
 
 def _datetime_from_epoch(value: Any) -> datetime | None:
+    """
+    Convert optional Unix milliseconds to an aware UTC timestamp.
+
+
+    :param value:
+    :return:
+    """
+
     parsed = _optional_int(value)
     return None if parsed is None else datetime.fromtimestamp(parsed / 1000, UTC)
 
 
 def _optional_text(value: Any) -> str | None:
+    """
+    Normalise a nullable scalar to non-empty text or ``None``.
+
+
+    :param value:
+    :return:
+    """
+
     if value is None:
         return None
     text = str(value)
@@ -1942,17 +2801,43 @@ def _optional_text(value: Any) -> str | None:
 
 
 def _optional_int(value: Any) -> int | None:
+    """
+    Normalise a nullable scalar to an integer or ``None``.
+
+
+    :param value:
+    :return:
+    """
+
     if value in (None, ""):
         return None
     return int(value)
 
 
 def _optional_id(value: Any, constructor: Callable[[int], Any]) -> Any | None:
+    """
+    Construct a typed identifier from a nullable database scalar.
+
+
+    :param value:
+    :param constructor:
+    :return:
+    """
+
     parsed = _optional_int(value)
     return None if parsed is None else constructor(parsed)
 
 
 def _json_list(value: Any, default: list[str]) -> list[str]:
+    """
+    Decode a JSON string list, copying ``default`` for absent/non-list data.
+
+
+    :param value:
+    :param default:
+    :return:
+    """
+
     if value in (None, ""):
         return list(default)
     decoded = json.loads(str(value))

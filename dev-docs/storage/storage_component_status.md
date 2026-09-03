@@ -1,6 +1,6 @@
 # Storage component status and runtime composition
 
-Updated: 2026-08-25
+Updated: 2026-09-01
 
 ## Current decision
 
@@ -8,6 +8,27 @@ The application `StorageManager` is database-authoritative. It does not
 inherit from the transient manager and does not retain private dictionaries of
 Assets, Replicas, policies, Composites, derivations, Item links, or ingest
 operations.
+
+The repository-neutral orchestration implementation is composed in
+`storage/storage_manager/manager.py`. Its ordered mixins mirror the public API:
+
+```text
+StorageManagerAPI
+    convenience -> Store administration -> router -> Asset registry -> ingest
+    -> retrieval -> Replicas -> Item links -> Composites -> derivations
+    -> policies -> reconciliation -> operational status
+                                  ^
+                                  |
+                  _StorageManagerOrchestrator
+                     /                     \
+       database-backed StorageManager   TransientStorageManager
+```
+
+Shared state, durable ingest wire values, and cross-component publication or
+policy mechanics are private mixin modules. The composition root contains no
+workflow implementation. This keeps the transient and database-backed managers
+on one behavioural core without making either concrete manager inherit from
+the other.
 
 ```text
 StorageManager
@@ -303,8 +324,75 @@ branch truncation versus a run-wide halt. A non-mutating discovery pass and the
 database-backed `ingest_mixed_tree_example.py` provide the practical run
 surface; operational details are in `mixed_ingest_operations.md`.
 
-The operational surface now starts a LiuXin `RunLoggingSession` before
-database construction. An internal `EventLogHandler` bridges standard and
+The operational surface is now the packaged `liuxin storage ingest` command;
+the executable example is only a compatibility wrapper. The command supports
+non-mutating discovery and readiness preflight, stable operator run UUIDs,
+explicit atomic report artifacts, stdout suppression for schedulers, safe path
+separation, existing-database enforcement, an exclusive real-run lock,
+cooperative SIGINT/SIGTERM cancellation, and documented exit codes. The
+deployment bundle installs the archive extras by default and includes a remote
+systemd/SSH runbook.
+
+Storage is also reachable through the wider packaged operational surface. The
+Core-backed `storage stores|store|default|refresh|files|location|sources|asset|
+replica|status|audit|reconcile|repair|recovery|policies|resources` commands cover configuration reload, health probing,
+bounded client-host byte transfer with rich storage hints, Replica retrieval
+and committed deletion, source registration, and placement-policy inspection.
+`storage status` merges persisted Store rows with live manager observations and
+catalogue Asset/Replica records. The concise summary and per-Store records make
+folder support, roots, roles, offline/unregistered configuration, capacity,
+writability, Replica states and byte totals visible without hiding malformed
+Store rows or configuration drift; the original full operational-health report
+is retained alongside that overview. Replica byte totals are catalogue claims
+(authoritative Asset size per live Replica), not allocated filesystem blocks.
+Typed Store/source creation is available for the common cases while complete
+JSON objects remain supported. Integrity verification and bounded audit now
+persist observations through Core; reconciliation separates a read-only plan
+from an explicitly confirmed safe apply that reloads Stores and verifies
+Replicas without silently placing or deleting bytes. Repair is a separate,
+bounded non-deleting verification/placement operation. Store evacuation copies
+and verifies policy-compliant replacements before retiring source claims, and
+retains the source on any failed replacement. Durable ingest-journal list,
+pending-publication recovery, and replayability-aware retry are explicit Core
+and CLI operations. Stream-backed retries fail with actionable guidance when
+the original bytes no longer exist.
+Store creation now has a provider-driven operational front door. Core's
+`storage.backends.list` projects the canonical backend registry without
+exposing builder objects: labels, aliases, root types, protocols, mutability,
+folder/list/checksum features, publication characteristics, and stable
+limitations. Bare `liuxin storage add` uses this catalogue interactively;
+`liuxin storage add NAME KIND ROOT OPTION=VALUE...` is deterministic for
+automation. Capability fields persisted on the Store row come from the same
+descriptor, read-only backends cannot be accidentally promoted to writable,
+and credential-looking policy values are refused before any Store write. A
+reload/probe failure retains the durable row for correction. Core Store
+show/update/delete resolution includes valid durable-only configurations, not
+just currently loaded facades, so a broken or deliberately offline endpoint
+remains recoverable from the ordinary CLI.
+Managed Core-host workflows live under `ingest`, `convert`, and `backup`; their
+jobs are observable through `jobs`. This keeps the instrumented local
+mixed-tree operator distinct from remote Core-host path workflows. The complete
+path, output, confirmation, and daemon-safety contract is in
+`dev-docs/operational-cli.md`.
+
+A first-run local layout is now explicit: `liuxin init SYSTEM_ROOT` creates a
+path-backed catalogue, managed live Store, materialization/log directories and
+system manifest; `liuxin ingest SOURCE --system-root SYSTEM_ROOT` routes to the
+hardened mixed-tree operator. This gives operations a two-command happy path
+without weakening the detailed safety options or conflating CLI-host files
+with Core-host managed-job paths.
+
+An attended `liuxin init --wizard` now selects SQLite, APSW, or PostgreSQL.
+Embedded choices produce the same system-root layout; PostgreSQL delegates to
+the schema initializer and full readiness checker after a redacted confirmation
+plan. Database/role creation remains a separately reviewable server-admin step.
+
+The packaged CLI/deployment/example regression passes 36 focused tests. The
+complete storage checkpoint remains 997 passed with 24 expected optional/live
+skips after promotion to the packaged command.
+
+The command starts a LiuXin `RunLoggingSession` before database construction.
+An internal `EventLogHandler` bridges standard and
 `CompatLogger` records into a complete append-only JSONL stream, while a
 rotating UTC text handler supplies the quick human view. One run UUID
 correlates command, environment/configuration preamble, Store bootstrap,

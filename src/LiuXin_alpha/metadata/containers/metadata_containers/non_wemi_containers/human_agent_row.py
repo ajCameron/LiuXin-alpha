@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class HumanAgentRow(MetadataTableRow):
+    """
+    Represent a human profile row linked to a generic Agent.
+    """
     TABLE_NAME: ClassVar[str] = "human_agents"
     ID_COLUMN: ClassVar[str] = "human_agent_id"
 

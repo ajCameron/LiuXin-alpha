@@ -159,6 +159,17 @@ class CoreRuntime(CoreAPI):
             tags=("jobs",),
         )
         self.register_command_handler(
+            "jobs.retry",
+            self._handle_jobs_retry_command,
+            summary="Replay one terminal managed job as a new linked run.",
+            payload_fields=(
+                CorePayloadFieldDescription(name="job_id", required=True, field_type="string"),
+                CorePayloadFieldDescription(name="label", field_type="string|null"),
+                CorePayloadFieldDescription(name="allow_succeeded", field_type="boolean"),
+            ),
+            tags=("jobs", "write"),
+        )
+        self.register_command_handler(
             "metadata.write",
             self._handle_metadata_write_command,
             summary="Write supported item-centred metadata fields.",
@@ -980,6 +991,11 @@ class CoreRuntime(CoreAPI):
         return {
             "job_id": str(getattr(info, "job_id", "") or ""),
             "label": str(getattr(info, "label", "") or ""),
+            "retry_of_job_id": (
+                None
+                if getattr(info, "retry_of_job_id", None) in (None, "")
+                else str(getattr(info, "retry_of_job_id"))
+            ),
             "state": str(getattr(info, "state", "") or ""),
             "backend_name": str(getattr(info, "backend_name", "") or ""),
             "submitted_at": cls._safe_float(getattr(info, "submitted_at", None)),
@@ -1241,6 +1257,35 @@ class CoreRuntime(CoreAPI):
         payload = dict(command.payload or {})
         job_id = self._normalize_job_id(payload)
         return self._cancel_job_by_id(job_id=job_id, event_type="jobs.cancel_requested")
+
+    def _handle_jobs_retry_command(
+        self,
+        runtime: "CoreRuntime",
+        command: CoreCommand,
+    ) -> dict[str, Any]:
+        del runtime
+        payload = dict(command.payload or {})
+        job_id = self._normalize_job_id(payload)
+        label_raw = payload.get("label")
+        label = None if label_raw in (None, "") else str(label_raw)
+        try:
+            retried_job_id = self.job_manager.retry(
+                job_id,
+                label=label,
+                allow_succeeded=bool(payload.get("allow_succeeded", False)),
+            )
+            info = self.job_manager.get(retried_job_id)
+        except KeyError as exc:
+            raise CoreDispatchError("Unknown job id: {!r}".format(job_id)) from exc
+        except ValueError as exc:
+            raise CoreDispatchError(str(exc), code="job_not_retryable") from exc
+        result = {
+            "job_id": retried_job_id,
+            "retry_of_job_id": job_id,
+            "job": self._serialize_managed_job(info),
+        }
+        self.emit_event("jobs.retried", result)
+        return result
 
 
 __all__ = [

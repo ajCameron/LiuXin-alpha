@@ -1,4 +1,6 @@
-"""Replica lifecycle, ingest-result, and verification values."""
+"""
+Replica lifecycle, ingest-result, and verification values.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +23,8 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
 
 
 class ReplicaMode(StrEnum):
-    """Operational purpose of one concrete Replica.
+    """
+    Operational purpose of one concrete Replica.
 
     Example:
         >>> ReplicaMode.BACKUP.value
@@ -37,7 +40,8 @@ class ReplicaMode(StrEnum):
 
 
 class ReplicaState(StrEnum):
-    """Observed or expected availability state of one Replica claim.
+    """
+    Observed or expected availability state of one Replica claim.
 
     Example:
         >>> ReplicaState("verified") is ReplicaState.VERIFIED
@@ -56,7 +60,8 @@ class ReplicaState(StrEnum):
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaObservation:
-    """Latest observed physical state for a Replica claim.
+    """
+    Latest observed physical state for a Replica claim.
 
     Example:
         >>> observation = ReplicaObservation(
@@ -73,7 +78,8 @@ class ReplicaObservation:
     failure_reason: str | None = None
 
     def __post_init__(self) -> None:
-        """Validate observation size, digests, and timestamp.
+        """
+        Validate observation size, digests, and timestamp.
 
         Example:
             >>> ReplicaObservation(
@@ -82,6 +88,9 @@ class ReplicaObservation:
             Traceback (most recent call last):
             ...
             ValueError: observed_size_bytes must not be negative.
+
+
+        :return:
         """
 
         if self.observed_size_bytes is not None and self.observed_size_bytes < 0:
@@ -94,7 +103,8 @@ class ReplicaObservation:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaDeclaration:
-    """Input for registering one concrete copy of a Digital Asset.
+    """
+    Input for registering one concrete copy of a Digital Asset.
 
     Example:
         >>> declaration = ReplicaDeclaration(
@@ -116,7 +126,8 @@ class ReplicaDeclaration:
     )
 
     def __post_init__(self) -> None:
-        """Require a positive Digital Asset identifier.
+        """
+        Require a positive Digital Asset identifier.
 
         Example:
             >>> ReplicaDeclaration(
@@ -125,6 +136,9 @@ class ReplicaDeclaration:
             Traceback (most recent call last):
             ...
             ValueError: digital_asset_id must be positive.
+
+
+        :return:
         """
 
         if self.digital_asset_id <= 0:
@@ -133,7 +147,8 @@ class ReplicaDeclaration:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaRecord:
-    """Manager-maintained claim about one concrete Asset copy.
+    """
+    Manager-maintained claim about one concrete Asset copy.
 
     ``placement_hints`` is the advisory metadata snapshot requested when this
     Replica was allocated and published. It belongs to the placement, not to
@@ -162,7 +177,8 @@ class ReplicaRecord:
     )
 
     def __post_init__(self) -> None:
-        """Validate identifiers and optional optimistic-lock revision.
+        """
+        Validate identifiers and optional optimistic-lock revision.
 
         Example:
             >>> ReplicaRecord(
@@ -173,6 +189,9 @@ class ReplicaRecord:
             Traceback (most recent call last):
             ...
             ValueError: replica_id must be positive.
+
+
+        :return:
         """
 
         if self.replica_id <= 0:
@@ -184,11 +203,15 @@ class ReplicaRecord:
 
     @property
     def state(self) -> ReplicaState:
-        """Return the latest observed state of this Replica.
+        """
+        Return the latest observed state of this Replica.
 
         Example:
             >>> replica.state is replica.observation.state  # doctest: +SKIP
             True
+
+
+        :return:
         """
 
         return self.observation.state
@@ -196,7 +219,8 @@ class ReplicaRecord:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetIngestResult:
-    """Outcome of publishing bytes and registering manager records.
+    """
+    Outcome of publishing bytes and registering manager records.
 
     Example:
         >>> result.location == result.replica_record.location  # doctest: +SKIP
@@ -213,12 +237,16 @@ class DigitalAssetIngestResult:
     warnings: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        """Require a UUID and matching Asset and Replica records.
+        """
+        Require a UUID and matching Asset and Replica records.
 
         Example:
             >>> result = DigitalAssetIngestResult(  # doctest: +SKIP
             ...     UUID(int=2), asset, replica, True, True,
             ... )
+
+
+        :return:
         """
 
         if not isinstance(self.operation_id, UUID):
@@ -231,11 +259,15 @@ class DigitalAssetIngestResult:
 
     @property
     def location(self) -> Location:
-        """Return the concrete Location carried by the resulting Replica.
+        """
+        Return the concrete Location carried by the resulting Replica.
 
         Example:
             >>> result.location.key  # doctest: +SKIP
             'objects/7'
+
+
+        :return:
         """
 
         return self.replica_record.location
@@ -243,7 +275,8 @@ class DigitalAssetIngestResult:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaVerificationReport:
-    """Observed comparison of one Replica with its Asset identity.
+    """
+    Observed comparison of one Replica with its Asset identity.
 
     Example:
         >>> report = ReplicaVerificationReport(
@@ -266,7 +299,8 @@ class ReplicaVerificationReport:
     errors: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        """Validate observed size, digests, and verification timestamp.
+        """
+        Validate observed size, digests, and verification timestamp.
 
         Example:
             >>> ReplicaVerificationReport(
@@ -276,6 +310,9 @@ class ReplicaVerificationReport:
             Traceback (most recent call last):
             ...
             ValueError: observed_size_bytes must not be negative.
+
+
+        :return:
         """
 
         if self.observed_size_bytes is not None and self.observed_size_bytes < 0:
@@ -285,7 +322,8 @@ class ReplicaVerificationReport:
 
     @property
     def healthy(self) -> bool:
-        """Return whether verification confirmed the expected bytes.
+        """
+        Return whether verification confirmed the expected bytes.
 
         Example:
             >>> ReplicaVerificationReport(
@@ -293,6 +331,9 @@ class ReplicaVerificationReport:
             ...     ReplicaState.VERIFIED, True,
             ... ).healthy
             True
+
+
+        :return:
         """
 
         return self.state is ReplicaState.VERIFIED and not self.errors
@@ -300,7 +341,8 @@ class ReplicaVerificationReport:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetVerificationReport:
-    """Aggregate verification results for one Digital Asset.
+    """
+    Aggregate verification results for one Digital Asset.
 
     Example:
         >>> report = DigitalAssetVerificationReport(
@@ -315,13 +357,17 @@ class DigitalAssetVerificationReport:
 
     @property
     def readable(self) -> bool:
-        """Return whether at least one checked Replica was healthy.
+        """
+        Return whether at least one checked Replica was healthy.
 
         Example:
             >>> DigitalAssetVerificationReport(
             ...     DigitalAssetID(7), (),
             ... ).readable
             False
+
+
+        :return:
         """
 
         return any(report.healthy for report in self.replica_reports)
@@ -329,7 +375,8 @@ class DigitalAssetVerificationReport:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaRemovalReport:
-    """Outcome of coordinated byte deletion and record mutation.
+    """
+    Outcome of coordinated byte deletion and record mutation.
 
     Example:
         >>> report = ReplicaRemovalReport(
@@ -347,10 +394,16 @@ class ReplicaRemovalReport:
 
 
 def _require_aware_datetime(value: datetime | None, field_name: str) -> None:
-    """Reject a timestamp without an unambiguous timezone.
+    """
+    Reject a timestamp without an unambiguous timezone.
 
     Example:
         >>> _require_aware_datetime(None, "checked_at")
+
+
+    :param value:
+    :param field_name:
+    :return:
     """
 
     if value is not None and (

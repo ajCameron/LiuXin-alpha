@@ -43,6 +43,9 @@ def _serialize_expression_flags(value: ExpressionFlags) -> str | None:
 
 
 class ExpressionIdentity(ExpressionIdentityAPI):
+    """
+    Represent an Expression identity and its intrinsic language, form, and extent fields.
+    """
     def __init__(
         self,
         *,

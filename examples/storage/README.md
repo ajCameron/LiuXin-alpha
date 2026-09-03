@@ -38,6 +38,19 @@ There are two deliberately different assimilation workflows:
   LiuXin database as an unmanaged Store. They do not copy or take ownership of
   the source bytes.
 
+For an actual first local deployment, prefer the packaged two-command surface:
+
+```bash
+liuxin init /srv/liuxin
+liuxin ingest /media/existing-books --system-root /srv/liuxin
+```
+
+For an attended setup, `liuxin init --wizard` chooses SQLite, APSW, or
+PostgreSQL and runs the relevant health/readiness checks after confirmation.
+The explicit commands above remain preferable in scripts.
+
+The examples below remain useful for lower-level integration and diagnostics.
+
 `ingest_squashfs_drive_example.py` is the first mess-ingestion workflow. It
 walks an existing drive without following symlinks, recognizes SquashFS images
 by suffix or magic, and registers each readable image as a separate immutable
@@ -46,16 +59,19 @@ and in-place Replicas; no archive is unpacked or copied. A broken image is
 reported without preventing later images from being processed, and rerunning
 the command resumes idempotently.
 
-`ingest_mixed_tree_example.py` is the operational generalization. It adopts
-all regular source files and recursively catalogues SquashFS, ISO/UDF, ZIP,
+`ingest_mixed_tree_example.py` is a thin compatibility wrapper around the
+packaged `liuxin storage ingest` operational surface. The command adopts all
+regular source files and recursively catalogues SquashFS, ISO/UDF, ZIP,
 TAR, RAR, and 7z members through immutable Asset-backed Stores. EPUB and other
 ordinary ebook files remain terminal Assets unless expansion is explicitly
 requested. Run-wide depth, member, expanded-byte, compression-ratio,
 materialization, temporary-space, wall-time, and issue budgets prevent a nest
 of individually valid archives from multiplying each backend's own limits.
-`--discover-only` is genuinely non-mutating and classifies top-level files; a
-real recursive run needs a managed cache outside the source tree only when it
-encounters a nested container. See
+`--discover-only` is genuinely non-mutating and classifies top-level files;
+`--preflight-only` also validates the intended output paths and recognized
+backend dependencies without creating the catalogue or cache. A real recursive
+run needs a managed cache outside the source tree only when it encounters a
+nested container. See
 `dev-docs/storage/mixed_ingest_operations.md` for the run contract.
 
 The mixed command is also the unattended-run surface. It creates a complete
@@ -79,11 +95,17 @@ python examples/storage/ingest_squashfs_drive_example.py \
   --drive-root /media/archive-drives/disk-01 \
   --database /srv/liuxin/catalogue.sqlite
 
-python examples/storage/ingest_mixed_tree_example.py \
+liuxin storage ingest \
   --source-root /media/archive-drives/disk-01 \
   --discover-only
 
-python examples/storage/ingest_mixed_tree_example.py \
+liuxin storage ingest \
+  --source-root /media/archive-drives/disk-01 \
+  --database /srv/liuxin/catalogue.sqlite \
+  --materialization-root /srv/liuxin/ingest-materialized \
+  --preflight-only
+
+liuxin storage ingest \
   --source-root /media/archive-drives/disk-01 \
   --database /srv/liuxin/catalogue.sqlite \
   --materialization-root /srv/liuxin/ingest-materialized \

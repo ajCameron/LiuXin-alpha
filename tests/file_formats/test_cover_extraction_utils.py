@@ -100,3 +100,12 @@ def test_render_html_svg_workaround_uses_qt_renderer_when_no_static_cover(
     )
 
     assert cover_module.render_html_svg_workaround(str(html), log=None, width=123, height=456).endswith(b":123x456")
+
+
+def test_gui2_compatibility_module_is_importable() -> None:
+    gui2 = importlib.import_module("LiuXin_alpha.surfaces.gui2")
+
+    assert isinstance(gui2.config, dict)
+    assert gui2.is_ok_to_use_qt() is False
+    assert gui2.must_use_qt() is False
+    assert gui2.pixmap_to_data(None) == b""

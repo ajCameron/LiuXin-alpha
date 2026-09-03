@@ -136,6 +136,13 @@ class StorageBackendRegistry:
 
 
 def normalize_backend_kind(kind: str) -> str:
+    """
+    Normalize a storage backend identifier for registry lookup.
+
+
+    :param kind:
+    :return:
+    """
     normalized = str(kind).strip().lower().replace("-", "_")
     if not normalized:
         raise ValueError("backend kind must not be empty.")

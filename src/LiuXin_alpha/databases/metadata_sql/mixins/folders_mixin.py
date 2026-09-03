@@ -1,3 +1,5 @@
+"""Metadata SQL macros for folder catalogue rows."""
+
 
 
 

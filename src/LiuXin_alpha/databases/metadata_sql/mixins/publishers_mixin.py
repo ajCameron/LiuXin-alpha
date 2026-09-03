@@ -1,3 +1,5 @@
+"""Metadata SQL macros for publisher catalogue rows."""
+
 
 
 from LiuXin_alpha.errors import DatabaseDriverError

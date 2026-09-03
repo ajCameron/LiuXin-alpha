@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Render benchmark JSON reports as concise text or Markdown summaries."""
+
 from __future__ import annotations
 
 import argparse

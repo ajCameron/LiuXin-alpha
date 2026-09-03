@@ -1,4 +1,6 @@
-"""Application-facing manager built on the second-generation storage API."""
+"""
+Application-facing manager built on the second-generation storage API.
+"""
 
 from __future__ import annotations
 
@@ -41,7 +43,8 @@ from LiuXin_alpha.storage.store_spec_utils import store_configuration_from_row
 
 
 class StorageManager(_StorageManagerOrchestrator):
-    """Application manager with a default Store factory and DB bootstrap.
+    """
+    Application manager with a default Store factory and DB bootstrap.
 
     When ``db`` exposes the current storage schema, manager-owned assets,
     replicas, composites, derivations, policies, Item links, and ingest
@@ -83,6 +86,32 @@ class StorageManager(_StorageManagerOrchestrator):
         default_store_ref: api.StoreUUID | None = None,
         **kwargs,
     ) -> None:
+        """
+        Build an application manager and bind optional durable services.
+
+        ``stores`` accepts ready-to-use Store instances, while
+        ``store_registrations`` preserves an explicitly supplied manager
+        configuration.  When ``db`` exposes the storage catalogue, all
+        manager-owned metadata uses repository-backed mappings and transaction
+        hooks; ``cache`` may be the shared cache for that same database.
+        Backend clients and key providers are folded into one construction
+        context used when durable Store rows are loaded.
+
+
+        :param stores:
+        :param store_registrations:
+        :param store_factory:
+        :param backend_context:
+        :param s3_client:
+        :param encryption_key_provider:
+        :param db:
+        :param cache:
+        :param startup_on_add:
+        :param default_store_ref:
+        :param kwargs:
+        :return:
+        """
+
         registrations = list(store_registrations)
         for store in stores:
             if not isinstance(store, api.StoreAPI):
@@ -164,19 +193,36 @@ class StorageManager(_StorageManagerOrchestrator):
 
     @property
     def metadata_is_durable(self) -> bool:
-        """Return whether manager metadata is database-backed."""
+        """
+        Return whether manager metadata is database-backed.
+
+
+        :return:
+        """
 
         return self._metadata_repository is not None
 
     @property
     def metadata_cache(self) -> Any | None:
-        """Return the shared LiuXin cache serving metadata reads, if any."""
+        """
+        Return the shared LiuXin cache serving metadata reads, if any.
+
+
+        :return:
+        """
 
         repository = self._metadata_repository
         return None if repository is None else repository.cache
 
     def _bind_database_metadata(self, db: Any, *, cache: Any | None = None) -> None:
-        """Replace transient maps with database repository views."""
+        """
+        Replace transient maps with database repository views.
+
+
+        :param db:
+        :param cache:
+        :return:
+        """
 
         repository = DatabaseStorageMetadataRepository(
             db,
@@ -208,11 +254,16 @@ class StorageManager(_StorageManagerOrchestrator):
         self._replica_generation = len(self._replicas)
 
     def bind_metadata_cache(self, cache: Any | None) -> None:
-        """Use Core's shared cache for subsequent repository reads.
+        """
+        Use Core's shared cache for subsequent repository reads.
 
         Passing ``None`` returns to direct, database-authoritative reads. This
         changes only acceleration and consistency mechanics; persistence is
         always owned by the database repository.
+
+
+        :param cache:
+        :return:
         """
 
         repository = self._metadata_repository
@@ -228,7 +279,13 @@ class StorageManager(_StorageManagerOrchestrator):
         self,
         configuration: api.StoreConfiguration,
     ) -> str:
-        """Materialize a container Asset and expose its local driver path."""
+        """
+        Materialize a container Asset and expose its local driver path.
+
+
+        :param configuration:
+        :return:
+        """
 
         backing = configuration.backing
         if backing is None:
@@ -296,6 +353,13 @@ class StorageManager(_StorageManagerOrchestrator):
     @override
     @contextmanager
     def _metadata_transaction(self):
+        """
+        Wrap one metadata mutation in the durable unit of work when bound.
+
+
+        :return:
+        """
+
         factory = self._metadata_unit_of_work_factory
         if factory is None:
             with super()._metadata_transaction():
@@ -307,7 +371,12 @@ class StorageManager(_StorageManagerOrchestrator):
 
     @property
     def metadata_unit_of_work_factory(self):
-        """Return the implementation-facing durable metadata UoW factory."""
+        """
+        Return the implementation-facing durable metadata UoW factory.
+
+
+        :return:
+        """
 
         factory = self._metadata_unit_of_work_factory
         if factory is None:
@@ -318,6 +387,14 @@ class StorageManager(_StorageManagerOrchestrator):
 
     @override
     def _allocate_metadata_id_locked(self, kind) -> int:
+        """
+        Allocate an ID from the database or transient manager as appropriate.
+
+
+        :param kind:
+        :return:
+        """
+
         repository = self._metadata_repository
         if repository is None:
             return super()._allocate_metadata_id_locked(kind)
@@ -325,6 +402,13 @@ class StorageManager(_StorageManagerOrchestrator):
 
     @override
     def _new_revision_locked(self) -> str:
+        """
+        Return a durable opaque revision or the transient sequence token.
+
+
+        :return:
+        """
+
         if self._metadata_repository is None:
             return super()._new_revision_locked()
         return f"d-{uuid4().hex}"
@@ -338,7 +422,16 @@ class StorageManager(_StorageManagerOrchestrator):
         startup: bool = True,
         replace_existing: bool = False,
     ) -> api.StoreConfiguration:
-        """Attach a Store and ensure DB-backed managers have its FK identity."""
+        """
+        Attach a Store and ensure DB-backed managers have its FK identity.
+
+
+        :param configuration:
+        :param store:
+        :param startup:
+        :param replace_existing:
+        :return:
+        """
 
         if self._metadata_repository is not None:
             self._metadata_repository.ensure_store(configuration)
@@ -355,7 +448,14 @@ class StorageManager(_StorageManagerOrchestrator):
         store_ref: api.StoreUUID,
         configuration: api.StoreConfiguration,
     ) -> api.StoreConfiguration:
-        """Prepare a replacement, commit its configuration, then swap it live."""
+        """
+        Prepare a replacement, commit its configuration, then swap it live.
+
+
+        :param store_ref:
+        :param configuration:
+        :return:
+        """
 
         repository = self._metadata_repository
         if repository is None:
@@ -364,7 +464,6 @@ class StorageManager(_StorageManagerOrchestrator):
             raise api.StoreInvalidLocation(
                 "updated Store configuration must retain its Store UUID."
             )
-        self.get_store_configuration(store_ref)
         self._validate_store_policy_references(configuration)
         replacement = self._require_store_factory()(configuration)
         try:
@@ -390,7 +489,14 @@ class StorageManager(_StorageManagerOrchestrator):
         *,
         forget_configuration: bool = False,
     ) -> bool:
-        """Unload a Store and durably delete it only when explicitly forgotten."""
+        """
+        Unload a Store and durably delete it only when explicitly forgotten.
+
+
+        :param store_ref:
+        :param forget_configuration:
+        :return:
+        """
 
         repository = self._metadata_repository
         if repository is None or not forget_configuration:
@@ -408,10 +514,20 @@ class StorageManager(_StorageManagerOrchestrator):
                     "cannot forget Store configuration with live Replica claims."
                 )
         repository.remove_store(store_ref)
-        return super().remove_store(store_ref, forget_configuration=True)
+        super().remove_store(store_ref, forget_configuration=True)
+        return True
 
     @override
     def _journal_ingest_started(self, operation_id, request) -> None:
+        """
+        Persist the initial request when a durable journal is available.
+
+
+        :param operation_id:
+        :param request:
+        :return:
+        """
+
         if self._metadata_repository is not None:
             self._metadata_repository.journal_start(operation_id, request)
 
@@ -426,6 +542,19 @@ class StorageManager(_StorageManagerOrchestrator):
         replica_mode,
         placement_hints,
     ) -> None:
+        """
+        Persist planned publication details required for crash recovery.
+
+
+        :param operation_id:
+        :param asset_record:
+        :param asset_created:
+        :param location:
+        :param replica_mode:
+        :param placement_hints:
+        :return:
+        """
+
         if self._metadata_repository is not None:
             self._metadata_repository.journal_publication_pending(
                 operation_id,
@@ -438,28 +567,60 @@ class StorageManager(_StorageManagerOrchestrator):
 
     @override
     def _journal_ingest_published(self, operation_id) -> None:
+        """
+        Persist that Store publication completed before metadata commit.
+
+
+        :param operation_id:
+        :return:
+        """
+
         if self._metadata_repository is not None:
             self._metadata_repository.journal_published(operation_id)
 
     @override
     def _journal_ingest_failed(self, operation_id, error) -> None:
+        """
+        Persist an ingest failure when durable journalling is available.
+
+
+        :param operation_id:
+        :param error:
+        :return:
+        """
+
         if self._metadata_repository is not None:
             self._metadata_repository.journal_failed(operation_id, error)
 
     @override
     def _ingest_journal_statuses(self):
+        """
+        Return durable journal summaries or the transient empty snapshot.
+
+
+        :return:
+        """
+
         repository = self._metadata_repository
         if repository is None:
             return super()._ingest_journal_statuses()
         return repository.ingest_journal_statuses()
 
-    def recover_pending_ingests(self) -> tuple[str, ...]:
-        """Finish journalled publications left between Store and DB commits.
+    def recover_pending_ingests(
+        self,
+        operation_id: UUID | None = None,
+    ) -> tuple[str, ...]:
+        """
+        Finish journalled publications left between Store and DB commits.
 
         Recovery verifies the published bytes before creating a Replica claim.
         Temporarily unavailable Stores leave their operations pending for a
         later reload; missing or corrupt publications are marked failed and
         may be retried with the same operation UUID.
+
+
+        :param operation_id:
+        :return:
         """
 
         repository = self._metadata_repository
@@ -467,14 +628,48 @@ class StorageManager(_StorageManagerOrchestrator):
             self.ingest_recovery_issues = ()
             return ()
         issues: list[str] = []
-        for operation_id, state, payload in repository.pending_ingests():
+        pending = list(repository.pending_ingests())
+        if operation_id is not None:
+            pending = [
+                entry for entry in pending if entry[0] == operation_id
+            ]
+            if not pending:
+                entry = repository.ingest_journal_entry(operation_id)
+                if entry is None:
+                    issue = f"{operation_id}: ingest operation is not journalled"
+                    self.ingest_recovery_issues = (issue,)
+                    return self.ingest_recovery_issues
+                if entry[0] == "failed":
+                    pending = [(operation_id, entry[0], entry[1])]
+        for current_operation_id, state, payload in pending:
             request = payload.get("request")
+            if not isinstance(
+                request,
+                (
+                    _StreamIngestRequest,
+                    _IdentifiedStreamIngestRequest,
+                    _StoreObjectIngestRequest,
+                    _AdoptIngestRequest,
+                ),
+            ):
+                error = api.StorageManagementError(
+                    "publication journal has an invalid ingest request."
+                )
+                repository.journal_failed(current_operation_id, error)
+                issues.append(
+                    f"{current_operation_id}: publication recovery failed: {error}"
+                )
+                continue
             if state == "started":
+                error = api.StorageManagementError(
+                    "process stopped before Store publication began."
+                )
                 repository.journal_failed(
-                    operation_id,
-                    api.StorageManagementError(
-                        "process stopped before Store publication began."
-                    ),
+                    current_operation_id,
+                    error,
+                )
+                issues.append(
+                    f"{current_operation_id}: publication recovery failed: {error}"
                 )
                 continue
             asset_value = payload.get("asset_record")
@@ -484,7 +679,7 @@ class StorageManager(_StorageManagerOrchestrator):
                 location, api.Location
             ):
                 repository.journal_failed(
-                    operation_id,
+                    current_operation_id,
                     api.StorageManagementError(
                         "publication journal has incomplete recovery metadata."
                     ),
@@ -541,7 +736,7 @@ class StorageManager(_StorageManagerOrchestrator):
                     )
                 )
                 result = api.DigitalAssetIngestResult(
-                    operation_id,
+                    current_operation_id,
                     asset_record,
                     replica_record,
                     bool(payload.get("asset_created")),
@@ -559,7 +754,7 @@ class StorageManager(_StorageManagerOrchestrator):
                         ),
                     )
                 with self._lock:
-                    self._ingest_operations[operation_id] = _IngestOperation(
+                    self._ingest_operations[current_operation_id] = _IngestOperation(
                         request, result
                     )
             except (
@@ -568,7 +763,7 @@ class StorageManager(_StorageManagerOrchestrator):
                 api.StorageTimeout,
             ) as error:
                 issues.append(
-                    f"{operation_id}: publication remains pending: "
+                    f"{current_operation_id}: publication remains pending: "
                     f"{str(error) or type(error).__name__}"
                 )
             except (
@@ -576,18 +771,103 @@ class StorageManager(_StorageManagerOrchestrator):
                 api.StorageIntegrityError,
                 api.StoragePreconditionFailed,
             ) as error:
-                repository.journal_failed(operation_id, error)
+                repository.journal_failed(current_operation_id, error)
                 issues.append(
-                    f"{operation_id}: publication recovery failed: "
+                    f"{current_operation_id}: publication recovery failed: "
                     f"{str(error) or type(error).__name__}"
                 )
             except Exception as error:
                 issues.append(
-                    f"{operation_id}: publication recovery deferred: "
+                    f"{current_operation_id}: publication recovery deferred: "
                     f"{str(error) or type(error).__name__}"
                 )
         self.ingest_recovery_issues = tuple(issues)
         return self.ingest_recovery_issues
+
+    def retry_ingest_operation(
+        self,
+        operation_id: UUID,
+    ) -> api.DigitalAssetIngestResult:
+        """
+        Retry one journalled ingest without pretending lost streams exist.
+
+
+        :param operation_id:
+        :return:
+        """
+
+        repository = self._metadata_repository
+        if repository is None:
+            return super().retry_ingest_operation(operation_id)
+        existing = self._ingest_operations.get(operation_id)
+        if existing is not None:
+            return existing.result
+        entry = repository.ingest_journal_entry(operation_id)
+        if entry is None:
+            raise api.StoragePreconditionFailed(
+                f"ingest operation {operation_id} is not journalled."
+            )
+        state, payload, last_error = entry
+        request = payload.get("request")
+        if state in {"publishing", "published"} or isinstance(
+            payload.get("location"), api.Location
+        ):
+            self.recover_pending_ingests(operation_id)
+            recovered = self._ingest_operations.get(operation_id)
+            if recovered is not None:
+                return recovered.result
+            refreshed = repository.ingest_journal_entry(operation_id)
+            detail = (
+                last_error
+                if refreshed is None or refreshed[2] in (None, "")
+                else refreshed[2]
+            )
+            raise api.StoragePreconditionFailed(
+                "journalled publication could not be recovered{}".format(
+                    "." if not detail else f": {detail}"
+                )
+            )
+        if isinstance(request, _AdoptIngestRequest):
+            return self.adopt_location(
+                request.location,
+                operation_id=operation_id,
+                digital_asset_id=request.digital_asset_id,
+                item_id=request.item_id,
+                role=request.role,
+                metadata=request.metadata,
+                replica_mode=request.replica_mode,
+                verify=request.verify,
+            )
+        if isinstance(request, _StoreObjectIngestRequest):
+            source = self.get_store(request.source_location.store_ref)
+            info = source.stat(request.source_location)
+            if (
+                request.source_version is not None
+                and info.version != request.source_version
+            ):
+                raise api.StoragePreconditionFailed(
+                    "ingest source changed after the original operation."
+                )
+            return self.ingest_store_object(
+                source,
+                info,
+                operation_id=operation_id,
+                item_id=request.item_id,
+                role=request.role,
+                metadata=request.metadata,
+                placement_hints=request.placement_hints,
+                preferred_store_ref=request.preferred_store_ref,
+                replica_mode=request.replica_mode,
+                verify=request.verify,
+            )
+        request_kind = (
+            type(request).__name__ if request is not None else "unknown"
+        )
+        raise api.StoragePreconditionFailed(
+            "ingest operation {} used a non-replayable {} source; retry it "
+            "through the original caller with the same operation UUID and "
+            "source bytes.".format(operation_id, request_kind)
+        )
 
     def add_store(
         self,
@@ -597,7 +877,8 @@ class StorageManager(_StorageManagerOrchestrator):
         startup: bool | None = None,
         **kwargs: Any,
     ) -> api.StoreConfiguration:
-        """Add configured backend details or attach an existing Store object.
+        """
+        Add configured backend details or attach an existing Store object.
 
         ``add_store(name, kind, root, ...)`` is the ordinary configuration
         form defined by ``StorageManagerAPI``. Passing a ``StoreAPI`` retains
@@ -609,6 +890,14 @@ class StorageManager(_StorageManagerOrchestrator):
             ...     "primary", "filesystem", "/srv/liuxin",
             ... )
             >>> attached = manager.add_store(store)  # doctest: +SKIP
+
+
+        :param store_or_name:
+        :param configuration:
+        :param startup:
+        :param args:
+        :param kwargs:
+        :return:
         """
 
         if store_or_name is None:
@@ -653,7 +942,15 @@ class StorageManager(_StorageManagerOrchestrator):
         configuration: api.StoreConfiguration | None = None,
         startup: bool | None = None,
     ) -> api.StoreConfiguration:
-        """Attach one already-constructed configured Store facade."""
+        """
+        Attach one already-constructed configured Store facade.
+
+
+        :param store:
+        :param configuration:
+        :param startup:
+        :return:
+        """
 
         return self.attach_store(
             configuration or store.configuration,
@@ -665,6 +962,14 @@ class StorageManager(_StorageManagerOrchestrator):
         self,
         store_id: int,
     ) -> api.StoreConfiguration:
+        """
+        Decode one durable Store row without constructing its backend.
+
+
+        :param store_id:
+        :return:
+        """
+
         if self.db is None:
             raise RuntimeError("StorageManager is not bound to a database.")
         if "stores" not in set(self.db.get_tables()):
@@ -685,7 +990,8 @@ class StorageManager(_StorageManagerOrchestrator):
         clear_existing: bool = True,
         startup: bool | None = None,
     ) -> api.StorageBootstrapReport:
-        """Reconcile live Store facades with durable database rows.
+        """
+        Reconcile live Store facades with durable database rows.
 
         ``clear_existing=True`` treats the database as authoritative: Stores
         removed from the table, or explicitly marked offline/retired, are
@@ -704,6 +1010,13 @@ class StorageManager(_StorageManagerOrchestrator):
             >>> report = manager.load_from_database(  # doctest: +SKIP
             ...     startup=False,
             ... )
+
+
+        :param db:
+        :param include_offline:
+        :param clear_existing:
+        :param startup:
+        :return:
         """
 
         database = self.db if db is None else db
@@ -755,6 +1068,12 @@ class StorageManager(_StorageManagerOrchestrator):
                     row,
                     fallback_store_id=store_id,
                 )
+                _persist_derived_store_uuid(
+                    database,
+                    row=row,
+                    store_id=store_id,
+                    store_ref=configuration.store_uuid,
+                )
                 if online in {"offline", "retired"} and not include_offline:
                     skipped += 1
                     issues.append(
@@ -767,12 +1086,6 @@ class StorageManager(_StorageManagerOrchestrator):
                     continue
 
                 active_database_refs.add(configuration.store_uuid)
-                _persist_derived_store_uuid(
-                    database,
-                    row=row,
-                    store_id=store_id,
-                    store_ref=configuration.store_uuid,
-                )
                 with self._lock:
                     already_live = configuration.store_uuid in self._stores
                     already_configured = (
@@ -851,10 +1164,16 @@ class StorageManager(_StorageManagerOrchestrator):
         include_offline: bool = False,
         replace_existing: bool = True,
     ) -> api.StorageBootstrapReport:
-        """Reload database rows when bound, otherwise in-memory configuration.
+        """
+        Reload database rows when bound, otherwise in-memory configuration.
 
         Example:
             >>> report = manager.reload_stores()  # doctest: +SKIP
+
+
+        :param include_offline:
+        :param replace_existing:
+        :return:
         """
 
         if self.db is None:
@@ -873,10 +1192,15 @@ class StorageManager(_StorageManagerOrchestrator):
         self,
         store_refs: tuple[api.StoreUUID, ...],
     ) -> None:
-        """Unload inactive rows while retaining referenced Store identities.
+        """
+        Unload inactive rows while retaining referenced Store identities.
 
         Example:
             >>> manager._unload_database_stores(())
+
+
+        :param store_refs:
+        :return:
         """
 
         for store_ref in sorted(store_refs, key=lambda value: value.int):
@@ -897,6 +1221,15 @@ class StorageManager(_StorageManagerOrchestrator):
 
     @classmethod
     def from_database(cls, db: Any, **kwargs):
+        """
+        Construct a manager, load durable Stores, and return both report values.
+
+
+        :param db:
+        :param kwargs:
+        :return:
+        """
+
         manager = cls(db=db, **kwargs)
         report = manager.load_from_database(db)
         return manager, report
@@ -908,6 +1241,15 @@ StorageBootstrapReport = api.StorageBootstrapReport
 
 
 def _row_value(row: Any, key: str):
+    """
+    Read a field from mapping-like or attribute-based database rows.
+
+
+    :param row:
+    :param key:
+    :return:
+    """
+
     try:
         return row[key]
     except Exception:
@@ -915,6 +1257,15 @@ def _row_value(row: Any, key: str):
 
 
 def _row_int(row: Any, key: str) -> int | None:
+    """
+    Return a row field as an integer, treating invalid values as absent.
+
+
+    :param row:
+    :param key:
+    :return:
+    """
+
     try:
         value = _row_value(row, key)
         if value is None or value == "":
@@ -931,7 +1282,16 @@ def _persist_derived_store_uuid(
     store_id: int | None,
     store_ref: api.StoreUUID,
 ) -> None:
-    """Backfill stable identity when bootstrapping a legacy Store row."""
+    """
+    Backfill stable identity when bootstrapping a legacy Store row.
+
+
+    :param database:
+    :param row:
+    :param store_id:
+    :param store_ref:
+    :return:
+    """
 
     if store_id is None or _row_text(row, "store_uuid") is not None:
         return
@@ -951,6 +1311,15 @@ def _persist_derived_store_uuid(
 
 
 def _row_text(row: Any, key: str) -> str | None:
+    """
+    Return a stripped non-empty row field or ``None``.
+
+
+    :param row:
+    :param key:
+    :return:
+    """
+
     value = _row_value(row, key)
     if value is None:
         return None
@@ -959,6 +1328,15 @@ def _row_text(row: Any, key: str) -> str | None:
 
 
 def _row_uuid(row: Any, key: str) -> UUID | None:
+    """
+    Return a valid UUID row field or ``None`` for absent/invalid data.
+
+
+    :param row:
+    :param key:
+    :return:
+    """
+
     value = _row_value(row, key)
     if isinstance(value, UUID):
         return value
@@ -971,10 +1349,26 @@ def _row_uuid(row: Any, key: str) -> UUID | None:
 
 
 def _row_kind(row: Any) -> str:
+    """
+    Normalise the backend-kind spelling stored in a database row.
+
+
+    :param row:
+    :return:
+    """
+
     return (_row_text(row, "store_kind") or "").lower().replace("-", "_")
 
 
 def _is_encrypted_row(row: Any) -> bool:
+    """
+    Return whether registry aliases resolve the row to an encrypted Store.
+
+
+    :param row:
+    :return:
+    """
+
     kind = _row_kind(row)
     try:
         return DEFAULT_BACKEND_REGISTRY.canonical_kind(kind) == "encrypted"
@@ -986,7 +1380,14 @@ def _configuration_dependencies(
     manager: StorageManager,
     configuration: api.StoreConfiguration,
 ) -> frozenset[api.StoreUUID]:
-    """Return Store identities that should be live before this Store."""
+    """
+    Return Store identities that should be live before this Store.
+
+
+    :param manager:
+    :param configuration:
+    :return:
+    """
 
     dependencies: set[api.StoreUUID] = set()
     backing = configuration.backing
@@ -1030,7 +1431,14 @@ def _order_store_rows(
     manager: StorageManager,
     rows: tuple[Any, ...],
 ) -> tuple[Any, ...]:
-    """Topologically order wrapper and Asset-backed Store rows."""
+    """
+    Topologically order wrapper and Asset-backed Store rows.
+
+
+    :param manager:
+    :param rows:
+    :return:
+    """
 
     translated: list[tuple[Any, api.StoreConfiguration | None]] = []
     for row in rows:

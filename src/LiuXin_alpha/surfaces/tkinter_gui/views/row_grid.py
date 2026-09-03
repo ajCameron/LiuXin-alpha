@@ -9,6 +9,8 @@ from ..state import RowPage
 
 
 class RowGrid:
+    """Tabular row browser with selection and paging callbacks."""
+
     def __init__(
         self,
         parent: Any,

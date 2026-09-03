@@ -52,6 +52,8 @@ class CoreRow(Mapping[str, Any]):
 
 @dataclass(frozen=True)
 class CoreRowPage:
+    """Stable page of row mappings returned by a Core surface query."""
+
     records: tuple[CoreRow, ...]
     total_count: int
     offset: int
@@ -76,6 +78,7 @@ class SurfaceCoreSession:
         database_path: str | Path | None = None,
         endpoint: str | None = None,
         db_type: str = "SQLite",
+        database_metadata: Mapping[str, Any] | None = None,
         create: bool = False,
         backup: bool = False,
         cache_type: str | None = None,
@@ -99,11 +102,23 @@ class SurfaceCoreSession:
                 )
             )
 
+        assert database_path is not None
+
         # The application boundary owns composition. Surface modules never
         # construct Database, Library, Catalog, Cache, or StorageManager.
+        server_database = str(db_type).strip().casefold() in {
+            "postgres",
+            "postgresql",
+            "pg",
+        }
         runtime = create_core(
-            database_path=Path(database_path).expanduser(),
+            database_path=(
+                str(database_path)
+                if server_database
+                else Path(database_path).expanduser()
+            ),
             db_type=str(db_type),
+            database_metadata=database_metadata,
             create=bool(create),
             backup=bool(backup),
             cache_type=cache_type,
@@ -732,13 +747,23 @@ class CoreDriverView:
         return str(table).removesuffix("_links").removesuffix("_link")
 
     def get_datestamp_column(self, table: str) -> str | None:
-        for column in self.model.columns(table):
+        columns = self.model.columns(table)
+        if "datestamp" in columns:
+            return "datestamp"
+        candidates: list[str] = []
+        for column in columns:
             lowered = column.lower()
-            if "datestamp" in lowered or lowered.endswith(
-                ("_timestamp_ep_k", "_modified")
+            if lowered.endswith(
+                (
+                    "_datestamp",
+                    "_datestamp_ep_k",
+                    "_timestamp",
+                    "_timestamp_ep_k",
+                    "_modified",
+                )
             ):
-                return column
-        return None
+                candidates.append(column)
+        return min(candidates, key=len) if candidates else None
 
     def get_blank_row(self, table: str) -> dict[str, Any]:
         return {column: None for column in self.model.columns(table)}
@@ -961,11 +986,30 @@ def add_core_client_arguments(
     *,
     database_help: str = "Path to the LiuXin database.",
 ) -> argparse.ArgumentParser:
-    group = parser.add_mutually_exclusive_group(required=True)
+    """
+    Add mutually exclusive LiuXin Core connection arguments to a parser.
+
+
+    :param parser:
+    :param database_help:
+    :return:
+    """
+    group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument("--database", help=database_help)
     group.add_argument(
         "--core-endpoint",
         help="HTTP endpoint of an existing LiuXin Core daemon.",
+    )
+    group.add_argument(
+        "--system-root",
+        help="Read the Core connection from SYSTEM_ROOT/liuxin-system.json.",
+    )
+    group.add_argument(
+        "--profile",
+        help=(
+            "Named profile, manifest path, or directory containing "
+            "liuxin-system.json."
+        ),
     )
     parser.add_argument(
         "--core-timeout",
@@ -989,10 +1033,30 @@ def open_surface_core_from_args(
     enable_maintenance: bool = False,
     repair_bootstrap_rows: bool = False,
 ) -> SurfaceCoreSession:
+    """
+    Open a local or remote surface Core session from parsed arguments.
+
+
+    :param args:
+    :param cache_type:
+    :param cache_allow_database_fallback:
+    :param enable_storage_manager:
+    :param create:
+    :param backup:
+    :param strict_storage_manager_bootstrap:
+    :param storage_startup_on_add:
+    :param enable_maintenance:
+    :param repair_bootstrap_rows:
+    :return:
+    """
+    from LiuXin_alpha.surfaces.system_profile import apply_system_profile
+
+    apply_system_profile(args)
     return SurfaceCoreSession.open(
         database_path=getattr(args, "database", None),
         endpoint=getattr(args, "core_endpoint", None),
         db_type=str(getattr(args, "db_type", "SQLite")),
+        database_metadata=getattr(args, "database_metadata", None),
         create=create,
         backup=backup,
         cache_type=cache_type,

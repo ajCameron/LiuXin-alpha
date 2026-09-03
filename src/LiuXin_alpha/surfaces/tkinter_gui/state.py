@@ -13,6 +13,16 @@ def coerce_positive_int(
     minimum: int = 1,
     maximum: int | None = None,
 ) -> int:
+    """
+    Coerce a value to a positive integer or use a safe default.
+
+
+    :param value:
+    :param default:
+    :param minimum:
+    :param maximum:
+    :return:
+    """
     try:
         coerced = int(value)
     except Exception:
@@ -25,6 +35,8 @@ def coerce_positive_int(
 
 @dataclass(frozen=True)
 class TkGuiConfig:
+    """Validated startup choices consumed by the Tkinter GUI controller."""
+
     database: Path | None = None
     core_endpoint: str | None = None
     core_timeout: float = 10.0
@@ -42,12 +54,16 @@ class TkGuiConfig:
 
 @dataclass(frozen=True)
 class TableSummary:
+    """Compact table identity and optional row count for sidebar display."""
+
     name: str
     record_count: int | None = None
 
 
 @dataclass(frozen=True)
 class TableSchema:
+    """Presentation-safe table schema returned to the Tkinter view layer."""
+
     table: str
     columns: tuple[str, ...]
     id_column: str = ""
@@ -70,6 +86,8 @@ class TableSchema:
 
 @dataclass(frozen=True)
 class RowPage:
+    """Immutable page of rows plus navigation and search context."""
+
     table: str
     columns: tuple[str, ...]
     rows: tuple[object, ...]

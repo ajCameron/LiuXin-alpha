@@ -1,3 +1,5 @@
+"""Resolve category and tag names to presentation icon resources."""
+
 
 
 

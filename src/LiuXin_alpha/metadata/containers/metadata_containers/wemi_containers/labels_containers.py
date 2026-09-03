@@ -117,6 +117,9 @@ class LabelBase(MetadataValueStringMixin, abc.ABC):
 
 @dataclass(slots=True, kw_only=True)
 class WorkLabel(LabelBase):
+    """
+    Represent one typed descriptive label attached to a Work.
+    """
     work_id: WorkID
     canonical_for_work: bool = False
 
@@ -141,6 +144,9 @@ class WorkLabel(LabelBase):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionLabel(LabelBase):
+    """
+    Represent one typed descriptive label attached to an Expression.
+    """
     expression_id: ExpressionID
     applies_to_language_id: LanguageID | None = None
 
@@ -165,6 +171,9 @@ class ExpressionLabel(LabelBase):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationLabel(LabelBase):
+    """
+    Represent one typed descriptive label attached to a Manifestation.
+    """
     manifestation_id: ManifestationID
     edition_specific: bool = True
 
@@ -189,6 +198,9 @@ class ManifestationLabel(LabelBase):
 
 @dataclass(slots=True, kw_only=True)
 class ItemLabel(LabelBase):
+    """
+    Represent one typed descriptive label attached to an Item.
+    """
     item_id: ItemID
     copy_specific: bool = True
 
@@ -328,6 +340,9 @@ class KindLabelsContainer(MetadataSequenceStringMixin, Generic[LabelT], abc.ABC)
 
 @dataclass(slots=True, kw_only=True)
 class WorkKindLabelsContainer(KindLabelsContainer[WorkLabel]):
+    """
+    Collect labels of one kind for a Work.
+    """
     target_kind: ClassVar[str] = "work"
 
     @property
@@ -337,6 +352,9 @@ class WorkKindLabelsContainer(KindLabelsContainer[WorkLabel]):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionKindLabelsContainer(KindLabelsContainer[ExpressionLabel]):
+    """
+    Collect labels of one kind for an Expression.
+    """
     target_kind: ClassVar[str] = "expression"
 
     @property
@@ -346,6 +364,9 @@ class ExpressionKindLabelsContainer(KindLabelsContainer[ExpressionLabel]):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationKindLabelsContainer(KindLabelsContainer[ManifestationLabel]):
+    """
+    Collect labels of one kind for a Manifestation.
+    """
     target_kind: ClassVar[str] = "manifestation"
 
     @property
@@ -355,6 +376,9 @@ class ManifestationKindLabelsContainer(KindLabelsContainer[ManifestationLabel]):
 
 @dataclass(slots=True, kw_only=True)
 class ItemKindLabelsContainer(KindLabelsContainer[ItemLabel]):
+    """
+    Collect labels of one kind for an Item.
+    """
     target_kind: ClassVar[str] = "item"
 
     @property
@@ -466,6 +490,9 @@ class WorkLabelsContainer(
         WorkKindLabelsContainer,
     ]
 ):
+    """
+    Group every typed label attached to a Work.
+    """
     work_id: WorkID
 
     @property
@@ -487,6 +514,9 @@ class ExpressionLabelsContainer(
         ExpressionKindLabelsContainer,
     ]
 ):
+    """
+    Group every typed label attached to an Expression.
+    """
     expression_id: ExpressionID
 
     @property
@@ -514,6 +544,9 @@ class ManifestationLabelsContainer(
         ManifestationKindLabelsContainer,
     ]
 ):
+    """
+    Group every typed label attached to a Manifestation.
+    """
     manifestation_id: ManifestationID
 
     @property
@@ -541,6 +574,9 @@ class ItemLabelsContainer(
         ItemKindLabelsContainer,
     ]
 ):
+    """
+    Group every typed label attached to an Item.
+    """
     item_id: ItemID
 
     @property

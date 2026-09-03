@@ -115,7 +115,11 @@ def _pick_text_like_column(cols: Iterable[str], *, base: str, exclude: set[str])
     return cols_list[0]
 
 
-def _pick_interlink_shape(open_db) -> InterlinkShape:
+def _pick_interlink_shape(
+    open_db,
+    *,
+    writable_secondary: bool = False,
+) -> InterlinkShape:
     """Pick an interlinkable (primary, secondary) table pair that exists.
 
     Prefer a shape whose link table supports a `type` column if possible, since many contract
@@ -220,6 +224,8 @@ def _pick_interlink_shape(open_db) -> InterlinkShape:
         sh = resolve_pair(a, b) or resolve_pair(b, a)
         if sh is None:
             continue
+        if writable_secondary and sh.secondary_table in {"languages"}:
+            continue
         if not supports_multiple_links_per_primary(sh):
             continue
         if sh.type_link_col is not None:
@@ -233,6 +239,8 @@ def _pick_interlink_shape(open_db) -> InterlinkShape:
         for b in mains[i + 1 :]:
             sh = resolve_pair(a, b) or resolve_pair(b, a)
             if sh is None:
+                continue
+            if writable_secondary and sh.secondary_table in {"languages"}:
                 continue
             if not supports_multiple_links_per_primary(sh):
                 continue
@@ -663,7 +671,9 @@ def test_get_interlinked_rows_type_filter_when_available(open_db):
 
 
 def test_get_interlink_values_returns_set_when_unique_column_available(open_db):
-    sh = _pick_interlink_shape(open_db)
+    # This contract writes distinct sentinel values into the secondary rows, so
+    # seeded reference tables such as ``languages`` are not valid candidates.
+    sh = _pick_interlink_shape(open_db, writable_secondary=True)
     link_type = _pick_allowed_type_for_shape(open_db, sh, preferred="authors")
 
     unique_col = _pick_unique_column_for_table(open_db, sh.secondary_table)

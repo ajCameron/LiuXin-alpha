@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class OrgAgentRow(MetadataTableRow):
+    """
+    Represent an organisation profile row linked to a generic Agent.
+    """
     TABLE_NAME: ClassVar[str] = "org_agents"
     ID_COLUMN: ClassVar[str] = "org_agent_id"
 

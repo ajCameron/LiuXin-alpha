@@ -1147,6 +1147,8 @@ class NumpyVectorizedTwoTableOneOneField(
     _NumpyVectorizedRelationFieldBase,
     CacheOneOneInTwoTableFieldAPI[Any],
 ):
+    """Vectorized one-to-one relation whose values live in a second table."""
+
     def __init__(
         self,
         cache: "NumpyVectorizedStorageCache",
@@ -1297,6 +1299,8 @@ class NumpyVectorizedManyOneField(
     _NumpyVectorizedRelationFieldBase,
     ManyToOneFieldAPI[Any],
 ):
+    """Vectorized many-to-one relationship field over indexed table arrays."""
+
     def __init__(
         self,
         cache: "NumpyVectorizedStorageCache",
@@ -1466,6 +1470,8 @@ class NumpyVectorizedOneManyField(
     _NumpyVectorizedRelationFieldBase,
     OneToManyFieldAPI[Any],
 ):
+    """Vectorized one-to-many relationship field over indexed table arrays."""
+
     def __init__(
         self,
         cache: "NumpyVectorizedStorageCache",
@@ -1631,6 +1637,8 @@ class NumpyVectorizedManyManyField(
     _NumpyVectorizedRelationFieldBase,
     ManyToManyFieldAPI[Any],
 ):
+    """Vectorized many-to-many relationship field over indexed link arrays."""
+
     def __init__(
         self,
         cache: "NumpyVectorizedStorageCache",

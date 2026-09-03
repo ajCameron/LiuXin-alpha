@@ -1,3 +1,5 @@
+"""Stable metadata fingerprints used to compare books and titles."""
+
 # Methods to cope with fingerprint assets (files and folders).
 # Bit of a mess, frankly.
 # Todo: Think there are other implementations out there - need to be centralized here

@@ -1,3 +1,5 @@
+"""Normalized field-update values used by cache write coordination."""
+
 from __future__ import annotations
 
 import dataclasses

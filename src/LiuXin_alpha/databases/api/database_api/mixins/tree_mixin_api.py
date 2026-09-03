@@ -1,3 +1,5 @@
+"""Database facade contracts for hierarchical catalogue relationships."""
+
 from __future__ import annotations
 
 import abc

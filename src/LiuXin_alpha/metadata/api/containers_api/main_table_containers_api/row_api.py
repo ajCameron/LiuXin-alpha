@@ -64,6 +64,9 @@ class MetadataTableRowAPI(Protocol):
 
 @runtime_checkable
 class LanguageRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a persisted language vocabulary row and its standard codes.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -92,6 +95,9 @@ class LanguageRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class GenreRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a hierarchical genre vocabulary row.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -112,6 +118,9 @@ class GenreRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class SubjectRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a hierarchical subject-heading row.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -132,6 +141,9 @@ class SubjectRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class SeriesRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a hierarchical series vocabulary row.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -154,6 +166,9 @@ class SeriesRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class LabelRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a descriptive label row with normalized text.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -170,6 +185,9 @@ class LabelRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class TagRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a categorical tag vocabulary row.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -186,6 +204,9 @@ class TagRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class NoteRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a reusable free-text note row.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -200,6 +221,9 @@ class NoteRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class CommentRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a reusable commentary row.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -214,6 +238,9 @@ class CommentRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class SynopsisRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a reusable synopsis row.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -228,6 +255,9 @@ class SynopsisRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class RatingRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a numeric rating row with its scale and source.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -245,6 +275,9 @@ class RatingRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class AnnotationRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a reader annotation anchored to an Item.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -270,6 +303,9 @@ class AnnotationRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class HumanAgentRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a human profile row linked to a generic Agent.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -292,6 +328,9 @@ class HumanAgentRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class OrgAgentRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for an organisation profile row linked to a generic Agent.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -313,6 +352,9 @@ class OrgAgentRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class OrgAgentRelationRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a dated parent-child relationship between organisational Agents.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -332,6 +374,9 @@ class OrgAgentRelationRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class EntityIdentifierRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a scheme-qualified identifier attached to any supported entity type.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
@@ -351,6 +396,9 @@ class EntityIdentifierRowAPI(MetadataTableRowAPI, Protocol):
 
 @runtime_checkable
 class ObservedItemIdentifierRowAPI(MetadataTableRowAPI, Protocol):
+    """
+    Structural contract for a source-observed identifier attached to one Item.
+    """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 

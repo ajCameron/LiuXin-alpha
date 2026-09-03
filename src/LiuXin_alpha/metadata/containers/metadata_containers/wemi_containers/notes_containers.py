@@ -403,6 +403,9 @@ class KindNotesContainer(MetadataSequenceStringMixin, Generic[NoteT], abc.ABC):
 
 @dataclass(slots=True, kw_only=True)
 class WorkKindNotesContainer(KindNotesContainer[WorkNote]):
+    """
+    Collect notes of one semantic kind for a Work.
+    """
     target_kind: ClassVar[str] = "work"
 
     @property
@@ -412,6 +415,9 @@ class WorkKindNotesContainer(KindNotesContainer[WorkNote]):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionKindNotesContainer(KindNotesContainer[ExpressionNote]):
+    """
+    Collect notes of one semantic kind for an Expression.
+    """
     target_kind: ClassVar[str] = "expression"
 
     @property
@@ -421,6 +427,9 @@ class ExpressionKindNotesContainer(KindNotesContainer[ExpressionNote]):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationKindNotesContainer(KindNotesContainer[ManifestationNote]):
+    """
+    Collect notes of one semantic kind for a Manifestation.
+    """
     target_kind: ClassVar[str] = "manifestation"
 
     @property
@@ -430,6 +439,9 @@ class ManifestationKindNotesContainer(KindNotesContainer[ManifestationNote]):
 
 @dataclass(slots=True, kw_only=True)
 class ItemKindNotesContainer(KindNotesContainer[ItemNote]):
+    """
+    Collect notes of one semantic kind for an Item.
+    """
     target_kind: ClassVar[str] = "item"
 
     @property

@@ -1,3 +1,5 @@
+"""Database facade contracts for tracking records awaiting maintenance."""
+
 from __future__ import annotations
 
 import abc

@@ -1,3 +1,5 @@
+"""Metadata SQL macros for creator-to-tag relationships."""
+
 
 
 

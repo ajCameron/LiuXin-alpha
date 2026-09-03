@@ -1,3 +1,5 @@
+"""Driver-level contracts for same-table relationship operations."""
+
 from __future__ import annotations
 
 import abc

@@ -28,6 +28,9 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projec
 
 
 class ExpressionMetadata(ExpressionMetadataAPI):
+    """
+    Provide the editable relationship bundle surrounding an Expression identity.
+    """
     def __init__(self, *, expression: Optional[ExpressionIdentityAPI] = None, relation_links: Optional[Mapping[str, Iterable[ExpressionRelationLink]]] = None) -> None:
         self._expression = expression
         self._relation_links: dict[ExpressionRelationKey, list[ExpressionRelationLink]] = {relation_key: [] for relation_key in self.RELATION_KEYS}

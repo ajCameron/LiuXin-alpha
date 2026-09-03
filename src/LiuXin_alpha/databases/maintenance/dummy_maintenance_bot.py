@@ -1,3 +1,5 @@
+"""No-op maintenance bot used to validate plugin lifecycle wiring."""
+
 from __future__ import print_function, annotations
 
 

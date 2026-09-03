@@ -1,3 +1,5 @@
+"""SQLite database-driver plugin discovery and version helpers."""
+
 # Increment this if ANY submodule is changed
 __driver_version__ = (0, 6, 0)
 

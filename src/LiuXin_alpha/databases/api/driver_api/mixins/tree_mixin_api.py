@@ -1,3 +1,5 @@
+"""Driver-level contracts for direct hierarchical data operations."""
+
 from __future__ import annotations
 
 import abc

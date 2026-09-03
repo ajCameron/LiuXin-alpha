@@ -95,6 +95,9 @@ class AgentCreditBase(MetadataValueStringMixin, abc.ABC):
 
 @dataclass(slots=True, kw_only=True)
 class WorkAgentCredit(AgentCreditBase):
+    """
+    Represent one ordered contribution by an Agent to a Work.
+    """
     work_id: WorkID
     role: WorkAgentRole
     contribution_summary: str | None = None
@@ -125,6 +128,9 @@ class WorkAgentCredit(AgentCreditBase):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionAgentCredit(AgentCreditBase):
+    """
+    Represent an Agent contribution to an Expression, including language and abridgement context.
+    """
     expression_id: ExpressionID
     role: ExpressionAgentRole
     language_id: LanguageID | None = None
@@ -162,6 +168,9 @@ class ExpressionAgentCredit(AgentCreditBase):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationAgentCredit(AgentCreditBase):
+    """
+    Represent an Agent contribution to a Manifestation, including imprint context.
+    """
     manifestation_id: ManifestationID
     role: ManifestationAgentRole
     imprint_name: str | None = None
@@ -194,6 +203,9 @@ class ManifestationAgentCredit(AgentCreditBase):
 
 @dataclass(slots=True, kw_only=True)
 class ItemAgentCredit(AgentCreditBase):
+    """
+    Represent a copy-specific Agent association with an Item.
+    """
     item_id: ItemID
     role: ItemAgentRole
     provenance_note: str | None = None
@@ -347,6 +359,9 @@ class RoleCreditsContainer(
 
 
 class WorkRoleCreditsContainer(RoleCreditsContainer[WorkAgentCredit, WorkAgentRole]):
+    """
+    Collect the ordered Agent credits for one role on a Work.
+    """
     target_kind: ClassVar[str] = 'work'
 
     @property
@@ -355,6 +370,9 @@ class WorkRoleCreditsContainer(RoleCreditsContainer[WorkAgentCredit, WorkAgentRo
 
 
 class ExpressionRoleCreditsContainer(RoleCreditsContainer[ExpressionAgentCredit, ExpressionAgentRole]):
+    """
+    Collect the ordered Agent credits for one role on an Expression.
+    """
     target_kind: ClassVar[str] = 'expression'
 
     @property
@@ -363,6 +381,9 @@ class ExpressionRoleCreditsContainer(RoleCreditsContainer[ExpressionAgentCredit,
 
 
 class ManifestationRoleCreditsContainer(RoleCreditsContainer[ManifestationAgentCredit, ManifestationAgentRole]):
+    """
+    Collect the ordered Agent credits for one role on a Manifestation.
+    """
     target_kind: ClassVar[str] = 'manifestation'
 
     @property
@@ -371,6 +392,9 @@ class ManifestationRoleCreditsContainer(RoleCreditsContainer[ManifestationAgentC
 
 
 class ItemRoleCreditsContainer(RoleCreditsContainer[ItemAgentCredit, ItemAgentRole]):
+    """
+    Collect the ordered Agent credits for one role on an Item.
+    """
     target_kind: ClassVar[str] = 'item'
 
     @property
@@ -458,6 +482,9 @@ class BaseTargetAgentCreditsContainer(
 
 
 class WorkAgentCreditsContainer(BaseTargetAgentCreditsContainer[WorkAgentRole, WorkAgentCredit, WorkRoleCreditsContainer]):
+    """
+    Group every Agent contribution to a Work by role.
+    """
     def __init__(self, *, work_id: WorkID) -> None:
         super().__init__()
         self.work_id = work_id
@@ -475,6 +502,9 @@ class WorkAgentCreditsContainer(BaseTargetAgentCreditsContainer[WorkAgentRole, W
 
 
 class ExpressionAgentCreditsContainer(BaseTargetAgentCreditsContainer[ExpressionAgentRole, ExpressionAgentCredit, ExpressionRoleCreditsContainer]):
+    """
+    Group every Agent contribution to an Expression by role.
+    """
     def __init__(self, *, expression_id: ExpressionID) -> None:
         super().__init__()
         self.expression_id = expression_id
@@ -492,6 +522,9 @@ class ExpressionAgentCreditsContainer(BaseTargetAgentCreditsContainer[Expression
 
 
 class ManifestationAgentCreditsContainer(BaseTargetAgentCreditsContainer[ManifestationAgentRole, ManifestationAgentCredit, ManifestationRoleCreditsContainer]):
+    """
+    Group every Agent contribution to a Manifestation by role.
+    """
     def __init__(self, *, manifestation_id: ManifestationID) -> None:
         super().__init__()
         self.manifestation_id = manifestation_id
@@ -509,6 +542,9 @@ class ManifestationAgentCreditsContainer(BaseTargetAgentCreditsContainer[Manifes
 
 
 class ItemAgentCreditsContainer(BaseTargetAgentCreditsContainer[ItemAgentRole, ItemAgentCredit, ItemRoleCreditsContainer]):
+    """
+    Group every Agent contribution to an Item by role.
+    """
     def __init__(self, *, item_id: ItemID) -> None:
         super().__init__()
         self.item_id = item_id

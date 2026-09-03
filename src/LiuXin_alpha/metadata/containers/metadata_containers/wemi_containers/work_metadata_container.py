@@ -30,7 +30,7 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projec
 
 class WorkMetadata(WorkMetadataAPI):
     """
-    Concrete implementation of :class:`WorkMetadataAPI`.
+    Provide the editable relationship bundle surrounding a Work identity.
 
     Targets in relation links are usually live database :class:`Row` objects,
     but plain mappings are also supported for round-tripping/tests.

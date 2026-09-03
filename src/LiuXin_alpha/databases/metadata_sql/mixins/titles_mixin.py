@@ -1,8 +1,12 @@
+"""Metadata SQL macros for title catalogue rows."""
+
 
 
 
 
 class CMTitlesMacrosMixin:
+    """Implement title-row metadata macros."""
+
 
     # ------------------------------------------------------------------------------------------------------------------
     #

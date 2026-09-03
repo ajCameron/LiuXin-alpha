@@ -1,7 +1,5 @@
 
-"""
-Library API.
-"""
+"""Legacy database-cache contract retained by the library compatibility layer."""
 
 from __future__ import annotations
 

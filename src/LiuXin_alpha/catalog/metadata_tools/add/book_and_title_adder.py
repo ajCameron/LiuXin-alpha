@@ -1,3 +1,5 @@
+"""Book and title creation workflows for legacy metadata tools."""
+
 from __future__ import unicode_literals
 
 import datetime
@@ -534,4 +536,4 @@ class BookAndTitleAdderMixin:
 
 # Backwards-compat alias for code that may still import the old mixin name.
 class TitleAddMixin(BookAndTitleAdderMixin):
-    pass
+    """Compatibility alias for the combined book-and-title addition workflow."""

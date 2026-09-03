@@ -6,8 +6,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  package:
-    name: Build and install package
+  quality-modern:
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    name: Modern Architecture and Typing
     runs-on: ubuntu-latest
 
     steps:
@@ -20,27 +21,24 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
-      - name: Build wheel and source archive
+      - name: Install quality dependencies
         run: |
-          python -m pip install --upgrade build pip
-          python -m build
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install ".[test,typing]"
 
-      - name: Verify and install wheel
-        run: |
-          python scripts/verify_wheel.py dist/*.whl
-          python -m pip install dist/*.whl
-          liuxin --help
-          liuxin-cli --help
-          liuxin-storage-audit --help
+      - name: Run ratcheted modern type and import checks
+        run: bash scripts/run_type_checks.sh
 
-      - name: Exercise installed SQLite storage audit
+      - name: Enforce application-surface ownership
+        env:
+          PYTHONPATH: src
         run: |
-          mkdir -p "$RUNNER_TEMP/liuxin-drive"
-          cp LICENSE "$RUNNER_TEMP/liuxin-drive/sample.epub"
-          liuxin-storage-audit \
-            --database "$RUNNER_TEMP/liuxin-audit.sqlite3" \
-            --disk-root "$RUNNER_TEMP/liuxin-drive" \
-            --store-name package-smoke
+          .venv/bin/python -m pytest -q \
+            tests/surfaces/test_core_boundary_enforcement.py \
+            tests/scripts/test_public_documentation_boundaries.py \
+            tests/scripts/test_run_type_checks.py \
+            tests/storage/api/test_storage_manager_composition.py
 
   smoke:
     if: github.event_name == 'push'

@@ -35,6 +35,11 @@ class StoreAdministrationAPI(abc.ABC):
     """
     Configure, inspect, start, and stop the manager's backend stores.
 
+    Store UUIDs are durable routing identities; live Store instances are
+    replaceable process resources. Concrete managers decide how configuration
+    is persisted and constructed, while this contract exposes no backend
+    driver objects or database rows.
+
     Example:
         >>> def choose_primary(manager: StoreAdministrationAPI) -> None:
         ...     manager.set_default_store(UUID(int=1))
@@ -89,7 +94,8 @@ class StoreAdministrationAPI(abc.ABC):
         ) = (),
         start: bool = True,
     ) -> StoreConfiguration:
-        """Configure and optionally start a Store in one call.
+        """
+        Configure and optionally start a Store in one call.
 
         The implementation belongs to the concrete manager because it invokes
         that manager's configured backend factory. This API declaration only
@@ -100,6 +106,7 @@ class StoreAdministrationAPI(abc.ABC):
             ...     "archive", "s3", "s3://books/archive",
             ...     tags={"offsite"},
             ... )
+
 
         :param name: Human-readable Store name.
         :param kind: Registered storage-backend kind.
@@ -150,7 +157,8 @@ class StoreAdministrationAPI(abc.ABC):
         ) = (),
         start: bool = True,
     ) -> StoreConfiguration:
-        """Configure and start a local filesystem Store in one call.
+        """
+        Configure and start a local filesystem Store in one call.
 
         ``root`` may be a path-like value, plain local path, or ``file:`` URI.
         Implementations normalize it into portable durable configuration and
@@ -160,6 +168,7 @@ class StoreAdministrationAPI(abc.ABC):
             >>> primary = manager.add_filesystem_store(  # doctest: +SKIP
             ...     "primary", "/srv/liuxin",
             ... )
+
 
         :param name: Human-readable Store name.
         :param root: Local root directory or file URI.
@@ -200,7 +209,8 @@ class StoreAdministrationAPI(abc.ABC):
         ) = (),
         start: bool = True,
     ) -> StoreConfiguration:
-        """Configure a read-only container Store backed by an Asset.
+        """
+        Configure a read-only container Store backed by an Asset.
 
         A preferred source Replica can identify archive or unmanaged bytes.
         ``materialization_store_ref`` names a writable local CACHE Store when
@@ -212,6 +222,22 @@ class StoreAdministrationAPI(abc.ABC):
             ...     source_replica_id=archive_replica_id,
             ...     materialization_store_ref=cache_uuid,
             ... )
+
+
+        :param name:
+        :param kind:
+        :param digital_asset_id:
+        :param source_replica_id:
+        :param materialization_store_ref:
+        :param store_uuid:
+        :param protocol:
+        :param tags:
+        :param modes:
+        :param operational_role:
+        :param folders:
+        :param options:
+        :param start:
+        :return:
         """
         ...
 

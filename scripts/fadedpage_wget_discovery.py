@@ -104,6 +104,8 @@ FADEDPAGE_EXCLUDED_FILENAMES = {"ads.txt", "humans.txt", "robots.txt", "security
 
 @dataclass(frozen=True)
 class CandidateRecord:
+    """Normalized downloadable object candidate observed during discovery."""
+
     url: str
     host: str
     path: str
@@ -117,6 +119,8 @@ class CandidateRecord:
 
 @dataclass(frozen=True)
 class WgetResult:
+    """Captured wget invocation and process outcome."""
+
     args: list[str]
     returncode: int
     stdout: str
@@ -124,6 +128,8 @@ class WgetResult:
 
 
 class LiveProgressDisplay:
+    """Render bounded in-place discovery progress when attached to a terminal."""
+
     def __init__(self, *, stream: TextIO | None = None, enabled: bool | None = None) -> None:
         self.stream = stream if stream is not None else sys.stderr
         auto_enabled = bool(getattr(self.stream, "isatty", lambda: False)())
@@ -449,6 +455,8 @@ def run_wget(
 
 
 class DiscoveryStateDB:
+    """Durable crawl frontier, observations, and root binding for resumable runs."""
+
     def __init__(self, path: str | Path, *, root_url: str) -> None:
         self.path = Path(path)
         self.conn = sqlite3.connect(str(self.path))

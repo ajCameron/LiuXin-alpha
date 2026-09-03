@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class AnnotationRow(MetadataTableRow):
+    """
+    Represent a reader annotation anchored to an Item.
+    """
     TABLE_NAME: ClassVar[str] = "annotations"
     ID_COLUMN: ClassVar[str] = "annotation_id"
 

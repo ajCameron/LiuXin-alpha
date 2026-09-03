@@ -33,6 +33,8 @@ from LiuXin_alpha.surfaces.web_readonly.app import (
 
 @dataclass(frozen=True)
 class OpdsReadOnlyConfig(ReadOnlyWebConfig):
+    """Configuration for the standalone read-only OPDS surface."""
+
     title: str = "LiuXin OPDS Read-Only"
     opds_max_ungrouped_items: int = 100
 
@@ -234,6 +236,12 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Build the read-only OPDS command-line parser.
+
+
+    :return:
+    """
     parser = argparse.ArgumentParser(
         description="Run the LiuXin OPDS read-only interface.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -258,6 +266,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """
+    Run the opds readonly command-line entry point.
+
+
+    :param argv:
+    :return:
+    """
     parser = build_arg_parser()
     args = parser.parse_args(argv)
     config = OpdsReadOnlyConfig(

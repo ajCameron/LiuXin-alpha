@@ -334,3 +334,257 @@ skips for missing optional `py7zr`/`rarfile`/`pycdlib` support and disabled live
 backend/PostgreSQL contracts. Direct basedpyright checking of the event
 API/implementation, handler, run session, and coordinator reports zero errors
 and zero warnings.
+
+## Packaged remote mixed-ingest CLI - 2026-08-25
+
+Mixed ingest is promoted from an example-owned parser to the packaged
+`liuxin storage ingest` command. The example delegates to the production
+surface. The package exposes both the `liuxin` console script and
+`python -m LiuXin_alpha.surfaces.cli`, while retaining the historical
+`squashfs.main` import for callers and tests.
+
+Remote operations now have a no-catalogue/cache-write readiness preflight,
+operator-supplied run UUID, atomic full report artifact, clean JSON-only
+stdout, optional stdout suppression, an exclusive real-run catalogue lock, safe output/source path
+separation, refusal to recreate a missing established catalogue, first-signal
+cooperative cancellation, second-signal forced unwind, and explicit 0/1/2/130/
+143 exit meanings. Logs, report, lock, and run ID are correlated. Fatal command
+configuration is represented in both the report and event stream whenever the
+selected destinations are safe enough to create them.
+
+The deployment package requires the new CLI files and mixed-ingest runbook,
+installs the `archives` optional dependency group by default, points operators
+at the installed console script, and documents preflight plus a transient
+systemd launch. Ingest remains a local-filesystem operation on the remote host
+and currently opens a SQLite catalogue; it is not a path-upload protocol or a
+remote Core job submission surface.
+
+Verification: 36 focused CLI/deployment/PostgreSQL-command/example tests pass;
+the new storage/deployment modules alone pass 14 tests after the atomic
+no-clobber report refinement. Direct basedpyright reports zero errors on the
+new CLI modules (the legacy argparse surface retains warnings). The complete
+`tests/storage` checkpoint passes 997 tests with 24 expected skips for missing
+archive extras and disabled live backend/PostgreSQL contracts.
+
+## Packaged metadata CLI - 2026-08-25
+
+The packaged `liuxin` surface now exposes the stable Core metadata operations
+as a coherent command family. It covers hydrated WEMI show/get, versioned and
+JSONL selected/all-Item dumps, supported relational metadata append/replace/
+clear, OPF export, embedded-file reader/writer capabilities, bounded file
+inspection, safe rewritten artifacts, explicit backed-up unmanaged in-place
+updates, configured online-source discovery, and managed identify/cover jobs.
+Every leaf supports either a local catalogue or remote Core endpoint.
+
+Client file paths are always read by the CLI and transferred as bounded bytes,
+removing ambiguous daemon-local path behavior. Rewritten content is inspected
+successfully before an atomic no-clobber publication; input bytes remain
+unchanged by default. Managed Replica mutation remains out of scope: it should
+create a new stored artifact and derivation. JSON uses stable keys and ASCII
+escapes so surrogateescaped legacy paths remain valid, and large dumps spool to
+disk rather than accumulating every hydrated record in memory. Legacy local
+Core stdout is redirected to stderr so it cannot corrupt machine JSON.
+
+The deployment bundle requires the metadata CLI and its runbook and advertises
+the new command after remote installation. Focused coverage includes fake-Core
+payload/wire contracts, no-clobber and backup behavior, tortured POSIX paths,
+jobs and cover extraction, plus a real SQLite/Core catalogue and EPUB
+show/write/dump/OPF/inspect/rewrite round trip.
+
+## Complete operational CLI families - 2026-08-26
+
+The packaged CLI now covers the operator lifecycle around storage rather than
+leaving the new Core API inaccessible. Named families cover Core
+health/contracts and guarded serving; managed jobs; semantic catalogue search,
+browse, WEMI editing and acquisition; Store, Replica, source, resource and
+policy administration; Core-host ingest/conversion/backup workflows; database
+upkeep; guarded maintenance; packaged web/API/OPDS serving; and consolidated
+plugin/capability inspection. The historical SquashFS and PostgreSQL families
+remain available.
+
+The shared CLI layer provides deterministic ASCII-safe JSON, atomic no-clobber
+outputs, bounded JSON control files, Core wire-byte decoding, local-or-RPC
+session selection, and consistent job submission/wait/detach behavior. Byte
+transfer commands use CLI-host paths. Managed workflow paths explicitly belong
+to the Core host. Mutating maintenance previews by default, destructive
+storage/database operations require explicit confirmation where ambiguity is
+material, and HTTP surfaces refuse non-loopback binding unless the operator
+acknowledges that the current transports have no authentication or TLS. Core
+HTTP request bodies now have a configurable hard ceiling.
+
+The detailed command and safety contract is recorded in
+`dev-docs/operational-cli.md`; deployment prerequisites include every packaged
+CLI module and that runbook. Focused command-contract tests cover the installed
+tree, named operation payloads, job lifecycle, rich storage hints, tortured
+client paths, acquisition bytes, Core-host workflow paths, maintenance
+preview/confirmation, capability aggregation, remote-bind refusal, and the
+HTTP request-size validator.
+
+## First-run init and concise ingest - 2026-08-26
+
+The operational CLI now has an explicit local lifecycle. `liuxin init
+SYSTEM_ROOT` creates or validates `catalogue.sqlite`, a managed live filesystem
+Store, nested-container materialization storage, ingest logs, and a mode-0600
+non-secret `liuxin-system.json` manifest. It is idempotent and does not delete
+existing catalogue or Store state. The explicit PostgreSQL setup/check commands
+remain available for automation and server administration.
+
+As of 2026-08-27, invoking `liuxin init` interactively without a location (or
+using `--wizard`) adds a confirmation-based setup path. It selects
+SQLite/APSW/PostgreSQL; embedded backends feed the existing system-root init,
+while PostgreSQL feeds the existing schema initializer and full readiness
+checker. Targets are redacted, passwords remain in the established PostgreSQL
+configuration/prompt seam, cancellation mutates nothing, and server-level
+database/role creation remains an explicit `postgres setup-sql` concern.
+The combined init/PostgreSQL/operational/storage/metadata/deployment/boundary
+regression passes 77 tests.
+
+PostgreSQL first-run failures now carry shared actionable hints. The wizard
+preflights the optional Python driver; connection error redaction classifies a
+missing database (directing the operator to `postgres setup-sql`), a missing
+PGSERVICE profile, and an unavailable local/remote server (directing them to
+`pg_isready` plus service/network checks). These hints therefore also apply to
+the explicit PostgreSQL CLI and backend connection paths. The focused
+wizard/PostgreSQL/backend/boundary/deployment regression passes 78 tests.
+
+`liuxin ingest SOURCE --system-root SYSTEM_ROOT` is normalized to the mature
+local `storage ingest` pipeline and inherits its recursive-container budgets,
+logging, run lock, reports, cancellation, and idempotent catalogue behavior.
+The existing `ingest disk` spelling remains the separate managed Core-host job
+surface. A real smoke run created a fresh system and adopted one ebook as a
+durable Asset and unmanaged Replica with a correlated report. The integration
+test also re-runs `init` against that populated catalogue and verifies that the
+existing ingest-source Store remains registered; existing catalogues are
+opened for validation rather than re-entering the schema-creation path.
+
+## Operator cohesion and recovery surface - 2026-08-27
+
+The remaining operational gaps are now named surfaces rather than raw Core or
+database access. Global `--system-root`/`--profile` selectors and the matching
+environment variables resolve the mode-0600 manifest for all Core-backed CLI
+leaves; `config path|show|validate`, `doctor`, and `diagnostics collect` make
+selection, readiness and redacted support evidence observable. PostgreSQL can
+write the same secret-free system manifest and direct Core composition now
+preserves server URLs/service names and schema metadata instead of coercing
+them through `Path`.
+
+Storage exposes typed common Store/source setup, Replica and Asset
+verification, bounded audit, actionable status, and plan/apply reconciliation.
+The Core operations persist integrity observations; safe reconciliation reloads
+Stores and re-verifies questionable Replicas but deliberately defers placement,
+deletion and ingest retry to their explicit workflows. Mixed-ingest JSONL and
+reports are indexed by `ingest runs list|show|issues|resume`; exact resume
+reconstructs the original safety settings and refuses discovery/preflight or
+an accidental rerun of a successful attempt.
+
+Recovery now includes explicit-path database backup with optional verification,
+CLI-host SQLite/APSW backup verification, atomic offline restore with a
+hash-checked safety copy, and migration status/plan/apply for additive storage
+metadata and normalized identities. PostgreSQL restoration remains external
+server administration. Semantic custom fields have their own guarded Catalog
+commands; raw rows, schemas, trees, caches and preference stores remain outside
+the ordinary CLI.
+
+The completion pass tightened the seams that matter remotely. PostgreSQL's
+wizard now selects a system root and writes its profile only after readiness
+passes; embedded URL passwords and secret query parameters are removed from
+that manifest. Doctor and diagnostic output recursively redact credential
+fields, URL passwords, authorization headers, and common credential
+assignments, including bounded failed-job log tails. Database recovery is also
+available through the natural `backup verify|restore` aliases, while retaining
+the database-specific spellings.
+
+The stale pre-StorageManager `backup plan SOURCE_ID OUTPUT_DIR` boundary was
+removed after static analysis found that it called a deleted planner method.
+Planning now names configured source and destination Stores and uses the real
+StorageManager-backed `plan_store_backup` contract, including safe output-key
+prefixes. Typed Store creation preserves Core-host roots verbatim rather than
+resolving them on a possibly remote CLI host. The final focused operational,
+Core, PostgreSQL, deployment and boundary regression passes 155 tests; Python
+compilation and whitespace/diff checks are clean. Strict type analysis reports
+no errors in the new operator modules or Core program API; remaining Library
+row-protocol diagnostics predate this surface work.
+
+## Persistent operator connection - 2026-08-27
+
+`liuxin connect SYSTEM_ROOT` now validates and opens the selected Core before
+atomically writing a mode-0600 per-user active connection. The file contains
+only the absolute system-manifest path, never a database URL, password, or
+copied manifest. `liuxin connect status` reports persisted and
+effective state; `liuxin disconnect` deletes only the pointer and explicitly
+reports that no system was modified.
+
+Resolution order is deliberate: an explicit database/Core endpoint/system
+root/profile wins, then `LIUXIN_SYSTEM_ROOT` or `LIUXIN_PROFILE`, then the
+persisted pointer. Core-backed commands, config inspection, doctor/diagnostics,
+mixed local ingest, and ingest-run inspection/resume all use the same resolver.
+Tests cover a real initialized Core with no repeated selector, environment
+override visibility, profile-path connection, offline connection, corrupted
+pointer recovery, safe disconnect, and real ingest/resume reconstruction from
+the persisted selection. The expanded focused operational regression passes
+156 tests; strict analysis of the touched connection/operator modules,
+compilation, and diff/whitespace checks are clean.
+
+## Explicit repair and operator lifecycle - 2026-08-27
+
+The deliberately deferred storage actions now have dedicated Core and CLI
+surfaces. `storage repair plan|apply` verifies and places policy copies under
+asset, action, and byte bounds and never deletes bytes. `storage store
+evacuate` previews by default, recomputes the plan on apply, verifies
+policy/failure-domain capacity outside the source, and retires source claims
+only after every required replacement succeeds. Read-only and unmanaged source
+bytes are never physically deleted; `--keep-source-bytes` protects ordinary
+writable Stores as well. Store endpoint fields cannot be edited around live
+Replica claims.
+
+The durable ingest journal is operator-visible through `storage recovery`.
+Published operations can be completed explicitly; Store-object and adopt
+requests can be replayed when their source identity is still available; lost
+stream inputs fail with guidance rather than invented recovery. Managed jobs
+support linked retry runs without rewriting prior history. Successful runs
+require an explicit override.
+
+The small cohesion tranche is also present: typed Store updates, named
+credential-free profile pointers, a concise top-level `status`, and generated
+bash/zsh/fish completion. Policy planning was corrected so an independent
+active/backup placement never chooses a Store already holding that Asset.
+Focused operational and database recovery verification passes 45 tests, and
+the complete storage-manager/policy contract selection passes 74 tests.
+
+## Persisted Store status overview - 2026-08-27
+
+`liuxin storage status` now answers the first operational question directly:
+what Stores exist, where they point, and what they currently contain. Core
+merges durable `stores` rows with live `StorageManager` observations and the
+Digital Asset/Replica catalogue. The response includes a compact total summary
+and stable per-Store records for folder support, role/root, declared and probed
+availability, read/write state, default/registration state, capacity, unique
+Asset bytes, catalogued Replica bytes, Replica modes/states, and attributable
+issues. Deliberately offline rows stay visible; malformed rows, live/durable
+configuration drift, and online rows missing from the manager are explicit
+rather than silently disappearing. The pre-existing full manager health report
+remains under `status`, and `--refresh` requests a live backend probe.
+
+## Provider-driven Store add flow - 2026-08-27
+
+`liuxin storage add` is now the preferred Store configuration entry point. A
+bare or incomplete invocation opens an rclone-inspired wizard backed by Core's
+new `storage.backends.list` provider catalogue. The catalogue is generated
+from `DEFAULT_BACKEND_REGISTRY`, so the wizard, `storage backends|providers`,
+plugin inspection, Store construction, and persisted capability flags share
+one backend vocabulary. The wizard collects backend/root/name, operational
+role, mutability, online state, topology/tags and non-secret advanced options;
+it shows limitations and a no-write plan before confirmation, then reloads and
+optionally probes the saved Store.
+
+Automation uses `liuxin storage add NAME KIND ROOT [OPTION=VALUE ...]` and gets
+the same registry-derived defaults and capability fields. Backend values accept
+JSON scalars, but credential-like option and policy keys are rejected before
+the Store row is written. Credentials remain in the backend's own profile or
+environment/secret injection on the Core host. The older `storage store add`
+spelling remains compatible and now benefits from the same descriptor-derived
+read-only and capability handling. Valid Store rows that fail to load or probe
+remain persisted, and Core update/delete now resolves those durable-only rows
+without requiring a live Store facade; Store get returns their configuration
+with an explicit unloaded status. Offline legacy rows also persist their derived
+UUID before being skipped, keeping name/row/UUID administration stable.

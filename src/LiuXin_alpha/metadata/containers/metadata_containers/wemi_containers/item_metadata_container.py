@@ -30,7 +30,7 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projec
 
 class ItemMetadata(ItemMetadataAPI):
     """
-    Concrete implementation of :class:`ItemMetadataAPI`.
+    Provide the editable relationship bundle surrounding an Item identity.
 
     Targets in relation links are usually live database :class:`Row` objects,
     but plain mappings are also supported for round-tripping/tests.

@@ -947,6 +947,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    """
+    Run the reconcile command-line entry point.
+
+
+    :param argv:
+    :return:
+    """
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
 

@@ -1,7 +1,11 @@
+"""Metadata SQL macros for generic tag relationships."""
+
 
 
 
 class CMTagXLinkMacros:
+    """Implement generic tag-relationship metadata macros."""
+
 
     # ------------------------------------------------------------------------------------------------------------------
     #

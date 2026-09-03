@@ -1,3 +1,5 @@
+"""Wrapper-level contract for portable schema introspection."""
+
 # Suggested additions to DatabaseDriverWrapperAPI (or a new SchemaIntrospectionAPI)
 
 import abc
@@ -24,6 +26,8 @@ from LiuXin_alpha.databases.schema_specs import (
 
 
 class SchemaIntrospectionAPI(abc.ABC):
+    """Expose portable schema structure and column semantics above a driver."""
+
 
     @abstractmethod
     def get_link_capabilities(

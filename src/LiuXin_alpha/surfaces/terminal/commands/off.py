@@ -52,14 +52,33 @@ def _unlink_one_value(
     for link_row in rows:
         snapshot = dict(link_row.row_dict)
         snapshot["_table"] = str(link_row.table)
+        relation: dict[str, object] = {
+            "table": source_table,
+            "row_id": int(source_row.row_id),
+            "related_table": target_table,
+            "related_row_id": int(target_row.row_id),
+        }
+        try:
+            type_column = browser.db.driver_wrapper.get_link_column(
+                source_table,
+                target_table,
+                "type",
+            )
+        except Exception:
+            type_column = None
+        if type_column is not None and snapshot.get(type_column) is not None:
+            relation["type"] = snapshot[type_column]
+        snapshot["_relation"] = relation
         deleted_snapshots.append(snapshot)
-        browser.execute_core_command(
-            "admin.row.delete",
-            payload={
-                "table": str(link_row.table),
-                "row_id": int(link_row.row_id),
-            },
-        )
+    browser.execute_core_command(
+        "admin.relation.unlink",
+        payload={
+            "table": source_table,
+            "row_id": int(source_row.row_id),
+            "related_table": target_table,
+            "related_row_id": int(target_row.row_id),
+        },
+    )
 
     browser.emit(
         "{} unlinked: {}={} -> {}:{} ({} row{})".format(
@@ -79,6 +98,27 @@ def _restore_deleted_link_snapshots(browser, snapshots: list[dict[str, object]])
     errors: list[str] = []
     for snapshot in reversed(snapshots):
         row_dict = dict(snapshot)
+        relation = row_dict.pop("_relation", None)
+        if isinstance(relation, dict):
+            try:
+                # Re-link semantically so the database can choose a currently
+                # valid priority; replaying the deleted raw priority may collide
+                # with links that remained in place during rollback.
+                browser.execute_core_command(
+                    "admin.relation.link",
+                    payload=dict(relation),
+                )
+            except Exception as exc:
+                errors.append(
+                    "relationship restore failed for {}:{} -> {}:{} ({})".format(
+                        relation.get("table"),
+                        relation.get("row_id"),
+                        relation.get("related_table"),
+                        relation.get("related_row_id"),
+                        exc,
+                    )
+                )
+            continue
         table = str(row_dict.pop("_table", "") or "")
         if not table:
             errors.append("restore failed: missing link table")

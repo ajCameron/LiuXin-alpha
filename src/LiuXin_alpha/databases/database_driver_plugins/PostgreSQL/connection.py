@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -30,6 +31,27 @@ DEFAULT_POSTGRES_STATEMENT_TIMEOUT_MS = 60_000
 DEFAULT_POSTGRES_WRITE_RETRIES = 4
 DEFAULT_POSTGRES_WRITE_RETRY_DELAY = 0.75
 
+POSTGRES_DRIVER_INSTALL_HINT = (
+    "PostgreSQL Python support is not installed. From a LiuXin source checkout "
+    "run `python -m pip install -e '.[postgres]'`; for an installed package run "
+    "`python -m pip install 'liuxin-alpha[postgres]'`."
+)
+POSTGRES_DATABASE_SETUP_HINT = (
+    "The target PostgreSQL database does not exist. Create the database and "
+    "login roles as a PostgreSQL administrator; `liuxin postgres setup-sql "
+    "--help` generates reviewable server/database setup SQL."
+)
+POSTGRES_SERVER_HINT = (
+    "PostgreSQL is not reachable. For a local target, check that the server is "
+    "installed and running (for example with `pg_isready`); for a remote target, "
+    "verify its host, port, firewall, and service state."
+)
+POSTGRES_SERVICE_HINT = (
+    "The selected PGSERVICE profile was not found. Check `PGSERVICE`, "
+    "`PGSERVICEFILE`, and the PostgreSQL service-file entry, or use a "
+    "postgresql:// URL."
+)
+
 
 class PostgresConnectionError(RuntimeError):
     """Raised when a configured PostgreSQL operation cannot connect or run."""
@@ -37,6 +59,67 @@ class PostgresConnectionError(RuntimeError):
 
 class PostgresSchemaError(PostgresConnectionError):
     """Raised when PostgreSQL is reachable but missing required schema."""
+
+
+def postgres_driver_is_available() -> bool:
+    """Return whether the optional psycopg2 runtime is importable."""
+
+    try:
+        return importlib.util.find_spec("psycopg2") is not None
+    except (ImportError, ValueError):
+        return False
+
+
+def postgres_connection_hint(exc: BaseException | None) -> str:
+    """Return one actionable hint for a common PostgreSQL setup failure."""
+
+    if exc is None:
+        return ""
+    messages: list[str] = []
+    sqlstates: set[str] = set()
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        messages.append(str(current or ""))
+        for attribute in ("pgcode", "sqlstate"):
+            value = getattr(current, attribute, None)
+            if value:
+                sqlstates.add(str(value).upper())
+        current = current.__cause__ or current.__context__
+    message = "\n".join(messages).casefold()
+
+    missing_module = str(getattr(exc, "name", "") or "").casefold()
+    if missing_module.startswith("psycopg2") or "no module named 'psycopg2'" in message:
+        return POSTGRES_DRIVER_INSTALL_HINT
+    if "3D000" in sqlstates or (
+        "database" in message and "does not exist" in message
+    ):
+        return POSTGRES_DATABASE_SETUP_HINT
+    if (
+        "not found" in message
+        and (
+            "service definition" in message
+            or "definition of service" in message
+            or "service file" in message
+            or "pgservice" in message
+        )
+    ):
+        return POSTGRES_SERVICE_HINT
+    server_markers = (
+        "connection refused",
+        "could not connect to server",
+        "server closed the connection unexpectedly",
+        "could not translate host name",
+        "name or service not known",
+        "temporary failure in name resolution",
+    )
+    missing_socket = "no such file or directory" in message and (
+        "unix domain socket" in message or ".s.pgsql" in message
+    )
+    if missing_socket or any(marker in message for marker in server_markers):
+        return POSTGRES_SERVER_HINT
+    return ""
 
 
 @dataclass(frozen=True)
@@ -69,7 +152,10 @@ def connect_postgres(
 
     configured_password = configured_postgres_password(password)
 
-    import psycopg2
+    try:
+        import psycopg2
+    except ModuleNotFoundError as exc:
+        raise PostgresConnectionError(POSTGRES_DRIVER_INSTALL_HINT) from exc
 
     try:
         conn = _connect_psycopg2(
@@ -276,7 +362,7 @@ def retryable_postgres_error(exc: BaseException) -> bool:
 
 
 def redact_postgres_error(exc: BaseException | None, *urls: object) -> str:
-    """Return an exception string with configured DSNs redacted."""
+    """Return a redacted exception string with a common-setup hint when known."""
 
     if exc is None:
         return ""
@@ -285,6 +371,9 @@ def redact_postgres_error(exc: BaseException | None, *urls: object) -> str:
         text = str(candidate or "")
         if text:
             message = message.replace(text, redact_postgres_target(text))
+    hint = postgres_connection_hint(exc)
+    if hint and "hint:" not in message.casefold() and hint not in message:
+        message = "{} Hint: {}".format(message.rstrip(), hint)
     return message
 
 

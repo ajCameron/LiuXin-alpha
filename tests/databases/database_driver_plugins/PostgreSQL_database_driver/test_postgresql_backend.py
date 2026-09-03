@@ -117,6 +117,57 @@ def test_postgresql_connect_uses_native_service_profile(monkeypatch) -> None:
     ]
 
 
+def test_postgresql_connect_hints_when_python_driver_is_missing(monkeypatch) -> None:
+    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
+        PostgresConnectionError,
+        connect_postgres,
+    )
+
+    monkeypatch.setitem(sys.modules, "psycopg2", None)
+
+    with pytest.raises(PostgresConnectionError) as raised:
+        connect_postgres(
+            {},
+            "postgresql://liuxin@example.invalid/library",
+            prompt_for_password=False,
+        )
+
+    message = str(raised.value)
+    assert ".[postgres]" in message
+    assert "PostgreSQL Python support" in message
+
+
+def test_postgresql_errors_hint_for_missing_database_and_unavailable_server() -> None:
+    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
+        redact_postgres_error,
+    )
+
+    missing_database = RuntimeError(
+        'connection to postgresql://owner:secret@example.invalid/missing failed: '
+        'database "missing" does not exist'
+    )
+    missing_database.pgcode = "3D000"  # type: ignore[attr-defined]
+    database_message = redact_postgres_error(
+        missing_database,
+        "postgresql://owner:secret@example.invalid/missing",
+    )
+    assert "secret" not in database_message
+    assert "setup-sql --help" in database_message
+    assert "does not exist" in database_message
+
+    unavailable_message = redact_postgres_error(
+        RuntimeError("connection refused: could not connect to server")
+    )
+    assert "pg_isready" in unavailable_message
+    assert "installed and running" in unavailable_message
+
+    service_message = redact_postgres_error(
+        RuntimeError('definition of service "missing_profile" not found')
+    )
+    assert "PGSERVICEFILE" in service_message
+    assert "postgresql:// URL" in service_message
+
+
 def test_postgresql_shared_connection_helper_uses_configured_schema(monkeypatch) -> None:
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import connection as pg_connection
 
@@ -1238,7 +1289,9 @@ def test_postgresql_checker_reports_missing_driver(monkeypatch) -> None:
 
     assert result["ok"] is False
     assert any(check["name"] == "driver" and not check["ok"] for check in result["checks"])
-    assert "secret" not in checker.format_postgres_self_test(result)
+    report = checker.format_postgres_self_test(result)
+    assert "secret" not in report
+    assert ".[postgres]" in report
 
 
 def test_postgresql_checker_reports_schema_type_and_privilege_failures(monkeypatch) -> None:

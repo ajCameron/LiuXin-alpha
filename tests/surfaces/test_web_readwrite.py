@@ -418,7 +418,10 @@ def test_web_readwrite_row_pages_can_add_edit_and_remove_interlinks(driver_spec,
         assert "Link removed" in body.decode("utf-8")
 
 
-def test_web_readwrite_work_tag_links_use_metadata_write_reports(driver_spec, tmp_path: Path) -> None:
+def test_web_readwrite_work_tag_links_use_core_relation_receipts(
+    driver_spec,
+    tmp_path: Path,
+) -> None:
     db_path = tmp_path / "web_readwrite_metadata_tag_link.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -460,12 +463,13 @@ def test_web_readwrite_work_tag_links_use_metadata_write_reports(driver_spec, tm
         assert status == "200 OK"
         text = body.decode("utf-8")
         assert "Link added" in text
-        assert "Added tag via metadata writer" in text
-        assert "metadata report:" in text
-        assert "links_added=1" in text
+        assert "Added tag." in text
 
 
-def test_web_readwrite_cache_read_source_refreshes_after_metadata_write(driver_spec, tmp_path: Path) -> None:
+def test_web_readwrite_core_read_model_observes_metadata_write(
+    driver_spec,
+    tmp_path: Path,
+) -> None:
     db_path = tmp_path / "web_readwrite_metadata_cache_refresh.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -486,19 +490,19 @@ def test_web_readwrite_cache_read_source_refreshes_after_metadata_write(driver_s
             ),
         )
 
-        assert getattr(app.read_model.read_source, "allow_database_fallback", None) is False
+        assert app.read_model.read_source is app.model
 
         work_row = db.get_row_from_id("works", work_id)
         assert work_row is not None
         assert app.read_model.interlinked_rows(work_row, "tags") == []
 
-        status, headers, _body = _call_app(
+        status, headers, response_body = _call_app(
             app,
             "/tables/works/{}/links/tags/new".format(work_id),
             method="POST",
             form={"secondary_row_id": tag_id},
         )
-        assert status == "302 Found"
+        assert status == "302 Found", response_body.decode("utf-8", "replace")
 
         linked_tags = app.read_model.interlinked_rows(work_row, "tags")
         assert [int(row["tag_id"]) for row in linked_tags] == [tag_id]
@@ -553,7 +557,10 @@ def test_web_readwrite_work_pages_can_create_and_link_new_targets(driver_spec, t
         assert "Created and linked credit." in text
 
 
-def test_web_readwrite_work_tag_create_uses_metadata_write_reports(driver_spec, tmp_path: Path) -> None:
+def test_web_readwrite_work_tag_create_uses_core_relation_receipts(
+    driver_spec,
+    tmp_path: Path,
+) -> None:
     db_path = tmp_path / "web_readwrite_metadata_tag_create.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -596,9 +603,7 @@ def test_web_readwrite_work_tag_create_uses_metadata_write_reports(driver_spec, 
         assert status == "200 OK"
         text = body.decode("utf-8")
         assert "Linked row created" in text
-        assert "Created and linked tag via metadata writer" in text
-        assert "metadata report:" in text
-        assert "links_added=1" in text
+        assert "Created and linked tag." in text
 
 
 def test_web_readwrite_uses_specialized_grouped_forms_for_core_tables(driver_spec, tmp_path: Path) -> None:

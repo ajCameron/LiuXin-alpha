@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class GenreRow(MetadataTableRow):
+    """
+    Represent a hierarchical genre vocabulary row.
+    """
     TABLE_NAME: ClassVar[str] = "genres"
     ID_COLUMN: ClassVar[str] = "genre_id"
 

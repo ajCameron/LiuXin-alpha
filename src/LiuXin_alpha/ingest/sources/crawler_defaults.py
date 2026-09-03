@@ -11,6 +11,13 @@ _MISSING = object()
 
 
 def get_default_crawler_http_requests_per_hour(*legacy_pref_keys: str) -> float:
+    """
+    Return the default request-rate limit for crawler-backed discovery.
+
+
+    :param legacy_pref_keys:
+    :return:
+    """
     default = float(CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT)
     try:
         from LiuXin_alpha.preferences import preferences

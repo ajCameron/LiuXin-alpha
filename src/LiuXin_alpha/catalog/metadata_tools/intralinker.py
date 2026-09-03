@@ -1,3 +1,5 @@
+"""Create and inspect relationships within one catalogue table."""
+
 # The corresponding class for interlinked is apply
 # Todo: Update a bunch of the doc strings to actually reflect reality
 

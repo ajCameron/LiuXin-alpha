@@ -1,7 +1,11 @@
+"""Metadata SQL macros for title-to-comment relationships."""
+
 
 
 
 class CMTitleCommentsMacrosMixin:
+    """Implement title-to-comment relationship macros."""
+
     
     def clear_title_comments_from_title_id(self, title_id):
         """

@@ -40,6 +40,8 @@ _ensure_importable()
 
 @dataclass(frozen=True)
 class MetadataOPFRoundTripResult:
+    """Serializable comparison and diagnostics for one OPF round trip."""
+
     item_id: int
     ok: bool
     errors: tuple[str, ...]

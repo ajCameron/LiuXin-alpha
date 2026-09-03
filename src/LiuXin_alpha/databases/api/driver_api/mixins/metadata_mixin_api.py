@@ -1,3 +1,5 @@
+"""Driver-level contracts for database identity and metadata operations."""
+
 from __future__ import annotations
 
 import abc

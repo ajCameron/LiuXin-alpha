@@ -1,3 +1,5 @@
+"""Read/write web application wiring over explicit Core host protocols."""
+
 from __future__ import annotations
 
 import argparse
@@ -50,6 +52,8 @@ _STORE_BACKEND_KINDS = tuple(
 
 @dataclass(frozen=True)
 class ReadWriteWebConfig(ReadOnlyWebConfig):
+    """Read-only web settings plus explicit mutation and upload limits."""
+
     title: str = "LiuXin Read-Write Web"
     port: int = 8084
     write_banner: str = "Experimental local-first write surface. Not hardened for public internet exposure."
@@ -722,16 +726,11 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
     def _writability_error(self, table: str) -> Optional[str]:
         if not self._table_exists(table):
             return "Unknown table."
-        if self.db.driver_wrapper.is_view(table):
-            return "Views and compatibility surfaces are read-only."
-        if self._is_trigger_locked_table(table):
-            return "This table is managed reference data and is read-only."
+        schema = self.model.table_schema(table)
+        reason = schema.get("write_block_reason")
+        if reason not in (None, ""):
+            return str(reason)
         return None
-
-    def _is_trigger_locked_table(self, table: str) -> bool:
-        # The bootstrap version table is schema-owned reference data.  Driver
-        # trigger inspection is intentionally unavailable across Core/RPC.
-        return str(table) == "database_version"
 
     def _editable_columns(self, table: str) -> list[str]:
         if not self._is_writable_table(table):
@@ -2739,6 +2738,12 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Build the read-write web surface command-line parser.
+
+
+    :return:
+    """
     parser = argparse.ArgumentParser(description="Run the LiuXin read-write web interface.")
     add_core_client_arguments(parser)
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
@@ -2753,6 +2758,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """
+    Run the web readwrite command-line entry point.
+
+
+    :param argv:
+    :return:
+    """
     parser = build_arg_parser()
     args = parser.parse_args(argv)
     config = ReadWriteWebConfig(

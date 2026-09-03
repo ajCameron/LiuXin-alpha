@@ -13,13 +13,14 @@ from __future__ import annotations
 import base64
 import dataclasses
 import io
+import sqlite3
 
+from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
-from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
 from LiuXin_alpha.storage.api import Location
 from LiuXin_alpha.storage.store_spec_utils import store_configuration_from_row
@@ -29,21 +30,6 @@ if TYPE_CHECKING:
     from LiuXin_alpha.core.commands import CoreCommand
     from LiuXin_alpha.core.queries import CoreQuery
     from LiuXin_alpha.core.runtime import CoreRuntime
-
-
-def _field(
-    name: str,
-    *,
-    required: bool = False,
-    field_type: str | None = None,
-    description: str = "",
-) -> CorePayloadFieldDescription:
-    return CorePayloadFieldDescription(
-        name=name,
-        required=required,
-        field_type=field_type,
-        description=description,
-    )
 
 
 def _payload(envelope: Any) -> dict[str, Any]:
@@ -276,6 +262,7 @@ _PROGRAM_AREAS: dict[str, tuple[str, ...]] = {
         "jobs.result",
         "jobs.log.read",
         "jobs.cancel",
+        "jobs.retry",
     ),
     "database": (
         "database.info",
@@ -283,6 +270,9 @@ _PROGRAM_AREAS: dict[str, tuple[str, ...]] = {
         "database.telemetry",
         "database.backup",
         "database.vacuum",
+        "database.migrations.status",
+        "database.migrations.plan",
+        "database.migrations.apply",
     ),
     "schema": (
         "schema.tables",
@@ -363,9 +353,11 @@ _PROGRAM_AREAS: dict[str, tuple[str, ...]] = {
         "metadata.covers.start",
     ),
     "storage": (
+        "storage.backends.list",
         "storage.stores.list",
         "storage.store.get",
         "storage.store.save",
+        "storage.store.update",
         "storage.store.probe",
         "storage.store.delete",
         "storage.default.get",
@@ -389,6 +381,19 @@ _PROGRAM_AREAS: dict[str, tuple[str, ...]] = {
         "storage.policy.assess",
         "storage.policy.plan",
         "storage.policy.violations",
+        "storage.status",
+        "storage.replica.verify",
+        "storage.asset.verify",
+        "storage.audit",
+        "storage.reconcile.plan",
+        "storage.reconcile.apply",
+        "storage.repair.plan",
+        "storage.repair.apply",
+        "storage.store.evacuate.plan",
+        "storage.store.evacuate.apply",
+        "storage.recovery.list",
+        "storage.recovery.recover-pending",
+        "storage.recovery.retry-ingest",
     ),
     "ingest": (
         "ingest.formats",
@@ -439,611 +444,11 @@ class CoreProgramAPI:
     """Install and implement the complete program-facing Core facets."""
 
     def install(self, runtime: "CoreRuntime") -> None:
-        query = runtime.register_query_handler
-        command = runtime.register_command_handler
+        """Install the owned endpoint-provider families on ``runtime``."""
 
-        query(
-            "capabilities.list",
-            self.capabilities_list,
-            summary="Describe whole-program Core capability families.",
-            tags=("api", "capabilities"),
-        )
-        query(
-            "jobs.result",
-            self.jobs_result,
-            summary="Return the completed execution payload for one job.",
-            payload_fields=(
-                _field("job_id", required=True, field_type="string"),
-                _field("timeout_s", field_type="number|null"),
-            ),
-            tags=("jobs", "read"),
-        )
-        query(
-            "jobs.log.read",
-            self.jobs_log_read,
-            summary="Read a bounded UTF-8 chunk from a managed job log.",
-            payload_fields=(
-                _field("job_id", required=True, field_type="string"),
-                _field("offset", field_type="integer"),
-                _field("max_bytes", field_type="integer"),
-            ),
-            tags=("jobs", "logs", "read"),
-        )
-        query(
-            "database.info",
-            self.database_info,
-            summary="Return transport-safe database identity and configuration.",
-            tags=("database", "read"),
-        )
-        query(
-            "database.summary",
-            self.database_summary,
-            summary="Return table categories and row counts.",
-            tags=("database", "schema", "read"),
-        )
-        query(
-            "database.telemetry",
-            self.database_telemetry,
-            summary="Return database write and dirty-record telemetry.",
-            tags=("database", "telemetry", "read"),
-        )
-        query(
-            "schema.column",
-            self.schema_column,
-            summary="Return semantic and writer policy for one column.",
-            payload_fields=(
-                _field("table", required=True, field_type="string"),
-                _field("column", required=True, field_type="string"),
-            ),
-            tags=("schema", "policy", "read"),
-        )
-        query(
-            "schema.link",
-            self.schema_link,
-            summary="Return declared capabilities for a table relation.",
-            payload_fields=(
-                _field("table", required=True, field_type="string"),
-                _field("related_table", required=True, field_type="string"),
-            ),
-            tags=("schema", "relations", "read"),
-        )
-        query(
-            "preferences.list",
-            self.preferences_list,
-            summary="List application or library preferences.",
-            payload_fields=(_field("scope", field_type="string"),),
-            tags=("preferences", "read"),
-        )
-        query(
-            "preferences.get",
-            self.preferences_get,
-            summary="Read one application or library preference.",
-            payload_fields=(
-                _field("key", required=True, field_type="string"),
-                _field("scope", field_type="string"),
-                _field("default"),
-            ),
-            tags=("preferences", "read"),
-        )
-        query(
-            "custom-fields.list",
-            self.custom_fields_list,
-            summary="List custom-column definitions.",
-            tags=("schema", "custom-fields", "read"),
-        )
-        query(
-            "catalog.fields.list",
-            self.catalog_fields_list,
-            summary="List display/search field metadata.",
-            payload_fields=(
-                _field("kind", field_type="string"),
-                _field("include_composites", field_type="boolean"),
-            ),
-            tags=("catalog", "fields", "read"),
-        )
-        query(
-            "catalog.fields.get",
-            self.catalog_fields_get,
-            summary="Return metadata for one display/search field.",
-            payload_fields=(_field("key", required=True, field_type="string"),),
-            tags=("catalog", "fields", "read"),
-        )
-        query(
-            "catalog.hierarchy.list",
-            self.catalog_hierarchy_list,
-            summary="List the adjacent parent or child entities in a WEMI path.",
-            payload_fields=(
-                _field("level", required=True, field_type="string"),
-                _field("entity_id", required=True, field_type="integer"),
-                _field("direction", field_type="string"),
-            ),
-            tags=("catalog", "wemi", "read"),
-        )
-        query(
-            "catalog.identifiers.list",
-            self.catalog_identifiers_list,
-            summary="List identifiers linked to WEMI or Agent entities.",
-            payload_fields=(
-                _field("level", required=True, field_type="string"),
-                _field("entity_id", required=True, field_type="integer"),
-            ),
-            tags=("catalog", "identifiers", "read"),
-        )
-        query(
-            "catalog.identifiers.primary-values",
-            self.catalog_identifiers_primary_values,
-            summary="Project primary WEMI identifiers by normalized scheme.",
-            payload_fields=(
-                _field("level", required=True, field_type="string"),
-                _field("entity_id", required=True, field_type="integer"),
-            ),
-            tags=("catalog", "identifiers", "read"),
-        )
-        query(
-            "catalog.agents.list",
-            self.catalog_agents_list,
-            summary="List Agents linked to a WEMI entity.",
-            payload_fields=(
-                _field("level", required=True, field_type="string"),
-                _field("entity_id", required=True, field_type="integer"),
-                _field("role", field_type="string|null"),
-            ),
-            tags=("catalog", "agents", "read"),
-        )
-        query(
-            "search.global",
-            self.search_global,
-            summary="Search transport-safe rows across selected tables.",
-            payload_fields=(
-                _field("text", required=True, field_type="string"),
-                _field("tables", field_type="array"),
-                _field("limit", field_type="integer"),
-                _field("offset", field_type="integer"),
-            ),
-            tags=("search", "rows", "read"),
-        )
-        query(
-            "storage.store.get",
-            self.storage_store_get,
-            summary="Return persisted and live details for one store.",
-            payload_fields=(
-                _field("store", required=True, field_type="string|integer"),
-            ),
-            tags=("storage", "stores", "read"),
-        )
-        query(
-            "storage.default.get",
-            self.storage_default_get,
-            summary="Return the selected default store.",
-            tags=("storage", "stores", "read"),
-        )
-        query(
-            "storage.location.stat",
-            self.storage_location_stat,
-            summary="Return status and metadata for one storage location.",
-            payload_fields=(
-                _field("store_uuid", required=True, field_type="string"),
-                _field("key", required=True, field_type="string"),
-            ),
-            tags=("storage", "files", "read"),
-        )
-        query(
-            "storage.sources.supported",
-            self.storage_sources_supported,
-            summary="List source/store registration kinds supported by Core.",
-            tags=("storage", "ingest", "capabilities"),
-        )
-        query(
-            "ingest.formats",
-            self.ingest_formats,
-            summary="List recognised ebook and metadata ingest extensions.",
-            tags=("ingest", "capabilities"),
-        )
-        query(
-            "metadata.file.formats",
-            self.metadata_file_formats,
-            summary="List metadata file reader and writer support.",
-            tags=("metadata", "files", "capabilities"),
-        )
-        query(
-            "metadata.file.inspect",
-            self.metadata_file_inspect,
-            summary="Extract metadata from a local path or base64 file payload.",
-            payload_fields=(
-                _field("path", field_type="string"),
-                _field("base64", field_type="string"),
-                _field("file_type", field_type="string"),
-            ),
-            tags=("metadata", "files", "read"),
-        )
-        query(
-            "metadata.online.sources",
-            self.metadata_online_sources,
-            summary="List configured online metadata and cover sources.",
-            tags=("metadata", "online", "capabilities"),
-        )
-        query(
-            "conversion.formats",
-            self.conversion_formats,
-            summary="List available conversion input and output formats.",
-            tags=("conversion", "capabilities"),
-        )
-        query(
-            "conversion.options",
-            self.conversion_options,
-            summary="Describe conversion options for an input/output pair.",
-            payload_fields=(
-                _field("input_path", required=True, field_type="string"),
-                _field("output_path", required=True, field_type="string"),
-            ),
-            tags=("conversion", "capabilities"),
-        )
-        query(
-            "backup.plan",
-            self.backup_plan,
-            summary="Plan SquashFS backup packs for an indexed store.",
-            payload_fields=(
-                _field("source_store_id", required=True, field_type="integer"),
-                _field("output_dir", required=True, field_type="string"),
-                _field("target_pack_size_bytes", required=True, field_type="integer"),
-                _field("workflow_name_prefix", field_type="string|null"),
-                _field("max_files_per_pack", field_type="integer|null"),
-                _field("allowed_extensions", field_type="array|null"),
-            ),
-            tags=("backup", "storage", "read"),
-        )
-        query(
-            "backup.workflows.list",
-            self.backup_workflows_list,
-            summary="List durable backup workflow definitions and status.",
-            payload_fields=(
-                _field("limit", field_type="integer"),
-                _field("offset", field_type="integer"),
-            ),
-            tags=("backup", "storage", "read"),
-        )
-        query(
-            "backup.workflow.get",
-            self.backup_workflow_get,
-            summary="Return one durable backup workflow and resume state.",
-            payload_fields=(
-                _field("workflow_id", required=True, field_type="integer"),
-            ),
-            tags=("backup", "storage", "read"),
-        )
-        query(
-            "maintenance.status",
-            self.maintenance_status,
-            summary="Return maintenance plugins, queues, and dirty-record status.",
-            tags=("maintenance", "read"),
-        )
-        query(
-            "maintenance.duplicates.find",
-            self.maintenance_duplicates_find,
-            summary="Find duplicate values using database comparison semantics.",
-            payload_fields=(
-                _field("table", required=True, field_type="string"),
-                _field("column", required=True, field_type="string"),
-                _field("comparison", field_type="string"),
-            ),
-            tags=("maintenance", "duplicates", "read"),
-        )
+        from LiuXin_alpha.core.program_endpoints import install_program_endpoints
 
-        command(
-            "database.backup",
-            self.database_backup,
-            summary="Create a database backup using the configured driver.",
-            tags=("database", "backup", "write"),
-        )
-        command(
-            "database.vacuum",
-            self.database_vacuum,
-            summary="Vacuum or compact the configured database.",
-            tags=("database", "maintenance", "write"),
-        )
-        command(
-            "schema.column.update",
-            self.schema_column_update,
-            summary="Update semantic and writer policy for one column.",
-            payload_fields=(
-                _field("table", required=True, field_type="string"),
-                _field("column", required=True, field_type="string"),
-                _field("policy", required=True, field_type="object"),
-            ),
-            tags=("schema", "policy", "write"),
-        )
-        command(
-            "preferences.set",
-            self.preferences_set,
-            summary="Set one application or library preference.",
-            payload_fields=(
-                _field("key", required=True, field_type="string"),
-                _field("value", required=True),
-                _field("scope", field_type="string"),
-            ),
-            tags=("preferences", "write"),
-        )
-        command(
-            "preferences.delete",
-            self.preferences_delete,
-            summary="Delete one application or library preference.",
-            payload_fields=(
-                _field("key", required=True, field_type="string"),
-                _field("scope", field_type="string"),
-            ),
-            tags=("preferences", "write"),
-        )
-        command(
-            "custom-fields.create",
-            self.custom_fields_create,
-            summary="Create a custom column.",
-            payload_fields=(
-                _field("name", required=True, field_type="string"),
-                _field("datatype", field_type="string"),
-                _field("is_multiple", field_type="boolean"),
-                _field("label", field_type="string|null"),
-                _field("editable", field_type="boolean"),
-                _field("display", field_type="object|null"),
-                _field("table", field_type="string"),
-                _field("make_category", field_type="boolean|null"),
-            ),
-            tags=("schema", "custom-fields", "write"),
-        )
-        command(
-            "custom-fields.update",
-            self.custom_fields_update,
-            summary="Update one custom-column definition.",
-            payload_fields=(
-                _field("num", required=True, field_type="integer"),
-                _field("changes", required=True, field_type="object"),
-            ),
-            tags=("schema", "custom-fields", "write"),
-        )
-        command(
-            "custom-fields.delete",
-            self.custom_fields_delete,
-            summary="Mark one custom column for deletion.",
-            payload_fields=(
-                _field("num", field_type="integer"),
-                _field("label", field_type="string"),
-            ),
-            tags=("schema", "custom-fields", "write"),
-        )
-        command(
-            "metadata.file.write",
-            self.metadata_file_write,
-            summary="Write metadata into a local path or base64 file payload.",
-            payload_fields=(
-                _field("path", field_type="string"),
-                _field("base64", field_type="string"),
-                _field("file_type", field_type="string"),
-                _field("item_id", field_type="integer"),
-                _field("metadata", field_type="object"),
-            ),
-            tags=("metadata", "files", "write"),
-        )
-        command(
-            "metadata.identify.start",
-            self.metadata_identify_start,
-            summary="Submit online metadata identification as a managed job.",
-            payload_fields=(
-                _field("title", field_type="string|null"),
-                _field("authors", field_type="array|null"),
-                _field("identifiers", field_type="object|null"),
-                _field("timeout_s", field_type="number"),
-                _field("allowed_plugins", field_type="array|null"),
-            ),
-            tags=("metadata", "online", "jobs", "write"),
-        )
-        command(
-            "metadata.covers.start",
-            self.metadata_covers_start,
-            summary="Submit online cover discovery as a managed job.",
-            payload_fields=(
-                _field("title", field_type="string|null"),
-                _field("authors", field_type="array|null"),
-                _field("identifiers", field_type="object|null"),
-                _field("timeout_s", field_type="number"),
-            ),
-            tags=("metadata", "online", "jobs", "write"),
-        )
-        command(
-            "catalog.identifiers.replace",
-            self.catalog_identifiers_replace,
-            summary="Replace identifiers linked to one WEMI entity.",
-            payload_fields=(
-                _field("level", required=True, field_type="string"),
-                _field("entity_id", required=True, field_type="integer"),
-                _field("identifiers", required=True, field_type="array|object"),
-            ),
-            tags=("catalog", "identifiers", "write"),
-        )
-        command(
-            "catalog.agent.link",
-            self.catalog_agent_link,
-            summary="Link an existing Agent to a WEMI entity.",
-            payload_fields=(
-                _field("agent_id", required=True, field_type="integer"),
-                _field("level", required=True, field_type="string"),
-                _field("entity_id", required=True, field_type="integer"),
-                _field("role", field_type="string|null"),
-                _field("priority", field_type="integer|null"),
-            ),
-            tags=("catalog", "agents", "write"),
-        )
-        command(
-            "storage.store.probe",
-            self.storage_store_probe,
-            summary="Probe one configured store and return its live status.",
-            payload_fields=(_field("store", required=True, field_type="string|integer"),),
-            tags=("storage", "stores", "write"),
-        )
-        command(
-            "storage.store.delete",
-            self.storage_store_delete,
-            summary="Unregister a store, optionally deleting its database row.",
-            payload_fields=(
-                _field("store", required=True, field_type="string|integer"),
-                _field("delete_from_database", field_type="boolean"),
-            ),
-            tags=("storage", "stores", "write"),
-        )
-        command(
-            "storage.default.set",
-            self.storage_default_set,
-            summary="Select the default store.",
-            payload_fields=(_field("store", required=True, field_type="string|integer"),),
-            tags=("storage", "stores", "write"),
-        )
-        command(
-            "storage.file.copy",
-            self.storage_file_copy,
-            summary="Copy one Digital Asset through Core into a selected Store.",
-            payload_fields=(
-                _field("asset_id", required=True, field_type="integer"),
-                _field("store", field_type="string|integer|null"),
-                _field("metadata", field_type="object|null"),
-            ),
-            tags=("storage", "files", "write"),
-        )
-        command(
-            "storage.source.register",
-            self.storage_source_register,
-            summary="Register or ingest one supported local/remote storage source.",
-            payload_fields=(
-                _field("kind", required=True, field_type="string"),
-                _field("options", required=True, field_type="object"),
-            ),
-            tags=("storage", "ingest", "write"),
-        )
-        command(
-            "ingest.disk.start",
-            self.ingest_disk_start,
-            summary="Submit local-disk ingestion as a managed job.",
-            payload_fields=(
-                _field("disk_path", required=True, field_type="string"),
-                _field("store_name", field_type="string|null"),
-                _field("ebook_extensions", field_type="array|null"),
-                _field("source_label", field_type="string"),
-                _field("compute_hash", field_type="boolean"),
-                _field("follow_symlinks", field_type="boolean"),
-                _field("attach_store_links", field_type="boolean"),
-                _field("refresh_storage_manager", field_type="boolean"),
-            ),
-            tags=("ingest", "jobs", "write"),
-        )
-        command(
-            "ingest.remote-html.start",
-            self.ingest_remote_html_start,
-            summary="Submit remote HTML source registration as a managed job.",
-            payload_fields=(
-                _field("kind", required=True, field_type="string"),
-                _field("options", required=True, field_type="object"),
-            ),
-            tags=("ingest", "remote", "jobs", "write"),
-        )
-        command(
-            "conversion.start",
-            self.conversion_start,
-            summary="Submit an ebook conversion as a managed job.",
-            payload_fields=(
-                _field("input_path", required=True, field_type="string"),
-                _field("output_path", required=True, field_type="string"),
-                _field("options", field_type="object"),
-            ),
-            tags=("conversion", "jobs", "write"),
-        )
-        command(
-            "backup.workflow.save",
-            self.backup_workflow_save,
-            summary="Create or replace one durable backup workflow definition.",
-            payload_fields=(
-                _field("workflow_spec", required=True, field_type="object"),
-                _field("workflow_id", field_type="integer|null"),
-            ),
-            tags=("backup", "storage", "write"),
-        )
-        command(
-            "backup.workflow.start",
-            self.backup_workflow_start,
-            summary="Submit a durable, resumable backup workflow.",
-            payload_fields=(
-                _field("workflow_id", required=True, field_type="integer"),
-            ),
-            tags=("backup", "storage", "jobs", "write"),
-        )
-        command(
-            "backup.squashfs.start",
-            self.backup_squashfs_start,
-            summary="Submit execution of one SquashFS backup workflow spec.",
-            payload_fields=(
-                _field("workflow_spec", required=True, field_type="object"),
-                _field("verify_after_build", field_type="boolean"),
-                _field("cleanup_staging_after_success", field_type="boolean"),
-                _field("staging_root", field_type="string|null"),
-            ),
-            tags=("backup", "storage", "jobs", "write"),
-        )
-        command(
-            "backup.squashfs.publish-store.start",
-            self.backup_squashfs_publish_store_start,
-            summary="Submit publication of one designated open SquashFS store.",
-            payload_fields=(
-                _field("store_id", required=True, field_type="integer"),
-                _field("output_archive", field_type="string|null"),
-                _field("compression", field_type="string"),
-                _field("deterministic", field_type="boolean"),
-                _field("force", field_type="boolean"),
-                _field("duplicate_verified_files", field_type="boolean"),
-                _field("strict", field_type="boolean"),
-                _field("refresh_storage_manager", field_type="boolean"),
-            ),
-            tags=("backup", "storage", "jobs", "write"),
-        )
-        command(
-            "backup.squashfs.publish-files.start",
-            self.backup_squashfs_publish_files_start,
-            summary="Submit designation and publication of file ids to a SquashFS archive.",
-            payload_fields=(
-                _field("file_ids", required=True, field_type="array"),
-                _field("archive", required=True, field_type="string"),
-                _field("store_name", field_type="string|null"),
-                _field("compression", field_type="string"),
-                _field("deterministic", field_type="boolean"),
-                _field("force", field_type="boolean"),
-                _field("strict", field_type="boolean"),
-                _field("refresh_storage_manager", field_type="boolean"),
-            ),
-            tags=("backup", "storage", "jobs", "write"),
-        )
-        command(
-            "maintenance.run",
-            self.maintenance_run,
-            summary="Run one bounded maintenance-engine pass.",
-            payload_fields=(_field("max_events", field_type="integer"),),
-            tags=("maintenance", "write"),
-        )
-        command(
-            "maintenance.clean",
-            self.maintenance_clean,
-            summary="Clean selected entity rows through the maintenance service.",
-            payload_fields=(
-                _field("table", required=True, field_type="string"),
-                _field("row_ids", required=True, field_type="array"),
-            ),
-            tags=("maintenance", "write"),
-        )
-        command(
-            "maintenance.merge",
-            self.maintenance_merge,
-            summary="Merge one duplicate entity into the retained entity.",
-            payload_fields=(
-                _field("table", required=True, field_type="string"),
-                _field("retained_id", required=True, field_type="integer"),
-                _field("merged_id", required=True, field_type="integer"),
-            ),
-            tags=("maintenance", "catalog", "write"),
-        )
+        install_program_endpoints(self, runtime)
 
     @staticmethod
     def capabilities_list(
@@ -1243,6 +648,114 @@ class CoreProgramAPI:
                 int(cast(Any, persisted_method()))
                 if callable(persisted_method)
                 else None
+            ),
+        }
+
+    @staticmethod
+    def database_migrations_status(
+        runtime: "CoreRuntime",
+        query: "CoreQuery",
+    ) -> dict[str, Any]:
+        del query
+        tables = set(str(value) for value in runtime.database.get_tables())
+        ledger: list[Any] = []
+        if "storage_schema_migrations" in tables:
+            try:
+                ledger = [
+                    _plain(value)
+                    for value in runtime.database.get_all_rows(
+                        "storage_schema_migrations",
+                        iterator_return=False,
+                        sort_column="storage_schema_migration_id",
+                    )
+                ]
+            except Exception:
+                ledger = []
+        try:
+            normalized = _database_callable(
+                runtime,
+                "audit_normalized_identities",
+                area="normalized identities",
+            )()
+        except Exception as error:
+            normalized_value: Any = {
+                "available": False,
+                "error": str(error) or type(error).__name__,
+            }
+            normalized_clean = False
+            rows_needing_update = None
+        else:
+            normalized_value = _plain(normalized)
+            collisions = tuple(getattr(normalized, "collisions", ()))
+            normalized_clean = not collisions
+            rows_needing_update = int(getattr(normalized, "rows_needing_update", 0))
+        required_storage = {
+            "storage-0001-migration-ledger",
+            "storage-0002-ingest-journal",
+        }
+        recorded = {
+            str(
+                value.get("storage_schema_migration_id")
+                or value.get("migration_id")
+            )
+            for value in ledger
+            if isinstance(value, Mapping)
+        }
+        pending_storage = sorted(required_storage - recorded)
+        return {
+            "ok": not pending_storage and normalized_clean and not rows_needing_update,
+            "storage": {
+                "schema_version": 2,
+                "ledger": ledger,
+                "pending": pending_storage,
+            },
+            "normalized_identities": {
+                "clean": normalized_clean,
+                "rows_needing_update": rows_needing_update,
+                "report": normalized_value,
+            },
+        }
+
+    @classmethod
+    def database_migrations_plan(
+        cls,
+        runtime: "CoreRuntime",
+        query: "CoreQuery",
+    ) -> dict[str, Any]:
+        status = cls.database_migrations_status(runtime, query)
+        actions: list[dict[str, Any]] = []
+        storage = status["storage"]
+        if storage["pending"]:
+            actions.append(
+                {
+                    "action": "migrate_storage_schema",
+                    "pending": list(storage["pending"]),
+                    "additive": True,
+                }
+            )
+        identities = status["normalized_identities"]
+        if identities["rows_needing_update"]:
+            actions.append(
+                {
+                    "action": "migrate_normalized_identities",
+                    "rows_needing_update": identities["rows_needing_update"],
+                    "additive": True,
+                }
+            )
+        collision_count = len(
+            identities.get("report", {}).get("collisions", [])
+            if isinstance(identities.get("report"), Mapping)
+            else []
+        )
+        return {
+            "ok": collision_count == 0,
+            "status": status,
+            "actions": actions,
+            "blocked_by_collisions": collision_count,
+            "message": (
+                "No migrations are pending."
+                if not actions
+                else "Review the additive migration actions before applying."
             ),
         }
 
@@ -1619,6 +1132,75 @@ class CoreProgramAPI:
             return matches[0]
         raise CoreDispatchError("Unknown Store: {!r}.".format(reference))
 
+    @classmethod
+    def _store_configuration(
+        cls,
+        runtime: "CoreRuntime",
+        reference: Any,
+    ) -> Any:
+        """Resolve live Stores first, then valid durable-only configurations."""
+
+        try:
+            return cls._store(runtime, reference).configuration
+        except CoreDispatchError:
+            pass
+
+        rows: list[Any] = []
+        try:
+            store_uuid = UUID(str(reference))
+        except (TypeError, ValueError):
+            store_uuid = None
+        if store_uuid is not None:
+            rows = list(
+                runtime.database.search(
+                    "stores",
+                    "store_uuid",
+                    str(store_uuid),
+                )
+                or ()
+            )
+        if not rows and not isinstance(reference, bool):
+            try:
+                store_id = int(reference)
+            except (TypeError, ValueError):
+                store_id = None
+            if store_id is not None:
+                row = runtime.database.get_row_from_id("stores", store_id)
+                if row is not None:
+                    rows = [row]
+        if not rows:
+            rows = list(
+                runtime.database.search(
+                    "stores",
+                    "store_name",
+                    str(reference),
+                )
+                or ()
+            )
+        if len(rows) > 1:
+            raise CoreDispatchError(
+                "Ambiguous durable Store reference: {!r}.".format(reference)
+            )
+        if not rows:
+            raise CoreDispatchError("Unknown Store: {!r}.".format(reference))
+        row = rows[0]
+        try:
+            fallback_store_id = int(row["store_id"])
+        except (KeyError, TypeError, ValueError):
+            fallback_store_id = None
+        try:
+            return store_configuration_from_row(
+                row,
+                fallback_store_id=fallback_store_id,
+            )
+        except Exception as exc:
+            raise CoreDispatchError(
+                "Durable Store {!r} has an invalid configuration: {}".format(
+                    reference,
+                    str(exc) or type(exc).__name__,
+                )
+            ) from exc
+
     def storage_store_get(
         self,
         runtime: "CoreRuntime",
@@ -1628,14 +1210,125 @@ class CoreProgramAPI:
         reference = payload.get("store")
         if reference in (None, ""):
             raise CoreDispatchError("`store` is required.")
-        store = self._store(runtime, reference)
-        configuration = store.configuration
+        try:
+            store = self._store(runtime, reference)
+        except CoreDispatchError:
+            configuration = self._store_configuration(runtime, reference)
+            status: Any = {
+                "available": False,
+                "writable": False,
+                "total_bytes": None,
+                "free_bytes": None,
+                "object_count": None,
+                "checked_at": None,
+                "message": "Store configuration is not currently loaded.",
+                "warnings": [],
+                "details": [],
+            }
+            loaded = False
+        else:
+            configuration = store.configuration
+            status = _plain(store.status())
+            loaded = True
         return {
             "configuration": _plain(configuration),
             "store_uuid": configuration.store_uuid,
             "store_name": configuration.store_name,
             "store_root_uri": configuration.store_root_uri,
-            "status": _plain(store.status()),
+            "loaded": loaded,
+            "status": status,
+        }
+
+    @classmethod
+    def storage_store_update(
+        cls,
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        from LiuXin_alpha.storage import api as storage_api
+
+        payload = _payload(command)
+        reference = payload.get("store")
+        if reference in (None, ""):
+            raise CoreDispatchError("`store` is required.")
+        changes = _mapping(payload, "changes")
+        configuration = cls._store_configuration(runtime, reference)
+        allowed = {
+            "name": "store_name",
+            "root": "store_root_uri",
+            "url": "store_url",
+            "protocol": "store_access_protocol",
+            "failure_domain": "store_failure_domain",
+            "region": "store_region",
+            "operational_role": "operational_role",
+            "read_only": "read_only",
+            "replication_policy_id": "store_default_replication_policy_id",
+            "backup_policy_id": "store_default_backup_policy_id",
+        }
+        unknown = set(changes) - set(allowed) - {"add_tags", "remove_tags"}
+        if unknown:
+            raise CoreDispatchError(
+                "Unknown Store update fields: {}.".format(
+                    ", ".join(sorted(unknown))
+                )
+            )
+        replacements: dict[str, Any] = {}
+        for public_name, attribute in allowed.items():
+            if public_name not in changes:
+                continue
+            value = changes[public_name]
+            if public_name in {"name", "root"}:
+                value = str(value or "").strip()
+                if not value:
+                    raise CoreDispatchError(
+                        "`{}` must not be empty.".format(public_name)
+                    )
+            elif public_name == "read_only":
+                value = bool(value)
+            elif public_name in {"replication_policy_id", "backup_policy_id"}:
+                if value is not None:
+                    value = int(value)
+            elif value is not None:
+                value = str(value)
+            replacements[attribute] = value
+        tags = set(configuration.store_tags)
+        tags.update(_text_list(changes, "add_tags"))
+        tags.difference_update(_text_list(changes, "remove_tags"))
+        if "add_tags" in changes or "remove_tags" in changes:
+            replacements["store_tags"] = tuple(sorted(tags))
+        if not replacements:
+            raise CoreDispatchError("No Store configuration changes were supplied.")
+        topology_changes = {
+            attribute
+            for attribute in (
+                "store_root_uri",
+                "store_url",
+                "store_access_protocol",
+            )
+            if attribute in replacements
+            and replacements[attribute] != getattr(configuration, attribute)
+        }
+        if topology_changes and any(
+            record.state is not storage_api.ReplicaState.DELETED
+            for record in runtime.library.storage.iter_replica_records(
+                store_ref=configuration.store_uuid
+            )
+        ):
+            raise CoreDispatchError(
+                "Store endpoint fields cannot change while live Replica claims "
+                "remain; evacuate the Store first."
+            )
+        updated = dataclasses.replace(configuration, **replacements)
+        result = runtime.library.storage.update_store(
+            configuration.store_uuid,
+            updated,
+        )
+        live = runtime.library.storage.get_store(configuration.store_uuid)
+        return {
+            "updated": True,
+            "store_uuid": str(configuration.store_uuid),
+            "configuration": _plain(result),
+            "status": _plain(live.status()),
         }
 
     @staticmethod
@@ -1711,6 +1404,932 @@ class CoreProgramAPI:
                     "remote": False,
                 },
             ]
+        }
+
+    @staticmethod
+    def storage_backends_list(
+        runtime: "CoreRuntime",
+        query: "CoreQuery",
+    ) -> dict[str, Any]:
+        from LiuXin_alpha.storage.backend_registry import (
+            DEFAULT_BACKEND_REGISTRY,
+        )
+
+        del runtime
+        payload = _payload(query)
+        include_internal = bool(payload.get("include_internal", False))
+        backends = []
+        for descriptor in DEFAULT_BACKEND_REGISTRY.iter_descriptors(
+            user_selectable_only=not include_internal,
+        ):
+            characteristics = descriptor.characteristics
+            backends.append(
+                {
+                    "kind": descriptor.kind,
+                    "label": descriptor.label,
+                    "aliases": list(descriptor.aliases),
+                    "location_type": descriptor.location_type,
+                    "access_protocol": descriptor.access_protocol,
+                    "access_protocol_aliases": list(
+                        descriptor.access_protocol_aliases
+                    ),
+                    "read_only_default": descriptor.read_only_default,
+                    "user_selectable": descriptor.user_selectable,
+                    "policy_section": descriptor.policy_section,
+                    "capabilities": {
+                        "folders": descriptor.supports_folders,
+                        "hierarchical_list": (
+                            descriptor.supports_hierarchical_list
+                        ),
+                        "random_read": descriptor.supports_random_read,
+                        "random_write": descriptor.supports_random_write,
+                        "delete": descriptor.supports_delete,
+                        "checksums": descriptor.supports_checksums,
+                        "immutable_objects": (
+                            descriptor.supports_immutable_objects
+                        ),
+                    },
+                    "characteristics": _plain(characteristics),
+                    "limitations": [
+                        {
+                            "code": limitation.code,
+                            "message": limitation.message,
+                        }
+                        for limitation in characteristics.limitations
+                    ],
+                }
+            )
+        return {
+            "backends": backends,
+            "count": len(backends),
+            "credentials": (
+                "Store configuration persists non-secret options only. Use "
+                "backend-native credential files, profiles, environment "
+                "injection, or an external secret provider."
+            ),
+        }
+
+    @staticmethod
+    def storage_status(
+        runtime: "CoreRuntime",
+        query: "CoreQuery",
+    ) -> dict[str, Any]:
+        from LiuXin_alpha.storage import api as storage_api
+
+        payload = _payload(query)
+        manager = runtime.library.storage
+        status = manager.get_operational_status(
+            refresh_stores=bool(payload.get("refresh_stores", False))
+        )
+        manager_configurations = {
+            configuration.store_uuid: configuration
+            for configuration in manager.iter_store_configurations()
+        }
+        configurations = dict(manager_configurations)
+        persisted: dict[UUID, dict[str, Any]] = {}
+        invalid_store_rows: list[dict[str, Any]] = []
+        database_store_rows = 0
+
+        try:
+            has_store_table = "stores" in {
+                str(table) for table in runtime.database.get_tables()
+            }
+        except Exception:
+            has_store_table = False
+        if has_store_table:
+            rows = tuple(
+                runtime.database.get_all_rows(
+                    "stores",
+                    iterator_return=False,
+                )
+                or ()
+            )
+            database_store_rows = len(rows)
+            for row in rows:
+                plain_row = _plain(row)
+                row_values = (
+                    plain_row if isinstance(plain_row, Mapping) else {}
+                )
+                store_id_raw = row_values.get("store_id")
+                try:
+                    store_id = (
+                        None
+                        if store_id_raw in (None, "")
+                        else int(str(store_id_raw))
+                    )
+                except (TypeError, ValueError):
+                    store_id = None
+                online_status = (
+                    str(row_values.get("store_online_status") or "")
+                    .strip()
+                    .casefold()
+                    or None
+                )
+                try:
+                    configuration = store_configuration_from_row(
+                        row,
+                        fallback_store_id=store_id,
+                    )
+                except Exception as exc:
+                    invalid_store_rows.append(
+                        {
+                            "store_id": store_id,
+                            "store_name": row_values.get("store_name"),
+                            "store_kind": row_values.get("store_kind"),
+                            "store_root_uri": row_values.get(
+                                "store_root_uri"
+                            ),
+                            "online_status": online_status,
+                            "error": str(exc) or type(exc).__name__,
+                        }
+                    )
+                    continue
+                configurations[configuration.store_uuid] = configuration
+                persisted[configuration.store_uuid] = {
+                    "store_id": store_id,
+                    "online_status": online_status,
+                }
+
+        observations = {
+            observation.store_ref: observation.status
+            for observation in status.store_statuses
+        }
+        live_store_refs = {
+            store.configuration.store_uuid for store in manager.iter_stores()
+        }
+        try:
+            default_store_ref = manager.get_default_store_ref()
+        except Exception:
+            default_store_ref = None
+
+        asset_sizes = {
+            record.digital_asset_id: int(record.size_bytes)
+            for record in manager.iter_digital_asset_records()
+        }
+        all_replicas = tuple(manager.iter_replica_records())
+        live_replicas = tuple(
+            record
+            for record in all_replicas
+            if record.state is not storage_api.ReplicaState.DELETED
+        )
+        replicas_by_store: dict[UUID, list[Any]] = {}
+        for record in live_replicas:
+            replicas_by_store.setdefault(record.location.store_ref, []).append(
+                record
+            )
+
+        overview_issues: list[dict[str, Any]] = []
+        if invalid_store_rows:
+            overview_issues.append(
+                {
+                    "code": "invalid_store_configuration",
+                    "severity": "error",
+                    "message": (
+                        "{} persisted Store row(s) could not be interpreted."
+                    ).format(len(invalid_store_rows)),
+                }
+            )
+
+        store_records: list[dict[str, Any]] = []
+        drifted_configurations = 0
+        unregistered_online_stores = 0
+        for configuration in sorted(
+            configurations.values(),
+            key=lambda value: (
+                value.store_name.casefold(),
+                value.store_uuid.int,
+            ),
+        ):
+            store_ref = configuration.store_uuid
+            current_status = observations.get(store_ref)
+            persisted_values = persisted.get(store_ref, {})
+            online_status = persisted_values.get("online_status")
+            registered = store_ref in manager_configurations
+            configuration_in_sync = (
+                not registered
+                or manager_configurations[store_ref] == configuration
+            )
+            if registered and not configuration_in_sync:
+                drifted_configurations += 1
+            deliberately_offline = online_status in {"offline", "retired"}
+            if not registered and not deliberately_offline:
+                unregistered_online_stores += 1
+
+            replicas = replicas_by_store.get(store_ref, [])
+            asset_ids = {record.digital_asset_id for record in replicas}
+            replica_state_counts = Counter(
+                record.state.value for record in replicas
+            )
+            replica_mode_counts = Counter(
+                record.mode.value for record in replicas
+            )
+            replica_bytes = sum(
+                asset_sizes.get(record.digital_asset_id, 0)
+                for record in replicas
+            )
+            logical_bytes = sum(
+                asset_sizes.get(asset_id, 0) for asset_id in asset_ids
+            )
+            unaccounted_replicas = sum(
+                record.digital_asset_id not in asset_sizes
+                for record in replicas
+            )
+
+            replica_ids = {record.replica_id for record in replicas}
+            attributed_issues = [
+                issue
+                for issue in status.issues
+                if issue.store_ref == store_ref
+                or (
+                    issue.replica_id is not None
+                    and issue.replica_id in replica_ids
+                )
+            ]
+            severities = {issue.severity.value for issue in attributed_issues}
+            if current_status is None:
+                health = "offline" if deliberately_offline else "unknown"
+            elif not current_status.available:
+                health = "unavailable"
+            elif "error" in severities:
+                health = "error"
+            elif "warning" in severities:
+                health = "warning"
+            else:
+                health = "healthy"
+
+            total_bytes = (
+                None
+                if current_status is None
+                else current_status.total_bytes
+            )
+            free_bytes = (
+                None if current_status is None else current_status.free_bytes
+            )
+            used_bytes = (
+                None
+                if total_bytes is None or free_bytes is None
+                else total_bytes - free_bytes
+            )
+            free_percent = (
+                None
+                if total_bytes in (None, 0) or free_bytes is None
+                else round((free_bytes / total_bytes) * 100, 2)
+            )
+            available = (
+                False
+                if current_status is None and deliberately_offline
+                else (
+                    None
+                    if current_status is None
+                    else bool(current_status.available)
+                )
+            )
+            writable = (
+                False
+                if current_status is None and configuration.read_only
+                else (
+                    None
+                    if current_status is None
+                    else bool(current_status.writable)
+                )
+            )
+            store_records.append(
+                {
+                    "store_uuid": str(store_ref),
+                    "store_id": persisted_values.get("store_id"),
+                    "name": configuration.store_name,
+                    "kind": configuration.store_kind,
+                    "root": configuration.store_root_uri,
+                    "url": configuration.store_url,
+                    "protocol": configuration.store_access_protocol,
+                    "role": configuration.operational_role,
+                    "online_status": online_status,
+                    "supports_folders": bool(
+                        configuration.supports_folders
+                    ),
+                    "read_only": bool(configuration.read_only),
+                    "available": available,
+                    "writable": writable,
+                    "health": health,
+                    "registered": registered,
+                    "loaded": store_ref in live_store_refs,
+                    "configuration_in_sync": configuration_in_sync,
+                    "is_default": store_ref == default_store_ref,
+                    "tags": list(configuration.store_tags),
+                    "failure_domain": configuration.store_failure_domain,
+                    "region": configuration.store_region,
+                    "supported_replica_modes": sorted(
+                        mode.value
+                        for mode in configuration.supported_replica_modes
+                    ),
+                    "assets": len(asset_ids),
+                    "replicas": len(replicas),
+                    "logical_bytes": logical_bytes,
+                    "replica_bytes": replica_bytes,
+                    "unaccounted_replicas": unaccounted_replicas,
+                    "replica_states": dict(
+                        sorted(replica_state_counts.items())
+                    ),
+                    "replica_modes": dict(
+                        sorted(replica_mode_counts.items())
+                    ),
+                    "total_bytes": total_bytes,
+                    "free_bytes": free_bytes,
+                    "used_bytes": used_bytes,
+                    "free_percent": free_percent,
+                    "object_count": (
+                        None
+                        if current_status is None
+                        else current_status.object_count
+                    ),
+                    "checked_at": (
+                        None
+                        if current_status is None
+                        else current_status.checked_at
+                    ),
+                    "message": (
+                        None
+                        if current_status is None
+                        else current_status.message
+                    ),
+                    "warnings": (
+                        []
+                        if current_status is None
+                        else list(current_status.warnings)
+                    ),
+                    "issues": [_plain(issue) for issue in attributed_issues],
+                }
+            )
+
+        if drifted_configurations:
+            overview_issues.append(
+                {
+                    "code": "store_configuration_drift",
+                    "severity": "warning",
+                    "message": (
+                        "{} Store configuration(s) differ from the live "
+                        "StorageManager; run `liuxin storage refresh`."
+                    ).format(drifted_configurations),
+                }
+            )
+        if unregistered_online_stores:
+            overview_issues.append(
+                {
+                    "code": "store_not_registered",
+                    "severity": "warning",
+                    "message": (
+                        "{} online Store configuration(s) are not registered "
+                        "with the StorageManager; run `liuxin storage refresh`."
+                    ).format(unregistered_online_stores),
+                }
+            )
+
+        issue_severities = Counter(
+            issue.severity.value for issue in status.issues
+        )
+        replica_state_counts = Counter(
+            record.state.value for record in live_replicas
+        )
+        known_statuses = [
+            record for record in store_records if record["available"] is not None
+        ]
+        summary = {
+            "database_store_rows": database_store_rows,
+            "configured_stores": len(configurations),
+            "invalid_store_rows": len(invalid_store_rows),
+            "registered_stores": len(manager_configurations),
+            "loaded_stores": len(live_store_refs),
+            "folder_stores": sum(
+                bool(record["supports_folders"])
+                for record in store_records
+            ),
+            "available_stores": sum(
+                record["available"] is True for record in store_records
+            ),
+            "unavailable_stores": sum(
+                record["available"] is False for record in store_records
+            ),
+            "unknown_availability_stores": (
+                len(store_records) - len(known_statuses)
+            ),
+            "writable_stores": sum(
+                record["writable"] is True for record in store_records
+            ),
+            "read_only_stores": sum(
+                bool(record["read_only"]) for record in store_records
+            ),
+            "configuration_drift": drifted_configurations,
+            "unregistered_online_stores": unregistered_online_stores,
+            "digital_assets": len(asset_sizes),
+            "logical_bytes": sum(asset_sizes.values()),
+            "live_replicas": len(live_replicas),
+            "replica_bytes": sum(
+                asset_sizes.get(record.digital_asset_id, 0)
+                for record in live_replicas
+            ),
+            "replica_states": dict(sorted(replica_state_counts.items())),
+            "issues": len(status.issues) + len(overview_issues),
+            "issue_severities": {
+                severity: issue_severities.get(severity, 0)
+                + sum(
+                    issue["severity"] == severity
+                    for issue in overview_issues
+                )
+                for severity in ("info", "warning", "error")
+            },
+        }
+        healthy = bool(status.healthy) and not overview_issues
+        return {
+            "healthy": healthy,
+            "checked_at": status.checked_at,
+            "summary": summary,
+            "stores": store_records,
+            "invalid_store_rows": invalid_store_rows,
+            "overview_issues": overview_issues,
+            "status": _plain(status),
+        }
+
+    @staticmethod
+    def storage_reconcile_plan(
+        runtime: "CoreRuntime",
+        query: "CoreQuery",
+    ) -> dict[str, Any]:
+        payload = _payload(query)
+        status = runtime.library.storage.get_operational_status(
+            refresh_stores=bool(payload.get("refresh_stores", False))
+        )
+        automatic = []
+        deferred = []
+        for action in status.recovery_actions:
+            rendered = _plain(action)
+            if action.action in {"reload_stores", "verify_replica"}:
+                automatic.append(rendered)
+            else:
+                deferred.append(rendered)
+        return {
+            "healthy": bool(status.healthy),
+            "status": _plain(status),
+            "automatic_actions": automatic,
+            "deferred_actions": deferred,
+            "safe_apply_scope": (
+                "Store reload and bounded Replica verification only; placement, "
+                "deletion, and ingest retry remain explicit."
+            ),
+        }
+
+    @staticmethod
+    def _storage_repair_plan_payload(
+        manager: Any,
+        *,
+        asset_id: int | None,
+        max_assets: int,
+    ) -> dict[str, Any]:
+        """Build a deterministic, non-deleting repair plan from manager APIs."""
+
+        from LiuXin_alpha.storage import api as storage_api
+
+        if asset_id is None:
+            all_assets = sorted(
+                manager.iter_digital_asset_records(),
+                key=lambda record: int(record.digital_asset_id),
+            )
+        else:
+            all_assets = [manager.get_digital_asset_record(asset_id)]
+        selected = all_assets[:max_assets]
+        actions: list[dict[str, Any]] = []
+        deferred: list[dict[str, Any]] = []
+        warnings: list[str] = []
+        seen_verifications: set[int] = set()
+        for asset in selected:
+            current_asset_id = int(asset.digital_asset_id)
+            try:
+                replication = manager.plan_replication(asset.digital_asset_id)
+                backup = manager.plan_backup(asset.digital_asset_id)
+                policies = manager.resolve_effective_policies(
+                    asset.digital_asset_id
+                )
+            except Exception as error:
+                warnings.append(
+                    "Asset {} could not be planned: {}".format(
+                        current_asset_id,
+                        str(error) or type(error).__name__,
+                    )
+                )
+                continue
+            for replica_id in (
+                *replication.replica_ids_to_verify,
+                *backup.replica_ids_to_verify,
+            ):
+                numeric_replica_id = int(replica_id)
+                if numeric_replica_id in seen_verifications:
+                    continue
+                seen_verifications.add(numeric_replica_id)
+                actions.append(
+                    {
+                        "action": "verify_replica",
+                        "digital_asset_id": current_asset_id,
+                        "replica_id": numeric_replica_id,
+                        "estimated_bytes": int(asset.size_bytes),
+                    }
+                )
+            for destination in replication.destination_store_refs:
+                actions.append(
+                    {
+                        "action": "replicate_digital_asset",
+                        "digital_asset_id": current_asset_id,
+                        "destination_store_ref": str(destination),
+                        "mode": policies.replication.mode.value,
+                        "estimated_bytes": int(asset.size_bytes),
+                    }
+                )
+            for destination in backup.destination_store_refs:
+                actions.append(
+                    {
+                        "action": "replicate_digital_asset",
+                        "digital_asset_id": current_asset_id,
+                        "destination_store_ref": str(destination),
+                        "mode": policies.backup.mode.value,
+                        "estimated_bytes": int(asset.size_bytes),
+                    }
+                )
+            for replica_id in (
+                *replication.replica_ids_to_remove,
+                *backup.replica_ids_to_remove,
+            ):
+                deferred.append(
+                    {
+                        "action": "remove_surplus_replica",
+                        "digital_asset_id": current_asset_id,
+                        "replica_id": int(replica_id),
+                        "reason": "repair is intentionally non-deleting",
+                    }
+                )
+            if replication.exact_recreation_derivation_id is not None:
+                deferred.append(
+                    {
+                        "action": "recreate_exact_derivation",
+                        "digital_asset_id": current_asset_id,
+                        "digital_asset_derivation_id": int(
+                            replication.exact_recreation_derivation_id
+                        ),
+                        "reason": "no executor is selected by storage repair",
+                    }
+                )
+            warnings.extend(
+                "Asset {}: {}".format(current_asset_id, message)
+                for message in (*replication.warnings, *backup.warnings)
+            )
+        blocked = any(
+            action["action"] == "recreate_exact_derivation"
+            for action in deferred
+        ) or bool(warnings)
+        return {
+            "asset_id": asset_id,
+            "assets_scanned": len(selected),
+            "assets_available": len(all_assets),
+            "complete": len(selected) == len(all_assets),
+            "max_assets": max_assets,
+            "actions": actions,
+            "action_count": len(actions),
+            "estimated_transfer_bytes": sum(
+                int(action["estimated_bytes"])
+                for action in actions
+                if action["action"] == "replicate_digital_asset"
+            ),
+            "deferred_actions": deferred,
+            "warnings": warnings,
+            "blocked": blocked,
+            "deletes_bytes": False,
+            "supported_modes": [mode.value for mode in storage_api.ReplicaMode],
+        }
+
+    @classmethod
+    def storage_repair_plan(
+        cls,
+        runtime: "CoreRuntime",
+        query: "CoreQuery",
+    ) -> dict[str, Any]:
+        payload = _payload(query)
+        asset_id = _optional_int(payload, "asset_id", minimum=1)
+        max_assets = _optional_int(
+            payload, "max_assets", default=100, minimum=1
+        )
+        assert max_assets is not None
+        return cls._storage_repair_plan_payload(
+            runtime.library.storage,
+            asset_id=asset_id,
+            max_assets=min(max_assets, 10_000),
+        )
+
+    @staticmethod
+    def _configuration_bucket(configuration: Any, dimension: Any) -> object:
+        value = str(getattr(dimension, "value", dimension))
+        if value == "store":
+            return configuration.store_uuid
+        if value == "host":
+            return configuration.store_host_uuid or ("unknown_host",)
+        if value == "device":
+            return configuration.store_device_uuid or ("unknown_device",)
+        if value == "failure_domain":
+            return configuration.store_failure_domain or (
+                "unknown_failure_domain",
+            )
+        return configuration.store_region or ("unknown_region",)
+
+    @classmethod
+    def _policy_capacity_for_configurations(
+        cls,
+        configurations: Iterable[Any],
+        policy: Any,
+    ) -> int:
+        selected = tuple(configurations)
+        if not selected:
+            return 0
+        capacities = [len(selected)]
+        for dimension in policy.distinct_by:
+            counts: dict[object, int] = {}
+            for configuration in selected:
+                bucket = cls._configuration_bucket(configuration, dimension)
+                counts[bucket] = counts.get(bucket, 0) + 1
+            capacities.append(
+                sum(
+                    min(count, int(policy.max_copies_per_bucket))
+                    for count in counts.values()
+                )
+            )
+        return min(capacities)
+
+    @classmethod
+    def _storage_store_evacuation_plan_payload(
+        cls,
+        runtime: "CoreRuntime",
+        *,
+        store_reference: Any,
+        destination_reference: Any | None,
+        max_assets: int,
+    ) -> dict[str, Any]:
+        from LiuXin_alpha.storage import api as storage_api
+
+        manager = runtime.library.storage
+        source_store = cls._store(runtime, store_reference)
+        source_ref = source_store.store_ref
+        explicit_destination = (
+            None
+            if destination_reference in (None, "")
+            else cls._store(runtime, destination_reference).store_ref
+        )
+        if explicit_destination == source_ref:
+            raise CoreDispatchError(
+                "Evacuation destination must differ from the source Store."
+            )
+        live_records = sorted(
+            (
+                record
+                for record in manager.iter_replica_records(store_ref=source_ref)
+                if record.state is not storage_api.ReplicaState.DELETED
+            ),
+            key=lambda record: (int(record.digital_asset_id), int(record.replica_id)),
+        )
+        grouped: dict[int, list[Any]] = {}
+        for record in live_records:
+            grouped.setdefault(int(record.digital_asset_id), []).append(record)
+        selected_asset_ids = sorted(grouped)[:max_assets]
+        configurations = {
+            configuration.store_uuid: configuration
+            for configuration in manager.iter_store_configurations()
+        }
+        default_ref = None
+        try:
+            default_ref = manager.get_default_store_ref()
+        except Exception:
+            pass
+        entries: list[dict[str, Any]] = []
+        for current_asset_id in selected_asset_ids:
+            asset = manager.get_digital_asset_record(current_asset_id)
+            source_records = grouped[current_asset_id]
+            by_target_mode: dict[Any, list[Any]] = {}
+            policies = manager.resolve_effective_policies(current_asset_id)
+            for record in source_records:
+                if record.mode in {
+                    storage_api.ReplicaMode.UNMANAGED,
+                    storage_api.ReplicaMode.CACHE,
+                    storage_api.ReplicaMode.TRANSIENT,
+                }:
+                    target_mode = policies.replication.mode
+                else:
+                    target_mode = record.mode
+                by_target_mode.setdefault(target_mode, []).append(record)
+            occupied = {
+                record.location.store_ref
+                for record in manager.iter_replica_records(
+                    digital_asset_id=current_asset_id
+                )
+                if record.state is not storage_api.ReplicaState.DELETED
+            }
+            for target_mode, selected_source_records in sorted(
+                by_target_mode.items(), key=lambda item: item[0].value
+            ):
+                policy = (
+                    policies.replication
+                    if target_mode == policies.replication.mode
+                    else (
+                        policies.backup
+                        if target_mode == policies.backup.mode
+                        else None
+                    )
+                )
+                target_count = max(
+                    1,
+                    1 if policy is None else int(policy.effective_target_copies),
+                )
+                outside = [
+                    record
+                    for record in manager.iter_replica_records(
+                        digital_asset_id=current_asset_id,
+                        mode=target_mode,
+                    )
+                    if record.location.store_ref != source_ref
+                    and record.state is storage_api.ReplicaState.VERIFIED
+                ]
+                eligible_outside = [
+                    record
+                    for record in outside
+                    if record.location.store_ref in configurations
+                    and (
+                        policy is None
+                        or (
+                        target_mode
+                        in configurations[record.location.store_ref].supported_replica_modes
+                        and policy.required_store_tags
+                        <= set(configurations[record.location.store_ref].store_tags)
+                        and not policy.forbidden_store_tags
+                        & set(configurations[record.location.store_ref].store_tags)
+                        )
+                    )
+                ]
+                existing_configurations = [
+                    configurations[record.location.store_ref]
+                    for record in eligible_outside
+                    if record.location.store_ref in configurations
+                ]
+                capacity = (
+                    len({value.store_uuid for value in existing_configurations})
+                    if policy is None
+                    else cls._policy_capacity_for_configurations(
+                        existing_configurations, policy
+                    )
+                )
+                needed = max(0, target_count - capacity)
+                candidate_configurations = list(configurations.values())
+                candidate_configurations.sort(
+                    key=lambda configuration: (
+                        configuration.store_uuid != explicit_destination
+                        if explicit_destination is not None
+                        else configuration.store_uuid != default_ref,
+                        configuration.store_name,
+                        str(configuration.store_uuid),
+                    )
+                )
+                destinations: list[Any] = []
+                selected_configurations = list(existing_configurations)
+                for configuration in candidate_configurations:
+                    candidate_ref = configuration.store_uuid
+                    if candidate_ref == source_ref or candidate_ref in occupied:
+                        continue
+                    if (
+                        explicit_destination is not None
+                        and candidate_ref != explicit_destination
+                    ):
+                        continue
+                    if configuration.read_only or target_mode not in configuration.supported_replica_modes:
+                        continue
+                    if policy is not None:
+                        tags = set(configuration.store_tags)
+                        if not policy.required_store_tags <= tags:
+                            continue
+                        if policy.forbidden_store_tags & tags:
+                            continue
+                        if any(
+                            sum(
+                                cls._configuration_bucket(value, dimension)
+                                == cls._configuration_bucket(configuration, dimension)
+                                for value in selected_configurations
+                            )
+                            >= int(policy.max_copies_per_bucket)
+                            for dimension in policy.distinct_by
+                        ):
+                            continue
+                    try:
+                        candidate = manager.get_store(candidate_ref)
+                        if not candidate.status().available:
+                            continue
+                    except Exception:
+                        continue
+                    destinations.append(candidate_ref)
+                    selected_configurations.append(configuration)
+                    occupied.add(candidate_ref)
+                    if len(destinations) >= needed:
+                        break
+                shortfall = max(0, needed - len(destinations))
+                entries.append(
+                    {
+                        "digital_asset_id": current_asset_id,
+                        "source_replica_ids": [
+                            int(record.replica_id)
+                            for record in selected_source_records
+                        ],
+                        "source_mode": selected_source_records[0].mode.value,
+                        "target_mode": target_mode.value,
+                        "target_copies": target_count,
+                        "verified_outside_source": len(eligible_outside),
+                        "destination_store_refs": [
+                            str(value) for value in destinations
+                        ],
+                        "shortfall": shortfall,
+                        "estimated_transfer_bytes": len(destinations)
+                        * int(asset.size_bytes),
+                    }
+                )
+        blocked = [entry for entry in entries if int(entry["shortfall"]) > 0]
+        source_configuration = manager.get_store_configuration(source_ref)
+        return {
+            "source_store_ref": str(source_ref),
+            "source_store_name": source_configuration.store_name,
+            "source_is_default": source_ref == default_ref,
+            "destination_store_ref": (
+                None
+                if explicit_destination is None
+                else str(explicit_destination)
+            ),
+            "assets_available": len(grouped),
+            "assets_planned": len(selected_asset_ids),
+            "replicas_planned": sum(
+                len(entry["source_replica_ids"]) for entry in entries
+            ),
+            "complete": len(selected_asset_ids) == len(grouped),
+            "max_assets": max_assets,
+            "entries": entries,
+            "blocked_entries": blocked,
+            "blocked": bool(blocked),
+            "estimated_transfer_bytes": sum(
+                int(entry["estimated_transfer_bytes"]) for entry in entries
+            ),
+            "source_read_only": bool(source_configuration.read_only),
+            "deletes_source_bytes_on_apply": (
+                not bool(source_configuration.read_only)
+                and any(
+                    record.mode is not storage_api.ReplicaMode.UNMANAGED
+                    for record in live_records
+                )
+            ),
+        }
+
+    @classmethod
+    def storage_store_evacuate_plan(
+        cls,
+        runtime: "CoreRuntime",
+        query: "CoreQuery",
+    ) -> dict[str, Any]:
+        payload = _payload(query)
+        reference = payload.get("store")
+        if reference in (None, ""):
+            raise CoreDispatchError("`store` is required.")
+        max_assets = _optional_int(
+            payload, "max_assets", default=100, minimum=1
+        )
+        assert max_assets is not None
+        return cls._storage_store_evacuation_plan_payload(
+            runtime,
+            store_reference=reference,
+            destination_reference=payload.get("destination_store"),
+            max_assets=min(max_assets, 10_000),
+        )
+
+    @staticmethod
+    def storage_recovery_list(
+        runtime: "CoreRuntime",
+        query: "CoreQuery",
+    ) -> dict[str, Any]:
+        payload = _payload(query)
+        state_filter = str(payload.get("state") or "").strip().casefold()
+        limit = _optional_int(payload, "limit", default=100, minimum=1)
+        offset = _optional_int(payload, "offset", default=0, minimum=0)
+        assert limit is not None and offset is not None
+        manager = runtime.library.storage
+        records = [dict(value) for value in manager.list_ingest_operations()]
+        if state_filter:
+            records = [
+                value
+                for value in records
+                if str(value.get("state") or "").casefold() == state_filter
+            ]
+        selected = records[offset : offset + min(limit, 10_000)]
+        return {
+            "operations": [_plain(value) for value in selected],
+            "total": len(records),
+            "offset": offset,
+            "limit": min(limit, 10_000),
+            "complete": offset + len(selected) >= len(records),
         }
 
     @staticmethod
@@ -1888,16 +2507,28 @@ class CoreProgramAPI:
             "options": options,
         }
 
-    @staticmethod
-    def backup_plan(runtime: "CoreRuntime", query: "CoreQuery") -> dict[str, Any]:
+    @classmethod
+    def backup_plan(
+        cls,
+        runtime: "CoreRuntime",
+        query: "CoreQuery",
+    ) -> dict[str, Any]:
         payload = _payload(query)
         from LiuXin_alpha.storage.backup import StoreBackupPlanner
 
-        planner = StoreBackupPlanner(runtime.database)
-        packs = planner.plan_squashfs_packs_for_store(
-            source_store_id=_required_int(payload, "source_store_id"),
-            output_dir=_required_text(payload, "output_dir"),
-            target_pack_size_bytes=_required_int(
+        source_reference = payload.get("source_store")
+        destination_reference = payload.get("destination_store")
+        if source_reference in (None, ""):
+            raise CoreDispatchError("`source_store` is required.")
+        if destination_reference in (None, ""):
+            raise CoreDispatchError("`destination_store` is required.")
+        source_store = cls._store(runtime, source_reference)
+        destination_store = cls._store(runtime, destination_reference)
+        planner = StoreBackupPlanner(runtime.library.storage)
+        packs = planner.plan_store_backup(
+            source_store_ref=source_store.store_ref,
+            destination_store_ref=destination_store.store_ref,
+            target_artifact_size_bytes=_required_int(
                 payload,
                 "target_pack_size_bytes",
             ),
@@ -1906,7 +2537,8 @@ class CoreProgramAPI:
                 if payload.get("workflow_name_prefix") is not None
                 else None
             ),
-            max_files_per_pack=_optional_int(
+            output_key_prefix=str(payload.get("output_key_prefix") or "backup-packs"),
+            max_sources_per_artifact=_optional_int(
                 payload,
                 "max_files_per_pack",
                 minimum=1,
@@ -2055,9 +2687,49 @@ class CoreProgramAPI:
         runtime: "CoreRuntime",
         command: "CoreCommand",
     ) -> dict[str, Any]:
-        del command
-        _callable(runtime.database, "backup", area="database")()
-        return {"backed_up": True}
+        payload = _payload(command)
+        output_path = payload.get("output_path")
+        driver = getattr(runtime.database, "driver", None)
+        direct = getattr(driver, "direct_backup", None)
+        if callable(direct):
+            result = direct(None if output_path in (None, "") else str(output_path))
+        else:
+            if output_path not in (None, ""):
+                raise CoreDispatchError(
+                    "This database backend cannot select an explicit backup path.",
+                    code="capability_unavailable",
+                )
+            _callable(runtime.database, "backup", area="database")()
+            result = None
+        backup_path = result or output_path
+        verification: dict[str, Any] | None = None
+        if bool(payload.get("verify", False)):
+            if backup_path in (None, ""):
+                raise CoreDispatchError(
+                    "The backend did not report a file path that Core can verify."
+                )
+            path = Path(str(backup_path)).expanduser().resolve(strict=False)
+            try:
+                connection = sqlite3.connect(
+                    path.as_uri() + "?mode=ro", uri=True
+                )
+                try:
+                    rows = connection.execute("PRAGMA quick_check").fetchall()
+                finally:
+                    connection.close()
+            except sqlite3.Error as error:
+                raise CoreDispatchError(
+                    "Backup verification failed: {}".format(error)
+                ) from error
+            messages = [str(row[0]) for row in rows]
+            verification = {"ok": messages == ["ok"], "messages": messages}
+            if not verification["ok"]:
+                raise CoreDispatchError("Backup failed SQLite quick_check.")
+        return {
+            "backed_up": True,
+            "backup_path": None if backup_path is None else str(backup_path),
+            "verification": verification,
+        }
 
     @staticmethod
     def database_vacuum(
@@ -2076,6 +2748,29 @@ class CoreProgramAPI:
             area="database",
         )()
         return {"vacuumed": True}
+
+    @staticmethod
+    def database_migrations_apply(
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        del command
+        from LiuXin_alpha.storage.migrations import migrate_storage_schema
+
+        storage_report = migrate_storage_schema(runtime.database)
+        identity_report = _database_callable(
+            runtime,
+            "migrate_normalized_identities",
+            area="normalized identities",
+        )()
+        runtime.services.refresh_field_metadata()
+        return runtime.services.reconcile(
+            {
+                "migrated": True,
+                "storage": _plain(storage_report),
+                "normalized_identities": _plain(identity_report),
+            }
+        )
 
     @staticmethod
     def schema_column_update(
@@ -2390,7 +3085,7 @@ class CoreProgramAPI:
                     raise CoreDispatchError(
                         "`metadata.authors` must be a string or array."
                     )
-                metadata = calibreMetadata(  # type: ignore[no-untyped-call]
+                metadata = calibreMetadata(
                     str(values.pop("title", "") or "Unknown"),
                     authors or ["Unknown"],
                 )
@@ -2617,19 +3312,19 @@ class CoreProgramAPI:
         if reference in (None, ""):
             raise CoreDispatchError("`store` is required.")
         storage = runtime.library.storage
-        store = self._store(runtime, reference)
+        configuration = self._store_configuration(runtime, reference)
         deleted_from_database = bool(
             payload.get("delete_from_database", False)
         )
         removed = storage.remove_store(
-            store.store_ref,
+            configuration.store_uuid,
             forget_configuration=deleted_from_database,
         )
         if removed and deleted_from_database:
             rows = runtime.database.search(
                 "stores",
                 "store_uuid",
-                str(store.store_ref),
+                str(configuration.store_uuid),
             )
             for row in rows:
                 runtime.database.delete(row)
@@ -2719,6 +3414,620 @@ class CoreProgramAPI:
                 "report": _plain(result),
             }
         )
+
+    @staticmethod
+    def storage_replica_verify(
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        payload = _payload(command)
+        replica_id = _required_int(payload, "replica_id")
+        report = runtime.library.storage.verify_replica(
+            replica_id,
+            calculate_digests=bool(payload.get("calculate_digests", True)),
+        )
+        return {
+            "replica_id": replica_id,
+            "healthy": bool(report.healthy),
+            "report": _plain(report),
+        }
+
+    @staticmethod
+    def storage_asset_verify(
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        payload = _payload(command)
+        asset_id = _required_int(payload, "asset_id")
+        raw_ids = payload.get("replica_ids")
+        replica_ids = None
+        if raw_ids is not None:
+            if not isinstance(raw_ids, Sequence) or isinstance(raw_ids, (str, bytes)):
+                raise CoreDispatchError("`replica_ids` must be an array or null.")
+            replica_ids = []
+            for value in raw_ids:
+                if isinstance(value, bool) or not isinstance(
+                    value, (str, int, float)
+                ):
+                    raise CoreDispatchError("`replica_ids` must contain integers.")
+                try:
+                    replica_ids.append(int(value))
+                except (TypeError, ValueError) as error:
+                    raise CoreDispatchError(
+                        "`replica_ids` must contain integers."
+                    ) from error
+        verify_options: dict[str, Any] = {"replica_ids": replica_ids}
+        if "all_replicas" in payload:
+            verify_options["all_replicas"] = bool(payload["all_replicas"])
+        report = runtime.library.storage.verify_digital_asset(
+            asset_id,
+            **verify_options,
+        )
+        return {
+            "asset_id": asset_id,
+            "healthy": bool(report.readable),
+            "report": _plain(report),
+        }
+
+    @staticmethod
+    def storage_audit(
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        payload = _payload(command)
+        limit = _optional_int(payload, "limit", default=100, minimum=1)
+        offset = _optional_int(payload, "offset", default=0, minimum=0)
+        assert limit is not None and offset is not None
+        limit = min(limit, 10000)
+        manager = runtime.library.storage
+        records = sorted(
+            (
+                record
+                for record in manager.iter_replica_records()
+                if str(getattr(record.state, "value", record.state)) != "deleted"
+            ),
+            key=lambda record: int(record.replica_id),
+        )
+        selected = records[offset : offset + limit]
+        results: list[dict[str, Any]] = []
+        for record in selected:
+            try:
+                report = manager.verify_replica(
+                    record.replica_id,
+                    calculate_digests=bool(payload.get("calculate_digests", True)),
+                )
+            except Exception as error:
+                results.append(
+                    {
+                        "replica_id": int(record.replica_id),
+                        "asset_id": int(record.digital_asset_id),
+                        "healthy": False,
+                        "error": str(error) or type(error).__name__,
+                        "error_type": type(error).__name__,
+                    }
+                )
+            else:
+                results.append(
+                    {
+                        "replica_id": int(record.replica_id),
+                        "asset_id": int(record.digital_asset_id),
+                        "healthy": bool(report.healthy),
+                        "report": _plain(report),
+                    }
+                )
+        healthy = sum(bool(item["healthy"]) for item in results)
+        return {
+            "ok": healthy == len(results),
+            "offset": offset,
+            "limit": limit,
+            "total_replicas": len(records),
+            "checked": len(results),
+            "healthy": healthy,
+            "unhealthy": len(results) - healthy,
+            "has_more": offset + len(results) < len(records),
+            "results": results,
+        }
+
+    @staticmethod
+    def storage_reconcile_apply(
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        payload = _payload(command)
+        max_actions = _optional_int(payload, "max_actions", default=100, minimum=1)
+        assert max_actions is not None
+        max_actions = min(max_actions, 10000)
+        manager = runtime.library.storage
+        before = manager.get_operational_status(refresh_stores=False)
+        receipts: list[dict[str, Any]] = []
+        try:
+            reload_report = manager.reload_stores(
+                include_offline=bool(payload.get("include_offline", False)),
+                replace_existing=True,
+            )
+        except Exception as error:
+            receipts.append(
+                {
+                    "action": "reload_stores",
+                    "ok": False,
+                    "error": str(error) or type(error).__name__,
+                }
+            )
+        else:
+            receipts.append(
+                {"action": "reload_stores", "ok": True, "report": _plain(reload_report)}
+            )
+        candidates = sorted(
+            (
+                record
+                for record in manager.iter_replica_records()
+                if str(getattr(record.state, "value", record.state))
+                in {"present", "unverified", "missing", "unavailable", "corrupt"}
+            ),
+            key=lambda record: int(record.replica_id),
+        )
+        remaining = max(0, max_actions - len(receipts))
+        for record in candidates[:remaining]:
+            try:
+                report = manager.verify_replica(record.replica_id)
+            except Exception as error:
+                receipts.append(
+                    {
+                        "action": "verify_replica",
+                        "replica_id": int(record.replica_id),
+                        "ok": False,
+                        "error": str(error) or type(error).__name__,
+                    }
+                )
+            else:
+                receipts.append(
+                    {
+                        "action": "verify_replica",
+                        "replica_id": int(record.replica_id),
+                        "ok": bool(report.healthy),
+                        "report": _plain(report),
+                    }
+                )
+        after = manager.get_operational_status(refresh_stores=False)
+        return {
+            "ok": bool(after.healthy),
+            "before": _plain(before),
+            "after": _plain(after),
+            "actions": receipts,
+            "actions_truncated": len(candidates) > remaining,
+            "deferred": (
+                "Replica placement, deletion, and ingest retry require their "
+                "dedicated explicit commands."
+            ),
+        }
+
+    @classmethod
+    def storage_repair_apply(
+        cls,
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        from LiuXin_alpha.storage import api as storage_api
+
+        payload = _payload(command)
+        asset_id = _optional_int(payload, "asset_id", minimum=1)
+        max_assets = _optional_int(
+            payload, "max_assets", default=100, minimum=1
+        )
+        max_actions = _optional_int(
+            payload, "max_actions", default=100, minimum=1
+        )
+        max_transfer_bytes = _optional_int(
+            payload,
+            "max_transfer_bytes",
+            default=100 * 1024 * 1024 * 1024,
+            minimum=1,
+        )
+        assert (
+            max_assets is not None
+            and max_actions is not None
+            and max_transfer_bytes is not None
+        )
+        max_assets = min(max_assets, 10_000)
+        max_actions = min(max_actions, 10_000)
+        manager = runtime.library.storage
+        plan = cls._storage_repair_plan_payload(
+            manager,
+            asset_id=asset_id,
+            max_assets=max_assets,
+        )
+        receipts: list[dict[str, Any]] = []
+        transferred = 0
+        truncated = False
+        for action in plan["actions"]:
+            if len(receipts) >= max_actions:
+                truncated = True
+                break
+            action_name = str(action["action"])
+            estimated = int(action.get("estimated_bytes", 0))
+            if (
+                action_name == "replicate_digital_asset"
+                and transferred + estimated > max_transfer_bytes
+            ):
+                truncated = True
+                break
+            receipt = dict(action)
+            try:
+                if action_name == "verify_replica":
+                    result = manager.verify_replica(
+                        storage_api.ReplicaID(int(action["replica_id"]))
+                    )
+                elif action_name == "replicate_digital_asset":
+                    result = manager.replicate_digital_asset(
+                        storage_api.DigitalAssetID(
+                            int(action["digital_asset_id"])
+                        ),
+                        destination_store_ref=UUID(
+                            str(action["destination_store_ref"])
+                        ),
+                        mode=storage_api.ReplicaMode(str(action["mode"])),
+                        verify=True,
+                    )
+                    transferred += estimated
+                else:
+                    raise CoreDispatchError(
+                        "Unknown storage repair action: {}.".format(action_name)
+                    )
+            except Exception as error:
+                receipt.update(
+                    {
+                        "ok": False,
+                        "error": str(error) or type(error).__name__,
+                    }
+                )
+            else:
+                action_ok = not (
+                    action_name == "verify_replica"
+                    and not bool(getattr(result, "healthy", False))
+                )
+                receipt.update({"ok": action_ok, "result": _plain(result)})
+                if not action_ok:
+                    receipt["error"] = "Replica verification did not pass."
+            receipts.append(receipt)
+        after = cls._storage_repair_plan_payload(
+            manager,
+            asset_id=asset_id,
+            max_assets=max_assets,
+        )
+        failed = [receipt for receipt in receipts if not receipt["ok"]]
+        ok = (
+            not failed
+            and not truncated
+            and int(after["action_count"]) == 0
+            and not bool(after["blocked"])
+        )
+        return {
+            "ok": ok,
+            "before": plan,
+            "after": after,
+            "actions": receipts,
+            "actions_applied": len(receipts),
+            "actions_failed": len(failed),
+            "actions_truncated": truncated,
+            "transferred_bytes": transferred,
+            "max_actions": max_actions,
+            "max_transfer_bytes": max_transfer_bytes,
+            "deletes_bytes": False,
+        }
+
+    @classmethod
+    def storage_store_evacuate_apply(
+        cls,
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        from LiuXin_alpha.storage import api as storage_api
+
+        payload = _payload(command)
+        reference = payload.get("store")
+        if reference in (None, ""):
+            raise CoreDispatchError("`store` is required.")
+        max_assets = _optional_int(
+            payload, "max_assets", default=100, minimum=1
+        )
+        max_actions = _optional_int(
+            payload, "max_actions", default=1000, minimum=1
+        )
+        max_transfer_bytes = _optional_int(
+            payload,
+            "max_transfer_bytes",
+            default=1024 * 1024 * 1024 * 1024,
+            minimum=1,
+        )
+        assert (
+            max_assets is not None
+            and max_actions is not None
+            and max_transfer_bytes is not None
+        )
+        max_assets = min(max_assets, 10_000)
+        max_actions = min(max_actions, 100_000)
+        plan = cls._storage_store_evacuation_plan_payload(
+            runtime,
+            store_reference=reference,
+            destination_reference=payload.get("destination_store"),
+            max_assets=max_assets,
+        )
+        manager = runtime.library.storage
+        source_ref = UUID(str(plan["source_store_ref"]))
+        source_configuration = manager.get_store_configuration(source_ref)
+        keep_source_bytes = bool(payload.get("keep_source_bytes", False))
+        receipts: list[dict[str, Any]] = []
+        transferred = 0
+        truncated = False
+        for entry in plan["entries"]:
+            if len(receipts) >= max_actions:
+                truncated = True
+                break
+            if int(entry["shortfall"]) > 0:
+                receipts.append(
+                    {
+                        "action": "evacuate_asset",
+                        "digital_asset_id": entry["digital_asset_id"],
+                        "ok": False,
+                        "error": "no safe destination satisfies the evacuation plan",
+                        "entry": entry,
+                    }
+                )
+                continue
+            required_actions = len(entry["destination_store_refs"]) + len(
+                entry["source_replica_ids"]
+            )
+            if len(receipts) + required_actions > max_actions:
+                truncated = True
+                break
+            if (
+                transferred + int(entry["estimated_transfer_bytes"])
+                > max_transfer_bytes
+            ):
+                truncated = True
+                break
+            source_records = [
+                manager.get_replica_record(
+                    storage_api.ReplicaID(int(replica_id))
+                )
+                for replica_id in entry["source_replica_ids"]
+            ]
+            source_record = next(
+                (
+                    record
+                    for record in source_records
+                    if record.state
+                    in {
+                        storage_api.ReplicaState.VERIFIED,
+                        storage_api.ReplicaState.PRESENT,
+                        storage_api.ReplicaState.UNVERIFIED,
+                    }
+                ),
+                None,
+            )
+            placement_failed = False
+            for destination in entry["destination_store_refs"]:
+                receipt = {
+                    "action": "replicate_digital_asset",
+                    "digital_asset_id": entry["digital_asset_id"],
+                    "source_replica_id": (
+                        None
+                        if source_record is None
+                        else int(source_record.replica_id)
+                    ),
+                    "destination_store_ref": destination,
+                    "mode": entry["target_mode"],
+                }
+                try:
+                    if source_record is None:
+                        raise storage_api.NoReadableReplica(
+                            "source Store has no readable Replica for evacuation."
+                        )
+                    replica = manager.replicate_digital_asset(
+                        storage_api.DigitalAssetID(
+                            int(entry["digital_asset_id"])
+                        ),
+                        destination_store_ref=UUID(str(destination)),
+                        source_replica_id=source_record.replica_id,
+                        mode=storage_api.ReplicaMode(
+                            str(entry["target_mode"])
+                        ),
+                        verify=True,
+                    )
+                except Exception as error:
+                    receipt.update(
+                        {
+                            "ok": False,
+                            "error": str(error) or type(error).__name__,
+                        }
+                    )
+                    placement_failed = True
+                else:
+                    receipt.update({"ok": True, "result": _plain(replica)})
+                    transferred += manager.get_digital_asset_record(
+                        storage_api.DigitalAssetID(
+                            int(entry["digital_asset_id"])
+                        )
+                    ).size_bytes
+                receipts.append(receipt)
+            outside_verified = [
+                record
+                for record in manager.iter_replica_records(
+                    digital_asset_id=storage_api.DigitalAssetID(
+                        int(entry["digital_asset_id"])
+                    ),
+                    mode=storage_api.ReplicaMode(str(entry["target_mode"])),
+                )
+                if record.location.store_ref != source_ref
+                and record.state is storage_api.ReplicaState.VERIFIED
+            ]
+            policies = manager.resolve_effective_policies(
+                storage_api.DigitalAssetID(int(entry["digital_asset_id"]))
+            )
+            target_mode = storage_api.ReplicaMode(str(entry["target_mode"]))
+            policy = (
+                policies.replication
+                if target_mode == policies.replication.mode
+                else (
+                    policies.backup
+                    if target_mode == policies.backup.mode
+                    else None
+                )
+            )
+            current_configurations = {
+                configuration.store_uuid: configuration
+                for configuration in manager.iter_store_configurations()
+            }
+            eligible_outside = [
+                record
+                for record in outside_verified
+                if record.location.store_ref in current_configurations
+                and (
+                    policy is None
+                    or (
+                        target_mode
+                        in current_configurations[
+                            record.location.store_ref
+                        ].supported_replica_modes
+                        and policy.required_store_tags
+                        <= set(
+                            current_configurations[
+                                record.location.store_ref
+                            ].store_tags
+                        )
+                        and not policy.forbidden_store_tags
+                        & set(
+                            current_configurations[
+                                record.location.store_ref
+                            ].store_tags
+                        )
+                    )
+                )
+            ]
+            outside_capacity = (
+                len(
+                    {
+                        record.location.store_ref
+                        for record in eligible_outside
+                    }
+                )
+                if policy is None
+                else cls._policy_capacity_for_configurations(
+                    (
+                        current_configurations[record.location.store_ref]
+                        for record in eligible_outside
+                    ),
+                    policy,
+                )
+            )
+            if placement_failed or outside_capacity < int(entry["target_copies"]):
+                receipts.append(
+                    {
+                        "action": "retain_source_replicas",
+                        "digital_asset_id": entry["digital_asset_id"],
+                        "ok": False,
+                        "error": (
+                            "replacement copies were not verified to the required target; "
+                            "source claims and bytes were retained"
+                        ),
+                    }
+                )
+                continue
+            for replica_id in entry["source_replica_ids"]:
+                record = manager.get_replica_record(
+                    storage_api.ReplicaID(int(replica_id))
+                )
+                delete_bytes = (
+                    not keep_source_bytes
+                    and not source_configuration.read_only
+                    and record.mode is not storage_api.ReplicaMode.UNMANAGED
+                )
+                receipt = {
+                    "action": "remove_source_replica",
+                    "replica_id": int(replica_id),
+                    "digital_asset_id": entry["digital_asset_id"],
+                    "delete_bytes": delete_bytes,
+                }
+                try:
+                    result = manager.remove_replica(
+                        record.replica_id,
+                        delete_bytes=delete_bytes,
+                        retain_tombstone=True,
+                    )
+                except Exception as error:
+                    receipt.update(
+                        {
+                            "ok": False,
+                            "error": str(error) or type(error).__name__,
+                        }
+                    )
+                else:
+                    receipt.update({"ok": True, "result": _plain(result)})
+                receipts.append(receipt)
+        after = cls._storage_store_evacuation_plan_payload(
+            runtime,
+            store_reference=reference,
+            destination_reference=payload.get("destination_store"),
+            max_assets=max_assets,
+        )
+        failed = [receipt for receipt in receipts if not receipt["ok"]]
+        return {
+            "ok": (
+                not failed
+                and not truncated
+                and int(after["replicas_planned"]) == 0
+            ),
+            "before": plan,
+            "after": after,
+            "actions": receipts,
+            "actions_applied": len(receipts),
+            "actions_failed": len(failed),
+            "actions_truncated": truncated,
+            "transferred_bytes": transferred,
+            "source_bytes_retained": keep_source_bytes
+            or bool(source_configuration.read_only),
+        }
+
+    @staticmethod
+    def storage_recovery_recover_pending(
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        payload = _payload(command)
+        operation_raw = payload.get("operation_id")
+        try:
+            operation_id = (
+                None
+                if operation_raw in (None, "")
+                else UUID(str(operation_raw))
+            )
+        except ValueError as error:
+            raise CoreDispatchError("`operation_id` must be a UUID.") from error
+        manager = runtime.library.storage
+        issues = manager.recover_pending_ingests(operation_id)
+        return {
+            "ok": not issues,
+            "operation_id": operation_id,
+            "issues": list(issues),
+            "operations": _plain(manager.list_ingest_operations()),
+        }
+
+    @staticmethod
+    def storage_recovery_retry_ingest(
+        runtime: "CoreRuntime",
+        command: "CoreCommand",
+    ) -> dict[str, Any]:
+        payload = _payload(command)
+        try:
+            operation_id = UUID(_required_text(payload, "operation_id"))
+        except ValueError as error:
+            raise CoreDispatchError("`operation_id` must be a UUID.") from error
+        result = runtime.library.storage.retry_ingest_operation(operation_id)
+        return {
+            "ok": True,
+            "operation_id": operation_id,
+            "result": _plain(result),
+        }
 
     @staticmethod
     def ingest_disk_start(

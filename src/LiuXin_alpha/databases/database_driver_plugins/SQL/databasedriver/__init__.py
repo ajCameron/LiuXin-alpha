@@ -251,6 +251,7 @@ class SQLBaseDriver:
                     ("database_path", self.database_path),
                     ("database_backup_path", backup_status),
                 )
+                return backup_status
             else:
                 wrn_str = "DatabasePing backup failed.\n"
                 default_log.log_variables(

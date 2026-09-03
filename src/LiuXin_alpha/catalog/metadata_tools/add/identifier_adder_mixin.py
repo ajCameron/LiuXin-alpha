@@ -1,3 +1,5 @@
+"""Identifier creation and linking workflows for metadata tools."""
+
 from __future__ import unicode_literals
 
 

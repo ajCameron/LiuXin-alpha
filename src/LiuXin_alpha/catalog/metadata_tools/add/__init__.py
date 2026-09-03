@@ -1,3 +1,5 @@
+"""Legacy metadata-addition facade composed from entity-specific mixins."""
+
 from __future__ import unicode_literals
 
 from LiuXin_alpha.catalog.metadata_tools.add.agent_creator_org_adder_mixin import AgentCreatorOrgMixin

@@ -1,8 +1,12 @@
+"""Metadata SQL macros for series-to-tag relationships."""
+
 
 
 
 
 class CMSeriesTagLinksMacros:
+    """Implement series-to-tag relationship macros."""
+
 
 
     def unapply_series_tags(self, series_id, tags):

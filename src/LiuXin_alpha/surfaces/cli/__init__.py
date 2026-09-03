@@ -1,13 +1,12 @@
+"""Public entry point for LiuXin's operator command-line interface."""
+
 from __future__ import annotations
 
-from typing import Optional
+def main(argv: list[str] | None = None) -> int:
+    """Load the packaged CLI lazily so subcommands can import independently."""
 
+    from LiuXin_alpha.surfaces.cli.app import main as application_main
 
-def main(argv: Optional[list[str]] = None) -> int:
-    """Load the operational CLI only when it is actually invoked."""
-    from LiuXin_alpha.surfaces.cli.squashfs import main as squashfs_main
-
-    return squashfs_main(argv)
-
+    return application_main(argv)
 
 __all__ = ["main"]

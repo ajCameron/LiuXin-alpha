@@ -77,6 +77,8 @@ NORMALIZE_STEM_PATTERN = re.compile(r"[\s._-]+")
 
 @dataclass(frozen=True)
 class TorrentFileRecord:
+    """Normalized file entry extracted from one torrent manifest."""
+
     index: int
     path: str
     directory: str
@@ -89,7 +91,7 @@ class TorrentFileRecord:
 
 
 class BencodeDecodeError(ValueError):
-    pass
+    """Raised when torrent metadata is not valid bounded bencode."""
 
 
 def utc_now() -> str:

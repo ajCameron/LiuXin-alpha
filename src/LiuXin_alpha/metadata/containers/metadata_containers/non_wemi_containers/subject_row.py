@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class SubjectRow(MetadataTableRow):
+    """
+    Represent a hierarchical subject-heading row.
+    """
     TABLE_NAME: ClassVar[str] = "subjects"
     ID_COLUMN: ClassVar[str] = "subject_id"
 

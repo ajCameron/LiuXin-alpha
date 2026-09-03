@@ -1,7 +1,11 @@
+"""Metadata SQL macros for creator catalogue rows."""
+
 
 
 
 class CMCreatorMacrosMixin:
+    """Implement creator-row metadata macros."""
+
 
     # ------------------------------------------------------------------------------------------------------------------
     #

@@ -1,7 +1,11 @@
+"""Metadata SQL macros for legacy file catalogue rows."""
+
 
 
 
 class CMFilesMacrosMixin:
+    """Implement legacy file-row metadata macros."""
+
 
     # ------------------------------------------------------------------------------------------------------------------
     #

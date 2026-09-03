@@ -107,6 +107,8 @@ def _resolve_md_corpus_dir(data_repo_root: Path) -> Optional[Path]:
 
 @dataclass(frozen=True)
 class FixtureSpec:
+    """Name and optional database features for one generated Calibre fixture."""
+
     name: str
     description: str
     notes_db: bool = False

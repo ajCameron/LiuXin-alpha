@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -174,7 +175,7 @@ def _fetch_row(browser, *, table: str, row_id: int):
 
 
 def _update_row_fields(browser, *, table: str, row_id: int, updates: dict[str, object]):
-    return browser.execute_core_command(
+    result = browser.execute_core_command(
         "admin.row.update",
         payload={
             "table": table,
@@ -182,6 +183,13 @@ def _update_row_fields(browser, *, table: str, row_id: int, updates: dict[str, o
             "updates": dict(updates),
         },
     )
+    if isinstance(result, Mapping):
+        record = result.get("record")
+        if isinstance(record, Mapping):
+            values = record.get("values")
+            if isinstance(values, Mapping):
+                return dict(values)
+    return result
 
 
 def _delete_row(browser, *, table: str, row_id: int):

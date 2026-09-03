@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 
 class DatabaseTreeMixin:
+    """Delegate hierarchical row operations from the facade to its driver."""
+
 
     driver_wrapper: "DatabaseDriverWrapperAPI"
 

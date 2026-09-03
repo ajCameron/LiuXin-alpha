@@ -1,7 +1,11 @@
+"""Metadata SQL macros for identifier catalogue rows."""
+
 
 
 
 class CMIdentifiersMixin:
+    """Implement identifier-row metadata macros."""
+
 
     def read_all_identifiers(self):
         """

@@ -73,6 +73,10 @@ class _FakeBrowser:
         return True
 
     def execute_core_query(self, name: str, *, payload=None):
+        if name == "database.telemetry":
+            return self.db.get_write_telemetry_snapshot(
+                recent_limit=int((payload or {}).get("recent_limit", 8))
+            )
         raise RuntimeError("rpc down for {}".format(name))
 
     def get_table_row_count(self, _table: str):

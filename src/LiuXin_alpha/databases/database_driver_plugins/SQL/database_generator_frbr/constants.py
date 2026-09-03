@@ -1,3 +1,5 @@
+"""Canonical table groups used by the FRBR database generator."""
+
 
 
 

@@ -5,12 +5,10 @@ Inheritance-oriented foundations for catalog writers.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
 from LiuXin_alpha.databases.db_types import SrcTableID
-
-if TYPE_CHECKING:
-    from LiuXin_alpha.catalog.api import CatalogAPI
 
 
 class BaseCatalogWriter[UpdateT, ResultT](ABC):
@@ -30,7 +28,7 @@ class BaseCatalogWriter[UpdateT, ResultT](ABC):
     :param catalog: Catalog facade through which the update is applied.
     """
 
-    def __init__(self, catalog: CatalogAPI) -> None:
+    def __init__(self, catalog: CatalogWriterHostAPI) -> None:
         """
         Store the catalog dependency used by the concrete writer.
 
@@ -41,7 +39,7 @@ class BaseCatalogWriter[UpdateT, ResultT](ABC):
         self._catalog = catalog
 
     @property
-    def catalog(self) -> CatalogAPI:
+    def catalog(self) -> CatalogWriterHostAPI:
         """
         Return the catalog facade used by this writer.
 

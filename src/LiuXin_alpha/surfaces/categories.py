@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
+"""Build stable category and tag projections for catalogue surfaces."""
+
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
@@ -27,6 +29,8 @@ CATEGORY_SORTS = ("name", "popularity", "rating")  # This has to be a tuple not 
 
 
 class Tag(object):
+    """Presentation category containing named items and optional subcategories."""
+
 
     __slots__ = (
         "name",

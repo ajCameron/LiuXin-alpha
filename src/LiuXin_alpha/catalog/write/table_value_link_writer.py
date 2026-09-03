@@ -7,8 +7,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from contextlib import nullcontext
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
+from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
 from LiuXin_alpha.catalog.write.link_update import LinkUpdate
 from LiuXin_alpha.catalog.write.link_writer import (
     CatalogLinkMap,
@@ -22,10 +23,6 @@ from LiuXin_alpha.databases.schema_specs import (
     StorageLinkSpec,
     StorageTableSpec,
 )
-
-if TYPE_CHECKING:
-    from LiuXin_alpha.catalog.api import CatalogAPI
-
 
 @dataclass(frozen=True, slots=True)
 class _TableValueReference:
@@ -66,7 +63,7 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
 
     def __init__(
         self,
-        catalog: CatalogAPI,
+        catalog: CatalogWriterHostAPI,
         link_spec: StorageLinkSpec,
         destination_table: StorageTableSpec,
         destination_column: StorageColumnSpec,

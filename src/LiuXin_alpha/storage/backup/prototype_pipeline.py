@@ -232,6 +232,8 @@ def _index_existing_disk_frbr(db, *, disk_path: pathlib.Path, store_name: str, e
 
 
 class ConsoleReporter:
+    """Render human-readable indexing and pack progress to one text stream."""
+
     def __init__(self, *, stream=None) -> None:
         self.stream = stream or sys.stdout
         self._last_index_line_len = 0
@@ -274,6 +276,8 @@ class ConsoleReporter:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class IndexedStoreRun:
+    """Summary of indexing one source drive as a durable Store."""
+
     input_path: str
     store_id: int
     store_name: str
@@ -287,6 +291,8 @@ class IndexedStoreRun:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class PackExecutionRun:
+    """Summary of building and registering one SquashFS backup pack."""
+
     workflow_id: int
     workflow_name: str
     output_url: str
@@ -298,6 +304,8 @@ class PackExecutionRun:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class PrototypeRunResult:
+    """Aggregate indexing and pack-building results for one prototype run."""
+
     database_path: str
     indexed_stores: tuple[IndexedStoreRun, ...]
     executed_packs: tuple[PackExecutionRun, ...]
@@ -312,6 +320,8 @@ class PrototypeRunResult:
 
 
 class ExistingDriveSquashfsPrototype:
+    """Coordinate source indexing and immutable SquashFS pack production."""
+
     def __init__(self, *, database_path: str | pathlib.Path, output_dir: str | pathlib.Path, target_pack_size_bytes: int, max_files_per_pack: int | None = None, ebook_extensions: Iterable[str] | None = None, verify_after_build: bool = True, cleanup_staging_after_success: bool = False, staging_root: str | pathlib.Path | None = None, reporter: ConsoleReporter | None = None, workflow_factory: Callable[[BackupWorkflowDeclaration], Any] | None = None) -> None:
         self.database_path = pathlib.Path(database_path).expanduser()
         self.output_dir = pathlib.Path(output_dir).expanduser()

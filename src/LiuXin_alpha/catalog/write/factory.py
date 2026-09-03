@@ -4,9 +4,8 @@ Schema-driven construction of catalog writers.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from LiuXin_alpha.catalog.write.column_writer import CatalogColumnWriter
+from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
 from LiuXin_alpha.catalog.write.owned_row_writer import (
     CatalogOwnedRowOneToOneWriter,
 )
@@ -20,10 +19,6 @@ from LiuXin_alpha.databases.schema_specs import (
     StorageSchemaSpec,
     StorageTableSpec,
 )
-
-if TYPE_CHECKING:
-    from LiuXin_alpha.catalog.api import CatalogAPI
-
 
 type SchemaCatalogWriter = (
     CatalogColumnWriter[object, object]
@@ -61,7 +56,7 @@ def _writable_destination_tables(
 
 
 def create_catalog_writer(
-    catalog: CatalogAPI,
+    catalog: CatalogWriterHostAPI,
     src_table: str,
     dst_column: str,
     *,

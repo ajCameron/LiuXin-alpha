@@ -1,3 +1,5 @@
+"""Driver-level contracts for creating and inspecting database views."""
+
 from __future__ import annotations
 
 import abc

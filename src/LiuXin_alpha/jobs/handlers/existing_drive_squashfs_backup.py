@@ -15,6 +15,8 @@ from LiuXin_alpha.storage.backup.prototype_pipeline import ConsoleReporter, Exis
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ExistingDriveSquashfsBackupJobPayload:
+    """Durable JSON-shaped inputs for one drive-to-SquashFS backup job."""
+
     input_paths: tuple[str, ...]
     database_path: str
     output_dir: str
@@ -88,6 +90,8 @@ class _JobReporter(ConsoleReporter):
 
 
 class ExistingDriveSquashfsBackupJobHandler(JobHandlerAPI):
+    """Run the prototype drive-to-SquashFS pipeline through the jobs engine."""
+
     job_kind = "existing_drives_to_squashfs_backup"
 
     def validate_payload(self, payload_json: str) -> None:

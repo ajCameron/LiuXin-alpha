@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class RatingRow(MetadataTableRow):
+    """
+    Represent a numeric rating row with its scale and source.
+    """
     TABLE_NAME: ClassVar[str] = "ratings"
     ID_COLUMN: ClassVar[str] = "rating_id"
 

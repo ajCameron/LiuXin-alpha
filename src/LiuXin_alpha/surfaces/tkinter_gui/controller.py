@@ -20,6 +20,12 @@ from .views import (
 
 
 def open_tk_modules():
+    """
+    Import Tkinter modules lazily and report platform availability clearly.
+
+
+    :return:
+    """
     try:
         import tkinter as tk
         from tkinter import filedialog, messagebox, ttk

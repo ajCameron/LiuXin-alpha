@@ -1,3 +1,5 @@
+"""Generic writer for one-to-many cache-backed relationships."""
+
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 from collections import defaultdict

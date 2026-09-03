@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class CommentRow(MetadataTableRow):
+    """
+    Represent a reusable commentary row.
+    """
     TABLE_NAME: ClassVar[str] = "comments"
     ID_COLUMN: ClassVar[str] = "comment_id"
 

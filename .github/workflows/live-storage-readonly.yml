@@ -26,12 +26,20 @@ jobs:
         include:
           - backend: http
             test: test_live_http_read_contract
+            root_secret: LIUXIN_LIVE_HTTP_ROOT
+            key_secret: LIUXIN_LIVE_HTTP_KEY
           - backend: ftp
             test: test_live_ftp_read_contract
+            root_secret: LIUXIN_LIVE_FTP_ROOT
+            key_secret: LIUXIN_LIVE_FTP_KEY
           - backend: rclone
             test: test_live_rclone_read_contract
+            root_secret: LIUXIN_LIVE_RCLONE_ROOT
+            key_secret: LIUXIN_LIVE_RCLONE_KEY
           - backend: s3
             test: test_live_s3_read_contract
+            root_secret: LIUXIN_LIVE_S3_ROOT
+            key_secret: LIUXIN_LIVE_S3_KEY
 
     steps:
       - uses: actions/checkout@v4
@@ -55,8 +63,8 @@ jobs:
         env:
           PYTHONPATH: src
           LIUXIN_RUN_LIVE_STORAGE_TESTS: "1"
-          LIVE_ROOT: ${{ matrix.backend == 'http' && secrets.LIUXIN_LIVE_HTTP_ROOT || matrix.backend == 'ftp' && secrets.LIUXIN_LIVE_FTP_ROOT || matrix.backend == 'rclone' && secrets.LIUXIN_LIVE_RCLONE_ROOT || secrets.LIUXIN_LIVE_S3_ROOT }}
-          LIVE_KEY: ${{ matrix.backend == 'http' && secrets.LIUXIN_LIVE_HTTP_KEY || matrix.backend == 'ftp' && secrets.LIUXIN_LIVE_FTP_KEY || matrix.backend == 'rclone' && secrets.LIUXIN_LIVE_RCLONE_KEY || secrets.LIUXIN_LIVE_S3_KEY }}
+          LIVE_ROOT: ${{ secrets[matrix.root_secret] }}
+          LIVE_KEY: ${{ secrets[matrix.key_secret] }}
           RCLONE_CONFIG_SECRET: ${{ secrets.LIUXIN_LIVE_RCLONE_CONFIG }}
           AWS_ACCESS_KEY_ID: ${{ secrets.LIUXIN_LIVE_S3_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.LIUXIN_LIVE_S3_SECRET_ACCESS_KEY }}

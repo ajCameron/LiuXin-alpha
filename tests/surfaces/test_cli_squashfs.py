@@ -225,7 +225,11 @@ def test_cli_publish_store_strict_fails_on_snapshot_drift(driver_spec, tmp_path:
         assert scratch["squashfs_state"] == "failed"
 
 
-def test_cli_provenance_by_store_id_json(driver_spec, tmp_path: Path, capsys) -> None:
+def test_cli_provenance_by_store_id_does_not_invent_replica_derivation(
+    driver_spec,
+    tmp_path: Path,
+    capsys,
+) -> None:
     _require_squashfs_tools()
 
     db_path = tmp_path / "cli_provenance_store.sqlite"
@@ -269,7 +273,9 @@ def test_cli_provenance_by_store_id_json(driver_spec, tmp_path: Path, capsys) ->
             force=True,
             strict=True,
         )
-        assert report.provenance_links_created >= 1
+        # Publishing preserves the same bytes in a second location.  The
+        # database therefore gains a replica, not a fictional derivation.
+        assert report.provenance_links_created == 0
 
     rc = cli_main(
         [
@@ -289,14 +295,15 @@ def test_cli_provenance_by_store_id_json(driver_spec, tmp_path: Path, capsys) ->
     out = capsys.readouterr().out
     payload = _extract_terminal_json(out)
     assert payload["query"]["store_id"] == store_id
-    assert payload["edge_count"] >= 1
-    edge = payload["edges"][0]
-    assert edge["kind"] == "repacked"
-    assert edge["parent_file"]["file_id"] == file_id
-    assert int(edge["child_file"]["file_store_id"]) == store_id
+    assert payload["edge_count"] == 0
+    assert payload["edges"] == []
 
 
-def test_cli_provenance_by_file_id_json(driver_spec, tmp_path: Path, capsys) -> None:
+def test_cli_provenance_by_file_id_does_not_invent_replica_derivation(
+    driver_spec,
+    tmp_path: Path,
+    capsys,
+) -> None:
     _require_squashfs_tools()
 
     db_path = tmp_path / "cli_provenance_file.sqlite"
@@ -340,7 +347,7 @@ def test_cli_provenance_by_file_id_json(driver_spec, tmp_path: Path, capsys) -> 
             force=True,
             strict=True,
         )
-        assert report.provenance_links_created >= 1
+        assert report.provenance_links_created == 0
 
     rc = cli_main(
         [
@@ -360,11 +367,8 @@ def test_cli_provenance_by_file_id_json(driver_spec, tmp_path: Path, capsys) -> 
     out = capsys.readouterr().out
     payload = _extract_terminal_json(out)
     assert payload["query"]["file_id"] == file_id
-    assert payload["edge_count"] >= 1
-    for edge in payload["edges"]:
-        parent_id = int(edge["parent_file"]["file_id"])
-        child_id = int(edge["child_file"]["file_id"])
-        assert file_id in {parent_id, child_id}
+    assert payload["edge_count"] == 0
+    assert payload["edges"] == []
 
 
 def test_cli_provenance_requires_filter(driver_spec, tmp_path: Path, capsys) -> None:

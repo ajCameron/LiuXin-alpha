@@ -82,6 +82,9 @@ class LanguageBase(MetadataValueStringMixin, abc.ABC):
 
 @dataclass(slots=True, kw_only=True)
 class WorkLanguage(LanguageBase):
+    """
+    Represent one typed language assertion attached to a Work.
+    """
     work_id: WorkID
     canonical_for_work: bool = False
 
@@ -101,6 +104,9 @@ class WorkLanguage(LanguageBase):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionLanguage(LanguageBase):
+    """
+    Represent one typed language assertion attached to an Expression.
+    """
     expression_id: ExpressionID
     applies_to_language_id: LanguageID | None = None
 
@@ -120,6 +126,9 @@ class ExpressionLanguage(LanguageBase):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationLanguage(LanguageBase):
+    """
+    Represent one typed language assertion attached to a Manifestation.
+    """
     manifestation_id: ManifestationID
     edition_specific: bool = True
 
@@ -139,6 +148,9 @@ class ManifestationLanguage(LanguageBase):
 
 @dataclass(slots=True, kw_only=True)
 class ItemLanguage(LanguageBase):
+    """
+    Represent one typed language assertion attached to an Item.
+    """
     item_id: ItemID
     copy_specific: bool = True
 
@@ -242,21 +254,33 @@ class KindLanguagesContainer(MetadataSequenceStringMixin, Generic[LanguageT], ab
 
 @dataclass(slots=True, kw_only=True)
 class WorkKindLanguagesContainer(KindLanguagesContainer[WorkLanguage]):
+    """
+    Collect language assertions of one kind for a Work.
+    """
     target_kind: Literal["work"] = "work"
 
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionKindLanguagesContainer(KindLanguagesContainer[ExpressionLanguage]):
+    """
+    Collect language assertions of one kind for an Expression.
+    """
     target_kind: Literal["expression"] = "expression"
 
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationKindLanguagesContainer(KindLanguagesContainer[ManifestationLanguage]):
+    """
+    Collect language assertions of one kind for a Manifestation.
+    """
     target_kind: Literal["manifestation"] = "manifestation"
 
 
 @dataclass(slots=True, kw_only=True)
 class ItemKindLanguagesContainer(KindLanguagesContainer[ItemLanguage]):
+    """
+    Collect language assertions of one kind for an Item.
+    """
     target_kind: Literal["item"] = "item"
 
 
@@ -329,6 +353,9 @@ class BaseTargetLanguagesContainer(
 
 @dataclass(slots=True, kw_only=True)
 class WorkLanguagesContainer(BaseTargetLanguagesContainer[WorkLanguage, WorkKindLanguagesContainer]):
+    """
+    Group every typed language assertion attached to a Work.
+    """
     work_id: WorkID
 
     @property
@@ -345,6 +372,9 @@ class WorkLanguagesContainer(BaseTargetLanguagesContainer[WorkLanguage, WorkKind
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionLanguagesContainer(BaseTargetLanguagesContainer[ExpressionLanguage, ExpressionKindLanguagesContainer]):
+    """
+    Group every typed language assertion attached to an Expression.
+    """
     expression_id: ExpressionID
 
     @property
@@ -361,6 +391,9 @@ class ExpressionLanguagesContainer(BaseTargetLanguagesContainer[ExpressionLangua
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationLanguagesContainer(BaseTargetLanguagesContainer[ManifestationLanguage, ManifestationKindLanguagesContainer]):
+    """
+    Group every typed language assertion attached to a Manifestation.
+    """
     manifestation_id: ManifestationID
 
     @property
@@ -377,6 +410,9 @@ class ManifestationLanguagesContainer(BaseTargetLanguagesContainer[Manifestation
 
 @dataclass(slots=True, kw_only=True)
 class ItemLanguagesContainer(BaseTargetLanguagesContainer[ItemLanguage, ItemKindLanguagesContainer]):
+    """
+    Group every typed language assertion attached to an Item.
+    """
     item_id: ItemID
 
     @property

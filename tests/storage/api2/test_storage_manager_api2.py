@@ -1695,6 +1695,49 @@ def test_reference_manager_replicates_verifies_and_reconciles() -> None:
         manager.apply_reconciliation(stale)
 
 
+def test_policy_plans_do_not_place_independent_modes_on_an_occupied_store() -> None:
+    main = _MemoryStore(MAIN_STORE_UUID)
+    other = _MemoryStore(OTHER_STORE_UUID)
+    archive = _MemoryStore(ARCHIVE_STORE_UUID)
+    manager = InMemoryStorageManager(
+        store_registrations=(
+            (main.configuration, main),
+            (other.configuration, other),
+            (archive.configuration, archive),
+        ),
+        default_store_ref=MAIN_STORE_UUID,
+    )
+    asset = manager.ingest_bytes(b"separate policy modes").asset_record
+
+    backup_plan = manager.plan_backup(asset.digital_asset_id)
+    assert len(backup_plan.destination_store_refs) == 1
+    assert backup_plan.destination_store_refs[0] != MAIN_STORE_UUID
+    backup_store_ref = backup_plan.destination_store_refs[0]
+    manager.replicate_digital_asset(
+        asset.digital_asset_id,
+        destination_store_ref=backup_store_ref,
+        mode=api.ReplicaMode.BACKUP,
+    )
+
+    two_live_copies = manager.create_replication_policy(
+        api.ReplicationPolicy(
+            name="two-live-copies",
+            min_copies=2,
+            target_copies=2,
+        )
+    )
+    manager.set_digital_asset_policies(
+        asset.digital_asset_id,
+        replication_policy_id=two_live_copies.replication_policy_id,
+    )
+    replication_plan = manager.plan_replication(asset.digital_asset_id)
+    assert len(replication_plan.destination_store_refs) == 1
+    assert replication_plan.destination_store_refs[0] not in {
+        MAIN_STORE_UUID,
+        backup_store_ref,
+    }
+
+
 def test_detailed_file_ingest_returns_result_and_defaults_original_name(
     tmp_path,
 ) -> None:
@@ -2599,6 +2642,16 @@ def test_storage_manager_exposes_concrete_convenience_operations() -> None:
     }.isdisjoint(api.StorageManagerAPI.__abstractmethods__)
     assert "add_store" in api.StorageManagerAPI.__abstractmethods__
     assert "add_store" not in InMemoryStorageManager.__abstractmethods__
+    assert {
+        "list_ingest_operations",
+        "recover_pending_ingests",
+        "retry_ingest_operation",
+    }.issubset(api.StorageManagerAPI.__abstractmethods__)
+    assert {
+        "list_ingest_operations",
+        "recover_pending_ingests",
+        "retry_ingest_operation",
+    }.isdisjoint(InMemoryStorageManager.__abstractmethods__)
 
 
 def test_convenience_storage_and_retrieval_accept_ordinary_inputs(

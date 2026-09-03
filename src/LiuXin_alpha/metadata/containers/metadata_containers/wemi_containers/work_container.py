@@ -23,10 +23,10 @@ from LiuXin_alpha.utils.adaptors import _boolish_to_bool, _bool_to_int_or_none
 
 class WorkIdentity(WorkIdentityAPI):
     """
-    Container for a single row from the `works` table.
+    Represent a Work identity and its intrinsic title, language, and form fields.
 
-    This is distinct from a richer "WorkMetadata" concept. It only mirrors the
-    `works` row itself, plus light convenience helpers.
+    This is distinct from :class:`WorkMetadata`: it mirrors the ``works`` row
+    itself and provides mapping helpers, but owns no relationship collections.
     """
 
     def __init__(

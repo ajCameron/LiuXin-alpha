@@ -1,4 +1,6 @@
-"""Atomic Digital Asset identity and descriptive metadata values."""
+"""
+Atomic Digital Asset identity and descriptive metadata values.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +16,8 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetMetadata:
-    """Descriptive and technical metadata belonging to byte identity.
+    """
+    Descriptive and technical metadata belonging to byte identity.
 
     Example:
         >>> metadata = DigitalAssetMetadata(original_name="book.epub")
@@ -28,13 +31,17 @@ class DigitalAssetMetadata:
     attributes: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
-        """Validate optional labels and extension attributes.
+        """
+        Validate optional labels and extension attributes.
 
         Example:
             >>> DigitalAssetMetadata(media_type="")
             Traceback (most recent call last):
             ...
             ValueError: media_type must not be empty when supplied.
+
+
+        :return:
         """
 
         for field_name, value in (
@@ -53,7 +60,8 @@ class DigitalAssetMetadata:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetDeclaration:
-    """Input for declaring a known atomic byte sequence.
+    """
+    Input for declaring a known atomic byte sequence.
 
     Example:
         >>> declaration = DigitalAssetDeclaration(
@@ -72,13 +80,17 @@ class DigitalAssetDeclaration:
     backup_policy_id: BackupPolicyID | None = None
 
     def __post_init__(self) -> None:
-        """Require a valid size-and-digest identity.
+        """
+        Require a valid size-and-digest identity.
 
         Example:
             >>> DigitalAssetDeclaration(1, ())
             Traceback (most recent call last):
             ...
             ValueError: a Digital Asset requires at least one digest.
+
+
+        :return:
         """
 
         validate_asset_identity(self.size_bytes, self.digests)
@@ -86,7 +98,8 @@ class DigitalAssetDeclaration:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetRecord:
-    """Manager-maintained facts about one atomic byte identity.
+    """
+    Manager-maintained facts about one atomic byte identity.
 
     Example:
         >>> record = DigitalAssetRecord(
@@ -107,7 +120,8 @@ class DigitalAssetRecord:
     revision: str | None = None
 
     def __post_init__(self) -> None:
-        """Validate identity and the optional optimistic-lock revision.
+        """
+        Validate identity and the optional optimistic-lock revision.
 
         Example:
             >>> DigitalAssetRecord(
@@ -116,6 +130,9 @@ class DigitalAssetRecord:
             Traceback (most recent call last):
             ...
             ValueError: digital_asset_id must be positive.
+
+
+        :return:
         """
 
         if self.digital_asset_id <= 0:
@@ -129,10 +146,16 @@ def validate_asset_identity(
     size_bytes: int,
     digests: tuple[Digest, ...],
 ) -> None:
-    """Validate the size-and-digest identity shared by inputs and records.
+    """
+    Validate the size-and-digest identity shared by inputs and records.
 
     Example:
         >>> validate_asset_identity(1, (Digest("sha256", "aa"),))
+
+
+    :param size_bytes:
+    :param digests:
+    :return:
     """
 
     if size_bytes < 0:
@@ -148,6 +171,7 @@ def validate_unique_digests(digests: tuple[Digest, ...]) -> None:
 
     Example:
         >>> validate_unique_digests((Digest("sha256", "aa"),))
+
 
     :param digests:
     :return:

@@ -1,3 +1,5 @@
+"""Database facade contracts for traversing linked catalogue rows."""
+
 from __future__ import annotations
 
 import abc

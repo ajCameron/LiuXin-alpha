@@ -31,12 +31,16 @@ def _annotation_text(annotation: Any) -> str | None:
 
 @dataclasses.dataclass(frozen=True)
 class CorePayloadFieldDescription:
+    """Serializable description of one structured endpoint payload field."""
+
     name: str
     required: bool = False
     field_type: str | None = None
     description: str = ""
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the transport-safe mapping exposed by Core introspection."""
+
         return {
             "name": str(self.name),
             "required": bool(self.required),
@@ -47,6 +51,8 @@ class CorePayloadFieldDescription:
 
 @dataclasses.dataclass(frozen=True)
 class CoreParameterDescription:
+    """Serializable description of one callable Core method parameter."""
+
     name: str
     kind: str
     required: bool = True
@@ -54,6 +60,8 @@ class CoreParameterDescription:
     annotation: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the transport-safe parameter description."""
+
         return {
             "name": str(self.name),
             "kind": str(self.kind),
@@ -65,6 +73,8 @@ class CoreParameterDescription:
 
 @dataclasses.dataclass(frozen=True)
 class CoreEndpointDescription:
+    """Serializable description of one named Core endpoint."""
+
     name: str
     kind: str
     summary: str = ""
@@ -74,6 +84,8 @@ class CoreEndpointDescription:
     transport_stable: bool = True
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the transport-safe endpoint description."""
+
         return {
             "name": str(self.name),
             "kind": str(self.kind),
@@ -87,6 +99,8 @@ class CoreEndpointDescription:
 
 @dataclasses.dataclass(frozen=True)
 class CoreMethodDescription:
+    """Serializable description of one method on a Core target."""
+
     name: str
     write: bool
     summary: str = ""
@@ -95,6 +109,8 @@ class CoreMethodDescription:
     return_annotation: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the transport-safe method description."""
+
         return {
             "name": str(self.name),
             "write": bool(self.write),
@@ -107,6 +123,8 @@ class CoreMethodDescription:
 
 @dataclasses.dataclass(frozen=True)
 class CoreTargetDescription:
+    """Serializable description of one command/query dispatch target."""
+
     name: str
     aliases: tuple[str, ...] = ()
     summary: str = ""
@@ -114,6 +132,8 @@ class CoreTargetDescription:
     methods: tuple[CoreMethodDescription, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the transport-safe target and its method descriptions."""
+
         return {
             "name": str(self.name),
             "aliases": [str(alias) for alias in self.aliases],

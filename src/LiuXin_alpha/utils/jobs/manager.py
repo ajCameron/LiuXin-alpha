@@ -42,6 +42,7 @@ class ManagedJob:
     log_path: str | None = None
     backend_name: str | None = None
     label: str | None = None
+    retry_of_job_id: str | None = None
     execution: JobExecution | None = None
 
     @property
@@ -99,6 +100,17 @@ class JobManagerAPI:
     def cancel(self, job_id: str) -> bool:
         raise NotImplementedError
 
+    def retry(
+        self,
+        job_id: str,
+        *,
+        label: str | None = None,
+        allow_succeeded: bool = False,
+    ) -> str:
+        """Submit a new run of one completed job without rewriting history."""
+
+        raise NotImplementedError
+
     def shutdown(self, *, wait: bool = True, cancel_pending: bool = False) -> None:
         raise NotImplementedError
 
@@ -127,6 +139,7 @@ class InMemoryJobManager(JobManagerAPI):
         heartbeat: Callable[[], bool] | None = None,
         backend: str | JobBackend | None = None,
         label: str | None = None,
+        retry_of_job_id: str | None = None,
     ) -> str:
         with self._lock:
             if self._closed:
@@ -143,6 +156,7 @@ class InMemoryJobManager(JobManagerAPI):
                 log_path=(None if no_output else allocate_job_log_path()),
                 backend_name=self._backend_name(backend),
                 label=label,
+                retry_of_job_id=retry_of_job_id,
             )
             runtime = _RuntimeJob(info=info)
             self._jobs[job_id] = runtime
@@ -285,6 +299,38 @@ class InMemoryJobManager(JobManagerAPI):
                 return True
             return True
 
+    def retry(
+        self,
+        job_id: str,
+        *,
+        label: str | None = None,
+        allow_succeeded: bool = False,
+    ) -> str:
+        """Replay one terminal request as a new, linked managed job."""
+
+        original = self.get(job_id)
+        if not original.done:
+            raise ValueError(
+                "Job {!r} is still {}; only terminal jobs can be retried."
+                .format(job_id, original.state)
+            )
+        if original.state == "succeeded" and not allow_succeeded:
+            raise ValueError(
+                "Job {!r} succeeded; pass allow_succeeded=True to replay it."
+                .format(job_id)
+            )
+        backend: str | None = original.backend_name
+        if backend in {None, "", "auto"}:
+            backend = None
+        return self.submit(
+            original.request,
+            timeout=original.timeout_s,
+            no_output=original.no_output,
+            backend=backend,
+            label=label if label is not None else original.label,
+            retry_of_job_id=original.job_id,
+        )
+
     def shutdown(self, *, wait: bool = True, cancel_pending: bool = False) -> None:
         with self._lock:
             self._closed = True
@@ -315,6 +361,7 @@ class InMemoryJobManager(JobManagerAPI):
             log_path=info.log_path,
             backend_name=info.backend_name,
             label=info.label,
+            retry_of_job_id=info.retry_of_job_id,
             execution=info.execution,
         )
 

@@ -15,6 +15,9 @@ from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting imp
 
 
 class ManifestationIdentity(ManifestationIdentityAPI):
+    """
+    Represent a Manifestation identity and its edition, carrier, and extent fields.
+    """
     def __init__(
         self,
         *,

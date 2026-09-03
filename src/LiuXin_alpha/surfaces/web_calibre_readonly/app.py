@@ -514,6 +514,8 @@ code {
 
 @dataclass(frozen=True)
 class CalibreReadOnlyWebConfig(ReadOnlyWebConfig):
+    """Configuration for the Calibre-compatible read-only web surface."""
+
     title: str = "LiuXin Calibre-Style Read-Only Web"
     opds_max_ungrouped_items: int = 100
 
@@ -1600,6 +1602,12 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Build the Calibre-compatible web surface command-line parser.
+
+
+    :return:
+    """
     parser = argparse.ArgumentParser(
         description="Run the LiuXin Calibre-style read-only web interface.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1620,6 +1628,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """
+    Run the web calibre readonly command-line entry point.
+
+
+    :param argv:
+    :return:
+    """
     parser = build_arg_parser()
     args = parser.parse_args(argv)
     config = CalibreReadOnlyWebConfig(

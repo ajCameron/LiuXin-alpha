@@ -322,6 +322,9 @@ class KindSubjectsContainer(MetadataSequenceStringMixin, Generic[SubjectT], abc.
 
 @dataclass(slots=True, kw_only=True)
 class WorkKindSubjectsContainer(KindSubjectsContainer[WorkSubject]):
+    """
+    Collect subject assertions of one kind for a Work.
+    """
     target_kind: ClassVar[str] = "work"
 
     @property
@@ -331,6 +334,9 @@ class WorkKindSubjectsContainer(KindSubjectsContainer[WorkSubject]):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionKindSubjectsContainer(KindSubjectsContainer[ExpressionSubject]):
+    """
+    Collect subject assertions of one kind for an Expression.
+    """
     target_kind: ClassVar[str] = "expression"
 
     @property
@@ -340,6 +346,9 @@ class ExpressionKindSubjectsContainer(KindSubjectsContainer[ExpressionSubject]):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationKindSubjectsContainer(KindSubjectsContainer[ManifestationSubject]):
+    """
+    Collect subject assertions of one kind for a Manifestation.
+    """
     target_kind: ClassVar[str] = "manifestation"
 
     @property
@@ -349,6 +358,9 @@ class ManifestationKindSubjectsContainer(KindSubjectsContainer[ManifestationSubj
 
 @dataclass(slots=True, kw_only=True)
 class ItemKindSubjectsContainer(KindSubjectsContainer[ItemSubject]):
+    """
+    Collect subject assertions of one kind for an Item.
+    """
     target_kind: ClassVar[str] = "item"
 
     @property
@@ -454,6 +466,9 @@ class WorkSubjectsContainer(
         WorkKindSubjectsContainer,
     ]
 ):
+    """
+    Group every typed subject assertion attached to a Work.
+    """
     work_id: WorkID
 
     @property
@@ -475,6 +490,9 @@ class ExpressionSubjectsContainer(
         ExpressionKindSubjectsContainer,
     ]
 ):
+    """
+    Group every typed subject assertion attached to an Expression.
+    """
     expression_id: ExpressionID
 
     @property
@@ -502,6 +520,9 @@ class ManifestationSubjectsContainer(
         ManifestationKindSubjectsContainer,
     ]
 ):
+    """
+    Group every typed subject assertion attached to a Manifestation.
+    """
     manifestation_id: ManifestationID
 
     @property
@@ -529,6 +550,9 @@ class ItemSubjectsContainer(
         ItemKindSubjectsContainer,
     ]
 ):
+    """
+    Group every typed subject assertion attached to an Item.
+    """
     item_id: ItemID
 
     @property

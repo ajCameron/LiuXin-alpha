@@ -120,6 +120,37 @@ def run(seconds):
         manager.shutdown(wait=True, cancel_pending=True)
 
 
+def test_core_runtime_jobs_retry_creates_a_linked_run() -> None:
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    try:
+        runtime = _build_runtime_with_manager(manager)
+        original_id = manager.submit(
+            JobRequest(module_name="math", function_name="sqrt", args=(100,)),
+            no_output=True,
+            label="sqrt100",
+        )
+        manager.wait(original_id, timeout=2.0)
+
+        retried = runtime.command(
+            "jobs.retry",
+            {
+                "job_id": original_id,
+                "allow_succeeded": True,
+                "label": "sqrt100-retry",
+            },
+        )
+        retry_id = str(retried["job_id"])
+        finished = manager.wait(retry_id, timeout=2.0)
+
+        assert retried["retry_of_job_id"] == original_id
+        assert finished.retry_of_job_id == original_id
+        assert finished.label == "sqrt100-retry"
+        shown = runtime.query("jobs.get", {"job_id": retry_id})["job"]
+        assert shown["retry_of_job_id"] == original_id
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+
 def test_core_runtime_jobs_expose_result_and_bounded_log_content() -> None:
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
     try:

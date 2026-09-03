@@ -8,7 +8,7 @@ VENV_PYTHON="${VENV_DIR}/bin/python"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 CREATE_VENV=0
 RECREATE_VENV=0
-SKIP_INSTALL=0
+INSTALL=0
 DRY_RUN=0
 RUN_BASEDPYRIGHT=1
 RUN_MYPY=1
@@ -27,7 +27,8 @@ Options:
   --create-venv           Create/reuse .venv via scripts/create_venv.sh first
   --new-venv              Recreate .venv via scripts/create_venv.sh first
   --python <path>         Python interpreter for --create-venv/--new-venv
-  --skip-install          Skip installing the typing extra
+  --install               Install/update the typing extra before checking
+  --skip-install          Compatibility alias for the offline default
   --dry-run               Print commands without executing them
   -h, --help              Show this help
 
@@ -36,6 +37,7 @@ Extra tool args after "--" are allowed only when a single checker is selected.
 Examples:
   scripts/run_type_checks.sh
   scripts/run_type_checks.sh --create-venv
+  scripts/run_type_checks.sh --install
   scripts/run_type_checks.sh --basedpyright -- --verbose
   scripts/run_type_checks.sh --mypy -- --show-traceback
 EOF
@@ -82,7 +84,11 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --skip-install)
-            SKIP_INSTALL=1
+            INSTALL=0
+            shift
+            ;;
+        --install)
+            INSTALL=1
             shift
             ;;
         --dry-run)
@@ -119,10 +125,54 @@ fi
 PIP_INSTALL_CMD=("${VENV_PYTHON}" -m pip install -e ".[typing]")
 BASEDPYRIGHT_CMD=("${VENV_DIR}/bin/basedpyright")
 MYPY_CMD=("${VENV_DIR}/bin/mypy")
+RUFF_CMD=(
+    "${VENV_DIR}/bin/ruff"
+    "check"
+    "src/LiuXin_alpha/core/program_endpoints"
+    "src/LiuXin_alpha/ingest/mixed_application.py"
+    "src/LiuXin_alpha/catalog/write/host_api.py"
+    "src/LiuXin_alpha/catalog/api/metadata_tools_api/facades.py"
+    "src/LiuXin_alpha/storage/storage_manager/manager.py"
+    "src/LiuXin_alpha/storage/storage_manager/mixins"
+    "scripts/check_modern_import_cycles.py"
+    "tests/scripts/test_check_modern_import_cycles.py"
+    "tests/scripts/test_public_documentation_boundaries.py"
+    "tests/scripts/test_run_type_checks.py"
+    "tests/storage/api/test_storage_manager_composition.py"
+    "tests/storage/api/test_storage_manager_docstrings.py"
+)
 FILE_FORMAT_ANNOTATION_CMD=(
     "${VENV_PYTHON}"
     "${REPO_ROOT}/scripts/annotate_file_formats.py"
     "--check"
+)
+IMPORT_CYCLE_CMD=(
+    "${VENV_PYTHON}"
+    "${REPO_ROOT}/scripts/check_modern_import_cycles.py"
+)
+MODERN_COMPLEXITY_CMD=(
+    "${VENV_DIR}/bin/ruff"
+    "check"
+    "--select"
+    "C901"
+    "--config"
+    "lint.mccabe.max-complexity=10"
+    "src/LiuXin_alpha/core/program_endpoints"
+    "src/LiuXin_alpha/ingest/mixed_application.py"
+    "src/LiuXin_alpha/catalog/write/host_api.py"
+    "src/LiuXin_alpha/catalog/api/metadata_tools_api/facades.py"
+    "src/LiuXin_alpha/surfaces/cli/storage.py"
+    "scripts/check_modern_import_cycles.py"
+)
+STORAGE_MANAGER_COMPLEXITY_CMD=(
+    "${VENV_DIR}/bin/ruff"
+    "check"
+    "--select"
+    "C901"
+    "--config"
+    "lint.mccabe.max-complexity=15"
+    "src/LiuXin_alpha/storage/storage_manager/manager.py"
+    "src/LiuXin_alpha/storage/storage_manager/mixins"
 )
 
 if [[ ${RUN_BASEDPYRIGHT} -eq 1 && ${RUN_MYPY} -eq 0 && ${#TOOL_ARGS[@]} -gt 0 ]]; then
@@ -138,7 +188,7 @@ if [[ ${CREATE_VENV} -eq 1 ]]; then
     print_cmd "${CREATE_VENV_CMD[@]}"
 fi
 
-if [[ ${CREATE_VENV} -eq 0 && ${SKIP_INSTALL} -eq 0 ]]; then
+if [[ ${CREATE_VENV} -eq 0 && ${INSTALL} -eq 1 ]]; then
     printf 'Install step: '
     print_cmd "${PIP_INSTALL_CMD[@]}"
 fi
@@ -152,8 +202,16 @@ if [[ ${RUN_MYPY} -eq 1 ]]; then
     printf 'mypy step: '
     print_cmd "${MYPY_CMD[@]}"
 fi
+printf 'modern lint step: '
+print_cmd "${RUFF_CMD[@]}"
 printf 'file_formats annotation step: '
 print_cmd "${FILE_FORMAT_ANNOTATION_CMD[@]}"
+printf 'modern import-cycle step: '
+print_cmd "${IMPORT_CYCLE_CMD[@]}"
+printf 'modern complexity step: '
+print_cmd "${MODERN_COMPLEXITY_CMD[@]}"
+printf 'storage-manager complexity step: '
+print_cmd "${STORAGE_MANAGER_COMPLEXITY_CMD[@]}"
 
 if [[ ${DRY_RUN} -eq 1 ]]; then
     exit 0
@@ -170,23 +228,32 @@ if [[ ! -x "${VENV_PYTHON}" ]]; then
     exit 1
 fi
 
-if [[ ${CREATE_VENV} -eq 0 && ${SKIP_INSTALL} -eq 0 ]]; then
+if [[ ${CREATE_VENV} -eq 0 && ${INSTALL} -eq 1 ]]; then
     "${PIP_INSTALL_CMD[@]}"
 fi
 
 if [[ ${RUN_BASEDPYRIGHT} -eq 1 && ! -x "${VENV_DIR}/bin/basedpyright" ]]; then
-    echo "Expected basedpyright at ${VENV_DIR}/bin/basedpyright. Run without --skip-install or install the typing extra." >&2
+    echo "Expected basedpyright at ${VENV_DIR}/bin/basedpyright. Re-run with --install or create the typing venv." >&2
     exit 1
 fi
 
 if [[ ${RUN_MYPY} -eq 1 && ! -x "${VENV_DIR}/bin/mypy" ]]; then
-    echo "Expected mypy at ${VENV_DIR}/bin/mypy. Run without --skip-install or install the typing extra." >&2
+    echo "Expected mypy at ${VENV_DIR}/bin/mypy. Re-run with --install or create the typing venv." >&2
+    exit 1
+fi
+
+if [[ ! -x "${VENV_DIR}/bin/ruff" ]]; then
+    echo "Expected ruff at ${VENV_DIR}/bin/ruff. Re-run with --install or create the typing venv." >&2
     exit 1
 fi
 
 STATUS=0
 
 "${FILE_FORMAT_ANNOTATION_CMD[@]}"
+"${IMPORT_CYCLE_CMD[@]}"
+"${RUFF_CMD[@]}"
+"${MODERN_COMPLEXITY_CMD[@]}"
+"${STORAGE_MANAGER_COMPLEXITY_CMD[@]}"
 
 if [[ ${RUN_BASEDPYRIGHT} -eq 1 ]]; then
     set +e

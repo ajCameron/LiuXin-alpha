@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class SeriesRow(MetadataTableRow):
+    """
+    Represent a hierarchical series vocabulary row.
+    """
     TABLE_NAME: ClassVar[str] = "series"
     ID_COLUMN: ClassVar[str] = "series_id"
 

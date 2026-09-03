@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import importlib
 import json
 import sys
 
@@ -54,9 +55,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _open_library(**kwargs: object):
     """Import the large library surface only after argument validation."""
-    from LiuXin_alpha.library import Library
-
-    return Library(**kwargs)
+    library_module = importlib.import_module("LiuXin_alpha.library")
+    return library_module.Library(**kwargs)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

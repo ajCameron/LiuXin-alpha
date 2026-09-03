@@ -1,6 +1,6 @@
 
 """
-CALIBRE
+Legacy Calibre-shaped storage-table cache contracts.
 
 The cache is mostly for display and fast UI work.
 

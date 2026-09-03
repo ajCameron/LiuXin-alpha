@@ -81,6 +81,9 @@ class ResourceBase(MetadataValueStringMixin, abc.ABC):
 
 @dataclass(slots=True, kw_only=True)
 class WorkResource(ResourceBase):
+    """
+    Represent one typed external resource attached to a Work.
+    """
     work_id: WorkID
     canonical_for_work: bool = False
 
@@ -100,6 +103,9 @@ class WorkResource(ResourceBase):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionResource(ResourceBase):
+    """
+    Represent one typed external resource attached to an Expression.
+    """
     expression_id: ExpressionID
     applies_to_realisation: bool = True
 
@@ -119,6 +125,9 @@ class ExpressionResource(ResourceBase):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationResource(ResourceBase):
+    """
+    Represent one typed external resource attached to a Manifestation.
+    """
     manifestation_id: ManifestationID
     edition_specific: bool = True
 
@@ -138,6 +147,9 @@ class ManifestationResource(ResourceBase):
 
 @dataclass(slots=True, kw_only=True)
 class ItemResource(ResourceBase):
+    """
+    Represent one typed external resource attached to an Item.
+    """
     item_id: ItemID
     copy_specific: bool = True
 
@@ -157,6 +169,9 @@ class ItemResource(ResourceBase):
 
 @dataclass(slots=True, kw_only=True)
 class KindResourcesContainer(MetadataSequenceStringMixin, Generic[ResourceT], abc.ABC):
+    """
+    Manage ordered external resources of one kind for a WEMI target.
+    """
     resource_kind: ResourceKind
     target_id: int
     _resources: list[ResourceT] = field(default_factory=list)
@@ -239,21 +254,33 @@ class KindResourcesContainer(MetadataSequenceStringMixin, Generic[ResourceT], ab
 
 @dataclass(slots=True, kw_only=True)
 class WorkKindResourcesContainer(KindResourcesContainer[WorkResource]):
+    """
+    Collect resources of one kind for a Work.
+    """
     target_kind: Literal["work"] = "work"
 
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionKindResourcesContainer(KindResourcesContainer[ExpressionResource]):
+    """
+    Collect resources of one kind for an Expression.
+    """
     target_kind: Literal["expression"] = "expression"
 
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationKindResourcesContainer(KindResourcesContainer[ManifestationResource]):
+    """
+    Collect resources of one kind for a Manifestation.
+    """
     target_kind: Literal["manifestation"] = "manifestation"
 
 
 @dataclass(slots=True, kw_only=True)
 class ItemKindResourcesContainer(KindResourcesContainer[ItemResource]):
+    """
+    Collect resources of one kind for an Item.
+    """
     target_kind: Literal["item"] = "item"
 
 
@@ -263,6 +290,9 @@ class BaseTargetResourcesContainer(
     Generic[ResourceT, KindContainerT],
     abc.ABC,
 ):
+    """
+    Group all external resources for one WEMI target by resource kind.
+    """
     _by_kind: dict[ResourceKind, KindContainerT] = field(default_factory=dict)
     STRING_COUNT_LABEL = "resources"
 
@@ -321,6 +351,9 @@ class BaseTargetResourcesContainer(
 
 @dataclass(slots=True, kw_only=True)
 class WorkResourcesContainer(BaseTargetResourcesContainer[WorkResource, WorkKindResourcesContainer]):
+    """
+    Group every typed external resource attached to a Work.
+    """
     work_id: WorkID
 
     @property
@@ -337,6 +370,9 @@ class WorkResourcesContainer(BaseTargetResourcesContainer[WorkResource, WorkKind
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionResourcesContainer(BaseTargetResourcesContainer[ExpressionResource, ExpressionKindResourcesContainer]):
+    """
+    Group every typed external resource attached to an Expression.
+    """
     expression_id: ExpressionID
 
     @property
@@ -353,6 +389,9 @@ class ExpressionResourcesContainer(BaseTargetResourcesContainer[ExpressionResour
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationResourcesContainer(BaseTargetResourcesContainer[ManifestationResource, ManifestationKindResourcesContainer]):
+    """
+    Group every typed external resource attached to a Manifestation.
+    """
     manifestation_id: ManifestationID
 
     @property
@@ -369,6 +408,9 @@ class ManifestationResourcesContainer(BaseTargetResourcesContainer[Manifestation
 
 @dataclass(slots=True, kw_only=True)
 class ItemResourcesContainer(BaseTargetResourcesContainer[ItemResource, ItemKindResourcesContainer]):
+    """
+    Group every typed external resource attached to an Item.
+    """
     item_id: ItemID
 
     @property

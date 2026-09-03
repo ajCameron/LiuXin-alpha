@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Shared database setup, timing, and reporting helpers for benchmarks."""
+
 from __future__ import annotations
 
 import json
@@ -48,6 +50,8 @@ ProgressCallback = Callable[[str], None]
 
 @dataclass(frozen=True)
 class BenchmarkDatabaseHandle:
+    """Resolved benchmark database plus any temporary provision root."""
+
     source: str
     db_path: Path
     provision_root: Optional[Path] = None

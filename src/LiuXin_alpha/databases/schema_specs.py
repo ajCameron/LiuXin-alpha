@@ -1,9 +1,5 @@
 
-"""
-Specifications for elements of the schema.
-
-We need to be able to describe the
-"""
+"""Portable immutable descriptions of database tables, columns, and links."""
 
 from __future__ import annotations
 
@@ -14,6 +10,8 @@ from typing import Any, Iterable, Mapping, Optional
 
 # Todo: This isn't a super descriptive name at the moment - TableKind might be better?
 class RelationKind(str, Enum):
+    """Distinguish physical tables from database views."""
+
     TABLE = "table"
     VIEW = "view"
 
@@ -93,12 +91,9 @@ class LinkCapabilities:
         return LinkKind.PLAIN
 
 
-# Todo: Check this doc string is accurate
 @dataclass(frozen=True, slots=True)
 class StorageColumnSpec:
-    """
-    Represents a column in a table on the schema.
-    """
+    """Describe one introspected physical column without driver row objects."""
     name: str
     ordinal: int
     declared_type: Optional[str] = None
@@ -114,9 +109,7 @@ class StorageColumnSpec:
 
 @dataclass(frozen=True, slots=True)
 class StorageTableSpec:
-    """
-    Represents a table in the schema.
-    """
+    """Describe one table or view and its LiuXin catalogue roles."""
     name: str
     relation_kind: RelationKind
     columns: tuple[StorageColumnSpec, ...]
@@ -135,11 +128,7 @@ class StorageTableSpec:
 
 @dataclass(frozen=True, slots=True)
 class StorageLinkSpec:
-    """
-    Represents a link in the schema.
-
-    These are the properties of a link between two tables.
-    """
+    """Describe the endpoints, identity, capabilities, and ownership of a link."""
     primary_table: str
     secondary_table: str
     link_table: str
@@ -170,9 +159,10 @@ class StorageLinkSpec:
     extra_link_columns: tuple[StorageColumnSpec, ...] = ()
 
 
-# Todo: Not very sure what this does?
 @dataclass(frozen=True, slots=True)
 class StorageSchemaSpec:
+    """Immutable complete schema graph returned by portable introspection."""
+
     tables: Mapping[str, StorageTableSpec]
     interlinks: tuple[StorageLinkSpec, ...]
     intralinks: tuple[StorageLinkSpec, ...]

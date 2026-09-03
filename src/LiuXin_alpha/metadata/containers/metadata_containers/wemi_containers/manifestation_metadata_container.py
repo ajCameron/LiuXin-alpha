@@ -28,6 +28,9 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projec
 
 
 class ManifestationMetadata(ManifestationMetadataAPI):
+    """
+    Provide the editable relationship bundle surrounding a Manifestation identity.
+    """
     def __init__(self, *, manifestation: Optional[ManifestationIdentityAPI] = None, relation_links: Optional[Mapping[str, Iterable[ManifestationRelationLink]]] = None) -> None:
         self._manifestation = manifestation
         self._relation_links: dict[ManifestationRelationKey, list[ManifestationRelationLink]] = {relation_key: [] for relation_key in self.RELATION_KEYS}

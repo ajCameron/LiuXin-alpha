@@ -159,7 +159,8 @@ class StorageRouterAPI(abc.ABC):
         ...
 
     def characteristics(self, store_ref: StoreUUID) -> StorageCharacteristics:
-        """Return structured constraints for a configured Store when known.
+        """
+        Return structured constraints for a configured Store when known.
 
         Minimal routers may retain this unknown-safe default. Full managers
         override it and delegate to the selected Store's optional contract.
@@ -167,6 +168,7 @@ class StorageRouterAPI(abc.ABC):
         Example:
             >>> manager.characteristics(UUID(int=1)).publication_model  # doctest: +SKIP
             <StoragePublicationModel.UNKNOWN: 'unknown'>
+
 
         :param store_ref: Configured Store UUID.
         :return: Structured characteristics or an explicitly unknown profile.

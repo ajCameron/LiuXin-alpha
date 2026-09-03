@@ -36,13 +36,15 @@ DEFAULT_PATH_IN_REPO = "src/calibre/db/tests/metadata.db"
 
 @dataclass(frozen=True)
 class TagInfo:
+    """Resolved upstream Calibre tag, commit, and publication timestamp."""
+
     tag: str
     commit: str
     commit_date_iso: str
 
 
 class GitError(RuntimeError):
-    pass
+    """Raised when an upstream repository operation cannot be completed."""
 
 
 def run_git(repo: Path, args: list[str], *, check: bool = True) -> subprocess.CompletedProcess:

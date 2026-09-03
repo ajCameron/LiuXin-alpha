@@ -10,6 +10,9 @@ from ._row_base import MetadataTableRow
 
 @dataclass(slots=True, kw_only=True)
 class NoteRow(MetadataTableRow):
+    """
+    Represent a reusable free-text note row.
+    """
     TABLE_NAME: ClassVar[str] = "notes"
     ID_COLUMN: ClassVar[str] = "note_id"
 

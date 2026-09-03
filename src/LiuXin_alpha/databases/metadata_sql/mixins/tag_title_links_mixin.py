@@ -1,7 +1,11 @@
+"""Metadata SQL macros for tag-to-title relationships."""
+
 
 
 
 class CMTagTitleLinkMacros:
+    """Implement tag-to-title relationship macros."""
+
 
 
     def break_tag_title_link(self, tag_id, title_id):

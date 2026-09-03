@@ -28,6 +28,13 @@ class WgetResult:
 
 
 def which_wget(exe: str = "wget") -> str:
+    """
+    Return the available wget executable path, if any.
+
+
+    :param exe:
+    :return:
+    """
     path = shutil.which(exe)
     if not path:
         raise WgetNotInstalledError(
@@ -47,6 +54,20 @@ def run_wget(
     line_callback: Callable[[str], None] | None = None,
     max_output_chars: int | None = 8 * 1024 * 1024,
 ) -> WgetResult:
+    """
+    Run wget with bounded output capture and return its completed process.
+
+
+    :param args:
+    :param wget_exe:
+    :param extra_args:
+    :param env:
+    :param timeout_s:
+    :param check:
+    :param line_callback:
+    :param max_output_chars:
+    :return:
+    """
     if max_output_chars is not None and max_output_chars < 1:
         raise ValueError("max_output_chars must be positive or None.")
     exe = which_wget(wget_exe)
@@ -195,6 +216,13 @@ def _normalize_url(url: str) -> str | None:
 
 
 def extract_http_urls_from_wget_output(output: str) -> list[str]:
+    """
+    Extract unique HTTP URLs from wget diagnostic output.
+
+
+    :param output:
+    :return:
+    """
     urls: list[str] = []
     seen: set[str] = set()
     for raw in _URL_TOKEN_PATTERN.findall(str(output or "")):

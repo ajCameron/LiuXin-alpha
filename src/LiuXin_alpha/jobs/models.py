@@ -15,12 +15,16 @@ from typing import Any
 
 
 class JobDefinitionState(StrEnum):
+    """Operator-controlled scheduling state of a durable job definition."""
+
     ENABLED = "enabled"
     PAUSED = "paused"
     DISABLED = "disabled"
 
 
 class JobRunState(StrEnum):
+    """Lifecycle state of one concrete job execution attempt."""
+
     QUEUED = "queued"
     LEASED = "leased"
     RUNNING = "running"
@@ -32,6 +36,8 @@ class JobRunState(StrEnum):
 
 
 class JobTriggerKind(StrEnum):
+    """Reason a job run was placed on the execution queue."""
+
     MANUAL = "manual"
     SCHEDULED = "scheduled"
     DEPENDENCY = "dependency"
@@ -39,6 +45,8 @@ class JobTriggerKind(StrEnum):
 
 
 class JobConcurrencyPolicy(StrEnum):
+    """Resolve scheduling when the same definition already has a live run."""
+
     ALLOW_PARALLEL = "allow_parallel"
     SKIP_IF_RUNNING = "skip_if_running"
     REPLACE_RUNNING = "replace_running"
@@ -46,12 +54,16 @@ class JobConcurrencyPolicy(StrEnum):
 
 
 class JobResultPolicy(StrEnum):
+    """Retention policy for completed job-run results."""
+
     KEEP_ALL = "keep_all"
     KEEP_FAILURES = "keep_failures"
     KEEP_LATEST_ONLY = "keep_latest_only"
 
 
 class JobEventKind(StrEnum):
+    """Kinds of append-only operational events emitted by a job run."""
+
     CREATED = "created"
     QUEUED = "queued"
     LEASED = "leased"
@@ -67,6 +79,8 @@ class JobEventKind(StrEnum):
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class JobDefinition:
+    """Durable configuration describing what, when, and how a job should run."""
+
     job_kind: str
     job_name: str
     payload_json: str
@@ -89,6 +103,8 @@ class JobDefinition:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class JobRun:
+    """Durable state for one leased or completed execution attempt."""
+
     job_kind: str
     job_definition_id: int
     trigger_kind: JobTriggerKind = JobTriggerKind.MANUAL
@@ -114,6 +130,8 @@ class JobRun:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class JobProgressUpdate:
+    """Partial progress observation supplied by a running job handler."""
+
     progress_current: int | None = None
     progress_total: int | None = None
     progress_unit: str | None = None
@@ -122,6 +140,8 @@ class JobProgressUpdate:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class JobRunEvent:
+    """Append-only event associated with one durable job run."""
+
     job_run_id: int
     event_kind: JobEventKind
     event_message: str | None = None
@@ -132,6 +152,8 @@ class JobRunEvent:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class JobResult:
+    """Handler result payload normalized for jobs-engine persistence."""
+
     ok: bool
     result: dict[str, Any] | None = None
     error_text: str | None = None
@@ -139,6 +161,8 @@ class JobResult:
 
 
 def now_ep_k() -> int:
+    """Return the current Unix timestamp in LiuXin's millisecond epoch form."""
+
     return int(time.time() * 1000)
 
 
