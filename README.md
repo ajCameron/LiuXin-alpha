@@ -2,6 +2,35 @@
 
 Public, development fork of LiuXin. Alpha. DO NOT USE IN PROD.
 
+## Installation
+
+LiuXin-alpha requires Python 3.12 or newer. Install the current development
+version directly from GitHub with:
+
+```bash
+python3 -m pip install "liuxin-alpha @ git+https://github.com/ajCameron/LiuXin-alpha.git"
+```
+
+An unpacked checkout can be installed in the same way with
+`python3 -m pip install .`. The installation provides these commands:
+
+- `liuxin` — terminal database browser
+- `liuxin-cli` — operational CLI surfaces
+- `liuxin-storage-audit` — portable, SQLite-only storage-drive audit
+
+For example, to scan a drive on a machine with no PostgreSQL service:
+
+```bash
+liuxin-storage-audit \
+  --database ./storage-drive-audit.sqlite3 \
+  --disk-root /path/to/mounted/storage-drive \
+  --store-name portable-storage-audit
+```
+
+The audit command creates the local SQLite database if needed, hashes ebook
+files by default, and only reads the mounted drive. Use `--no-hash` for a
+faster metadata-only pass. Run `liuxin-storage-audit --help` for all options.
+
 ## Local Setup
 
 LiuXin-alpha expects Python 3.12 or newer.
