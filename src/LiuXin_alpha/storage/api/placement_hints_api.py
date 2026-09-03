@@ -1,21 +1,11 @@
-"""Storage-owned placement hint models and metadata projection helpers.
-
-Examples:
-    Supply explicit hints when a caller already knows the desired path::
-
-        hints = ItemStorageHints(
-            title="A Book",
-            primary_agents=("A. Writer",),
-            preferred_folder_tokens=("A. Writer", "A Book"),
-        )
-"""
+"""Storage-owned placement hint models and metadata projection helpers."""
 
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
-from typing import Protocol, TypeAlias, runtime_checkable
+from typing import Protocol, TypeAlias, cast, runtime_checkable
 
 StorageHintScalar: TypeAlias = str | int | float | bool | None
 StorageHintValue: TypeAlias = (
@@ -30,14 +20,12 @@ MutableStorageHintRecord: TypeAlias = dict[str, StorageHintValue]
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class WorkStorageHints:
-    """Storage-facing projection of work metadata for placement decisions.
+    """
+    Storage-facing projection of work metadata for placement decisions.
 
-    Examples:
-        Describe a work without exposing its full metadata container::
-
-            hints = WorkStorageHints(
-                work_id=3, title="A Book", primary_agents=("A. Writer",)
-            )
+    Example:
+        >>> WorkStorageHints(title="Permutation City").title
+        'Permutation City'
     """
 
     work_id: int | None = None
@@ -59,27 +47,24 @@ class WorkStorageHints:
     extra: StorageHintRecord = dataclasses.field(default_factory=dict)
 
     def to_mapping(self) -> MutableStorageHintRecord:
-        """Return a mutable dictionary representation of these hints.
+        """
+        Return an ordinary mapping suitable for Store-specific inspection.
 
-        Examples:
-            Pass a plain mapping to a placement rule::
-
-                values = hints.to_mapping()
-                title = values["title"]
+        Example:
+            >>> WorkStorageHints(work_id=5).to_mapping()["work_id"]
+            5
         """
         return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ExpressionStorageHints:
-    """Storage-facing projection of expression metadata for placement decisions.
+    """
+    Storage-facing projection of expression metadata for placement decisions.
 
-    Examples:
-        Describe a translated expression::
-
-            hints = ExpressionStorageHints(
-                expression_id=5, title="Un livre", language_code="fr"
-            )
+    Example:
+        >>> ExpressionStorageHints(language_code="en").language_code
+        'en'
     """
 
     expression_id: int | None = None
@@ -95,33 +80,30 @@ class ExpressionStorageHints:
     extra: StorageHintRecord = dataclasses.field(default_factory=dict)
 
     def to_mapping(self) -> MutableStorageHintRecord:
-        """Return a mutable dictionary representation of these hints.
+        """
+        Return an ordinary mapping suitable for Store-specific inspection.
 
-        Examples:
-            Read the projected language through a generic mapping::
-
-                language = hints.to_mapping()["language_code"]
+        Example:
+            >>> ExpressionStorageHints(work_id=5).to_mapping()["work_id"]
+            5
         """
         return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ManifestationStorageHints:
-    """Storage-facing projection of manifestation metadata for placement decisions.
+    """
+    Storage-facing projection of manifestation metadata for placement decisions.
 
-    Examples:
-        Describe one EPUB manifestation::
-
-            hints = ManifestationStorageHints(
-                manifestation_id=8, format_detail="EPUB", publication_year=2026
-            )
+    Example:
+        >>> ManifestationStorageHints(format_detail="EPUB").format_detail
+        'EPUB'
     """
 
     manifestation_id: int | None = None
     expression_id: int | None = None
     title: str | None = None
     edition_statement: str | None = None
-    # Specific format/product label, e.g. EPUB, PDF, or A-format paperback.
     format_detail: str | None = None
     carrier_type: str | None = None
     publication_year: int | None = None
@@ -131,28 +113,24 @@ class ManifestationStorageHints:
     extra: StorageHintRecord = dataclasses.field(default_factory=dict)
 
     def to_mapping(self) -> MutableStorageHintRecord:
-        """Return a mutable dictionary representation of these hints.
+        """
+        Return an ordinary mapping suitable for Store-specific inspection.
 
-        Examples:
-            Feed format detail to a store-selection rule::
-
-                format_detail = hints.to_mapping()["format_detail"]
+        Example:
+            >>> ManifestationStorageHints(publication_year=1994).to_mapping()["publication_year"]
+            1994
         """
         return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ItemStorageHints:
-    """Storage-facing projection of item metadata for placement decisions.
+    """
+    Storage-facing projection of item metadata for placement decisions.
 
-    Examples:
-        Provide a preferred key for a concrete library item::
-
-            hints = ItemStorageHints(
-                item_id=13,
-                title="A Book",
-                preferred_storage_key="A. Writer/A Book/book.epub",
-            )
+    Example:
+        >>> ItemStorageHints(preferred_storage_key="books/5.epub").preferred_storage_key
+        'books/5.epub'
     """
 
     item_id: int | None = None
@@ -188,12 +166,12 @@ class ItemStorageHints:
     extra: StorageHintRecord = dataclasses.field(default_factory=dict)
 
     def to_mapping(self) -> MutableStorageHintRecord:
-        """Return a mutable dictionary representation of these hints.
+        """
+        Return an ordinary mapping suitable for Store-specific inspection.
 
-        Examples:
-            Inspect the preferred key without depending on the dataclass type::
-
-                storage_key = hints.to_mapping()["preferred_storage_key"]
+        Example:
+            >>> ItemStorageHints(item_id=44).to_mapping()["item_id"]
+            44
         """
         return dataclasses.asdict(self)
 
@@ -203,69 +181,82 @@ StoragePlacementHints: TypeAlias = (
     | ExpressionStorageHints
     | ManifestationStorageHints
     | ItemStorageHints
+    | StorageHintRecord
 )
 
 
 @runtime_checkable
 class StorageHintProvider(Protocol):
-    """Structural storage-side protocol for objects that already provide hints.
+    """
+    Structural storage-side protocol for objects that already provide hints.
 
-    Examples:
-        Any object with the right method can be passed to ``derive_storage_hints``::
-
-            class ImportRecord:
-                def storage_hints(self):
-                    return ItemStorageHints(title="A Book")
+    Example:
+        >>> isinstance(WorkStorageHints(), StorageHintProvider)
+        False
     """
 
     def storage_hints(self) -> StoragePlacementHints:
-        """Return storage placement hints.
-
-        Examples:
-            Project a provider before selecting a destination::
-
-                hints = provider.storage_hints()
         """
+        Return storage placement hints.
+
+        Example:
+            >>> hints = provider.storage_hints()  # doctest: +SKIP
+        """
+        ...
 
 
 @runtime_checkable
 class StorageHintMetadataSource(Protocol):
-    """Structural source that storage can project into placement hints.
+    """
+    Structural source that storage can project into placement hints.
 
-    Examples:
-        Metadata containers qualify structurally when they expose relation links::
-
-            hints = derive_storage_hints(metadata_container)
+    Example:
+        >>> links = metadata.get_relation_links("works")  # doctest: +SKIP
     """
 
-    def get_relation_links(self, relation_key: str) -> Iterable[object]:
-        """Return relation links for a metadata relation key.
-
-        Examples:
-            Storage may request agents while building folder tokens::
-
-                agent_links = list(metadata.get_relation_links("agents"))
+    def get_relation_links(self, relation: str) -> Iterable[object]:
         """
+        Return relation links for a metadata relation name.
+
+        Example:
+            >>> list(metadata.get_relation_links("works"))  # doctest: +SKIP
+        """
+        ...
+
+
+StorageHintSource: TypeAlias = (
+    StoragePlacementHints | StorageHintProvider | StorageHintMetadataSource
+)
 
 
 def derive_storage_hints(
-    metadata: StoragePlacementHints | StorageHintProvider | StorageHintMetadataSource,
+    metadata: StorageHintSource,
 ) -> StoragePlacementHints | None:
-    """Derive storage placement hints from metadata-like objects.
+    """
+    Derive storage placement hints from a metadata-like object.
 
-    Explicit hint objects are returned unchanged. Providers are asked for their
-    hints, while metadata containers are projected from their entity and
-    relation bundles. Unsupported inputs return ``None``.
+    Existing hint values pass through unchanged. Metadata containers are read
+    structurally, keeping the metadata package independent from storage.
+    Broken optional providers produce ``None`` so hints remain advisory.
 
-    Examples:
-        Derive item hints from a metadata container::
-
-            hints = derive_storage_hints(item_metadata)
-            if hints is not None:
-                folder_tokens = hints.preferred_folder_tokens
+    Example:
+        >>> hints = WorkStorageHints(work_id=5)
+        >>> derive_storage_hints(hints) is hints
+        True
     """
 
-    if isinstance(metadata, (WorkStorageHints, ExpressionStorageHints, ManifestationStorageHints, ItemStorageHints)):
+    if isinstance(
+        metadata,
+        (
+            WorkStorageHints,
+            ExpressionStorageHints,
+            ManifestationStorageHints,
+            ItemStorageHints,
+        ),
+    ):
+        return metadata
+
+    if isinstance(metadata, Mapping):
         return metadata
 
     hints_fn = getattr(metadata, "storage_hints", None)
@@ -274,8 +265,18 @@ def derive_storage_hints(
             hints = hints_fn()
         except Exception:
             return None
-        if isinstance(hints, (WorkStorageHints, ExpressionStorageHints, ManifestationStorageHints, ItemStorageHints)):
+        if isinstance(
+            hints,
+            (
+                WorkStorageHints,
+                ExpressionStorageHints,
+                ManifestationStorageHints,
+                ItemStorageHints,
+            ),
+        ):
             return hints
+        if isinstance(hints, Mapping):
+            return cast(StorageHintRecord, hints)
 
     if _has_relation_bundle(metadata, "item"):
         return _derive_item_storage_hints(metadata)
@@ -289,10 +290,27 @@ def derive_storage_hints(
 
 
 def _has_relation_bundle(metadata: object, entity_attr: str) -> bool:
-    return hasattr(metadata, entity_attr) and callable(getattr(metadata, "get_relation_links", None))
+    """
+    Test whether a value exposes one WEMI entity and relation access.
+
+    Example:
+        >>> _has_relation_bundle(object(), "work")
+        False
+    """
+    return hasattr(metadata, entity_attr) and callable(
+        getattr(metadata, "get_relation_links", None)
+    )
 
 
 def _derive_work_storage_hints(metadata: object) -> WorkStorageHints:
+    """
+    Project a work metadata container into placement hints.
+
+    Example:
+        >>> hints = _derive_work_storage_hints(object())
+        >>> isinstance(hints, WorkStorageHints)
+        True
+    """
     work_map = _rowish_to_mapping(getattr(metadata, "work", None))
     expression_links = _relation_links(metadata, "expressions")
     manifestation_links = _relation_links(metadata, "manifestations")
@@ -305,7 +323,10 @@ def _derive_work_storage_hints(metadata: object) -> WorkStorageHints:
         title = _display_value(_target(expression_links[0]))
 
     canonical_title = _value_from_mapping(work_map, ("work_canonical_title", "work_title"))
-    sort_title = _value_from_mapping(work_map, ("work_sort_title", "work_canonical_title", "work_title"))
+    sort_title = _value_from_mapping(
+        work_map,
+        ("work_sort_title", "work_canonical_title", "work_title"),
+    )
     primary_agents = _link_display_values(agent_links)
     series = _link_display_values(_relation_links(metadata, "series"))
     genres = _link_display_values(_relation_links(metadata, "genres"))
@@ -358,6 +379,14 @@ def _derive_work_storage_hints(metadata: object) -> WorkStorageHints:
 
 
 def _derive_item_storage_hints(metadata: object) -> ItemStorageHints:
+    """
+    Project an item metadata container into placement hints.
+
+    Example:
+        >>> hints = _derive_item_storage_hints(object())
+        >>> isinstance(hints, ItemStorageHints)
+        True
+    """
     work = _first_target(_relation_links(metadata, "works"))
     expression = _first_target(_relation_links(metadata, "expressions"))
     manifestation = _first_target(_relation_links(metadata, "manifestations"))
@@ -377,7 +406,10 @@ def _derive_item_storage_hints(metadata: object) -> ItemStorageHints:
             title = Path(str(title)).stem
 
     canonical_title = _value_from_mapping(work_map, ("work_canonical_title", "work_title"))
-    sort_title = _value_from_mapping(work_map, ("work_sort_title", "work_canonical_title", "work_title"))
+    sort_title = _value_from_mapping(
+        work_map,
+        ("work_sort_title", "work_canonical_title", "work_title"),
+    )
     subtitle = _value_from_mapping(manifestation_map, ("manifestation_subtitle",))
     if subtitle in (None, ""):
         subtitle = _value_from_mapping(expression_map, ("expression_subtitle",))
@@ -394,7 +426,11 @@ def _derive_item_storage_hints(metadata: object) -> ItemStorageHints:
 
     file_formats: list[str] = []
     for token in _format_candidates_from_links(
-        _relation_links(metadata, "manifestations") + file_links + image_links + digital_asset_links + replica_links,
+        _relation_links(metadata, "manifestations")
+        + file_links
+        + image_links
+        + digital_asset_links
+        + replica_links,
         (
             "file_extension",
             "image_extension",
@@ -465,14 +501,43 @@ def _derive_item_storage_hints(metadata: object) -> ItemStorageHints:
 
 
 def _derive_expression_storage_hints(metadata: object) -> ExpressionStorageHints:
+    """
+    Project an expression metadata container into placement hints.
+
+    Example:
+        >>> hints = _derive_expression_storage_hints(object())
+        >>> isinstance(hints, ExpressionStorageHints)
+        True
+    """
     expression = getattr(metadata, "expression", None)
     language_links = _relation_links(metadata, "languages")
     return ExpressionStorageHints(
-        expression_id=_optional_int(_value_from_mapping(_rowish_to_mapping(expression), ("expression_id",))),
-        work_id=_optional_int(_value_from_mapping(_rowish_to_mapping(expression), ("expression_work_id",))),
-        title=_optional_str(_value_from_mapping(_rowish_to_mapping(expression), ("expression_title_override",))),
-        label=_optional_str(_value_from_mapping(_rowish_to_mapping(expression), ("expression_label",))),
-        expression_type=_optional_str(_value_from_mapping(_rowish_to_mapping(expression), ("expression_type",))),
+        expression_id=_optional_int(
+            _value_from_mapping(
+                _rowish_to_mapping(expression), ("expression_id",)
+            )
+        ),
+        work_id=_optional_int(
+            _value_from_mapping(
+                _rowish_to_mapping(expression), ("expression_work_id",)
+            )
+        ),
+        title=_optional_str(
+            _value_from_mapping(
+                _rowish_to_mapping(expression),
+                ("expression_title_override",),
+            )
+        ),
+        label=_optional_str(
+            _value_from_mapping(
+                _rowish_to_mapping(expression), ("expression_label",)
+            )
+        ),
+        expression_type=_optional_str(
+            _value_from_mapping(
+                _rowish_to_mapping(expression), ("expression_type",)
+            )
+        ),
         language_code=_display_value(_target(language_links[0])) if language_links else None,
         primary_agents=_primary_agent_values(_relation_links(metadata, "agents")),
         genres=_link_display_values(_relation_links(metadata, "genres")),
@@ -482,42 +547,102 @@ def _derive_expression_storage_hints(metadata: object) -> ExpressionStorageHints
 
 
 def _derive_manifestation_storage_hints(metadata: object) -> ManifestationStorageHints:
+    """
+    Project a manifestation metadata container into placement hints.
+
+    Example:
+        >>> hints = _derive_manifestation_storage_hints(object())
+        >>> isinstance(hints, ManifestationStorageHints)
+        True
+    """
     manifestation = getattr(metadata, "manifestation", None)
     manifestation_map = _rowish_to_mapping(manifestation)
     title_links = _relation_links(metadata, "titles")
     return ManifestationStorageHints(
-        manifestation_id=_optional_int(_value_from_mapping(manifestation_map, ("manifestation_id",))),
-        expression_id=_optional_int(_value_from_mapping(manifestation_map, ("manifestation_expression_id",))),
+        manifestation_id=_optional_int(
+            _value_from_mapping(manifestation_map, ("manifestation_id",))
+        ),
+        expression_id=_optional_int(
+            _value_from_mapping(
+                manifestation_map, ("manifestation_expression_id",)
+            )
+        ),
         title=_display_value(_target(title_links[0])) if title_links else None,
-        edition_statement=_optional_str(_value_from_mapping(manifestation_map, ("manifestation_edition_statement",))),
-        format_detail=_optional_str(_value_from_mapping(manifestation_map, ("manifestation_format_detail",))),
-        carrier_type=_optional_str(_value_from_mapping(manifestation_map, ("manifestation_carrier_type",))),
-        publication_year=_optional_int(_value_from_mapping(manifestation_map, ("manifestation_pub_year",))),
+        edition_statement=_optional_str(
+            _value_from_mapping(
+                manifestation_map, ("manifestation_edition_statement",)
+            )
+        ),
+        format_detail=_optional_str(
+            _value_from_mapping(
+                manifestation_map, ("manifestation_format_detail",)
+            )
+        ),
+        carrier_type=_optional_str(
+            _value_from_mapping(
+                manifestation_map, ("manifestation_carrier_type",)
+            )
+        ),
+        publication_year=_optional_int(
+            _value_from_mapping(manifestation_map, ("manifestation_pub_year",))
+        ),
         primary_agents=_primary_agent_values(_relation_links(metadata, "agents")),
         identifiers=_link_display_values(_relation_links(metadata, "identifiers")),
         file_formats=_link_display_values(_relation_links(metadata, "files")),
     )
 
 
-def _relation_links(metadata: object, relation_key: str) -> list[object]:
+def _relation_links(metadata: object, relation: str) -> list[object]:
+    """
+    Read one relation without making optional placement metadata mandatory.
+
+    Example:
+        >>> _relation_links(object(), "works")
+        []
+    """
     getter = getattr(metadata, "get_relation_links", None)
     if not callable(getter):
         return []
     try:
-        return list(getter(relation_key))
+        relation_getter = cast(
+            Callable[[str], Iterable[object]],
+            getter,
+        )
+        return list(relation_getter(relation))
     except (KeyError, ValueError, TypeError):
         return []
 
 
 def _target(link: object) -> object:
+    """
+    Return a relation link's target when present.
+
+    Example:
+        >>> _target(object()) is None
+        True
+    """
     return getattr(link, "target", None)
 
 
 def _primary(link: object) -> bool:
+    """
+    Return whether a relation link identifies its primary target.
+
+    Example:
+        >>> _primary(object())
+        False
+    """
     return bool(getattr(link, "primary", False))
 
 
 def _first_target(links: list[object]) -> object | None:
+    """
+    Prefer a primary target, otherwise return the first target.
+
+    Example:
+        >>> _first_target([]) is None
+        True
+    """
     if not links:
         return None
     for link in links:
@@ -527,6 +652,13 @@ def _first_target(links: list[object]) -> object | None:
 
 
 def _rowish_to_mapping(value: object) -> Mapping[str, object]:
+    """
+    Obtain a mapping from a row-like or mapping-like value.
+
+    Example:
+        >>> _rowish_to_mapping({"title": "Book"})["title"]
+        'Book'
+    """
     if value is None:
         return {}
     row_dict = getattr(value, "row_dict", None)
@@ -543,6 +675,13 @@ def _rowish_to_mapping(value: object) -> Mapping[str, object]:
 
 
 def _value_from_mapping(mapping: Mapping[str, object], keys: tuple[str, ...]) -> object:
+    """
+    Return the first non-empty candidate from a mapping.
+
+    Example:
+        >>> _value_from_mapping({"title": "Book"}, ("name", "title"))
+        'Book'
+    """
     for key in keys:
         value = mapping.get(key)
         if value not in (None, ""):
@@ -551,6 +690,13 @@ def _value_from_mapping(mapping: Mapping[str, object], keys: tuple[str, ...]) ->
 
 
 def _display_value(value: object) -> str | None:
+    """
+    Derive a useful display token from a relation target.
+
+    Example:
+        >>> _display_value({"agent_canonical_name": "Greg Egan"})
+        'Greg Egan'
+    """
     mapping = _rowish_to_mapping(value)
     if mapping:
         for key in (
@@ -608,6 +754,13 @@ def _link_display_values(
     primary_only: bool = False,
     unique: bool = True,
 ) -> tuple[str, ...]:
+    """
+    Collect stable display values from relation links.
+
+    Example:
+        >>> _link_display_values(())
+        ()
+    """
     values: list[str] = []
     seen: set[str] = set()
     for link in links:
@@ -624,6 +777,13 @@ def _link_display_values(
 
 
 def _primary_agent_values(links: list[object]) -> tuple[str, ...]:
+    """
+    Collect display values for primary agent links.
+
+    Example:
+        >>> _primary_agent_values([])
+        ()
+    """
     return tuple(
         filter(
             None,
@@ -633,11 +793,25 @@ def _primary_agent_values(links: list[object]) -> tuple[str, ...]:
 
 
 def _manifestation_types_from_links(links: Iterable[object]) -> tuple[str, ...]:
+    """
+    Collect unique carrier or manifestation types from links.
+
+    Example:
+        >>> _manifestation_types_from_links(())
+        ()
+    """
     values: list[str] = []
     seen: set[str] = set()
     for link in links:
         mapping = _rowish_to_mapping(_target(link))
-        raw = _value_from_mapping(mapping, ("manifestation_carrier_type", "manifestation_type", "manifestation_binding_type"))
+        raw = _value_from_mapping(
+            mapping,
+            (
+                "manifestation_carrier_type",
+                "manifestation_type",
+                "manifestation_binding_type",
+            ),
+        )
         if raw in (None, ""):
             continue
         text = str(raw)
@@ -648,7 +822,17 @@ def _manifestation_types_from_links(links: Iterable[object]) -> tuple[str, ...]:
     return tuple(values)
 
 
-def _format_candidates_from_links(links: Iterable[object], keys: tuple[str, ...]) -> tuple[str, ...]:
+def _format_candidates_from_links(
+    links: Iterable[object],
+    keys: tuple[str, ...],
+) -> tuple[str, ...]:
+    """
+    Collect normalized format candidates from relation targets.
+
+    Example:
+        >>> _format_candidates_from_links((), ("file_extension",))
+        ()
+    """
     values: list[str] = []
     seen: set[str] = set()
     for link in links:
@@ -666,6 +850,13 @@ def _format_candidates_from_links(links: Iterable[object], keys: tuple[str, ...]
 
 
 def _item_attachment_roles(file_links: list[object], image_links: list[object]) -> tuple[str, ...]:
+    """
+    Collect unique file and image attachment roles.
+
+    Example:
+        >>> _item_attachment_roles([], [])
+        ()
+    """
     roles: list[str] = []
     for link in file_links + image_links:
         mapping = _rowish_to_mapping(_target(link))
@@ -676,16 +867,37 @@ def _item_attachment_roles(file_links: list[object], image_links: list[object]) 
 
 
 def _item_digital_asset_kinds(links: list[object]) -> tuple[str, ...]:
+    """
+    Collect unique linked Digital Asset kind tokens.
+
+    Example:
+        >>> _item_digital_asset_kinds([])
+        ()
+    """
     kinds: list[str] = []
     for link in links:
         mapping = _rowish_to_mapping(_target(link))
-        kind = _value_from_mapping(mapping, ("digital_asset_media_category", "digital_asset_mime_type", "digital_asset_extension"))
+        kind = _value_from_mapping(
+            mapping,
+            (
+                "digital_asset_media_category",
+                "digital_asset_mime_type",
+                "digital_asset_extension",
+            ),
+        )
         if kind not in (None, "") and str(kind) not in kinds:
             kinds.append(str(kind))
     return tuple(kinds)
 
 
 def _item_replica_modes(links: list[object]) -> tuple[str, ...]:
+    """
+    Collect unique Replica mode tokens.
+
+    Example:
+        >>> _item_replica_modes([])
+        ()
+    """
     modes: list[str] = []
     for link in links:
         mode = _value_from_mapping(_rowish_to_mapping(_target(link)), ("asset_replica_mode",))
@@ -695,6 +907,13 @@ def _item_replica_modes(links: list[object]) -> tuple[str, ...]:
 
 
 def _preferred_storage_key(*relations: list[object]) -> str | None:
+    """
+    Return the first existing storage key suggested by linked records.
+
+    Example:
+        >>> _preferred_storage_key([]) is None
+        True
+    """
     for links in relations:
         for link in links:
             mapping = _rowish_to_mapping(_target(link))
@@ -710,6 +929,13 @@ def _preferred_filename_stem(
     primary_agents: tuple[str, ...],
     source_name: str | None = None,
 ) -> str | None:
+    """
+    Build a readable filename stem from title and authors.
+
+    Example:
+        >>> _preferred_filename_stem("Book", ("Author",))
+        'Book - Author'
+    """
     if title and primary_agents:
         return "{} - {}".format(title, " & ".join(primary_agents))
     if title:
@@ -720,12 +946,26 @@ def _preferred_filename_stem(
 
 
 def _optional_str(value: object) -> str | None:
+    """
+    Convert a non-empty value into an optional string.
+
+    Example:
+        >>> _optional_str(5)
+        '5'
+    """
     if value in (None, ""):
         return None
     return str(value)
 
 
 def _optional_int(value: object) -> int | None:
+    """
+    Convert a simple scalar into an optional integer.
+
+    Example:
+        >>> _optional_int("5")
+        5
+    """
     if value in (None, ""):
         return None
     try:
@@ -747,6 +987,7 @@ __all__ = [
     "StorageHintProvider",
     "StorageHintRecord",
     "StorageHintScalar",
+    "StorageHintSource",
     "StorageHintValue",
     "StoragePlacementHints",
     "WorkStorageHints",

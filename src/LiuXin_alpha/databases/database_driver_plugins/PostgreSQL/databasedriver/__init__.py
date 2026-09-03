@@ -113,6 +113,12 @@ class DatabaseDriver(
 ):
     """Initial PostgreSQL backend implementation."""
 
+    @staticmethod
+    def direct_get_column_base(table_name: str) -> str:
+        """Return the canonical singular prefix used by LiuXin columns."""
+
+        return plural_singular_mapper(table_name)
+
     def __init__(self, db_metadata: Mapping[str, object], db=None, set_conn: bool = True, dirty_records_queue=None):
         self.db_metadata = dict(db_metadata or {})
         self.connection_target = configured_postgres_target(self.db_metadata)

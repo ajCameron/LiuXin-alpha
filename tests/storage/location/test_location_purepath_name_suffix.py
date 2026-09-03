@@ -1,41 +1,17 @@
+"""Names, suffixes, and stems are placement metadata—not Location facts."""
 
 from __future__ import annotations
 
-import pytest
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
-    OnDiskExistingManagedStoreLocation,
-)
+def test_location_does_not_infer_filename_components(store) -> None:
+    location = store.locate("opaque/foo.tar.gz")
 
-from .conftest import AsyncOnDiskLocation
-
-
-@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
-def test_name_suffix_stem(store, loc_cls) -> None:
-    loc = loc_cls("dir", "foo.tar.gz", store=store)
-    assert loc.name == "foo.tar.gz"
-    assert loc.suffix == ".gz"
-    assert loc.suffixes == [".tar", ".gz"]
-    assert loc.stem == "foo.tar"
+    for attribute in ("name", "suffix", "suffixes", "stem", "with_name", "with_suffix"):
+        assert not hasattr(location, attribute)
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
-def test_with_name(store, loc_cls) -> None:
-    loc = loc_cls("dir", "file.txt", store=store)
-    new = loc.with_name("other.bin")
-    assert new.parts == ("dir", "other.bin")
-    with pytest.raises(ValueError):
-        loc.with_name("a/b")  # invalid, contains slash
+def test_file_info_does_not_invent_an_original_filename(store) -> None:
+    info = store.store_bytes(b"book", location="opaque/identifier")
 
-
-@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
-def test_with_suffix(store, loc_cls) -> None:
-    loc = loc_cls("dir", "file", store=store)
-    assert loc.with_suffix(".txt").name == "file.txt"
-    loc2 = loc_cls("dir", "file.tar.gz", store=store)
-    assert loc2.with_suffix(".xz").name == "file.tar.xz"
-
-    with pytest.raises(ValueError):
-        loc_cls(store=store).with_suffix(".txt")  # empty name (root)
-    with pytest.raises(ValueError):
-        loc2.with_suffix("txt")  # must start with dot
+    assert info.location.key == "opaque/identifier"
+    assert not hasattr(info, "name")

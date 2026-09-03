@@ -343,10 +343,17 @@ class CacheAPI(abc.ABC):
         self,
         *,
         tables: Iterable[str] = (),
+        ids: Mapping[str, Iterable[int]] | None = None,
         links: Iterable[tuple[str, str]] = (),
         fields: Iterable[str] = (),
     ) -> None:
-        """Mark explicit external-write dependencies dirty."""
+        """Mark explicit external-write dependencies dirty.
+
+        ``ids`` is the bounded form for main-table writes. Backends that do
+        not support an efficient row refresh may conservatively reload the
+        named table, but callers need not discard an entire catalogue snapshot
+        merely because one durable record changed.
+        """
 
     @abc.abstractmethod
     def create_writer(

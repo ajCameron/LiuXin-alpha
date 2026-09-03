@@ -13,6 +13,8 @@ from urllib.parse import urljoin
 
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.storage.api import Location
+from LiuXin_alpha.storage.store_spec_utils import store_configuration_from_row
 
 if TYPE_CHECKING:
     from LiuXin_alpha.core.queries import CoreQuery
@@ -674,23 +676,6 @@ def _resource_bytes(
     kind: str,
     row: Mapping[str, Any],
 ) -> bytes:
-    metadata = dict(row)
-    try:
-        location = runtime.services.library.retrieve_file(metadata=metadata)
-        for method_name in ("read_bytes", "as_bytes"):
-            method = getattr(location, method_name, None)
-            if callable(method):
-                value = method()
-                if isinstance(value, bytes):
-                    return value
-                if isinstance(value, str):
-                    return value.encode("utf-8")
-                if isinstance(value, (bytearray, memoryview)):
-                    return bytes(value)
-                raise TypeError("Storage byte reader returned a non-byte value.")
-    except Exception:
-        pass
-
     local_paths: tuple[Any, ...]
     if kind == "legacy-file":
         local_paths = (row.get("file_original_path"), row.get("file_path"))
@@ -710,6 +695,21 @@ def _resource_bytes(
             return Path(path_text).read_bytes()
     store = _store_row(runtime, store_id)
     if store is not None and storage_key:
+        try:
+            configuration = store_configuration_from_row(
+                store,
+                fallback_store_id=int(store_id),
+            )
+            location = Location(
+                configuration.store_uuid,
+                str(storage_key),
+            )
+            value = runtime.services.library.storage.read_bytes(location)
+            if not isinstance(value, bytes):
+                raise TypeError("Storage byte reader returned a non-byte value.")
+            return value
+        except Exception:
+            pass
         root = str(store.get("store_root_uri") or store.get("store_url") or "").strip()
         if root.startswith("file://"):
             root = root[7:]

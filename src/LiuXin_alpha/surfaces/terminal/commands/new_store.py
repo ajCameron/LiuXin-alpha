@@ -4,143 +4,22 @@ from __future__ import annotations
 
 import time
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+from LiuXin_alpha.storage.backend_registry import (
+    DEFAULT_BACKEND_REGISTRY,
+    StorageBackendDescriptor,
+)
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 
-@dataclass(frozen=True)
-class _StoreKindPreset:
-    kind: str
-    label: str
-    access_protocol: str
-    read_only_default: bool
-    location_type: str  # dir | file | remote
-    supports_folders: bool
-    supports_hierarchical_list: bool
-    supports_random_read: bool
-    supports_random_write: bool
-    supports_delete: bool
-    supports_checksums: bool
-    supports_immutable_objects: bool
+_StoreKindPreset = StorageBackendDescriptor
 
 
-_STORE_KIND_PRESETS: tuple[_StoreKindPreset, ...] = (
-    _StoreKindPreset(
-        kind="on_disk_existing_managed_drive",
-        label="Managed local folder (read/write)",
-        access_protocol="file",
-        read_only_default=False,
-        location_type="dir",
-        supports_folders=True,
-        supports_hierarchical_list=True,
-        supports_random_read=True,
-        supports_random_write=True,
-        supports_delete=True,
-        supports_checksums=True,
-        supports_immutable_objects=False,
-    ),
-    _StoreKindPreset(
-        kind="on_disk_existing_unmanaged_drive",
-        label="Existing unmanaged local folder (read-only)",
-        access_protocol="file",
-        read_only_default=True,
-        location_type="dir",
-        supports_folders=True,
-        supports_hierarchical_list=True,
-        supports_random_read=True,
-        supports_random_write=False,
-        supports_delete=False,
-        supports_checksums=True,
-        supports_immutable_objects=False,
-    ),
-    _StoreKindPreset(
-        kind="on_disk_calibre_like",
-        label="Managed calibre-like local folder (read/write)",
-        access_protocol="file",
-        read_only_default=False,
-        location_type="dir",
-        supports_folders=True,
-        supports_hierarchical_list=True,
-        supports_random_read=True,
-        supports_random_write=True,
-        supports_delete=True,
-        supports_checksums=True,
-        supports_immutable_objects=False,
-    ),
-    _StoreKindPreset(
-        kind="single_file_sqlite",
-        label="Single-file SQLite blob store",
-        access_protocol="sqlite",
-        read_only_default=False,
-        location_type="file",
-        supports_folders=False,
-        supports_hierarchical_list=False,
-        supports_random_read=True,
-        supports_random_write=True,
-        supports_delete=True,
-        supports_checksums=True,
-        supports_immutable_objects=False,
-    ),
-    _StoreKindPreset(
-        kind="squashfs_readonly",
-        label="Read-only SquashFS archive",
-        access_protocol="squashfs",
-        read_only_default=True,
-        location_type="file",
-        supports_folders=True,
-        supports_hierarchical_list=True,
-        supports_random_read=True,
-        supports_random_write=False,
-        supports_delete=False,
-        supports_checksums=True,
-        supports_immutable_objects=True,
-    ),
-    _StoreKindPreset(
-        kind="rclone_http_readonly",
-        label="Rclone HTTP remote (read-only)",
-        access_protocol="rclone",
-        read_only_default=True,
-        location_type="remote",
-        supports_folders=True,
-        supports_hierarchical_list=True,
-        supports_random_read=True,
-        supports_random_write=False,
-        supports_delete=False,
-        supports_checksums=True,
-        supports_immutable_objects=False,
-    ),
-    _StoreKindPreset(
-        kind="wget_html_readonly",
-        label="Wget HTML spider remote (read-only)",
-        access_protocol="wget",
-        read_only_default=True,
-        location_type="remote",
-        supports_folders=True,
-        supports_hierarchical_list=True,
-        supports_random_read=True,
-        supports_random_write=False,
-        supports_delete=False,
-        supports_checksums=False,
-        supports_immutable_objects=False,
-    ),
-    _StoreKindPreset(
-        kind="native_html_readonly",
-        label="Native HTML crawler remote (read-only)",
-        access_protocol="native_html",
-        read_only_default=True,
-        location_type="remote",
-        supports_folders=True,
-        supports_hierarchical_list=True,
-        supports_random_read=True,
-        supports_random_write=False,
-        supports_delete=False,
-        supports_checksums=False,
-        supports_immutable_objects=False,
-    ),
+_STORE_KIND_PRESETS: tuple[StorageBackendDescriptor, ...] = tuple(
+    DEFAULT_BACKEND_REGISTRY.iter_descriptors(user_selectable_only=True)
 )
 
 

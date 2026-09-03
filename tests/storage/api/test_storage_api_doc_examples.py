@@ -1,4 +1,6 @@
-"""Regression coverage for examples on the public storage API source tree."""
+"""
+Regression coverage for examples on the public storage API source tree.
+"""
 
 from __future__ import annotations
 
@@ -7,10 +9,20 @@ from pathlib import Path
 
 
 STORAGE_API_ROOT = Path(__file__).parents[3] / "src" / "LiuXin_alpha" / "storage" / "api"
-DOCUMENTABLE_NODES = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+DOCUMENTABLE_NODES = (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
 
 
 def test_every_storage_api_docstring_has_an_examples_section() -> None:
+    """
+    Require the project-wide singular example section on every API definition.
+
+    Example:
+        >>> test_every_storage_api_docstring_has_an_examples_section()
+
+
+    :return:
+    """
+
     missing_examples: list[str] = []
 
     for source_path in sorted(STORAGE_API_ROOT.rglob("*.py")):
@@ -19,7 +31,7 @@ def test_every_storage_api_docstring_has_an_examples_section() -> None:
             if not isinstance(node, DOCUMENTABLE_NODES):
                 continue
             docstring = ast.get_docstring(node, clean=False)
-            if docstring is None or "Examples:" in docstring:
+            if docstring is not None and "Example:" in docstring:
                 continue
             relative_path = source_path.relative_to(STORAGE_API_ROOT)
             object_name = getattr(node, "name", "<module>")

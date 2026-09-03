@@ -29,6 +29,17 @@ def test_postgresql_driver_is_registered() -> None:
     assert load_database_driver("postgres").__name__ == "DatabaseDriver"
 
 
+def test_postgresql_driver_exposes_shared_column_base_contract() -> None:
+    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.databasedriver import (
+        DatabaseDriver,
+    )
+
+    assert DatabaseDriver.direct_get_column_base("ratings") == "rating"
+    assert DatabaseDriver.direct_get_column_base("digital_assets") == (
+        "digital_asset"
+    )
+
+
 def test_postgresql_driver_import_does_not_require_psycopg2() -> None:
     mod = importlib.import_module("LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.databasedriver")
 
@@ -246,6 +257,15 @@ def test_postgresql_schema_builder_executes_core_and_storage_tables() -> None:
     assert 'create table if not exists "digital_assets"' in ddl
     assert '"digital_asset_size_bytes" bigint null' in ddl
     assert 'create table if not exists "asset_replicas"' in ddl
+    assert ddl_lower.index(
+        'create table if not exists "transform_runs"'
+    ) < ddl_lower.index(
+        'create table if not exists "digital_asset_derivations"'
+    )
+    assert (
+        'references "stores" ("store_id") on delete restrict on update cascade'
+        in ddl_lower
+    )
     assert 'create table if not exists "column_metadata"' in ddl_lower
     assert (
         "values ('works', 'work_title', 0, 'title', "

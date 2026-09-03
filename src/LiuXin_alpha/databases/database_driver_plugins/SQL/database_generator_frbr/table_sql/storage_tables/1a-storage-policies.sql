@@ -25,10 +25,10 @@ CREATE TABLE IF NOT EXISTS `replication_policies` (
   `replication_policy_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `replication_policy_scratch` TEXT NULL,
   CONSTRAINT `replication_policy_name_unique` UNIQUE (`replication_policy_name`),
-  CONSTRAINT `replication_policy_min_copies_check` CHECK (`replication_policy_min_copies` >= 1),
+  CONSTRAINT `replication_policy_min_copies_check` CHECK (`replication_policy_min_copies` >= 0),
   CONSTRAINT `replication_policy_target_copies_check` CHECK (`replication_policy_target_copies` IS NULL OR `replication_policy_target_copies` >= `replication_policy_min_copies`),
   CONSTRAINT `replication_policy_max_bucket_check` CHECK (`replication_policy_max_copies_per_bucket` >= 1),
-  CONSTRAINT `replication_policy_sync_write_check` CHECK (`replication_policy_synchronous_write_copies` >= 1),
+  CONSTRAINT `replication_policy_sync_write_check` CHECK (`replication_policy_synchronous_write_copies` >= 0),
   CONSTRAINT `replication_policy_auto_heal_bool` CHECK (`replication_policy_auto_heal` IN (0,1)),
   CONSTRAINT `replication_policy_mode_check` CHECK (`replication_policy_mode` IN ('active','backup','archive'))
 );
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS `backup_policies` (
     `backup_policy_scratch` TEXT NULL,
 
     CONSTRAINT `backup_policy_name_unique` UNIQUE (`backup_policy_name`),
-  CONSTRAINT `backup_policy_min_copies_check` CHECK (`backup_policy_min_backup_copies` >= 1),
+  CONSTRAINT `backup_policy_min_copies_check` CHECK (`backup_policy_min_backup_copies` >= 0),
   CONSTRAINT `backup_policy_target_copies_check` CHECK (`backup_policy_target_backup_copies` IS NULL OR `backup_policy_target_backup_copies` >= `backup_policy_min_backup_copies`),
   CONSTRAINT `backup_policy_max_bucket_check` CHECK (`backup_policy_max_copies_per_bucket` >= 1),
   CONSTRAINT `backup_policy_periodic_verification_bool` CHECK (`backup_policy_periodic_verification` IN (0,1)),

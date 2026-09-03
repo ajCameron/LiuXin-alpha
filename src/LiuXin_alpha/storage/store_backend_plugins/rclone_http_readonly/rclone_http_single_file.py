@@ -1,6 +1,9 @@
-"""Delete me.
+"""Compatibility name for second-generation Store file information."""
 
-Legacy single-file wrapper left in place temporarily so it is obvious during
-review that this file should be removed once the storage plugin migration is
-fully settled.
-"""
+from LiuXin_alpha.storage.api import FileInfo
+
+
+RcloneHttpReadOnlySingleFile = FileInfo
+
+
+__all__ = ["RcloneHttpReadOnlySingleFile"]

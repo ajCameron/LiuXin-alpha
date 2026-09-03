@@ -8,9 +8,10 @@ import sys
 import time
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any, TYPE_CHECKING
+from uuid import UUID, uuid4
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.storage.api.backup_api import BackupWorkflowSpec, BackupWorkflowStatus
+from LiuXin_alpha.storage.api import BackupWorkflowDeclaration, WorkflowStatus
 from LiuXin_alpha.storage.backup.backup_artifact_registry import BackupArtifactRegistry
 from LiuXin_alpha.storage.backup.backup_workflow_repository import BackupWorkflowRepository
 from LiuXin_alpha.storage.backup.squashfs_backup_workflow import SquashfsBackupWorkflow
@@ -69,7 +70,8 @@ def _ensure_or_create_unmanaged_store_row(db, *, root: pathlib.Path, store_name:
     backend = OnDiskUnmanagedStorageBackend(url=str(root), name=store_name)
     rows = db.search("stores", "store_root_uri", str(root))
     payload = {
-        "store_name": backend.name,
+        "store_uuid": str(backend.store_ref),
+        "store_name": backend.configuration.store_name,
         "store_kind": store_kind,
         "store_access_protocol": "file",
         "store_root_uri": str(root),
@@ -85,6 +87,17 @@ def _ensure_or_create_unmanaged_store_row(db, *, root: pathlib.Path, store_name:
     if rows:
         row = rows[0]
         changed = False
+        persisted_uuid = row["store_uuid"] if "store_uuid" in row.allowed_columns else None
+        if persisted_uuid not in (None, ""):
+            backend = OnDiskUnmanagedStorageBackend(
+                url=str(root),
+                name=store_name,
+                uuid=str(persisted_uuid),
+            )
+        elif "store_uuid" in row.allowed_columns:
+            row["store_uuid"] = str(backend.store_ref)
+            changed = True
+        payload["store_uuid"] = str(backend.store_ref)
         for key, value in payload.items():
             if key in row.allowed_columns and row[key] != value:
                 row[key] = value
@@ -104,7 +117,7 @@ def _index_existing_disk_frbr(db, *, disk_path: pathlib.Path, store_name: str, e
     root = disk_path.resolve()
     store_row, backend = _ensure_or_create_unmanaged_store_row(db, root=root, store_name=store_name)
     store_id = int(store_row.row_id if store_row.row_id is not None else store_row["store_id"])
-    report = UnmanagedDiskRegistrationReport(store_row_id=store_id, store_root_uri=str(backend.root_path), store_name=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.name)
+    report = UnmanagedDiskRegistrationReport(store_row_id=store_id, store_root_uri=str(backend.root_path), store_name=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.configuration.store_name)
     if progress_callback:
         progress_callback("start", report, {"mode": "local-frbr", "store_id": store_id, "store_root_uri": str(root)})
     ext_filter = _normalize_ebook_extensions(ebook_extensions)
@@ -279,7 +292,7 @@ class PackExecutionRun:
     output_url: str
     source_count: int
     estimated_size_bytes: int
-    backup_store_id: int
+    backup_store_ref: UUID
     presence_links_created: int
 
 
@@ -299,18 +312,18 @@ class PrototypeRunResult:
 
 
 class ExistingDriveSquashfsPrototype:
-    def __init__(self, *, database_path: str | pathlib.Path, output_dir: str | pathlib.Path, target_pack_size_bytes: int, max_files_per_pack: int | None = None, ebook_extensions: Iterable[str] | None = None, verify_after_build: bool = True, cleanup_staging_after_success: bool = False, staging_root: str | pathlib.Path | None = None, reporter: ConsoleReporter | None = None, workflow_factory: Callable[[BackupWorkflowSpec], Any] | None = None) -> None:
+    def __init__(self, *, database_path: str | pathlib.Path, output_dir: str | pathlib.Path, target_pack_size_bytes: int, max_files_per_pack: int | None = None, ebook_extensions: Iterable[str] | None = None, verify_after_build: bool = True, cleanup_staging_after_success: bool = False, staging_root: str | pathlib.Path | None = None, reporter: ConsoleReporter | None = None, workflow_factory: Callable[[BackupWorkflowDeclaration], Any] | None = None) -> None:
         self.database_path = pathlib.Path(database_path).expanduser()
         self.output_dir = pathlib.Path(output_dir).expanduser()
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.target_pack_size_bytes = int(target_pack_size_bytes)
         self.max_files_per_pack = None if max_files_per_pack is None else int(max_files_per_pack)
-        self.ebook_extensions = None if ebook_extensions is None else tuple(str(x) for x in ebook_extensions)
+        self.ebook_extensions = tuple(sorted(_normalize_ebook_extensions(ebook_extensions)))
         self.verify_after_build = bool(verify_after_build)
         self.cleanup_staging_after_success = bool(cleanup_staging_after_success)
         self.staging_root = None if staging_root is None else pathlib.Path(staging_root).expanduser()
         self.reporter = reporter or ConsoleReporter()
-        self.workflow_factory = workflow_factory or self._build_workflow_from_spec
+        self.workflow_factory = workflow_factory
 
     def run(self, input_paths: Sequence[str | pathlib.Path]) -> PrototypeRunResult:
         paths = [pathlib.Path(p).expanduser().resolve() for p in input_paths]
@@ -333,9 +346,10 @@ class ExistingDriveSquashfsPrototype:
         executed_runs: list[PackExecutionRun] = []
         from LiuXin_alpha.library import Library
         with Library(database_path=self.database_path, create=create_db, backup=False, storage_startup_on_add=False) as lib:
-            planner = StoreBackupPlanner(lib.db)
+            destination_store_ref = self._ensure_output_store_row(lib.db)
+            lib.refresh_storage(clear_existing=True, startup_on_add=True)
             repo = BackupWorkflowRepository(lib.db)
-            registry = BackupArtifactRegistry(lib.db)
+            registry = BackupArtifactRegistry(lib.db, storage_manager=lib.storage)
             for ordinal, input_path in enumerate(paths, start=1):
                 store_name = self._derive_store_name(input_path, ordinal)
                 total_files = self._count_all_files(input_path)
@@ -359,35 +373,118 @@ class ExistingDriveSquashfsPrototype:
                     report = _index_existing_disk_frbr(lib.db, disk_path=input_path, store_name=store_name, ebook_extensions=self.ebook_extensions, progress_callback=_progress)
                 self.reporter.info("Indexed store {} (id={}): ebooks={} inserted={} updated={} unchanged={} errors={}".format(report.store_name, report.store_row_id, report.ebook_candidates, report.inserted_files, report.updated_files, report.unchanged_files, len(report.errors)))
                 indexed_runs.append(IndexedStoreRun(input_path=str(input_path), store_id=int(report.store_row_id), store_name=str(report.store_name), store_root_uri=str(report.store_root_uri), scanned_files=int(report.scanned_files), ebook_candidates=int(report.ebook_candidates), inserted_files=int(report.inserted_files), updated_files=int(report.updated_files), unchanged_files=int(report.unchanged_files)))
-                planned = planner.plan_squashfs_packs_for_store(source_store_id=int(report.store_row_id), output_dir=str(self.output_dir), target_pack_size_bytes=int(self.target_pack_size_bytes), workflow_name_prefix=store_name, max_files_per_pack=self.max_files_per_pack, allowed_extensions=self.ebook_extensions)
+                source_row = lib.db.get_row_from_id("stores", int(report.store_row_id))
+                if source_row is None or source_row["store_uuid"] in (None, ""):
+                    raise RuntimeError("indexed source Store has no stable UUID")
+                source_store_ref = UUID(str(source_row["store_uuid"]))
+                planner = StoreBackupPlanner(lib.storage)
+                planned = planner.plan_store_backup(
+                    source_store_ref=source_store_ref,
+                    destination_store_ref=destination_store_ref,
+                    target_artifact_size_bytes=int(self.target_pack_size_bytes),
+                    workflow_name_prefix=store_name,
+                    output_key_prefix="",
+                    max_sources_per_artifact=self.max_files_per_pack,
+                    allowed_extensions=self.ebook_extensions,
+                )
                 self.reporter.info(f"Planned {len(planned)} pack(s) for {store_name}.")
                 for pack in planned:
-                    spec = dataclasses.replace(pack.workflow_spec, verify_after_build=self.verify_after_build, cleanup_staging_after_success=self.cleanup_staging_after_success, staging_root=(None if self.staging_root is None else str(self.staging_root / pack.workflow_spec.workflow_name)))
-                    self.reporter.section(f"Building {spec.workflow_name}")
+                    declaration = pack.workflow_declaration
+                    staging_base = self.staging_root or (self.output_dir / ".liuxin-staging")
+                    declaration = dataclasses.replace(
+                        declaration,
+                        verify_after_build=self.verify_after_build,
+                        cleanup_staging_after_success=self.cleanup_staging_after_success,
+                        staging_target=str(staging_base / declaration.workflow_name),
+                    )
+                    self.reporter.section(f"Building {declaration.workflow_name}")
                     self.reporter.info(f"Sources: {pack.source_count}  Estimated payload: {_format_bytes(pack.estimated_size_bytes)}")
-                    workflow_row = repo.save_workflow_spec(spec, status=BackupWorkflowStatus.DRAFT)
-                    workflow_id = int(workflow_row.backup_workflow_id)
-                    workflow = self.workflow_factory(spec)
+                    workflow = (
+                        self.workflow_factory(declaration)
+                        if self.workflow_factory is not None
+                        else SquashfsBackupWorkflow.from_declaration(
+                            declaration,
+                            storage_manager=lib.storage,
+                        )
+                    )
                     state = workflow.progress()
-                    repo.save_resume_state(workflow_id, state)
-                    total_sources = len(spec.sources)
-                    while state.status not in {BackupWorkflowStatus.COMPLETE, BackupWorkflowStatus.FAILED, BackupWorkflowStatus.CANCELLED}:
+                    # Persist the workflow's effective declaration.  Concrete
+                    # implementations may make implicit execution settings
+                    # explicit (for SquashFS: compression, executable,
+                    # deterministic mode, and the stable builder Store UUID).
+                    # Saving the planner's pre-construction declaration makes
+                    # the very first checkpoint look like changed intent.
+                    workflow_id = repo.save_workflow_declaration(
+                        state.declaration,
+                        status=WorkflowStatus.DRAFT,
+                    )
+                    repo.save_checkpoint(workflow_id, state)
+                    total_sources = len(state.declaration.sources)
+                    while state.status not in {WorkflowStatus.COMPLETE, WorkflowStatus.FAILED, WorkflowStatus.CANCELLED}:
                         state = workflow.run_next()
-                        repo.save_resume_state(workflow_id, state)
-                        self.reporter.pack_progress(label=spec.workflow_name, staged=int(state.staged_source_count), total=total_sources, status=state.status.value)
+                        repo.save_checkpoint(workflow_id, state)
+                        self.reporter.pack_progress(label=declaration.workflow_name, staged=int(state.staged_source_count), total=total_sources, status=state.status.value)
                     self.reporter.finish_pack_progress()
-                    if state.status is not BackupWorkflowStatus.COMPLETE:
-                        raise RuntimeError("Workflow {!r} failed with status {!r}: {}".format(spec.workflow_name, state.status.value, state.last_error or "unknown error"))
-                    registered = registry.register_workflow_output_as_store(workflow_id, artifact_url=state.output_artifact_url, store_name=pathlib.Path(spec.output_url).stem, link_sources=True)
-                    self.reporter.info("Built {} -> {} (backup store id={}, presence links={})".format(spec.workflow_name, state.output_artifact_url, registered.backup_store_id, registered.presence_links_created))
-                    executed_runs.append(PackExecutionRun(workflow_id=workflow_id, workflow_name=spec.workflow_name, output_url=str(state.output_artifact_url), source_count=int(pack.source_count), estimated_size_bytes=int(pack.estimated_size_bytes), backup_store_id=int(registered.backup_store_id), presence_links_created=int(registered.presence_links_created)))
+                    if state.status is not WorkflowStatus.COMPLETE:
+                        raise RuntimeError("Workflow {!r} failed with status {!r}: {}".format(declaration.workflow_name, state.status.value, state.last_error or "unknown error"))
+                    result = workflow.run_to_completion()
+                    output_reference = result.output_artifact_reference
+                    if output_reference is None:
+                        raise RuntimeError("completed workflow did not identify its output")
+                    output_path = self._output_path(output_reference)
+                    registered = registry.register_artifact(
+                        workflow_id,
+                        result,
+                        store_name=output_path.stem,
+                        link_sources=True,
+                    )
+                    self.reporter.info("Built {} -> {} (backup store ref={}, presence links={})".format(declaration.workflow_name, output_path, registered.backup_store_ref, registered.presence_links_created))
+                    executed_runs.append(PackExecutionRun(workflow_id=workflow_id, workflow_name=declaration.workflow_name, output_url=str(output_path), source_count=int(pack.source_count), estimated_size_bytes=int(pack.estimated_size_bytes), backup_store_ref=registered.backup_store_ref, presence_links_created=int(registered.presence_links_created)))
         self.reporter.section("Run complete")
         self.reporter.info(f"Indexed stores: {len(indexed_runs)}")
         self.reporter.info(f"Built packs: {len(executed_runs)}")
         return PrototypeRunResult(database_path=str(self.database_path), indexed_stores=tuple(indexed_runs), executed_packs=tuple(executed_runs))
 
-    def _build_workflow_from_spec(self, spec: BackupWorkflowSpec):
-        return SquashfsBackupWorkflow.from_spec(spec)
+    def _ensure_output_store_row(self, db) -> UUID:
+        root_uri = self.output_dir.resolve().as_uri()
+        existing = db.search("stores", "store_root_uri", root_uri)
+        if existing:
+            row = existing[0]
+            if row["store_uuid"] in (None, ""):
+                row["store_uuid"] = str(uuid4())
+                row.sync()
+            return UUID(str(row["store_uuid"]))
+        store_ref = uuid4()
+        allowed = set(db.get_column_headings("stores"))
+        values = {
+            "store_uuid": str(store_ref),
+            "store_name": "backup-pack-output",
+            "store_kind": "filesystem",
+            "store_access_protocol": "file",
+            "store_root_uri": root_uri,
+            "store_operational_role": "backup",
+            "store_is_read_only": 0,
+            "store_online_status": "online",
+            "store_supports_random_read": 1,
+            "store_supports_random_write": 1,
+            "store_supports_delete": 1,
+            "store_supports_folders": 1,
+        }
+        Row.from_idless_row_dict(
+            db,
+            row_dict={key: value for key, value in values.items() if key in allowed},
+            table="stores",
+        )
+        return store_ref
+
+    def _output_path(self, reference) -> pathlib.Path:
+        from LiuXin_alpha.storage.api import Location
+
+        if isinstance(reference, Location):
+            return self.output_dir.joinpath(
+                *pathlib.PurePosixPath(reference.key).parts
+            ).resolve()
+        return pathlib.Path(reference).expanduser().resolve()
 
     @staticmethod
     def _derive_store_name(path: pathlib.Path, ordinal: int) -> str:

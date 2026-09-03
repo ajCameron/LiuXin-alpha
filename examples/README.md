@@ -1,110 +1,103 @@
 # LiuXin Alpha Examples
 
-All examples assume you run from repository root and have dependencies installed.
+The examples are grouped by the layer they demonstrate:
 
-Bootstrap the repo-local virtual environment with:
+- [`catalog/`](catalog/) — WEMI repositories, matching, mutations, and writers.
+- [`conversion/`](conversion/) — input-to-OEB and OEB-to-output conversions.
+- [`library/`](library/) — the application-facing `Library` facade.
+- [`metadata/`](metadata/) — online metadata and cover plugins.
+- [`storage/`](storage/) — drivers, Stores, managers, ingest, and DB reconciliation.
+- [`utilities/`](utilities/) — small reusable library helpers.
+
+All commands below assume the repository root as the working directory. Set up
+the repo-local environment first with:
 
 ```bash
 bash scripts/create_venv.sh
 ```
 
-General pattern:
+Every Python example supports `--help` and can be invoked by path:
 
 ```bash
-python examples/<script>.py --help
+python examples/storage/filesystem_driver_example.py --help
 ```
 
-Run a local non-network smoke tour:
+## Smoke tours
+
+Run the local, non-network tour across Library, storage, utilities, and
+conversion:
 
 ```bash
 bash examples/quickstart.sh
 ```
 
-Run every catalog example against a fresh temporary FRBR database:
+Run all catalog examples against disposable databases:
 
 ```bash
-bash examples/catalog_quickstart.sh
+bash examples/catalog/catalog_quickstart.sh
 ```
 
-## Catalog
+Set `KEEP_EXAMPLE_WORKDIR=1` when running the main quickstart if you want to
+inspect its generated databases and Store roots.
 
-The catalog examples are safe by default: each creates a temporary SQLite
-database and removes it on exit. Pass `--database /path/to/new.sqlite` to any
-script to retain its populated example database. The requested path must not
-already exist.
+## Storage starting points
 
-- `catalog_crud_example.py`
-  - Create, read, update, traverse, match-or-create, list, and delete Work / Expression / Manifestation / Item records.
-- `catalog_metadata_bundle_example.py`
-  - Attach an Agent, identifier, and note, then retrieve a coherent WEMI bundle and catalog projections.
-- `catalog_matching_example.py`
-  - Inspect match/no-match/ambiguity decisions and evidence; run exact,
-    identifier-backed, scoped, guarded match-or-create, exact-default Tag, and
-    Item identifier flows, including explicit approximate-policy opt-in.
-- `catalog_mutations_example.py`
-  - Apply coordinated metadata, prove an invalid role rolls back atomically, and merge duplicate entities.
-- `catalog_writers_example.py`
-  - Create schema-selected writers from two strings, write columns and relationships, inspect one link dataclass at a time, use link extras as a mapping, lazily load destination values, and exercise allowed-link-type guards.
-- `catalog_quickstart.sh`
-  - Execute all five catalog examples as a non-network smoke tour.
+The storage examples form a progression rather than requiring callers to begin
+with the lowest-level contracts:
 
-## Library + Storage
+1. `storage/storage_manager_manual_roundtrip_example.py` — attach a Store and
+   use the ordinary manager surface.
+2. `storage/storage_manager_workflows_example.py` — configure two Stores and
+   exercise metadata hints, replication, lookup, verification, and Composite
+   delivery.
+3. `storage/filesystem_driver_example.py` and
+   `storage/sqlite_driver_example.py` — use raw drivers and explicitly commit a
+   staged write session.
+4. `storage/http_remote_read_example.py` — scope a read-only HTTP driver to a
+   URL root, stat a remote object, verify it, and optionally save it locally.
+5. `storage/assimilate_existing_disk_example.py` — expose an existing directory
+   read-only and copy selected objects into manager-owned storage.
+6. `storage/library_register_unmanaged_disk_example.py` and
+   `storage/reconcile_with_database_path_example.py` — register an existing disk
+   with a LiuXin database without taking ownership of its bytes.
 
-- `library_facade_example.py`
-  - End-to-end `Library` usage: ensure store row, refresh storage, add/retrieve a file.
-- `library_register_unmanaged_disk_example.py`
-  - Register all ebook files under a disk root as an unmanaged store.
-- `storage_bootstrap_report_example.py`
-  - Load stores from DB `stores` table and print bootstrap report/issues.
-- `storage_manager_manual_roundtrip_example.py`
-  - Use `StorageManager` directly (without DB wiring) for a simple add/retrieve round-trip.
-- `reconcile_with_database_path_example.py`
-  - Call `register_existing_disk_with_database_path(...)` directly.
-- `quickstart.sh`
-  - Runs a non-network sequence of the local Library/Storage examples end-to-end.
-
-## Metadata / Web Sources
-
-- `openlibrary_plugin_example.py`
-  - Query OpenLibrary for cover bytes by ISBN and optionally save the cover.
-- `google_books_plugin_example.py`
-  - Query Google Books plugin directly and optionally save cover bytes.
-- `metadata_identify_example.py`
-  - Run identify pipeline across enabled metadata plugins and print normalized results.
-
-## Utilities
-
-- `comments_to_html_example.py`
-  - Convert plain text comments to minimal HTML using library helper.
-
-## Conversion
-
-- `conversion_oeb_to_epub_example.py`
-  - Convert an OPF/OEB source directory into `.epub` using the EPUB output plugin.
-  - If `--input-opf` is omitted, the script generates a sample OEB input automatically.
-- `conversion_oeb_to_mobi_example.py`
-  - Convert an OPF/OEB source directory into `.mobi` using the MOBI output plugin.
-  - If `--input-opf` is omitted, the script generates a sample OEB input automatically.
-- `conversion_to_oeb_example.py`
-  - Convert many input formats into an OEB directory (OPF/NCX/XHTML/CSS assets).
-  - Supported formats include: `txt`, `md`, `markdown`, `textile`, `html`, `xhtml`, `htmlz`, `epub`, `mobi`, `azw`, `azw3`, `azw4`, `pdf`, `fb2`, `rtf`, `odt`, `docx`, `pdb`, `rb`, `pml`, `tcr`, `lit`, `lrf`, `snb`, `chm`, `djvu`, `cbz`, `cbr`, `cbc`.
-- `conversion_batch_to_oeb_example.py`
-  - Batch wrapper around `conversion_to_oeb_example.py` for multiple input files.
-
-Common usage:
+For example:
 
 ```bash
-python examples/conversion_to_oeb_example.py --input /path/to/book.epub --output-dir /tmp/book_epub_oeb --clean-output
-python examples/conversion_to_oeb_example.py --input /path/to/book.mobi --output-dir /tmp/book_mobi_oeb --clean-output
-python examples/conversion_to_oeb_example.py --input /path/to/book.docx --output-dir /tmp/book_docx_oeb --clean-output
-python examples/conversion_to_oeb_example.py --list-formats
+python examples/storage/storage_manager_manual_roundtrip_example.py \
+  --store-root /tmp/liuxin-manual-store
+
+python examples/storage/filesystem_driver_example.py \
+  --store-root /tmp/liuxin-driver-store \
+  --object-key incoming/book.epub
+
+python examples/storage/assimilate_existing_disk_example.py \
+  --source-root /media/books \
+  --destination-root /srv/liuxin/managed \
+  --extension epub --extension mobi
+
+python examples/storage/http_remote_read_example.py \
+  --base-url https://files.example.org/library/ \
+  --object-key books/example.epub \
+  --output /tmp/example.epub
 ```
 
-Batch usage:
+See [`storage/README.md`](storage/README.md) for the ownership distinction
+between copying, adopting, and database registration.
+
+## Conversion starting points
 
 ```bash
-python examples/conversion_batch_to_oeb_example.py \
-  --output-root /tmp/oeb_batch \
-  --inputs /path/to/a.epub /path/to/b.mobi /path/to/c.docx \
+python examples/conversion/conversion_to_oeb_example.py \
+  --input /path/to/book.epub \
+  --output-dir /tmp/book-oeb \
+  --clean-output
+
+python examples/conversion/conversion_batch_to_oeb_example.py \
+  --output-root /tmp/oeb-batch \
+  --inputs /path/to/a.epub /path/to/b.mobi \
   --clean-output
 ```
+
+Each category README lists the scripts in that directory and calls out any
+network or data-mutation behavior.

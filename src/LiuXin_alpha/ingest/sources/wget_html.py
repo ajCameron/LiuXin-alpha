@@ -19,7 +19,11 @@ from LiuXin_alpha.ingest.sources.crawler_defaults import (
     LEGACY_WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY,
     get_default_crawler_http_requests_per_hour,
 )
-from LiuXin_alpha.ingest.sources.html_common import is_within_root_scope, looks_like_file_url
+from LiuXin_alpha.ingest.sources.html_common import (
+    is_within_root_scope,
+    looks_like_file_url,
+    normalize_http_url,
+)
 from LiuXin_alpha.ingest.sources.wget_utils import extract_http_urls_from_wget_output, run_wget
 
 WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT = CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT
@@ -44,19 +48,28 @@ class WgetBackendOptions:
     respect_robots: bool = True
     user_agent: str | None = None
     no_verbose: bool = True
+    max_observed_urls: int = 100_000
+    max_output_chars: int = 8 * 1024 * 1024
 
     def __post_init__(self) -> None:
         if self.max_http_requests_per_hour is None:
             self.max_http_requests_per_hour = get_default_crawler_http_requests_per_hour(
                 LEGACY_WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY
             )
+        if self.max_observed_urls < 1:
+            raise ValueError("max_observed_urls must be positive.")
+        if self.max_output_chars < 1:
+            raise ValueError("max_output_chars must be positive.")
 
 
 class WgetHtmlDiscoverySource(DiscoverySourceAPI):
     """Remote HTML discovery source powered by `wget --spider`."""
 
     def __init__(self, url: str, *, options: WgetBackendOptions | None = None) -> None:
-        super().__init__(url=url)
+        normalized = normalize_http_url(url)
+        if normalized is None:
+            raise ValueError("wget discovery requires a valid HTTP(S) root URL.")
+        super().__init__(url=normalized)
         self.options = options or WgetBackendOptions()
         self._event_log = InMemoryEventLog()
         self._crawl_cache_urls: list[str] | None = None
@@ -141,8 +154,15 @@ class WgetHtmlDiscoverySource(DiscoverySourceAPI):
 
         filtered: list[str] = []
         seen: set[str] = set()
+        observed_count = 0
 
         def _consider_url(url: str) -> None:
+            nonlocal observed_count
+            observed_count += 1
+            if observed_count > self.options.max_observed_urls:
+                raise RuntimeError(
+                    "wget crawl exceeded its configured observed-URL limit"
+                )
             if url in seen:
                 return
             seen.add(url)
@@ -185,7 +205,6 @@ class WgetHtmlDiscoverySource(DiscoverySourceAPI):
             for candidate in extract_http_urls_from_wget_output(str(raw_line)):
                 _consider_url(candidate)
 
-        stream_output = (log_line_callback is not None) or (discovered_url_callback is not None)
         result = self._run_wget(
             self._build_wget_args(),
             wget_exe=self.options.wget_exe,
@@ -193,12 +212,16 @@ class WgetHtmlDiscoverySource(DiscoverySourceAPI):
             env=self.options.env,
             timeout_s=self.options.timeout_s,
             check=True,
-            line_callback=_on_wget_line if stream_output else None,
+            line_callback=_on_wget_line,
+            max_output_chars=self.options.max_output_chars,
         )
 
         combined_output = "{}\n{}".format(result.stdout or "", result.stderr or "")
+        if len(combined_output) > self.options.max_output_chars + 1:
+            raise RuntimeError("wget output exceeded its configured size limit")
         for candidate in extract_http_urls_from_wget_output(combined_output):
-            _consider_url(candidate)
+            if candidate not in seen:
+                _consider_url(candidate)
 
         self._crawl_cache_urls = filtered
         return list(filtered)

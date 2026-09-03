@@ -1,73 +1,31 @@
+"""Explicit routed mutation contracts."""
 
 from __future__ import annotations
 
-import os
-import pathlib
-
 import pytest
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
-    OnDiskExistingManagedStoreLocation,
-)
-
-from .conftest import fs_path
+from LiuXin_alpha.storage import api
 
 
-def test_touch_exist_ok_false_raises(store) -> None:
-    loc = OnDiskExistingManagedStoreLocation("a.txt", store=store)
-    loc.touch()
-    with pytest.raises(FileExistsError):
-        loc.touch(exist_ok=False)
+def test_delete_is_strict_by_default_and_optionally_idempotent(manager, location) -> None:
+    with pytest.raises(api.StoreNotFound):
+        manager.delete(location)
+    manager.delete(location, missing_ok=True)
 
 
-def test_unlink_missing_ok(store) -> None:
-    loc = OnDiskExistingManagedStoreLocation("missing.txt", store=store)
-    with pytest.raises(FileNotFoundError):
-        loc.unlink(missing_ok=False)
-    loc.unlink(missing_ok=True)  # should not raise
+def test_filesystem_delete_does_not_claim_an_atomic_version_precondition(
+    store, location,
+) -> None:
+    info = store.write_bytes(location, b"first")
+    replacement = store.write_bytes(location, b"second", mode=api.WriteMode.REPLACE)
+
+    assert replacement.version != info.version
+    with pytest.raises(api.StoreUnsupportedOperation):
+        store.delete(location, if_version=info.version)
+    assert store.read_bytes(location) == b"second"
 
 
-def test_mkdir_parents_exist_ok(store) -> None:
-    loc = OnDiskExistingManagedStoreLocation("a", "b", "c", store=store)
-    loc.mkdir(parents=True, exist_ok=True)
-    assert fs_path(store, "a", "b", "c").is_dir()
-    # again, should not raise
-    loc.mkdir(parents=True, exist_ok=True)
-
-
-def test_rmdir_non_empty_raises(store) -> None:
-    d = OnDiskExistingManagedStoreLocation("dir", store=store)
-    d.mkdir()
-    f = OnDiskExistingManagedStoreLocation("dir", "file.txt", store=store)
-    f.write_text("x")
-    with pytest.raises(OSError):
-        d.rmdir()
-
-
-def test_rename_bare_name_stays_in_dir(store) -> None:
-    d = OnDiskExistingManagedStoreLocation("d", store=store)
-    d.mkdir()
-    f = OnDiskExistingManagedStoreLocation("d", "old.txt", store=store)
-    f.write_text("hi")
-    moved = f.rename("new.txt")
-    assert moved.parts == ("d", "new.txt")
-    assert fs_path(store, "d", "new.txt").exists()
-    assert not fs_path(store, "d", "old.txt").exists()
-
-
-def test_rename_store_relative_path(store) -> None:
-    src = OnDiskExistingManagedStoreLocation("src.txt", store=store)
-    src.write_text("x")
-    moved = src.rename("subdir/moved.txt")
-    assert moved.parts == ("subdir", "moved.txt")
-    assert fs_path(store, "subdir", "moved.txt").read_text() == "x"
-
-
-def test_replace_store_relative_path(store) -> None:
-    a = OnDiskExistingManagedStoreLocation("a.txt", store=store)
-    b = OnDiskExistingManagedStoreLocation("b.txt", store=store)
-    a.write_text("A")
-    b.write_text("B")
-    out = a.replace("b.txt")
-    assert out.parts == ("b.txt",)
-    assert fs_path(store, "b.txt").read_text() == "A"
+def test_stat_and_try_stat_do_not_hide_availability_categories(manager, location) -> None:
+    assert manager.try_stat(location) is None
+    manager.write_bytes(location, b"present")
+    assert manager.stat(location).size == 7

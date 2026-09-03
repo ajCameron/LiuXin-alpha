@@ -1,34 +1,35 @@
+"""Filesystem boundaries are enforced when the owning Store interprets a key."""
 
 from __future__ import annotations
 
 import os
-import pathlib
 
 import pytest
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
-    OnDiskExistingManagedStoreLocation,
-)
+from LiuXin_alpha.storage import api
 
 
-def test_constructor_refuses_store_escape(store, tmp_path) -> None:
-    # '..' is refused by tokenization (defense in depth)
-    with pytest.raises(ValueError):
-        _ = OnDiskExistingManagedStoreLocation("a/../b", store=store)
+@pytest.mark.parametrize("key", ["../escape", "nested/../../escape", "/absolute"])
+def test_filesystem_store_refuses_traversal(store, key) -> None:
+    with pytest.raises(api.StoreInvalidLocation):
+        store.store_bytes(b"escape", location=key)
 
 
-@pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlink not supported on this platform")
-def test_symlink_escape_is_refused(store, tmp_path) -> None:
-    # Create a symlink inside the store that points *outside*, then ensure we refuse it.
-    store_root = pathlib.Path(store.url)
-    outside = tmp_path.parent / (tmp_path.name + "_outside")
-    outside.mkdir(parents=True, exist_ok=True)
-
-    link = store_root / "escape"
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlinks unavailable")
+def test_filesystem_store_refuses_final_symlink_escape(store, tmp_path) -> None:
+    outside = tmp_path / "outside.bin"
+    outside.write_bytes(b"outside")
+    link = store.root_path / "linked.bin"
     try:
-        link.symlink_to(outside, target_is_directory=True)
-    except (OSError, NotImplementedError):
-        pytest.skip("symlink creation not permitted on this system")
+        link.symlink_to(outside)
+    except OSError:
+        pytest.skip("symlink creation unavailable")
 
-    with pytest.raises(ValueError):
-        _ = OnDiskExistingManagedStoreLocation("escape", "x.txt", store=store)
+    with pytest.raises(api.StoreInvalidLocation):
+        store.read_bytes(store.locate("linked.bin"))
+
+
+def test_bound_location_cannot_bypass_store_scope(manager, second_store) -> None:
+    unknown = api.Location(second_store.store_ref, "../escape")
+    with pytest.raises(api.StoreInvalidLocation):
+        manager.bind(unknown).read_bytes()

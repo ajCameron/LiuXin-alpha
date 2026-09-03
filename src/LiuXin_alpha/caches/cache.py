@@ -105,6 +105,7 @@ class Cache(CacheAPI):
         self._state = CacheState.EMPTY
         self._generation = 0
         self._dirty_tables: set[str] = set()
+        self._dirty_ids: dict[str, set[int]] = {}
         self._dirty_links: set[tuple[str, str]] = set()
         self._dirty_fields: set[str] = set()
         self._query_engine = CacheQueryEngine(self.storage)
@@ -161,6 +162,7 @@ class Cache(CacheAPI):
             self._assert_open()
             self.storage.read()
             self._dirty_tables.clear()
+            self._dirty_ids.clear()
             self._dirty_links.clear()
             self._dirty_fields.clear()
             self._state = CacheState.READY
@@ -171,6 +173,7 @@ class Cache(CacheAPI):
             self._assert_open()
             self.storage.reload()
             self._dirty_tables.clear()
+            self._dirty_ids.clear()
             self._dirty_links.clear()
             self._dirty_fields.clear()
             self._state = CacheState.READY
@@ -187,6 +190,7 @@ class Cache(CacheAPI):
             else:
                 self.storage.reload()
             self._dirty_tables.clear()
+            self._dirty_ids.clear()
             self._dirty_links.clear()
             self._dirty_fields.clear()
             self._state = CacheState.READY
@@ -197,6 +201,7 @@ class Cache(CacheAPI):
             self._assert_open()
             self.storage.clear()
             self._dirty_tables.clear()
+            self._dirty_ids.clear()
             self._dirty_links.clear()
             self._dirty_fields.clear()
             self._state = CacheState.EMPTY
@@ -208,6 +213,7 @@ class Cache(CacheAPI):
                 return
             self.storage.close()
             self._dirty_tables.clear()
+            self._dirty_ids.clear()
             self._dirty_links.clear()
             self._dirty_fields.clear()
             self._state = CacheState.CLOSED
@@ -250,6 +256,9 @@ class Cache(CacheAPI):
         try:
             for table in sorted(self._dirty_tables):
                 self.storage.reload_main_table(table)
+            for table in sorted(self._dirty_ids):
+                if table not in self._dirty_tables:
+                    self.storage.reload_ids(table, self._dirty_ids[table])
             for source, target in sorted(self._dirty_links):
                 self.storage.reload_link_table(source, target)
             for field in sorted(self._dirty_fields):
@@ -258,6 +267,7 @@ class Cache(CacheAPI):
             raise CacheDirtyError("Failed to refresh dirty cache dependencies") from exc
 
         self._dirty_tables.clear()
+        self._dirty_ids.clear()
         self._dirty_links.clear()
         self._dirty_fields.clear()
         self._state = CacheState.READY
@@ -373,33 +383,51 @@ class Cache(CacheAPI):
         self,
         *,
         tables: Iterable[str] = (),
+        ids: Mapping[str, Iterable[int]] | None = None,
         links: Iterable[tuple[str, str]] = (),
         fields: Iterable[str] = (),
     ) -> None:
         with self._lock:
             self._assert_ready()
             table_names = {str(table) for table in tables}
+            row_ids = {
+                str(table): {int(row_id) for row_id in table_ids}
+                for table, table_ids in (ids or {}).items()
+            }
+            row_ids = {
+                table: table_ids
+                for table, table_ids in row_ids.items()
+                if table_ids
+            }
             link_names = {
                 (str(source), str(target)) for source, target in links
             }
             field_names = {str(field) for field in fields}
 
             if self.capabilities.consistency == CacheConsistency.LIVE:
-                if table_names or link_names or field_names:
+                if table_names or row_ids or link_names or field_names:
                     self._advance_generation()
                 return
 
             for table in table_names:
                 self.storage.invalidate_table(table)
+            for table, table_ids in row_ids.items():
+                if table not in table_names:
+                    self.storage.invalidate_ids(table, table_ids)
             for source, target in link_names:
                 self.storage.invalidate_link_table(source, target)
             for field in field_names:
                 self.storage.invalidate_field(field)
 
             self._dirty_tables.update(table_names)
+            for table in table_names:
+                self._dirty_ids.pop(table, None)
+            for table, table_ids in row_ids.items():
+                if table not in table_names:
+                    self._dirty_ids.setdefault(table, set()).update(table_ids)
             self._dirty_links.update(link_names)
             self._dirty_fields.update(field_names)
-            if table_names or link_names or field_names:
+            if table_names or row_ids or link_names or field_names:
                 self._state = CacheState.DIRTY
                 self._advance_generation()
 
@@ -459,6 +487,8 @@ class Cache(CacheAPI):
                 pass
 
         self._dirty_tables.update(table_names)
+        for table in table_names:
+            self._dirty_ids.pop(table, None)
         self._dirty_links.update(link_names)
         self._dirty_fields.update(field_names)
         self._state = CacheState.DIRTY

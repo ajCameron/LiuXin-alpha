@@ -54,12 +54,20 @@ class NativeHtmlBackendOptions:
     respect_robots: bool = True
     user_agent: str | None = None
     max_html_bytes: int = 2_000_000
+    max_pages: int = 10_000
+    max_observed_urls: int = 100_000
 
     def __post_init__(self) -> None:
         if self.max_http_requests_per_hour is None:
             self.max_http_requests_per_hour = get_default_crawler_http_requests_per_hour(
                 LEGACY_NATIVE_HTML_MAX_REQUESTS_PER_HOUR_PREF_KEY
             )
+        if self.max_html_bytes < 1:
+            raise ValueError("max_html_bytes must be positive.")
+        if self.max_pages < 1:
+            raise ValueError("max_pages must be positive.")
+        if self.max_observed_urls < 1:
+            raise ValueError("max_observed_urls must be positive.")
 
 
 @dataclass(frozen=True)
@@ -70,6 +78,7 @@ class _FetchResult:
     content_type: str
     body: bytes
     charset: str | None
+    truncated: bool = False
 
 
 class _LinkExtractor(HTMLParser):
@@ -99,7 +108,9 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
 
     def __init__(self, url: str, *, options: NativeHtmlBackendOptions | None = None) -> None:
         normalized = normalize_http_url(url)
-        super().__init__(url=normalized or str(url))
+        if normalized is None:
+            raise ValueError("native HTML discovery requires a valid HTTP(S) root URL.")
+        super().__init__(url=normalized)
         self.options = options or NativeHtmlBackendOptions()
         self._event_log = InMemoryEventLog()
         self._crawl_cache_urls: list[str] | None = None
@@ -165,9 +176,12 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
             except Exception:
                 charset = None
             body = b""
+            truncated = False
             if self._looks_like_html_content_type(content_type):
                 limit = max(1024, int(self.options.max_html_bytes))
-                body = response.read(limit + 1)[:limit]
+                received = response.read(limit + 1)
+                truncated = len(received) > limit
+                body = received[:limit]
             return _FetchResult(
                 requested_url=url,
                 final_url=final_url,
@@ -175,6 +189,7 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
                 content_type=content_type,
                 body=body,
                 charset=charset,
+                truncated=truncated,
             )
 
     def _robots_parser_for(self, url: str) -> RobotFileParser | None:
@@ -215,7 +230,17 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
         )
 
     def startup(self) -> None:
-        self._fetch_url(self.url)
+        result = self._fetch_url(self.url)
+        if not self._usable_fetch_result(result):
+            raise RuntimeError(
+                f"native HTML root returned an unusable response: {self.url}"
+            )
+
+    def _usable_fetch_result(self, fetched: _FetchResult) -> bool:
+        if int(fetched.status) < 200 or int(fetched.status) >= 300:
+            return False
+        final_url = normalize_http_url(fetched.final_url)
+        return final_url is not None and self._is_within_root_scope(final_url)
 
     def discover_urls(
         self,
@@ -246,6 +271,7 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
         queued = {root}
         crawled: set[str] = set()
         observed: set[str] = set()
+        observed_link_count = 0
         filtered: list[str] = []
 
         while pending:
@@ -253,6 +279,10 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
             normalized_current = normalize_http_url(current_url)
             if normalized_current is None or normalized_current in crawled:
                 continue
+            if len(crawled) >= self.options.max_pages:
+                raise RuntimeError(
+                    "native HTML crawl exceeded its configured page limit"
+                )
             crawled.add(normalized_current)
             if not self._is_within_root_scope(normalized_current):
                 continue
@@ -270,14 +300,36 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
                 self._event_log.put("crawl failed for {}: {!r}".format(normalized_current, exc))
                 continue
 
-            page_url = normalize_http_url(fetched.final_url) or normalized_current
+            if not self._usable_fetch_result(fetched):
+                self._event_log.put(
+                    "crawl rejected unusable response for {}: status={} final={!r}".format(
+                        normalized_current,
+                        fetched.status,
+                        fetched.final_url,
+                    )
+                )
+                continue
+
+            page_url = normalize_http_url(fetched.final_url)
+            assert page_url is not None
             if not self._looks_like_html_content_type(fetched.content_type):
+                continue
+            if fetched.truncated:
+                self._event_log.put(
+                    "crawl rejected oversized HTML for {}".format(page_url)
+                )
                 continue
             encoding = str(fetched.charset or "").strip() or "utf-8"
             try:
-                html_text = fetched.body.decode(encoding, errors="replace")
+                html_text = fetched.body.decode(
+                    encoding,
+                    errors="surrogateescape",
+                )
             except Exception:
-                html_text = fetched.body.decode("utf-8", errors="replace")
+                html_text = fetched.body.decode(
+                    "utf-8",
+                    errors="surrogateescape",
+                )
             parser = _LinkExtractor(page_url=page_url)
             try:
                 parser.feed(html_text)
@@ -292,6 +344,11 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
                 can_descend = False
 
             for raw_link in parser.links:
+                observed_link_count += 1
+                if observed_link_count > self.options.max_observed_urls:
+                    raise RuntimeError(
+                        "native HTML crawl exceeded its configured observed-URL limit"
+                    )
                 normalized = normalize_http_url(raw_link)
                 if normalized is None or normalized in observed:
                     continue
@@ -338,13 +395,22 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
 
     def file_exists(self, file_url: str) -> bool:
         try:
-            with self._open_url(file_url, method="HEAD"):
-                return True
+            with self._open_url(file_url, method="HEAD") as response:
+                status = int(getattr(response, "status", 200) or 200)
+                final_url = normalize_http_url(
+                    str(response.geturl() or file_url)
+                )
+                return (
+                    200 <= status < 300
+                    and final_url is not None
+                    and self._is_within_root_scope(final_url)
+                )
         except urllib.error.HTTPError as exc:
             if int(getattr(exc, "code", 0) or 0) in {405, 501}:
                 try:
-                    self._fetch_url(file_url)
-                    return True
+                    return self._usable_fetch_result(
+                        self._fetch_url(file_url)
+                    )
                 except Exception:
                     return False
             return False

@@ -696,6 +696,27 @@ class StorageCacheAPI(abc.ABC):
         :return:
         """
 
+    def reload_ids(
+        self,
+        table: Union["MainTableName", StorageCacheSingleTableAPI],
+        ids: Iterable[int],
+        db: Optional["DatabaseAPI"] = None,
+    ) -> None:
+        """Reload selected main-table rows.
+
+        The default is deliberately conservative so existing and externally
+        supplied plugins remain correct. Snapshot backends with a bounded row
+        refresh should override this method.
+
+        :param table: Main table containing the changed rows.
+        :param ids: Durable row identifiers to refresh or evict.
+        :param db: Optional database override.
+        :return: None.
+        """
+
+        del ids
+        self.reload_main_table(table, db=db)
+
     @abc.abstractmethod
     def reload_link_table(
         self,

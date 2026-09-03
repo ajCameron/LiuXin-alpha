@@ -118,6 +118,8 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         require_ordering: bool = False,
         type_filter: Optional[str] = None,
     ) -> tuple[Optional[T], ...]:
+        if not self.src_table.has_id(int(src_id)):
+            return ()
         return tuple(
             self._value_for_dst_id(dst_id)
             for dst_id in self._ordered_dst_ids_for_src(
@@ -178,6 +180,69 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
     ) -> None:
         del ids
         self.read(db)
+
+    def refresh_table_ids(
+        self,
+        table_name: str,
+        ids: Iterable[int],
+    ) -> None:
+        """Repair cached projections after selected source/destination rows change.
+
+        Link topology is unchanged here. The method therefore touches only the
+        changed source rows or the source rows that reference changed
+        destinations and performs no database scan.
+        """
+
+        changed_ids = {int(row_id) for row_id in ids}
+        if not changed_ids:
+            return
+
+        if str(table_name) == self.src_table_name:
+            for src_id in changed_ids:
+                old_dst_ids = self._src_to_dst_ids.pop(src_id, ())
+                self._src_to_values.pop(src_id, None)
+                for dst_id in old_dst_ids:
+                    remaining = tuple(
+                        value
+                        for value in self._dst_to_src_ids.get(dst_id, ())
+                        if value != src_id
+                    )
+                    if remaining:
+                        self._dst_to_src_ids[dst_id] = remaining
+                    else:
+                        self._dst_to_src_ids.pop(dst_id, None)
+                        self._dst_to_values.pop(dst_id, None)
+
+                if not self.src_table.has_id(src_id):
+                    continue
+                dst_ids = self._ordered_dst_ids_for_src(
+                    src_id,
+                    require_ordering=True,
+                )
+                if not dst_ids:
+                    continue
+                values = tuple(self._value_for_dst_id(dst_id) for dst_id in dst_ids)
+                self._src_to_dst_ids[src_id] = dst_ids
+                self._src_to_values[src_id] = values
+                for dst_id, value in zip(dst_ids, values):
+                    src_ids = set(self._dst_to_src_ids.get(dst_id, ()))
+                    src_ids.add(src_id)
+                    self._dst_to_src_ids[dst_id] = tuple(sorted(src_ids))
+                    self._dst_to_values[dst_id] = value
+
+        if str(table_name) == self.dst_table_name:
+            affected_sources: set[int] = set()
+            for dst_id in changed_ids:
+                affected_sources.update(self._dst_to_src_ids.get(dst_id, ()))
+                if self.dst_table.has_id(dst_id):
+                    self._dst_to_values[dst_id] = self._value_for_dst_id(dst_id)
+                else:
+                    self._dst_to_values.pop(dst_id, None)
+            for src_id in affected_sources:
+                dst_ids = self._src_to_dst_ids.get(src_id, ())
+                self._src_to_values[src_id] = tuple(
+                    self._value_for_dst_id(dst_id) for dst_id in dst_ids
+                )
 
     def remove_ids(self, ids: Iterable[int]) -> None:
         removed_ids = {int(row_id) for row_id in ids}

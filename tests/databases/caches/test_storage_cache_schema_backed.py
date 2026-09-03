@@ -120,6 +120,49 @@ def test_invalidation_marks_dependencies_without_eager_reload(
     assert reloads == ["covers"]
 
 
+def test_id_invalidation_repairs_row_and_relation_without_full_reload(
+    schema_backed_cache: SchemaBackedStorageCache,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    covers = schema_backed_cache.main_tables["covers"]
+    original_get_row = schema_backed_cache.db.get_row_from_id
+    row_reads: list[tuple[str, int]] = []
+
+    def tracked_get_row(table: str, row_id: int):
+        row_reads.append((str(table), int(row_id)))
+        return original_get_row(table, row_id)
+
+    def reject_full_reload(_db) -> None:
+        raise AssertionError("selected row invalidation attempted a full reload")
+
+    monkeypatch.setattr(schema_backed_cache.db, "get_row_from_id", tracked_get_row)
+    monkeypatch.setattr(covers, "reload", reject_full_reload)
+    schema_backed_cache.db.driver_wrapper.update_column(
+        "covers", 10, "path", "/covers/retitled.jpg"
+    )
+
+    schema_backed_cache.invalidate_ids("covers", (10,))
+
+    relation = schema_backed_cache.get_field("books.covers.path")
+    assert relation.get_value_from_src_id(1) == "/covers/retitled.jpg"
+    assert covers.get_row_snapshot(11)["path"] == "/covers/two.jpg"
+    assert row_reads == [("covers", 10)]
+
+
+def test_id_invalidation_evicts_deleted_row_and_source_projection(
+    schema_backed_cache: SchemaBackedStorageCache,
+) -> None:
+    relation = schema_backed_cache.get_field("books.covers.path")
+    assert relation.get_value_from_src_id(1) == "/covers/one.jpg"
+
+    schema_backed_cache.db.driver_wrapper.delete_by_id("books", {1})
+    schema_backed_cache.invalidate_ids("books", (1,))
+
+    assert schema_backed_cache.get_main_table("books").has_id(1) is False
+    assert relation.get_value_from_src_id(1) is None
+    assert 1 not in schema_backed_cache.get_field("books.title").ids
+
+
 @pytest.fixture()
 def many_one_schema_backed_cache() -> SchemaBackedStorageCache:
     books = make_table(

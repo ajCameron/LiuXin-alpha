@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import base64
 import datetime
+import hashlib
 import threading
 import uuid
 
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any
+from uuid import UUID
 
 import pytest
 
@@ -26,6 +28,15 @@ from LiuXin_alpha.core.errors import CoreHandlerError
 from LiuXin_alpha.core.proxies.remote import RemoteProxyError
 from LiuXin_alpha.core.services import CoreServiceReconciliationError
 from LiuXin_alpha.library import Library
+from LiuXin_alpha.storage.api import (
+    Digest,
+    DigitalAssetRecord,
+    FileInfo,
+    Location,
+    ReplicaRemovalReport,
+    StoreConfiguration,
+    StoreStatus,
+)
 
 
 class _DriverWrapper:
@@ -206,84 +217,122 @@ class _TrackingJobManager:
 @dataclass
 class _Library:
     database: _Database
-    files: dict[str, "_Location"] = field(default_factory=dict)
+    files: dict[int, tuple[DigitalAssetRecord, Location, bytes]] = field(
+        default_factory=dict
+    )
+    store_ref: UUID = UUID(int=1)
+
+    def __post_init__(self) -> None:
+        self.storage = _Storage(self)
+        self._store = _Store(self.store_ref)
 
     def add_file(
         self,
         file_bytes: bytes,
         metadata=None,
         *,
-        preferred_store: str | None = None,
+        store=None,
+        name=None,
+        original_name=None,
+        media_type=None,
     ):
-        del metadata
-        key = "{}/file-{}".format(
-            preferred_store or "default",
-            len(self.files) + 1,
+        del metadata, name, original_name, media_type
+        asset_id = len(self.files) + 1
+        selected_ref = self.store_ref if store is None else store.store_ref
+        location = Location(selected_ref, f"objects/file-{asset_id}")
+        asset = DigitalAssetRecord(
+            asset_id,
+            len(file_bytes),
+            (Digest("sha256", hashlib.sha256(file_bytes).hexdigest()),),
         )
-        location = _Location(key=key, content=bytes(file_bytes))
-        self.files[location.file_url] = location
-        return location
+        self.files[asset_id] = (asset, location, bytes(file_bytes))
+        return asset
 
-    def retrieve_file(
-        self,
-        file_url: str | None = None,
-        metadata=None,
-        *,
-        preferred_store: str | None = None,
-    ):
-        del metadata, preferred_store
-        return self.files[str(file_url)]
+    def get_store(self, store_ref: UUID):
+        if store_ref != self.store_ref:
+            raise KeyError(store_ref)
+        return self._store
 
-    def delete_file(
-        self,
-        file_url: str | None = None,
-        metadata=None,
-        file_container=None,
-    ) -> bool:
-        del metadata, file_container
-        return self.files.pop(str(file_url), None) is not None
+    def iter_stores(self):
+        return iter((self._store,))
+
+    def locate_file(self, asset, *, store=None):
+        del store
+        asset_id = (
+            asset.digital_asset_id
+            if isinstance(asset, DigitalAssetRecord)
+            else int(asset)
+        )
+        return self.files[int(asset_id)][1]
+
+    def read_file(self, asset, *, store=None):
+        del store
+        asset_id = (
+            asset.digital_asset_id
+            if isinstance(asset, DigitalAssetRecord)
+            else int(asset)
+        )
+        return self.files[int(asset_id)][2]
+
+    def delete_file(self, replica_id: int):
+        removed = self.files.pop(int(replica_id), None) is not None
+        return ReplicaRemovalReport(
+            replica_id,
+            bytes_deleted=removed,
+            replica_forgotten=False,
+            tombstone_retained=removed,
+        )
 
     def iter_files(self):
-        return iter(tuple(self.files.values()))
+        return iter(
+            tuple(asset for asset, _location, _data in self.files.values())
+        )
 
 
-@dataclass
-class _Location:
-    key: str
-    content: bytes
+class _Store:
+    def __init__(self, store_ref: UUID) -> None:
+        self.store_ref = store_ref
+        self.configuration = StoreConfiguration(
+            store_ref,
+            "archive",
+            "memory",
+            "memory://archive",
+        )
 
-    @property
-    def store(self):
-        return SimpleNamespace(name="fake-store")
+    def status(self, *, refresh: bool = False) -> StoreStatus:
+        del refresh
+        return StoreStatus(True, True)
 
-    @property
-    def file_url(self) -> str:
-        return "fake://{}".format(self.key)
 
-    @property
-    def name(self) -> str:
-        return self.key.rsplit("/", 1)[-1]
+class _Storage:
+    def __init__(self, library: _Library) -> None:
+        self.library = library
 
-    @property
-    def suffix(self) -> str:
-        return ""
+    def stat(self, location: Location) -> FileInfo:
+        for _asset, candidate, data in self.library.files.values():
+            if candidate == location:
+                return FileInfo(location, len(data))
+        raise FileNotFoundError(location.key)
 
-    @property
-    def cached_size(self) -> int:
-        return len(self.content)
+    def read_bytes(self, location: Location) -> bytes:
+        for _asset, candidate, data in self.library.files.values():
+            if candidate == location:
+                return data
+        raise FileNotFoundError(location.key)
 
-    @property
-    def cached_hash(self):
-        return None
-
-    def as_store_key(self) -> str:
-        return self.key
-
-    def exists(self) -> bool:
-        return True
-
-    def read_bytes(self) -> bytes:
-        return self.content
+    def resolve_digital_asset(
+        self,
+        digital_asset_id: int,
+        *,
+        preferred_store_ref=None,
+    ):
+        del preferred_store_ref
+        asset, location, _data = self.library.files[int(digital_asset_id)]
+        return SimpleNamespace(
+            asset_record=asset,
+            replica_record=SimpleNamespace(replica_id=int(digital_asset_id)),
+            location=location,
+        )
 
 
 def _fake_runtime() -> CoreRuntime:
@@ -587,13 +636,14 @@ def test_core_storage_file_api_uses_explicit_wire_bytes() -> None:
         "storage.file.put",
         {
             "content_base64": "aGVsbG8AY29yZQ==",
-            "preferred_store": "archive",
+            "store_uuid": str(UUID(int=1)),
         },
     )
-    file_url = stored["location"]["file_url"]
+    asset_id = int(stored["asset"]["digital_asset_id"])
+    replica_id = int(stored["replica_id"])
 
     assert stored["size"] == 10
-    assert stored["location"]["store_key"] == "archive/file-1"
+    assert stored["location"]["key"] == "objects/file-1"
     listed = runtime.query(
         "storage.files.list",
         {
@@ -602,11 +652,12 @@ def test_core_storage_file_api_uses_explicit_wire_bytes() -> None:
         },
     )
     assert listed["total_count"] == 1
-    assert listed["files"][0]["file_url"] == file_url
+    assert int(listed["files"][0]["digital_asset_id"]) == asset_id
     read = runtime.query(
         "storage.file.read",
         {
-            "file_url": file_url,
+            "asset_id": asset_id,
+            "store_uuid": str(UUID(int=1)),
         },
     )
     assert read["content"] == {
@@ -616,7 +667,7 @@ def test_core_storage_file_api_uses_explicit_wire_bytes() -> None:
     assert runtime.command(
         "storage.file.delete",
         {
-            "file_url": file_url,
+            "replica_id": replica_id,
         },
     )["deleted"] is True
 
@@ -768,6 +819,8 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
         cache_type="schema_backed",
         close_cache_on_shutdown=True,
     )
+    assert db.storage is not None
+    assert db.storage.metadata_cache is runtime.cache
     title = "Core API {}".format(uuid.uuid4())
     try:
         created = runtime.command(
@@ -956,6 +1009,7 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
         )["record"] is None
     finally:
         runtime.shutdown()
+    assert db.storage.metadata_cache is None
 
 
 def test_catalog_conveniences_have_direct_and_rpc_parity(db) -> None:

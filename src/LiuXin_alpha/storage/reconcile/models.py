@@ -91,6 +91,11 @@ class SquashfsArchivePublishReport:
     packed_files: int = 0
     verified_files: int = 0
     duplicated_files: int = 0
+    digital_assets_registered: int = 0
+    replicas_registered: int = 0
+    # Compatibility field for callers consuming older reports. Publishing
+    # byte-identical members is replication, not derivation, so new workflows
+    # deliberately leave this at zero.
     provenance_links_created: int = 0
     skipped_existing_duplicates: int = 0
     hash_mismatches: list[str] = dataclasses.field(default_factory=list)

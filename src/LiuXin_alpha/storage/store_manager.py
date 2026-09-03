@@ -1,919 +1,1087 @@
-"""Concrete storage manager implementation.
-
-`StorageManager` is the orchestration layer of storage. It owns configured
-`StoreContainer` objects, chooses which container should service an operation,
-and returns `Location` handles to callers. It should stay out of raw backend
-mechanics and let each `StorePlugin` deal with physical media directly.
-"""
+"""Application-facing manager built on the second-generation storage API."""
 
 from __future__ import annotations
 
 import dataclasses
-import importlib
-import json
-import pathlib
+import os
 
-from collections.abc import Iterable, Iterator, Mapping
-from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Iterable
+from contextlib import contextmanager
+from datetime import UTC, datetime
+from typing import Any, override
+from urllib.parse import unquote_to_bytes, urlparse
+from uuid import UUID, uuid4
 
-from LiuXin_alpha.storage.api import (
-    StoreContainerAPI,
-    StoreLocationMixinAPI,
-    StorageManagerAPI,
-    StorePluginAPI,
-    StoreSpec,
+from LiuXin_alpha.storage import api
+from LiuXin_alpha.storage.backend_registry import (
+    DEFAULT_BACKEND_REGISTRY,
+    StoreConstructionContext,
 )
-from LiuXin_alpha.storage.api.placement_hints_api import derive_storage_hints
-from LiuXin_alpha.storage.store_container import StoreContainer
-from LiuXin_alpha.storage.store_spec_utils import store_spec_from_row
-
-if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api import DatabaseAPI
-    from LiuXin_alpha.storage.storage_types import StoreRef
-
-
-@dataclasses.dataclass(slots=True)
-class StorageBootstrapIssue:
-    """Details for one row that could not be loaded into the storage manager."""
-
-    store_id: Optional[int]
-    store_name: Optional[str]
-    reason: str
-
-
-@dataclasses.dataclass(slots=True)
-class StorageBootstrapReport:
-    """Aggregate results of loading stores from database rows."""
-
-    discovered_rows: int = 0
-    loaded_stores: int = 0
-    skipped_rows: int = 0
-    failed_rows: int = 0
-    issues: list[StorageBootstrapIssue] = dataclasses.field(default_factory=list)
-
-    @property
-    def ok(self) -> bool:
-        return self.failed_rows == 0
+from LiuXin_alpha.storage.migrations import (
+    StorageMigrationReport,
+    can_migrate_storage_schema,
+    migrate_storage_schema,
+)
+from LiuXin_alpha.storage.storage_manager.database_repository import (
+    DatabaseStorageMetadataRepository,
+)
+from LiuXin_alpha.storage.storage_manager.database_unit_of_work import (
+    DatabaseStorageUnitOfWorkFactory,
+)
+from LiuXin_alpha.storage.storage_manager.manager import (
+    _StorageManagerOrchestrator,
+    _AdoptIngestRequest,
+    _IdentifiedStreamIngestRequest,
+    _IngestOperation,
+    _StoreObjectIngestRequest,
+    _StreamIngestRequest,
+)
+from LiuXin_alpha.storage.store_factory import build_store
+from LiuXin_alpha.storage.store_spec_utils import store_configuration_from_row
 
 
-class StorageManager(StorageManagerAPI):
-    """Default in-process storage manager.
+class StorageManager(_StorageManagerOrchestrator):
+    """Application manager with a default Store factory and DB bootstrap.
 
-    The manager owns store containers, not raw plugins. Lookups accept a store id,
-    uuid, name, or URL. File-facing operations return `Location` objects.
+    When ``db`` exposes the current storage schema, manager-owned assets,
+    replicas, composites, derivations, policies, Item links, and ingest
+    operation IDs are durable by default. Reads remain repository-backed and
+    can share LiuXin's application cache; the manager does not materialize a
+    second private catalogue. Without ``db`` the manager is deliberately
+    transient and intended only for tests or one-shot tools.
+
+    Store configurations loaded from the database retain stable UUID identity
+    and all byte routing uses opaque ``Location`` values.
+
+    Database-backed example:
+        >>> from LiuXin_alpha.storage.stores import FilesystemStore
+        >>> store = FilesystemStore(  # doctest: +SKIP
+        ...     "/tmp/liuxin-example", name="primary",
+        ... )
+        >>> with StorageManager(  # doctest: +SKIP
+        ...     db=database, stores=[store],
+        ... ) as manager:
+        ...     asset = manager.store_bytes(b"book")
+        ...     manager.read_asset(asset)
+        b'book'
     """
-
-    _STORE_KIND_ALIASES: Mapping[str, str] = {
-        "on_disk_existing_managed_drive": "on_disk_existing_managed_drive",
-        "on_disk_existing_managed": "on_disk_existing_managed_drive",
-        "on_disk_managed": "on_disk_existing_managed_drive",
-        "filesystem": "on_disk_existing_managed_drive",
-        "on_disk_existing_unmanaged_drive": "on_disk_existing_unmanaged_drive",
-        "on_disk_existing_unmanaged": "on_disk_existing_unmanaged_drive",
-        "on_disk_unmanaged": "on_disk_existing_unmanaged_drive",
-        "on_disk_calibre_like": "on_disk_calibre_like",
-        "on_disk_flat": "on_disk_flat",
-        "flat_hash_disk": "on_disk_flat",
-        "flat_hash_store": "on_disk_flat",
-        "calibre_like": "on_disk_calibre_like",
-        "single_file_sqlite": "single_file_sqlite",
-        "sqlite_single_file": "single_file_sqlite",
-        "sqlite_blob_store": "single_file_sqlite",
-        "single_file_blob_store": "single_file_sqlite",
-        "squashfs_readonly": "squashfs_readonly",
-        "squashfs_build": "squashfs_build",
-        "squashfs_builder": "squashfs_build",
-        "squashfs_backup": "squashfs_build",
-        "squashfs_ro": "squashfs_readonly",
-        "squashfs_archive": "squashfs_readonly",
-        "archive_squashfs": "squashfs_readonly",
-        "rclone_http_readonly": "rclone_http_readonly",
-        "http_ro": "rclone_http_readonly",
-        "rclone_http_ro": "rclone_http_readonly",
-        "wget_html_readonly": "wget_html_readonly",
-        "wget_http_ro": "wget_html_readonly",
-        "http_spider_ro": "wget_html_readonly",
-        "native_html_readonly": "native_html_readonly",
-        "native_http_ro": "native_html_readonly",
-        "http_native_ro": "native_html_readonly",
-        "ftp_readonly": "ftp_readonly",
-        "ftp_ro": "ftp_readonly",
-        "ftps_readonly": "ftp_readonly",
-        "ftps_ro": "ftp_readonly",
-    }
-
-    _STORE_BACKEND_IMPORTS: Mapping[str, tuple[str, str]] = {
-        "on_disk_existing_managed_drive": (
-            "LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive",
-            "OnDiskExistingManagedStorageBackend",
-        ),
-        "on_disk_existing_unmanaged_drive": (
-            "LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive",
-            "OnDiskUnmanagedStorageBackend",
-        ),
-        "on_disk_calibre_like": (
-            "LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like",
-            "OnDiskCalibreLikeStorageBackend",
-        ),
-        "on_disk_flat": (
-            "LiuXin_alpha.storage.store_backend_plugins.on_disk_flat",
-            "OnDiskFlatStorageBackend",
-        ),
-        "single_file_sqlite": (
-            "LiuXin_alpha.storage.store_backend_plugins.single_file_sqlite",
-            "SingleFileSqliteStorageBackend",
-        ),
-        "squashfs_readonly": (
-            "LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly",
-            "SquashfsReadOnlyStorageBackend",
-        ),
-        "squashfs_build": (
-            "LiuXin_alpha.storage.store_backend_plugins.squashfs_build",
-            "SquashfsBuildStorageBackend",
-        ),
-        "rclone_http_readonly": (
-            "LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly",
-            "RcloneHttpReadOnlyStorageBackend",
-        ),
-        "wget_html_readonly": (
-            "LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly",
-            "WgetHtmlReadOnlyStorageBackend",
-        ),
-        "native_html_readonly": (
-            "LiuXin_alpha.storage.store_backend_plugins.native_html_readonly",
-            "NativeHtmlReadOnlyStorageBackend",
-        ),
-        "ftp_readonly": (
-            "LiuXin_alpha.storage.store_backend_plugins.ftp_readonly",
-            "FtpReadOnlyStorageBackend",
-        ),
-    }
 
     def __init__(
         self,
-        stores: Optional[Iterable[StoreContainerAPI | StorePluginAPI]] = None,
         *,
-        db: "DatabaseAPI | None" = None,
+        stores: Iterable[api.StoreAPI] = (),
+        store_registrations: Iterable[
+            tuple[api.StoreConfiguration, api.StoreAPI]
+        ] = (),
+        store_factory=None,
+        backend_context: StoreConstructionContext | None = None,
+        s3_client: Any | None = None,
+        encryption_key_provider: Any | None = None,
+        db: Any | None = None,
+        cache: Any | None = None,
         startup_on_add: bool = True,
+        default_store_ref: api.StoreUUID | None = None,
+        **kwargs,
     ) -> None:
-        super().__init__(db=db)
-        self._store_containers: list[StoreContainerAPI] = []
-        self._containers_by_uuid: dict[str, StoreContainerAPI] = {}
-        self._containers_by_name: dict[str, StoreContainerAPI] = {}
-        self._containers_by_url: dict[str, StoreContainerAPI] = {}
-        self._store_ids: dict[int, str] = {}
-        self._default_store_key: Optional[str] = None
-        self._startup_on_add = bool(startup_on_add)
+        registrations = list(store_registrations)
+        for store in stores:
+            if not isinstance(store, api.StoreAPI):
+                raise TypeError("stores must contain StoreAPI instances.")
+            registrations.append((store.configuration, store))
+        self.db = db
+        self._metadata_repository: DatabaseStorageMetadataRepository | None = None
+        self._metadata_unit_of_work_factory: (
+            DatabaseStorageUnitOfWorkFactory | None
+        ) = None
+        self.storage_migration_report = StorageMigrationReport()
+        self.ingest_recovery_issues: tuple[str, ...] = ()
+        self.startup_on_add = bool(startup_on_add)
+        supplied_context = backend_context or StoreConstructionContext()
+        self.backend_context = StoreConstructionContext(
+            s3_client=(
+                supplied_context.s3_client
+                if s3_client is None
+                else s3_client
+            ),
+            store_resolver=(
+                supplied_context.store_resolver or self.get_store
+            ),
+            encryption_key_provider=(
+                supplied_context.encryption_key_provider
+                if encryption_key_provider is None
+                else encryption_key_provider
+            ),
+            backing_path_resolver=(
+                supplied_context.backing_path_resolver
+                or self._resolve_backing_path
+            ),
+        )
+        selected_factory = store_factory or (
+            lambda configuration: build_store(
+                configuration,
+                context=self.backend_context,
+            )
+        )
+        super().__init__(
+            store_registrations=(),
+            store_factory=selected_factory,
+            default_store_ref=None,
+            **kwargs,
+        )
+        resembles_catalogue = (
+            DatabaseStorageMetadataRepository.resembles_storage_catalogue(db)
+        )
+        if resembles_catalogue and can_migrate_storage_schema(db):
+            try:
+                self.storage_migration_report = migrate_storage_schema(db)
+            except Exception as error:
+                raise api.StorageManagementError(
+                    f"Storage schema migration failed: {error}"
+                ) from error
+        if DatabaseStorageMetadataRepository.supports(db):
+            self._bind_database_metadata(db, cache=cache)
+        elif resembles_catalogue:
+            missing = DatabaseStorageMetadataRepository.missing_tables(db)
+            detail = (
+                f" Missing tables: {', '.join(missing)}."
+                if missing
+                else " Required portable database macros are unavailable."
+            )
+            raise api.StorageManagementError(
+                "The supplied database has a storage catalogue but cannot "
+                "provide durable manager metadata; refusing an implicit "
+                "in-memory fallback. Migrate it to the current storage "
+                f"schema.{detail}"
+            )
+        for configuration, store in registrations:
+            self.attach_store(
+                configuration,
+                store,
+                startup=self.startup_on_add,
+            )
+        if default_store_ref is not None:
+            self.set_default_store(default_store_ref)
 
-        if stores is not None:
-            for store in stores:
-                if isinstance(store, StoreContainerAPI):
-                    self.register_store_container(store)
-                elif isinstance(store, StorePluginAPI):
-                    self.register_store_container(StoreContainer.from_plugin(store, db=db))
-                else:
-                    raise TypeError("stores must contain StoreContainerAPI or StorePluginAPI instances.")
+    @property
+    def metadata_is_durable(self) -> bool:
+        """Return whether manager metadata is database-backed."""
 
-    @classmethod
-    def from_database(
-        cls,
-        db: "DatabaseAPI",
-        *,
-        startup_on_add: bool = False,
-        include_offline: bool = False,
-        clear_existing: bool = True,
-    ) -> tuple["StorageManager", StorageBootstrapReport]:
-        manager = cls(db=db, startup_on_add=startup_on_add)
-        report = manager.load_from_database(
+        return self._metadata_repository is not None
+
+    @property
+    def metadata_cache(self) -> Any | None:
+        """Return the shared LiuXin cache serving metadata reads, if any."""
+
+        repository = self._metadata_repository
+        return None if repository is None else repository.cache
+
+    def _bind_database_metadata(self, db: Any, *, cache: Any | None = None) -> None:
+        """Replace transient maps with database repository views."""
+
+        repository = DatabaseStorageMetadataRepository(
             db,
-            include_offline=include_offline,
-            clear_existing=clear_existing,
+            additional_types=(
+                _AdoptIngestRequest,
+                _IdentifiedStreamIngestRequest,
+                _IngestOperation,
+                _StoreObjectIngestRequest,
+                _StreamIngestRequest,
+            ),
+            cache=cache,
         )
-        return manager, report
+        envelopes_migrated = repository.migrate_envelopes()
+        self.storage_migration_report = dataclasses.replace(
+            self.storage_migration_report,
+            envelope_rows_upgraded=envelopes_migrated,
+        )
+        self._metadata_repository = repository
+        unit_of_work_factory = DatabaseStorageUnitOfWorkFactory(repository)
+        self._metadata_unit_of_work_factory = unit_of_work_factory
+        self._assets = unit_of_work_factory.asset_mapping()
+        self._replicas = unit_of_work_factory.replica_mapping()
+        self._composites = unit_of_work_factory.composite_mapping()
+        self._derivations = unit_of_work_factory.derivation_mapping()
+        self._replication_policies = repository.replication_policy_records()
+        self._backup_policies = repository.backup_policy_records()
+        self._item_targets = repository.item_targets()
+        self._ingest_operations = repository.ingest_operations()
+        self._replica_generation = len(self._replicas)
 
-    # ------------------------------------------------------------------
-    # Store/container orchestration
-    # ------------------------------------------------------------------
+    def bind_metadata_cache(self, cache: Any | None) -> None:
+        """Use Core's shared cache for subsequent repository reads.
 
-    def create_store_plugin(self, store_spec: StoreSpec) -> StorePluginAPI:
-        backend_cls = self._resolve_backend_cls(store_spec)
-        if backend_cls is None:
-            raise ValueError(
-                "Unsupported store kind/protocol: {!r} / {!r}".format(
-                    store_spec.store_kind,
-                    store_spec.store_access_protocol,
+        Passing ``None`` returns to direct, database-authoritative reads. This
+        changes only acceleration and consistency mechanics; persistence is
+        always owned by the database repository.
+        """
+
+        repository = self._metadata_repository
+        if repository is None:
+            if cache is not None:
+                raise api.StorageManagementError(
+                    "a transient StorageManager cannot bind a database cache."
                 )
-            )
+            return
+        repository.set_cache(cache)
 
-        root_uri = store_spec.store_root_uri or store_spec.store_url
-        if not root_uri:
-            raise ValueError("StoreSpec must provide store_root_uri or store_url.")
-
-        kwargs: dict[str, Any] = {
-            "url": str(root_uri),
-            "name": store_spec.store_name,
-            "uuid": store_spec.store_uuid,
-        }
-
-        if backend_cls.__name__ == "OnDiskCalibreLikeStorageBackend":
-            kwargs["database"] = self.db
-            if store_spec.store_id is not None:
-                kwargs["store_id"] = int(store_spec.store_id)
-        elif backend_cls.__name__ == "RcloneHttpReadOnlyStorageBackend":
-            options = self._build_rclone_options_from_row(store_spec)
-            if options is not None:
-                kwargs["options"] = options
-        elif backend_cls.__name__ == "WgetHtmlReadOnlyStorageBackend":
-            options = self._build_wget_options_from_row(store_spec)
-            if options is not None:
-                kwargs["options"] = options
-        elif backend_cls.__name__ == "NativeHtmlReadOnlyStorageBackend":
-            options = self._build_native_html_options_from_row(store_spec)
-            if options is not None:
-                kwargs["options"] = options
-
-        plugin = backend_cls(**kwargs)
-        if not isinstance(plugin, StorePluginAPI):
-            raise TypeError(
-                "Backend class {!r} is not yet migrated to StorePluginAPI.".format(backend_cls.__name__)
-            )
-        return plugin
-
-    def build_store_container(self, store_spec: StoreSpec) -> StoreContainerAPI:
-        plugin = self.create_store_plugin(store_spec)
-        store_container = StoreContainer(_plugin=plugin, _spec=store_spec, _db=self.db)
-        self.register_store_container(store_container)
-        if store_spec.store_id is not None:
-            self.bind_store_id(int(store_spec.store_id), store_container.store_name)
-        return store_container
-
-    def register_store_container(self, store_container: StoreContainerAPI) -> bool:
-        key_name = str(store_container.store_name)
-        key_url = str(store_container.store_url)
-        key_uuid = str(store_container.store_uuid) if store_container.store_uuid is not None else None
-
-        self._check_duplicate_key("name", key_name, store_container)
-        self._check_duplicate_key("url", key_url, store_container)
-        if key_uuid is not None:
-            self._check_duplicate_key("uuid", key_uuid, store_container)
-
-        self._store_containers.append(store_container)
-        self._containers_by_name[key_name] = store_container
-        self._containers_by_url[key_url] = store_container
-        if key_uuid is not None:
-            self._containers_by_uuid[key_uuid] = store_container
-
-        if self._default_store_key is None:
-            self._default_store_key = key_name
-
-        if self._startup_on_add:
-            store_container.startup()
-        return True
-
-    def unregister_store_container(self, store_ref: "StoreRef", *, delete_from_db: bool = False) -> bool:
-        try:
-            store_container = self.get_store_container(store_ref)
-        except KeyError:
-            return False
-
-        self._store_containers = [st for st in self._store_containers if st is not store_container]
-        self._containers_by_name.pop(str(store_container.store_name), None)
-        self._containers_by_url.pop(str(store_container.store_url), None)
-        if store_container.store_uuid is not None:
-            self._containers_by_uuid.pop(str(store_container.store_uuid), None)
-
-        dead_identifiers = {
-            str(store_ref),
-            str(store_container.store_name),
-            str(store_container.store_url),
-        }
-        if store_container.store_uuid is not None:
-            dead_identifiers.add(str(store_container.store_uuid))
-        dead_ids = [
-            store_id
-            for store_id, identifier in self._store_ids.items()
-            if identifier in dead_identifiers
-        ]
-        for store_id in dead_ids:
-            self._store_ids.pop(store_id, None)
-
-        if delete_from_db:
-            try:
-                store_container.delete_from_db()
-            except NotImplementedError:
-                pass
-
-        if not self._store_containers:
-            self._default_store_key = None
-            return True
-
-        if self._default_store_key in (
-            str(store_ref),
-            str(store_container.store_name),
-            str(store_container.store_uuid),
-            str(store_container.store_url),
-        ):
-            self._default_store_key = str(self._store_containers[0].store_name)
-        return True
-
-    def get_store_container(self, store_ref: "StoreRef") -> StoreContainerAPI:
-        identifier = str(store_ref)
-        matches: list[StoreContainerAPI] = []
-        seen_ids: set[int] = set()
-
-        for lookup in (
-            self._containers_by_uuid.get(identifier),
-            self._containers_by_name.get(identifier),
-            self._containers_by_url.get(identifier),
-        ):
-            if lookup is None:
-                continue
-            obj_id = id(lookup)
-            if obj_id in seen_ids:
-                continue
-            seen_ids.add(obj_id)
-            matches.append(lookup)
-
-        if not matches:
-            raise KeyError("Unknown store identifier: {!r}".format(store_ref))
-        if len(matches) > 1:
-            raise KeyError("Ambiguous store identifier {!r}; matches multiple stores.".format(store_ref))
-        return matches[0]
-
-    def iter_store_containers(self) -> Iterator[StoreContainerAPI]:
-        return iter(tuple(self._store_containers))
-
-    def bind_store_id(self, store_id: int, store_ref: "StoreRef") -> None:
-        self._store_ids[int(store_id)] = str(store_ref)
-
-    def set_default_store(self, store_ref: "StoreRef") -> None:
-        store_container = self.get_store_container(store_ref)
-        self._default_store_key = str(store_container.store_name)
-
-    def get_default_store_container(self) -> StoreContainerAPI:
-        if self._default_store_key is None:
-            raise RuntimeError("No default store is configured.")
-        return self.get_store_container(self._default_store_key)
-
-    def close(self) -> None:
-        for store_container in tuple(self._store_containers):
-            try:
-                store_container.close()
-            except Exception:
-                continue
-
-    # ------------------------------------------------------------------
-    # File/location orchestration
-    # ------------------------------------------------------------------
-
-    def store_bytes(
+    def _resolve_backing_path(
         self,
-        file_bytes: bytes,
-        metadata: Optional[Any] = None,
-        *,
-        preferred_store: "StoreRef | None" = None,
-    ) -> StoreLocationMixinAPI:
-        if not self._store_containers:
-            raise RuntimeError("No stores are registered with this StorageManager.")
+        configuration: api.StoreConfiguration,
+    ) -> str:
+        """Materialize a container Asset and expose its local driver path."""
 
-        errors: list[str] = []
-        for store_container in self._candidate_store_containers(
-            preferred_store=preferred_store,
-            metadata=metadata,
-            file_url=None,
-        ):
+        backing = configuration.backing
+        if backing is None:
+            raise api.StoragePreconditionFailed(
+                "backing-path resolution requires an Asset-backed Store."
+            )
+        preferred_replica_id = backing.preferred_replica_id
+        if preferred_replica_id is not None:
             try:
-                return store_container.write_bytes(file_bytes=file_bytes, metadata=metadata)
-            except (PermissionError, NotImplementedError) as exc:
-                errors.append("{}: {}".format(store_container.store_name, exc))
-                continue
-            except Exception as exc:  # pragma: no cover
-                errors.append("{}: {!r}".format(store_container.store_name, exc))
-                continue
+                preferred = self.get_replica_record(preferred_replica_id)
+            except api.ReplicaNotFound:
+                preferred_replica_id = None
+            else:
+                if preferred.digital_asset_id != backing.digital_asset_id:
+                    raise api.StoragePreconditionFailed(
+                        "backed Store preferred Replica belongs to another "
+                        "Digital Asset."
+                    )
+                if preferred.location.store_ref == configuration.store_uuid:
+                    raise api.StoragePreconditionFailed(
+                        "backed Store cannot source its own container bytes."
+                    )
 
-        raise RuntimeError(
-            "No writable store accepted the file. Errors: {}".format("; ".join(errors) if errors else "<none>")
+        source_modes = (
+            api.ReplicaMode.ACTIVE,
+            api.ReplicaMode.ARCHIVE,
+            api.ReplicaMode.UNMANAGED,
+            api.ReplicaMode.BACKUP,
+            api.ReplicaMode.CACHE,
+            api.ReplicaMode.TRANSIENT,
+        )
+        try:
+            resolution = self.materialize_digital_asset(
+                backing.digital_asset_id,
+                source_replica_id=preferred_replica_id,
+                source_modes=source_modes,
+                cache_store_ref=backing.materialization_store_ref,
+                verify=False,
+            )
+        except api.NoReadableReplica:
+            if preferred_replica_id is None:
+                raise
+            resolution = self.materialize_digital_asset(
+                backing.digital_asset_id,
+                source_modes=source_modes,
+                cache_store_ref=backing.materialization_store_ref,
+                verify=False,
+            )
+
+        store = self.get_store(resolution.location.store_ref)
+        uri = store.location_uri(resolution.location)
+        if uri is None:
+            raise api.StoreUnsupportedOperation(
+                "selected backing Replica has no local file URI; configure a "
+                "local materialization Store."
+            )
+        parsed = urlparse(uri)
+        if parsed.scheme != "file" or parsed.netloc not in {"", "localhost"}:
+            raise api.StoreUnsupportedOperation(
+                "selected backing Replica is not a local file; configure a "
+                "local materialization Store."
+            )
+        return os.fsdecode(unquote_to_bytes(parsed.path))
+
+    @override
+    @contextmanager
+    def _metadata_transaction(self):
+        factory = self._metadata_unit_of_work_factory
+        if factory is None:
+            with super()._metadata_transaction():
+                yield
+            return
+        with factory.begin() as unit_of_work:
+            yield
+            unit_of_work.commit()
+
+    @property
+    def metadata_unit_of_work_factory(self):
+        """Return the implementation-facing durable metadata UoW factory."""
+
+        factory = self._metadata_unit_of_work_factory
+        if factory is None:
+            raise api.StorageManagementError(
+                "a transient StorageManager has no durable metadata unit of work."
+            )
+        return factory
+
+    @override
+    def _allocate_metadata_id_locked(self, kind) -> int:
+        repository = self._metadata_repository
+        if repository is None:
+            return super()._allocate_metadata_id_locked(kind)
+        return repository.allocate_record_id(kind)
+
+    @override
+    def _new_revision_locked(self) -> str:
+        if self._metadata_repository is None:
+            return super()._new_revision_locked()
+        return f"d-{uuid4().hex}"
+
+    @override
+    def attach_store(
+        self,
+        configuration: api.StoreConfiguration,
+        store: api.StoreAPI,
+        *,
+        startup: bool = True,
+        replace_existing: bool = False,
+    ) -> api.StoreConfiguration:
+        """Attach a Store and ensure DB-backed managers have its FK identity."""
+
+        if self._metadata_repository is not None:
+            self._metadata_repository.ensure_store(configuration)
+        return super().attach_store(
+            configuration,
+            store,
+            startup=startup,
+            replace_existing=replace_existing,
         )
 
-    def locate_file(
+    @override
+    def update_store(
         self,
-        file_url: Optional[str] = None,
-        metadata: Optional[Any] = None,
-        *,
-        preferred_store: "StoreRef | None" = None,
-    ) -> StoreLocationMixinAPI:
-        resolved_url = file_url or self._metadata_file_url(metadata)
-        if resolved_url is None:
-            raise ValueError("locate_file requires file_url or metadata containing one.")
+        store_ref: api.StoreUUID,
+        configuration: api.StoreConfiguration,
+    ) -> api.StoreConfiguration:
+        """Prepare a replacement, commit its configuration, then swap it live."""
 
-        checked_any = False
-        for store_container in self._candidate_store_containers(
-            preferred_store=preferred_store,
-            metadata=metadata,
-            file_url=resolved_url,
-        ):
-            checked_any = True
+        repository = self._metadata_repository
+        if repository is None:
+            return super().update_store(store_ref, configuration)
+        if configuration.store_uuid != store_ref:
+            raise api.StoreInvalidLocation(
+                "updated Store configuration must retain its Store UUID."
+            )
+        self.get_store_configuration(store_ref)
+        self._validate_store_policy_references(configuration)
+        replacement = self._require_store_factory()(configuration)
+        try:
+            replacement.startup()
+            repository.update_store(configuration)
+        except BaseException:
             try:
-                if not store_container.exists(resolved_url):
-                    continue
-                return store_container.locate(resolved_url)
+                replacement.close()
             except Exception:
-                continue
+                pass
+            raise
+        return super().attach_store(
+            configuration,
+            replacement,
+            startup=False,
+            replace_existing=True,
+        )
 
-        if not checked_any:
-            raise RuntimeError("No stores are registered with this StorageManager.")
-        raise FileNotFoundError("File could not be resolved from any store: {!r}".format(resolved_url))
-
-    def locate_folder(
+    @override
+    def remove_store(
         self,
-        folder_key: str,
+        store_ref: api.StoreUUID,
         *,
-        preferred_store: "StoreRef | None" = None,
-    ) -> StoreLocationMixinAPI:
-        if not self._store_containers:
-            raise RuntimeError("No stores are registered with this StorageManager.")
-
-        for store_container in self._candidate_store_containers(preferred_store=preferred_store, metadata=None, file_url=None):
-            try:
-                return store_container.location(folder_key)
-            except NotImplementedError:
-                continue
-            except Exception:
-                continue
-
-        raise NotImplementedError("No registered store can provide folder/location handles.")
-
-    def delete_location(
-        self,
-        file_url: Optional[str] = None,
-        metadata: Optional[Any] = None,
-        location: Optional[StoreLocationMixinAPI] = None,
+        forget_configuration: bool = False,
     ) -> bool:
-        resolved_url = file_url
-        preferred_store: "StoreRef | None" = None
+        """Unload a Store and durably delete it only when explicitly forgotten."""
 
-        if location is not None:
-            resolved_url = resolved_url or location.file_url
-            store_name = getattr(getattr(location, "store", None), "name", None)
-            if store_name is not None:
-                preferred_store = str(store_name)
+        repository = self._metadata_repository
+        if repository is None or not forget_configuration:
+            return super().remove_store(
+                store_ref,
+                forget_configuration=forget_configuration,
+            )
+        with self._lock:
+            if any(
+                record.location.store_ref == store_ref
+                and record.state is not api.ReplicaState.DELETED
+                for record in self._replicas.values()
+            ):
+                raise api.StoragePreconditionFailed(
+                    "cannot forget Store configuration with live Replica claims."
+                )
+        repository.remove_store(store_ref)
+        return super().remove_store(store_ref, forget_configuration=True)
 
-        if resolved_url is None:
-            resolved_url = self._metadata_file_url(metadata)
-        if resolved_url is None:
-            raise ValueError("delete_location requires file_url, metadata, or location.")
+    @override
+    def _journal_ingest_started(self, operation_id, request) -> None:
+        if self._metadata_repository is not None:
+            self._metadata_repository.journal_start(operation_id, request)
 
-        for store_container in self._candidate_store_containers(
-            preferred_store=preferred_store,
-            metadata=metadata,
-            file_url=resolved_url,
-        ):
-            try:
-                if not store_container.exists(resolved_url):
-                    continue
-                return bool(store_container.delete(resolved_url))
-            except Exception:
+    @override
+    def _journal_ingest_publication_pending(
+        self,
+        operation_id,
+        *,
+        asset_record,
+        asset_created,
+        location,
+        replica_mode,
+        placement_hints,
+    ) -> None:
+        if self._metadata_repository is not None:
+            self._metadata_repository.journal_publication_pending(
+                operation_id,
+                asset_record=asset_record,
+                asset_created=asset_created,
+                location=location,
+                replica_mode=replica_mode,
+                placement_hints=placement_hints,
+            )
+
+    @override
+    def _journal_ingest_published(self, operation_id) -> None:
+        if self._metadata_repository is not None:
+            self._metadata_repository.journal_published(operation_id)
+
+    @override
+    def _journal_ingest_failed(self, operation_id, error) -> None:
+        if self._metadata_repository is not None:
+            self._metadata_repository.journal_failed(operation_id, error)
+
+    @override
+    def _ingest_journal_statuses(self):
+        repository = self._metadata_repository
+        if repository is None:
+            return super()._ingest_journal_statuses()
+        return repository.ingest_journal_statuses()
+
+    def recover_pending_ingests(self) -> tuple[str, ...]:
+        """Finish journalled publications left between Store and DB commits.
+
+        Recovery verifies the published bytes before creating a Replica claim.
+        Temporarily unavailable Stores leave their operations pending for a
+        later reload; missing or corrupt publications are marked failed and
+        may be retried with the same operation UUID.
+        """
+
+        repository = self._metadata_repository
+        if repository is None:
+            self.ingest_recovery_issues = ()
+            return ()
+        issues: list[str] = []
+        for operation_id, state, payload in repository.pending_ingests():
+            request = payload.get("request")
+            if state == "started":
+                repository.journal_failed(
+                    operation_id,
+                    api.StorageManagementError(
+                        "process stopped before Store publication began."
+                    ),
+                )
                 continue
-
-        return False
-
-    def iter_locations(self) -> Iterator[StoreLocationMixinAPI]:
-        for store_container in self._store_containers:
-            try:
-                yield from store_container.iter_locations()
-            except Exception:
+            asset_value = payload.get("asset_record")
+            location = payload.get("location")
+            mode = payload.get("replica_mode")
+            if not isinstance(asset_value, api.DigitalAssetRecord) or not isinstance(
+                location, api.Location
+            ):
+                repository.journal_failed(
+                    operation_id,
+                    api.StorageManagementError(
+                        "publication journal has incomplete recovery metadata."
+                    ),
+                )
                 continue
+            try:
+                asset_record = self.get_digital_asset_record(
+                    asset_value.digital_asset_id
+                )
+                info = self.stat(location)
+                if info.size is None:
+                    raise api.StorageIntegrityError(
+                        "recovery cannot verify a publication with unknown size."
+                    )
+                observed = self._calculate_location_digests(
+                    location,
+                    tuple(digest.algorithm for digest in asset_record.digests),
+                )
+                self._require_same_identity(asset_record, info.size, observed)
+                with self._lock:
+                    existing = next(
+                        (
+                            record
+                            for record in self._replicas.values()
+                            if record.location == location
+                            and record.state is not api.ReplicaState.DELETED
+                        ),
+                        None,
+                    )
+                if (
+                    existing is not None
+                    and existing.digital_asset_id != asset_record.digital_asset_id
+                ):
+                    raise api.StoragePreconditionFailed(
+                        "journalled Location is claimed by another Digital Asset."
+                    )
+                replica_created = existing is None
+                replica_record = existing or self._add_replica(
+                    api.ReplicaDeclaration(
+                        asset_record.digital_asset_id,
+                        location,
+                        (
+                            mode
+                            if isinstance(mode, api.ReplicaMode)
+                            else api.ReplicaMode.ACTIVE
+                        ),
+                        api.ReplicaObservation(
+                            api.ReplicaState.VERIFIED,
+                            observed_size_bytes=info.size,
+                            observed_digests=observed,
+                            checked_at=datetime.now(UTC),
+                        ),
+                        placement_hints=payload.get("placement_hints"),
+                    )
+                )
+                result = api.DigitalAssetIngestResult(
+                    operation_id,
+                    asset_record,
+                    replica_record,
+                    bool(payload.get("asset_created")),
+                    replica_created,
+                    deduplicated=not bool(payload.get("asset_created")),
+                    verified=True,
+                )
+                item_id = getattr(request, "item_id", None)
+                if item_id is not None:
+                    self.link_item_to_digital_asset(
+                        item_id,
+                        asset_record.digital_asset_id,
+                        role=(
+                            getattr(request, "role", None) or "primary_payload"
+                        ),
+                    )
+                with self._lock:
+                    self._ingest_operations[operation_id] = _IngestOperation(
+                        request, result
+                    )
+            except (
+                api.StoreUnavailable,
+                api.StoreConfigurationNotFound,
+                api.StorageTimeout,
+            ) as error:
+                issues.append(
+                    f"{operation_id}: publication remains pending: "
+                    f"{str(error) or type(error).__name__}"
+                )
+            except (
+                api.StorageNotFound,
+                api.StorageIntegrityError,
+                api.StoragePreconditionFailed,
+            ) as error:
+                repository.journal_failed(operation_id, error)
+                issues.append(
+                    f"{operation_id}: publication recovery failed: "
+                    f"{str(error) or type(error).__name__}"
+                )
+            except Exception as error:
+                issues.append(
+                    f"{operation_id}: publication recovery deferred: "
+                    f"{str(error) or type(error).__name__}"
+                )
+        self.ingest_recovery_issues = tuple(issues)
+        return self.ingest_recovery_issues
 
-    # ------------------------------------------------------------------
-    # Database bootstrap / specs
-    # ------------------------------------------------------------------
+    def add_store(
+        self,
+        store_or_name: api.StoreAPI | str | None = None,
+        *args: Any,
+        configuration: api.StoreConfiguration | None = None,
+        startup: bool | None = None,
+        **kwargs: Any,
+    ) -> api.StoreConfiguration:
+        """Add configured backend details or attach an existing Store object.
 
-    def get_store_spec_from_db(self, store_id: int) -> StoreSpec:
+        ``add_store(name, kind, root, ...)`` is the ordinary configuration
+        form defined by ``StorageManagerAPI``. Passing a ``StoreAPI`` retains
+        the object-oriented attachment form; ``configuration`` may override
+        the object's own configuration in that form.
+
+        Example:
+            >>> configured = manager.add_store(  # doctest: +SKIP
+            ...     "primary", "filesystem", "/srv/liuxin",
+            ... )
+            >>> attached = manager.add_store(store)  # doctest: +SKIP
+        """
+
+        if store_or_name is None:
+            supplied_keys = [
+                key for key in ("name", "store") if key in kwargs
+            ]
+            if len(supplied_keys) != 1:
+                raise TypeError(
+                    "add_store requires exactly one Store object or Store name."
+                )
+            store_or_name = kwargs.pop(supplied_keys[0])
+
+        if isinstance(store_or_name, api.StoreAPI):
+            if args or kwargs:
+                raise TypeError(
+                    "Store object attachment accepts only configuration and "
+                    "startup keyword arguments."
+                )
+            return self.add_store_instance(
+                store_or_name,
+                configuration=configuration,
+                startup=startup,
+            )
+        if not isinstance(store_or_name, str):
+            raise TypeError(
+                "add_store expects a StoreAPI instance or a Store name."
+            )
+        if configuration is not None:
+            raise TypeError(
+                "configuration is only valid when attaching a Store object."
+            )
+        if startup is not None:
+            if "start" in kwargs:
+                raise TypeError("Pass only one of start and startup.")
+            kwargs["start"] = startup
+        return super().add_store(store_or_name, *args, **kwargs)
+
+    def add_store_instance(
+        self,
+        store: api.StoreAPI,
+        *,
+        configuration: api.StoreConfiguration | None = None,
+        startup: bool | None = None,
+    ) -> api.StoreConfiguration:
+        """Attach one already-constructed configured Store facade."""
+
+        return self.attach_store(
+            configuration or store.configuration,
+            store,
+            startup=self.startup_on_add if startup is None else startup,
+        )
+
+    def get_store_configuration_from_db(
+        self,
+        store_id: int,
+    ) -> api.StoreConfiguration:
         if self.db is None:
             raise RuntimeError("StorageManager is not bound to a database.")
         if "stores" not in set(self.db.get_tables()):
-            raise KeyError("Database does not expose a 'stores' table.")
-
+            raise KeyError("Database has no stores table.")
         row = self.db.get_row_from_id("stores", int(store_id))
         if row is None:
-            raise KeyError("Unknown store id: {!r}".format(store_id))
-
-        return store_spec_from_row(row, fallback_store_id=int(store_id))
+            raise KeyError(f"Unknown Store row: {store_id}")
+        return store_configuration_from_row(
+            row,
+            fallback_store_id=int(store_id),
+        )
 
     def load_from_database(
         self,
-        db: "DatabaseAPI",
+        db: Any | None = None,
         *,
         include_offline: bool = False,
         clear_existing: bool = True,
-    ) -> StorageBootstrapReport:
-        report = StorageBootstrapReport()
+        startup: bool | None = None,
+    ) -> api.StorageBootstrapReport:
+        """Reconcile live Store facades with durable database rows.
 
-        tables = set(db.get_tables())
-        if "stores" not in tables:
-            return report
+        ``clear_existing=True`` treats the database as authoritative: Stores
+        removed from the table, or explicitly marked offline/retired, are
+        unloaded after all usable rows have been considered. A configuration
+        needed by an existing Replica claim is retained without a live facade.
+
+        Replacements are prepared and optionally started before the old Store
+        is swapped out. If construction or startup fails, an existing facade
+        for that UUID remains available and the failure is returned in the
+        bootstrap report.
+
+        With ``clear_existing=False``, existing live Stores are left alone and
+        only newly discovered or currently unavailable configurations load.
+
+        Example:
+            >>> report = manager.load_from_database(  # doctest: +SKIP
+            ...     startup=False,
+            ... )
+        """
+
+        database = self.db if db is None else db
+        if database is None:
+            raise RuntimeError("StorageManager is not bound to a database.")
+        self.db = database
+        if "stores" not in set(database.get_tables()):
+            if clear_existing:
+                self._unload_database_stores(
+                    tuple(
+                        configuration.store_uuid
+                        for configuration in self.iter_store_configurations()
+                    )
+                )
+            return api.StorageBootstrapReport()
+
+        rows = tuple(
+            database.get_all_rows("stores", iterator_return=False) or ()
+        )
+        existing_refs = {
+            configuration.store_uuid
+            for configuration in self.iter_store_configurations()
+        }
+        active_database_refs: set[api.StoreUUID] = set()
+        issues: list[api.StorageBootstrapIssue] = []
+        loaded = skipped = failed = 0
+        should_start = self.startup_on_add if startup is None else startup
+        ordered_rows = _order_store_rows(self, rows)
+
+        for row in ordered_rows:
+            store_id = _row_int(row, "store_id")
+            store_name = _row_text(row, "store_name")
+            declared_store_ref = _row_uuid(row, "store_uuid")
+            configuration: api.StoreConfiguration | None = None
+            candidate: api.StoreAPI | None = None
+            attached = False
+            try:
+                online = (
+                    _row_text(row, "store_online_status") or ""
+                ).lower()
+                if (
+                    declared_store_ref is not None
+                    and (include_offline or online not in {"offline", "retired"})
+                ):
+                    # A malformed changed row must not make the last known-good
+                    # facade disappear merely because translation fails below.
+                    active_database_refs.add(declared_store_ref)
+                configuration = store_configuration_from_row(
+                    row,
+                    fallback_store_id=store_id,
+                )
+                if online in {"offline", "retired"} and not include_offline:
+                    skipped += 1
+                    issues.append(
+                        api.StorageBootstrapIssue(
+                            configuration.store_uuid,
+                            configuration.store_name,
+                            f"Store is marked {online}.",
+                        )
+                    )
+                    continue
+
+                active_database_refs.add(configuration.store_uuid)
+                _persist_derived_store_uuid(
+                    database,
+                    row=row,
+                    store_id=store_id,
+                    store_ref=configuration.store_uuid,
+                )
+                with self._lock:
+                    already_live = configuration.store_uuid in self._stores
+                    already_configured = (
+                        configuration.store_uuid
+                        in self._store_configurations
+                    )
+                if already_live and not clear_existing:
+                    skipped += 1
+                    continue
+
+                candidate = self._require_store_factory()(configuration)
+                if should_start:
+                    status = candidate.startup()
+                    if not status.available and not include_offline:
+                        candidate.close()
+                        candidate = None
+                        skipped += 1
+                        issues.append(
+                            api.StorageBootstrapIssue(
+                                configuration.store_uuid,
+                                configuration.store_name,
+                                status.message or "Store is unavailable.",
+                            )
+                        )
+                        continue
+
+                self.attach_store(
+                    configuration,
+                    candidate,
+                    startup=False,
+                    replace_existing=already_configured,
+                )
+                attached = True
+                loaded += 1
+            except Exception as error:
+                if candidate is not None and not attached:
+                    try:
+                        candidate.close()
+                    except Exception:
+                        pass
+                failed += 1
+                issues.append(
+                    api.StorageBootstrapIssue(
+                        (
+                            declared_store_ref
+                            if configuration is None
+                            else configuration.store_uuid
+                        ),
+                        (
+                            store_name
+                            if configuration is None
+                            else configuration.store_name
+                        ),
+                        str(error) or type(error).__name__,
+                    )
+                )
 
         if clear_existing:
-            self._clear_registry()
+            self._unload_database_stores(
+                tuple(existing_refs - active_database_refs)
+            )
+        self.recover_pending_ingests()
 
-        rows = db.get_all_rows("stores", iterator_return=False)
-        if rows is None:
-            return report
+        return api.StorageBootstrapReport(
+            discovered_configurations=len(rows),
+            loaded_stores=loaded,
+            skipped_configurations=skipped,
+            failed_configurations=failed,
+            issues=tuple(issues),
+        )
 
-        for row in rows:
-            report.discovered_rows += 1
-            store_id = self._row_store_id(row)
-            store_name = self._coerce_optional_str(self._row_get(row, "store_name"))
-
-            online_status = self._coerce_optional_str(self._row_get(row, "store_online_status"))
-            if (not include_offline) and online_status is not None and online_status.lower() == "offline":
-                report.skipped_rows += 1
-                report.issues.append(StorageBootstrapIssue(store_id=store_id, store_name=store_name, reason="store marked offline"))
-                continue
-
-            try:
-                store_spec = self.get_store_spec_from_db(int(store_id)) if store_id is not None else None
-            except Exception as exc:
-                report.failed_rows += 1
-                report.issues.append(StorageBootstrapIssue(store_id=store_id, store_name=store_name, reason="failed to load store spec: {!r}".format(exc)))
-                continue
-
-            if store_spec is None or not (store_spec.store_root_uri or store_spec.store_url):
-                report.skipped_rows += 1
-                report.issues.append(StorageBootstrapIssue(store_id=store_id, store_name=store_name, reason="store_root_uri is missing"))
-                continue
-
-            try:
-                self.build_store_container(store_spec)
-                report.loaded_stores += 1
-            except Exception as exc:
-                report.failed_rows += 1
-                report.issues.append(StorageBootstrapIssue(store_id=store_id, store_name=store_name, reason="failed to load store: {!r}".format(exc)))
-
-        return report
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    def _clear_registry(self) -> None:
-        self._store_containers.clear()
-        self._containers_by_uuid.clear()
-        self._containers_by_name.clear()
-        self._containers_by_url.clear()
-        self._store_ids.clear()
-        self._default_store_key = None
-
-    @staticmethod
-    def _row_get(row: Any, column: str) -> Any:
-        try:
-            return row[column]
-        except Exception:
-            pass
-        if isinstance(row, Mapping):
-            return row.get(column)
-        return getattr(row, column, None)
-
-    def _row_store_id(self, row: Any) -> Optional[int]:
-        candidate = getattr(row, "row_id", None)
-        if candidate is None:
-            candidate = self._row_get(row, "store_id")
-        return self._to_int(candidate)
-
-    @staticmethod
-    def _coerce_optional_str(value: Any) -> Optional[str]:
-        if value is None:
-            return None
-        text = str(value).strip()
-        return text or None
-
-    @staticmethod
-    def _coerce_optional_float(value: Any) -> Optional[float]:
-        if value is None:
-            return None
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            return None
-
-    @staticmethod
-    def _to_int(value: Any) -> Optional[int]:
-        if value is None:
-            return None
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return None
-
-    @staticmethod
-    def _to_boolish(value: Any, default: bool = False) -> bool:
-        if value is None:
-            return default
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, (int, float)):
-            return bool(value)
-        text = str(value).strip().lower()
-        if text in {"1", "true", "yes", "y", "on"}:
-            return True
-        if text in {"0", "false", "no", "n", "off"}:
-            return False
-        return default
-
-    def _build_rclone_options_from_row(self, row: Any):
-        raw_policy = self._row_get(row, "store_policy_json")
-        if raw_policy in (None, ""):
-            return None
-        try:
-            policy = json.loads(str(raw_policy))
-        except Exception:
-            return None
-        if not isinstance(policy, Mapping):
-            return None
-
-        rclone_policy: Mapping[str, Any]
-        nested = policy.get("rclone")
-        if isinstance(nested, Mapping):
-            rclone_policy = nested
-        else:
-            rclone_policy = policy
-
-        option_kwargs: dict[str, Any] = {}
-        if "rclone_exe" in rclone_policy:
-            exe = self._coerce_optional_str(rclone_policy.get("rclone_exe"))
-            if exe:
-                option_kwargs["rclone_exe"] = exe
-        if "rclone_args" in rclone_policy:
-            args = rclone_policy.get("rclone_args")
-            if isinstance(args, (list, tuple)):
-                option_kwargs["rclone_args"] = tuple(str(x) for x in args)
-        if "timeout_s" in rclone_policy:
-            option_kwargs["timeout_s"] = self._coerce_optional_float(rclone_policy.get("timeout_s"))
-        if "max_http_requests_per_hour" in rclone_policy:
-            option_kwargs["max_http_requests_per_hour"] = self._coerce_optional_float(rclone_policy.get("max_http_requests_per_hour"))
-        if "apply_rclone_tpslimit" in rclone_policy:
-            option_kwargs["apply_rclone_tpslimit"] = self._to_boolish(rclone_policy.get("apply_rclone_tpslimit"), default=True)
-        if "rclone_tpslimit_burst" in rclone_policy:
-            burst = self._to_int(rclone_policy.get("rclone_tpslimit_burst"))
-            if burst is not None:
-                option_kwargs["rclone_tpslimit_burst"] = max(1, burst)
-        if "enforce_global_rate_limit" in rclone_policy:
-            option_kwargs["enforce_global_rate_limit"] = self._to_boolish(rclone_policy.get("enforce_global_rate_limit"), default=True)
-        if not option_kwargs:
-            return None
-        from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import RcloneBackendOptions
-        return RcloneBackendOptions(**option_kwargs)
-
-    def _build_wget_options_from_row(self, row: Any):
-        raw_policy = self._row_get(row, "store_policy_json")
-        if raw_policy in (None, ""):
-            return None
-        try:
-            policy = json.loads(str(raw_policy))
-        except Exception:
-            return None
-        if not isinstance(policy, Mapping):
-            return None
-        wget_policy: Mapping[str, Any] = policy.get("wget") if isinstance(policy.get("wget"), Mapping) else policy
-        option_kwargs: dict[str, Any] = {}
-        if "wget_exe" in wget_policy:
-            exe = self._coerce_optional_str(wget_policy.get("wget_exe"))
-            if exe:
-                option_kwargs["wget_exe"] = exe
-        if "wget_args" in wget_policy:
-            args = wget_policy.get("wget_args")
-            if isinstance(args, (list, tuple)):
-                option_kwargs["wget_args"] = tuple(str(x) for x in args)
-        if "timeout_s" in wget_policy:
-            option_kwargs["timeout_s"] = self._coerce_optional_float(wget_policy.get("timeout_s"))
-        if "max_http_requests_per_hour" in wget_policy:
-            option_kwargs["max_http_requests_per_hour"] = self._coerce_optional_float(wget_policy.get("max_http_requests_per_hour"))
-        if "recurse" in wget_policy:
-            option_kwargs["recurse"] = self._to_boolish(wget_policy.get("recurse"), default=True)
-        if "max_depth" in wget_policy:
-            option_kwargs["max_depth"] = self._to_int(wget_policy.get("max_depth"))
-        if "no_parent" in wget_policy:
-            option_kwargs["no_parent"] = self._to_boolish(wget_policy.get("no_parent"), default=True)
-        if "span_hosts" in wget_policy:
-            option_kwargs["span_hosts"] = self._to_boolish(wget_policy.get("span_hosts"), default=False)
-        if "respect_robots" in wget_policy:
-            option_kwargs["respect_robots"] = self._to_boolish(wget_policy.get("respect_robots"), default=True)
-        if "user_agent" in wget_policy:
-            option_kwargs["user_agent"] = self._coerce_optional_str(wget_policy.get("user_agent"))
-        if not option_kwargs:
-            return None
-        from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import WgetBackendOptions
-        return WgetBackendOptions(**option_kwargs)
-
-    def _build_native_html_options_from_row(self, row: Any):
-        raw_policy = self._row_get(row, "store_policy_json")
-        if raw_policy in (None, ""):
-            return None
-        try:
-            policy = json.loads(str(raw_policy))
-        except Exception:
-            return None
-        if not isinstance(policy, Mapping):
-            return None
-        native_policy: Mapping[str, Any] = policy.get("native_html") if isinstance(policy.get("native_html"), Mapping) else policy
-        option_kwargs: dict[str, Any] = {}
-        if "timeout_s" in native_policy:
-            option_kwargs["timeout_s"] = self._coerce_optional_float(native_policy.get("timeout_s"))
-        if "max_http_requests_per_hour" in native_policy:
-            option_kwargs["max_http_requests_per_hour"] = self._coerce_optional_float(native_policy.get("max_http_requests_per_hour"))
-        if "recurse" in native_policy:
-            option_kwargs["recurse"] = self._to_boolish(native_policy.get("recurse"), default=True)
-        if "max_depth" in native_policy:
-            option_kwargs["max_depth"] = self._to_int(native_policy.get("max_depth"))
-        if "no_parent" in native_policy:
-            option_kwargs["no_parent"] = self._to_boolish(native_policy.get("no_parent"), default=True)
-        if "span_hosts" in native_policy:
-            option_kwargs["span_hosts"] = self._to_boolish(native_policy.get("span_hosts"), default=False)
-        if "respect_robots" in native_policy:
-            option_kwargs["respect_robots"] = self._to_boolish(native_policy.get("respect_robots"), default=True)
-        if "user_agent" in native_policy:
-            option_kwargs["user_agent"] = self._coerce_optional_str(native_policy.get("user_agent"))
-        if "max_html_bytes" in native_policy:
-            max_html_bytes = self._to_int(native_policy.get("max_html_bytes"))
-            if max_html_bytes is not None:
-                option_kwargs["max_html_bytes"] = max(1024, max_html_bytes)
-        if not option_kwargs:
-            return None
-        from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import NativeHtmlBackendOptions
-        return NativeHtmlBackendOptions(**option_kwargs)
-
-    def _resolve_backend_cls(self, row: Any) -> Optional[type[Any]]:
-        kind_raw = self._coerce_optional_str(self._row_get(row, "store_kind"))
-        protocol_raw = self._coerce_optional_str(self._row_get(row, "store_access_protocol"))
-        is_read_only = self._to_boolish(self._row_get(row, "store_is_read_only"), default=False)
-
-        normalized_kind = kind_raw.lower() if kind_raw else None
-        normalized_protocol = protocol_raw.lower() if protocol_raw else None
-
-        alias = self._STORE_KIND_ALIASES.get(normalized_kind) if normalized_kind is not None else None
-        if alias is None:
-            if normalized_protocol in {"http", "https", "rclone"}:
-                alias = "rclone_http_readonly"
-            elif normalized_protocol == "wget":
-                alias = "wget_html_readonly"
-            elif normalized_protocol in {"native", "native_html"}:
-                alias = "native_html_readonly"
-            elif normalized_protocol == "squashfs":
-                alias = "squashfs_readonly"
-            elif normalized_protocol in {"sqlite", "sqlite3"}:
-                alias = "single_file_sqlite"
-            elif normalized_protocol in {"file", "nfs", "smb"}:
-                alias = "on_disk_existing_unmanaged_drive" if is_read_only else "on_disk_existing_managed_drive"
-            elif normalized_protocol in {"ftp", "ftps"}:
-                alias = "ftp_readonly"
-        if alias is None:
-            return None
-        spec = self._STORE_BACKEND_IMPORTS.get(alias)
-        if spec is None:
-            return None
-        module_name, class_name = spec
-        module = importlib.import_module(module_name)
-        return getattr(module, class_name, None)
-
-    def _check_duplicate_key(self, key: str, value: str, new_store_container: StoreContainerAPI) -> None:
-        if key == "name":
-            existing = self._containers_by_name.get(value)
-        elif key == "url":
-            existing = self._containers_by_url.get(value)
-        elif key == "uuid":
-            existing = self._containers_by_uuid.get(value)
-        else:  # pragma: no cover
-            raise ValueError("Unsupported key type: {!r}".format(key))
-        if existing is not None and existing is not new_store_container:
-            raise ValueError("Duplicate store {}: {!r}".format(key, value))
-
-    def _candidate_store_containers(
+    @override
+    def reload_stores(
         self,
         *,
-        preferred_store: "StoreRef | None",
-        metadata: Optional[Any],
-        file_url: Optional[str],
-    ) -> list[StoreContainerAPI]:
-        store_containers: list[StoreContainerAPI] = []
-        seen: set[int] = set()
+        include_offline: bool = False,
+        replace_existing: bool = True,
+    ) -> api.StorageBootstrapReport:
+        """Reload database rows when bound, otherwise in-memory configuration.
 
-        def _append(candidate: StoreContainerAPI) -> None:
-            marker = id(candidate)
-            if marker in seen:
-                return
-            seen.add(marker)
-            store_containers.append(candidate)
+        Example:
+            >>> report = manager.reload_stores()  # doctest: +SKIP
+        """
 
-        if preferred_store is not None:
-            _append(self.get_store_container(preferred_store))
+        if self.db is None:
+            return super().reload_stores(
+                include_offline=include_offline,
+                replace_existing=replace_existing,
+            )
+        return self.load_from_database(
+            self.db,
+            include_offline=include_offline,
+            clear_existing=replace_existing,
+            startup=True,
+        )
 
-        for identifier in self._metadata_store_identifiers(metadata):
-            try:
-                _append(self.get_store_container(identifier))
-            except KeyError:
-                continue
+    def _unload_database_stores(
+        self,
+        store_refs: tuple[api.StoreUUID, ...],
+    ) -> None:
+        """Unload inactive rows while retaining referenced Store identities.
 
-        if file_url:
-            for store_container in self._store_containers:
-                if self._file_url_belongs_to_store(file_url=file_url, store_container=store_container):
-                    _append(store_container)
+        Example:
+            >>> manager._unload_database_stores(())
+        """
 
-        if preferred_store is None and self._default_store_key:
-            try:
-                _append(self.get_store_container(self._default_store_key))
-            except KeyError:
-                pass
+        for store_ref in sorted(store_refs, key=lambda value: value.int):
+            has_live_claims = any(
+                record.location.store_ref == store_ref
+                and record.state is not api.ReplicaState.DELETED
+                for record in self._replicas.values()
+            )
+            # These configurations have already disappeared from the
+            # authoritative database snapshot. Bypass the durable-delete
+            # override: only the process-local facade/configuration needs to
+            # be reconciled. Retain a claimed identity so Replica evidence can
+            # still be inspected and repaired.
+            super().remove_store(
+                store_ref,
+                forget_configuration=not has_live_claims,
+            )
 
-        for store_container in self._store_containers:
-            _append(store_container)
-        return store_containers
-
-    def _metadata_sources(self, metadata: Optional[Any]) -> list[Any]:
-        if metadata is None:
-            return []
-        sources: list[Any] = [metadata]
-        hints = derive_storage_hints(metadata)
-        if hints is not None:
-            sources.append(hints)
-            extra = self._get_value(hints, "extra")
-            if isinstance(extra, Mapping):
-                sources.append(extra)
-        if isinstance(metadata, Mapping):
-            extra = metadata.get("extra")
-            if isinstance(extra, Mapping):
-                sources.append(extra)
-        return sources
-
-    def _get_metadata_value(self, metadata: Optional[Any], *keys: str) -> Any:
-        for source in self._metadata_sources(metadata):
-            for key in keys:
-                value = self._get_value(source, key)
-                if value is not None:
-                    return value
-        return None
-
-    @staticmethod
-    def _get_value(source: Any, key: str) -> Any:
-        if isinstance(source, Mapping):
-            return source.get(key)
-        return getattr(source, key, None)
-
-    def _metadata_file_url(self, metadata: Optional[Any]) -> Optional[str]:
-        value = self._get_metadata_value(metadata, "file_url", "url", "file_path", "path", "file_storage_key", "storage_key")
-        if value is None:
-            file_row = self._get_metadata_value(metadata, "file_row")
-            if file_row is not None:
-                value = self._get_value(file_row, "file_url")
-                if value is None:
-                    value = self._get_value(file_row, "file_path")
-                if value is None:
-                    value = self._get_value(file_row, "file_storage_key")
-        return None if value is None else str(value)
-
-    def _metadata_store_identifiers(self, metadata: Optional[Any]) -> Iterator[str]:
-        for key in (
-            "preferred_store",
-            "store",
-            "store_name",
-            "store_uuid",
-            "store_url",
-            "file_store",
-            "file_store_name",
-            "file_store_uuid",
-            "file_store_url",
-        ):
-            value = self._get_metadata_value(metadata, key)
-            if value is None:
-                continue
-            if isinstance(value, (list, tuple, set)):
-                for one in value:
-                    yield str(one)
-                continue
-            yield str(value)
-        numeric_id = self._get_metadata_value(metadata, "file_store_id", "store_id")
-        if numeric_id is None:
-            return
-        try:
-            yield self._store_ids[int(numeric_id)]
-        except Exception:
-            return
-
-    @staticmethod
-    def _file_url_belongs_to_store(file_url: str, store_container: StoreContainerAPI) -> bool:
-        store_url = str(store_container.store_url)
-        if file_url == store_url:
-            return True
-        if file_url.startswith(store_url.rstrip("/") + "/"):
-            return True
-        try:
-            f_path = pathlib.Path(file_url).expanduser().resolve(strict=False)
-            s_path = pathlib.Path(store_url).expanduser().resolve(strict=False)
-            return f_path.is_relative_to(s_path)
-        except Exception:
-            return False
+    @classmethod
+    def from_database(cls, db: Any, **kwargs):
+        manager = cls(db=db, **kwargs)
+        report = manager.load_from_database(db)
+        return manager, report
 
 
 StoreManager = StorageManager
+StorageBootstrapIssue = api.StorageBootstrapIssue
+StorageBootstrapReport = api.StorageBootstrapReport
+
+
+def _row_value(row: Any, key: str):
+    try:
+        return row[key]
+    except Exception:
+        return getattr(row, key, None)
+
+
+def _row_int(row: Any, key: str) -> int | None:
+    try:
+        value = _row_value(row, key)
+        if value is None or value == "":
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _persist_derived_store_uuid(
+    database: Any,
+    *,
+    row: Any,
+    store_id: int | None,
+    store_ref: api.StoreUUID,
+) -> None:
+    """Backfill stable identity when bootstrapping a legacy Store row."""
+
+    if store_id is None or _row_text(row, "store_uuid") is not None:
+        return
+    allowed_columns = getattr(row, "allowed_columns", None)
+    if allowed_columns is not None and "store_uuid" not in set(allowed_columns):
+        return
+    macros = getattr(database, "macros", None)
+    update_row = getattr(macros, "update_row", None)
+    if not callable(update_row):
+        return
+    update_row(
+        "stores",
+        store_id,
+        {"store_uuid": str(store_ref)},
+        id_column="store_id",
+    )
+
+
+def _row_text(row: Any, key: str) -> str | None:
+    value = _row_value(row, key)
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _row_uuid(row: Any, key: str) -> UUID | None:
+    value = _row_value(row, key)
+    if isinstance(value, UUID):
+        return value
+    if value is None or value == "":
+        return None
+    try:
+        return UUID(str(value))
+    except ValueError:
+        return None
+
+
+def _row_kind(row: Any) -> str:
+    return (_row_text(row, "store_kind") or "").lower().replace("-", "_")
+
+
+def _is_encrypted_row(row: Any) -> bool:
+    kind = _row_kind(row)
+    try:
+        return DEFAULT_BACKEND_REGISTRY.canonical_kind(kind) == "encrypted"
+    except (ValueError, api.StoreUnsupportedOperation):
+        return False
+
+
+def _configuration_dependencies(
+    manager: StorageManager,
+    configuration: api.StoreConfiguration,
+) -> frozenset[api.StoreUUID]:
+    """Return Store identities that should be live before this Store."""
+
+    dependencies: set[api.StoreUUID] = set()
+    backing = configuration.backing
+    if backing is not None:
+        if backing.materialization_store_ref is not None:
+            dependencies.add(backing.materialization_store_ref)
+        if backing.preferred_replica_id is not None:
+            try:
+                replica = manager.get_replica_record(
+                    backing.preferred_replica_id
+                )
+            except api.ReplicaNotFound:
+                pass
+            else:
+                if replica.digital_asset_id == backing.digital_asset_id:
+                    dependencies.add(replica.location.store_ref)
+
+    try:
+        kind = DEFAULT_BACKEND_REGISTRY.canonical_kind(
+            configuration.store_kind
+        )
+    except (ValueError, api.StoreUnsupportedOperation):
+        kind = configuration.store_kind
+    if kind == "encrypted":
+        raw_inner_ref = dict(configuration.backend_options).get(
+            "inner_store_uuid"
+        )
+        if raw_inner_ref is None:
+            parsed = urlparse(configuration.store_root_uri)
+            raw_inner_ref = parsed.netloc or parsed.path.strip("/") or None
+        try:
+            if raw_inner_ref is not None:
+                dependencies.add(UUID(str(raw_inner_ref)))
+        except ValueError:
+            pass
+    dependencies.discard(configuration.store_uuid)
+    return frozenset(dependencies)
+
+
+def _order_store_rows(
+    manager: StorageManager,
+    rows: tuple[Any, ...],
+) -> tuple[Any, ...]:
+    """Topologically order wrapper and Asset-backed Store rows."""
+
+    translated: list[tuple[Any, api.StoreConfiguration | None]] = []
+    for row in rows:
+        try:
+            configuration = store_configuration_from_row(
+                row,
+                fallback_store_id=_row_int(row, "store_id"),
+            )
+        except Exception:
+            configuration = None
+        translated.append((row, configuration))
+
+    configured_refs = {
+        configuration.store_uuid
+        for _, configuration in translated
+        if configuration is not None
+    }
+    remaining = list(translated)
+    ordered: list[Any] = []
+    while remaining:
+        remaining_refs = {
+            configuration.store_uuid
+            for _, configuration in remaining
+            if configuration is not None
+        }
+        ready = [
+            item
+            for item in remaining
+            if item[1] is None
+            or not (
+                _configuration_dependencies(manager, item[1])
+                & remaining_refs
+                & configured_refs
+            )
+        ]
+        if not ready:
+            # Keep deterministic reporting when malformed rows declare a
+            # dependency cycle; construction will provide the useful error.
+            ready = list(remaining)
+        ready.sort(
+            key=lambda item: (
+                item[1] is not None and item[1].backing is not None,
+                _is_encrypted_row(item[0]),
+                _row_int(item[0], "store_id") or 0,
+            )
+        )
+        for item in ready:
+            ordered.append(item[0])
+            remaining.remove(item)
+    return tuple(ordered)
+
 
 __all__ = [
     "StorageBootstrapIssue",

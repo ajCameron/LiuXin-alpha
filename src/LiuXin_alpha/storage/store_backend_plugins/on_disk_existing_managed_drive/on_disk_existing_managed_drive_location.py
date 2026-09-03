@@ -1,15 +1,9 @@
-"""Location type for the managed on-disk store backend."""
+"""Location compatibility name for the opaque new Store location value."""
 
-from __future__ import annotations
-
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_existing_unmanaged_drive_location import (
-    OnDiskLocalStoreLocation,
-)
+from LiuXin_alpha.storage.api import Location
 
 
-class OnDiskExistingManagedStoreLocation(OnDiskLocalStoreLocation):
-    """
-    Existing-managed store location.
+OnDiskExistingManagedStoreLocation = Location
 
-    Reuses the proven local filesystem location implementation.
-    """
+
+__all__ = ["OnDiskExistingManagedStoreLocation"]

@@ -1,187 +1,153 @@
-"""Helpers for turning indexed store contents into pack-shaped backup workflow specs."""
+"""Size-bounded backup planning over the new manager and Store contracts."""
 
 from __future__ import annotations
 
-import dataclasses
 import pathlib
+
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any
 
-from LiuXin_alpha.storage.api.backup_api import BackupSourceKind, BackupSourceSpec, BackupWorkflowKind, BackupWorkflowSpec
-
-if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
-
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class PlannedBackupPack:
-    pack_index: int
-    workflow_spec: BackupWorkflowSpec
-    source_count: int
-    estimated_size_bytes: int
+from LiuXin_alpha.storage.api import (
+    BackupPackPlan,
+    BackupPlannerAPI,
+    BackupSourceDeclaration,
+    BackupSourceKind,
+    BackupWorkflowDeclaration,
+    BackupWorkflowKind,
+    ReplicaState,
+    StoreUUID,
+)
+from LiuXin_alpha.storage.utils.workflow import normalize_archive_path
 
 
-class StoreBackupPlanner:
-    """Plan squashfs backup packs from an indexed local-ish store."""
+class StoreBackupPlanner(BackupPlannerAPI):
+    """Partition a configured Store's complete inventory into SquashFS packs."""
 
-    def __init__(self, db: "DatabaseAPI") -> None:
-        self.db = db
+    def __init__(self, storage_manager) -> None:
+        self.storage_manager = storage_manager
 
-    def plan_squashfs_packs_for_store(
+    def plan_store_backup(
         self,
         *,
-        source_store_id: int,
-        output_dir: str,
-        target_pack_size_bytes: int,
+        source_store_ref: StoreUUID,
+        destination_store_ref: StoreUUID,
+        target_artifact_size_bytes: int,
         workflow_name_prefix: str | None = None,
-        max_files_per_pack: int | None = None,
+        output_key_prefix: str = "backup-packs",
+        max_sources_per_artifact: int | None = None,
         allowed_extensions: Iterable[str] | None = None,
-    ) -> tuple[PlannedBackupPack, ...]:
-        if target_pack_size_bytes <= 0:
-            raise ValueError("target_pack_size_bytes must be > 0")
-        store_row = self.db.get_row_from_id("stores", int(source_store_id))
-        if store_row is None:
-            raise KeyError(f"Unknown source store id: {source_store_id!r}")
-        root_uri = str(store_row["store_root_uri"] or "")
-        if root_uri == "":
-            raise ValueError("Source store has no store_root_uri; cannot plan local-path backups.")
-        root_path = pathlib.Path(root_uri).expanduser()
-        rows = self._inventory_rows_for_store(int(source_store_id))
-        ext_filter = None
-        if allowed_extensions is not None:
-            ext_filter = {self._normalize_ext(item) for item in allowed_extensions if str(item).strip() != ""}
-        normalized: list[dict[str, Any]] = []
-        for row in rows:
-            entry = self._normalize_inventory_row(row)
-            if entry is None:
+    ) -> tuple[BackupPackPlan, ...]:
+        if target_artifact_size_bytes <= 0:
+            raise ValueError("target_artifact_size_bytes must be positive.")
+        if max_sources_per_artifact is not None and max_sources_per_artifact <= 0:
+            raise ValueError("max_sources_per_artifact must be positive.")
+
+        source_store = self.storage_manager.get_store(source_store_ref)
+        destination_store = self.storage_manager.get_store(destination_store_ref)
+        extension_filter = (
+            None
+            if allowed_extensions is None
+            else {
+                str(extension).strip().lower().lstrip(".")
+                for extension in allowed_extensions
+                if str(extension).strip()
+            }
+        )
+        entries = []
+        replicas_by_location = {
+            replica.location: replica
+            for replica in self.storage_manager.iter_replica_records(
+                store_ref=source_store_ref,
+            )
+            if replica.state is not ReplicaState.DELETED
+        }
+        for info in source_store.iter_file_infos():
+            extension = pathlib.PurePosixPath(info.location.key).suffix.lower().lstrip(".")
+            if extension_filter is not None and extension not in extension_filter:
                 continue
-            if ext_filter is not None and self._normalize_ext(entry.get("file_extension")) not in ext_filter:
-                continue
-            full_path = root_path / str(entry["file_storage_key"])
-            source_kind = BackupSourceKind.LOCAL_PATH
-            normalized.append({
-                **entry,
-                "source_kind": source_kind,
-                "source_identifier": str(full_path),
-            })
-        if not normalized:
+            archive_path = normalize_archive_path(info.location.key)
+            digest = info.digest or source_store.compute_digest(info.location)
+            replica = replicas_by_location.get(info.location)
+            source_asset_id = (
+                None if replica is None else replica.digital_asset_id
+            )
+            entries.append(
+                BackupSourceDeclaration(
+                    BackupSourceKind.STORE_LOCATION,
+                    info.location,
+                    archive_path=archive_path,
+                    expected_size=info.size,
+                    expected_digest=digest,
+                    source_digital_asset_id=source_asset_id,
+                    source_replica_id=(
+                        None if replica is None else replica.replica_id
+                    ),
+                    source_store_ref=source_store_ref,
+                )
+            )
+        entries.sort(key=lambda source: source.archive_path or "")
+        if not entries:
             return ()
-        prefix = workflow_name_prefix or (str(store_row["store_name"] or f"store_{source_store_id}").strip() or f"store_{source_store_id}")
-        output_root = pathlib.Path(output_dir).expanduser()
-        packs: list[PlannedBackupPack] = []
-        current: list[dict[str, Any]] = []
+
+        prefix = (
+            workflow_name_prefix
+            or source_store.configuration.store_name
+            or f"store-{source_store_ref}"
+        )
+        plans: list[BackupPackPlan] = []
+        current: list[BackupSourceDeclaration] = []
         current_size = 0
-        pack_index = 1
 
         def flush() -> None:
-            nonlocal current, current_size, pack_index
+            nonlocal current, current_size
             if not current:
                 return
-            spec = BackupWorkflowSpec(
-                workflow_name=f"{prefix}-pack-{pack_index:04d}",
-                workflow_kind=BackupWorkflowKind.SQUASHFS_PACK,
-                output_url=str(output_root / f"{prefix}-pack-{pack_index:04d}.sqsh"),
-                sources=tuple(
-                    BackupSourceSpec(
-                        source_kind=item["source_kind"],
-                        source_identifier=item["source_identifier"],
-                        archive_path=str(item["file_storage_key"]),
-                        expected_size=item.get("file_size_bytes"),
-                        expected_hash=item.get("file_hash_sha256"),
-                        source_file_id=item.get("source_file_id"),
-                        source_asset_replica_id=item.get("source_asset_replica_id"),
-                        source_store_id=int(source_store_id),
-                    )
-                    for item in current
-                ),
+            pack_index = len(plans) + 1
+            workflow_name = f"{prefix}-pack-{pack_index:04d}"
+            filename = f"{workflow_name}.sqsh"
+            output = (
+                destination_store.location(output_key_prefix, filename)
+                if output_key_prefix
+                else destination_store.locate(filename)
             )
-            packs.append(PlannedBackupPack(
-                pack_index=pack_index,
-                workflow_spec=spec,
-                source_count=len(current),
-                estimated_size_bytes=current_size,
-            ))
+            declaration = BackupWorkflowDeclaration(
+                workflow_name=workflow_name,
+                workflow_kind=BackupWorkflowKind.SQUASHFS_PACK,
+                output_target=output,
+                sources=tuple(current),
+            )
+            plans.append(
+                BackupPackPlan(
+                    pack_index=pack_index,
+                    workflow_declaration=declaration,
+                    source_count=len(current),
+                    estimated_size_bytes=current_size,
+                )
+            )
             current = []
             current_size = 0
-            pack_index += 1
 
-        for item in normalized:
-            item_size = int(item.get("file_size_bytes") or 0)
-            would_overflow = bool(current and current_size + item_size > target_pack_size_bytes)
-            would_hit_count = bool(max_files_per_pack is not None and current and len(current) >= int(max_files_per_pack))
-            if would_overflow or would_hit_count:
+        for source in entries:
+            size = source.expected_size or 0
+            size_limit_reached = bool(
+                current
+                and current_size + size > target_artifact_size_bytes
+            )
+            count_limit_reached = bool(
+                current
+                and max_sources_per_artifact is not None
+                and len(current) >= max_sources_per_artifact
+            )
+            if size_limit_reached or count_limit_reached:
                 flush()
-            current.append(item)
-            current_size += item_size
+            current.append(source)
+            current_size += size
         flush()
-        return tuple(packs)
+        return tuple(plans)
 
-    def _inventory_rows_for_store(self, source_store_id: int):
-        try:
-            rows = self.db.search("file_inventory_v", "file_store_id", int(source_store_id))
-        except Exception:
-            rows = []
-        if rows:
-            return rows
-        tables = set(self.db.get_tables())
-        if "files" in tables:
-            try:
-                return self.db.search("files", "file_store_id", int(source_store_id))
-            except Exception:
-                pass
-        if "asset_replicas" in tables:
-            rows = []
-            for replica in self.db.search("asset_replicas", "asset_replica_store_id", int(source_store_id)):
-                digital_asset = None
-                da_id = replica["asset_replica_digital_asset_id"] if "asset_replica_digital_asset_id" in replica.allowed_columns else None
-                if da_id not in (None, "") and "digital_assets" in tables:
-                    try:
-                        digital_asset = self.db.get_row_from_id("digital_assets", int(da_id))
-                    except Exception:
-                        digital_asset = None
-                rows.append({
-                    "file_storage_key": replica["asset_replica_storage_key"],
-                    "file_size_bytes": replica["asset_replica_observed_size_bytes"] if "asset_replica_observed_size_bytes" in replica.allowed_columns else (digital_asset["digital_asset_size_bytes"] if digital_asset is not None and "digital_asset_size_bytes" in digital_asset.allowed_columns else 0),
-                    "file_hash_sha256": replica["asset_replica_observed_hash_sha256"] if "asset_replica_observed_hash_sha256" in replica.allowed_columns else (digital_asset["digital_asset_hash_sha256"] if digital_asset is not None and "digital_asset_hash_sha256" in digital_asset.allowed_columns else None),
-                    "file_extension": replica["asset_replica_extension"] if "asset_replica_extension" in replica.allowed_columns else (digital_asset["digital_asset_extension"] if digital_asset is not None and "digital_asset_extension" in digital_asset.allowed_columns else None),
-                    "file_id": replica["asset_replica_id"] if "asset_replica_id" in replica.allowed_columns else None,
-                    "asset_replica_id": replica["asset_replica_id"] if "asset_replica_id" in replica.allowed_columns else None,
-                })
-            return rows
-        return []
 
-    @staticmethod
-    def _normalize_inventory_row(row) -> dict[str, Any] | None:
-        if isinstance(row, dict):
-            storage_key = row.get("file_storage_key")
-            if storage_key in (None, ""):
-                return None
-            return {
-                "file_storage_key": str(storage_key),
-                "file_size_bytes": int(row.get("file_size_bytes") or 0),
-                "file_hash_sha256": (str(row.get("file_hash_sha256")).lower() if row.get("file_hash_sha256") not in (None, "") else None),
-                "file_extension": row.get("file_extension"),
-                "source_file_id": int(row.get("file_id")) if row.get("file_id") not in (None, "") else None,
-                "source_asset_replica_id": int(row.get("asset_replica_id")) if row.get("asset_replica_id") not in (None, "") else None,
-            }
-        storage_key = row["file_storage_key"]
-        if storage_key in (None, ""):
-            return None
-        ext = row["file_extension"] if "file_extension" in row.allowed_columns else None
-        return {
-            "file_storage_key": str(storage_key),
-            "file_size_bytes": int(row["file_size_bytes"] or 0),
-            "file_hash_sha256": (str(row["file_hash_sha256"]).lower() if "file_hash_sha256" in row.allowed_columns and row["file_hash_sha256"] not in (None, "") else None),
-            "file_extension": ext,
-            "source_file_id": int(row["file_id"]) if "file_id" in row.allowed_columns and row["file_id"] not in (None, "") else None,
-            "source_asset_replica_id": int(row["asset_replica_id"]) if "asset_replica_id" in row.allowed_columns and row["asset_replica_id"] not in (None, "") else None,
-        }
-
-    @staticmethod
-    def _normalize_ext(value: Any) -> str | None:
-        if value in (None, ""):
-            return None
-        return str(value).lower().lstrip(".")
+# A descriptive implementation name remains useful to application code; the
+# public value returned by the planner is BackupPackPlan.
+PlannedBackupPack = BackupPackPlan
 
 
 __all__ = ["PlannedBackupPack", "StoreBackupPlanner"]

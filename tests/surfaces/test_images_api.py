@@ -141,7 +141,7 @@ def test_image_backend_discovers_and_resolves_cover_images(driver_spec, tmp_path
         assert resolved is None
         stored = backend.resolve_storage_image(image_row)
         assert stored is not None
-        assert stored.as_bytes() == image_path.read_bytes()
+        assert stored.read_bytes() == image_path.read_bytes()
         assert backend.image_content_type(image_row) == "image/png"
         assert b"Image Book" in placeholder
 

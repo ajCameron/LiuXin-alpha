@@ -8,6 +8,7 @@ import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 
 def bootstrap_src_path() -> Path:
@@ -39,6 +40,8 @@ def json_sanitize(
             return obj.isoformat()
         except Exception:
             return repr(obj)
+    if isinstance(obj, UUID):
+        return str(obj)
     if isinstance(obj, (bytes, bytearray, memoryview)):
         raw = bytes(obj)
         return {
@@ -93,4 +96,7 @@ def json_sanitize(
 
 
 def dump_json(data: Any) -> str:
-    return json.dumps(json_sanitize(data), ensure_ascii=False, indent=2, sort_keys=True)
+    # ASCII escaping keeps example output valid even when a POSIX filename was
+    # decoded with ``surrogateescape``. JSON readers reconstruct the exact
+    # Python string while terminal encoders never see a lone surrogate.
+    return json.dumps(json_sanitize(data), ensure_ascii=True, indent=2, sort_keys=True)

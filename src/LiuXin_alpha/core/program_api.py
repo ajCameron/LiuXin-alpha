@@ -17,9 +17,12 @@ import io
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
+from uuid import UUID
 
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.storage.api import Location
+from LiuXin_alpha.storage.store_spec_utils import store_configuration_from_row
 from LiuXin_alpha.utils.jobs import JobRequest
 
 if TYPE_CHECKING:
@@ -619,7 +622,8 @@ class CoreProgramAPI:
             self.storage_location_stat,
             summary="Return status and metadata for one storage location.",
             payload_fields=(
-                _field("file_url", required=True, field_type="string"),
+                _field("store_uuid", required=True, field_type="string"),
+                _field("key", required=True, field_type="string"),
             ),
             tags=("storage", "files", "read"),
         )
@@ -894,10 +898,10 @@ class CoreProgramAPI:
         command(
             "storage.file.copy",
             self.storage_file_copy,
-            summary="Copy one stored file through Core into a selected store.",
+            summary="Copy one Digital Asset through Core into a selected Store.",
             payload_fields=(
-                _field("file_url", required=True, field_type="string"),
-                _field("preferred_store", field_type="string|null"),
+                _field("asset_id", required=True, field_type="integer"),
+                _field("store", field_type="string|integer|null"),
                 _field("metadata", field_type="object|null"),
             ),
             tags=("storage", "files", "write"),
@@ -956,8 +960,6 @@ class CoreProgramAPI:
             payload_fields=(
                 _field("workflow_spec", required=True, field_type="object"),
                 _field("workflow_id", field_type="integer|null"),
-                _field("destination_store_id", field_type="integer|null"),
-                _field("staging_store_id", field_type="integer|null"),
             ),
             tags=("backup", "storage", "write"),
         )
@@ -1591,28 +1593,31 @@ class CoreProgramAPI:
         }
 
     @staticmethod
-    def _store_container(runtime: "CoreRuntime", reference: Any) -> Any:
+    def _store(runtime: "CoreRuntime", reference: Any) -> Any:
         storage = runtime.library.storage
-        getter = _callable(
-            storage,
-            "get_store_container",
-            area="storage manager",
-        )
-        candidates: list[Any] = [reference]
+        try:
+            return storage.get_store(UUID(str(reference)))
+        except (TypeError, ValueError):
+            pass
         if not isinstance(reference, bool):
             try:
-                candidates.append(int(reference))
-            except Exception:
-                pass
-        last_error: Exception | None = None
-        for candidate in candidates:
-            try:
-                return getter(candidate)
-            except Exception as exc:
-                last_error = exc
-        raise CoreDispatchError(
-            "Unknown store: {!r}.".format(reference)
-        ) from last_error
+                row = runtime.database.get_row_from_id("stores", int(reference))
+            except (TypeError, ValueError):
+                row = None
+            if row is not None:
+                configuration = store_configuration_from_row(
+                    row,
+                    fallback_store_id=int(reference),
+                )
+                return storage.get_store(configuration.store_uuid)
+        matches = [
+            store
+            for store in storage.iter_stores()
+            if store.configuration.store_name == str(reference)
+        ]
+        if len(matches) == 1:
+            return matches[0]
+        raise CoreDispatchError("Unknown Store: {!r}.".format(reference))
 
     def storage_store_get(
         self,
@@ -1623,15 +1628,14 @@ class CoreProgramAPI:
         reference = payload.get("store")
         if reference in (None, ""):
             raise CoreDispatchError("`store` is required.")
-        container = self._store_container(runtime, reference)
-        spec = getattr(container, "spec", None)
+        store = self._store(runtime, reference)
+        configuration = store.configuration
         return {
-            "spec": _plain(spec),
-            "store_id": getattr(container, "store_id", None),
-            "store_uuid": getattr(container, "store_uuid", None),
-            "store_name": getattr(container, "store_name", None),
-            "store_url": getattr(container, "store_url", None),
-            "status": _plain(getattr(container, "status", None)),
+            "configuration": _plain(configuration),
+            "store_uuid": configuration.store_uuid,
+            "store_name": configuration.store_name,
+            "store_root_uri": configuration.store_root_uri,
+            "status": _plain(store.status()),
         }
 
     @staticmethod
@@ -1641,23 +1645,18 @@ class CoreProgramAPI:
     ) -> dict[str, Any]:
         del query
         storage = runtime.library.storage
-        method = _callable(
-            storage,
-            "get_default_store_container",
-            area="storage manager",
-        )
         try:
-            container = method()
+            store = storage.get_store(storage.get_default_store_ref())
         except Exception:
             return {"configured": False, "store": None}
+        configuration = store.configuration
         return {
             "configured": True,
             "store": {
-                "store_id": getattr(container, "store_id", None),
-                "store_uuid": getattr(container, "store_uuid", None),
-                "store_name": getattr(container, "store_name", None),
-                "store_url": getattr(container, "store_url", None),
-                "spec": _plain(getattr(container, "spec", None)),
+                "store_uuid": configuration.store_uuid,
+                "store_name": configuration.store_name,
+                "store_root_uri": configuration.store_root_uri,
+                "configuration": _plain(configuration),
             },
         }
 
@@ -1666,24 +1665,16 @@ class CoreProgramAPI:
         runtime: "CoreRuntime",
         query: "CoreQuery",
     ) -> dict[str, Any]:
-        file_url = _required_text(_payload(query), "file_url")
-        location = runtime.library.retrieve_file(file_url=file_url)
-        stat_method = getattr(location, "stat", None)
-        exists_method = getattr(location, "exists", None)
+        payload = _payload(query)
+        location = Location(
+            UUID(_required_text(payload, "store_uuid")),
+            _required_text(payload, "key"),
+        )
+        info = runtime.library.storage.stat(location)
         return {
-            "file_url": file_url,
-            "store_key": (
-                location.as_store_key()
-                if callable(getattr(location, "as_store_key", None))
-                else None
-            ),
-            "name": getattr(location, "name", None),
-            "suffix": getattr(location, "suffix", None),
-            "cached_size": getattr(location, "cached_size", None),
-            "cached_hash": getattr(location, "cached_hash", None),
-            "exists": bool(exists_method()) if callable(exists_method) else None,
-            "status": _plain(getattr(location, "status", None)),
-            "stat": _plain(stat_method()) if callable(stat_method) else None,
+            "location": _plain(location),
+            "exists": True,
+            "stat": _plain(info),
         }
 
     @staticmethod
@@ -1954,7 +1945,7 @@ class CoreProgramAPI:
         records: list[dict[str, Any]] = []
         for row in page:
             workflow_id = int(row["backup_workflow_id"])
-            state = repository.load_resume_state(workflow_id)
+            state = repository.load_checkpoint(workflow_id)
             records.append(
                 {
                     "workflow_id": workflow_id,
@@ -1964,7 +1955,7 @@ class CoreProgramAPI:
                     "status": state.status.value,
                     "next_source_index": state.next_source_index,
                     "staged_source_count": state.staged_source_count,
-                    "source_count": len(state.spec.sources),
+                    "source_count": len(state.declaration.sources),
                     "last_error": state.last_error,
                 }
             )
@@ -1986,10 +1977,10 @@ class CoreProgramAPI:
 
         state = BackupWorkflowRepository(
             runtime.database
-        ).load_resume_state(workflow_id)
+        ).load_checkpoint(workflow_id)
         return {
             "workflow_id": workflow_id,
-            "spec": _plain(state.spec),
+            "spec": _plain(state.declaration),
             "state": _plain(state),
         }
 
@@ -2608,12 +2599,12 @@ class CoreProgramAPI:
         reference = payload.get("store")
         if reference in (None, ""):
             raise CoreDispatchError("`store` is required.")
-        container = self._store_container(runtime, reference)
-        result = _callable(container, "probe", area="store")()
+        store = self._store(runtime, reference)
+        result = store.probe()
         return {
             "store": reference,
             "status": _plain(result),
-            "live_status": _plain(getattr(container, "status", None)),
+            "live_status": _plain(store.status()),
         }
 
     def storage_store_delete(
@@ -2626,17 +2617,22 @@ class CoreProgramAPI:
         if reference in (None, ""):
             raise CoreDispatchError("`store` is required.")
         storage = runtime.library.storage
-        method = _callable(
-            storage,
-            "unregister_store_container",
-            area="storage manager",
-        )
+        store = self._store(runtime, reference)
         deleted_from_database = bool(
             payload.get("delete_from_database", False)
         )
-        removed = bool(
-            method(reference, delete_from_db=deleted_from_database)
+        removed = storage.remove_store(
+            store.store_ref,
+            forget_configuration=deleted_from_database,
         )
+        if removed and deleted_from_database:
+            rows = runtime.database.search(
+                "stores",
+                "store_uuid",
+                str(store.store_ref),
+            )
+            for row in rows:
+                runtime.database.delete(row)
         return {
             "store": reference,
             "unregistered": removed,
@@ -2653,17 +2649,12 @@ class CoreProgramAPI:
         if reference in (None, ""):
             raise CoreDispatchError("`store` is required.")
         storage = runtime.library.storage
-        _callable(
-            storage,
-            "set_default_store",
-            area="storage manager",
-        )(reference)
-        container = self._store_container(runtime, reference)
+        store = self._store(runtime, reference)
+        storage.set_default_store(store.store_ref)
         return {
             "selected": True,
-            "store_id": getattr(container, "store_id", None),
-            "store_uuid": getattr(container, "store_uuid", None),
-            "store_name": getattr(container, "store_name", None),
+            "store_uuid": store.store_ref,
+            "store_name": store.configuration.store_name,
         }
 
     @staticmethod
@@ -2672,29 +2663,26 @@ class CoreProgramAPI:
         command: "CoreCommand",
     ) -> dict[str, Any]:
         payload = _payload(command)
-        file_url = _required_text(payload, "file_url")
-        source = runtime.library.retrieve_file(file_url=file_url)
-        content = _callable(source, "read_bytes", area="storage location")()
+        asset_id = _required_int(payload, "asset_id")
+        content = runtime.library.read_file(asset_id)
         metadata = payload.get("metadata")
         if metadata is not None and not isinstance(metadata, Mapping):
             raise CoreDispatchError("`metadata` must be an object or null.")
-        target = runtime.library.add_file(
+        target_store = (
+            None
+            if payload.get("store") in (None, "")
+            else CoreProgramAPI._store(runtime, payload["store"])
+        )
+        asset = runtime.library.add_file(
             bytes(content),
             metadata=None if metadata is None else dict(metadata),
-            preferred_store=(
-                str(payload["preferred_store"])
-                if payload.get("preferred_store") is not None
-                else None
-            ),
+            store=target_store,
         )
+        location = runtime.library.locate_file(asset, store=target_store)
         return {
-            "source_file_url": file_url,
-            "file_url": getattr(target, "file_url", None),
-            "store_key": (
-                target.as_store_key()
-                if callable(getattr(target, "as_store_key", None))
-                else None
-            ),
+            "source_asset_id": asset_id,
+            "asset": _plain(asset),
+            "location": _plain(location),
             "size": len(content),
         }
 
@@ -2821,34 +2809,22 @@ class CoreProgramAPI:
         from LiuXin_alpha.core.workflow_jobs import (
             backup_workflow_spec_from_mapping,
         )
-        from LiuXin_alpha.storage.api.backup_api import BackupWorkflowStatus
+        from LiuXin_alpha.storage.api import WorkflowStatus
         from LiuXin_alpha.storage.backup import BackupWorkflowRepository
 
         spec = backup_workflow_spec_from_mapping(
             _mapping(payload, "workflow_spec")
         )
         workflow_id = _optional_int(payload, "workflow_id", minimum=1)
-        row = BackupWorkflowRepository(runtime.database).save_workflow_spec(
+        saved_id = BackupWorkflowRepository(
+            runtime.database
+        ).save_workflow_declaration(
             spec,
             workflow_id=workflow_id,
-            destination_store_id=_optional_int(
-                payload,
-                "destination_store_id",
-                minimum=1,
-            ),
-            staging_store_id=_optional_int(
-                payload,
-                "staging_store_id",
-                minimum=1,
-            ),
-            status=BackupWorkflowStatus.DRAFT,
+            status=WorkflowStatus.DRAFT,
         )
-        saved_id_raw = row.backup_workflow_id
-        if saved_id_raw is None:
-            raise RuntimeError("Backup workflow persistence returned no id.")
-        saved_id = int(saved_id_raw)
         return {
-            "workflow_id": saved_id,
+            "workflow_id": int(saved_id),
             "created": workflow_id is None,
             "spec": _plain(spec),
         }
@@ -2863,7 +2839,7 @@ class CoreProgramAPI:
         from LiuXin_alpha.storage.backup import BackupWorkflowRepository
 
         # Validate the durable definition before accepting the job.
-        BackupWorkflowRepository(runtime.database).load_workflow_spec(
+        BackupWorkflowRepository(runtime.database).load_workflow_declaration(
             workflow_id
         )
         return _job_submit(
