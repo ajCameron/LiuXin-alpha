@@ -109,8 +109,7 @@ The final wheel contained 2,138 entries, including 1,730 Python files and all
 Its isolated install imported LiuXin and all seven direct runtime/conversion
 dependencies from the temporary target, initialized and reopened a catalogue,
 and produced a structurally valid 10-entry EPUB from Unicode HTML. The wheel's
-SHA-256 was
-`9b6851dafe65bbe6feb5d590202565034ccb313da7589184e36e8bce2eb71313`.
+content and runtime receipts are emitted by the verifier for CI retention.
 
 ## Next maintainability order
 
@@ -158,7 +157,7 @@ python3 -m pytest -q tests/scripts/test_verify_wheel_install.py \
 14 passed
 
 python3 scripts/verify_wheel_install.py \
-  /tmp/liuxin-calibre-wheel-commit.u8EZDI/liuxin_alpha-0.0.0-py3-none-any.whl
+  /tmp/<build-directory>/liuxin_alpha-0.0.0-py3-none-any.whl
 2138 entries; 403 runtime assets; 317 Calibre resources;
 database create/reopen and installed HTML-to-EPUB conversion passed
 ```
