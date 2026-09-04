@@ -198,7 +198,7 @@ class Split(object):
             page_breaks_.append((xp, x.get("pb_before", "0") == "1"))
             page_break_ids.append(x_id)
 
-        for elem in item.data.iter(etree.Element):
+        for elem in item.data.iter():
             elem.attrib.pop("pb_order", False)
             elem.attrib.pop("pb_before", False)
 
@@ -395,7 +395,7 @@ class FlowSplitter(object):
         root = tree.getroot()
         # Split large <pre> tags if they contain only text
         for pre in XPath("//h:pre")(root):
-            if len(tuple(pre.iterchildren(etree.Element))) > 0:
+            if any(isinstance(child.tag, str) for child in pre.iterchildren()):
                 continue
             if pre.text and len(pre.text) > self.max_flow_size * 0.5:
                 self.log.debug("\t\tSplitting large <pre> tag")

@@ -196,9 +196,12 @@ class ContainerTests(BaseTest):
 
         # Test renaming of font files
         c = new_container()
-        fname = "LiberationMono-Regular.ttf"
-        if fname not in c.name_path_map:
-            fname = fname.lower()  # On OS X the font file name is lowercased for some reason (maybe on windows too)
+        fname = next(
+            name
+            for name, media_type in iteritems(c.mime_map)
+            if media_type in {"application/font-sfnt", "application/x-font-ttf"}
+            or name.lower().endswith(".ttf")
+        )
         rename_files(c, {fname: "fonts/LiberationMono Regular.ttf"})
         self.check_links(c)
 

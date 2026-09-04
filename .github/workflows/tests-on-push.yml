@@ -80,7 +80,7 @@ jobs:
       - name: Install from pyproject.toml
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[test]"
+          python -m pip install ".[test,conversion]"
 
       - name: Run confidence test stream
         env:
@@ -105,7 +105,7 @@ jobs:
       - name: Install from pyproject.toml
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[test]"
+          python -m pip install ".[test,conversion]"
 
       - name: Run fast file_formats lane
         env:
@@ -130,7 +130,7 @@ jobs:
       - name: Install from pyproject.toml
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[test]"
+          python -m pip install ".[test,conversion]"
 
       - name: Run heavy file_formats lane
         env:
@@ -155,7 +155,7 @@ jobs:
       - name: Install from pyproject.toml
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[test]"
+          python -m pip install ".[test,conversion]"
 
       - name: Run full test suite
         env:

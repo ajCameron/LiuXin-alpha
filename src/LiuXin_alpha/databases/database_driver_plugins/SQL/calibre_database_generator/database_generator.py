@@ -1,7 +1,7 @@
 """Calibre schema helpers + database generator.
 
 This module builds a *Calibre-style* SQLite database by executing the canonical
-SQL snapshot shipped in ``LiuXin_resources/calibre_resources``.
+SQL snapshot shipped in LiuXin's package-owned resource tree.
 
 What this module is for:
 - Read Calibre's SQL resources via LiuXin's resource shim.
@@ -35,7 +35,7 @@ from typing import Dict, Mapping, Optional
 from LiuXin_alpha.utils.resources import get_path
 
 
-# Filenames as they exist under LiuXin_resources/calibre_resources/
+# Filenames as they exist under the package-owned Calibre resource root.
 _RESOURCE_SQL_FILES = {
     "metadata": "metadata_sqlite.sql",
     "notes": "notes_sqlite.sql",

@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 import types
 import unicodedata
-
 from pathlib import Path
 from types import SimpleNamespace
 from xml.etree import ElementTree as ET
@@ -12,11 +11,14 @@ import pytest
 
 from LiuXin_alpha.file_formats.conversion.plugins.mobi_input import MOBIInput
 from LiuXin_alpha.file_formats.conversion.plugins.mobi_output import MOBIOutput
-from LiuXin_alpha.file_formats.oeb.base import OEBBook, XHTML
+from LiuXin_alpha.file_formats.oeb.base import OEBBook
 from LiuXin_alpha.file_formats.oeb.reader import OEBReader
 from LiuXin_alpha.utils.logging import default_log
-from tests.support.deterministic_conversion import assert_bytes_deterministic, freeze_uuid4, sha256_hex
-
+from tests.support.deterministic_conversion import (
+    assert_bytes_deterministic,
+    freeze_uuid4,
+    sha256_hex,
+)
 
 UNICODE_TORTURE_LINES = [
     "Latin accents: naïve coöperate façade déjà vu.",
@@ -263,4 +265,4 @@ def test_mobi_output_old_mode_is_deterministic_with_frozen_runtime(
         run_names=("det_run_1", "det_run_2"),
     )
     assert len(first) > 4096
-    assert sha256_hex(first) == "8dd9071f1db379fc8dda2bd401afc9904712982b47c044b5a1a358c2ff342911"
+    assert sha256_hex(first) == "b3b9a4a480dd298ff0a72ec1093b366ff21698707ec57fa695749feee6702bbb"

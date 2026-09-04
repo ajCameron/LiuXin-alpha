@@ -45,6 +45,11 @@ archives = [
   "pycdlib>=1.20,<2",
   "rarfile>=4.5,<5",
 ]
+conversion = [
+  "cssutils>=2.11,<3",
+  "Pillow>=10,<13",
+  "regex>=2024.5",
+]
 typing = [
   "basedpyright>=1.39,<2",
   "libcst>=1.8,<2",
@@ -70,6 +75,26 @@ namespaces = true
 
 [tool.setuptools.package-data]
 "LiuXin_alpha.catalog" = ["py.typed"]
+"LiuXin_alpha.resources" = [
+  "calibre/*",
+  "calibre/catalog/*",
+  "calibre/content-server/*",
+  "calibre/dictionaries/*",
+  "calibre/dictionaries/en-GB/*",
+  "calibre/dictionaries/en-US/*",
+  "calibre/dictionaries/es-ES/*",
+  "calibre/editor-help/*",
+  "calibre/fonts/*",
+  "calibre/images/*",
+  "calibre/images/devices/*",
+  "calibre/images/mimetypes/*",
+  "calibre/images/plugins/*",
+  "calibre/images/textures/*",
+  "calibre/jacket/*",
+  "calibre/quick_start/*",
+  "calibre/rapydscript/*",
+  "calibre/templates/*",
+]
 "LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr" = [
   "aggregate_sql/*.sql",
   "*.toml",

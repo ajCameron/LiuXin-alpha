@@ -397,7 +397,10 @@ python_plugins = []
 
 # config_dir {{{
 
-if "CALIBRE_CONFIG_DIRECTORY" in os.environ:
+if "LIUXIN_CONFIG_DIR" in os.environ:
+    config_dir = os.path.abspath(os.environ["LIUXIN_CONFIG_DIR"])
+
+elif "CALIBRE_CONFIG_DIRECTORY" in os.environ:
     config_dir = os.path.abspath(os.environ["CALIBRE_CONFIG_DIRECTORY"])
 
 elif iswindows:

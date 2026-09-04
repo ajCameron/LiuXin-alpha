@@ -1,6 +1,6 @@
 # Python packaging contract
 
-Status: installed-catalogue wheel gate enforced, 2026-09-02.
+Status: installed catalogue and conversion wheel gate enforced, 2026-09-04.
 
 ## Supported wheel boundary
 
@@ -18,6 +18,9 @@ The following non-Python files are runtime-owned package data:
 - legacy startup folder descriptors;
 - the ISO-639 lookup corpus and bundled dateutil zoneinfo archive;
 - OEB display/polish CoffeeScript sources used by dynamic compilation paths.
+- the complete 317-file Calibre compatibility bundle under
+  `LiuXin_alpha.resources/calibre`, including templates, images, dictionaries,
+  fonts, SQL snapshots, browser assets, and quick-start books.
 
 Do not replace this list with a blanket recursive data include. A new runtime
 file should be owned by the narrowest package that opens it, declared in
@@ -35,36 +38,43 @@ python -m pip wheel --no-deps --wheel-dir dist .
 python scripts/verify_wheel_install.py dist/liuxin_alpha-0.0.0-py3-none-any.whl
 ```
 
-The verifier checks wheel contents, installs the artifact into a temporary
-target, confirms imports resolve from that installation, creates a real SQLite
-system with `liuxin init`, and reopens it with a second idempotent init. This is
-deliberately stronger than importing from `PYTHONPATH=src` or running `--help`.
-The `Installed Wheel` CI job owns this gate.
+The verifier checks wheel contents, installs the artifact plus the
+`conversion` extra into a temporary target, and confirms LiuXin and every
+direct dependency resolve from that target. It creates a real SQLite system
+with `liuxin init`, reopens it with a second idempotent init, resolves resource
+path and byte APIs from the installed package, and converts a Unicode HTML
+document into a structurally valid EPUB. This is deliberately stronger than
+importing from `PYTHONPATH=src` or running `--help`. The `Installed Wheel` CI
+job owns this gate.
 
 Warnings and diagnostics belong on stderr. Command receipts and requested data
 belong on stdout; in particular, `--compact` JSON must remain directly
 parseable even when optional resources are unavailable.
 
-## External compatibility resources
+## Resource resolution and overrides
 
-The top-level `LiuXin_resources/calibre_resources` tree is not currently part
-of the wheel. It is shipped by `scripts/build_deployment_package.py` and may be
-selected through `LIUXIN_BASE_DIR`. Conversion, rendering, and localization
-paths which request Calibre templates, fonts, pickles, or compiled browser
-resources require that tree.
+`LiuXin_alpha.resources` owns the immutable fallback bundle and locates it with
+`importlib.resources`. The inherited APIs still return filesystem paths, so
+LiuXin supports normal unpacked wheel installations rather than direct zip
+imports.
 
-This is a known distribution boundary, not an assertion that those files are
-optional to every LiuXin workflow. Before calling the wheel a complete
-conversion distribution, move or generate the resources into a package-owned
-layout, teach the resolver to use `importlib.resources`, and add at least one
-clean installed-wheel conversion smoke. Preserve external override support for
-operators who intentionally supply a different resource bundle.
+Operators can set `LIUXIN_CALIBRE_RESOURCES_DIR` to a complete or partial
+overlay. Existing `LiuXin_resources/calibre_resources` and
+`LiuXin_data/calibre_resources` layouts below `LIUXIN_BASE_DIR` remain valid.
+Lookup checks overlays first and falls back per file to package-owned data, so
+an operator does not need to copy all 317 files merely to replace one template.
+The historical Calibre developer/user overlay behavior remains available.
 
-## Dependency follow-up
+## Dependency boundary
 
-The base dependency set supports the validated catalogue/init path. The large
-compatibility tree contains guarded imports for format, UI, image, archive, and
-backend libraries. Future dependency changes should come from clean installed
-workflow tests and should distinguish base requirements from named extras; a
-static count of every import in inherited code is not sufficient evidence for
-making all of them mandatory.
+The base dependencies are sufficient for catalogue initialization and normal
+Core/storage startup. Conversion-specific libraries are declared in the
+`conversion` extra: `cssutils` for OEB CSS processing, Pillow for image and
+cover paths, and `regex` for format-aware text operations. Development, full
+test, artifact, and source-deployment helpers include this extra by default;
+minimal installations do not acquire conversion dependencies implicitly.
+
+ImageMagick/Wand, GUI toolkits, external archive programs, and individual
+backend clients remain capability-specific rather than requirements of the
+validated HTML-to-EPUB route. Add them to a named extra only when an installed
+workflow gate establishes the corresponding supported boundary.

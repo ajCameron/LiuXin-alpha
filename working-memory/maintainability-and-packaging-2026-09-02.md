@@ -7,8 +7,8 @@ long-term maintainability, recorded the next work in durable notes, and began
 with the highest-impact operational problem: a wheel which built successfully
 but did not contain the schema inputs required to create a catalogue.
 
-The first packaging tranche is complete. The wider maintainability programme
-is intentionally not described as complete.
+Both packaging tranches are complete as of 2026-09-04. The wider
+maintainability programme is intentionally not described as complete.
 
 ## Baseline rating
 
@@ -81,34 +81,47 @@ The verified wheel contained 1,814 entries and 86 required runtime assets. Its
 isolated install created and reopened a real catalogue, loaded one Store, and
 imported `LiuXin_alpha` from the target installation rather than the checkout.
 
-## Deliberate remaining boundary
+## Package-owned conversion boundary
 
-The tracked `LiuXin_resources/calibre_resources` tree is about 6 MiB and 317
-files. It remains part of the source deployment bundle rather than the Python
-wheel. Code paths needing Calibre templates, fonts, localization pickles, or
-compiled browser resources therefore require that external resource tree (or
-an explicit `LIUXIN_BASE_DIR` deployment containing it). This limitation is
-now documented in `dev-docs/packaging.md`; it should be resolved through a
-designed package-owned resource layout, not a blanket include of every
-non-Python file under `src`.
+The former top-level `LiuXin_resources/calibre_resources` tree now lives under
+`LiuXin_alpha.resources/calibre`. All 317 files are explicit package data and
+the resolver uses `importlib.resources` for its immutable fallback. A new
+`LIUXIN_CALIBRE_RESOURCES_DIR` overlay and both historical
+`LIUXIN_BASE_DIR` layouts remain supported, with per-file fallback to packaged
+data.
 
-The runtime dependency declaration also remains deliberately narrow. A later
-packaging tranche should exercise representative conversion and metadata
-workflows in a clean dependency environment and split required dependencies
-from format/UI/backend extras based on observed import paths.
+The wheel verifier installs the artifact and all direct dependencies into an
+isolated target, proves their import origins, creates and reopens a catalogue,
+then performs HTML-to-EPUB conversion using a packaged CSS template. The
+exercised conversion path established a named `conversion` extra containing
+`cssutils`, Pillow, and `regex`; those packages are not imposed on minimal
+catalogue/storage installations.
+
+The conversion probe also repaired narrow compatibility defects it exposed:
+scratch roots are created on demand, absent optional cover metadata is handled
+normally, XML facade iteration no longer passes a constructor as a tag filter,
+CSS sorting/font-size/dimension handling no longer relies on Python 2 ordering
+or types, and MOBI/KF8 guide, link, title, and index generation now tolerates
+the incomplete structures exercised by the existing conversion corpus.
+
+The final wheel contained 2,138 entries, including 1,730 Python files and all
+403 inventoried runtime assets (317 from the Calibre compatibility bundle).
+Its isolated install imported LiuXin and all seven direct runtime/conversion
+dependencies from the temporary target, initialized and reopened a catalogue,
+and produced a structurally valid 10-entry EPUB from Unicode HTML. The wheel's
+SHA-256 was
+`9b6851dafe65bbe6feb5d590202565034ccb313da7589184e36e8bce2eb71313`.
 
 ## Next maintainability order
 
-1. Decide and implement ownership for the external Calibre resource bundle,
-   then test an installed representative conversion rather than only init.
-2. Break the seven modern import cycles at leaf protocols and registry seams.
-3. Extract bounded command/services from the largest modern orchestration
+1. Break the seven modern import cycles at leaf protocols and registry seams.
+2. Extract bounded command/services from the largest modern orchestration
    files, starting with `core/program_api.py` and `surfaces/cli/storage.py`.
-4. Expand the zero-error typing/Ruff ratchet package by package; do not create
+3. Expand the zero-error typing/Ruff ratchet package by package; do not create
    a permanent whole-tree error baseline.
-5. Consolidate duplicate CI ownership and rename or replace the compile-only
+4. Consolidate duplicate CI ownership and rename or replace the compile-only
    `lint` job.
-6. Add a developer-documentation index and replace remaining machine-specific
+5. Add a developer-documentation index and replace remaining machine-specific
    links with repository-relative links.
 
 ## Verification evidence
@@ -130,5 +143,22 @@ bash scripts/run_type_checks.sh
 0 basedpyright errors; strict mypy clean in 95 source files; all ratchets passed
 
 python3 scripts/run_test_stream.py --stream confidence -- --maxfail=1
-299 passed, 3 skipped
+229 passed, 2 skipped
+
+python3 scripts/run_file_formats_lane.py --lane fast --pytest-args --maxfail=1
+797 passed, 1 skipped
+
+python3 scripts/run_file_formats_lane.py --lane heavy --pytest-args --maxfail=1
+178 passed
+
+python3 -m pytest -q tests/scripts/test_verify_wheel_install.py \
+  tests/scripts/test_build_deployment_package.py \
+  tests/utils/resources/test_resources.py tests/utils/test_paths.py \
+  tests/test_constants.py
+14 passed
+
+python3 scripts/verify_wheel_install.py \
+  /tmp/liuxin-calibre-wheel-commit.u8EZDI/liuxin_alpha-0.0.0-py3-none-any.whl
+2138 entries; 403 runtime assets; 317 Calibre resources;
+database create/reopen and installed HTML-to-EPUB conversion passed
 ```

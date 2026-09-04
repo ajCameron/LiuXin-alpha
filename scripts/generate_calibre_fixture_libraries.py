@@ -176,7 +176,15 @@ def _read_any_file_bytes(corpus_dir: Path, *, prefer_exts: Sequence[str]) -> byt
 
 
 def _default_cover_bytes(repo_root: Path) -> bytes:
-    p = repo_root / "LiuXin_resources" / "calibre_resources" / "catalog" / "DefaultCover.jpg"
+    p = (
+        repo_root
+        / "src"
+        / "LiuXin_alpha"
+        / "resources"
+        / "calibre"
+        / "catalog"
+        / "DefaultCover.jpg"
+    )
     if p.exists():
         return p.read_bytes()
     # fallback: tiny jpeg header-ish bytes (tests should treat as opaque)

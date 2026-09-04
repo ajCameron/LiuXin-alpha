@@ -107,7 +107,7 @@ def main() -> int:
         "pip",
         "install",
         "-e",
-        ".[test,search]",
+        ".[test,search,conversion]",
     ]
     pytest_cmd = [
         str(python_exe),

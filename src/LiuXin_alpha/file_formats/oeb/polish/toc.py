@@ -249,7 +249,9 @@ def item_at_top(elem: _typing.Any) -> bool:
         return False
     tree = body.getroottree()
     path = tree.getpath(elem)
-    for el in body.iterdescendants(etree.Element):
+    for el in body.iterdescendants():
+        if not isinstance(el.tag, str):
+            continue
         epath = tree.getpath(el)
         if epath == path:
             break
@@ -303,7 +305,9 @@ def from_xpaths(container: _typing.Any, xpaths: _typing.Any) -> _typing.Any:
         item_level_map = {e: i for i, elems in iteritems(level_item_map) for e in elems}
         item_dirtied = False
 
-        for item in root.iterdescendants(etree.Element):
+        for item in root.iterdescendants():
+            if not isinstance(item.tag, str):
+                continue
             lvl = plvl = item_level_map.get(item, None)
             if lvl is None:
                 continue
@@ -414,7 +418,9 @@ def node_from_loc(root: _typing.Any, locs: _typing.Any, totals: _typing.Any = No
         raise MalformedMarkup()
     node = body[0]
     for i, loc in enumerate(locs):
-        children = tuple(node.iterchildren(etree.Element))
+        children = tuple(
+            child for child in node.iterchildren() if isinstance(child.tag, str)
+        )
         if totals is not None:
             if i >= len(totals) or totals[i] != len(children):
                 raise MalformedMarkup()

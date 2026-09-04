@@ -307,9 +307,12 @@ class Stylizer(object):
         stylesheets = [html_css_stylesheet()]
         style_tags = xpath(tree, '//*[local-name()="style" or local-name()="link"]')
 
-        # Add cssutils parsing profiles from output_profile
-        for profile in self.opts.output_profile.extra_css_modules:
-            cssprofiles.addProfile(profile["name"], profile["props"], profile["macros"])
+        # Add cssutils parsing profiles when the selected device profile
+        # advertises them.  Lightweight conversion callers may supply the
+        # profile directly without also attaching it to ``opts``.
+        css_profile = getattr(self.opts, "output_profile", self.profile)
+        for module in getattr(css_profile, "extra_css_modules", ()):
+            cssprofiles.addProfile(module["name"], module["props"], module["macros"])
 
         parser = CSSParser(fetcher=self._fetch_css_file, log=logging.getLogger("calibre.css"))
         self.font_face_rules = []
@@ -405,7 +408,10 @@ class Stylizer(object):
                 else:
                     rules.extend(self.flatten_rule(rule, href, index, is_user_agent_sheet=sheet_index == 0))
                     index += 1
-        rules.sort()
+        # Selector sequence objects are not orderable on modern Python.  CSS
+        # precedence is carried by the computed specificity; selector text is
+        # only a deterministic tie-breaker for equal-specificity list items.
+        rules.sort(key=lambda entry: (entry[0], entry[3]))
         self.rules = rules
         self._styles = {}
 
@@ -717,7 +723,7 @@ class Style(object):
                     result = size
             else:
                 result = self._unit_convert(value, base=base, font=base)
-                if not isinstance(result, (int, float, long)):
+                if not isinstance(result, (int, float)):
                     return base
                 if result < 0:
                     result = normalize_fontsize("smaller", base)
@@ -749,7 +755,9 @@ class Style(object):
             if parent is not None:
                 base = parent.width
             else:
-                base = self._profile.width_pts
+                base = getattr(self._profile, "width_pts", None)
+                if base is None:
+                    base = self._profile.width * 72.0 / self._profile.dpi
 
             if "width" in self._element.attrib:
                 width = self._element.attrib["width"]
@@ -762,13 +770,13 @@ class Style(object):
                 result = self._unit_convert(width, base=base)
 
             # This might well be a problem with py3
-            if isinstance(result, (unicode, str, bytes)):
+            if isinstance(result, (str, bytes)):
                 result = self._profile.width
             self._width = result
 
             if "max-width" in self._style:
                 result = self._unit_convert(self._style["max-width"], base=base)
-                if isinstance(result, (unicode, str, bytes)):
+                if isinstance(result, (str, bytes)):
                     result = self._width
                 if result < self._width:
                     self._width = result
@@ -791,7 +799,9 @@ class Style(object):
             if parent is not None:
                 base = parent.height
             else:
-                base = self._profile.height_pts
+                base = getattr(self._profile, "height_pts", None)
+                if base is None:
+                    base = self._profile.height * 72.0 / self._profile.dpi
             if "height" in self._element.attrib:
                 height = self._element.attrib["height"]
             elif "height" in self._style:
@@ -800,12 +810,12 @@ class Style(object):
                 result = base
             else:
                 result = self._unit_convert(height, base=base)
-            if isinstance(result, (unicode, str, bytes)):
+            if isinstance(result, (str, bytes)):
                 result = self._profile.height
             self._height = result
             if "max-height" in self._style:
                 result = self._unit_convert(self._style["max-height"], base=base)
-                if isinstance(result, (unicode, str, bytes)):
+                if isinstance(result, (str, bytes)):
                     result = self._height
                 if result < self._height:
                     self._height = result

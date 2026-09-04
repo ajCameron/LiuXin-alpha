@@ -22,3 +22,24 @@ def test_metadata_header_section_data_last_section_works_without_stream_name() -
     header.section_offset = lambda _number: 0
 
     assert header.section_data(0) == b"abcdef"
+
+
+def test_kf8_chunker_preserves_placeholder_when_target_aid_was_removed() -> None:
+    from LiuXin_alpha.file_formats.mobi.writer8.skeleton import Chunker
+
+    class _Log:
+        def __init__(self) -> None:
+            self.messages: list[str] = []
+
+        def warning(self, message: str) -> None:
+            self.messages.append(message)
+
+    placeholder = b"kindle:pos:fid:0000:off:0000000001"
+    text = b'<a href="' + placeholder + b'">missing target</a>'
+    chunker = Chunker.__new__(Chunker)
+    chunker.chunk_table = []
+    chunker.placeholder_map = {placeholder: "MISSING"}
+    chunker.log = _Log()
+
+    assert chunker.set_internal_links(text, b"<html><body/></html>") == text
+    assert "missing aid 'MISSING'" in chunker.log.messages[0]

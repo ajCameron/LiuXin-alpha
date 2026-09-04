@@ -453,7 +453,9 @@ class MobiReader(object):
         forwardable_anchors = []
         pagebreak_anchors = []
         BLOCK_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6", "div", "p"}
-        for i, tag in enumerate(root.iter(etree.Element)):
+        for i, tag in enumerate(root.iter()):
+            if not isinstance(tag.tag, str):
+                continue
             tag.attrib.pop("xmlns", "")
             for x in tag.attrib:
                 if ":" in x:

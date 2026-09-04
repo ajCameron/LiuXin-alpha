@@ -1,6 +1,6 @@
 # Working Memory Index
 
-Updated: 2026-09-02
+Updated: 2026-09-04
 
 Start here for active handoff notes. This index should stay short.
 
@@ -8,9 +8,9 @@ Start here for active handoff notes. This index should stay short.
 
 - [maintainability-and-packaging-2026-09-02.md](maintainability-and-packaging-2026-09-02.md)
   Records the whole-project readability and maintainability baseline, its
-  evidence-based priorities, and the first packaging repair: explicit
-  production discovery, owned runtime data, an installed-wheel initialization
-  gate, and the remaining external-resource boundary.
+  evidence-based priorities and both packaging repairs: explicit production
+  discovery, complete package-owned Calibre resources, isolated dependency
+  provenance, and installed initialization plus HTML-to-EPUB gates.
 
 - [storage-cache-composition-2026-08-21.md](storage-cache-composition-2026-08-21.md)
   Removes the production manager's inheritance from transient in-memory state,

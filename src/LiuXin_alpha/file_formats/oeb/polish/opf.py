@@ -55,7 +55,9 @@ def set_guide_item(container: _typing.Any, item_type: _typing.Any, title: _typin
 
     for guide in guides:
         matches = []
-        for child in guide.iterchildren(etree.Element):
+        for child in guide.iterchildren():
+            if not isinstance(child.tag, str):
+                continue
             if child.tag == ref_tag and child.get("type", "").lower() == item_type.lower():
                 matches.append(child)
         if not matches and href:

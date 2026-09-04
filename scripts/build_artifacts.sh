@@ -6,7 +6,7 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 VENV_DIR="${VENV_DIR:-${REPO_ROOT}/.venv}"
-INSTALL_EXTRAS="${ARTIFACTS_VENV_EXTRAS:-test,search}"
+INSTALL_EXTRAS="${ARTIFACTS_VENV_EXTRAS:-test,search,conversion}"
 RECREATE=0
 SKIP_INSTALL=0
 SKIP_VENV=0
@@ -23,7 +23,7 @@ scripts/build_artifacts.py using that venv's Python.
 Wrapper options:
   --python <path>       Python interpreter used to create the venv
   --venv <path>         Virtual environment directory (default: <repo>/.venv)
-  --extras <csv>        Extras passed to create_venv.sh (default: test,search)
+  --extras <csv>        Extras passed to create_venv.sh (default: test,search,conversion)
                         Use "none" for a plain editable install
   --new-venv            Recreate the venv before running
   --skip-install        Create/reuse the venv but skip pip install

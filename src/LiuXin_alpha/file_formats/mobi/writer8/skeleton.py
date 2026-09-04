@@ -485,10 +485,20 @@ class Chunker(object):
             pos, fid = to_base(pos, min_num_digits=4), to_href(fid)
             return ":off:".join((pos, fid)).encode("ascii")
 
-        placeholder_map = {
-            (k.encode("utf-8") if isinstance(k, str) else bytes(k)): to_placeholder(v)
-            for k, v in iteritems(self.placeholder_map)
-        }
+        placeholder_map = {}
+        for placeholder, aid in iteritems(self.placeholder_map):
+            if aid not in aid_map:
+                self.log.warning(
+                    "Leaving unresolved KF8 internal-link placeholder for "
+                    "missing aid %r" % aid
+                )
+                continue
+            key = (
+                placeholder.encode("utf-8")
+                if isinstance(placeholder, str)
+                else bytes(placeholder)
+            )
+            placeholder_map[key] = to_placeholder(aid)
 
         # Now update the links
         def sub(local_match: _typing.Any) -> _typing.Any:

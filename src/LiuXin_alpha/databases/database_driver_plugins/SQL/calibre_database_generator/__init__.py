@@ -4,8 +4,8 @@ This package provides utilities for creating and validating *Calibre-style*
 SQLite databases using the canonical SQL shipped with Calibre.
 
 Design goals:
-- Reuse LiuXin's calibre resources system (LiuXin_resources/calibre_resources)
-  via `LiuXin_alpha.utils.resources.get_path`.
+- Reuse LiuXin's package-owned Calibre resource system via
+  `LiuXin_alpha.utils.resources.get_path`.
 - Keep Calibre schema versioning observable (pragma user_version).
 - Keep Phase 1 lightweight: locate SQL resources and expose version metadata.
 """

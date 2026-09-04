@@ -1188,7 +1188,7 @@ class Plumber(object):
             )
             mi = opf.to_book_metadata()
         self.opts_to_mi(mi)
-        if mi.cover:
+        if getattr(mi, "cover", None):
             if mi.cover.startswith("http:") or mi.cover.startswith("https:"):
                 mi.cover = self.download_cover(mi.cover)
             ext = mi.cover.rpartition(".")[-1].lower().strip()

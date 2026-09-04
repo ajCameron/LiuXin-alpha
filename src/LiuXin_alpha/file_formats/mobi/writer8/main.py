@@ -307,7 +307,9 @@ class KF8Writer(object):
             root = self.data(item)
             aidbase = i * int(1e6)
             j = 0
-            for tag in root.iterdescendants(etree.Element):
+            for tag in root.iterdescendants():
+                if not isinstance(tag.tag, str):
+                    continue
                 id_ = tag.attrib.get("id", None)
                 if id_ is None and tag.tag == XHTML("a"):
                     # Can happen during tweaking
@@ -422,12 +424,13 @@ class KF8Writer(object):
             aid = self.id_map.get((href, frag), None)
             if aid is None:
                 aid = self.id_map.get((href, ""), None)
-            if aid is None:
+            location = self.aid_offset_map.get(aid) if aid is not None else None
+            if location is None:
                 pos, fid = 0, 0
                 chunk = self.chunk_table[pos]
                 offset = chunk.insert_pos + fid
             else:
-                pos, fid, offset = self.aid_offset_map[aid]
+                pos, fid, offset = location
 
             entry["pos_fid"] = (pos, fid)
             entry["offset"] = offset
@@ -490,7 +493,7 @@ class KF8Writer(object):
             aid = self.id_map.get((href, frag), None)
             if aid is None:
                 aid = self.id_map.get((href, ""))
-            if aid is None:
+            if aid is None or aid not in self.aid_offset_map:
                 continue
             pos, fid, offset = self.aid_offset_map[aid]
             if is_guide_ref_start(ref):

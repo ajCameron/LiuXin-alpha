@@ -256,11 +256,14 @@ def force_unicode(x):
 
 def base_dir():
     global _base_dir
-    if _base_dir is not None:
-        return _base_dir
-    else:
+    if _base_dir is None:
         _base_dir = LiuXin_scratch_folder
-        return _base_dir
+    os.makedirs(_base_dir, mode=0o700, exist_ok=True)
+    if not os.path.isdir(_base_dir):
+        raise NotADirectoryError(
+            "LiuXin temporary-file root is not a directory: {!r}".format(_base_dir)
+        )
+    return _base_dir
 
 
 def _make_file(suffix, prefix, base):

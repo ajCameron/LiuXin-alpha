@@ -138,14 +138,14 @@ class Image:
         self._wand_img: Optional[Any] = None
 
     def close(self) -> None:
-        if self._wand_img is not None:
+        if getattr(self, "_wand_img", None) is not None:
             try:
                 self._wand_img.close()
             except Exception:
                 pass
             self._wand_img = None
 
-        if self._tmp_path:
+        if getattr(self, "_tmp_path", None):
             try:
                 os.remove(self._tmp_path)
             except Exception:

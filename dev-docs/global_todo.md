@@ -1,9 +1,5 @@
 # Todo
 
-- Complete the installed-wheel packaging path described in
-  [packaging.md](packaging.md): give the external Calibre resource bundle a
-  package-owned layout, add a clean installed conversion smoke, and derive
-  base versus optional dependencies from exercised workflows.
 - Break the seven modern import-cycle components recorded in
   [maintainability-quality-gates.md](maintainability-quality-gates.md), then
   extract bounded services from `core/program_api.py` and

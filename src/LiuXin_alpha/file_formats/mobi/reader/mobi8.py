@@ -645,7 +645,9 @@ class Mobi8Reader(object):
         parent = ans
         seen = set()
         links = []
-        for elem in root.iterdescendants(etree.Element):
+        for elem in root.iterdescendants():
+            if not isinstance(elem.tag, str):
+                continue
             if reached and elem.tag == XHTML("a") and elem.get("href", False):
                 href = elem.get("href")
                 href, frag = urldefrag(href)

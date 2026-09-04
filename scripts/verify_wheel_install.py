@@ -28,6 +28,9 @@ SCHEMA_SOURCE = REPO_ROOT.joinpath(
     "SQL",
     "database_generator_frbr",
 )
+CALIBRE_RESOURCE_PACKAGE = PACKAGE_ROOT / "resources" / "calibre"
+CALIBRE_RESOURCE_SOURCE = REPO_ROOT / "src" / "LiuXin_alpha" / "resources" / "calibre"
+INSTALLED_CONVERSION_SMOKE = REPO_ROOT / "scripts" / "run_installed_conversion_smoke.py"
 REQUIRED_MODULE_ASSETS = (
     PACKAGE_ROOT / "catalog" / "py.typed",
     PACKAGE_ROOT / "startup_scripts" / "LX_folders",
@@ -63,6 +66,29 @@ class WheelVerificationError(RuntimeError):
     """Report a wheel-content or installed-runtime packaging regression."""
 
 
+def _origin_check_program(install_root: Path) -> str:
+    """Build the isolated subprocess check for package/dependency origins."""
+
+    return "\n".join(
+        (
+            "import importlib",
+            "import json",
+            "from pathlib import Path",
+            f"root = Path({str(install_root)!r}).resolve()",
+            (
+                "names = ('LiuXin_alpha', 'chardet', 'cssselect', 'cssutils', "
+                "'lxml', 'numpy', 'PIL', 'regex')"
+            ),
+            "origins = {}",
+            "for name in names:",
+            "    module = importlib.import_module(name)",
+            "    origins[name] = str(Path(module.__file__).resolve())",
+            "assert all(Path(path).is_relative_to(root) for path in origins.values())",
+            "print(json.dumps(origins, sort_keys=True))",
+        )
+    )
+
+
 def expected_runtime_assets(repo_root: Path = REPO_ROOT) -> frozenset[str]:
     """Return package-relative files which the maintained runtime opens directly."""
 
@@ -87,6 +113,15 @@ def expected_runtime_assets(repo_root: Path = REPO_ROOT) -> frozenset[str]:
             (package / source_path.name).as_posix()
             for source_path in sorted(source.glob("*.coffee"))
         )
+    resource_source = repo_root / CALIBRE_RESOURCE_SOURCE.relative_to(REPO_ROOT)
+    expected.update(
+        (
+            CALIBRE_RESOURCE_PACKAGE
+            / source_path.relative_to(resource_source)
+        ).as_posix()
+        for source_path in sorted(resource_source.rglob("*"))
+        if source_path.is_file()
+    )
     return frozenset(expected)
 
 
@@ -130,17 +165,22 @@ def inspect_wheel(wheel: Path, repo_root: Path = REPO_ROOT) -> dict[str, object]
         "entries": len(names),
         "python_files": python_files,
         "runtime_assets": len(expected_runtime_assets(repo_root)),
+        "calibre_resource_assets": sum(
+            name.startswith(CALIBRE_RESOURCE_PACKAGE.as_posix() + "/")
+            for name in names
+        ),
     }
 
 
-def _run_installed_init(wheel: Path) -> dict[str, object]:
-    """Install one wheel into a clean target and create then reopen a catalogue."""
+def _run_installed_runtime(wheel: Path) -> dict[str, object]:
+    """Install one wheel with conversion extras, initialize, and convert."""
 
     with tempfile.TemporaryDirectory(prefix="liuxin-wheel-check-") as temporary:
         temporary_root = Path(temporary)
         install_root = temporary_root / "installed"
         system_root = temporary_root / "system"
         state_root = temporary_root / "state"
+        requirement = f"liuxin-alpha[conversion] @ {wheel.resolve().as_uri()}"
         install = subprocess.run(
             [
                 sys.executable,
@@ -148,10 +188,10 @@ def _run_installed_init(wheel: Path) -> dict[str, object]:
                 "pip",
                 "install",
                 "--disable-pip-version-check",
-                "--no-deps",
+                "--ignore-installed",
                 "--target",
                 str(install_root),
-                str(wheel.resolve()),
+                requirement,
             ],
             cwd=temporary_root,
             capture_output=True,
@@ -168,6 +208,7 @@ def _run_installed_init(wheel: Path) -> dict[str, object]:
                 "LIUXIN_BASE_DIR": str(state_root),
                 "LIUXIN_CONFIG_DIR": str(state_root / "config"),
                 "LIUXIN_PREFS_DIR": str(state_root / "preferences"),
+                "CALIBRE_CONFIG_DIRECTORY": str(state_root / "config"),
                 "PYTHONDONTWRITEBYTECODE": "1",
                 "PYTHONNOUSERSITE": "1",
                 "PYTHONPATH": str(install_root),
@@ -177,12 +218,7 @@ def _run_installed_init(wheel: Path) -> dict[str, object]:
             [
                 sys.executable,
                 "-c",
-                (
-                    "from pathlib import Path; import LiuXin_alpha; "
-                    "origin=Path(LiuXin_alpha.__file__).resolve(); "
-                    f"root=Path({str(install_root)!r}).resolve(); "
-                    "assert origin.is_relative_to(root), (origin, root); print(origin)"
-                ),
+                _origin_check_program(install_root),
             ],
             cwd=temporary_root,
             env=environment,
@@ -231,24 +267,53 @@ def _run_installed_init(wheel: Path) -> dict[str, object]:
         database = system_root / "catalogue.sqlite"
         if not database.is_file():
             raise WheelVerificationError(f"Installed init did not create {database}")
+        conversion = subprocess.run(
+            [
+                sys.executable,
+                str(INSTALLED_CONVERSION_SMOKE),
+                str(temporary_root / "conversion"),
+                str(install_root),
+            ],
+            cwd=temporary_root,
+            env=environment,
+            capture_output=True,
+            text=True,
+        )
+        if conversion.returncode:
+            detail = conversion.stderr.strip() or conversion.stdout.strip()
+            raise WheelVerificationError(
+                "Installed HTML-to-EPUB conversion failed:\n" + detail
+            )
+        try:
+            conversion_result = json.loads(conversion.stdout)
+            dependency_origins = json.loads(origin_check.stdout)
+        except json.JSONDecodeError as exc:
+            raise WheelVerificationError(
+                "Installed runtime smoke did not emit valid JSON"
+            ) from exc
+
         return {
-            "package_origin": origin_check.stdout.strip(),
+            "dependency_origins": dependency_origins,
             "database_created": True,
             "database_reopened": True,
             "store_count": results[1].get("store_count"),
+            "conversion": conversion_result,
         }
 
 
 def verify_wheel(wheel: Path, repo_root: Path = REPO_ROOT) -> dict[str, object]:
-    """Verify wheel contents and its installed first-run SQLite workflow."""
+    """Verify wheel contents, installed initialization, and conversion."""
 
     content = inspect_wheel(wheel, repo_root)
-    return {**content, "installed_smoke": _run_installed_init(wheel)}
+    return {**content, "installed_smoke": _run_installed_runtime(wheel)}
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Verify a LiuXin wheel and its installed `liuxin init` workflow."
+        description=(
+            "Verify a LiuXin wheel, installed initialization, and HTML-to-EPUB "
+            "conversion workflow."
+        )
     )
     parser.add_argument("wheel", type=Path, help="Path to one built .whl file.")
     return parser

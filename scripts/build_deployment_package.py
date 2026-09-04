@@ -254,7 +254,7 @@ def build_source_metadata(
         },
         "runtime": {
             "python": ">=3.12",
-            "default_install_extras": "postgres,search,archives",
+            "default_install_extras": "postgres,search,archives,conversion",
             "cli_module": "LiuXin_alpha.surfaces.cli",
             "cli_executable": "liuxin",
         },
@@ -324,7 +324,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BUNDLE_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 VENV_DIR="${VENV_DIR:-${BUNDLE_ROOT}/.venv}"
-LIUXIN_INSTALL_EXTRAS="${LIUXIN_INSTALL_EXTRAS:-postgres,search,archives}"
+LIUXIN_INSTALL_EXTRAS="${LIUXIN_INSTALL_EXTRAS:-postgres,search,archives,conversion}"
 RECREATE=0
 SKIP_INSTALL=0
 
@@ -338,7 +338,7 @@ this extracted bundle.
 Options:
   --python <path>       Python interpreter to use (default: python3)
   --venv <path>         Virtual environment path (default: <bundle>/.venv)
-  --extras <csv>        Extras to install (default: postgres,search,archives; use none for plain install)
+  --extras <csv>        Extras to install (default: postgres,search,archives,conversion; use none for plain install)
   --recreate            Remove and recreate the virtual environment
   --skip-install        Create/reuse the venv but do not run pip install
   -h, --help            Show this help
@@ -769,7 +769,7 @@ deploy/remote_install.sh
 ```
 
 The installer creates `.venv` in the extracted bundle and installs LiuXin with
-the `postgres,search,archives` extras by default. SquashFS archives additionally
+the `postgres,search,archives,conversion` extras by default. SquashFS archives additionally
 need the operating system's `squashfs-tools` package.
 
 ## Storage-ingest preflight and run
