@@ -9,22 +9,34 @@ from typing import Optional
 
 from LiuXin_alpha.surfaces.api import ImageHostApi
 from LiuXin_alpha.surfaces.core import CoreSurfaceModel
-from LiuXin_alpha.surfaces.web_readonly.app import (
-    _CoreStoredFile,
-    _ResolvedFileTarget,
-    _escape,
-    _row_value,
-    _short_text,
+from LiuXin_alpha.surfaces.acquisition_types import (
+    CoreStoredFile as _CoreStoredFile,
+    ResolvedFileTarget as _ResolvedFileTarget,
+)
+from LiuXin_alpha.surfaces.presentation import (
+    escape as _escape,
+    row_value as _row_value,
+    short_text as _short_text,
 )
 
 
 @dataclass
 class ImageBackend:
-    """Resolve and render catalogue images through a narrow surface host."""
+    """Resolve and render catalogue images through a narrow surface host.
+
+    Missing images and explicit delivery limits are normal outcomes. Discovery
+    and acquisition-query failures propagate instead of hiding behind an empty
+    image list or an unavailable target.
+    """
 
     host: ImageHostApi
 
     def work_image_rows(self, related_rows_by_table: dict[str, list[object]]) -> list[object]:
+        """Collect direct and item-linked images without returning partial reads.
+
+        A host without a read model supports direct images only. A failed
+        relationship or image query is not that limited-capability case.
+        """
         image_rows_by_id: dict[int, object] = {}
 
         def add_image_row(image_row) -> None:
@@ -33,44 +45,28 @@ class ImageBackend:
                 return
             try:
                 image_rows_by_id[int(image_id)] = image_row
-            except Exception:
+            except (TypeError, ValueError, OverflowError):
                 return
 
         for image_row in related_rows_by_table.get("images", []):
             add_image_row(image_row)
 
         read_model = getattr(self.host, "read_model", None)
+        if read_model is None:
+            return list(image_rows_by_id.values())
 
         for expression_row in related_rows_by_table.get("expressions", []):
-            try:
-                if read_model is not None:
-                    manifestation_rows = read_model.interlinked_rows(expression_row, "manifestations")
-                else:
-                    manifestation_rows = []
-            except Exception:
-                manifestation_rows = []
+            manifestation_rows = read_model.interlinked_rows(expression_row, "manifestations")
             for manifestation_row in manifestation_rows:
                 manifestation_id = _row_value(manifestation_row, "manifestation_id")
                 if manifestation_id in (None, ""):
                     continue
-                try:
-                    if read_model is not None:
-                        item_rows = read_model.search_rows("items", "item_manifestation_id", manifestation_id)
-                    else:
-                        item_rows = []
-                except Exception:
-                    item_rows = []
+                item_rows = read_model.search_rows("items", "item_manifestation_id", manifestation_id)
                 for item_row in item_rows:
                     item_id = _row_value(item_row, "item_id")
                     if item_id in (None, ""):
                         continue
-                    try:
-                        if read_model is not None:
-                            discovered_image_rows = read_model.search_rows("images", "image_item_id", item_id)
-                        else:
-                            discovered_image_rows = []
-                    except Exception:
-                        discovered_image_rows = []
+                    discovered_image_rows = read_model.search_rows("images", "image_item_id", item_id)
                     for image_row in discovered_image_rows:
                         add_image_row(image_row)
         return list(image_rows_by_id.values())
@@ -103,14 +99,19 @@ class ImageBackend:
         return metadata
 
     def resolve_storage_image(self, image_row):
+        """Return a byte reader for a readable image, or None for invalid/unreadable IDs.
+
+        A failed acquisition query propagates; it does not mean unreadable.
+        """
         image_id = _row_value(image_row, "image_id")
         if image_id in (None, ""):
             return None
         model = self._model()
         try:
-            resolved = model.acquisition_resolve("image", int(image_id))
-        except Exception:
+            numeric_id = int(image_id)
+        except (TypeError, ValueError, OverflowError):
             return None
+        resolved = model.acquisition_resolve("image", numeric_id)
         if not bool(resolved.get("readable", False)):
             return None
         return _CoreStoredFile(
@@ -120,17 +121,19 @@ class ImageBackend:
         )
 
     def resolve_image_target(self, image_row) -> Optional[_ResolvedFileTarget]:
+        """Return a redirect target, or None when invalid or not offered by Core.
+
+        Acquisition-query failures propagate rather than becoming unavailable.
+        """
         image_id = _row_value(image_row, "image_id")
         if image_id in (None, ""):
             return None
         image_name = self.image_download_name(image_row)
         try:
-            resolved = self._model().acquisition_resolve(
-                "image",
-                int(image_id),
-            )
-        except Exception:
+            numeric_id = int(image_id)
+        except (TypeError, ValueError, OverflowError):
             return None
+        resolved = self._model().acquisition_resolve("image", numeric_id)
         if str(resolved.get("delivery") or "") == "redirect":
             return _ResolvedFileTarget(
                 mode="redirect",

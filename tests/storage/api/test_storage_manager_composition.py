@@ -7,6 +7,8 @@ import inspect
 from pathlib import Path
 from uuid import UUID
 
+import pytest
+
 from LiuXin_alpha.storage import api
 from LiuXin_alpha.storage.storage_manager import TransientStorageManager
 from LiuXin_alpha.storage.storage_manager.database_repository import (
@@ -34,6 +36,12 @@ from LiuXin_alpha.storage.storage_manager.mixins import (
     StorageReconciliationMixin,
     StorageRouterMixin,
     StoreAdministrationMixin,
+)
+from LiuXin_alpha.storage.storage_manager.mixins._policy_support import (
+    _StorageManagerPolicySupportMixin,
+)
+from LiuXin_alpha.storage.storage_manager.mixins._support import (
+    _StorageManagerSupportMixin,
 )
 
 COMPONENTS = (
@@ -87,6 +95,27 @@ def test_manager_module_stays_a_small_composition_root() -> None:
         if len(path.read_text(encoding="utf-8").splitlines()) > 900
     }
     assert not oversized
+
+
+@pytest.mark.parametrize(
+    ("omitted", "required_hook"),
+    [
+        (_StorageManagerSupportMixin, "_metadata_transaction"),
+        (_StorageManagerPolicySupportMixin, "_plan_destination_stores"),
+    ],
+)
+def test_missing_helper_components_cannot_construct_a_manager(
+    omitted: type, required_hook: str
+) -> None:
+    composition = TransientStorageManager.__bases__[0]
+    incomplete = type(
+        "IncompleteStorageManager",
+        tuple(base for base in composition.__bases__ if base is not omitted),
+        {"__module__": __name__},
+    )
+    assert required_hook in incomplete.__abstractmethods__
+    with pytest.raises(TypeError, match="abstract"):
+        incomplete()
 
 
 def test_persisted_ingest_types_keep_their_historical_wire_names() -> None:

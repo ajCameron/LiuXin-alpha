@@ -1,10 +1,44 @@
 # Working Memory Index
 
-Updated: 2026-08-21
+Updated: 2026-09-07
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [maintainability-checkpoint-2026-09-07.md](maintainability-checkpoint-2026-09-07.md)
+  Start here for the readability/maintainability programme: stages 1–4 are
+  complete, their scope and verification are linked below, and incremental
+  formatter enforcement is next. Distinguishes current status from the older
+  stage-specific verification records.
+
+- [read-model-failure-visibility-2026-09-06.md](read-model-failure-visibility-2026-09-06.md)
+  Makes failed reads distinct from absent data across shared backends and
+  web/API/OPDS adapters; records explicit capability handling, the count-only
+  Core repair, direct/RPC and WSGI failure contracts, and verification status.
+
+- [dependency-direction-2026-09-06.md](dependency-direction-2026-09-06.md)
+  Repairs cache-writer and shared-surface dependency direction, preserves
+  compatibility exports, and expands the protected dependency gate with
+  explicit import contexts and direction rules. Records focused regression
+  evidence and remaining deferred CLI/terminal cycles.
+
+- [workflow-extraction-2026-09-06.md](workflow-extraction-2026-09-06.md)
+  Extracts Core execution and storage CLI ownership, introduces typed
+  evacuation planning/execution with shared safety checks, and extends the
+  implementation complexity/type/architecture gates while preserving public
+  call and parser contracts.
+
+- [internal-call-contracts-2026-09-06.md](internal-call-contracts-2026-09-06.md)
+  Replaces storage's dynamic helper typing and Core's catch-all endpoint
+  contracts with explicit protocols; enforces valid calls and rejection of
+  deliberate mistakes with both type checkers.
+
+- [maintainability-and-packaging-2026-09-02.md](maintainability-and-packaging-2026-09-02.md)
+  Records the whole-project readability and maintainability baseline, its
+  evidence-based priorities and both packaging repairs: explicit production
+  discovery, complete package-owned Calibre resources, isolated dependency
+  provenance, and installed initialization plus HTML-to-EPUB gates.
 
 - [storage-cache-composition-2026-08-21.md](storage-cache-composition-2026-08-21.md)
   Removes the production manager's inheritance from transient in-memory state,

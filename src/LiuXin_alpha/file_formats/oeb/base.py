@@ -430,7 +430,7 @@ def rewrite_links(root: _typing.Any, link_repl_func: _typing.Any, resolve_base_h
         return
 
     parser = CSSParser(raiseExceptions=False, log=_css_logger, fetcher=lambda x: (None, None))
-    for el in root.iter(etree.Element):
+    for el in root.iter():
         try:
             tag = el.tag
         except UnicodeDecodeError:
@@ -1848,6 +1848,13 @@ class Guide(object):
         def _order(self: _typing.Self) -> _typing.Any:
             return self.ORDER.get(self.type, self.type)
 
+        @property
+        def _sort_key(self: _typing.Self) -> tuple[int, int | str]:
+            """Return a Python 3-safe ordering key for guide references."""
+            if self.type in self.ORDER:
+                return (0, self.ORDER[self.type])
+            return (1, self.type)
+
         def __cmp__(self: _typing.Self, other: _typing.Any) -> _typing.Any:
             if not isinstance(other, Guide.Reference):
                 return NotImplemented
@@ -1890,7 +1897,7 @@ class Guide(object):
     __iter__ = iterkeys
 
     def values(self: _typing.Self) -> _typing.Any:
-        return sorted(self.refs.values())
+        return sorted(self.refs.values(), key=lambda ref: ref._sort_key)
 
     def items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
         for item_type, ref in self.refs.items():

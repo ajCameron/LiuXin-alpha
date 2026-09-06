@@ -70,7 +70,7 @@ def test_generated_remote_helpers_cover_install_and_postgres_workflow() -> None:
     bundle_readme = build_deployment_package.render_bundle_readme()
 
     assert (
-        "LIUXIN_INSTALL_EXTRAS=\"${LIUXIN_INSTALL_EXTRAS:-postgres,search,archives}\""
+        "LIUXIN_INSTALL_EXTRAS=\"${LIUXIN_INSTALL_EXTRAS:-postgres,search,archives,conversion}\""
         in install_script
     )
     assert "-m venv" in install_script

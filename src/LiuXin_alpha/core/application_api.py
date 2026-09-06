@@ -1141,22 +1141,25 @@ class CoreApplicationAPI:
                 )
             ]
 
-        for sort_spec in reversed(tuple(spec.sort)):
-            materialized.sort(
-                key=lambda item: _sort_value(
-                    item[1].get(sort_spec.field)
-                ),
-                reverse=not sort_spec.ascending,
-            )
-        if not spec.sort:
-            materialized.sort(
-                key=lambda item: (
-                    self._row_record(runtime, spec.table, item[0])["row_id"]
-                    is None,
-                    self._row_record(runtime, spec.table, item[0])["row_id"]
-                    or 0,
+        # Count-only queries return no row records. Ordering would needlessly
+        # coerce identifiers, including valid text keys in bookkeeping tables.
+        if spec.limit != 0:
+            for sort_spec in reversed(tuple(spec.sort)):
+                materialized.sort(
+                    key=lambda item: _sort_value(
+                        item[1].get(sort_spec.field)
+                    ),
+                    reverse=not sort_spec.ascending,
                 )
-            )
+            if not spec.sort:
+                materialized.sort(
+                    key=lambda item: (
+                        self._row_record(runtime, spec.table, item[0])["row_id"]
+                        is None,
+                        self._row_record(runtime, spec.table, item[0])["row_id"]
+                        or 0,
+                    )
+                )
 
         total_count = len(materialized)
         end = (
@@ -1188,14 +1191,31 @@ class CoreApplicationAPI:
         runtime: "CoreRuntime",
         query: "CoreQuery",
     ) -> dict[str, Any]:
+        """Run a structured read without retrying failed cache queries in the database.
+
+        Known cache table/query capability limits use ``read_query_unavailable``;
+        other failures retain their normal Core error path. Database-backed
+        count-only queries skip ordering and row projection.
+        """
         spec = self._cache_query(_payload(query))
         source = runtime.services.read_source
         query_cache = getattr(source, "query_cache", None)
         if not callable(query_cache):
             return self._database_query(runtime, spec)
-        from LiuXin_alpha.caches.api import CacheQueryResult
+        from LiuXin_alpha.caches.api import (
+            CacheQueryResult,
+            UnknownCacheTableError,
+            UnsupportedCacheQueryError,
+        )
 
-        result = query_cache(spec)
+        try:
+            result = query_cache(spec)
+        except (UnknownCacheTableError, UnsupportedCacheQueryError) as exc:
+            raise CoreDispatchError(
+                "The configured read source cannot serve this query.",
+                code="read_query_unavailable",
+                details={"table": spec.table, "reason": type(exc).__name__},
+            ) from exc
         if not isinstance(result, CacheQueryResult):
             raise CoreDispatchError(
                 "Cache read source returned an invalid query result."

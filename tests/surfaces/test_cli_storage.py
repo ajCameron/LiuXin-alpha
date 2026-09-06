@@ -17,6 +17,8 @@ import pytest
 
 from LiuXin_alpha.surfaces.cli.app import main as cli_main
 from LiuXin_alpha.surfaces.cli import storage as storage_cli
+from LiuXin_alpha.surfaces.cli.storage_commands import ingest_preflight
+from LiuXin_alpha.utils.lock import ExclusiveFile
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -102,9 +104,9 @@ def test_preflight_reports_missing_required_squashfs_reader_without_writes(
     source.mkdir()
     (source / "unknown.bin").write_bytes(b"hsqs" + b"not-a-real-image")
     database = tmp_path / "catalogue.sqlite"
-    original_which = storage_cli.shutil.which
+    original_which = ingest_preflight.shutil.which
     monkeypatch.setattr(
-        storage_cli.shutil,
+        ingest_preflight.shutil,
         "which",
         lambda command: None
         if os.fspath(command) == "definitely-missing-unsquashfs"
@@ -294,7 +296,7 @@ def test_real_run_refuses_an_already_owned_explicit_lock(
     database = tmp_path / "catalogue.sqlite"
     lock = tmp_path / "ingest.lock"
 
-    with storage_cli.ExclusiveFile(str(lock), timeout=0):
+    with ExclusiveFile(str(lock), timeout=0):
         rc = cli_main(
             [
                 *_base_arguments(tmp_path, source),

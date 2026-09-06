@@ -1,11 +1,8 @@
 #!/usr/bin/env python2
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-"""
-LiuXin/calibre uses a number of resources - this is a unified way to access them.
-"""
+"""Resolve package-owned Calibre resources and operator overlays."""
 
-from __future__ import with_statement, print_function
 
 import os
 
@@ -33,7 +30,7 @@ def resource_to_resource(target_path: str) -> bytes:
     :param target_path:
     :return:
     """
-    raise NotImplementedError
+    return get_path(target_path, data=True)
 
 
 class PathResolver:
@@ -44,7 +41,11 @@ class PathResolver:
         """
         Startup the resolver.
         """
-        from LiuXin_alpha.constants.paths import LiuXin_calibre_resources_folder, LiuXin_data_folder
+        from LiuXin_alpha.constants.paths import (
+            LiuXin_calibre_resources_folder,
+            LiuXin_data_folder,
+            LiuXin_packaged_calibre_resources_folder,
+        )
 
         config_dir = LiuXin_calibre_resources_folder
         legacy_data_resources = os.path.join(LiuXin_data_folder, "calibre_resources")
@@ -54,11 +55,17 @@ class PathResolver:
         def suitable(path):
             try:
                 return os.path.exists(path) and os.path.isdir(path) and os.listdir(path)
-            except:
+            except OSError:
                 pass
             return False
 
-        for candidate in (config_dir, legacy_data_resources):
+        # The selected external directory acts as an overlay. Missing files
+        # continue to resolve from the immutable package-owned bundle.
+        for candidate in (
+            config_dir,
+            legacy_data_resources,
+            LiuXin_packaged_calibre_resources_folder,
+        ):
             if candidate in self.locations:
                 continue
             if suitable(candidate):
@@ -146,7 +153,7 @@ def _compile_coffeescript(name):
         if errors:
             for line in errors:
                 print(line)
-            raise Exception("Failed to compile coffeescript: %s" % src)
+            raise Exception(f"Failed to compile coffeescript: {src}")
         return cs
 
 
@@ -171,8 +178,7 @@ def compiled_coffeescript(name, dynamic=False):
 
 
 P = get_path
-I = get_image_path
+I = get_image_path  # noqa: E741 - compatibility alias used by Calibre-derived code
 
 calibreP = P
 calibreI = I
-

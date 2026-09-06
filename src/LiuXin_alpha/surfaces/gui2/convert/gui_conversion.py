@@ -12,6 +12,8 @@ from typing import Any
 
 
 def gui_convert(*args: Any, **kwargs: Any) -> Any:
+    """Fail clearly when GUI-only conversion is requested headlessly."""
+
     raise RuntimeError("GUI conversion is unavailable in a headless environment.")
 
 

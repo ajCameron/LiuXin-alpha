@@ -10,7 +10,12 @@ from LiuXin_alpha.surfaces.api import CalibreCatalogHostApi
 from LiuXin_alpha.surfaces.images import ImageBackend
 from LiuXin_alpha.surfaces.read_model import ReadModelBackend
 from LiuXin_alpha.surfaces.opds.api import decode_compat_token, encode_compat_token, normalized_category_key
-from LiuXin_alpha.surfaces.web_readonly.app import _ResolvedFileTarget, _coerce_int, _escape, _row_value
+from LiuXin_alpha.surfaces.acquisition_types import ResolvedFileTarget as _ResolvedFileTarget
+from LiuXin_alpha.surfaces.presentation import (
+    coerce_int as _coerce_int,
+    escape as _escape,
+    row_value as _row_value,
+)
 
 
 PLACEHOLDER_PNG = (
@@ -230,11 +235,12 @@ class CalibreCatalogBackend:
     def category_route_target(self, category: str, item_id: object) -> str:
         category = self.normalized_category_key(category)
         if category == "authors":
+            try:
+                row_id = int(item_id)
+            except (TypeError, ValueError, OverflowError):
+                return "/browse/authors"
             for table in self.author_tables():
-                try:
-                    row = self.read_model.row_by_id(table, int(item_id))
-                except Exception:
-                    row = None
+                row = self.read_model.row_by_id(table, row_id)
                 if row is not None:
                     return "/author/{}/{}".format(quote(table, safe=""), quote(str(item_id), safe=""))
             return "/browse/authors"

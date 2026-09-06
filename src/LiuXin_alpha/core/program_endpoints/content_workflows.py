@@ -2,39 +2,35 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 from LiuXin_alpha.core.program_endpoints.common import (
-    ProgramEndpointHandlers,
     ProgramEndpointRegistrar,
     field,
 )
+from LiuXin_alpha.core.program_endpoints.handlers import ContentWorkflowsHandlers
 
 
-def install_queries(api: object, runtime: object) -> None:
+def install_queries(api: ContentWorkflowsHandlers, runtime: ProgramEndpointRegistrar) -> None:
     """Register this family's query endpoints."""
 
-    handlers = cast(ProgramEndpointHandlers, api)
-    registrar = cast(ProgramEndpointRegistrar, runtime)
-    query = registrar.register_query_handler
+    query = runtime.register_query_handler
 
     query(
                 "ingest.formats",
-                handlers.ingest_formats,
+                api.ingest_formats,
                 summary="List recognised ebook and metadata ingest extensions.",
                 tags=("ingest", "capabilities"),
             )
 
     query(
                 "metadata.file.formats",
-                handlers.metadata_file_formats,
+                api.metadata_file_formats,
                 summary="List metadata file reader and writer support.",
                 tags=("metadata", "files", "capabilities"),
             )
 
     query(
                 "metadata.file.inspect",
-                handlers.metadata_file_inspect,
+                api.metadata_file_inspect,
                 summary="Extract metadata from a local path or base64 file payload.",
                 payload_fields=(
                     field("path", field_type="string"),
@@ -46,21 +42,21 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "metadata.online.sources",
-                handlers.metadata_online_sources,
+                api.metadata_online_sources,
                 summary="List configured online metadata and cover sources.",
                 tags=("metadata", "online", "capabilities"),
             )
 
     query(
                 "conversion.formats",
-                handlers.conversion_formats,
+                api.conversion_formats,
                 summary="List available conversion input and output formats.",
                 tags=("conversion", "capabilities"),
             )
 
     query(
                 "conversion.options",
-                handlers.conversion_options,
+                api.conversion_options,
                 summary="Describe conversion options for an input/output pair.",
                 payload_fields=(
                     field("input_path", required=True, field_type="string"),
@@ -69,16 +65,14 @@ def install_queries(api: object, runtime: object) -> None:
                 tags=("conversion", "capabilities"),
             )
 
-def install_commands(api: object, runtime: object) -> None:
+def install_commands(api: ContentWorkflowsHandlers, runtime: ProgramEndpointRegistrar) -> None:
     """Register this family's command endpoints."""
 
-    handlers = cast(ProgramEndpointHandlers, api)
-    registrar = cast(ProgramEndpointRegistrar, runtime)
-    command = registrar.register_command_handler
+    command = runtime.register_command_handler
 
     command(
                 "metadata.file.write",
-                handlers.metadata_file_write,
+                api.metadata_file_write,
                 summary="Write metadata into a local path or base64 file payload.",
                 payload_fields=(
                     field("path", field_type="string"),
@@ -92,7 +86,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "metadata.identify.start",
-                handlers.metadata_identify_start,
+                api.metadata_identify_start,
                 summary="Submit online metadata identification as a managed job.",
                 payload_fields=(
                     field("title", field_type="string|null"),
@@ -106,7 +100,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "metadata.covers.start",
-                handlers.metadata_covers_start,
+                api.metadata_covers_start,
                 summary="Submit online cover discovery as a managed job.",
                 payload_fields=(
                     field("title", field_type="string|null"),
@@ -119,7 +113,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "ingest.disk.start",
-                handlers.ingest_disk_start,
+                api.ingest_disk_start,
                 summary="Submit local-disk ingestion as a managed job.",
                 payload_fields=(
                     field("disk_path", required=True, field_type="string"),
@@ -136,7 +130,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "ingest.remote-html.start",
-                handlers.ingest_remote_html_start,
+                api.ingest_remote_html_start,
                 summary="Submit remote HTML source registration as a managed job.",
                 payload_fields=(
                     field("kind", required=True, field_type="string"),
@@ -147,7 +141,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "conversion.start",
-                handlers.conversion_start,
+                api.conversion_start,
                 summary="Submit an ebook conversion as a managed job.",
                 payload_fields=(
                     field("input_path", required=True, field_type="string"),

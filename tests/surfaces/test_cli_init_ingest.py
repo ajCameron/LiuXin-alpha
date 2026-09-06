@@ -13,6 +13,7 @@ import pytest
 
 from LiuXin_alpha.surfaces.cli import initialize as init_cli
 from LiuXin_alpha.surfaces.cli import storage as storage_cli
+from LiuXin_alpha.surfaces.cli.storage_commands import parsers as storage_parsers
 from LiuXin_alpha.surfaces.cli.app import main as cli_main
 
 
@@ -284,7 +285,7 @@ def test_concise_ingest_source_expands_to_mixed_ingest_surface(
         received.update(vars(args))
         return 0
 
-    monkeypatch.setattr(storage_cli, "cmd_storage_ingest", handler)
+    monkeypatch.setattr(storage_parsers, "cmd_storage_ingest", handler)
     source = tmp_path / "mess"
     root = tmp_path / "system"
 

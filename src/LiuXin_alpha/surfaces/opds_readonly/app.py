@@ -214,10 +214,7 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
         for linked_table in ("expressions", "files", self.catalog.read_model.tag_category_table() or "tags", "series"):
             if not self._table_exists(linked_table):
                 continue
-            try:
-                linked_rows = self.read_model.interlinked_rows(row, linked_table)
-            except Exception:
-                continue
+            linked_rows = self.read_model.interlinked_rows(row, linked_table)
             if linked_rows:
                 related[linked_table] = linked_rows
         return related

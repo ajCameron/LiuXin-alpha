@@ -2,25 +2,21 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 from LiuXin_alpha.core.program_endpoints.common import (
-    ProgramEndpointHandlers,
     ProgramEndpointRegistrar,
     field,
 )
+from LiuXin_alpha.core.program_endpoints.handlers import CatalogSearchHandlers
 
 
-def install_queries(api: object, runtime: object) -> None:
+def install_queries(api: CatalogSearchHandlers, runtime: ProgramEndpointRegistrar) -> None:
     """Register this family's query endpoints."""
 
-    handlers = cast(ProgramEndpointHandlers, api)
-    registrar = cast(ProgramEndpointRegistrar, runtime)
-    query = registrar.register_query_handler
+    query = runtime.register_query_handler
 
     query(
                 "catalog.fields.list",
-                handlers.catalog_fields_list,
+                api.catalog_fields_list,
                 summary="List display/search field metadata.",
                 payload_fields=(
                     field("kind", field_type="string"),
@@ -31,7 +27,7 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "catalog.fields.get",
-                handlers.catalog_fields_get,
+                api.catalog_fields_get,
                 summary="Return metadata for one display/search field.",
                 payload_fields=(field("key", required=True, field_type="string"),),
                 tags=("catalog", "fields", "read"),
@@ -39,7 +35,7 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "catalog.hierarchy.list",
-                handlers.catalog_hierarchy_list,
+                api.catalog_hierarchy_list,
                 summary="List the adjacent parent or child entities in a WEMI path.",
                 payload_fields=(
                     field("level", required=True, field_type="string"),
@@ -51,7 +47,7 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "catalog.identifiers.list",
-                handlers.catalog_identifiers_list,
+                api.catalog_identifiers_list,
                 summary="List identifiers linked to WEMI or Agent entities.",
                 payload_fields=(
                     field("level", required=True, field_type="string"),
@@ -62,7 +58,7 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "catalog.identifiers.primary-values",
-                handlers.catalog_identifiers_primary_values,
+                api.catalog_identifiers_primary_values,
                 summary="Project primary WEMI identifiers by normalized scheme.",
                 payload_fields=(
                     field("level", required=True, field_type="string"),
@@ -73,7 +69,7 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "catalog.agents.list",
-                handlers.catalog_agents_list,
+                api.catalog_agents_list,
                 summary="List Agents linked to a WEMI entity.",
                 payload_fields=(
                     field("level", required=True, field_type="string"),
@@ -85,7 +81,7 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "search.global",
-                handlers.search_global,
+                api.search_global,
                 summary="Search transport-safe rows across selected tables.",
                 payload_fields=(
                     field("text", required=True, field_type="string"),
@@ -96,16 +92,14 @@ def install_queries(api: object, runtime: object) -> None:
                 tags=("search", "rows", "read"),
             )
 
-def install_commands(api: object, runtime: object) -> None:
+def install_commands(api: CatalogSearchHandlers, runtime: ProgramEndpointRegistrar) -> None:
     """Register this family's command endpoints."""
 
-    handlers = cast(ProgramEndpointHandlers, api)
-    registrar = cast(ProgramEndpointRegistrar, runtime)
-    command = registrar.register_command_handler
+    command = runtime.register_command_handler
 
     command(
                 "catalog.identifiers.replace",
-                handlers.catalog_identifiers_replace,
+                api.catalog_identifiers_replace,
                 summary="Replace identifiers linked to one WEMI entity.",
                 payload_fields=(
                     field("level", required=True, field_type="string"),
@@ -117,7 +111,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "catalog.agent.link",
-                handlers.catalog_agent_link,
+                api.catalog_agent_link,
                 summary="Link an existing Agent to a WEMI entity.",
                 payload_fields=(
                     field("agent_id", required=True, field_type="integer"),

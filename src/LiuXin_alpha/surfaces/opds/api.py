@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from urllib.parse import quote, unquote
 
 from LiuXin_alpha.surfaces.api import OpdsHostApi, SurfaceResponseAPI
-from LiuXin_alpha.surfaces.web_readonly.app import _coerce_int, _escape
+from LiuXin_alpha.surfaces.presentation import coerce_int as _coerce_int, escape as _escape
 
 
 def encode_compat_token(value: object) -> str:

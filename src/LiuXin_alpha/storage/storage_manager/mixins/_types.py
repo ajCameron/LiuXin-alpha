@@ -11,6 +11,24 @@ from uuid import NAMESPACE_URL, uuid5
 
 import LiuXin_alpha.storage.api as api
 
+# Explicit exports within the private mixin implementation package.
+__all__ = [
+    "StoreFactory",
+    "StoreRegistration",
+    "_AdoptIngestRequest",
+    "_Hasher",
+    "_IdentifiedStreamIngestRequest",
+    "_IngestOperation",
+    "_IngestRequest",
+    "_ItemTarget",
+    "_ItemTargetID",
+    "_ItemTargetKind",
+    "_MetadataRecordKind",
+    "_RecreationBranch",
+    "_StoreObjectIngestRequest",
+    "_StreamIngestRequest",
+]
+
 type StoreFactory = Callable[[api.StoreConfiguration], api.StoreAPI]
 type StoreRegistration = tuple[api.StoreConfiguration, api.StoreAPI]
 type _ItemTargetKind = Literal["digital_asset", "composite_digital_asset"]

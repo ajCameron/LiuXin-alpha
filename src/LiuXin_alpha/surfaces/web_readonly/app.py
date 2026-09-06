@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import html
 import json
 import mimetypes
 import posixpath
@@ -20,6 +19,13 @@ from wsgiref.simple_server import make_server
 from wsgiref.util import FileWrapper
 
 from LiuXin_alpha.core import CoreClientAPI
+
+# Preserve historical helper/type imports while their implementations live in
+# independent shared modules. Reusable backends import those owners directly.
+from LiuXin_alpha.surfaces.acquisition_types import (
+    CoreStoredFile as _CoreStoredFile,
+    ResolvedFileTarget as _ResolvedFileTarget,
+)
 from LiuXin_alpha.surfaces.core import (
     CoreDatabaseView,
     CoreSurfaceModel,
@@ -27,18 +33,12 @@ from LiuXin_alpha.surfaces.core import (
     coerce_surface_core,
     open_surface_core_from_args,
 )
-
-
-def _escape(value: object) -> str:
-    return html.escape("" if value is None else str(value), quote=True)
-
-
-def _short_text(value: object, *, width: int = 120) -> str:
-    text = "" if value is None else str(value)
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    if len(text) <= width:
-        return text
-    return text[: max(0, width - 3)] + "..."
+from LiuXin_alpha.surfaces.presentation import (
+    coerce_int as _coerce_int,
+    escape as _escape,
+    row_value as _row_value,
+    short_text as _short_text,
+)
 
 
 def _search_terms(value: object) -> list[str]:
@@ -50,24 +50,6 @@ def _search_terms(value: object) -> list[str]:
 
 def _normalized_search_text(value: object) -> str:
     return unicodedata.normalize("NFKC", str(value or "")).casefold()
-
-
-def _coerce_int(raw: Optional[str], *, default: int, minimum: int = 0, maximum: Optional[int] = None) -> int:
-    try:
-        value = int(str(raw).strip())
-    except Exception:
-        value = int(default)
-    value = max(int(minimum), int(value))
-    if maximum is not None:
-        value = min(int(maximum), value)
-    return value
-
-
-def _row_value(row, column: str):
-    try:
-        return row[column]
-    except Exception:
-        return None
 
 
 def _build_query_string(values: dict[str, object]) -> str:
@@ -113,27 +95,6 @@ class ReadOnlyWebConfig:
     metadata_cache_allow_database_fallback: bool = True
     hidden_column_tokens: tuple[str, ...] = ("credential", "password", "secret", "token", "policy_json")
     hidden_column_suffixes: tuple[str, ...] = ("_scratch",)
-
-
-@dataclass(frozen=True)
-class _ResolvedFileTarget:
-    mode: str
-    location: str
-    download_name: str
-
-
-@dataclass(frozen=True)
-class _CoreStoredFile:
-    model: CoreSurfaceModel
-    kind: str
-    resource_id: int
-
-    def read_bytes(self) -> bytes:
-        _resource, payload = self.model.acquisition_read(
-            self.kind,
-            self.resource_id,
-        )
-        return payload
 
 
 @dataclass
@@ -1094,13 +1055,10 @@ class ReadOnlyWebApplication:
 
     def _ordered_related_tables(self, row) -> list[str]:
         table = str(getattr(row, "table", "") or "")
-        try:
-            candidate_tables = list(
-                getattr(row, "linkable_tables", None)
-                or self.model.related_tables(table)
-            )
-        except Exception:
-            candidate_tables = []
+        candidate_tables = list(
+            getattr(row, "linkable_tables", None)
+            or (self.model.related_tables(table) if table else ())
+        )
         return sorted(
             {str(one) for one in candidate_tables if str(one) and str(one) != table},
             key=lambda name: (
@@ -2081,15 +2039,19 @@ class ReadOnlyWebApplication:
             cards: list[str] = []
             for table in grouped.get(category, []):
                 try:
-                    count = self.read_model.table_record_count(table)
-                except Exception:
-                    count = -1
+                    count_text = "{} rows".format(self.read_model.table_record_count(table))
+                except Exception as exc:
+                    # Optional counts may be unavailable in cache-only mode.
+                    # Do not confuse a known capability limit with a failed read.
+                    if getattr(exc, "code", None) != "read_query_unavailable":
+                        raise
+                    count_text = "count unavailable"
                 href = "/tables/{}".format(quote(table, safe=""))
                 cards.append(
-                    "<a class='stat' href='{href}'><strong>{table}</strong><span class='meta'>{count} rows</span></a>".format(
+                    "<a class='stat' href='{href}'><strong>{table}</strong><span class='meta'>{count}</span></a>".format(
                         href=_escape(href),
                         table=_escape(table),
-                        count="?" if count < 0 else count,
+                        count=count_text,
                     )
                 )
             sections.append(
@@ -2548,12 +2510,10 @@ class ReadOnlyWebApplication:
             return None
         file_name = self._download_name_for_file_row(file_row)
         try:
-            resolved = self.model.acquisition_resolve(
-                "legacy-file",
-                int(file_id),
-            )
-        except Exception:
+            numeric_id = int(file_id)
+        except (TypeError, ValueError, OverflowError):
             return None
+        resolved = self.model.acquisition_resolve("legacy-file", numeric_id)
         delivery = str(resolved.get("delivery") or "")
         if delivery == "redirect":
             return _ResolvedFileTarget(
@@ -2590,12 +2550,10 @@ class ReadOnlyWebApplication:
         if file_id in (None, ""):
             return None
         try:
-            resolved = self.model.acquisition_resolve(
-                "legacy-file",
-                int(file_id),
-            )
-        except Exception:
+            numeric_id = int(file_id)
+        except (TypeError, ValueError, OverflowError):
             return None
+        resolved = self.model.acquisition_resolve("legacy-file", numeric_id)
         if not bool(resolved.get("readable", False)):
             return None
         return _CoreStoredFile(

@@ -132,9 +132,6 @@ def test_image_discovery_walks_expressions_and_ignores_bad_rows(
         ],
         "expressions": [
             {"mode": 2},
-            {"mode": "interlink-error"},
-            {"mode": "item-error"},
-            {"mode": "image-error"},
             {"mode": "empty"},
         ],
     }
@@ -227,17 +224,8 @@ def test_storage_resolution_rejects_images_without_a_valid_id(
     assert core.queries == []
 
 
-@pytest.mark.parametrize(
-    "resolution",
-    (
-        {"delivery": "redirect", "readable": False},
-        RuntimeError("Core unavailable"),
-    ),
-)
-def test_storage_resolution_rejects_unreadable_or_failed_core_results(
-    resolution: object,
-) -> None:
-    core = _Core(resolutions={7: resolution})
+def test_storage_resolution_rejects_explicitly_unreadable_core_results() -> None:
+    core = _Core(resolutions={7: {"delivery": "redirect", "readable": False}})
 
     assert ImageBackend(_Host(core=core)).resolve_storage_image({"image_id": 7}) is None
 
@@ -269,7 +257,6 @@ def test_redirect_targets_come_from_core_resolution() -> None:
         ({}, None),
         ({"image_id": "bad"}, None),
         ({"image_id": 7}, {"delivery": "core", "readable": True}),
-        ({"image_id": 7}, RuntimeError("Core unavailable")),
     ),
 )
 def test_non_redirect_core_results_are_not_redirect_targets(
@@ -290,6 +277,22 @@ def test_work_image_row_returns_the_first_image_or_none() -> None:
 
     host.related = {}
     assert backend.work_image_row({"work_id": 1}) is None
+
+
+@pytest.mark.parametrize("mode", ("interlink-error", "item-error", "image-error"))
+def test_image_discovery_propagates_read_model_failures(mode: str) -> None:
+    backend = ImageBackend(_Host(read_model=_ReadModel()))
+    with pytest.raises(RuntimeError, match="failed"):
+        backend.work_image_rows({"expressions": [{"mode": mode}]})
+
+
+@pytest.mark.parametrize("method", ("resolve_storage_image", "resolve_image_target"))
+def test_image_resolution_propagates_failed_core_queries(method: str) -> None:
+    error = RuntimeError("Core unavailable")
+    backend = ImageBackend(_Host(core=_Core(resolutions={7: error})))
+    with pytest.raises(RuntimeError) as raised:
+        getattr(backend, method)({"image_id": 7})
+    assert raised.value is error
 
 
 @pytest.mark.parametrize(

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import dataclasses
 import uuid
-
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 
 @dataclasses.dataclass(frozen=True)
@@ -13,7 +13,7 @@ class CoreQuery:
     """Query request envelope."""
 
     name: str
-    payload: Mapping[str, Any] = dataclasses.field(default_factory=dict)
+    payload: Mapping[str, Any] = dataclasses.field(default_factory=dict[str, Any])
     query_id: str = dataclasses.field(default_factory=lambda: str(uuid.uuid4()))
     correlation_id: str | None = None
 

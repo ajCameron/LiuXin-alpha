@@ -9,12 +9,18 @@ from typing import Any, Mapping, Optional
 from LiuXin_alpha.surfaces.api import ReadModelHostApi
 from LiuXin_alpha.surfaces.core import CoreRow, CoreSurfaceModel
 from LiuXin_alpha.surfaces.images import ImageBackend
-from LiuXin_alpha.surfaces.web_readonly.app import _ResolvedFileTarget, _escape, _row_value
+from LiuXin_alpha.surfaces.acquisition_types import ResolvedFileTarget as _ResolvedFileTarget
+from LiuXin_alpha.surfaces.presentation import escape as _escape, row_value as _row_value
 
 
 @dataclass
 class ReadModelBackend:
-    """Project Core catalogue queries into stable surface-facing mappings."""
+    """Project Core queries without disguising failures as missing catalogue data.
+
+    Missing tables/records and explicitly incomplete optimized queries have
+    normal empty/fallback paths. Query, transport, and programming failures
+    propagate to the caller; fallback is never inferred from an exception.
+    """
 
     host: ReadModelHostApi
     images: Optional[ImageBackend] = None
@@ -37,46 +43,40 @@ class ReadModelBackend:
         return self.read_source.refresh()
 
     def _table_exists(self, table: str) -> bool:
-        try:
-            return self.read_source.table_exists(str(table))
-        except Exception:
-            return self.host._table_exists(table)
+        return self.read_source.table_exists(str(table))
 
     def _all_rows(self, table: str) -> list[object]:
-        try:
-            return list(self.read_source.rows(str(table)))
-        except Exception:
+        if not self._table_exists(table):
             return []
+        return list(self.read_source.rows(str(table)))
 
     def _get_row_from_id(self, table: str, row_id: int) -> object | None:
-        try:
-            return self.read_source.row(str(table), int(row_id))
-        except Exception:
+        if not self._table_exists(table):
             return None
+        return self.read_source.row(str(table), int(row_id))
 
     def _search_rows(self, table: str, column: str, value: object) -> list[object]:
-        try:
-            return list(
-                self.read_source.search(
-                    str(table),
-                    str(column),
-                    value,
-                )
-            )
-        except Exception:
+        if not self._table_exists(table):
             return []
+        return list(self.read_source.search(str(table), str(column), value))
 
     def row_by_id(self, table: str, row_id: int) -> object | None:
+        """Return None for an absent table or record, never for a failed lookup."""
         return self._get_row_from_id(table, row_id)
 
     def rows_for_table(self, table: str) -> list[object]:
+        """Materialize a table, propagating failures before returning any rows."""
         return self._all_rows(table)
 
     def table_record_count(self, table: str) -> int:
-        try:
-            return self.read_source.record_count(str(table))
-        except Exception:
+        """Count rows; only a confirmed absent or empty table has a zero count.
+
+        Unsupported queries and other failures propagate. Optional callers may
+        present Core's explicit ``read_query_unavailable`` code as unavailable.
+        """
+        if not self._table_exists(table):
             return 0
+        return self.read_source.record_count(str(table))
 
     def search_rows(self, table: str, column: str, value: object) -> list[object]:
         return self._search_rows(table, column, value)
@@ -88,27 +88,22 @@ class ReadModelBackend:
             if callable(preferred)
             else ()
         )
-        try:
-            columns = set(self.read_source.columns(table))
-        except Exception:
-            columns = set()
+        columns = set(self.read_source.columns(table))
         return next(
             (str(field) for field in candidates if str(field) in columns),
             None,
         )
 
     def _interlinked_rows(self, row, secondary_table: str) -> list[object]:
-        try:
-            core_row = self._as_core_row(row)
-            if core_row is None:
-                return []
-            records, _links = self.read_source.related(
-                core_row,
-                str(secondary_table),
-            )
-            return list(records)
-        except Exception:
+        core_row = self._as_core_row(row)
+        if (
+            core_row is None
+            or core_row.row_id is None
+            or not self._table_exists(secondary_table)
+        ):
             return []
+        records, _links = self.read_source.related(core_row, str(secondary_table))
+        return list(records)
 
     def _as_core_row(self, row: object) -> CoreRow | None:
         if isinstance(row, CoreRow):
@@ -125,6 +120,7 @@ class ReadModelBackend:
         return None
 
     def interlinked_rows(self, row, secondary_table: str) -> list[object]:
+        """Return related rows; unsaved rows have none and failed reads propagate."""
         return self._interlinked_rows(row, secondary_table)
 
     def related_rows_by_table(self, row) -> dict[str, list[object]]:
@@ -185,7 +181,7 @@ class ReadModelBackend:
             priority_value = link.get("priority")
             try:
                 priority_sort = -int(priority_value)
-            except Exception:
+            except (TypeError, ValueError, OverflowError):
                 priority_sort = position
             role = (
                 pretty_role(role_raw)
@@ -253,19 +249,11 @@ class ReadModelBackend:
             else self._cache_sort_field("works")
         )
         if sort_field is not None:
-            try:
-                result = self.read_source.query_rows(
-                    "works",
-                    sort=(
-                        {
-                            "field": sort_field,
-                            "ascending": sorted_by != "recent",
-                        },
-                    ),
-                )
-            except Exception:
-                result = None
-            if result is not None and result.complete:
+            result = self.read_source.query_rows(
+                "works",
+                sort=({"field": sort_field, "ascending": sorted_by != "recent"},),
+            )
+            if result.complete:
                 return list(result.records)
         rows = self._all_rows("works")
         if sorted_by == "recent":
@@ -279,7 +267,11 @@ class ReadModelBackend:
         limit: int,
         offset: int,
     ) -> tuple[list[object], int]:
-        """Return one ordered work page without materializing every cached row."""
+        """Return a page and total, preferring a complete ordered Core query.
+
+        An explicitly incomplete result or missing sort field selects the
+        materialized fallback. Query failures propagate instead of retrying.
+        """
 
         if not self._table_exists("works"):
             return [], 0
@@ -290,21 +282,13 @@ class ReadModelBackend:
             else self._cache_sort_field("works")
         )
         if sort_field is not None:
-            try:
-                result = self.read_source.query_rows(
-                    "works",
-                    sort=(
-                        {
-                            "field": sort_field,
-                            "ascending": sorted_by != "recent",
-                        },
-                    ),
-                    offset=max(0, int(offset)),
-                    limit=max(0, int(limit)),
-                )
-            except Exception:
-                result = None
-            if result is not None and result.complete:
+            result = self.read_source.query_rows(
+                "works",
+                sort=({"field": sort_field, "ascending": sorted_by != "recent"},),
+                offset=max(0, int(offset)),
+                limit=max(0, int(limit)),
+            )
+            if result.complete:
                 return list(result.records), int(result.total_count)
         rows = self.work_rows(sorted_by=sorted_by)
         return rows[offset : offset + limit], len(rows)
@@ -313,9 +297,10 @@ class ReadModelBackend:
         if not self._table_exists(table):
             return []
         try:
-            row = self._get_row_from_id(table, int(str(raw_row_id).strip()))
-        except Exception:
-            row = None
+            row_id = int(str(raw_row_id).strip())
+        except (TypeError, ValueError, OverflowError):
+            return []
+        row = self._get_row_from_id(table, row_id)
         if row is None:
             return []
         return list(self._related_rows_by_table(row).get("works", []))
@@ -507,7 +492,7 @@ class ReadModelBackend:
                 return
             try:
                 file_rows_by_id[int(file_id)] = file_row
-            except Exception:
+            except (TypeError, ValueError, OverflowError):
                 return
 
         for file_row in related_rows_by_table.get("files", []):
@@ -549,7 +534,7 @@ class ReadModelBackend:
         size_value = _row_value(file_row, "file_size_bytes") or _row_value(file_row, "file_size")
         try:
             payload["size"] = int(size_value) if size_value not in (None, "") else None
-        except Exception:
+        except (TypeError, ValueError, OverflowError):
             payload["size"] = None
         return payload
 
@@ -602,7 +587,7 @@ class ReadModelBackend:
             size_value = _row_value(file_row, "file_size_bytes") or _row_value(file_row, "file_size")
             try:
                 size_int = int(size_value) if size_value not in (None, "") else None
-            except Exception:
+            except (TypeError, ValueError, OverflowError):
                 size_int = None
             format_metadata[fmt.upper()] = {
                 "path": download_url,
@@ -729,17 +714,14 @@ class ReadModelBackend:
                 if callable(search_columns_getter)
                 else ()
             )
-            try:
-                queried = self.read_source.query_rows(
-                    str(table),
-                    text=needle,
-                    text_fields=text_fields,
-                )
-            except Exception:
-                queried = None
+            queried = self.read_source.query_rows(
+                str(table),
+                text=needle,
+                text_fields=text_fields,
+            )
             candidate_rows = (
                 list(queried.records)
-                if queried is not None and queried.complete
+                if queried.complete
                 else self._all_rows(str(table))
             )
             for row in candidate_rows:

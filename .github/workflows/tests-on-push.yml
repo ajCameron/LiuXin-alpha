@@ -6,6 +6,28 @@ on:
   workflow_dispatch:
 
 jobs:
+  packaging:
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    name: Installed Wheel
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Build and verify the installed wheel
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip wheel --no-deps --wheel-dir dist .
+          python -m pip install dist/liuxin_alpha-*.whl
+          python scripts/verify_wheel_install.py dist/liuxin_alpha-*.whl
+
   quality-modern:
     if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     name: Modern Architecture and Typing
@@ -38,6 +60,17 @@ jobs:
             tests/surfaces/test_core_boundary_enforcement.py \
             tests/scripts/test_public_documentation_boundaries.py \
             tests/scripts/test_run_type_checks.py \
+            tests/scripts/test_internal_type_contracts.py \
+            tests/scripts/test_workflow_ownership.py \
+            tests/scripts/test_check_modern_import_cycles.py \
+            tests/surfaces/test_shared_surface_dependencies.py \
+            tests/surfaces/test_read_model_failure_contracts.py \
+            tests/surfaces/test_surface_read_errors.py \
+            tests/surfaces/test_read_model_transport_errors.py \
+            tests/core/test_core_application_api.py \
+            tests/databases/caches/test_writer_dependencies.py \
+            tests/core/test_evacuation_workflow.py \
+            tests/core/test_program_workflow_facade.py \
             tests/storage/api/test_storage_manager_composition.py
 
   smoke:
@@ -58,7 +91,7 @@ jobs:
       - name: Install from pyproject.toml
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[test]"
+          python -m pip install ".[test,conversion]"
 
       - name: Run confidence test stream
         env:
@@ -83,7 +116,7 @@ jobs:
       - name: Install from pyproject.toml
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[test]"
+          python -m pip install ".[test,conversion]"
 
       - name: Run fast file_formats lane
         env:
@@ -108,7 +141,7 @@ jobs:
       - name: Install from pyproject.toml
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[test]"
+          python -m pip install ".[test,conversion]"
 
       - name: Run heavy file_formats lane
         env:
@@ -133,7 +166,7 @@ jobs:
       - name: Install from pyproject.toml
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[test]"
+          python -m pip install ".[test,conversion]"
 
       - name: Run full test suite
         env:

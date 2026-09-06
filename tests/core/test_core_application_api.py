@@ -369,6 +369,38 @@ def _fake_runtime() -> CoreRuntime:
     )
 
 
+@pytest.mark.parametrize("sort", ([], [{"field": "work_title", "ascending": False}]))
+@pytest.mark.parametrize("offset", (0, 20))
+def test_count_only_query_does_not_coerce_or_order_text_row_identifiers(
+    sort, offset,
+) -> None:
+    runtime = _fake_runtime()
+    runtime.services.read_source.rows["works"] = [
+        {"work_id": "migration-first", "work_title": "ledger applied"},
+        {"work_id": "migration-second", "work_title": "ledger pending"},
+    ]
+    try:
+        result = runtime.query(
+            "rows.query",
+            {
+                "table": "works",
+                "limit": 0,
+                "offset": offset,
+                "sort": sort,
+                "predicates": [
+                    {"field": "work_title", "operator": "contains", "value": "applied"},
+                ],
+            },
+        )
+        assert result["records"] == []
+        assert result["total_count"] == 1
+        assert result["complete"] is True
+        assert result["offset"] == offset
+        assert result["limit"] == 0
+    finally:
+        runtime.shutdown()
+
+
 def test_core_describes_complete_named_application_api() -> None:
     runtime = _fake_runtime()
 
