@@ -117,8 +117,13 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
 [tool.basedpyright]
 typeCheckingMode = "standard"
 include = [
+  "src/LiuXin_alpha/surfaces/presentation.py",
+  "src/LiuXin_alpha/surfaces/acquisition_types.py",
+  "src/LiuXin_alpha/core/commands.py",
+  "src/LiuXin_alpha/core/queries.py",
   "src/LiuXin_alpha/core/services.py",
   "src/LiuXin_alpha/core/program_api.py",
+  "src/LiuXin_alpha/core/program_services",
   "src/LiuXin_alpha/core/program_endpoints",
   "src/LiuXin_alpha/ingest/mixed_application.py",
   "src/LiuXin_alpha/catalog/write/host_api.py",
@@ -127,8 +132,18 @@ include = [
   "src/LiuXin_alpha/storage/storage_manager/manager.py",
   "src/LiuXin_alpha/storage/storage_manager/mixins",
   "src/LiuXin_alpha/surfaces/cli/storage.py",
+  "src/LiuXin_alpha/surfaces/cli/storage_commands",
 ]
 strict = [
+  "src/LiuXin_alpha/surfaces/presentation.py",
+  "src/LiuXin_alpha/surfaces/acquisition_types.py",
+  "src/LiuXin_alpha/core/program_services/evacuation_models.py",
+  "src/LiuXin_alpha/core/program_services/evacuation_planning.py",
+  "src/LiuXin_alpha/core/program_services/evacuation_execution.py",
+  "src/LiuXin_alpha/core/program_services/storage_placement.py",
+  "src/LiuXin_alpha/core/commands.py",
+  "src/LiuXin_alpha/core/queries.py",
+  "src/LiuXin_alpha/storage/storage_manager/mixins/_contracts.py",
   "src/LiuXin_alpha/core/program_endpoints",
   "src/LiuXin_alpha/ingest/mixed_application.py",
   "src/LiuXin_alpha/catalog/write/host_api.py",
@@ -146,14 +161,20 @@ pythonVersion = "3.12"
 [tool.mypy]
 python_version = "3.12"
 files = [
+  "src/LiuXin_alpha/surfaces/presentation.py",
+  "src/LiuXin_alpha/surfaces/acquisition_types.py",
+  "src/LiuXin_alpha/core/commands.py",
+  "src/LiuXin_alpha/core/queries.py",
   "src/LiuXin_alpha/core/services.py",
   "src/LiuXin_alpha/core/program_api.py",
+  "src/LiuXin_alpha/core/program_services",
   "src/LiuXin_alpha/core/program_endpoints",
   "src/LiuXin_alpha/ingest/mixed_application.py",
   "src/LiuXin_alpha/storage/api",
   "src/LiuXin_alpha/storage/storage_manager/manager.py",
   "src/LiuXin_alpha/storage/storage_manager/mixins",
   "src/LiuXin_alpha/surfaces/cli/storage.py",
+  "src/LiuXin_alpha/surfaces/cli/storage_commands",
 ]
 mypy_path = "$MYPY_CONFIG_FILE_DIR/src"
 namespace_packages = true

@@ -239,6 +239,11 @@ def test_web_readonly_cache_read_source_cli_options_serve_snapshot(driver_spec, 
         assert status == "200 OK"
         assert "Row not found" in body.decode("utf-8")
 
+        status, _headers, body = _call_app(app, "/")
+        assert status == "200 OK"
+        assert "Main tables" in body.decode("utf-8")
+        assert "count unavailable" in body.decode("utf-8")
+
 
 def test_web_readonly_table_classifier_splits_main_helper_interlink_and_intralink() -> None:
     assert ReadOnlyWebApplication._table_category("works") == "main"

@@ -111,7 +111,11 @@ dependencies from the temporary target, initialized and reopened a catalogue,
 and produced a structurally valid 10-entry EPUB from Unicode HTML. The wheel's
 content and runtime receipts are emitted by the verifier for CI retention.
 
-## Next maintainability order
+## Review priorities at this checkpoint
+
+The list below records the September 2 review, not the current work queue.
+The later [stages 1–4 checkpoint](maintainability-checkpoint-2026-09-07.md)
+records completed maintainability work and the next formatting tranche.
 
 1. Break the seven modern import cycles at leaf protocols and registry seams.
 2. Extract bounded command/services from the largest modern orchestration

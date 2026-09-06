@@ -60,6 +60,17 @@ jobs:
             tests/surfaces/test_core_boundary_enforcement.py \
             tests/scripts/test_public_documentation_boundaries.py \
             tests/scripts/test_run_type_checks.py \
+            tests/scripts/test_internal_type_contracts.py \
+            tests/scripts/test_workflow_ownership.py \
+            tests/scripts/test_check_modern_import_cycles.py \
+            tests/surfaces/test_shared_surface_dependencies.py \
+            tests/surfaces/test_read_model_failure_contracts.py \
+            tests/surfaces/test_surface_read_errors.py \
+            tests/surfaces/test_read_model_transport_errors.py \
+            tests/core/test_core_application_api.py \
+            tests/databases/caches/test_writer_dependencies.py \
+            tests/core/test_evacuation_workflow.py \
+            tests/core/test_program_workflow_facade.py \
             tests/storage/api/test_storage_manager_composition.py
 
   smoke:

@@ -14,6 +14,7 @@ from LiuXin_alpha.core.program_endpoints.catalog_search import (
 from LiuXin_alpha.core.program_endpoints.catalog_search import (
     install_queries as install_catalog_search_queries,
 )
+from LiuXin_alpha.core.program_endpoints.common import ProgramEndpointRegistrar
 from LiuXin_alpha.core.program_endpoints.content_workflows import (
     install_commands as install_content_workflows_commands,
 )
@@ -26,6 +27,7 @@ from LiuXin_alpha.core.program_endpoints.database_schema import (
 from LiuXin_alpha.core.program_endpoints.database_schema import (
     install_queries as install_database_schema_queries,
 )
+from LiuXin_alpha.core.program_endpoints.handlers import ProgramEndpointHandlers
 from LiuXin_alpha.core.program_endpoints.storage import (
     install_commands as install_storage_commands,
 )
@@ -57,7 +59,9 @@ _COMMAND_PROVIDERS = (
 )
 
 
-def install_program_endpoints(api: object, runtime: object) -> None:
+def install_program_endpoints(
+    api: ProgramEndpointHandlers, runtime: ProgramEndpointRegistrar
+) -> None:
     """Install every provider while preserving query-before-command ordering."""
 
     for provider in _QUERY_PROVIDERS:

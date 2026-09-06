@@ -2,25 +2,21 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 from LiuXin_alpha.core.program_endpoints.common import (
-    ProgramEndpointHandlers,
     ProgramEndpointRegistrar,
     field,
 )
+from LiuXin_alpha.core.program_endpoints.handlers import BackupMaintenanceHandlers
 
 
-def install_queries(api: object, runtime: object) -> None:
+def install_queries(api: BackupMaintenanceHandlers, runtime: ProgramEndpointRegistrar) -> None:
     """Register this family's query endpoints."""
 
-    handlers = cast(ProgramEndpointHandlers, api)
-    registrar = cast(ProgramEndpointRegistrar, runtime)
-    query = registrar.register_query_handler
+    query = runtime.register_query_handler
 
     query(
                 "backup.plan",
-                handlers.backup_plan,
+                api.backup_plan,
                 summary="Plan SquashFS backup packs between configured Stores.",
                 payload_fields=(
                     field("source_store", required=True, field_type="string|integer"),
@@ -38,7 +34,7 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "backup.workflows.list",
-                handlers.backup_workflows_list,
+                api.backup_workflows_list,
                 summary="List durable backup workflow definitions and status.",
                 payload_fields=(
                     field("limit", field_type="integer"),
@@ -49,7 +45,7 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "backup.workflow.get",
-                handlers.backup_workflow_get,
+                api.backup_workflow_get,
                 summary="Return one durable backup workflow and resume state.",
                 payload_fields=(
                     field("workflow_id", required=True, field_type="integer"),
@@ -59,14 +55,14 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "maintenance.status",
-                handlers.maintenance_status,
+                api.maintenance_status,
                 summary="Return maintenance plugins, queues, and dirty-record status.",
                 tags=("maintenance", "read"),
             )
 
     query(
                 "maintenance.duplicates.find",
-                handlers.maintenance_duplicates_find,
+                api.maintenance_duplicates_find,
                 summary="Find duplicate values using database comparison semantics.",
                 payload_fields=(
                     field("table", required=True, field_type="string"),
@@ -76,16 +72,14 @@ def install_queries(api: object, runtime: object) -> None:
                 tags=("maintenance", "duplicates", "read"),
             )
 
-def install_commands(api: object, runtime: object) -> None:
+def install_commands(api: BackupMaintenanceHandlers, runtime: ProgramEndpointRegistrar) -> None:
     """Register this family's command endpoints."""
 
-    handlers = cast(ProgramEndpointHandlers, api)
-    registrar = cast(ProgramEndpointRegistrar, runtime)
-    command = registrar.register_command_handler
+    command = runtime.register_command_handler
 
     command(
                 "backup.workflow.save",
-                handlers.backup_workflow_save,
+                api.backup_workflow_save,
                 summary="Create or replace one durable backup workflow definition.",
                 payload_fields=(
                     field("workflow_spec", required=True, field_type="object"),
@@ -96,7 +90,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "backup.workflow.start",
-                handlers.backup_workflow_start,
+                api.backup_workflow_start,
                 summary="Submit a durable, resumable backup workflow.",
                 payload_fields=(
                     field("workflow_id", required=True, field_type="integer"),
@@ -106,7 +100,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "backup.squashfs.start",
-                handlers.backup_squashfs_start,
+                api.backup_squashfs_start,
                 summary="Submit execution of one SquashFS backup workflow spec.",
                 payload_fields=(
                     field("workflow_spec", required=True, field_type="object"),
@@ -119,7 +113,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "backup.squashfs.publish-store.start",
-                handlers.backup_squashfs_publish_store_start,
+                api.backup_squashfs_publish_store_start,
                 summary="Submit publication of one designated open SquashFS store.",
                 payload_fields=(
                     field("store_id", required=True, field_type="integer"),
@@ -136,7 +130,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "backup.squashfs.publish-files.start",
-                handlers.backup_squashfs_publish_files_start,
+                api.backup_squashfs_publish_files_start,
                 summary="Submit designation and publication of file ids to a SquashFS archive.",
                 payload_fields=(
                     field("file_ids", required=True, field_type="array"),
@@ -153,7 +147,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "maintenance.run",
-                handlers.maintenance_run,
+                api.maintenance_run,
                 summary="Run one bounded maintenance-engine pass.",
                 payload_fields=(field("max_events", field_type="integer"),),
                 tags=("maintenance", "write"),
@@ -161,7 +155,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "maintenance.clean",
-                handlers.maintenance_clean,
+                api.maintenance_clean,
                 summary="Clean selected entity rows through the maintenance service.",
                 payload_fields=(
                     field("table", required=True, field_type="string"),
@@ -172,7 +166,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "maintenance.merge",
-                handlers.maintenance_merge,
+                api.maintenance_merge,
                 summary="Merge one duplicate entity into the retained entity.",
                 payload_fields=(
                     field("table", required=True, field_type="string"),

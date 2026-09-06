@@ -6,11 +6,15 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from threading import RLock
-from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import LiuXin_alpha.storage.api as api
 from LiuXin_alpha.storage.api.storage_manager_api import StorageManagerAPI
+from LiuXin_alpha.storage.storage_manager.mixins._contracts import (
+    _StorageManagerMechanics,
+    _StorageManagerPolicyHooks,
+    _StorageManagerStoreHooks,
+)
 from LiuXin_alpha.storage.storage_manager.mixins._types import (
     StoreFactory,
     StoreRegistration,
@@ -19,28 +23,19 @@ from LiuXin_alpha.storage.storage_manager.mixins._types import (
 )
 
 
-class _StorageManagerState(StorageManagerAPI):
+class _StorageManagerState(
+    StorageManagerAPI,
+    _StorageManagerMechanics,
+    _StorageManagerPolicyHooks,
+    _StorageManagerStoreHooks,
+):
     """
     Typed state base shared by the orthogonal implementation mixins.
 
     The public manager contract makes ``@override`` and cross-component API
     calls checkable in each standalone mixin. Private cross-cutting helpers are
-    supplied by the final composition and remain dynamically visible only to
-    static analysis; runtime attribute lookup still fails normally on typos.
+    supplied by the final composition through explicit internal contracts.
     """
-
-    if TYPE_CHECKING:
-
-        def __getattr__(self, name: str) -> Any:
-            """
-            Describe private helpers supplied by sibling mixins.
-
-
-            :param name:
-            :return:
-            """
-
-            ...
 
     def __init__(
         self,

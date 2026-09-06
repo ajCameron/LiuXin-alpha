@@ -3,25 +3,53 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
+from LiuXin_alpha.core.commands import CoreCommand
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
+from LiuXin_alpha.core.queries import CoreQuery
 
-type ProgramEndpointHandler = Callable[..., object]
-type RegisterEndpoint = Callable[..., None]
+if TYPE_CHECKING:
+    from LiuXin_alpha.core.runtime import CoreRuntime
 
-
-class ProgramEndpointHandlers(Protocol):
-    """Dynamic handler surface consumed only while registering endpoints."""
-
-    def __getattr__(self, name: str) -> ProgramEndpointHandler: ...
+type ProgramCommandHandler = Callable[[CoreRuntime, CoreCommand], object]
+type ProgramQueryHandler = Callable[[CoreRuntime, CoreQuery], object]
 
 
 class ProgramEndpointRegistrar(Protocol):
     """Minimal runtime registration surface used by endpoint providers."""
 
-    register_query_handler: RegisterEndpoint
-    register_command_handler: RegisterEndpoint
+    def register_query_handler(
+        self,
+        name: str,
+        handler: ProgramQueryHandler,
+        *,
+        summary: str | None = None,
+        description: str = "",
+        payload_fields: tuple[CorePayloadFieldDescription, ...]
+        | list[CorePayloadFieldDescription]
+        | None = None,
+        tags: tuple[str, ...] | list[str] | None = None,
+        transport_stable: bool = True,
+    ) -> None:
+        """Register a query handler and its transport description."""
+        ...
+
+    def register_command_handler(
+        self,
+        name: str,
+        handler: ProgramCommandHandler,
+        *,
+        summary: str | None = None,
+        description: str = "",
+        payload_fields: tuple[CorePayloadFieldDescription, ...]
+        | list[CorePayloadFieldDescription]
+        | None = None,
+        tags: tuple[str, ...] | list[str] | None = None,
+        transport_stable: bool = True,
+    ) -> None:
+        """Register a command handler and its transport description."""
+        ...
 
 
 def field(

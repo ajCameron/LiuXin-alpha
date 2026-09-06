@@ -7,7 +7,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 
 from typing import TYPE_CHECKING, Optional
 
-from LiuXin_alpha.caches.write import OneToOneWriter
+from LiuXin_alpha.caches.write.generic_writers.one_to_one_writer import OneToOneWriter
 from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 

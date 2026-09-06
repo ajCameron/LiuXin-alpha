@@ -7,7 +7,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 
 from typing import TYPE_CHECKING
 
-from LiuXin_alpha.caches.write import BaseWriter
+from LiuXin_alpha.caches.write.base_writer import BaseWriter
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 if TYPE_CHECKING:

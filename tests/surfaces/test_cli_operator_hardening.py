@@ -17,6 +17,9 @@ from LiuXin_alpha.surfaces.cli import catalogue as catalogue_cli
 from LiuXin_alpha.surfaces.cli import diagnostics as diagnostics_cli
 from LiuXin_alpha.surfaces.cli import ingest_runs as ingest_runs_cli
 from LiuXin_alpha.surfaces.cli import storage as storage_cli
+from LiuXin_alpha.surfaces.cli.storage_commands import (
+    administration, core_access, integrity, store_add, store_wizard,
+)
 from LiuXin_alpha.surfaces.cli import workflows as workflows_cli
 from LiuXin_alpha.surfaces.cli.app import main as cli_main
 from LiuXin_alpha.surfaces.system_profile import (
@@ -191,7 +194,8 @@ def _session(core: _OperatorCore, *_args: object, **_kwargs: object):
 def operator_core(monkeypatch: pytest.MonkeyPatch) -> _OperatorCore:
     core = _OperatorCore()
     opener = lambda *args, **kwargs: _session(core, *args, **kwargs)
-    monkeypatch.setattr(storage_cli, "open_cli_core", opener)
+    for owner in (administration, core_access, integrity, store_add, store_wizard):
+        monkeypatch.setattr(owner, "open_cli_core", opener)
     monkeypatch.setattr(catalogue_cli, "open_cli_core", opener)
     monkeypatch.setattr(diagnostics_cli, "open_cli_core", opener)
     monkeypatch.setattr(workflows_cli, "open_cli_core", opener)
@@ -495,7 +499,7 @@ def test_storage_add_wizard_confirms_a_registry_backed_folder_store(
             "y",                 # final confirmation
         ]
     )
-    monkeypatch.setattr(storage_cli, "_storage_stdin_is_interactive", lambda: True)
+    monkeypatch.setattr(store_wizard, "_storage_stdin_is_interactive", lambda: True)
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
 
     assert cli_main(
@@ -547,7 +551,7 @@ def test_storage_add_wizard_preserves_advanced_backend_configuration(
             "y",                         # final confirmation
         ]
     )
-    monkeypatch.setattr(storage_cli, "_storage_stdin_is_interactive", lambda: True)
+    monkeypatch.setattr(store_wizard, "_storage_stdin_is_interactive", lambda: True)
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
 
     assert cli_main(

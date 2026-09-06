@@ -15,7 +15,9 @@ from LiuXin_alpha.surfaces.cli import capabilities as capabilities_cli
 from LiuXin_alpha.surfaces.cli import catalogue as catalogue_cli
 from LiuXin_alpha.surfaces.cli import common as common_cli
 from LiuXin_alpha.surfaces.cli import jobs as jobs_cli
-from LiuXin_alpha.surfaces.cli import storage as storage_cli
+from LiuXin_alpha.surfaces.cli.storage_commands import (
+    administration, core_access, integrity, store_add, store_wizard,
+)
 from LiuXin_alpha.surfaces.cli import workflows as workflows_cli
 from LiuXin_alpha.surfaces.cli.app import build_parser, main as cli_main
 
@@ -129,7 +131,11 @@ def fake_core(monkeypatch: pytest.MonkeyPatch) -> _Core:
         capabilities_cli,
         catalogue_cli,
         jobs_cli,
-        storage_cli,
+        administration,
+        core_access,
+        integrity,
+        store_add,
+        store_wizard,
         workflows_cli,
     ):
         monkeypatch.setattr(module, "open_cli_core", opener)

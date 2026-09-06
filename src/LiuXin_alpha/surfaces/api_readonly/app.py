@@ -300,8 +300,14 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
             "pagination": self._pagination_payload(base_path="/api/{}".format(kind), total=int(payload["total_num"]), limit=limit, offset=offset),
         }
 
-    def _category_detail_payload(self, *, kind: str, table: str, row_id: str) -> dict[str, object]:
-        row = self.read_model.row_by_id(table, int(str(row_id)))
+    def _category_detail_payload(self, *, kind: str, table: str, row_id: str) -> dict[str, object] | None:
+        try:
+            numeric_id = int(str(row_id))
+        except (TypeError, ValueError, OverflowError):
+            return None
+        row = self.read_model.row_by_id(table, numeric_id)
+        if row is None:
+            return None
         works = self.read_model.works_for_linked_entity(table, row_id)
         return {
             "kind": kind,
@@ -331,10 +337,10 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
                 return self._json_response(self._category_collection_payload(kind, limit=limit, offset=offset))
             if len(parts) == 3:
                 table = (self.read_model.tag_category_table() or "tags") if kind == "tags" else "series"
-                try:
-                    return self._json_response(self._category_detail_payload(kind=kind, table=table, row_id=parts[2]))
-                except Exception:
+                payload = self._category_detail_payload(kind=kind, table=table, row_id=parts[2])
+                if payload is None:
                     return self._json_response({"error": "missing_category_row", "message": "Category row not found."}, status="404 Not Found")
+                return self._json_response(payload)
             if len(parts) == 4 and parts[3] == "works":
                 table = (self.read_model.tag_category_table() or "tags") if kind == "tags" else "series"
                 rows = self.read_model.works_for_linked_entity(table, parts[2])
@@ -343,10 +349,10 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
             if len(parts) == 2:
                 return self._json_response(self._category_collection_payload(kind, limit=limit, offset=offset))
             if len(parts) == 4:
-                try:
-                    return self._json_response(self._category_detail_payload(kind=kind, table=str(parts[2]), row_id=parts[3]))
-                except Exception:
+                payload = self._category_detail_payload(kind=kind, table=str(parts[2]), row_id=parts[3])
+                if payload is None:
                     return self._json_response({"error": "missing_author_row", "message": "Author row not found."}, status="404 Not Found")
+                return self._json_response(payload)
             if len(parts) == 5 and parts[4] == "works":
                 table = str(parts[2])
                 rows = self.read_model.works_for_linked_entity(table, parts[3])

@@ -2,60 +2,56 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 from LiuXin_alpha.core.program_endpoints.common import (
-    ProgramEndpointHandlers,
     ProgramEndpointRegistrar,
     field,
 )
+from LiuXin_alpha.core.program_endpoints.handlers import DatabaseSchemaHandlers
 
 
-def install_queries(api: object, runtime: object) -> None:
+def install_queries(api: DatabaseSchemaHandlers, runtime: ProgramEndpointRegistrar) -> None:
     """Register this family's query endpoints."""
 
-    handlers = cast(ProgramEndpointHandlers, api)
-    registrar = cast(ProgramEndpointRegistrar, runtime)
-    query = registrar.register_query_handler
+    query = runtime.register_query_handler
 
     query(
                 "database.info",
-                handlers.database_info,
+                api.database_info,
                 summary="Return transport-safe database identity and configuration.",
                 tags=("database", "read"),
             )
 
     query(
                 "database.summary",
-                handlers.database_summary,
+                api.database_summary,
                 summary="Return table categories and row counts.",
                 tags=("database", "schema", "read"),
             )
 
     query(
                 "database.telemetry",
-                handlers.database_telemetry,
+                api.database_telemetry,
                 summary="Return database write and dirty-record telemetry.",
                 tags=("database", "telemetry", "read"),
             )
 
     query(
                 "database.migrations.status",
-                handlers.database_migrations_status,
+                api.database_migrations_status,
                 summary="Report additive storage and normalized-identity migration state.",
                 tags=("database", "migrations", "read"),
             )
 
     query(
                 "database.migrations.plan",
-                handlers.database_migrations_plan,
+                api.database_migrations_plan,
                 summary="Plan idempotent database migrations without applying them.",
                 tags=("database", "migrations", "read"),
             )
 
     query(
                 "schema.column",
-                handlers.schema_column,
+                api.schema_column,
                 summary="Return semantic and writer policy for one column.",
                 payload_fields=(
                     field("table", required=True, field_type="string"),
@@ -66,7 +62,7 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "schema.link",
-                handlers.schema_link,
+                api.schema_link,
                 summary="Return declared capabilities for a table relation.",
                 payload_fields=(
                     field("table", required=True, field_type="string"),
@@ -77,7 +73,7 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "preferences.list",
-                handlers.preferences_list,
+                api.preferences_list,
                 summary="List application or library preferences.",
                 payload_fields=(field("scope", field_type="string"),),
                 tags=("preferences", "read"),
@@ -85,7 +81,7 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "preferences.get",
-                handlers.preferences_get,
+                api.preferences_get,
                 summary="Read one application or library preference.",
                 payload_fields=(
                     field("key", required=True, field_type="string"),
@@ -97,21 +93,19 @@ def install_queries(api: object, runtime: object) -> None:
 
     query(
                 "custom-fields.list",
-                handlers.custom_fields_list,
+                api.custom_fields_list,
                 summary="List custom-column definitions.",
                 tags=("schema", "custom-fields", "read"),
             )
 
-def install_commands(api: object, runtime: object) -> None:
+def install_commands(api: DatabaseSchemaHandlers, runtime: ProgramEndpointRegistrar) -> None:
     """Register this family's command endpoints."""
 
-    handlers = cast(ProgramEndpointHandlers, api)
-    registrar = cast(ProgramEndpointRegistrar, runtime)
-    command = registrar.register_command_handler
+    command = runtime.register_command_handler
 
     command(
                 "database.backup",
-                handlers.database_backup,
+                api.database_backup,
                 summary="Create a database backup using the configured driver.",
                 payload_fields=(
                     field("output_path", field_type="string|null"),
@@ -122,21 +116,21 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "database.vacuum",
-                handlers.database_vacuum,
+                api.database_vacuum,
                 summary="Vacuum or compact the configured database.",
                 tags=("database", "maintenance", "write"),
             )
 
     command(
                 "database.migrations.apply",
-                handlers.database_migrations_apply,
+                api.database_migrations_apply,
                 summary="Apply known additive migrations and normalized identities.",
                 tags=("database", "migrations", "maintenance", "write"),
             )
 
     command(
                 "schema.column.update",
-                handlers.schema_column_update,
+                api.schema_column_update,
                 summary="Update semantic and writer policy for one column.",
                 payload_fields=(
                     field("table", required=True, field_type="string"),
@@ -148,7 +142,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "preferences.set",
-                handlers.preferences_set,
+                api.preferences_set,
                 summary="Set one application or library preference.",
                 payload_fields=(
                     field("key", required=True, field_type="string"),
@@ -160,7 +154,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "preferences.delete",
-                handlers.preferences_delete,
+                api.preferences_delete,
                 summary="Delete one application or library preference.",
                 payload_fields=(
                     field("key", required=True, field_type="string"),
@@ -171,7 +165,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "custom-fields.create",
-                handlers.custom_fields_create,
+                api.custom_fields_create,
                 summary="Create a custom column.",
                 payload_fields=(
                     field("name", required=True, field_type="string"),
@@ -188,7 +182,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "custom-fields.update",
-                handlers.custom_fields_update,
+                api.custom_fields_update,
                 summary="Update one custom-column definition.",
                 payload_fields=(
                     field("num", required=True, field_type="integer"),
@@ -199,7 +193,7 @@ def install_commands(api: object, runtime: object) -> None:
 
     command(
                 "custom-fields.delete",
-                handlers.custom_fields_delete,
+                api.custom_fields_delete,
                 summary="Mark one custom column for deletion.",
                 payload_fields=(
                     field("num", field_type="integer"),
