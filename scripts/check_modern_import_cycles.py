@@ -47,6 +47,15 @@ TERMINAL_LEAVES = frozenset(
     f"{TERMINAL_PREFIX}.{owner}"
     for owner in ("presentation", "commands.base", "plugins.base")
 )
+TERMINAL_COMPONENT_ROOTS = (
+    f"{TERMINAL_PREFIX}.browser_components",
+    f"{TERMINAL_PREFIX}.windowed_components",
+)
+TERMINAL_COMPONENT_CONTRACTS = frozenset(
+    f"{root}.{owner}"
+    for root in TERMINAL_COMPONENT_ROOTS
+    for owner in ("models", "contracts")
+)
 PROTECTED_PREFIXES = (
     "LiuXin_alpha.catalog.api",
     "LiuXin_alpha.catalog.write",
@@ -246,8 +255,23 @@ def build_graph(
     return collect_imports(source_root, protected_prefixes=protected_prefixes).graph()
 
 
-def forbidden_dependency(edge: ImportEdge) -> str | None:
-    """Reject backward ownership even when it does not close a cycle."""
+def _forbidden_terminal_dependency(edge: ImportEdge) -> str | None:
+    """Keep terminal composition above its reusable implementations and contracts."""
+    if _within(edge.source, TERMINAL_COMPONENT_ROOTS) and edge.target in {
+        f"{TERMINAL_PREFIX}.browser",
+        f"{TERMINAL_PREFIX}.windowed_ui",
+    }:
+        return "terminal components must not import concrete composition roots"
+    if _within(edge.source, (TERMINAL_COMPONENT_ROOTS[0],)) and _within(
+        edge.target, (TERMINAL_COMPONENT_ROOTS[1],)
+    ):
+        return "terminal browser components must not depend on curses components"
+    if (
+        edge.source in TERMINAL_COMPONENT_CONTRACTS
+        and _within(edge.target, TERMINAL_COMPONENT_ROOTS)
+        and edge.target not in TERMINAL_COMPONENT_CONTRACTS
+    ):
+        return "terminal contracts must not depend on component implementations"
     if (
         _within(edge.source, (TERMINAL_PREFIX,))
         and edge.source not in TERMINAL_ENTRY_POINTS
@@ -261,6 +285,14 @@ def forbidden_dependency(edge: ImportEdge) -> str | None:
         return "terminal browser execution must not select or import its curses adapter"
     if edge.source in TERMINAL_LEAVES and _within(edge.target, ("LiuXin_alpha",)):
         return "terminal presentation and extension APIs must remain independent leaves"
+    return None
+
+
+def forbidden_dependency(edge: ImportEdge) -> str | None:
+    """Reject backward ownership even when it does not close a cycle."""
+    terminal_error = _forbidden_terminal_dependency(edge)
+    if terminal_error is not None:
+        return terminal_error
     if (
         _within(edge.source, (CLI_PREFIX,))
         and edge.source not in CLI_ENTRY_POINTS

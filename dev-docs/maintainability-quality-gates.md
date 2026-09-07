@@ -2,7 +2,8 @@
 
 Status: enforced for the modern ratchet; updated 2026-09-07 through the
 internal-contract, workflow-ownership, dependency-direction, failure-visibility,
-incremental-formatting, CLI-composition, and terminal-composition tranches.
+incremental-formatting, CLI-composition, terminal-composition, and terminal-owner
+extraction tranches.
 
 ## Purpose
 
@@ -14,7 +15,7 @@ regressions.
 
 The default gate is therefore a zero-error ratchet. It covers the modern
 storage API, the Core program facade and its endpoint providers, the mixed
-ingest application seam, and reviewed packaged CLI owners. Newly extracted leaf
+ingest application seam, and reviewed packaged CLI and terminal owners. Newly extracted leaf
 protocols are checked strictly. Existing orchestration remains on
 basedpyright's standard mode until its dynamic subsystem boundaries are made
 more precise. Mypy uses strict checking within the selected files while
@@ -99,8 +100,9 @@ implementation mixins, and shared presentation/acquisition leaves. Formatting
 coverage does not imply strict typing or expand the separate lint scope.
 The CLI-composition tranche adds eight reviewed owners/entry modules and its
 contract suite, taking current formatting coverage to 118 files.
-The subsequent terminal-composition tranche adds nine reviewed terminal sources
-and its contract suite, taking current coverage to 128 files.
+The terminal-composition tranche added nine reviewed terminal sources and its
+contract suite, taking coverage to 128 files. Stage 8 adds both complete terminal
+component directories and two regression suites: current coverage is 154 files.
 
 Use the repo-local commands:
 
@@ -206,10 +208,11 @@ checkable at both the caller and implementation:
 `scripts/check_internal_type_contracts.py` for each selected checker after its
 production check succeeds. The static-only fixture
 `tests/typing/internal_contracts.py` contains valid calls against real
-implementations and 32 deliberately invalid examples covering names, argument
+implementations and 37 deliberately invalid examples covering names, argument
 types, return types, signatures, provider conformance, and typed evacuation
 plans/limits, acquisition-reader calls, row lookups, and completion registrar
-calls and terminal extension hosts/overrides. Each invalid line
+calls, terminal extension hosts/overrides, and concrete browser/curses component
+calls and structural window/row contracts. Each invalid line
 must report its expected diagnostic rule; all other lines must pass. An
 unrelated import error or checker failure cannot satisfy the test.
 
@@ -342,21 +345,36 @@ their host instead of importing the concrete browser under `TYPE_CHECKING`.
 The historical `text_browser` module retains explicit aliases; package exports
 resolve lazily. See [terminal composition](terminal-composition.md).
 
-All 45 terminal modules enter the combined graph, bringing its current scope to
-197 modules. Implementations cannot import terminal entry-point facades, browser
+Stage 8 splits the two large terminal owners into complete `browser_components`
+and `windowed_components` trees. The browser root is now 128 lines and the curses
+composition/adapter 178 lines; each component is bounded by the ownership tests.
+Command dispatch, legacy grammar, history/completion, browsing/rows, input keys,
+and pane presentation have named owners and helpers. Explicit shared-state and
+cross-owner contracts keep mixin composition checked; concrete extension hosts
+and structural browser/window/row capabilities do not require backward imports.
+
+All 69 terminal modules enter the combined graph, bringing its current scope to
+221 modules. Implementations cannot import terminal entry-point facades, browser
 execution cannot import its curses adapter, and the presentation/extension leaves
 cannot import another LiuXin module. Entry wrappers retain explicit exceptions;
 no deferred or type-only context is omitted.
+Component implementations additionally cannot import their concrete composition
+roots, browser components cannot import curses components, and contract modules
+cannot import implementation mixins.
 
-Seven reviewed terminal sources enter typing/lint (162 strict-mypy files total),
-three leaves enter strict basedpyright, and six startup/facade/API sources enter
-complexity-10 checking. The large browser/curses implementations and inherited
-rendering-helper complexity remain explicit debt, not a newly raised ceiling.
-Five additional negative examples protect the host and override contracts.
+All 33 reviewed terminal sources enter typing/lint (188 strict-mypy files total).
+Both complete component trees, both roots, and the shared rendering helpers are
+held to complexity 10; all 18 original violations are resolved without a raised
+ceiling. Five terminal leaves enter strict basedpyright; orchestration retains
+standard mode and explicit dynamic Core payload boundaries. The Core row view's
+overloads now describe its existing list-versus-iterator result without a runtime
+change. Stage 7 added five host/override examples; stage 8 adds five internal
+browser, row, driver, and window mistakes, bringing the total to 37 per checker.
 
-CI runs the new terminal dependency/compatibility suite and the existing curses
-driver contracts alongside scanner tests for every backward direction and import
-context. Full text-browser regressions additionally exercise real Core/database,
+CI runs terminal dependency/compatibility, ownership/quality-scope, headless
+component behavior, and existing curses-driver contracts alongside scanner tests
+for every backward direction and import context. Full text-browser regressions
+additionally exercise real Core/database,
 mutation, lifecycle, history, completion, and startup behavior.
 
 ## Read-model failure visibility

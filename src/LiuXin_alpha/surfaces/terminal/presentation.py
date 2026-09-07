@@ -132,6 +132,22 @@ def pretty_row_detail_group(group: str) -> str:
     )
 
 
+def _strip_column_prefixes(original: str, ordered_prefixes: Sequence[str]) -> str:
+    """Repeatedly remove known prefixes, retaining a nonempty label."""
+    text = original
+    changed = True
+    while changed:
+        changed = False
+        for prefix in ordered_prefixes:
+            if text.startswith(prefix) and len(text) > len(prefix):
+                text = text[len(prefix) :]
+                changed = True
+                break
+    if not text:
+        text = original
+    return text
+
+
 def shorten_column_headers(
     headers: Sequence[str], *, table_name: str | None = None
 ) -> list[str]:
@@ -173,20 +189,9 @@ def shorten_column_headers(
                 known_prefixes.add("_".join(singular_tokens) + "_")
 
     ordered_prefixes = sorted(known_prefixes, key=len, reverse=True)
-    shortened: list[str] = []
-    for original in originals:
-        text = original
-        changed = True
-        while changed:
-            changed = False
-            for prefix in ordered_prefixes:
-                if text.startswith(prefix) and len(text) > len(prefix):
-                    text = text[len(prefix) :]
-                    changed = True
-                    break
-        if not text:
-            text = original
-        shortened.append(text)
+    shortened = [
+        _strip_column_prefixes(original, ordered_prefixes) for original in originals
+    ]
 
     # Keep headers unambiguous after shortening.
     counts: dict[str, int] = {}
@@ -200,6 +205,67 @@ def shorten_column_headers(
             deduped.append(f"{text}#{seen + 1}")
 
     return deduped
+
+
+def _table_width(widths: Sequence[int]) -> int:
+    """Account for each column plus the ASCII borders."""
+    return 1 + sum(width + 3 for width in widths)
+
+
+def _fit_table_width(
+    normalized_headers: list[str],
+    normalized_rows: list[list[str]],
+    widths: list[int],
+    max_table_width: int,
+) -> bool:
+    """Drop rightmost columns and shrink the remainder to the available width."""
+    # Width model for this renderer:
+    # total = 1 + sum(column_width + 3)
+    preferred_min_widths = [min(max(6, len(h)), 14) for h in normalized_headers]
+
+    # If preferred-readable columns won't fit, drop columns from the right.
+    omitted_columns = 0
+    while widths and _table_width(preferred_min_widths) > max_table_width:
+        widths.pop()
+        preferred_min_widths.pop()
+        normalized_headers.pop()
+        for row in normalized_rows:
+            row.pop()
+        omitted_columns += 1
+    if omitted_columns:
+        if normalized_headers:
+            normalized_headers[-1] = (
+                normalized_headers[-1] + f" (+{omitted_columns} cols)"
+            )
+            widths[-1] = max(widths[-1], len(normalized_headers[-1]))
+        else:
+            return False
+
+    min_widths = [3 for _ in normalized_headers]
+
+    # Shrink widest columns until table fits.
+    while widths and _table_width(widths) > max_table_width:
+        widest_idx = max(range(len(widths)), key=lambda idx: widths[idx])
+        if widths[widest_idx] <= min_widths[widest_idx]:
+            break
+        widths[widest_idx] -= 1
+
+    _truncate_fitted_cells(normalized_headers, normalized_rows, widths)
+    return True
+
+
+def _truncate_fitted_cells(
+    normalized_headers: list[str], normalized_rows: list[list[str]], widths: list[int]
+) -> None:
+    """Apply final widths only after column allocation has settled."""
+    # Re-truncate headers and cells to final widths.
+    for idx, header in enumerate(normalized_headers):
+        if len(header) > widths[idx]:
+            normalized_headers[idx] = stringify_table_cell(header, width=widths[idx])
+    for row in normalized_rows:
+        for idx, cell in enumerate(row):
+            if len(cell) > widths[idx]:
+                row[idx] = stringify_table_cell(cell, width=widths[idx])
 
 
 def render_ascii_table(
@@ -229,50 +295,10 @@ def render_ascii_table(
             widths[idx] = max(widths[idx], len(cell))
 
     if max_table_width is not None and max_table_width > 0:
-        # Width model for this renderer:
-        # total = 1 + sum(column_width + 3)
-        preferred_min_widths = [min(max(6, len(h)), 14) for h in normalized_headers]
-
-        def _table_width(width_values: Sequence[int]) -> int:
-            return 1 + sum(w + 3 for w in width_values)
-
-        # If preferred-readable columns won't fit, drop columns from the right.
-        omitted_columns = 0
-        while widths and _table_width(preferred_min_widths) > max_table_width:
-            widths.pop()
-            preferred_min_widths.pop()
-            normalized_headers.pop()
-            for row in normalized_rows:
-                row.pop()
-            omitted_columns += 1
-        if omitted_columns:
-            if normalized_headers:
-                normalized_headers[-1] = (
-                    normalized_headers[-1] + f" (+{omitted_columns} cols)"
-                )
-                widths[-1] = max(widths[-1], len(normalized_headers[-1]))
-            else:
-                return f"(table too wide to render in {max_table_width} columns)"
-
-        min_widths = [3 for _ in normalized_headers]
-
-        # Shrink widest columns until table fits.
-        while widths and _table_width(widths) > max_table_width:
-            widest_idx = max(range(len(widths)), key=lambda idx: widths[idx])
-            if widths[widest_idx] <= min_widths[widest_idx]:
-                break
-            widths[widest_idx] -= 1
-
-        # Re-truncate headers and cells to final widths.
-        for idx, header in enumerate(normalized_headers):
-            if len(header) > widths[idx]:
-                normalized_headers[idx] = stringify_table_cell(
-                    header, width=widths[idx]
-                )
-        for row in normalized_rows:
-            for idx, cell in enumerate(row):
-                if len(cell) > widths[idx]:
-                    row[idx] = stringify_table_cell(cell, width=widths[idx])
+        if not _fit_table_width(
+            normalized_headers, normalized_rows, widths, max_table_width
+        ):
+            return f"(table too wide to render in {max_table_width} columns)"
 
     divider = "+-" + "-+-".join("-" * width for width in widths) + "-+"
     lines = [divider]

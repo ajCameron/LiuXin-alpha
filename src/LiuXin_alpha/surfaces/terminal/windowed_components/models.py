@@ -1,0 +1,63 @@
+"""Configuration and structural capabilities consumed by the curses owners.
+
+Neither the concrete browser nor the driver is imported here. Test windows and
+alternate browser hosts can implement the same small named capabilities.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Protocol
+
+from LiuXin_alpha.utils.jobs.manager import JobManagerAPI
+
+from ..browser_components.models import BrowseWindow, CommandCompletion
+
+
+class CursesWindow(Protocol):
+    """Only the curses window operations used by the driver."""
+
+    def getmaxyx(self) -> tuple[int, int]: ...
+    def get_wch(self) -> str | int: ...
+    def erase(self) -> None: ...
+    def addstr(self, y: int, x: int, text: str, /) -> None: ...
+    def hline(self, y: int, x: int, ch: int, n: int, /) -> None: ...
+    def noutrefresh(self) -> None: ...
+    def move(self, y: int, x: int, /) -> None: ...
+    def keypad(self, flag: bool, /) -> None: ...
+    def timeout(self, delay: int, /) -> None: ...
+
+
+class WindowedBrowser(Protocol):
+    """Browser context and Core queries needed by input and status panes."""
+
+    @property
+    def database_path(self) -> str: ...
+    @property
+    def current_table(self) -> str | None: ...
+    @property
+    def window(self) -> BrowseWindow | None: ...
+    @property
+    def page_size(self) -> int: ...
+    @property
+    def job_manager(self) -> JobManagerAPI: ...
+    def supports_core_queries(self) -> bool: ...
+    def execute_core_query(
+        self, name: str, *, payload: dict[str, object] | None = None
+    ) -> Any: ...
+    def core_runtime_status_summary(self) -> str: ...
+    def get_table_row_count(self, table: str) -> int | None: ...
+    def command_completion_candidates(
+        self, line: str, *, cursor: int | None = None
+    ) -> CommandCompletion: ...
+
+
+@dataclass
+class WindowedUiConfig:
+    """Configuration for the split-pane curses UI."""
+
+    status_refresh_s: float = 1.0
+    status_height: int = 9
+    telemetry_panel_height: int = 9
+    job_panel_height: int = 10
+    max_console_lines: int = 4000

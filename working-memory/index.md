@@ -6,12 +6,19 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [terminal-owner-extraction-2026-09-07.md](terminal-owner-extraction-2026-09-07.md)
+  Completed stage 8: both browser and curses owners split by responsibility; all 18
+  complexity violations resolved, complete extracted trees linted/typed, and
+  ownership/behavior contracts added. Expanded quality gate, compatibility
+  comparisons, and 455 final regressions pass. Included in the stage-8 checkpoint,
+  not yet pushed; the programme is paused for reassessment.
+
 - [terminal-dependency-direction-2026-09-07.md](terminal-dependency-direction-2026-09-07.md)
   Completed stage 7: separate terminal startup, browser, creation, and
   presentation owners; generic extension hosts and lazy compatibility exports.
   The 197-module graph includes all 45 terminal modules. Records compatibility,
   typing, and regression evidence in the stage-7 checkpoint, not yet pushed.
-  Stage 8 has preparatory baselines only; its implementation remains next.
+  Historical stage-7 verification; subsequent stage-8 work is recorded above.
 
 - [cli-dependency-direction-2026-09-07.md](cli-dependency-direction-2026-09-07.md)
   Completed stage 6: separates CLI grammar, dispatch, completion, and SquashFS

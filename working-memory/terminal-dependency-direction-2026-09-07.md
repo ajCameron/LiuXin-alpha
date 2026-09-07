@@ -118,4 +118,5 @@ complexity 10. No stage-8 implementation changes are included in this checkpoint
 Resume with the responsibility split above, preserving the current command,
 completion, panel, and failure behavior while adding named internal contracts
 and widening lint/complexity coverage. The existing stage-7 verification is not
-stage-8 sign-off.
+stage-8 sign-off. The subsequent implementation and verification are recorded in
+[stage-8 owner extraction](terminal-owner-extraction-2026-09-07.md).

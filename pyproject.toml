@@ -122,6 +122,10 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
 # Positive scope: directory entries also protect newly added Python modules.
 # Formatting does not implicitly expand the separate lint or typing ratchets.
 paths = [
+  "src/LiuXin_alpha/surfaces/terminal/browser_components",
+  "src/LiuXin_alpha/surfaces/terminal/windowed_components",
+  "tests/surfaces/test_terminal_component_ownership.py",
+  "tests/surfaces/test_terminal_component_behavior.py",
   "src/LiuXin_alpha/surfaces/terminal/__init__.py",
   "src/LiuXin_alpha/surfaces/terminal/text_browser.py",
   "src/LiuXin_alpha/surfaces/terminal/app.py",
@@ -186,6 +190,10 @@ paths = [
 [tool.basedpyright]
 typeCheckingMode = "standard"
 include = [
+  "src/LiuXin_alpha/surfaces/terminal/browser.py",
+  "src/LiuXin_alpha/surfaces/terminal/browser_components",
+  "src/LiuXin_alpha/surfaces/terminal/windowed_ui.py",
+  "src/LiuXin_alpha/surfaces/terminal/windowed_components",
   "src/LiuXin_alpha/surfaces/terminal/__init__.py",
   "src/LiuXin_alpha/surfaces/terminal/text_browser.py",
   "src/LiuXin_alpha/surfaces/terminal/app.py",
@@ -219,6 +227,8 @@ include = [
   "src/LiuXin_alpha/surfaces/cli/storage_commands",
 ]
 strict = [
+  "src/LiuXin_alpha/surfaces/terminal/browser_components/models.py",
+  "src/LiuXin_alpha/surfaces/terminal/windowed_components/models.py",
   "src/LiuXin_alpha/surfaces/terminal/presentation.py",
   "src/LiuXin_alpha/surfaces/terminal/commands/base.py",
   "src/LiuXin_alpha/surfaces/terminal/plugins/base.py",
@@ -249,6 +259,10 @@ pythonVersion = "3.12"
 [tool.mypy]
 python_version = "3.12"
 files = [
+  "src/LiuXin_alpha/surfaces/terminal/browser.py",
+  "src/LiuXin_alpha/surfaces/terminal/browser_components",
+  "src/LiuXin_alpha/surfaces/terminal/windowed_ui.py",
+  "src/LiuXin_alpha/surfaces/terminal/windowed_components",
   "src/LiuXin_alpha/surfaces/terminal/__init__.py",
   "src/LiuXin_alpha/surfaces/terminal/text_browser.py",
   "src/LiuXin_alpha/surfaces/terminal/app.py",

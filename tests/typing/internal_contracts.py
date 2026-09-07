@@ -15,6 +15,10 @@ from typing import Protocol, assert_type
 import LiuXin_alpha.storage.api as storage
 from LiuXin_alpha.core.commands import CoreCommand
 from LiuXin_alpha.core.program_api import CoreProgramAPI
+from LiuXin_alpha.core.program_endpoints import install_program_endpoints
+from LiuXin_alpha.core.program_endpoints.common import ProgramEndpointRegistrar
+from LiuXin_alpha.core.program_endpoints.handlers import ProgramEndpointHandlers
+from LiuXin_alpha.core.program_endpoints.storage import install_queries
 from LiuXin_alpha.core.program_services.evacuation_execution import (
     EvacuationExecution,
     execute_evacuation,
@@ -24,10 +28,6 @@ from LiuXin_alpha.core.program_services.evacuation_models import (
     EvacuationPlan,
 )
 from LiuXin_alpha.core.program_services.evacuation_planning import build_evacuation_plan
-from LiuXin_alpha.core.program_endpoints import install_program_endpoints
-from LiuXin_alpha.core.program_endpoints.common import ProgramEndpointRegistrar
-from LiuXin_alpha.core.program_endpoints.handlers import ProgramEndpointHandlers
-from LiuXin_alpha.core.program_endpoints.storage import install_queries
 from LiuXin_alpha.core.queries import CoreQuery
 from LiuXin_alpha.core.runtime import CoreRuntime
 from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
@@ -42,8 +42,34 @@ from LiuXin_alpha.surfaces.cli.parsers import create_parser
 from LiuXin_alpha.surfaces.core import CoreRow, CoreSurfaceModel
 from LiuXin_alpha.surfaces.presentation import RowLookup, row_value
 from LiuXin_alpha.surfaces.terminal.browser import TextDatabaseBrowser
+from LiuXin_alpha.surfaces.terminal.browser_components.models import RowRecord
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.surfaces.terminal.plugins.base import TerminalLifecyclePluginAPI
+from LiuXin_alpha.surfaces.terminal.windowed_components.models import CursesWindow
+from LiuXin_alpha.surfaces.terminal.windowed_ui import _CursesUiDriver
+
+
+def terminal_component_contracts(
+    browser: TextDatabaseBrowser,
+    driver: _CursesUiDriver,
+    row: CoreRow,
+    window: CursesWindow,
+) -> None:
+    row_record: RowRecord = row
+    assert_type(browser._table_slice("works", limit=2, offset=0), list[CoreRow])
+    assert_type(browser.format_row("works", row_record), str)
+    assert_type(driver._visible_console_lines(width=80, visible_rows=10), list[str])
+    driver.bind_browser(browser)
+    window.addstr(0, 0, "content")
+    browser._table_slice(
+        "works",
+        limit="two",  # expect-error: reportArgumentType arg-type
+        offset=0,
+    )
+    browser.format_row("works", object())  # expect-error: reportArgumentType arg-type
+    driver.bind_browser(object())  # expect-error: reportArgumentType arg-type
+    driver.read_line("prompt", initial="x")  # expect-error: reportCallIssue call-arg
+    window.addstr(0, 0, 7)  # expect-error: reportArgumentType arg-type
 
 
 class TerminalEmitter(Protocol):

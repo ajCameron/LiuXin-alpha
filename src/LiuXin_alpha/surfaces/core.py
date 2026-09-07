@@ -13,7 +13,7 @@ import base64
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, overload
 
 from LiuXin_alpha.core import CoreClientAPI, core_client, create_core
 
@@ -851,6 +851,21 @@ class CoreDatabaseView:
 
     def get_row_from_id(self, table: str, row_id: int) -> CoreRow | None:
         return self.model.row(table, row_id)
+
+    @overload
+    def get_all_rows(
+        self, table: str, iterator_return: Literal[True] = True
+    ) -> Iterator[CoreRow]: ...
+
+    @overload
+    def get_all_rows(
+        self, table: str, iterator_return: Literal[False]
+    ) -> list[CoreRow]: ...
+
+    @overload
+    def get_all_rows(
+        self, table: str, iterator_return: bool
+    ) -> list[CoreRow] | Iterator[CoreRow]: ...
 
     def get_all_rows(
         self,

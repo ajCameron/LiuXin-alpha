@@ -20,6 +20,7 @@ from LiuXin_alpha.surfaces.terminal.plugins import TerminalLifecyclePluginAPI
 from LiuXin_alpha.surfaces.terminal import text_browser as text_browser_module
 from LiuXin_alpha.surfaces.terminal import app as terminal_app
 from LiuXin_alpha.surfaces.terminal import browser as browser_module
+from LiuXin_alpha.surfaces.terminal.browser_components import session as browser_session
 from LiuXin_alpha.surfaces.terminal.text_browser import TextDatabaseBrowser, main as browser_main
 from LiuXin_alpha.library.library import Library
 from LiuXin_alpha.metadata.standardization import make_tag_search_term, make_title_search_term, standardize_genre
@@ -1135,7 +1136,7 @@ def test_text_browser_readline_mode_configures_command_completion(monkeypatch, d
             return None
 
     fake_readline = _FakeReadline()
-    monkeypatch.setattr(browser_module, "_readline", fake_readline, raising=False)
+    monkeypatch.setattr(browser_session, "_readline", fake_readline, raising=False)
 
     def _fake_input(prompt: str) -> str:
         prompts.append(prompt)
@@ -1187,7 +1188,7 @@ def test_text_browser_history_loads_and_saves_for_interactive_readline(
         def add_history(self, _line: str) -> None:
             return None
 
-    monkeypatch.setattr(browser_module, "_readline", _FakeReadline(), raising=False)
+    monkeypatch.setattr(browser_session, "_readline", _FakeReadline(), raising=False)
 
     with Database(
         metadata={"database_path": str(db_path)},
@@ -1222,7 +1223,7 @@ def test_text_browser_history_not_used_without_interactive_readline(monkeypatch,
         def add_history(self, _line: str) -> None:
             return None
 
-    monkeypatch.setattr(browser_module, "_readline", _FakeReadline(), raising=False)
+    monkeypatch.setattr(browser_session, "_readline", _FakeReadline(), raising=False)
 
     with Database(
         metadata={"database_path": str(db_path)},

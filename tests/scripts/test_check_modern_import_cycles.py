@@ -254,6 +254,31 @@ def test_gate_rejects_every_cycle_context(
             "terminal implementations",
         ),
         (
+            "surfaces/terminal/browser_components/catalog.py",
+            "from ..browser import TextDatabaseBrowser",
+            "concrete composition roots",
+        ),
+        (
+            "surfaces/terminal/windowed_components/input.py",
+            "from ..windowed_ui import _CursesUiDriver",
+            "concrete composition roots",
+        ),
+        (
+            "surfaces/terminal/browser_components/session.py",
+            "from ..windowed_components.input import InputMixin",
+            "curses components",
+        ),
+        (
+            "surfaces/terminal/browser_components/contracts.py",
+            "from .registry import RegistryMixin",
+            "component implementations",
+        ),
+        (
+            "surfaces/terminal/windowed_components/models.py",
+            "from ..browser_components.catalog import CatalogMixin",
+            "component implementations",
+        ),
+        (
             "surfaces/terminal/windowed_ui.py",
             "from .app import main",
             "terminal implementations",
