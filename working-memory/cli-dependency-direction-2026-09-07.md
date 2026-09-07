@@ -5,8 +5,9 @@
 Stage 6 repairs the deferred CLI package/app/completion/SquashFS cycle, following
 the [stage-5 formatting tranche](incremental-formatting-2026-09-07.md). Stages
 5–6 are recorded together in the commit containing this note on
-`codex/package-calibre-resources`. This checkpoint has not been pushed; the
-last pushed checkpoint is stages 1–4, `859ab804`.
+`codex/package-calibre-resources`. The
+[final close-out](maintainability-closeout-2026-09-07.md) records subsequent PR
+publication; verification below describes this stage's checkpoint.
 
 - `surfaces/cli/parsers.py` owns the complete command grammar, preserving
   registration order, aliases, options, and defaults. `app.py` retains public

@@ -4,7 +4,8 @@
 
 Stage 5 follows the pushed stages 1–4 checkpoint `859ab804` on
 `codex/package-calibre-resources`. It is committed together with stage 6 in the
-checkpoint containing this note; that checkpoint has not been pushed.
+checkpoint `12c1fd69`; the [final close-out](maintainability-closeout-2026-09-07.md)
+records subsequent PR publication.
 
 - `[tool.liuxin.format].paths` is the explicit formatting scope: 109 Python
   files covering the prior modern lint scope, Core/storage CLI regression
@@ -60,8 +61,8 @@ No formatter skips, line-range matching, or type suppressions were introduced.
 The selected database tests use SQLite and local Core/RPC sockets; no
 PostgreSQL, full-project, or remote-CI sign-off is implied.
 
-Stage 5 is complete and committed together with stage 6. Pushing this checkpoint
-remains a separate action.
+Stage 5 is complete and committed together with stage 6. Publication is recorded
+in the final close-out linked above.
 
 ## Remaining programme
 

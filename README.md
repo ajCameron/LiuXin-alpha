@@ -2,6 +2,10 @@
 
 Public, development fork of LiuXin. Alpha. DO NOT USE IN PROD.
 
+Start with the [developer documentation index](dev-docs/README.md) for
+architecture, subsystem guides, testing, and CI ownership. Dated implementation
+handoffs live in the [working-memory index](working-memory/index.md).
+
 ## Local Setup
 
 LiuXin-alpha expects Python 3.12 or newer.

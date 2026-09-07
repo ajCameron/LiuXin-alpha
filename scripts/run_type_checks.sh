@@ -180,6 +180,8 @@ RUFF_CMD=(
     "tests/core/test_program_workflow_facade.py"
     "tests/scripts/test_check_modern_import_cycles.py"
     "tests/scripts/test_public_documentation_boundaries.py"
+    "tests/scripts/test_ci_workflow_contracts.py"
+    "tests/scripts/test_developer_documentation_links.py"
     "tests/scripts/test_run_type_checks.py"
     "tests/storage/api/test_storage_manager_composition.py"
     "tests/storage/api/test_storage_manager_docstrings.py"

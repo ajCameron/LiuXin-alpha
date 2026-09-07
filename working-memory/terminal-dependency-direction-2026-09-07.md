@@ -4,7 +4,8 @@
 
 Stage 7 follows the committed stages 5–6 checkpoint `12c1fd69` on
 `codex/package-calibre-resources`. This note accompanies the stage-7 checkpoint;
-the checkpoint has not been pushed. Its bounded scope is the terminal
+the [final close-out](maintainability-closeout-2026-09-07.md) records subsequent
+PR publication. Its bounded scope is the terminal
 browser/windowed-UI cycle and associated extension type dependencies, not a
 complete rewrite of the large terminal implementations.
 
@@ -86,7 +87,8 @@ or remote-CI sign-off is claimed. Test counts overlap and are not additive.
 
 Stage 7 is complete for the bounded dependency repair and is grouped with its
 tests, quality gates, and documentation in this checkpoint. Stages 5–6 are
-committed separately in `12c1fd69`; neither checkpoint has been pushed.
+committed separately in `12c1fd69`. Publication is recorded in the final
+close-out linked above.
 
 ## Checkpoint verification — 2026-09-07
 

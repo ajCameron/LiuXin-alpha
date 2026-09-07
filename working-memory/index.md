@@ -1,31 +1,38 @@
 # Working Memory Index
 
-Updated: 2026-09-07
+Updated: 2026-09-08
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [maintainability-closeout-2026-09-07.md](maintainability-closeout-2026-09-07.md)
+  Final bounded close-out: one general CI owner, failure-aware merge summary,
+  developer-documentation index, portable links, and executable contracts.
+  Quality gate, 129 focused tests, and whole-tree syntax pass. The bounded
+  programme is complete; final checkpoint and publication handoff for
+  [PR #115](https://github.com/ajCameron/LiuXin-alpha/pull/115).
+
 - [terminal-owner-extraction-2026-09-07.md](terminal-owner-extraction-2026-09-07.md)
   Completed stage 8: both browser and curses owners split by responsibility; all 18
   complexity violations resolved, complete extracted trees linted/typed, and
   ownership/behavior contracts added. Expanded quality gate, compatibility
-  comparisons, and 455 final regressions pass. Included in the stage-8 checkpoint,
-  not yet pushed; the programme is paused for reassessment.
+  comparisons, and 455 final regressions pass. Included in the stage-8 checkpoint;
+  subsequent close-out and PR publication are recorded above.
 
 - [terminal-dependency-direction-2026-09-07.md](terminal-dependency-direction-2026-09-07.md)
   Completed stage 7: separate terminal startup, browser, creation, and
   presentation owners; generic extension hosts and lazy compatibility exports.
   The 197-module graph includes all 45 terminal modules. Records compatibility,
-  typing, and regression evidence in the stage-7 checkpoint, not yet pushed.
+  typing, and regression evidence in the stage-7 checkpoint.
   Historical stage-7 verification; subsequent stage-8 work is recorded above.
 
 - [cli-dependency-direction-2026-09-07.md](cli-dependency-direction-2026-09-07.md)
   Completed stage 6: separates CLI grammar, dispatch, completion, and SquashFS
   execution; preserves entry points, help, and shell scripts. The dependency
   gate now protects all 47 CLI modules (152 total). Records typing/regression
-  evidence and the subsequent stage-7 terminal repair. Stages 5–6 are committed together;
-  that checkpoint has not been pushed.
+  evidence and the subsequent stage-7 terminal repair. Stages 5–6 are committed
+  together; the final close-out records PR publication.
 
 - [incremental-formatting-2026-09-07.md](incremental-formatting-2026-09-07.md)
   Completed stage 5: an explicit 109-file formatter scope, pinned Ruff,

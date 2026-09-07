@@ -1,5 +1,8 @@
 # Test streams
 
+For event selection and the single full-suite CI owner, see
+[continuous integration](continuous-integration.md).
+
 The ordinary pytest command still selects the complete suite:
 
 ```bash

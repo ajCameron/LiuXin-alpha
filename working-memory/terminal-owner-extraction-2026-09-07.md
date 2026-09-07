@@ -5,8 +5,12 @@
 Stage 8 resumes from committed stage 7, `9eee6c84`, on
 `codex/package-calibre-resources`. Stage 8 is complete for the announced owner
 extraction and enforcement scope. This note accompanies the stage-8 checkpoint;
-it and the previous stage-7 and stages-5–6 checkpoints have not been pushed.
-The programme is paused after this checkpoint for reassessment.
+it and the previous stage-7 and stages-5–6 checkpoints were initially kept local
+for reassessment. The subsequent close-out below records PR publication.
+
+The subsequently requested [CI/documentation close-out](maintainability-closeout-2026-09-07.md)
+is recorded separately; the implementation and verification below remain the
+stage-8 checkpoint evidence.
 
 The announced scope covers both large terminal owners, not only their facades:
 split commands, session/history/completion, browsing/rows, curses input, and pane

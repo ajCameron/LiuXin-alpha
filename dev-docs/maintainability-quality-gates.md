@@ -5,6 +5,11 @@ internal-contract, workflow-ownership, dependency-direction, failure-visibility,
 incremental-formatting, CLI-composition, terminal-composition, and terminal-owner
 extraction tranches.
 
+The final CI/documentation close-out gives general validation one
+[workflow owner](continuous-integration.md) and provides a
+[developer documentation index](README.md). The bounded improvement programme
+is complete; the excluded legacy work below remains incremental maintenance.
+
 ## Purpose
 
 LiuXin contains modern application code alongside inherited compatibility
@@ -102,7 +107,9 @@ The CLI-composition tranche adds eight reviewed owners/entry modules and its
 contract suite, taking current formatting coverage to 118 files.
 The terminal-composition tranche added nine reviewed terminal sources and its
 contract suite, taking coverage to 128 files. Stage 8 adds both complete terminal
-component directories and two regression suites: current coverage is 154 files.
+component directories and two regression suites: stage-8 coverage is 154 files.
+The CI/documentation close-out adds two contract suites, taking the current
+formatter scope to 156 files without expanding production typing coverage.
 
 Use the repo-local commands:
 
@@ -449,7 +456,9 @@ improving them is:
    service ownership seams;
 4. widen the zero-error typing, Ruff, and complexity ratchets only after each
    selected package is green;
-5. consolidate duplicated CI and developer-documentation navigation.
+5. consolidate duplicated CI and developer-documentation navigation (completed
+   by the final close-out; see [CI ownership](continuous-integration.md) and the
+   [documentation index](README.md)).
 
 The first item now has an installed-catalogue wheel gate. See
 `dev-docs/packaging.md` and
