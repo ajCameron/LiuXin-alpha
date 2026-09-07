@@ -73,7 +73,8 @@ stage 5. Pushing this checkpoint remains a separate action.
 
 ## Remaining programme
 
-The separate terminal text-browser/windowed-UI deferred cycle remains future
-maintenance work. Lower-level compatibility recovery policies and further
-package-by-package formatter expansion also remain separate. Do not widen the
-CLI repair into terminal work or weaken protected gates to obtain a green run.
+The separate terminal text-browser/windowed-UI deferred cycle is addressed by
+the subsequent [stage-7 terminal repair](terminal-dependency-direction-2026-09-07.md).
+Lower-level compatibility recovery policies and further package-by-package
+formatter expansion remain separate. Stage 6's verification above records the
+bounded CLI checkpoint, not the later terminal work.

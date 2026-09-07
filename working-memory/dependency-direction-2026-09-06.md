@@ -88,8 +88,8 @@ and two components when function-body imports were included: CLI
 package/app/completion/SquashFS and terminal text-browser/windowed-UI.
 Stage 6 subsequently repaired the CLI component and added the complete CLI
 package to the protected graph; see [CLI dependency direction](cli-dependency-direction-2026-09-07.md).
-The terminal cycle remains separate work. This is not a whole-project
-acyclicity sign-off.
+The terminal component is addressed separately in [stage 7](terminal-dependency-direction-2026-09-07.md).
+This is not a whole-project acyclicity sign-off.
 
 Stage 4 subsequently completed unexpected read-model error visibility,
 narrowing the broad row-lookup fallback and backend exception handling left

@@ -36,10 +36,11 @@ def test_current_modern_seams_are_acyclic() -> None:
     assert main([]) == 0
 
 
-def test_cli_scope_includes_every_new_and_nested_owner() -> None:
+@pytest.mark.parametrize("package", ["cli", "terminal"])
+def test_surface_scope_includes_every_new_and_nested_owner(package: str) -> None:
     root = Path(__file__).resolve().parents[2] / "src"
     inventory = collect_imports(root)
-    expected = set((root / "LiuXin_alpha/surfaces/cli").rglob("*.py"))
+    expected = set((root / "LiuXin_alpha/surfaces" / package).rglob("*.py"))
     assert expected and expected <= set(inventory.modules.values())
 
 
@@ -58,6 +59,23 @@ def test_cli_entry_wrappers_and_downward_composition_are_allowed(
     }
     for owner, source in owners.items():
         _write(tmp_path / f"LiuXin_alpha/surfaces/cli/{owner}.py", source)
+    assert main(["--source-root", str(tmp_path)]) == 0
+
+
+def test_terminal_entry_wrappers_and_downward_composition_are_allowed(
+    tmp_path: Path,
+) -> None:
+    owners = {
+        "__init__": "def __getattr__(name):\n    from . import text_browser\n",
+        "__main__": "from .text_browser import main\n",
+        "text_browser": "from .app import main\nfrom .browser import TextDatabaseBrowser\n",
+        "app": "from .browser import TextDatabaseBrowser\ndef run():\n    from .windowed_ui import run_windowed_browser\n",
+        "windowed_ui": "from .browser import TextDatabaseBrowser\n",
+        "browser": "from .commands.base import TerminalCommandAPI\n",
+        "commands/base": "import abc\n",
+    }
+    for owner, source in owners.items():
+        _write(tmp_path / f"LiuXin_alpha/surfaces/terminal/{owner}.py", source)
     assert main(["--source-root", str(tmp_path)]) == 0
 
 
@@ -230,6 +248,41 @@ def test_gate_rejects_every_cycle_context(
         ),
         ("surfaces/catalog/api.py", "from .. import web_readonly", "web applications"),
         ("surfaces/presentation.py", "from .core import CoreRow", "independent leaves"),
+        (
+            "surfaces/terminal/browser.py",
+            "from .text_browser import main",
+            "terminal implementations",
+        ),
+        (
+            "surfaces/terminal/windowed_ui.py",
+            "from .app import main",
+            "terminal implementations",
+        ),
+        (
+            "surfaces/terminal/commands/core.py",
+            "from .. import TextDatabaseBrowser",
+            "terminal implementations",
+        ),
+        (
+            "surfaces/terminal/browser.py",
+            "from .windowed_ui import run_windowed_browser",
+            "curses adapter",
+        ),
+        (
+            "surfaces/terminal/commands/base.py",
+            "from ..browser import TextDatabaseBrowser",
+            "independent leaves",
+        ),
+        (
+            "surfaces/terminal/plugins/base.py",
+            "from ..browser import TextDatabaseBrowser",
+            "independent leaves",
+        ),
+        (
+            "surfaces/terminal/presentation.py",
+            "from ..core import CoreRow",
+            "independent leaves",
+        ),
         (
             "surfaces/cli/completion.py",
             "from .app import build_parser",

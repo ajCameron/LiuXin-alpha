@@ -5,11 +5,6 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip(
-    "LiuXin_alpha.surfaces.terminal",
-    reason="Terminal package is not exposed under surfaces/ in this checkout.",
-)
-
 from LiuXin_alpha.surfaces.terminal.windowed_ui import _CursesUiDriver, WindowedUiConfig
 
 

@@ -17,8 +17,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from LiuXin_alpha.surfaces.terminal.job_view import fetch_terminal_job_view, read_terminal_job_log_view
-from LiuXin_alpha.surfaces.terminal.text_browser import TextDatabaseBrowser
+from LiuXin_alpha.surfaces.terminal.job_view import (
+    fetch_terminal_job_view,
+    read_terminal_job_log_view,
+)
+from LiuXin_alpha.surfaces.terminal.browser import TextDatabaseBrowser
 
 
 @dataclass
@@ -35,7 +38,9 @@ class WindowedUiConfig:
 class _CursesUiDriver:
     """Low-level curses drawing/input helpers shared by windowed shell methods."""
 
-    def __init__(self, core, *, config: WindowedUiConfig, history_file: Optional[str | Path]) -> None:
+    def __init__(
+        self, core, *, config: WindowedUiConfig, history_file: Optional[str | Path]
+    ) -> None:
         self.core = core
         self.config = config
         self.history_file = Path(history_file).expanduser() if history_file else None
@@ -105,13 +110,17 @@ class _CursesUiDriver:
     def clear_job_output_job(self) -> bool:
         return self.set_job_output_job(None)
 
-    def set_telemetry_tables(self, tables: Optional[tuple[str, ...] | list[str]] = None) -> bool:
+    def set_telemetry_tables(
+        self, tables: Optional[tuple[str, ...] | list[str]] = None
+    ) -> bool:
         normalized: list[str] = []
         for raw in list(tables or self._default_telemetry_tables()):
             token = str(raw).strip()
             if token and token not in normalized:
                 normalized.append(token)
-        next_tables = tuple(normalized) if normalized else self._default_telemetry_tables()
+        next_tables = (
+            tuple(normalized) if normalized else self._default_telemetry_tables()
+        )
         changed = self._telemetry_tables != next_tables
         self._telemetry_tables = next_tables
         self._telemetry_started_at = time.time()
@@ -144,7 +153,9 @@ class _CursesUiDriver:
         if payload == "":
             return
         chunks = payload.splitlines()
-        added_wrapped_lines = len(self._wrap_lines_for_width(chunks, width=self._console_content_width()))
+        added_wrapped_lines = len(
+            self._wrap_lines_for_width(chunks, width=self._console_content_width())
+        )
         if self._console_scroll_offset > 0 and added_wrapped_lines > 0:
             self._console_scroll_offset += added_wrapped_lines
         for line in chunks:
@@ -178,7 +189,13 @@ class _CursesUiDriver:
     def _stringify_compact_value(value: object) -> str:
         if value is None:
             return ""
-        return str(value).replace("\r\n", " ").replace("\r", " ").replace("\n", " ").strip()
+        return (
+            str(value)
+            .replace("\r\n", " ")
+            .replace("\r", " ")
+            .replace("\n", " ")
+            .strip()
+        )
 
     def _render_compact_sections(
         self,
@@ -250,7 +267,9 @@ class _CursesUiDriver:
     def _wrapped_console_lines(self, *, width: Optional[int] = None) -> list[str]:
         return self._wrap_lines_for_width(
             list(self._lines),
-            width=max(1, self._console_content_width() if width is None else int(width)),
+            width=max(
+                1, self._console_content_width() if width is None else int(width)
+            ),
         )
 
     def _visible_console_lines(
@@ -260,8 +279,14 @@ class _CursesUiDriver:
         visible_rows: Optional[int] = None,
     ) -> list[str]:
         wrapped = self._wrapped_console_lines(width=width)
-        rows = self._console_visible_log_rows() if visible_rows is None else max(0, int(visible_rows))
-        self._console_scroll_offset = self._clamp_scroll_offset(len(wrapped), rows, self._console_scroll_offset)
+        rows = (
+            self._console_visible_log_rows()
+            if visible_rows is None
+            else max(0, int(visible_rows))
+        )
+        self._console_scroll_offset = self._clamp_scroll_offset(
+            len(wrapped), rows, self._console_scroll_offset
+        )
         if rows <= 0:
             return []
         end = len(wrapped) - self._console_scroll_offset
@@ -276,19 +301,33 @@ class _CursesUiDriver:
         visible_rows: Optional[int] = None,
     ) -> bool:
         wrapped = self._wrapped_console_lines(width=width)
-        rows = self._console_visible_log_rows() if visible_rows is None else max(0, int(visible_rows))
+        rows = (
+            self._console_visible_log_rows()
+            if visible_rows is None
+            else max(0, int(visible_rows))
+        )
         previous = self._console_scroll_offset
-        self._console_scroll_offset = self._clamp_scroll_offset(len(wrapped), rows, previous + int(delta))
+        self._console_scroll_offset = self._clamp_scroll_offset(
+            len(wrapped), rows, previous + int(delta)
+        )
         changed = self._console_scroll_offset != previous
         if changed:
             self._render(force_status=False)
         return changed
 
-    def _scroll_console_to_top(self, *, width: Optional[int] = None, visible_rows: Optional[int] = None) -> bool:
+    def _scroll_console_to_top(
+        self, *, width: Optional[int] = None, visible_rows: Optional[int] = None
+    ) -> bool:
         wrapped = self._wrapped_console_lines(width=width)
-        rows = self._console_visible_log_rows() if visible_rows is None else max(0, int(visible_rows))
+        rows = (
+            self._console_visible_log_rows()
+            if visible_rows is None
+            else max(0, int(visible_rows))
+        )
         previous = self._console_scroll_offset
-        self._console_scroll_offset = self._clamp_scroll_offset(len(wrapped), rows, len(wrapped))
+        self._console_scroll_offset = self._clamp_scroll_offset(
+            len(wrapped), rows, len(wrapped)
+        )
         changed = self._console_scroll_offset != previous
         if changed:
             self._render(force_status=False)
@@ -341,7 +380,9 @@ class _CursesUiDriver:
             title="Job output",
         )
         if not log_view.lines:
-            lines.extend(self._render_compact_sections([("Output", [("", log_view.message)])]))
+            lines.extend(
+                self._render_compact_sections([("Output", [("", log_view.message)])])
+            )
             return lines
 
         lines.append("Log tail")
@@ -357,19 +398,27 @@ class _CursesUiDriver:
     def _wrapped_job_output_lines(self, *, width: Optional[int] = None) -> list[str]:
         return self._wrap_lines_for_width(
             self._build_job_output_content_lines(),
-            width=max(1, self._job_output_content_width() if width is None else int(width)),
+            width=max(
+                1, self._job_output_content_width() if width is None else int(width)
+            ),
         )
 
-    def _sync_job_output_scroll_state(self, *, wrapped_count: int, width: int, visible_rows: int) -> None:
+    def _sync_job_output_scroll_state(
+        self, *, wrapped_count: int, width: int, visible_rows: int
+    ) -> None:
         if (
             self._job_output_scroll_offset > 0
             and self._job_output_last_wrap_width == width
             and wrapped_count > self._job_output_last_wrapped_count
         ):
-            self._job_output_scroll_offset += wrapped_count - self._job_output_last_wrapped_count
+            self._job_output_scroll_offset += (
+                wrapped_count - self._job_output_last_wrapped_count
+            )
         self._job_output_last_wrap_width = int(width)
         self._job_output_last_wrapped_count = int(wrapped_count)
-        self._job_output_scroll_offset = self._clamp_scroll_offset(wrapped_count, visible_rows, self._job_output_scroll_offset)
+        self._job_output_scroll_offset = self._clamp_scroll_offset(
+            wrapped_count, visible_rows, self._job_output_scroll_offset
+        )
 
     def _visible_job_output_lines(
         self,
@@ -377,10 +426,18 @@ class _CursesUiDriver:
         width: Optional[int] = None,
         visible_rows: Optional[int] = None,
     ) -> list[str]:
-        width_value = max(1, self._job_output_content_width() if width is None else int(width))
+        width_value = max(
+            1, self._job_output_content_width() if width is None else int(width)
+        )
         wrapped = self._wrapped_job_output_lines(width=width_value)
-        rows = self._job_output_visible_rows() if visible_rows is None else max(0, int(visible_rows))
-        self._sync_job_output_scroll_state(wrapped_count=len(wrapped), width=width_value, visible_rows=rows)
+        rows = (
+            self._job_output_visible_rows()
+            if visible_rows is None
+            else max(0, int(visible_rows))
+        )
+        self._sync_job_output_scroll_state(
+            wrapped_count=len(wrapped), width=width_value, visible_rows=rows
+        )
         if rows <= 0:
             return []
         end = len(wrapped) - self._job_output_scroll_offset
@@ -394,24 +451,46 @@ class _CursesUiDriver:
         width: Optional[int] = None,
         visible_rows: Optional[int] = None,
     ) -> bool:
-        width_value = max(1, self._job_output_content_width() if width is None else int(width))
+        width_value = max(
+            1, self._job_output_content_width() if width is None else int(width)
+        )
         wrapped = self._wrapped_job_output_lines(width=width_value)
-        rows = self._job_output_visible_rows() if visible_rows is None else max(0, int(visible_rows))
-        self._sync_job_output_scroll_state(wrapped_count=len(wrapped), width=width_value, visible_rows=rows)
+        rows = (
+            self._job_output_visible_rows()
+            if visible_rows is None
+            else max(0, int(visible_rows))
+        )
+        self._sync_job_output_scroll_state(
+            wrapped_count=len(wrapped), width=width_value, visible_rows=rows
+        )
         previous = self._job_output_scroll_offset
-        self._job_output_scroll_offset = self._clamp_scroll_offset(len(wrapped), rows, previous + int(delta))
+        self._job_output_scroll_offset = self._clamp_scroll_offset(
+            len(wrapped), rows, previous + int(delta)
+        )
         changed = self._job_output_scroll_offset != previous
         if changed:
             self._render(force_status=False)
         return changed
 
-    def _scroll_job_output_to_top(self, *, width: Optional[int] = None, visible_rows: Optional[int] = None) -> bool:
-        width_value = max(1, self._job_output_content_width() if width is None else int(width))
+    def _scroll_job_output_to_top(
+        self, *, width: Optional[int] = None, visible_rows: Optional[int] = None
+    ) -> bool:
+        width_value = max(
+            1, self._job_output_content_width() if width is None else int(width)
+        )
         wrapped = self._wrapped_job_output_lines(width=width_value)
-        rows = self._job_output_visible_rows() if visible_rows is None else max(0, int(visible_rows))
-        self._sync_job_output_scroll_state(wrapped_count=len(wrapped), width=width_value, visible_rows=rows)
+        rows = (
+            self._job_output_visible_rows()
+            if visible_rows is None
+            else max(0, int(visible_rows))
+        )
+        self._sync_job_output_scroll_state(
+            wrapped_count=len(wrapped), width=width_value, visible_rows=rows
+        )
         previous = self._job_output_scroll_offset
-        self._job_output_scroll_offset = self._clamp_scroll_offset(len(wrapped), rows, len(wrapped))
+        self._job_output_scroll_offset = self._clamp_scroll_offset(
+            len(wrapped), rows, len(wrapped)
+        )
         changed = self._job_output_scroll_offset != previous
         if changed:
             self._render(force_status=False)
@@ -480,13 +559,19 @@ class _CursesUiDriver:
         if not keep_hint:
             self._completion_hint = None
 
-    def _format_completion_hint(self, matches: tuple[str, ...], *, selected_index: Optional[int] = None) -> str:
+    def _format_completion_hint(
+        self, matches: tuple[str, ...], *, selected_index: Optional[int] = None
+    ) -> str:
         preview = list(matches[:6])
         preview_text = ", ".join(preview)
         remaining = len(matches) - len(preview)
         if remaining > 0:
             preview_text += " (+{} more)".format(remaining)
-        if selected_index is None or selected_index < 0 or selected_index >= len(matches):
+        if (
+            selected_index is None
+            or selected_index < 0
+            or selected_index >= len(matches)
+        ):
             return "completion: {}".format(preview_text)
         return "completion: {} ({}/{}) | matches: {}".format(
             matches[selected_index],
@@ -516,9 +601,13 @@ class _CursesUiDriver:
             and self._completion_active_input == self._current_input
             and self._completion_index is not None
         ):
-            next_index = (self._completion_index + int(direction)) % len(self._completion_matches)
+            next_index = (self._completion_index + int(direction)) % len(
+                self._completion_matches
+            )
             self._completion_index = next_index
-            self._current_input = self._apply_completion_candidate(self._completion_matches[next_index])
+            self._current_input = self._apply_completion_candidate(
+                self._completion_matches[next_index]
+            )
             self._completion_active_input = self._current_input
             self._completion_hint = self._format_completion_hint(
                 self._completion_matches,
@@ -528,12 +617,16 @@ class _CursesUiDriver:
             return True
 
         try:
-            completion = browser.command_completion_candidates(self._current_input, cursor=len(self._current_input))
+            completion = browser.command_completion_candidates(
+                self._current_input, cursor=len(self._current_input)
+            )
         except Exception:
             self._reset_completion()
             return False
 
-        matches = tuple(str(candidate) for candidate in completion.candidates if str(candidate))
+        matches = tuple(
+            str(candidate) for candidate in completion.candidates if str(candidate)
+        )
         if not matches:
             self._reset_completion()
             return False
@@ -556,7 +649,9 @@ class _CursesUiDriver:
             self._completion_token_end = int(completion.token_end)
             self._current_input = self._apply_completion_candidate(matches[0])
             self._completion_active_input = self._current_input
-            self._completion_hint = self._format_completion_hint(matches, selected_index=0)
+            self._completion_hint = self._format_completion_hint(
+                matches, selected_index=0
+            )
             self._render(force_status=False)
             return True
 
@@ -565,9 +660,13 @@ class _CursesUiDriver:
         self._completion_token_start = int(completion.token_start)
         self._completion_token_end = int(completion.token_end)
         self._completion_index = 0 if int(direction) >= 0 else (len(matches) - 1)
-        self._current_input = self._apply_completion_candidate(matches[self._completion_index])
+        self._current_input = self._apply_completion_candidate(
+            matches[self._completion_index]
+        )
         self._completion_active_input = self._current_input
-        self._completion_hint = self._format_completion_hint(matches, selected_index=self._completion_index)
+        self._completion_hint = self._format_completion_hint(
+            matches, selected_index=self._completion_index
+        )
         self._render(force_status=False)
         return True
 
@@ -688,7 +787,9 @@ class _CursesUiDriver:
         try:
             if path.exists():
                 text = path.read_text(encoding="utf-8", errors="replace")
-                self._history = [line.rstrip("\n") for line in text.splitlines() if line.strip()]
+                self._history = [
+                    line.rstrip("\n") for line in text.splitlines() if line.strip()
+                ]
         except Exception:
             self._history = []
 
@@ -732,10 +833,14 @@ class _CursesUiDriver:
             self._render(force_status=False)
             return None
 
-    def _allocate_aux_panel_heights(self, *, rows: int, status_h: int) -> tuple[int, int]:
+    def _allocate_aux_panel_heights(
+        self, *, rows: int, status_h: int
+    ) -> tuple[int, int]:
         active: list[tuple[str, int]] = []
         if self._telemetry_tables:
-            active.append(("telemetry", max(4, int(self.config.telemetry_panel_height))))
+            active.append(
+                ("telemetry", max(4, int(self.config.telemetry_panel_height)))
+            )
         if self._job_output_job_id:
             active.append(("job", max(4, int(self.config.job_panel_height))))
         if not active:
@@ -776,7 +881,9 @@ class _CursesUiDriver:
             return
         rows, cols = self._stdscr.getmaxyx()
         status_h = max(5, min(int(self.config.status_height), max(5, rows - 4)))
-        telemetry_h, job_h = self._allocate_aux_panel_heights(rows=rows, status_h=status_h)
+        telemetry_h, job_h = self._allocate_aux_panel_heights(
+            rows=rows, status_h=status_h
+        )
         console_h = max(3, rows - status_h - telemetry_h - job_h)
         self._status_win = curses.newwin(status_h, cols, 0, 0)
         y = status_h
@@ -796,7 +903,9 @@ class _CursesUiDriver:
         self._jobs_status_error = None
         if self.browser is None:
             return []
-        if hasattr(self.browser, "supports_core_queries") and bool(self.browser.supports_core_queries()):
+        if hasattr(self.browser, "supports_core_queries") and bool(
+            self.browser.supports_core_queries()
+        ):
             try:
                 result = self.browser.execute_core_query(
                     "jobs.list",
@@ -804,7 +913,9 @@ class _CursesUiDriver:
                 )
                 return list((result or {}).get("jobs", ()) or ())
             except Exception as exc:
-                self._jobs_status_error = self._format_error("core jobs.list failed", exc)
+                self._jobs_status_error = self._format_error(
+                    "core jobs.list failed", exc
+                )
                 return []
         try:
             return list(self.browser.job_manager.list())
@@ -812,7 +923,9 @@ class _CursesUiDriver:
             self._jobs_status_error = self._format_error("local jobs unavailable", exc)
             return []
 
-    def _sample_telemetry_counts(self, tables: tuple[str, ...]) -> dict[str, Optional[int]]:
+    def _sample_telemetry_counts(
+        self, tables: tuple[str, ...]
+    ) -> dict[str, Optional[int]]:
         browser = self.browser
         counts: dict[str, Optional[int]] = {}
         for table in tables:
@@ -837,11 +950,14 @@ class _CursesUiDriver:
         if self.browser is None:
             raise RuntimeError("browser unavailable")
         try:
-            return fetch_terminal_job_view(self.browser, job_id=str(job_id), do_wait=False, wait_timeout=None)
+            return fetch_terminal_job_view(
+                self.browser, job_id=str(job_id), do_wait=False, wait_timeout=None
+            )
         except Exception as exc:
             label = (
                 "core jobs.get failed"
-                if hasattr(self.browser, "supports_core_queries") and bool(self.browser.supports_core_queries())
+                if hasattr(self.browser, "supports_core_queries")
+                and bool(self.browser.supports_core_queries())
                 else "local job unavailable"
             )
             message = self._format_error(label, exc)
@@ -867,7 +983,9 @@ class _CursesUiDriver:
         core_status = ""
         if hasattr(self.browser, "core_runtime_status_summary"):
             try:
-                core_status = str(self.browser.core_runtime_status_summary() or "").strip()
+                core_status = str(
+                    self.browser.core_runtime_status_summary() or ""
+                ).strip()
             except Exception:
                 core_status = ""
         if core_status:
@@ -878,7 +996,9 @@ class _CursesUiDriver:
         if window is None:
             window_text = "window: <none>"
         else:
-            window_text = "window: {} limit={} offset={}".format(window.table, window.limit, window.offset)
+            window_text = "window: {} limit={} offset={}".format(
+                window.table, window.limit, window.offset
+            )
         sections.append(
             (
                 "Context",
@@ -891,7 +1011,14 @@ class _CursesUiDriver:
         )
 
         table_counts: list[str] = []
-        for name in ("works", "expressions", "manifestations", "items", "files", "stores"):
+        for name in (
+            "works",
+            "expressions",
+            "manifestations",
+            "items",
+            "files",
+            "stores",
+        ):
             try:
                 count = self.browser.get_table_row_count(name)
             except Exception:
@@ -903,7 +1030,17 @@ class _CursesUiDriver:
             sections.append(("Rows", [("", " | ".join(table_counts))]))
 
         jobs = self._list_jobs()
-        counter = Counter(str((one.get("state", "") if isinstance(one, dict) else getattr(one, "state", "")) or "") for one in jobs)
+        counter = Counter(
+            str(
+                (
+                    one.get("state", "")
+                    if isinstance(one, dict)
+                    else getattr(one, "state", "")
+                )
+                or ""
+            )
+            for one in jobs
+        )
         job_rows: list[tuple[str, object]] = [("total", len(jobs))]
         if jobs:
             for key in sorted(counter.keys()):
@@ -920,11 +1057,23 @@ class _CursesUiDriver:
             sections.append(("Panels", panel_rows))
         ui_rows: list[tuple[str, object]] = []
         if self._job_output_job_id:
-            ui_rows.append(("focus", "{} | F6 switch pane".format(self._active_scroll_target())))
+            ui_rows.append(
+                ("focus", "{} | F6 switch pane".format(self._active_scroll_target()))
+            )
         if self._console_scroll_offset > 0:
-            ui_rows.append(("console_scrollback", "+{} | PgUp/PgDn Home/End".format(self._console_scroll_offset)))
+            ui_rows.append(
+                (
+                    "console_scrollback",
+                    "+{} | PgUp/PgDn Home/End".format(self._console_scroll_offset),
+                )
+            )
         if self._job_output_job_id and self._job_output_scroll_offset > 0:
-            ui_rows.append(("job_scrollback", "+{} | PgUp/PgDn Home/End".format(self._job_output_scroll_offset)))
+            ui_rows.append(
+                (
+                    "job_scrollback",
+                    "+{} | PgUp/PgDn Home/End".format(self._job_output_scroll_offset),
+                )
+            )
         if self._completion_hint:
             ui_rows.append(("", self._completion_hint))
         if ui_rows:
@@ -950,7 +1099,12 @@ class _CursesUiDriver:
                     or {}
                 )
             except Exception as exc:
-                snapshot = {"recent_events": [], "snapshot_error": self._format_error("telemetry snapshot failed", exc)}
+                snapshot = {
+                    "recent_events": [],
+                    "snapshot_error": self._format_error(
+                        "telemetry snapshot failed", exc
+                    ),
+                }
 
         current_counts = self._sample_telemetry_counts(tracked_tables)
         previous_counts = dict(self._telemetry_last_counts or {})
@@ -978,7 +1132,10 @@ class _CursesUiDriver:
 
         source_counts = dict(snapshot.get("source_counts", {}) or {})
         if source_counts:
-            segments = ["{}={}".format(key, source_counts[key]) for key in sorted(source_counts.keys())]
+            segments = [
+                "{}={}".format(key, source_counts[key])
+                for key in sorted(source_counts.keys())
+            ]
             sections.append(("Sources", [("", " | ".join(segments))]))
 
         for table in tracked_tables:
@@ -1005,7 +1162,9 @@ class _CursesUiDriver:
             tail = recent_events[-remaining:] if remaining > 0 else []
             for event in tail:
                 try:
-                    timestamp = time.strftime("%H:%M:%S", time.localtime(float(event.get("timestamp", 0.0))))
+                    timestamp = time.strftime(
+                        "%H:%M:%S", time.localtime(float(event.get("timestamp", 0.0)))
+                    )
                 except Exception:
                     timestamp = "--:--:--"
                 table = str(event.get("table", "") or "").strip() or "<unknown>"
@@ -1049,7 +1208,9 @@ class _CursesUiDriver:
 
         now = time.monotonic()
         refresh_interval = max(0.2, float(self.config.status_refresh_s))
-        should_render_status = force_status or ((now - self._status_last_render) >= refresh_interval)
+        should_render_status = force_status or (
+            (now - self._status_last_render) >= refresh_interval
+        )
         if should_render_status:
             self._render_status()
             self._render_telemetry()
@@ -1064,7 +1225,9 @@ class _CursesUiDriver:
         win.erase()
         rows, cols = win.getmaxyx()
         content_rows = max(0, rows - 1)
-        lines = self._wrap_lines_for_width(self._build_status_lines(), width=max(1, cols - 1))
+        lines = self._wrap_lines_for_width(
+            self._build_status_lines(), width=max(1, cols - 1)
+        )
         for idx in range(min(content_rows, len(lines))):
             line = str(lines[idx])
             try:
@@ -1085,7 +1248,9 @@ class _CursesUiDriver:
         rows, cols = win.getmaxyx()
         visible_log_rows = max(0, rows - 1)
 
-        tail = self._visible_console_lines(width=max(1, cols - 1), visible_rows=visible_log_rows)
+        tail = self._visible_console_lines(
+            width=max(1, cols - 1), visible_rows=visible_log_rows
+        )
         start_row = max(0, visible_log_rows - len(tail))
         for idx, line in enumerate(tail, start=start_row):
             text = str(line)
@@ -1134,7 +1299,9 @@ class _CursesUiDriver:
             return
         win.erase()
         rows, cols = win.getmaxyx()
-        lines = self._visible_job_output_lines(width=max(1, cols - 1), visible_rows=max(1, rows))
+        lines = self._visible_job_output_lines(
+            width=max(1, cols - 1), visible_rows=max(1, rows)
+        )
         for idx, text in enumerate(lines):
             try:
                 win.addstr(idx, 0, text)
@@ -1167,21 +1334,31 @@ class _WindowedTextDatabaseBrowser(TextDatabaseBrowser):
         suffix = ""
         if default is not None:
             suffix = " [{}]".format(default)
-        value = self._ui_driver.read_line("{}{}: ".format(prompt, suffix), default=default)
+        value = self._ui_driver.read_line(
+            "{}{}: ".format(prompt, suffix), default=default
+        )
         if value == "" and default is not None:
             return default
         return value
 
     def prompt_yes_no(self, prompt: str, *, default: bool) -> bool:  # type: ignore[override]
         hint = "Y/n" if default else "y/N"
-        raw = self.prompt_text("{} ({})".format(prompt, hint), default=None).strip().lower()
+        raw = (
+            self.prompt_text("{} ({})".format(prompt, hint), default=None)
+            .strip()
+            .lower()
+        )
         if raw == "":
             return default
         if raw in {"y", "yes", "1", "true", "t"}:
             return True
         if raw in {"n", "no", "0", "false", "f"}:
             return False
-        self._write("Invalid response {!r}; using default {}".format(raw, "yes" if default else "no"))
+        self._write(
+            "Invalid response {!r}; using default {}".format(
+                raw, "yes" if default else "no"
+            )
+        )
         return default
 
     def get_terminal_width(self) -> int:  # type: ignore[override]
@@ -1199,7 +1376,9 @@ class _WindowedTextDatabaseBrowser(TextDatabaseBrowser):
     def supports_telemetry_panel(self) -> bool:  # type: ignore[override]
         return True
 
-    def attach_telemetry_panel(self, tables: Optional[list[str] | tuple[str, ...]] = None) -> bool:  # type: ignore[override]
+    def attach_telemetry_panel(
+        self, tables: Optional[list[str] | tuple[str, ...]] = None
+    ) -> bool:  # type: ignore[override]
         return self._ui_driver.set_telemetry_tables(tables)
 
     def detach_telemetry_panel(self) -> bool:  # type: ignore[override]

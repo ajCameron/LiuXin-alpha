@@ -10,7 +10,7 @@ the two checkers locate a multiline call error differently.
 import argparse
 from collections.abc import Mapping
 from contextlib import AbstractContextManager
-from typing import assert_type
+from typing import Protocol, assert_type
 
 import LiuXin_alpha.storage.api as storage
 from LiuXin_alpha.core.commands import CoreCommand
@@ -41,6 +41,51 @@ from LiuXin_alpha.surfaces.cli.parser_types import (
 from LiuXin_alpha.surfaces.cli.parsers import create_parser
 from LiuXin_alpha.surfaces.core import CoreRow, CoreSurfaceModel
 from LiuXin_alpha.surfaces.presentation import RowLookup, row_value
+from LiuXin_alpha.surfaces.terminal.browser import TextDatabaseBrowser
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.plugins.base import TerminalLifecyclePluginAPI
+
+
+class TerminalEmitter(Protocol):
+    """A small host capability an external terminal extension can request."""
+
+    def emit(self, text: str, *, end: str = "\n") -> None: ...
+
+
+class EmittingCommand(TerminalCommandAPI[TerminalEmitter]):
+    """Check concrete command conformance against the real generic API."""
+
+    def execute(self, browser: TerminalEmitter, args: list[str]) -> bool:
+        browser.emit(" ".join(args))
+        return True
+
+
+class WrongTerminalCommand(TerminalCommandAPI[TerminalEmitter]):
+    def execute(  # expect-error: reportIncompatibleMethodOverride -
+        self,
+        browser: int,  # expect-error: - override
+        args: list[str],
+    ) -> bool:
+        return bool(browser or args)
+
+
+def terminal_extension_contracts(
+    browser: TextDatabaseBrowser,
+    host: TerminalEmitter,
+    command: TerminalCommandAPI[TerminalEmitter],
+    plugin: TerminalLifecyclePluginAPI[TerminalEmitter],
+) -> None:
+    assert_type(command.execute(host, ["help"]), bool)
+    assert_type(EmittingCommand().execute(host, []), bool)
+    command.execute(browser, [])
+    browser.register_command(EmittingCommand())
+    browser.register_lifecycle_plugin(plugin)
+    plugin.on_startup(host)
+    plugin.on_shutdown(browser, reason="quit")
+    command.execute(object(), [])  # expect-error: reportArgumentType arg-type
+    command.execute(host, "help")  # expect-error: reportArgumentType arg-type
+    plugin.on_startup(object())  # expect-error: reportArgumentType arg-type
+    plugin.on_shutdown(host, reason=1)  # expect-error: reportArgumentType arg-type
 
 
 def valid_composition(runtime: CoreRuntime) -> None:

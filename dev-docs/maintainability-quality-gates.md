@@ -2,7 +2,7 @@
 
 Status: enforced for the modern ratchet; updated 2026-09-07 through the
 internal-contract, workflow-ownership, dependency-direction, failure-visibility,
-incremental-formatting, and CLI-composition tranches.
+incremental-formatting, CLI-composition, and terminal-composition tranches.
 
 ## Purpose
 
@@ -30,7 +30,7 @@ The command first checks the explicit modern formatting scope, then checks
 callable annotations in `file_formats`, runs Ruff over
 newly ratcheted modules, and rejects cycles in the protected Catalog writer/API,
 Calibre metadata API, cache writer, shared/web surface seams, and complete CLI
-package. The dependency
+and terminal packages. The dependency
 gate includes import-time, deferred, and type-only imports; see the dependency
 direction section below for its scope and limits.
 The CI quality job additionally guards documentation at the reviewed
@@ -99,6 +99,8 @@ implementation mixins, and shared presentation/acquisition leaves. Formatting
 coverage does not imply strict typing or expand the separate lint scope.
 The CLI-composition tranche adds eight reviewed owners/entry modules and its
 contract suite, taking current formatting coverage to 118 files.
+The subsequent terminal-composition tranche adds nine reviewed terminal sources
+and its contract suite, taking current coverage to 128 files.
 
 Use the repo-local commands:
 
@@ -204,10 +206,10 @@ checkable at both the caller and implementation:
 `scripts/check_internal_type_contracts.py` for each selected checker after its
 production check succeeds. The static-only fixture
 `tests/typing/internal_contracts.py` contains valid calls against real
-implementations and 27 deliberately invalid examples covering names, argument
+implementations and 32 deliberately invalid examples covering names, argument
 types, return types, signatures, provider conformance, and typed evacuation
 plans/limits, acquisition-reader calls, row lookups, and completion registrar
-calls. Each invalid line
+calls and terminal extension hosts/overrides. Each invalid line
 must report its expected diagnostic rule; all other lines must pass. An
 unrelated import error or checker failure cannot satisfy the test.
 
@@ -328,8 +330,34 @@ CI runs `tests/surfaces/test_cli_dependency_contracts.py` for fresh-process
 imports, explicit registration, standalone completion, complete compatibility
 entry points, selector/error behavior, and SquashFS Core receipt contracts.
 The import-scanner tests additionally protect recursive CLI scope and direction
-rules in every import context. The separate terminal UI cycle remains outside
-this tranche; no whole-project acyclicity claim is made.
+rules in every import context. The separate terminal UI cycle was repaired by
+the subsequent tranche below; no whole-project acyclicity claim is made.
+
+## Terminal composition and extension boundaries
+
+Stage 7 separates terminal startup/database creation from browser execution and
+shared presentation. The curses adapter imports the browser owner, while startup
+loads curses only on selection. Command and lifecycle APIs are generic over
+their host instead of importing the concrete browser under `TYPE_CHECKING`.
+The historical `text_browser` module retains explicit aliases; package exports
+resolve lazily. See [terminal composition](terminal-composition.md).
+
+All 45 terminal modules enter the combined graph, bringing its current scope to
+197 modules. Implementations cannot import terminal entry-point facades, browser
+execution cannot import its curses adapter, and the presentation/extension leaves
+cannot import another LiuXin module. Entry wrappers retain explicit exceptions;
+no deferred or type-only context is omitted.
+
+Seven reviewed terminal sources enter typing/lint (162 strict-mypy files total),
+three leaves enter strict basedpyright, and six startup/facade/API sources enter
+complexity-10 checking. The large browser/curses implementations and inherited
+rendering-helper complexity remain explicit debt, not a newly raised ceiling.
+Five additional negative examples protect the host and override contracts.
+
+CI runs the new terminal dependency/compatibility suite and the existing curses
+driver contracts alongside scanner tests for every backward direction and import
+context. Full text-browser regressions additionally exercise real Core/database,
+mutation, lifecycle, history, completion, and startup behavior.
 
 ## Read-model failure visibility
 

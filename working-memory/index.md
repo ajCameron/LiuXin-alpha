@@ -6,11 +6,18 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [terminal-dependency-direction-2026-09-07.md](terminal-dependency-direction-2026-09-07.md)
+  Completed stage 7: separate terminal startup, browser, creation, and
+  presentation owners; generic extension hosts and lazy compatibility exports.
+  The 197-module graph includes all 45 terminal modules. Records compatibility,
+  typing, and regression evidence in the stage-7 checkpoint, not yet pushed.
+  Stage 8 has preparatory baselines only; its implementation remains next.
+
 - [cli-dependency-direction-2026-09-07.md](cli-dependency-direction-2026-09-07.md)
   Completed stage 6: separates CLI grammar, dispatch, completion, and SquashFS
   execution; preserves entry points, help, and shell scripts. The dependency
   gate now protects all 47 CLI modules (152 total). Records typing/regression
-  evidence and the remaining terminal cycle. Stages 5–6 are committed together;
+  evidence and the subsequent stage-7 terminal repair. Stages 5–6 are committed together;
   that checkpoint has not been pushed.
 
 - [incremental-formatting-2026-09-07.md](incremental-formatting-2026-09-07.md)

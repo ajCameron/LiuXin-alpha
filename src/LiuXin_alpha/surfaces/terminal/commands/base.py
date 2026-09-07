@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import abc
 
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from LiuXin_alpha.surfaces.terminal.text_browser import TextDatabaseBrowser
+class TerminalCommandAPI[BrowserT](abc.ABC):
+    """Command extension whose browser host is supplied by the caller.
 
-
-class TerminalCommandAPI(abc.ABC):
-    """Base class for text-browser commands."""
+    Parameterize with the host a command accepts, such as
+    ``TerminalCommandAPI[TextDatabaseBrowser]`` in an external extension.
+    The base API does not import or construct that host.
+    """
 
     group: str | None = None
     group_aliases: tuple[str, ...] = ()
@@ -23,5 +23,5 @@ class TerminalCommandAPI(abc.ABC):
     mutates_data: bool = False
 
     @abc.abstractmethod
-    def execute(self, browser: "TextDatabaseBrowser", args: list[str]) -> bool:
+    def execute(self, browser: BrowserT, args: list[str]) -> bool:
         """Execute command and return whether the browser loop should continue."""

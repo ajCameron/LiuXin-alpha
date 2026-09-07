@@ -36,6 +36,17 @@ CLI_ENTRY_POINTS = frozenset(
 CLI_COMPATIBILITY_TARGETS = frozenset(
     (CLI_PREFIX, f"{CLI_PREFIX}.app", f"{CLI_PREFIX}.squashfs")
 )
+TERMINAL_PREFIX = "LiuXin_alpha.surfaces.terminal"
+TERMINAL_ENTRY_POINTS = frozenset(
+    (TERMINAL_PREFIX, f"{TERMINAL_PREFIX}.__main__", f"{TERMINAL_PREFIX}.text_browser")
+)
+TERMINAL_COMPATIBILITY_TARGETS = frozenset(
+    (*TERMINAL_ENTRY_POINTS, f"{TERMINAL_PREFIX}.app")
+)
+TERMINAL_LEAVES = frozenset(
+    f"{TERMINAL_PREFIX}.{owner}"
+    for owner in ("presentation", "commands.base", "plugins.base")
+)
 PROTECTED_PREFIXES = (
     "LiuXin_alpha.catalog.api",
     "LiuXin_alpha.catalog.write",
@@ -44,6 +55,7 @@ PROTECTED_PREFIXES = (
     *SHARED_SURFACE_PREFIXES,
     *WEB_APPLICATION_PREFIXES,
     CLI_PREFIX,
+    TERMINAL_PREFIX,
 )
 
 
@@ -236,6 +248,19 @@ def build_graph(
 
 def forbidden_dependency(edge: ImportEdge) -> str | None:
     """Reject backward ownership even when it does not close a cycle."""
+    if (
+        _within(edge.source, (TERMINAL_PREFIX,))
+        and edge.source not in TERMINAL_ENTRY_POINTS
+        and edge.target in TERMINAL_COMPATIBILITY_TARGETS
+    ):
+        return "terminal implementations must not import application or compatibility entry points"
+    if (
+        edge.source == f"{TERMINAL_PREFIX}.browser"
+        and edge.target == f"{TERMINAL_PREFIX}.windowed_ui"
+    ):
+        return "terminal browser execution must not select or import its curses adapter"
+    if edge.source in TERMINAL_LEAVES and _within(edge.target, ("LiuXin_alpha",)):
+        return "terminal presentation and extension APIs must remain independent leaves"
     if (
         _within(edge.source, (CLI_PREFIX,))
         and edge.source not in CLI_ENTRY_POINTS

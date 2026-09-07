@@ -8,11 +8,6 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip(
-    "LiuXin_alpha.surfaces.terminal",
-    reason="Terminal package is not exposed under surfaces/ in this checkout.",
-)
-
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.core import workflow_jobs as core_workflow_jobs
@@ -23,6 +18,8 @@ from LiuXin_alpha.surfaces.terminal.commands import on as on_commands
 from LiuXin_alpha.surfaces.terminal.commands import sync as sync_command_module
 from LiuXin_alpha.surfaces.terminal.plugins import TerminalLifecyclePluginAPI
 from LiuXin_alpha.surfaces.terminal import text_browser as text_browser_module
+from LiuXin_alpha.surfaces.terminal import app as terminal_app
+from LiuXin_alpha.surfaces.terminal import browser as browser_module
 from LiuXin_alpha.surfaces.terminal.text_browser import TextDatabaseBrowser, main as browser_main
 from LiuXin_alpha.library.library import Library
 from LiuXin_alpha.metadata.standardization import make_tag_search_term, make_title_search_term, standardize_genre
@@ -275,7 +272,7 @@ def test_text_browser_main_windowed_mode_dispatches(driver_spec, tmp_path: Path,
         observed.update(kwargs)
         return 17
 
-    monkeypatch.setattr(text_browser_module, "run_windowed_text_browser", _fake_run_windowed)
+    monkeypatch.setattr(terminal_app, "run_windowed_text_browser", _fake_run_windowed)
 
     rc = browser_main(
         [
@@ -315,7 +312,7 @@ def test_text_browser_main_command_mode_overrides_windowed(driver_spec, tmp_path
     def _unexpected_windowed(*_args, **_kwargs):
         raise AssertionError("windowed UI should not run when --command is provided")
 
-    monkeypatch.setattr(text_browser_module, "run_windowed_text_browser", _unexpected_windowed)
+    monkeypatch.setattr(terminal_app, "run_windowed_text_browser", _unexpected_windowed)
 
     rc = browser_main(
         [
@@ -426,7 +423,7 @@ def test_text_browser_initialization_propagates_core_bootstrap_failure(
     def _fail_core_runtime(*_args, **_kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(text_browser_module, "coerce_surface_core", _fail_core_runtime)
+    monkeypatch.setattr(browser_module, "coerce_surface_core", _fail_core_runtime)
 
     with Database(
         metadata={"database_path": str(db_path)},
@@ -1138,7 +1135,7 @@ def test_text_browser_readline_mode_configures_command_completion(monkeypatch, d
             return None
 
     fake_readline = _FakeReadline()
-    monkeypatch.setattr(text_browser_module, "_readline", fake_readline, raising=False)
+    monkeypatch.setattr(browser_module, "_readline", fake_readline, raising=False)
 
     def _fake_input(prompt: str) -> str:
         prompts.append(prompt)
@@ -1190,7 +1187,7 @@ def test_text_browser_history_loads_and_saves_for_interactive_readline(
         def add_history(self, _line: str) -> None:
             return None
 
-    monkeypatch.setattr(text_browser_module, "_readline", _FakeReadline(), raising=False)
+    monkeypatch.setattr(browser_module, "_readline", _FakeReadline(), raising=False)
 
     with Database(
         metadata={"database_path": str(db_path)},
@@ -1225,7 +1222,7 @@ def test_text_browser_history_not_used_without_interactive_readline(monkeypatch,
         def add_history(self, _line: str) -> None:
             return None
 
-    monkeypatch.setattr(text_browser_module, "_readline", _FakeReadline(), raising=False)
+    monkeypatch.setattr(browser_module, "_readline", _FakeReadline(), raising=False)
 
     with Database(
         metadata={"database_path": str(db_path)},

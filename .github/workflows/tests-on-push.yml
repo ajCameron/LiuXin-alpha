@@ -66,6 +66,8 @@ jobs:
             tests/scripts/test_check_modern_import_cycles.py \
             tests/surfaces/test_shared_surface_dependencies.py \
             tests/surfaces/test_cli_dependency_contracts.py \
+            tests/surfaces/test_terminal_dependency_contracts.py \
+            tests/surfaces/test_windowed_ui.py \
             tests/surfaces/test_read_model_failure_contracts.py \
             tests/surfaces/test_surface_read_errors.py \
             tests/surfaces/test_read_model_transport_errors.py \
