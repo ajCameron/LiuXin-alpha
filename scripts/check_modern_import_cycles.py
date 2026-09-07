@@ -29,6 +29,13 @@ WEB_APPLICATION_PREFIXES = (
     "LiuXin_alpha.surfaces.api_readonly",
     "LiuXin_alpha.surfaces.opds_readonly",
 )
+CLI_PREFIX = "LiuXin_alpha.surfaces.cli"
+CLI_ENTRY_POINTS = frozenset(
+    (CLI_PREFIX, f"{CLI_PREFIX}.__main__", f"{CLI_PREFIX}.squashfs")
+)
+CLI_COMPATIBILITY_TARGETS = frozenset(
+    (CLI_PREFIX, f"{CLI_PREFIX}.app", f"{CLI_PREFIX}.squashfs")
+)
 PROTECTED_PREFIXES = (
     "LiuXin_alpha.catalog.api",
     "LiuXin_alpha.catalog.write",
@@ -36,6 +43,7 @@ PROTECTED_PREFIXES = (
     "LiuXin_alpha.caches.write",
     *SHARED_SURFACE_PREFIXES,
     *WEB_APPLICATION_PREFIXES,
+    CLI_PREFIX,
 )
 
 
@@ -228,6 +236,21 @@ def build_graph(
 
 def forbidden_dependency(edge: ImportEdge) -> str | None:
     """Reject backward ownership even when it does not close a cycle."""
+    if (
+        _within(edge.source, (CLI_PREFIX,))
+        and edge.source not in CLI_ENTRY_POINTS
+        and edge.target in CLI_COMPATIBILITY_TARGETS
+    ):
+        return "CLI implementations must not import application or compatibility entry points"
+    if (
+        edge.source == f"{CLI_PREFIX}.parsers"
+        and edge.target == f"{CLI_PREFIX}.completion"
+    ):
+        return "CLI parser construction must receive completion registration, not import its command"
+    if edge.source == f"{CLI_PREFIX}.parser_types" and _within(
+        edge.target, ("LiuXin_alpha",)
+    ):
+        return "CLI parser contracts must remain independent leaves"
     if (
         edge.source.startswith("LiuXin_alpha.caches.write.")
         and edge.target == "LiuXin_alpha.caches.write"

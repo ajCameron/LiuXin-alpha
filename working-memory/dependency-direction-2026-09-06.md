@@ -81,14 +81,17 @@ Stage 3 is complete for the dependency-direction scope above.
 
 ## Remaining work
 
-The broader static import scan of the eight modern packages no longer finds
-cache-writer or shared-surface executable cycles. With type-only dependencies
-excluded, it reports no module-level-only cycles and two components when
-function-body imports are included: CLI package/app/completion/SquashFS and
-terminal text-browser/windowed-UI. Those existing deferred cycles remain
-outside this protected repair; this is not a whole-project acyclicity sign-off.
+At stage-3 completion, the broader static import scan of the eight modern
+packages no longer found cache-writer or shared-surface executable cycles.
+With type-only dependencies excluded, it reported no module-level-only cycles
+and two components when function-body imports were included: CLI
+package/app/completion/SquashFS and terminal text-browser/windowed-UI.
+Stage 6 subsequently repaired the CLI component and added the complete CLI
+package to the protected graph; see [CLI dependency direction](cli-dependency-direction-2026-09-07.md).
+The terminal cycle remains separate work. This is not a whole-project
+acyclicity sign-off.
 
 Stage 4 subsequently completed unexpected read-model error visibility,
 narrowing the broad row-lookup fallback and backend exception handling left
 unchanged by this extraction. See [read-model failure visibility](read-model-failure-visibility-2026-09-06.md).
-Incremental formatter enforcement remains next.
+Stage 5 subsequently added [incremental formatter enforcement](incremental-formatting-2026-09-07.md).

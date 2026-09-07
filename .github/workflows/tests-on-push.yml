@@ -49,7 +49,7 @@ jobs:
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install ".[test,typing]"
 
-      - name: Run ratcheted modern type and import checks
+      - name: Run ratcheted formatting, lint, type, and import checks
         run: bash scripts/run_type_checks.sh
 
       - name: Enforce application-surface ownership
@@ -60,10 +60,12 @@ jobs:
             tests/surfaces/test_core_boundary_enforcement.py \
             tests/scripts/test_public_documentation_boundaries.py \
             tests/scripts/test_run_type_checks.py \
+            tests/scripts/test_run_format_checks.py \
             tests/scripts/test_internal_type_contracts.py \
             tests/scripts/test_workflow_ownership.py \
             tests/scripts/test_check_modern_import_cycles.py \
             tests/surfaces/test_shared_surface_dependencies.py \
+            tests/surfaces/test_cli_dependency_contracts.py \
             tests/surfaces/test_read_model_failure_contracts.py \
             tests/surfaces/test_surface_read_errors.py \
             tests/surfaces/test_read_model_transport_errors.py \

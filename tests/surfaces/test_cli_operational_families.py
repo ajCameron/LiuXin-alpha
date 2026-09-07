@@ -16,7 +16,11 @@ from LiuXin_alpha.surfaces.cli import catalogue as catalogue_cli
 from LiuXin_alpha.surfaces.cli import common as common_cli
 from LiuXin_alpha.surfaces.cli import jobs as jobs_cli
 from LiuXin_alpha.surfaces.cli.storage_commands import (
-    administration, core_access, integrity, store_add, store_wizard,
+    administration,
+    core_access,
+    integrity,
+    store_add,
+    store_wizard,
 )
 from LiuXin_alpha.surfaces.cli import workflows as workflows_cli
 from LiuXin_alpha.surfaces.cli.app import build_parser, main as cli_main
@@ -150,9 +154,7 @@ def _connection() -> list[str]:
 def test_installed_parser_exposes_complete_operational_families() -> None:
     parser = build_parser()
     action = next(
-        item
-        for item in parser._actions
-        if getattr(item, "dest", None) == "surface"
+        item for item in parser._actions if getattr(item, "dest", None) == "surface"
     )
     assert {
         "core",
@@ -193,17 +195,20 @@ def test_jobs_list_logs_and_cancel_use_named_job_operations(
     assert json.loads(capsys.readouterr().out)["cancelled"] is True
     assert fake_core.commands[-1] == ("jobs.cancel", {"job_id": "job-1"})
 
-    assert cli_main(
-        [
-            "jobs",
-            "retry",
-            *_connection(),
-            "job-1",
-            "--label",
-            "again",
-            "--allow-succeeded",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "jobs",
+                "retry",
+                *_connection(),
+                "job-1",
+                "--label",
+                "again",
+                "--allow-succeeded",
+            ]
+        )
+        == 0
+    )
     assert json.loads(capsys.readouterr().out)["retry_of_job_id"] == "job-1"
     assert fake_core.commands[-1] == (
         "jobs.retry",
@@ -219,19 +224,22 @@ def test_backup_plan_names_configured_source_and_destination_stores(
     fake_core: _Core,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    assert cli_main(
-        [
-            "backup",
-            "plan",
-            *_connection(),
-            "source-store",
-            "sealed-store",
-            "--target-pack-mib",
-            "8",
-            "--output-key-prefix",
-            "monthly/naïve #1",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "backup",
+                "plan",
+                *_connection(),
+                "source-store",
+                "sealed-store",
+                "--target-pack-mib",
+                "8",
+                "--output-key-prefix",
+                "monthly/naïve #1",
+            ]
+        )
+        == 0
+    )
     assert json.loads(capsys.readouterr().out)["count"] == 0
     assert fake_core.queries[-1] == (
         "backup.plan",
@@ -278,12 +286,7 @@ def test_storage_transfers_cli_host_bytes_and_rich_hints(
     assert payload["original_name"].endswith(".epub")
 
     target = tmp_path / "download.epub"
-    assert (
-        cli_main(
-            ["storage", "files", "get", *_connection(), "8", str(target)]
-        )
-        == 0
-    )
+    assert cli_main(["storage", "files", "get", *_connection(), "8", str(target)]) == 0
     assert target.read_bytes() == b"book"
     assert "book.epub" in capsys.readouterr().err
 
@@ -306,12 +309,7 @@ def test_catalogue_search_and_acquisition_download_are_core_backed(
     )
 
     output = tmp_path / "cover.jpg"
-    assert (
-        cli_main(
-            ["acquire", "get", *_connection(), "image", "2", str(output)]
-        )
-        == 0
-    )
+    assert cli_main(["acquire", "get", *_connection(), "image", "2", str(output)]) == 0
     assert output.read_bytes() == b"cover"
     assert fake_core.queries[-1][0] == "acquisition.read"
     assert "size" in capsys.readouterr().err

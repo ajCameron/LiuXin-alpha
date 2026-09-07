@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import argparse
 import shlex
-
 from collections.abc import Mapping
 
 from LiuXin_alpha.surfaces.cli.common import emit_bytes
+from LiuXin_alpha.surfaces.cli.parser_types import CompletionSubparsers
+from LiuXin_alpha.surfaces.cli.parsers import create_parser
 
 
 def _command_tree(
@@ -40,11 +41,7 @@ def _bash(tree: Mapping[tuple[str, ...], tuple[str, ...]]) -> str:
     for path, values in sorted(tree.items()):
         label = " ".join(path)
         words = " ".join(values)
-        cases.append(
-            "    {} ) candidates={} ;;".format(
-                shlex.quote(label), shlex.quote(words)
-            )
-        )
+        cases.append(f"    {shlex.quote(label)} ) candidates={shlex.quote(words)} ;;")
     return """# bash completion for liuxin
 _liuxin_complete() {
   local current path candidate word i candidates
@@ -74,11 +71,7 @@ def _zsh(tree: Mapping[tuple[str, ...], tuple[str, ...]]) -> str:
     top = [value for value in tree.get((), ()) if not value.startswith("-")]
     cases: list[str] = []
     for name in top:
-        values = [
-            value
-            for value in tree.get((name,), ())
-            if not value.startswith("-")
-        ]
+        values = [value for value in tree.get((name,), ()) if not value.startswith("-")]
         if values:
             cases.append(
                 "    {} ) _values 'command' {} ;;".format(
@@ -102,16 +95,13 @@ def _fish(tree: Mapping[tuple[str, ...], tuple[str, ...]]) -> str:
     top = [value for value in tree.get((), ()) if not value.startswith("-")]
     for name in top:
         lines.append(
-            "complete -c liuxin -n '__fish_use_subcommand' -a {}".format(
-                shlex.quote(name)
-            )
+            f"complete -c liuxin -n '__fish_use_subcommand' -a {shlex.quote(name)}"
         )
         for child in tree.get((name,), ()):
             if child.startswith("-"):
                 continue
             lines.append(
-                "complete -c liuxin -n '__fish_seen_subcommand_from {}' -a {}"
-                .format(shlex.quote(name), shlex.quote(child))
+                f"complete -c liuxin -n '__fish_seen_subcommand_from {shlex.quote(name)}' -a {shlex.quote(child)}"
             )
     return "\n".join(lines) + "\n"
 
@@ -119,9 +109,7 @@ def _fish(tree: Mapping[tuple[str, ...], tuple[str, ...]]) -> str:
 def cmd_completion(args: argparse.Namespace) -> int:
     """Write a completion script for the selected shell."""
 
-    from LiuXin_alpha.surfaces.cli.app import build_parser
-
-    tree = _command_tree(build_parser())
+    tree = _command_tree(create_parser(register_completion=build_completion_parser))
     script = {
         "bash": _bash,
         "zsh": _zsh,
@@ -136,15 +124,9 @@ def cmd_completion(args: argparse.Namespace) -> int:
 
 
 def build_completion_parser(
-    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    subparsers: CompletionSubparsers,
 ) -> None:
-    """
-    Build the `completion` command-line parser.
-
-
-    :param subparsers:
-    :return:
-    """
+    """Register shell/output options and bind the standalone completion command."""
     parser = subparsers.add_parser(
         "completion", help="Generate shell completion for the installed CLI."
     )

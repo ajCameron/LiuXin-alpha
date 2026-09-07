@@ -8,7 +8,9 @@ from LiuXin_alpha.surfaces.images.api import ImageBackend
 
 
 class _DiscoverySource:
-    def _manifestations(self, expression_row: dict[str, object]) -> list[dict[str, object]]:
+    def _manifestations(
+        self, expression_row: dict[str, object]
+    ) -> list[dict[str, object]]:
         mode = expression_row.get("mode")
         if mode == "interlink-error":
             raise RuntimeError("interlink failed")
@@ -58,6 +60,7 @@ class _ReadModel(_DiscoverySource):
         value: object,
     ) -> list[dict[str, object]]:
         return self._search(table, column, value)
+
 
 class _Core:
     def __init__(
@@ -140,9 +143,9 @@ def test_image_discovery_walks_expressions_and_ignores_bad_rows(
 
     assert _image_ids(rows) == ([1, 2] if use_read_model else [1])
     if use_read_model:
-        assert next(row for row in rows if row["image_id"] == 2)[
-            "image_name"
-        ] == "2.jpg"
+        assert (
+            next(row for row in rows if row["image_id"] == 2)["image_name"] == "2.jpg"
+        )
 
 
 def test_duplicate_image_ids_are_deduplicated_by_the_latest_row() -> None:

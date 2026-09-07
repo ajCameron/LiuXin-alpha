@@ -61,5 +61,6 @@ configured SQLite test backend; no whole-project test-suite claim is made.
 Workflow extraction, dependency-direction repair, and read-model failure
 visibility are now complete in the same checkpoint. The final typing scope
 has grown to 147 files and 25 negative examples; the counts above preserve the
-stage-1 verification record. Incremental formatting enforcement remains next.
-See the [current checkpoint](maintainability-checkpoint-2026-09-07.md).
+stage-1 verification record. Stage 5 subsequently added
+[incremental formatting enforcement](incremental-formatting-2026-09-07.md).
+See also the [stages 1–4 checkpoint](maintainability-checkpoint-2026-09-07.md).

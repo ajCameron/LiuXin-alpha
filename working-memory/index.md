@@ -6,11 +6,22 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [cli-dependency-direction-2026-09-07.md](cli-dependency-direction-2026-09-07.md)
+  Completed stage 6: separates CLI grammar, dispatch, completion, and SquashFS
+  execution; preserves entry points, help, and shell scripts. The dependency
+  gate now protects all 47 CLI modules (152 total). Records typing/regression
+  evidence and the remaining terminal cycle. Stages 5–6 are committed together;
+  that checkpoint has not been pushed.
+
+- [incremental-formatting-2026-09-07.md](incremental-formatting-2026-09-07.md)
+  Completed stage 5: an explicit 109-file formatter scope, pinned Ruff,
+  check-only local/CI enforcement, and real formatter/runner contracts. Records
+  the exact-line negative-type-test adjustment and verification status.
+
 - [maintainability-checkpoint-2026-09-07.md](maintainability-checkpoint-2026-09-07.md)
   Start here for the readability/maintainability programme: stages 1–4 are
-  complete, their scope and verification are linked below, and incremental
-  formatter enforcement is next. Distinguishes current status from the older
-  stage-specific verification records.
+  complete in commit 859ab804, with their scope and verification linked below.
+  This is the pre-formatting checkpoint; stages 5–6 are recorded above.
 
 - [read-model-failure-visibility-2026-09-06.md](read-model-failure-visibility-2026-09-06.md)
   Makes failed reads distinct from absent data across shared backends and
@@ -21,7 +32,7 @@ Start here for active handoff notes. This index should stay short.
   Repairs cache-writer and shared-surface dependency direction, preserves
   compatibility exports, and expands the protected dependency gate with
   explicit import contexts and direction rules. Records focused regression
-  evidence and remaining deferred CLI/terminal cycles.
+  evidence and follow-up CLI/terminal cycle status.
 
 - [workflow-extraction-2026-09-06.md](workflow-extraction-2026-09-06.md)
   Extracts Core execution and storage CLI ownership, introduces typed

@@ -15,36 +15,39 @@ def install_queries(api: SystemJobsHandlers, runtime: ProgramEndpointRegistrar) 
     query = runtime.register_query_handler
 
     query(
-                "capabilities.list",
-                api.capabilities_list,
-                summary="Describe whole-program Core capability families.",
-                tags=("api", "capabilities"),
-            )
+        "capabilities.list",
+        api.capabilities_list,
+        summary="Describe whole-program Core capability families.",
+        tags=("api", "capabilities"),
+    )
 
     query(
-                "jobs.result",
-                api.jobs_result,
-                summary="Return the completed execution payload for one job.",
-                payload_fields=(
-                    field("job_id", required=True, field_type="string"),
-                    field("timeout_s", field_type="number|null"),
-                ),
-                tags=("jobs", "read"),
-            )
+        "jobs.result",
+        api.jobs_result,
+        summary="Return the completed execution payload for one job.",
+        payload_fields=(
+            field("job_id", required=True, field_type="string"),
+            field("timeout_s", field_type="number|null"),
+        ),
+        tags=("jobs", "read"),
+    )
 
     query(
-                "jobs.log.read",
-                api.jobs_log_read,
-                summary="Read a bounded UTF-8 chunk from a managed job log.",
-                payload_fields=(
-                    field("job_id", required=True, field_type="string"),
-                    field("offset", field_type="integer"),
-                    field("max_bytes", field_type="integer"),
-                ),
-                tags=("jobs", "logs", "read"),
-            )
+        "jobs.log.read",
+        api.jobs_log_read,
+        summary="Read a bounded UTF-8 chunk from a managed job log.",
+        payload_fields=(
+            field("job_id", required=True, field_type="string"),
+            field("offset", field_type="integer"),
+            field("max_bytes", field_type="integer"),
+        ),
+        tags=("jobs", "logs", "read"),
+    )
 
-def install_commands(api: SystemJobsHandlers, runtime: ProgramEndpointRegistrar) -> None:
+
+def install_commands(
+    api: SystemJobsHandlers, runtime: ProgramEndpointRegistrar
+) -> None:
     """Register this family's command endpoints."""
 
     command = runtime.register_command_handler

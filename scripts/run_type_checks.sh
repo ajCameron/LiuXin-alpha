@@ -18,7 +18,7 @@ usage() {
     cat <<'EOF'
 Usage: scripts/run_type_checks.sh [options] [-- <tool args>]
 
-Run the repo's static typing checks against the configured strict target set.
+Run the repo's modern formatting, lint, architecture, and typing quality gates.
 
 Options:
   --basedpyright          Run only basedpyright
@@ -128,6 +128,15 @@ MYPY_CMD=("${VENV_DIR}/bin/mypy")
 RUFF_CMD=(
     "${VENV_DIR}/bin/ruff"
     "check"
+    "src/LiuXin_alpha/surfaces/cli/__init__.py"
+    "src/LiuXin_alpha/surfaces/cli/app.py"
+    "src/LiuXin_alpha/surfaces/cli/completion.py"
+    "src/LiuXin_alpha/surfaces/cli/parser_types.py"
+    "src/LiuXin_alpha/surfaces/cli/parsers.py"
+    "src/LiuXin_alpha/surfaces/cli/squashfs.py"
+    "src/LiuXin_alpha/surfaces/cli/squashfs_commands.py"
+    "src/LiuXin_alpha/surfaces/cli/squashfs_parsers.py"
+    "tests/surfaces/test_cli_dependency_contracts.py"
     "src/LiuXin_alpha/surfaces/presentation.py"
     "src/LiuXin_alpha/surfaces/acquisition_types.py"
     "tests/surfaces/test_shared_surface_dependencies.py"
@@ -149,6 +158,8 @@ RUFF_CMD=(
     "src/LiuXin_alpha/storage/storage_manager/mixins"
     "scripts/check_modern_import_cycles.py"
     "scripts/check_internal_type_contracts.py"
+    "scripts/run_format_checks.py"
+    "tests/scripts/test_run_format_checks.py"
     "tests/scripts/test_internal_type_contracts.py"
     "tests/scripts/test_workflow_ownership.py"
     "tests/core/test_evacuation_workflow.py"
@@ -163,6 +174,10 @@ FILE_FORMAT_ANNOTATION_CMD=(
     "${VENV_PYTHON}"
     "${REPO_ROOT}/scripts/annotate_file_formats.py"
     "--check"
+)
+FORMAT_CMD=(
+    "${VENV_PYTHON}"
+    "${REPO_ROOT}/scripts/run_format_checks.py"
 )
 IMPORT_CYCLE_CMD=(
     "${VENV_PYTHON}"
@@ -179,6 +194,14 @@ MODERN_COMPLEXITY_CMD=(
     "C901"
     "--config"
     "lint.mccabe.max-complexity=10"
+    "src/LiuXin_alpha/surfaces/cli/__init__.py"
+    "src/LiuXin_alpha/surfaces/cli/app.py"
+    "src/LiuXin_alpha/surfaces/cli/completion.py"
+    "src/LiuXin_alpha/surfaces/cli/parser_types.py"
+    "src/LiuXin_alpha/surfaces/cli/parsers.py"
+    "src/LiuXin_alpha/surfaces/cli/squashfs.py"
+    "src/LiuXin_alpha/surfaces/cli/squashfs_commands.py"
+    "src/LiuXin_alpha/surfaces/cli/squashfs_parsers.py"
     "src/LiuXin_alpha/surfaces/presentation.py"
     "src/LiuXin_alpha/surfaces/acquisition_types.py"
     "src/LiuXin_alpha/core/program_endpoints"
@@ -190,6 +213,7 @@ MODERN_COMPLEXITY_CMD=(
     "src/LiuXin_alpha/surfaces/cli/storage.py"
     "src/LiuXin_alpha/surfaces/cli/storage_commands"
     "scripts/check_modern_import_cycles.py"
+    "scripts/run_format_checks.py"
 )
 STORAGE_MANAGER_COMPLEXITY_CMD=(
     "${VENV_DIR}/bin/ruff"
@@ -235,6 +259,8 @@ if [[ ${RUN_MYPY} -eq 1 ]]; then
 fi
 printf 'modern lint step: '
 print_cmd "${RUFF_CMD[@]}"
+printf 'modern formatting step: '
+print_cmd "${FORMAT_CMD[@]}"
 printf 'file_formats annotation step: '
 print_cmd "${FILE_FORMAT_ANNOTATION_CMD[@]}"
 printf 'modern import-cycle step: '
@@ -280,6 +306,7 @@ fi
 
 STATUS=0
 
+"${FORMAT_CMD[@]}"
 "${FILE_FORMAT_ANNOTATION_CMD[@]}"
 "${IMPORT_CYCLE_CMD[@]}"
 "${RUFF_CMD[@]}"

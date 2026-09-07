@@ -189,9 +189,7 @@ def execute_mixed_ingest(
                     "store_bootstrap_issue",
                     "Store bootstrap warning",
                     store_ref=(
-                        None
-                        if issue.store_ref is None
-                        else str(issue.store_ref)
+                        None if issue.store_ref is None else str(issue.store_ref)
                     ),
                     store_name=issue.store_name,
                     reason=issue.reason,

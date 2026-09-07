@@ -18,7 +18,11 @@ from LiuXin_alpha.surfaces.cli import diagnostics as diagnostics_cli
 from LiuXin_alpha.surfaces.cli import ingest_runs as ingest_runs_cli
 from LiuXin_alpha.surfaces.cli import storage as storage_cli
 from LiuXin_alpha.surfaces.cli.storage_commands import (
-    administration, core_access, integrity, store_add, store_wizard,
+    administration,
+    core_access,
+    integrity,
+    store_add,
+    store_wizard,
 )
 from LiuXin_alpha.surfaces.cli import workflows as workflows_cli
 from LiuXin_alpha.surfaces.cli.app import main as cli_main
@@ -273,9 +277,7 @@ def test_global_system_profile_show_validate_and_argument_resolution(
             {
                 "format": "liuxin.system",
                 "version": 1,
-                "database": (
-                    "postgresql://reader:swordfish@example.invalid/catalogue"
-                ),
+                "database": ("postgresql://reader:swordfish@example.invalid/catalogue"),
                 "db_type": "PostgreSQL",
                 "database_metadata": {"schema": "liuxin"},
             }
@@ -346,9 +348,7 @@ def test_named_profiles_are_credential_free_selectors_and_can_be_removed(
     assert cli_main(["config", "profiles", "remove", "reading"]) == 2
     assert "requires --yes" in capsys.readouterr().err
     assert pointer_path.is_file()
-    assert cli_main(
-        ["config", "profiles", "remove", "reading", "--yes"]
-    ) == 0
+    assert cli_main(["config", "profiles", "remove", "reading", "--yes"]) == 0
     assert json.loads(capsys.readouterr().out)["systems_modified"] is False
     assert not pointer_path.exists()
 
@@ -391,15 +391,18 @@ def test_storage_status_prints_the_store_overview_and_can_refresh(
     database = tmp_path / "catalogue.sqlite"
     _sqlite(database)
 
-    assert cli_main(
-        [
-            "storage",
-            "status",
-            "--database",
-            str(database),
-            "--refresh",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "status",
+                "--database",
+                str(database),
+                "--refresh",
+            ]
+        )
+        == 0
+    )
     report = json.loads(capsys.readouterr().out)
 
     assert report["summary"]["folder_stores"] == 1
@@ -434,23 +437,26 @@ def test_storage_add_has_provider_discovery_and_rclone_style_automation(
         "s3",
     ]
 
-    assert cli_main(
-        [
-            "storage",
-            "add",
-            *connection,
-            "offsite-books",
-            "s3",
-            "s3://book-archive/library",
-            'region_name="eu-west-2"',
-            "multipart_threshold=16777216",
-            "--tag",
-            "offsite",
-            "--failure-domain",
-            "cloud-eu-west-2",
-            "--default",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "add",
+                *connection,
+                "offsite-books",
+                "s3",
+                "s3://book-archive/library",
+                'region_name="eu-west-2"',
+                "multipart_threshold=16777216",
+                "--tag",
+                "offsite",
+                "--failure-domain",
+                "cloud-eu-west-2",
+                "--default",
+            ]
+        )
+        == 0
+    )
     result = json.loads(capsys.readouterr().out)
     assert result["ok"] is True
     assert result["backend"]["kind"] == "s3"
@@ -487,30 +493,33 @@ def test_storage_add_wizard_confirms_a_registry_backed_folder_store(
 ) -> None:
     answers = iter(
         [
-            "1",                 # filesystem backend
+            "1",  # filesystem backend
             "/srv/Library Books",
-            "",                  # generated name
-            "",                  # live role
-            "",                  # writable
-            "",                  # online
-            "",                  # no advanced configuration
-            "y",                 # default Store
-            "",                  # probe after save
-            "y",                 # final confirmation
+            "",  # generated name
+            "",  # live role
+            "",  # writable
+            "",  # online
+            "",  # no advanced configuration
+            "y",  # default Store
+            "",  # probe after save
+            "y",  # final confirmation
         ]
     )
     monkeypatch.setattr(store_wizard, "_storage_stdin_is_interactive", lambda: True)
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
 
-    assert cli_main(
-        [
-            "storage",
-            "add",
-            "--database",
-            "catalogue.sqlite",
-            "--compact",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "add",
+                "--database",
+                "catalogue.sqlite",
+                "--compact",
+            ]
+        )
+        == 0
+    )
     output = capsys.readouterr().out
     assert "LiuXin storage configuration" in output
     assert "Store configuration plan" in output
@@ -534,35 +543,38 @@ def test_storage_add_wizard_preserves_advanced_backend_configuration(
 ) -> None:
     answers = iter(
         [
-            "2",                         # S3 backend
+            "2",  # S3 backend
             "s3://archive/books",
-            "",                          # generated name
-            "",                          # live role
-            "",                          # writable
-            "",                          # online
-            "y",                         # advanced configuration
+            "",  # generated name
+            "",  # live role
+            "",  # writable
+            "",  # online
+            "y",  # advanced configuration
             "cloud-eu-west-2",
             "eu-west-2",
             "offsite, archive",
             "multipart_threshold=16777216",
-            "",                          # backend options complete
-            "y",                         # default Store
-            "",                          # probe after save
-            "y",                         # final confirmation
+            "",  # backend options complete
+            "y",  # default Store
+            "",  # probe after save
+            "y",  # final confirmation
         ]
     )
     monkeypatch.setattr(store_wizard, "_storage_stdin_is_interactive", lambda: True)
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
 
-    assert cli_main(
-        [
-            "storage",
-            "add",
-            "--database",
-            "catalogue.sqlite",
-            "--compact",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "add",
+                "--database",
+                "catalogue.sqlite",
+                "--compact",
+            ]
+        )
+        == 0
+    )
     result = json.loads(capsys.readouterr().out.splitlines()[-1])
     store = result["store"]
     assert store["store_name"] == "books"
@@ -584,18 +596,21 @@ def test_storage_add_rejects_persisted_credentials_before_writing(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     before = len(operator_core.commands)
-    assert cli_main(
-        [
-            "storage",
-            "add",
-            "--database",
-            "catalogue.sqlite",
-            "private-bucket",
-            "s3",
-            "s3://private/books",
-            "access_key=do-not-store-this",
-        ]
-    ) == 2
+    assert (
+        cli_main(
+            [
+                "storage",
+                "add",
+                "--database",
+                "catalogue.sqlite",
+                "private-bucket",
+                "s3",
+                "s3://private/books",
+                "access_key=do-not-store-this",
+            ]
+        )
+        == 2
+    )
     assert len(operator_core.commands) == before
     assert "looks secret-bearing" in capsys.readouterr().err
 
@@ -621,18 +636,21 @@ def test_global_system_root_opens_a_real_initialized_core(
     assert storage_status["stores"] == []
 
     added_root = root / "added-store"
-    assert cli_main(
-        [
-            "storage",
-            "add",
-            "primary",
-            "filesystem",
-            str(added_root),
-            "--system-root",
-            str(root),
-            "--default",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "add",
+                "primary",
+                "filesystem",
+                str(added_root),
+                "--system-root",
+                str(root),
+                "--default",
+            ]
+        )
+        == 0
+    )
     added = json.loads(capsys.readouterr().out)
     assert added["ok"] is True
     assert added["probe"]["ok"] is True
@@ -724,16 +742,12 @@ def test_persistent_connect_selects_later_commands_and_disconnects_safely(
     assert cli_main(["config", "path", "--system-root", str(environment_root)]) == 0
     explicit_selected = json.loads(capsys.readouterr().out)
     assert explicit_selected["source"] == "system-root"
-    assert explicit_selected["path"] == str(
-        environment_root / "liuxin-system.json"
-    )
+    assert explicit_selected["path"] == str(environment_root / "liuxin-system.json")
     monkeypatch.setenv("LIUXIN_SYSTEM_ROOT", str(environment_root))
     assert cli_main(["config", "path"]) == 0
     environment_selected = json.loads(capsys.readouterr().out)
     assert environment_selected["source"] == "LIUXIN_SYSTEM_ROOT"
-    assert environment_selected["path"] == str(
-        environment_root / "liuxin-system.json"
-    )
+    assert environment_selected["path"] == str(environment_root / "liuxin-system.json")
     assert cli_main(["connect", str(root), "--no-health-check"]) == 0
     overridden_connect = json.loads(capsys.readouterr().out)
     assert overridden_connect["effective_now"] is False
@@ -751,14 +765,17 @@ def test_persistent_connect_selects_later_commands_and_disconnects_safely(
     assert cli_main(["core", "health"]) == 2
     assert "liuxin connect" in capsys.readouterr().err
 
-    assert cli_main(
-        [
-            "connect",
-            "--profile",
-            str(root / "liuxin-system.json"),
-            "--no-health-check",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "connect",
+                "--profile",
+                str(root / "liuxin-system.json"),
+                "--no-health-check",
+            ]
+        )
+        == 0
+    )
     profile_connected = json.loads(capsys.readouterr().out)
     assert profile_connected["effective_now"] is True
     assert cli_main(["disconnect"]) == 0
@@ -806,38 +823,44 @@ def test_typed_storage_setup_integrity_and_reconcile_commands(
     connection = ["--database", str(tmp_path / "catalogue.sqlite")]
     store_root = tmp_path / "store"
 
-    assert cli_main(
-        [
-            "storage",
-            "store",
-            "add",
-            *connection,
-            "filesystem",
-            str(store_root),
-            "--name",
-            "primary",
-            "--default",
-            "--tag",
-            "fast",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "store",
+                "add",
+                *connection,
+                "filesystem",
+                str(store_root),
+                "--name",
+                "primary",
+                "--default",
+                "--tag",
+                "fast",
+            ]
+        )
+        == 0
+    )
     saved = json.loads(capsys.readouterr().out)
     assert saved["store"]["store_name"] == "primary"
     assert operator_core.commands[-1][0] == "storage.default.set"
 
-    assert cli_main(
-        [
-            "storage",
-            "sources",
-            "add",
-            *connection,
-            "unmanaged-disk",
-            str(tmp_path / "incoming"),
-            "--name",
-            "drive-1",
-            "--no-hash",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "sources",
+                "add",
+                *connection,
+                "unmanaged-disk",
+                str(tmp_path / "incoming"),
+                "--name",
+                "drive-1",
+                "--no-hash",
+            ]
+        )
+        == 0
+    )
     _ = capsys.readouterr()
     name, payload = operator_core.commands[-1]
     assert name == "storage.source.register"
@@ -845,7 +868,10 @@ def test_typed_storage_setup_integrity_and_reconcile_commands(
 
     assert cli_main(["storage", "replica", "verify", *connection, "4"]) == 0
     assert json.loads(capsys.readouterr().out)["healthy"] is True
-    assert cli_main(["storage", "asset", "verify", *connection, "8", "--all-replicas"]) == 0
+    assert (
+        cli_main(["storage", "asset", "verify", *connection, "8", "--all-replicas"])
+        == 0
+    )
     _ = capsys.readouterr()
     assert cli_main(["storage", "audit", *connection, "--limit", "1"]) == 0
     _ = capsys.readouterr()
@@ -854,18 +880,21 @@ def test_typed_storage_setup_integrity_and_reconcile_commands(
     assert cli_main(["storage", "reconcile", "apply", *connection, "--yes"]) == 0
     assert json.loads(capsys.readouterr().out)["ok"] is True
 
-    assert cli_main(
-        [
-            "storage",
-            "store",
-            "update",
-            *connection,
-            "primary",
-            "--add-tag",
-            "offsite",
-            "--read-only",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "store",
+                "update",
+                *connection,
+                "primary",
+                "--add-tag",
+                "offsite",
+                "--read-only",
+            ]
+        )
+        == 0
+    )
     _ = capsys.readouterr()
     assert operator_core.commands[-1] == (
         "storage.store.update",
@@ -875,64 +904,70 @@ def test_typed_storage_setup_integrity_and_reconcile_commands(
         },
     )
 
-    assert cli_main(
-        ["storage", "repair", "plan", *connection, "--asset-id", "8"]
-    ) == 0
+    assert cli_main(["storage", "repair", "plan", *connection, "--asset-id", "8"]) == 0
     assert json.loads(capsys.readouterr().out)["deletes_bytes"] is False
     assert cli_main(["storage", "repair", "apply", *connection]) == 2
     assert "requires --yes" in capsys.readouterr().err
-    assert cli_main(
-        ["storage", "repair", "apply", *connection, "--yes"]
-    ) == 0
+    assert cli_main(["storage", "repair", "apply", *connection, "--yes"]) == 0
     assert json.loads(capsys.readouterr().out)["ok"] is True
 
     before = len(operator_core.commands)
-    assert cli_main(
-        [
-            "storage",
-            "store",
-            "evacuate",
-            *connection,
-            "primary",
-            "--destination-store",
-            "archive",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "store",
+                "evacuate",
+                *connection,
+                "primary",
+                "--destination-store",
+                "archive",
+            ]
+        )
+        == 0
+    )
     assert json.loads(capsys.readouterr().out)["blocked"] is False
     assert len(operator_core.commands) == before
-    assert cli_main(
-        [
-            "storage",
-            "store",
-            "evacuate",
-            *connection,
-            "primary",
-            "--destination-store",
-            "archive",
-            "--yes",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "store",
+                "evacuate",
+                *connection,
+                "primary",
+                "--destination-store",
+                "archive",
+                "--yes",
+            ]
+        )
+        == 0
+    )
     assert json.loads(capsys.readouterr().out)["ok"] is True
 
-    assert cli_main(
-        ["storage", "recovery", "list", *connection, "--state", "failed"]
-    ) == 0
+    assert (
+        cli_main(["storage", "recovery", "list", *connection, "--state", "failed"]) == 0
+    )
     assert json.loads(capsys.readouterr().out)["state"] == "failed"
     operation_id = "12345678-1234-5678-9234-567812345678"
-    assert cli_main(
-        ["storage", "recovery", "retry-ingest", *connection, operation_id]
-    ) == 2
+    assert (
+        cli_main(["storage", "recovery", "retry-ingest", *connection, operation_id])
+        == 2
+    )
     assert "requires --yes" in capsys.readouterr().err
-    assert cli_main(
-        [
-            "storage",
-            "recovery",
-            "retry-ingest",
-            *connection,
-            operation_id,
-            "--yes",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "recovery",
+                "retry-ingest",
+                *connection,
+                operation_id,
+                "--yes",
+            ]
+        )
+        == 0
+    )
     recovered = json.loads(capsys.readouterr().out)
     assert recovered["operation"] == "storage.recovery.retry-ingest"
 
@@ -946,32 +981,38 @@ def test_custom_fields_are_semantic_and_deletion_previews(
     assert cli_main(["catalog", "custom-fields", "show", *connection, "source"]) == 0
     assert json.loads(capsys.readouterr().out)["field"]["num"] == 7
 
-    assert cli_main(
-        [
-            "catalog",
-            "custom-fields",
-            "create",
-            *connection,
-            "Ingest source",
-            "--label",
-            "ingest_source",
-            "--datatype",
-            "text",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "catalog",
+                "custom-fields",
+                "create",
+                *connection,
+                "Ingest source",
+                "--label",
+                "ingest_source",
+                "--datatype",
+                "text",
+            ]
+        )
+        == 0
+    )
     _ = capsys.readouterr()
     assert operator_core.commands[-1][0] == "custom-fields.create"
 
     before = len(operator_core.commands)
-    assert cli_main(
-        ["catalog", "custom-fields", "delete", *connection, "--num", "7"]
-    ) == 0
+    assert (
+        cli_main(["catalog", "custom-fields", "delete", *connection, "--num", "7"]) == 0
+    )
     preview = json.loads(capsys.readouterr().out)
     assert preview["preview"] is True
     assert len(operator_core.commands) == before
-    assert cli_main(
-        ["catalog", "custom-fields", "delete", *connection, "--num", "7", "--yes"]
-    ) == 0
+    assert (
+        cli_main(
+            ["catalog", "custom-fields", "delete", *connection, "--num", "7", "--yes"]
+        )
+        == 0
+    )
     _ = capsys.readouterr()
     assert operator_core.commands[-1][0] == "custom-fields.delete"
 
@@ -985,37 +1026,42 @@ def test_ingest_runs_list_show_issues_and_refuse_discovery_resume(
     (source / "book.epub").write_bytes(b"book")
     logs = tmp_path / "logs"
     run_id = "12345678-1234-5678-9234-567812345678"
-    assert cli_main(
-        [
-            "storage",
-            "ingest",
-            "--source-root",
-            str(source),
-            "--discover-only",
-            "--log-directory",
-            str(logs),
-            "--run-id",
-            run_id,
-            "--no-console-progress",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "ingest",
+                "--source-root",
+                str(source),
+                "--discover-only",
+                "--log-directory",
+                str(logs),
+                "--run-id",
+                run_id,
+                "--no-console-progress",
+            ]
+        )
+        == 0
+    )
     _ = capsys.readouterr()
 
     assert cli_main(["ingest", "runs", "list", "--log-directory", str(logs)]) == 0
     listed = json.loads(capsys.readouterr().out)
     assert listed["runs"][0]["run_id"] == run_id
-    assert cli_main(
-        ["ingest", "runs", "show", "--log-directory", str(logs), run_id]
-    ) == 0
+    assert (
+        cli_main(["ingest", "runs", "show", "--log-directory", str(logs), run_id]) == 0
+    )
     shown = json.loads(capsys.readouterr().out)
     assert shown["report"]["mode"] == "discovery"
-    assert cli_main(
-        ["ingest", "runs", "issues", "--log-directory", str(logs), run_id]
-    ) == 0
+    assert (
+        cli_main(["ingest", "runs", "issues", "--log-directory", str(logs), run_id])
+        == 0
+    )
     assert json.loads(capsys.readouterr().out)["count"] == 0
-    assert cli_main(
-        ["ingest", "runs", "resume", "--log-directory", str(logs), run_id]
-    ) == 2
+    assert (
+        cli_main(["ingest", "runs", "resume", "--log-directory", str(logs), run_id])
+        == 2
+    )
     assert "Only real ingest attempts" in capsys.readouterr().err
 
 
@@ -1057,23 +1103,24 @@ def test_ingest_run_resume_reconstructs_an_operational_attempt(
         return 0
 
     monkeypatch.setattr(ingest_runs_cli, "cmd_storage_ingest", capture_resume)
-    assert cli_main(
-        [
-            "ingest",
-            "runs",
-            "resume",
-            run_id,
-            "--yes",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "ingest",
+                "runs",
+                "resume",
+                run_id,
+                "--yes",
+            ]
+        )
+        == 0
+    )
     assert resumed
     resumed_args = resumed[0]
     assert str(resumed_args.run_id) == run_id
     assert resumed_args.source_root == str(source.resolve())
     assert resumed_args.database == str(system_root / "catalogue.sqlite")
-    assert resumed_args.materialization_root == str(
-        system_root / "ingest-materialized"
-    )
+    assert resumed_args.materialization_root == str(system_root / "ingest-materialized")
     assert resumed_args.discover_only is False
     assert resumed_args.preflight_only is False
 
@@ -1096,16 +1143,19 @@ def test_database_backup_verification_and_atomic_offline_restore(
     alias_verified = json.loads(capsys.readouterr().out)
     assert alias_verified["sha256"] == verified["sha256"]
 
-    assert cli_main(
-        [
-            "database",
-            "restore",
-            "--database",
-            str(target),
-            str(backup),
-            "--yes",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "database",
+                "restore",
+                "--database",
+                str(target),
+                str(backup),
+                "--yes",
+            ]
+        )
+        == 0
+    )
     restored = json.loads(capsys.readouterr().out)
     assert restored["ok"] is True
     assert Path(restored["safety_backup"]).is_file()
@@ -1124,16 +1174,19 @@ def test_database_backup_verification_and_atomic_offline_restore(
 
     second_target = tmp_path / "second-catalogue.sqlite"
     _sqlite(second_target, "second_old_data")
-    assert cli_main(
-        [
-            "backup",
-            "restore",
-            "--database",
-            str(second_target),
-            str(backup),
-            "--yes",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "backup",
+                "restore",
+                "--database",
+                str(second_target),
+                str(backup),
+                "--yes",
+            ]
+        )
+        == 0
+    )
     alias_restored = json.loads(capsys.readouterr().out)
     assert alias_restored["ok"] is True
 
@@ -1147,8 +1200,6 @@ def test_migration_apply_previews_until_confirmed(
     assert cli_main(["database", "migrations", "apply", *connection]) == 0
     preview = json.loads(capsys.readouterr().out)
     assert preview["preview"] is True
-    assert cli_main(
-        ["database", "migrations", "apply", *connection, "--yes"]
-    ) == 0
+    assert cli_main(["database", "migrations", "apply", *connection, "--yes"]) == 0
     applied = json.loads(capsys.readouterr().out)
     assert applied["applied"] is True

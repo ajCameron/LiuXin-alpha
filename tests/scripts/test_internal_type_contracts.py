@@ -53,3 +53,27 @@ def test_fixture_must_contain_real_negative_examples() -> None:
     source = "value()  # expect-error: reportArgumentType arg-type\n"
     assert _expected_errors(source, "basedpyright") == {1: "reportArgumentType"}
     assert _expected_errors(source, "mypy") == {1: "arg-type"}
+
+
+def test_multiline_call_keeps_each_checkers_exact_diagnostic_location(
+    tmp_path: Path,
+) -> None:
+    source = (
+        "register(  # expect-error: - call-arg\n"
+        '    "name", unexpected=True  # expect-error: reportCallIssue -\n'
+        ")\n"
+    )
+    assert _expected_errors(source, "mypy") == {1: "call-arg"}
+    assert _expected_errors(source, "basedpyright") == {2: "reportCallIssue"}
+    fixture = tmp_path / "probe.py"
+    misplaced = (Diagnostic(fixture, 1, "reportCallIssue", "wrong line"),)
+    failures = _diagnostic_failures(
+        _expected_errors(source, "basedpyright"), misplaced, fixture
+    )
+    assert len(failures) == 2
+
+
+@pytest.mark.parametrize("checker", ["mypy", "basedpyright"])
+def test_dash_only_markers_cannot_pass_without_negative_examples(checker: str) -> None:
+    with pytest.raises(ValueError, match="no expected errors"):
+        _expected_errors("value()  # expect-error: - -\n", checker)

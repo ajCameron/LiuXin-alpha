@@ -21,7 +21,9 @@ def evacuation():
     destination = api.StoreConfiguration(
         UUID(int=2), "destination", "filesystem", "file:///destination"
     )
-    asset = api.DigitalAssetRecord(api.DigitalAssetID(1), 4, (api.Digest("sha256", "aa"),))
+    asset = api.DigitalAssetRecord(
+        api.DigitalAssetID(1), 4, (api.Digest("sha256", "aa"),)
+    )
     record = api.ReplicaRecord(
         api.ReplicaID(1),
         asset.digital_asset_id,

@@ -1,87 +1,17 @@
-"""Top-level packaged LiuXin command-line application."""
+"""Execute the packaged CLI using the separately owned command grammar."""
 
 from __future__ import annotations
 
 import argparse
 import sys
 
-from LiuXin_alpha.constants import __version__
-from LiuXin_alpha.surfaces.cli.capabilities import build_plugins_parser
-from LiuXin_alpha.surfaces.cli.catalogue import (
-    build_acquisition_parser,
-    build_catalog_parser,
-)
-from LiuXin_alpha.surfaces.cli.config_cli import (
-    build_config_parser,
-    build_connection_parsers,
-)
 from LiuXin_alpha.surfaces.cli.completion import build_completion_parser
-from LiuXin_alpha.surfaces.cli.core_cli import build_core_parser
-from LiuXin_alpha.surfaces.cli.diagnostics import build_diagnostics_parsers
-from LiuXin_alpha.surfaces.cli.initialize import build_init_parser
-from LiuXin_alpha.surfaces.cli.jobs import build_jobs_parser
-from LiuXin_alpha.surfaces.cli.metadata import build_metadata_parser
-from LiuXin_alpha.surfaces.cli.postgres import build_postgres_parser
-from LiuXin_alpha.surfaces.cli.serve import build_serve_parser
-from LiuXin_alpha.surfaces.cli.squashfs import build_squashfs_parser
-from LiuXin_alpha.surfaces.cli.storage import build_storage_parser
-from LiuXin_alpha.surfaces.cli.workflows import (
-    build_backup_parser,
-    build_conversion_parser,
-    build_database_parser,
-    build_ingest_parser,
-    build_maintenance_parser,
-)
+from LiuXin_alpha.surfaces.cli.parsers import create_parser
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """
-    Build the top-level ``liuxin`` command-line parser.
-
-
-    :return:
-    """
-    parser = argparse.ArgumentParser(
-        prog="liuxin",
-        description="LiuXin operational command-line surfaces",
-    )
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"LiuXin {__version__}",
-    )
-    parser.add_argument(
-        "--system-root",
-        dest="global_system_root",
-        help="Use SYSTEM_ROOT/liuxin-system.json for every supported command.",
-    )
-    parser.add_argument(
-        "--profile",
-        dest="global_profile",
-        help="Use a named or path-based LiuXin deployment profile.",
-    )
-    subparsers = parser.add_subparsers(dest="surface", required=True)
-    build_init_parser(subparsers)
-    build_connection_parsers(subparsers)
-    build_config_parser(subparsers)
-    build_diagnostics_parsers(subparsers)
-    build_completion_parser(subparsers)
-    build_core_parser(subparsers)
-    build_jobs_parser(subparsers)
-    build_catalog_parser(subparsers)
-    build_acquisition_parser(subparsers)
-    build_metadata_parser(subparsers)
-    build_storage_parser(subparsers)
-    build_ingest_parser(subparsers)
-    build_conversion_parser(subparsers)
-    build_backup_parser(subparsers)
-    build_database_parser(subparsers)
-    build_maintenance_parser(subparsers)
-    build_serve_parser(subparsers)
-    build_squashfs_parser(subparsers)
-    build_postgres_parser(subparsers)
-    build_plugins_parser(subparsers)
-    return parser
+    """Preserve the installed parser entry point, including shell completion."""
+    return create_parser(register_completion=build_completion_parser)
 
 
 def _normalise_shortcuts(argv: list[str]) -> list[str]:
@@ -147,12 +77,10 @@ def _hoist_global_selectors(argv: list[str]) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """
-    Run the cli command-line entry point.
+    """Apply operator shortcuts/selectors and execute the selected command.
 
-
-    :param argv:
-    :return:
+    Argument errors retain argparse's exits. Command failures are reported to
+    stderr and return 2; a successful handler supplies its own exit status.
     """
     parser = build_parser()
     selected = sys.argv[1:] if argv is None else argv

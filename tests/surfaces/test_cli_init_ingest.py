@@ -290,10 +290,7 @@ def test_concise_ingest_source_expands_to_mixed_ingest_surface(
     root = tmp_path / "system"
 
     assert (
-        cli_main(
-            ["ingest", str(source), "--system-root", str(root), "--strict"]
-        )
-        == 0
+        cli_main(["ingest", str(source), "--system-root", str(root), "--strict"]) == 0
     )
     assert received["source_root"] == str(source)
     assert received["system_root"] == str(root)

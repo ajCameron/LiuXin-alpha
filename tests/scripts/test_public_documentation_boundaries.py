@@ -21,26 +21,14 @@ MODERN_PACKAGES = (
     "surfaces",
 )
 METADATA_BOUNDARY_ROOTS = (
-    SOURCE_ROOT
-    / "metadata"
-    / "api"
-    / "containers_api"
-    / "main_table_containers_api",
-    SOURCE_ROOT
-    / "metadata"
-    / "api"
-    / "containers_api"
-    / "wemi_containers_api",
+    SOURCE_ROOT / "metadata" / "api" / "containers_api" / "main_table_containers_api",
+    SOURCE_ROOT / "metadata" / "api" / "containers_api" / "wemi_containers_api",
     SOURCE_ROOT
     / "metadata"
     / "containers"
     / "metadata_containers"
     / "non_wemi_containers",
-    SOURCE_ROOT
-    / "metadata"
-    / "containers"
-    / "metadata_containers"
-    / "wemi_containers",
+    SOURCE_ROOT / "metadata" / "containers" / "metadata_containers" / "wemi_containers",
 )
 PLACEHOLDER_FRAGMENTS = (
     "implement the corresponding",
@@ -86,11 +74,7 @@ def _metadata_boundary_paths() -> tuple[Path, ...]:
     :return:
     """
 
-    paths = {
-        path
-        for root in METADATA_BOUNDARY_ROOTS
-        for path in root.rglob("*.py")
-    }
+    paths = {path for root in METADATA_BOUNDARY_ROOTS for path in root.rglob("*.py")}
     return tuple(sorted(paths))
 
 
@@ -191,9 +175,7 @@ def test_modern_public_boundaries_have_docstrings() -> None:
         if ast.get_docstring(node, clean=False) is None
     ]
 
-    assert not missing, "undocumented modern public boundaries:\n" + "\n".join(
-        missing
-    )
+    assert not missing, "undocumented modern public boundaries:\n" + "\n".join(missing)
 
 
 def test_metadata_row_and_container_boundaries_have_docstrings() -> None:

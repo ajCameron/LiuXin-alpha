@@ -19,7 +19,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = REPO_ROOT / "tests" / "typing" / "internal_contracts.py"
-_EXPECTED_ERROR = re.compile(r"# expect-error: (\w+) ([\w-]+)$")
+_EXPECTED_ERROR = re.compile(r"# expect-error: ([\w-]+) ([\w-]+)$")
 
 
 @dataclass(frozen=True)
@@ -33,13 +33,19 @@ class Diagnostic:
 
 
 def _expected_errors(source: str, checker: str) -> dict[int, str]:
-    """Read the per-checker expectations without executing fixture code."""
+    """Read exact-line expectations; a dash leaves that checker unmarked here.
+
+    Checkers can locate the same multiline call error on different lines.
+    Separate markers preserve exact matching without allowing a line range.
+    """
 
     expected = {}
     for line, text in enumerate(source.splitlines(), start=1):
         match = _EXPECTED_ERROR.search(text)
         if match is not None:
-            expected[line] = match.group(1 if checker == "basedpyright" else 2)
+            code = match.group(1 if checker == "basedpyright" else 2)
+            if code != "-":
+                expected[line] = code
     if not expected:
         raise ValueError("The internal contract fixture has no expected errors.")
     return expected

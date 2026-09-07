@@ -85,9 +85,7 @@ def test_discovery_writes_full_correlated_atomic_report(
     assert _event_names(events)[0] == "cli_started"
     assert _event_names(events)[-1] == "cli_complete"
     assert all(
-        cast(dict[str, object], event["context"])
-        .get("details", {})
-        .get("run_id")
+        cast(dict[str, object], event["context"]).get("details", {}).get("run_id")
         == RUN_ID
         for event in events
         if cast(dict[str, object], event["context"]).get("event")
@@ -108,9 +106,11 @@ def test_preflight_reports_missing_required_squashfs_reader_without_writes(
     monkeypatch.setattr(
         ingest_preflight.shutil,
         "which",
-        lambda command: None
-        if os.fspath(command) == "definitely-missing-unsquashfs"
-        else original_which(command),
+        lambda command: (
+            None
+            if os.fspath(command) == "definitely-missing-unsquashfs"
+            else original_which(command)
+        ),
     )
 
     rc = cli_main(
@@ -229,7 +229,9 @@ def test_path_validation_rejects_run_outputs_inside_source_root(
 ) -> None:
     source = tmp_path / "source"
     source.mkdir()
-    report = source / "report.json" if path_kind == "report" else tmp_path / "report.json"
+    report = (
+        source / "report.json" if path_kind == "report" else tmp_path / "report.json"
+    )
     lock = source / "ingest.lock" if path_kind == "lock" else tmp_path / "ingest.lock"
     materialization = (
         source / "materialized" if path_kind == "materialization" else None
@@ -326,7 +328,9 @@ def test_signal_cancellation_requires_a_second_signal_to_force_unwind() -> None:
         cancellation._receive(signal.SIGINT, None)
 
 
-def test_module_invocation_exposes_storage_surface_from_checkout(tmp_path: Path) -> None:
+def test_module_invocation_exposes_storage_surface_from_checkout(
+    tmp_path: Path,
+) -> None:
     environment = dict(os.environ)
     source_path = str(REPO_ROOT / "src")
     environment["PYTHONPATH"] = os.pathsep.join(
@@ -334,7 +338,14 @@ def test_module_invocation_exposes_storage_surface_from_checkout(tmp_path: Path)
     )
 
     completed = subprocess.run(
-        [sys.executable, "-m", "LiuXin_alpha.surfaces.cli", "storage", "ingest", "--help"],
+        [
+            sys.executable,
+            "-m",
+            "LiuXin_alpha.surfaces.cli",
+            "storage",
+            "ingest",
+            "--help",
+        ],
         cwd=tmp_path,
         env=environment,
         check=False,

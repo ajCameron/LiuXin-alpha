@@ -495,7 +495,9 @@ class ApplyAPI(Protocol):
         """Resolve/create and link a publisher Agent to a title row."""
         ...
 
-    def rating(self, rating: RowAPI | int | float, rating_type: str, resource_row: RowAPI) -> RowAPI:
+    def rating(
+        self, rating: RowAPI | int | float, rating_type: str, resource_row: RowAPI
+    ) -> RowAPI:
         """Resolve and link a Rating value of ``rating_type``."""
         ...
 
@@ -509,7 +511,9 @@ class ApplyAPI(Protocol):
         """Resolve/create a Series and link it with its index row/value."""
         ...
 
-    def subject(self, subject: RowAPI | str, resource_row: RowAPI, stand: bool = True) -> None:
+    def subject(
+        self, subject: RowAPI | str, resource_row: RowAPI, stand: bool = True
+    ) -> None:
         """Resolve/create and link a Subject to a resource."""
         ...
 
@@ -561,7 +565,9 @@ class EnsureAPI(Protocol):
         """Resolve or create a Genre, optionally standardizing input text."""
         ...
 
-    def identifier(self, identifier: str, identifier_type: str, error: bool = True) -> RowAPI:
+    def identifier(
+        self, identifier: str, identifier_type: str, error: bool = True
+    ) -> RowAPI:
         """Resolve or create a typed Identifier, validating when ``error``."""
         ...
 

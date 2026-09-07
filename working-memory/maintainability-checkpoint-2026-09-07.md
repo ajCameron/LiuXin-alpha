@@ -4,7 +4,9 @@
 
 Stages 1–4 of the readability/maintainability review are complete and grouped
 in this checkpoint on `codex/package-calibre-resources`. The earlier packaging
-work is already in the branch history. Stage 5 has not begun.
+work is already in the branch history. This records checkpoint `859ab804`,
+before stage 5; see [incremental formatting](incremental-formatting-2026-09-07.md)
+for subsequent work.
 
 | Stage | Completed scope | Detailed handoff |
 | --- | --- | --- |
@@ -55,7 +57,7 @@ uncommitted/next-stage wording has been removed.
 The broader 80-test surface run above is retained as stage-4 evidence, not
 claimed as a new checkpoint rerun.
 
-## Next: stage 5 — incremental formatting enforcement
+## Planned next stage at this checkpoint
 
 Start with the extracted Core services, storage CLI commands, shared helpers,
 and their tests. Define an explicit maintained-code scope, make it formatter

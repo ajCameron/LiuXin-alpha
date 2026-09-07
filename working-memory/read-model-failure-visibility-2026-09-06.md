@@ -84,6 +84,7 @@ made. The runs above overlap and should not be summed as distinct tests.
 
 ## Remaining programme
 
-Incremental formatter enforcement is stage 5. The previously identified deferred
+Stage 5 subsequently added [incremental formatter enforcement](incremental-formatting-2026-09-07.md).
+The previously identified deferred
 CLI/terminal cycles and inherited lower-level adapter recovery policies remain
 separate work; this is not a whole-codebase exception-handling rewrite.

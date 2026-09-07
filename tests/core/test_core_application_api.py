@@ -143,9 +143,7 @@ class _ReadSource:
         if "work_id" in target_row and secondary_table == "tags":
             wanted = set(self.links.get(int(target_row["work_id"]), ()))
             return tuple(
-                dict(row)
-                for row in self.rows["tags"]
-                if int(row["tag_id"]) in wanted
+                dict(row) for row in self.rows["tags"] if int(row["tag_id"]) in wanted
             )
         if "tag_id" in target_row and secondary_table == "works":
             tag_id = int(target_row["tag_id"])
@@ -193,10 +191,9 @@ class _Repository:
         return row
 
     def list(self, *, limit: int = 100, offset: int = 0):
-        return tuple(
-            dict(row)
-            for _row_id, row in sorted(self.rows.items())
-        )[offset : offset + limit]
+        return tuple(dict(row) for _row_id, row in sorted(self.rows.items()))[
+            offset : offset + limit
+        ]
 
     def create(self, data):
         entity_id = self.next_id
@@ -302,9 +299,7 @@ class _Library:
         )
 
     def iter_files(self):
-        return iter(
-            tuple(asset for asset, _location, _data in self.files.values())
-        )
+        return iter(tuple(asset for asset, _location, _data in self.files.values()))
 
 
 class _Store:
@@ -372,7 +367,8 @@ def _fake_runtime() -> CoreRuntime:
 @pytest.mark.parametrize("sort", ([], [{"field": "work_title", "ascending": False}]))
 @pytest.mark.parametrize("offset", (0, 20))
 def test_count_only_query_does_not_coerce_or_order_text_row_identifiers(
-    sort, offset,
+    sort,
+    offset,
 ) -> None:
     runtime = _fake_runtime()
     runtime.services.read_source.rows["works"] = [
@@ -405,14 +401,8 @@ def test_core_describes_complete_named_application_api() -> None:
     runtime = _fake_runtime()
 
     described = runtime.describe_api(include_targets=False)
-    command_entries = {
-        entry["name"]: entry
-        for entry in described["commands"]
-    }
-    query_entries = {
-        entry["name"]: entry
-        for entry in described["queries"]
-    }
+    command_entries = {entry["name"]: entry for entry in described["commands"]}
+    query_entries = {entry["name"]: entry for entry in described["queries"]}
 
     assert described["api_version"] == "2.0"
     assert described["services"]["catalog"] == "SimpleNamespace"
@@ -490,9 +480,7 @@ def test_core_describes_complete_named_application_api() -> None:
         for family in capabilities["families"].values()
         for operation in family["operations"]
     }
-    assert declared_program_operations <= (
-        set(command_entries) | set(query_entries)
-    )
+    assert declared_program_operations <= (set(command_entries) | set(query_entries))
     assert all(
         detail["call_modes"] == ["direct", "rpc"]
         for detail in capabilities["operations"].values()
@@ -670,11 +658,7 @@ def test_core_catalog_repository_commands_return_receipts() -> None:
         },
     )
     assert fetched["entity"]["work_title"] == "Created through Core"
-    write_events = [
-        event
-        for event in events
-        if event.event_type == "write.completed"
-    ]
+    write_events = [event for event in events if event.event_type == "write.completed"]
     assert write_events[-1].payload["name"] == "catalog.entity.create"
     assert write_events[-1].payload["command_id"] == "create-work-2"
 
@@ -714,12 +698,15 @@ def test_core_storage_file_api_uses_explicit_wire_bytes() -> None:
         "$type": "bytes",
         "base64": "aGVsbG8AY29yZQ==",
     }
-    assert runtime.command(
-        "storage.file.delete",
-        {
-            "replica_id": replica_id,
-        },
-    )["deleted"] is True
+    assert (
+        runtime.command(
+            "storage.file.delete",
+            {
+                "replica_id": replica_id,
+            },
+        )["deleted"]
+        is True
+    )
 
 
 def test_local_and_rpc_core_clients_have_envelope_and_result_parity() -> None:
@@ -751,9 +738,8 @@ def test_local_and_rpc_core_clients_have_envelope_and_result_parity() -> None:
         assert remote_result == local_result
         assert remote_result.query_id == "query-envelope-id"
         assert remote_result.correlation_id == "correlation-id"
-        assert (
-            remote.describe_api(include_targets=False)
-            == local.describe_api(include_targets=False)
+        assert remote.describe_api(include_targets=False) == local.describe_api(
+            include_targets=False
         )
     finally:
         daemon.stop()
@@ -902,9 +888,7 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
         )
         assert cached["source"] == "cache"
         assert cached["complete"] is True
-        assert [record["row_id"] for record in cached["records"]] == [
-            work_id
-        ]
+        assert [record["row_id"] for record in cached["records"]] == [work_id]
 
         updated = runtime.command(
             "catalog.entity.update",
@@ -916,19 +900,14 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
                 },
             },
         )
-        assert (
-            updated["entity"]["work_canonical_title"]
-            == "{} updated".format(title)
-        )
+        assert updated["entity"]["work_canonical_title"] == "{} updated".format(title)
         assert runtime.query(
             "rows.get",
             {
                 "table": "works",
                 "row_id": work_id,
             },
-        )["record"]["values"]["work_canonical_title"] == "{} updated".format(
-            title
-        )
+        )["record"]["values"]["work_canonical_title"] == "{} updated".format(title)
 
         stack_title = "{} stack".format(title)
         stack = runtime.command(
@@ -958,10 +937,7 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
                 "item_id": stack["item_ids"][0],
             },
         )
-        assert (
-            metadata["database_ids"]["item_id"]
-            == stack["item_ids"][0]
-        )
+        assert metadata["database_ids"]["item_id"] == stack["item_ids"][0]
         opf = runtime.query(
             "metadata.opf.export",
             {
@@ -969,9 +945,7 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
             },
         )
         assert opf["content"]["$type"] == "bytes"
-        assert b"<package" in base64.b64decode(
-            opf["content"]["base64"]
-        )
+        assert b"<package" in base64.b64decode(opf["content"]["base64"])
 
         metadata_write = runtime.command(
             "metadata.tags.replace",
@@ -1037,10 +1011,9 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
             },
         )
         assert related_tags["source"] == "cache"
-        assert [
-            record["values"]["tag"]
-            for record in related_tags["records"]
-        ] == [field_tag]
+        assert [record["values"]["tag"] for record in related_tags["records"]] == [
+            field_tag
+        ]
 
         deleted = runtime.command(
             "catalog.entity.delete",
@@ -1050,13 +1023,16 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
             },
         )
         assert deleted["deleted"]["work_id"] == work_id
-        assert runtime.query(
-            "rows.get",
-            {
-                "table": "works",
-                "row_id": work_id,
-            },
-        )["record"] is None
+        assert (
+            runtime.query(
+                "rows.get",
+                {
+                    "table": "works",
+                    "row_id": work_id,
+                },
+            )["record"]
+            is None
+        )
     finally:
         runtime.shutdown()
     assert db.storage.metadata_cache is None
@@ -1185,8 +1161,8 @@ def test_catalog_conveniences_have_direct_and_rpc_parity(db) -> None:
             },
         )
         assert annotations["count"] == 1
-        assert annotations["annotations"][0]["annotation_id"] == (
-            annotation["entity_id"]
+        assert (
+            annotations["annotations"][0]["annotation_id"] == (annotation["entity_id"])
         )
 
         unlinked = remote.command(

@@ -1,8 +1,8 @@
 # Maintainability quality gates
 
 Status: enforced for the modern ratchet; updated 2026-09-07 through the
-internal-contract, workflow-ownership, dependency-direction, and
-failure-visibility tranches.
+internal-contract, workflow-ownership, dependency-direction, failure-visibility,
+incremental-formatting, and CLI-composition tranches.
 
 ## Purpose
 
@@ -14,7 +14,7 @@ regressions.
 
 The default gate is therefore a zero-error ratchet. It covers the modern
 storage API, the Core program facade and its endpoint providers, the mixed
-ingest application seam, and the packaged storage CLI. Newly extracted leaf
+ingest application seam, and reviewed packaged CLI owners. Newly extracted leaf
 protocols are checked strictly. Existing orchestration remains on
 basedpyright's standard mode until its dynamic subsystem boundaries are made
 more precise. Mypy uses strict checking within the selected files while
@@ -26,9 +26,11 @@ Run the same gate locally with:
 bash scripts/run_type_checks.sh
 ```
 
-The command also checks callable annotations in `file_formats`, runs Ruff over
+The command first checks the explicit modern formatting scope, then checks
+callable annotations in `file_formats`, runs Ruff over
 newly ratcheted modules, and rejects cycles in the protected Catalog writer/API,
-Calibre metadata API, cache writer, and shared/web surface seams. The dependency
+Calibre metadata API, cache writer, shared/web surface seams, and complete CLI
+package. The dependency
 gate includes import-time, deferred, and type-only imports; see the dependency
 direction section below for its scope and limits.
 The CI quality job additionally guards documentation at the reviewed
@@ -83,6 +85,64 @@ Application-surface ownership is enforced by
     `__getattr__`, unrestricted callable signatures, or casts from `object`
     to bypass implementation conformance. Extend the positive and negative
     contract examples when adding a new kind of internal call.
+11. Formatted modules stay formatter-clean. Expand the positive formatting
+    scope only after reviewing its diff and running the affected tests; do not
+    add broad formatter exclusions or turn the gate into an automatic rewrite.
+
+## Incremental formatting
+
+`[tool.liuxin.format].paths` in `pyproject.toml` is the single formatting scope.
+Its first tranche covered 109 Python files: the existing modern lint scope,
+Core and storage CLI regression tests, and the static internal-call examples.
+It includes both extracted workflow trees, Core endpoint providers, storage
+implementation mixins, and shared presentation/acquisition leaves. Formatting
+coverage does not imply strict typing or expand the separate lint scope.
+The CLI-composition tranche adds eight reviewed owners/entry modules and its
+contract suite, taking current formatting coverage to 118 files.
+
+Use the repo-local commands:
+
+```bash
+.venv/bin/python scripts/run_format_checks.py
+.venv/bin/python scripts/run_format_checks.py --write
+.venv/bin/python scripts/run_format_checks.py --dry-run
+bash scripts/run_type_checks.sh
+```
+
+The formatter helper defaults to `ruff format --check`; only `--write` rewrites
+selected files. `--dry-run` validates the scope and prints the exact command
+without requiring Ruff or writing files. It works from any current directory,
+uses the repo-local Ruff executable and root configuration, and disables the
+formatter cache. Normal quality runs and CI always use check mode, including
+when only one type checker is selected. Formatter failures stop the gate.
+
+Each scope entry names a repository-relative Python file or directory. A
+directory includes all nested `*.py` files, including newly added modules.
+Missing entries, empty directories/lists, non-Python file entries, and paths
+escaping the checkout fail before Ruff runs. Overlapping entries are deduplicated.
+The selected files are explicit inputs: Git ignore patterns, nested Ruff
+configuration, and exclusions cannot silently remove them from this scope.
+
+Ruff is pinned to **0.16.5** in the `typing` extra and `required-version` setting.
+The existing Python 3.12 target and 88-column policy remain; formatted line
+endings are explicitly LF. Install the typing extra (or use the quality
+runner's `--install`) if the prepared environment has another Ruff version.
+Upgrade both pins together in a reviewed change, reformat this scope, and
+rerun the full quality gate plus affected tests. Do not silently float the
+formatter version in CI.
+
+To expand coverage, add a bounded owner or package and its regression tests to
+the scope, run the explicit write command, inspect the mechanical diff, and
+verify behavior and the full quality gate. Directory entries need no update
+for new files. Keep inherited/vendored trees outside this tranche; do not
+replace the positive list with a whole-checkout path.
+
+`tests/scripts/test_run_format_checks.py` exercises real Ruff against temporary
+checkouts: read-only success/failure, explicit bounded/idempotent writes, new
+modules, invalid scopes, ignored files, nested config, and version enforcement.
+The quality-runner tests verify actual invocation, failure propagation, checker
+selection, and CI wiring. Neither passing test mocks alone nor a dry-run log is
+treated as evidence that the formatter ran.
 
 ## Current ownership seams
 
@@ -92,6 +152,10 @@ Application-surface ownership is enforced by
 - `surfaces/cli/storage_commands` separates administration, Store options and
   guided setup, parser construction, and ingest process/reporting concerns.
   `surfaces/cli/storage.py` retains explicit compatibility aliases only.
+- `surfaces/cli/parsers` owns the complete command grammar; `app` owns dispatch.
+  Completion receives the grammar through an explicit registrar contract, and
+  SquashFS parser declarations and execution have separate owners. Historical
+  entry points remain delegates or aliases. See [CLI composition](cli-composition.md).
 - `ingest/mixed_application.py` owns database, Store-manager, and mixed-ingest
   coordinator composition. CLI code owns parsing, operator interaction,
   process signals, logs, locks, and report presentation.
@@ -140,11 +204,18 @@ checkable at both the caller and implementation:
 `scripts/check_internal_type_contracts.py` for each selected checker after its
 production check succeeds. The static-only fixture
 `tests/typing/internal_contracts.py` contains valid calls against real
-implementations and 25 deliberately invalid examples covering names, argument
+implementations and 27 deliberately invalid examples covering names, argument
 types, return types, signatures, provider conformance, and typed evacuation
-plans/limits, acquisition-reader calls, and row lookups. Each invalid line
+plans/limits, acquisition-reader calls, row lookups, and completion registrar
+calls. Each invalid line
 must report its expected diagnostic rule; all other lines must pass. An
 unrelated import error or checker failure cannot satisfy the test.
+
+Keep each `expect-error` marker on the precise token/definition line reported
+by the checkers when formatting a negative example. If they report different
+lines of a multiline call, use `-` in the non-applicable checker slot and place
+its expectation on its own reported line. This is not a suppression: an
+unmarked diagnostic still fails, and no statement-wide line range is accepted.
 
 Run these checks separately with:
 
@@ -168,7 +239,7 @@ strict basedpyright targets. Moved legacy envelope adapters and CLI workflows
 retain their existing standard basedpyright mode; their dynamic subsystem
 boundaries have not become strict merely because their files moved. At this
 tranche's completion, all 145 selected source files passed the existing strict
-mypy configuration; the subsequent shared-leaf extraction expanded the current
+mypy configuration; the subsequent shared-leaf extraction expanded that
 scope to 147.
 
 `tests/scripts/test_workflow_ownership.py` prevents implementation from flowing
@@ -183,7 +254,7 @@ See `dev-docs/core-program-workflows.md` for ownership and change guidance.
 
 ## Dependency direction and import contexts
 
-The 2026-09-06 dependency tranche expands
+The 2026-09-06 dependency tranche expanded
 `scripts/check_modern_import_cycles.py` from 58 to 105 protected modules,
 including the complete cache-writer package, shared surface backends/contracts,
 and the five maintained web/API/OPDS application packages. Previous protected
@@ -192,7 +263,7 @@ script's named prefix tuples; the separate workflow-ownership test continues
 to protect the stage-2 implementation trees.
 
 The gate rejects multi-module strongly connected components in the **combined**
-graph. It also rejects three directions even without a cycle:
+graph. The stage-3 rules also reject three directions even without a cycle:
 
 - cache writer implementations importing through `caches.write`;
 - shared surface backends/contracts importing a web application package;
@@ -222,7 +293,7 @@ missing-source failure. CI runs it alongside
 `tests/databases/caches/test_writer_dependencies.py`, which exercise isolated
 imports, compatibility-export identity, helper/byte-reader behavior, and writer
 dispatch. Both new leaf modules enter strict typing, lint, and complexity-10
-checking; strict mypy now covers 147 selected source files.
+checking; strict mypy covered 147 selected source files at stage-3 completion.
 
 The old private names in `surfaces.web_readonly.app` remain compatibility
 aliases, not duplicate implementations. Shared read-model, image, catalogue,
@@ -231,6 +302,34 @@ unchanged by the dependency extraction; the subsequent failure-visibility
 tranche narrows missing-column fallback and removes broad query-error catches,
 as described below.
 This is a scoped dependency ratchet, not a whole-project acyclicity claim.
+
+## CLI composition and entry-point boundaries
+
+Stage 6 separates complete parser construction from application dispatch and
+SquashFS command execution. Completion supplies its registrar when requesting
+the grammar; it no longer imports the application to build a parser. A
+standard-library-only protocol checks that registration boundary. See
+[CLI composition](cli-composition.md) for owners, compatibility, and change guidance.
+
+The dependency gate now includes all 47 CLI modules, bringing the protected
+combined graph to 152 modules. CLI implementations may not import the package,
+application, or historical SquashFS entry-point facades. Explicit entry wrappers
+may delegate to the application. Parser composition may not import completion,
+and parser contracts may not import another LiuXin module. All three import
+contexts remain checked, including acyclic violations of these directions.
+
+Eight reviewed CLI sources enter typing, lint, complexity-10, and formatting;
+the new contract leaf enters strict basedpyright. Strict mypy now covers 155
+selected source files. This does not make the entire CLI a strict typing target.
+The static fixture includes valid registrar calls and two new invalid examples,
+bringing the checked total to 27 for each checker.
+
+CI runs `tests/surfaces/test_cli_dependency_contracts.py` for fresh-process
+imports, explicit registration, standalone completion, complete compatibility
+entry points, selector/error behavior, and SquashFS Core receipt contracts.
+The import-scanner tests additionally protect recursive CLI scope and direction
+rules in every import context. The separate terminal UI cycle remains outside
+this tranche; no whole-project acyclicity claim is made.
 
 ## Read-model failure visibility
 

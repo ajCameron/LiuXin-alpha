@@ -73,7 +73,7 @@ or PostgreSQL-suite claim is made.
 ## Remaining programme
 
 Dependency-direction repair and unexpected read-model error visibility were
-completed in stages 3 and 4. Incremental formatter enforcement remains next;
-see the [current checkpoint](maintainability-checkpoint-2026-09-07.md). Legacy
+completed in stages 3 and 4; stage 5 added
+[incremental formatter enforcement](incremental-formatting-2026-09-07.md). Legacy
 dynamic subsystem adapters are not represented as fully strict merely because
 their implementation moved.
