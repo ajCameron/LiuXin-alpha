@@ -1,3 +1,14 @@
+"""
+Exercise writable HTML forms, relationship edits, and managed-store uploads.
+
+The in-process WSGI harnesses use real temporary catalogues and the configured
+database driver, without opening an HTTP listener. Upload cases write and read
+real local files through Core-backed storage; EPUB names and media types label
+arbitrary fixture bytes, not validated publications. Form, notice, and cache
+assertions describe the current interface, not authentication or transaction
+atomicity guarantees.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -13,6 +24,25 @@ from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _call_app(app, path: str, *, method: str = "GET", form: dict[str, object] | None = None):
+    """
+    Collect one WSGI response to an optionally URL-encoded form request.
+
+    Split the first question mark into path and query. Form keys and values are
+    stringified, with None becoming an empty value, independently of the method.
+    Always supply form content headers and an in-memory input stream. Duplicate
+    response headers collapse to their last value; close the result iterable
+    even if joining its byte chunks fails. Application errors propagate.
+
+    Example:
+        >>> status, headers, body = _call_app(app, '/tables/works')  # doctest: +SKIP
+
+
+    :param app: WSGI application accepting an environment and response callback.
+    :param path: Request path, optionally followed by a query string.
+    :param method: Request method copied unchanged into the environment.
+    :param form: Scalar form values to encode, or None for an empty body.
+    :return: Status string, collapsed header dictionary, and joined response bytes.
+    """
     environ = {}
     setup_testing_defaults(environ)
     if "?" in path:
@@ -31,6 +61,21 @@ def _call_app(app, path: str, *, method: str = "GET", form: dict[str, object] | 
     captured: dict[str, object] = {}
 
     def start_response(status, headers, exc_info=None):
+        """
+        Capture response metadata without implementing WSGI error replacement.
+
+        Ignore exc_info and overwrite previous metadata on repeated calls. No
+        legacy write callable is provided.
+
+        Example:
+            >>> start_response('200 OK', [('Content-Type', 'text/html')])  # doctest: +SKIP
+
+
+        :param status: Application-provided HTTP status string.
+        :param headers: Header pairs collapsed into a dictionary.
+        :param exc_info: Optional exception context, deliberately ignored.
+        :return: None; update the enclosing captured-response mapping.
+        """
         del exc_info
         captured["status"] = status
         captured["headers"] = dict(headers)
@@ -53,6 +98,29 @@ def _call_app_multipart(
     fields: dict[str, object] | None = None,
     files: dict[str, tuple[str, str, bytes]] | None = None,
 ):
+    """
+    Submit a buffered multipart fixture and collect its WSGI response.
+
+    Use a fixed boundary and CRLF framing, placing text fields before files.
+    Field values use str directly, so None becomes the literal ``None``. Names,
+    filenames, and media types are interpolated without header escaping; this
+    is a trusted-fixture builder, not a general upload encoder. Split path and
+    query, collapse duplicate response headers, and close the result iterable
+    even when response joining fails. No network request is made.
+
+    Example:
+        >>> response = _call_app_multipart(  # doctest: +SKIP
+        ...     app, '/files/upload', fields={'store_id': 1},
+        ...     files={'upload_file': ('sample.txt', 'text/plain', b'hello')})
+
+
+    :param app: WSGI application under test.
+    :param path: Request path with an optional query string.
+    :param method: Request method copied unchanged; defaults to POST.
+    :param fields: Scalar text parts, in mapping iteration order, or None.
+    :param files: Part names mapped to filename, media type, and byte payload triples.
+    :return: Status string, collapsed header dictionary, and joined response bytes.
+    """
     environ = {}
     setup_testing_defaults(environ)
     if "?" in path:
@@ -93,6 +161,21 @@ def _call_app_multipart(
     captured: dict[str, object] = {}
 
     def start_response(status, headers, exc_info=None):
+        """
+        Record multipart-response metadata while ignoring exception context.
+
+        Repeated calls replace captured values. Duplicate header names collapse
+        and no WSGI write callable is returned.
+
+        Example:
+            >>> start_response('302 Found', [('Location', '/tables/files/1')])  # doctest: +SKIP
+
+
+        :param status: Application-provided HTTP status string.
+        :param headers: Response header pairs to store as a dictionary.
+        :param exc_info: Optional WSGI exception context, deliberately ignored.
+        :return: None; mutate the enclosing captured-response mapping.
+        """
         del exc_info
         captured["status"] = status
         captured["headers"] = dict(headers)
@@ -108,6 +191,17 @@ def _call_app_multipart(
 
 
 def _insert_work_row(db: Database, *, title: str) -> int:
+    """
+    Insert a work whose display, canonical, and sort titles are identical.
+
+    Example:
+        >>> work_id = _insert_work_row(db, title='Upload target')  # doctest: +SKIP
+
+
+    :param db: Open temporary catalogue receiving the row.
+    :param title: Text assigned to all three title columns without normalization.
+    :return: Integer identity assigned to the inserted work.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -121,6 +215,17 @@ def _insert_work_row(db: Database, *, title: str) -> int:
 
 
 def _insert_agent_row(db: Database, *, name: str) -> int:
+    """
+    Insert a person with matching canonical and sort names for credit tests.
+
+    Example:
+        >>> agent_id = _insert_agent_row(db, name='Fixture Author')  # doctest: +SKIP
+
+
+    :param db: Open temporary catalogue receiving the agent.
+    :param name: Unmodified canonical and sort name.
+    :return: Integer identity assigned to the person row.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -134,6 +239,20 @@ def _insert_agent_row(db: Database, *, name: str) -> int:
 
 
 def _insert_tag_row(db: Database, *, text: str) -> int:
+    """
+    Insert a tag with a whitespace-free lowercase search value when supported.
+
+    Populate tag_phash only if that column exists; no Unicode normalization or
+    existing-tag lookup is performed.
+
+    Example:
+        >>> tag_id = _insert_tag_row(db, text='Surface Tag')  # doctest: +SKIP
+
+
+    :param db: Open catalogue providing the tag schema and insertion operation.
+    :param text: Raw display text stored in the tag column.
+    :return: Integer identity of the newly inserted tag.
+    """
     payload: dict[str, object] = {"tag": text}
     if "tag_phash" in set(db.get_column_headings("tags")):
         payload["tag_phash"] = "".join(str(text or "").split()).lower()
@@ -142,6 +261,21 @@ def _insert_tag_row(db: Database, *, text: str) -> int:
 
 
 def _insert_store_row(db: Database, *, name: str) -> int:
+    """
+    Register metadata for a SQLite-file store without creating its payload file.
+
+    Ensure the surface asset tables first. Derive the root URI below /tmp from
+    the lowercased name with spaces replaced by underscores; this is fixture
+    naming, not arbitrary-path sanitization or backend initialization.
+
+    Example:
+        >>> store_id = _insert_store_row(db, name='Widget Store')  # doctest: +SKIP
+
+
+    :param db: Open catalogue whose asset tables may be added by the fixture helper.
+    :param name: Store display name and source of its synthetic SQLite URI.
+    :return: Integer identity assigned to the store metadata row.
+    """
     ensure_surface_asset_tables(db)
     row = Row.from_idless_row_dict(
         db,
@@ -156,6 +290,19 @@ def _insert_store_row(db: Database, *, name: str) -> int:
 
 
 def _insert_manifestation_row(db: Database, *, format_detail: str) -> int:
+    """
+    Insert a manifestation with only its format-detail field explicitly set.
+
+    No expression link or carrier-type metadata is created here.
+
+    Example:
+        >>> manifestation_id = _insert_manifestation_row(db, format_detail='EPUB')  # doctest: +SKIP
+
+
+    :param db: Open temporary catalogue receiving the manifestation.
+    :param format_detail: Unmodified format label for the fixture.
+    :return: Integer identity assigned to the manifestation row.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -167,6 +314,18 @@ def _insert_manifestation_row(db: Database, *, format_detail: str) -> int:
 
 
 def _insert_item_row(db: Database, *, manifestation_id: int, source: str = "fixture") -> int:
+    """
+    Insert an item referencing an existing manifestation by integer identity.
+
+    Example:
+        >>> item_id = _insert_item_row(db, manifestation_id=manifestation_id)  # doctest: +SKIP
+
+
+    :param db: Open temporary catalogue receiving the item.
+    :param manifestation_id: Referenced manifestation identity, coerced to int.
+    :param source: Item provenance label; defaults to fixture.
+    :return: Integer identity assigned to the item row.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -179,6 +338,22 @@ def _insert_item_row(db: Database, *, manifestation_id: int, source: str = "fixt
 
 
 def _insert_managed_store_row(db: Database, *, name: str, root_uri: str) -> int:
+    """
+    Register an online, writable managed-directory store for upload fixtures.
+
+    Ensure asset tables and insert metadata with the file protocol. The caller
+    creates the directory; this helper does not bootstrap or probe the backend.
+
+    Example:
+        >>> store_id = _insert_managed_store_row(  # doctest: +SKIP
+        ...     db, name='uploads', root_uri=str(managed_root))
+
+
+    :param db: Open catalogue whose asset tables may be added by the fixture helper.
+    :param name: Store display name.
+    :param root_uri: Existing directory path or URI passed unchanged into metadata.
+    :return: Integer identity assigned to the managed-store row.
+    """
     ensure_surface_asset_tables(db)
     row = Row.from_idless_row_dict(
         db,
@@ -196,6 +371,17 @@ def _insert_managed_store_row(db: Database, *, name: str, root_uri: str) -> int:
 
 
 def test_web_readwrite_row_and_table_pages_expose_write_actions(driver_spec, tmp_path: Path) -> None:
+    """
+    Check that work browsing exposes create, edit, delete, and write-banner UI.
+
+    Example:
+        >>> test_web_readwrite_row_and_table_pages_expose_write_actions(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Pytest-selected database driver for the real catalogue.
+    :param tmp_path: Isolated directory receiving the test catalogue.
+    :return: None; assert successful pages and their write-action links.
+    """
     db_path = tmp_path / "web_readwrite_actions.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -222,6 +408,20 @@ def test_web_readwrite_row_and_table_pages_expose_write_actions(driver_spec, tmp
 
 
 def test_web_readwrite_can_create_edit_and_delete_work_rows(driver_spec, tmp_path: Path) -> None:
+    """
+    Exercise work creation, editing, delete preview, and deletion through forms.
+
+    Check persisted titles, redirect notices, and removal of the created row.
+    Follow create/edit redirects to verify the rendered success messages.
+
+    Example:
+        >>> test_web_readwrite_can_create_edit_and_delete_work_rows(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver selected by pytest for this integration case.
+    :param tmp_path: Isolated directory for the mutable catalogue.
+    :return: None; assert response, notice, and database-state transitions.
+    """
     db_path = tmp_path / "web_readwrite_crud.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -297,6 +497,20 @@ def test_web_readwrite_can_create_edit_and_delete_work_rows(driver_spec, tmp_pat
 
 
 def test_web_readwrite_rejects_generic_create_for_view_tables(driver_spec, tmp_path: Path) -> None:
+    """
+    Check that the titles-view create page explains its read-only restriction.
+
+    This GET-only case expects HTTP 200 with an explanatory page; it does not
+    submit a create request or assert a mutation-rejection status.
+
+    Example:
+        >>> test_web_readwrite_rejects_generic_create_for_view_tables(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver used to create the catalogue and its views.
+    :param tmp_path: Isolated directory for the catalogue fixture.
+    :return: None; assert the read-only explanation on the titles create page.
+    """
     db_path = tmp_path / "web_readwrite_view_guard.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -315,6 +529,21 @@ def test_web_readwrite_rejects_generic_create_for_view_tables(driver_spec, tmp_p
 
 
 def test_web_readwrite_row_pages_can_add_edit_and_remove_interlinks(driver_spec, tmp_path: Path) -> None:
+    """
+    Exercise contributor-link forms, metadata updates, and link-row deletion.
+
+    Inspect work-specific relation controls and allowed roles, then add a
+    contributor, change its priority, and remove the link. Check stored metadata,
+    anchored redirects, and rendered notices at each mutation step.
+
+    Example:
+        >>> test_web_readwrite_row_pages_can_add_edit_and_remove_interlinks(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver supplying the real relation schema.
+    :param tmp_path: Isolated directory for the catalogue and link fixtures.
+    :return: None; assert relation UI, persisted link changes, and success notices.
+    """
     db_path = tmp_path / "web_readwrite_interlinks.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -422,6 +651,20 @@ def test_web_readwrite_work_tag_links_use_core_relation_receipts(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Check the persisted tag-link metadata and notices from a Core-backed write.
+
+    The evidence is the linked tag, its priority/source, and the resulting HTML
+    notice; this case does not inspect the raw Core receipt object.
+
+    Example:
+        >>> test_web_readwrite_work_tag_links_use_core_relation_receipts(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver for the work, tag, and relation fixtures.
+    :param tmp_path: Isolated directory receiving the catalogue.
+    :return: None; assert stored relation values and the added-tag notice.
+    """
     db_path = tmp_path / "web_readwrite_metadata_tag_link.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -470,6 +713,21 @@ def test_web_readwrite_core_read_model_observes_metadata_write(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Verify that the shared read model sees a tag added through writable web.
+
+    Configure the schema-backed cache without database fallback, assert the
+    Core model is the read source, and compare linked tags before and after the
+    POST. The redirected page must show the tag and a cache-refresh notice.
+
+    Example:
+        >>> test_web_readwrite_core_read_model_observes_metadata_write(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver used for the cache-backed integration case.
+    :param tmp_path: Isolated directory for the catalogue.
+    :return: None; assert read-source identity and post-write visibility.
+    """
     db_path = tmp_path / "web_readwrite_metadata_cache_refresh.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -515,6 +773,20 @@ def test_web_readwrite_core_read_model_observes_metadata_write(
 
 
 def test_web_readwrite_work_pages_can_create_and_link_new_targets(driver_spec, tmp_path: Path) -> None:
+    """
+    Create a contributor from a work form and verify its new credit relation.
+
+    Submit a prefixed person-name/type payload and link priority, then check
+    the linked person, priority, anchored redirect, and created-credit notice.
+
+    Example:
+        >>> test_web_readwrite_work_pages_can_create_and_link_new_targets(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver providing work and contributor relations.
+    :param tmp_path: Isolated directory for the catalogue fixture.
+    :return: None; assert contributor creation and linking through the form.
+    """
     db_path = tmp_path / "web_readwrite_create_link_target.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -561,6 +833,21 @@ def test_web_readwrite_work_tag_create_uses_core_relation_receipts(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Create and link a tag, checking durable rows and the resulting success UI.
+
+    Search for the created tag and verify its work relation and source metadata.
+    Receipt behavior is observed through persisted results and the redirect
+    notice, not by inspecting the raw Core return value.
+
+    Example:
+        >>> test_web_readwrite_work_tag_create_uses_core_relation_receipts(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver for the work, tag, and link tables.
+    :param tmp_path: Isolated directory receiving the test catalogue.
+    :return: None; assert the created tag, relation source, and success message.
+    """
     db_path = tmp_path / "web_readwrite_metadata_tag_create.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -607,6 +894,21 @@ def test_web_readwrite_work_tag_create_uses_core_relation_receipts(
 
 
 def test_web_readwrite_uses_specialized_grouped_forms_for_core_tables(driver_spec, tmp_path: Path) -> None:
+    """
+    Check specialized create/edit labels and field groups for core table forms.
+
+    Inspect work, file, and store create pages, including store backend choices,
+    and work/store edit pages. The SQLite-store fixture registers metadata only;
+    this rendering case does not initialize a storage backend or submit forms.
+
+    Example:
+        >>> test_web_readwrite_uses_specialized_grouped_forms_for_core_tables(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver supplying table and editable-field metadata.
+    :param tmp_path: Isolated directory for the catalogue and fixture rows.
+    :return: None; assert grouped headings, key controls, and available store kinds.
+    """
     db_path = tmp_path / "web_readwrite_special_forms.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -659,6 +961,20 @@ def test_web_readwrite_uses_specialized_grouped_forms_for_core_tables(driver_spe
 
 
 def test_web_readwrite_agent_forms_show_allowed_agent_types(driver_spec, tmp_path: Path) -> None:
+    """
+    Check the four agent-type choices in standalone and inline creation forms.
+
+    Inspect person, organisation, group, and pseudonym options without posting
+    an agent or testing enforcement of those choices during mutation.
+
+    Example:
+        >>> test_web_readwrite_agent_forms_show_allowed_agent_types(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver for agent/work form metadata.
+    :param tmp_path: Isolated directory receiving the catalogue.
+    :return: None; assert choice widgets and their prefixed inline field name.
+    """
     db_path = tmp_path / "web_readwrite_agent_type_choices.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -693,6 +1009,22 @@ def test_web_readwrite_agent_forms_show_allowed_agent_types(driver_spec, tmp_pat
 
 
 def test_web_readwrite_uses_date_datetime_json_and_path_widgets(driver_spec, tmp_path: Path) -> None:
+    """
+    Verify typed form controls, local timestamp conversion, and JSON rejection.
+
+    Render date, datetime-local, URI, and JSON controls. Submit valid store JSON,
+    a local minute-resolution timestamp, and a URI, then inspect stored values.
+    The expected epoch uses this process's local timezone. A subsequent malformed
+    JSON submission must return 400 with its field-specific error.
+
+    Example:
+        >>> test_web_readwrite_uses_date_datetime_json_and_path_widgets(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver providing work/store schema and persistence.
+    :param tmp_path: Isolated directory for the catalogue fixture.
+    :return: None; assert controls, stored coercions, and invalid-JSON feedback.
+    """
     db_path = tmp_path / "web_readwrite_widget_types.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -751,6 +1083,20 @@ def test_web_readwrite_uses_date_datetime_json_and_path_widgets(driver_spec, tmp
 
 
 def test_web_readwrite_table_and_search_pages_inherit_machine_value_formatting(driver_spec, tmp_path: Path) -> None:
+    """
+    Check inherited UTC and raw-epoch rendering on work table and search pages.
+
+    The table page must also retain its create action. This case tests display
+    of an existing machine timestamp, not local-time form-input conversion.
+
+    Example:
+        >>> test_web_readwrite_table_and_search_pages_inherit_machine_value_formatting(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver storing and searching the timestamped work.
+    :param tmp_path: Isolated directory for the catalogue.
+    :return: None; assert both human-readable UTC and original numeric output.
+    """
     db_path = tmp_path / "web_readwrite_machine_values.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -786,6 +1132,20 @@ def test_web_readwrite_table_and_search_pages_inherit_machine_value_formatting(d
 
 
 def test_web_readwrite_respects_trigger_locked_reference_tables(driver_spec, tmp_path: Path) -> None:
+    """
+    Check the managed-reference explanation on the language create page.
+
+    Only GET rendering is exercised: the page responds with HTTP 200 and a
+    read-only notice. No insert is attempted and no trigger failure is induced.
+
+    Example:
+        >>> test_web_readwrite_respects_trigger_locked_reference_tables(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver supplying the managed language reference data.
+    :param tmp_path: Isolated directory for the catalogue fixture.
+    :return: None; assert the managed-reference read-only explanation.
+    """
     db_path = tmp_path / "web_readwrite_readonly_reference.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -804,6 +1164,21 @@ def test_web_readwrite_respects_trigger_locked_reference_tables(driver_spec, tmp
 
 
 def test_web_readwrite_can_upload_file_into_store(driver_spec, tmp_path: Path) -> None:
+    """
+    Upload fixture bytes into a real managed directory and download them again.
+
+    Verify upload-page store selection, redirect notice, file/store identities,
+    names, provenance, byte count, physical storage, and download contents. The
+    EPUB-named payload is arbitrary bytes, not a valid EPUB archive.
+
+    Example:
+        >>> test_web_readwrite_can_upload_file_into_store(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver for the catalogue and managed-store metadata.
+    :param tmp_path: Isolated directory receiving the catalogue and payload store.
+    :return: None; assert persisted metadata and byte-for-byte storage/download parity.
+    """
     db_path = tmp_path / "web_readwrite_upload.sqlite"
     managed_root = tmp_path / "managed_store"
     managed_root.mkdir(parents=True, exist_ok=True)
@@ -861,6 +1236,21 @@ def test_web_readwrite_can_upload_file_into_store(driver_spec, tmp_path: Path) -
 
 
 def test_web_readwrite_can_attach_uploaded_file_to_existing_item(driver_spec, tmp_path: Path) -> None:
+    """
+    Attach uploaded bytes to an existing item and verify its file association.
+
+    Check attachment-page links, item-directed redirect, file metadata, physical
+    storage, and download bytes. Although item_source_name is submitted, this
+    case does not assert an update to the pre-existing item's metadata.
+
+    Example:
+        >>> test_web_readwrite_can_attach_uploaded_file_to_existing_item(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver for the manifestation, item, and file fixtures.
+    :param tmp_path: Isolated directory for the catalogue and managed file storage.
+    :return: None; assert the linked file, upload notice, and preserved payload bytes.
+    """
     db_path = tmp_path / "web_readwrite_item_upload.sqlite"
     managed_root = tmp_path / "managed_item_store"
     managed_root.mkdir(parents=True, exist_ok=True)
@@ -921,6 +1311,22 @@ def test_web_readwrite_can_attach_uploaded_file_to_existing_item(driver_spec, tm
 
 
 def test_web_readwrite_can_upload_file_from_work_page_and_create_wemi_chain(driver_spec, tmp_path: Path) -> None:
+    """
+    Upload from a work page and inspect the generated expression-to-file chain.
+
+    Starting from one work, create an expression, manifestation, item, and file
+    through the upload form. Check graph cardinality and selected submitted
+    metadata, then compare physical and downloaded bytes. No EPUB validation,
+    partial-failure rollback, or transaction atomicity is asserted.
+
+    Example:
+        >>> test_web_readwrite_can_upload_file_from_work_page_and_create_wemi_chain(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Database driver supporting the real WEMI and storage schema.
+    :param tmp_path: Isolated directory receiving the catalogue and managed store.
+    :return: None; assert the generated chain, redirect, metadata, and payload bytes.
+    """
     db_path = tmp_path / "web_readwrite_work_upload.sqlite"
     managed_root = tmp_path / "managed_work_store"
     managed_root.mkdir(parents=True, exist_ok=True)

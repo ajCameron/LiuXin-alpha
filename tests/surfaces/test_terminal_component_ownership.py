@@ -1,4 +1,10 @@
-"""Keep terminal behavior in bounded owners with checked composition contracts."""
+"""
+Check terminal owner sizes, composition responsibilities, abstract-method resolution, and quality-scope coverage.
+
+The size guards count physical lines, including docstrings. Their current failures
+during the whole-project documentation migration are recorded in working memory;
+this documentation does not change their thresholds, AST rules, or scope selection.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +27,16 @@ COMPONENTS = ("browser_components", "windowed_components")
 
 @pytest.mark.parametrize("directory", COMPONENTS)
 def test_component_owners_and_functions_remain_bounded(directory: str) -> None:
+    """
+    Enforce nonempty component discovery and the existing 450-file/160-function physical-line ceilings.
+
+    Example:
+        >>> test_component_owners_and_functions_remain_bounded("browser_components")  # doctest: +SKIP
+
+
+    :param directory: Parametrized browser_components or windowed_components directory beneath the terminal package.
+    :return: None if every discovered Python file and named function meets the unchanged physical-line limits.
+    """
     paths = sorted((TERMINAL / directory).rglob("*.py"))
     assert paths
     for path in paths:
@@ -42,6 +58,21 @@ def test_component_owners_and_functions_remain_bounded(directory: str) -> None:
 def test_roots_only_initialize_and_bind_components(
     filename: str, owner: str, allowed: set[str]
 ) -> None:
+    """
+    Enforce the root file's 250-line ceiling and exact directly defined method-name set on its composition class.
+
+    Other classes in the same file are not inspected for method membership, but
+    all file lines still count. This check does not inspect allowed method bodies.
+
+    Example:
+        >>> test_roots_only_initialize_and_bind_components("browser.py", "TextDatabaseBrowser", {"__init__", "_extension_host"})  # doctest: +SKIP
+
+
+    :param filename: Root module filename relative to the terminal package.
+    :param owner: Top-level composition class to select from the parsed module.
+    :param allowed: Exact set of directly declared function names permitted on that class.
+    :return: None after the unchanged file limit and owner-method set assertions succeed.
+    """
     source = (TERMINAL / filename).read_text()
     assert len(source.splitlines()) <= 250
     node = next(
@@ -57,6 +88,17 @@ def test_roots_only_initialize_and_bind_components(
     [(TextDatabaseBrowser, BrowserState), (_CursesUiDriver, WindowedState)],
 )
 def test_all_required_owner_methods_are_concretely_composed(owner, state) -> None:
+    """
+    Require an abstract shared contract, a concrete composition, and concrete static lookup of every required method.
+
+    Example:
+        >>> test_all_required_owner_methods_are_concretely_composed(TextDatabaseBrowser, BrowserState)
+
+
+    :param owner: Concrete browser or curses-driver composition class to inspect without constructing it.
+    :param state: Corresponding ABC whose abstract-method names define the required surface.
+    :return: None after abstractness and resolved descriptor flags are checked for all required methods.
+    """
     assert inspect.isabstract(state)
     assert not inspect.isabstract(owner)
     for name in state.__abstractmethods__:
@@ -102,12 +144,36 @@ def test_all_required_owner_methods_are_concretely_composed(owner, state) -> Non
 def test_real_composition_resolves_methods_to_their_owners(
     owner, method, module
 ) -> None:
+    """
+    Check that a representative composed method still originates from its designated responsibility module.
+
+    Example:
+        >>> test_real_composition_resolves_methods_to_their_owners(TextDatabaseBrowser, "run", "browser_components.session")
+
+
+    :param owner: Public browser or internal driver class whose inherited method is inspected.
+    :param method: Method name resolved normally through the composition's MRO.
+    :param module: Expected module suffix relative to LiuXin_alpha.surfaces.terminal.
+    :return: None after the resolved method's __module__ matches its declared owner.
+    """
     assert (
         getattr(owner, method).__module__ == f"LiuXin_alpha.surfaces.terminal.{module}"
     )
 
 
 def test_complete_component_trees_enter_all_quality_scopes() -> None:
+    """
+    Check explicit terminal-tree entries in formatting, both typing scopes, lint/complexity commands, and strict model typing.
+
+    This reads configuration and shell-command sections; it does not execute the
+    quality tools or prove that every source file passes them.
+
+    Example:
+        >>> test_complete_component_trees_enter_all_quality_scopes()
+
+
+    :return: None after all named root/tree paths and strict model entries are present in their required declarations.
+    """
     config = tomllib.loads((ROOT / "pyproject.toml").read_text())
     runner = (ROOT / "scripts/run_type_checks.sh").read_text()
     for name in (*COMPONENTS, "browser.py", "windowed_ui.py"):

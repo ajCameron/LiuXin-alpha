@@ -1,3 +1,12 @@
+"""
+Supply minimal SQLite legacy asset tables needed by surface integration fixtures.
+
+These CREATE TABLE definitions are fixture scaffolding, not production schema
+migrations. Existing tables are left untouched even if their columns differ.
+The raw-connection helper does not commit; the Database wrapper commits and
+refreshes schema metadata only when at least one requested table was created.
+"""
+
 from __future__ import annotations
 
 import sqlite3
@@ -117,6 +126,19 @@ CREATE TABLE IF NOT EXISTS `file_folder_links` (
 
 
 def _refresh_surface_db_metadata(db: Database) -> None:
+    """
+    Refresh a fixture database's table inventory and mirror it into its wrapper.
+
+    Assign the refreshed table-list objects directly, without copying. A failure
+    may leave only some wrapper attributes updated; there is no rollback here.
+
+    Example:
+        >>> _refresh_surface_db_metadata(db)  # doctest: +SKIP
+
+
+    :param db: Open Database with a refresh_db_metadata method and driver_wrapper.
+    :return: None after all six table-category inventories are assigned to the wrapper.
+    """
     db.refresh_db_metadata()
     db.driver_wrapper.all_tables = db.all_tables
     db.driver_wrapper.main_tables = db.main_tables
@@ -133,6 +155,31 @@ def ensure_surface_asset_tables_sqlite(
     include_file_store_links: bool = False,
     include_file_folder_links: bool = False,
 ) -> bool:
+    """
+    Create missing fixture asset tables selected by name in SQLite's schema inventory.
+
+    Always request files; images and the two file-link tables are opt-in. Existing
+    schemas are not checked or upgraded. Execute each missing table definition in
+    order without issuing a commit or rollback; connection errors propagate and
+    earlier successful DDL may remain if a later statement fails.
+
+    Example:
+        >>> conn = sqlite3.connect(":memory:")
+        >>> ensure_surface_asset_tables_sqlite(conn)
+        True
+        >>> ensure_surface_asset_tables_sqlite(conn)
+        False
+        >>> ensure_surface_asset_tables_sqlite(conn, include_images=True)
+        True
+        >>> conn.close()
+
+
+    :param conn: Open SQLite connection queried through sqlite_master and used for DDL.
+    :param include_images: Also create the images table when absent.
+    :param include_file_store_links: Also create the file_store_links table when absent.
+    :param include_file_folder_links: Also create the file_folder_links table when absent.
+    :return: True if at least one table was created, otherwise False.
+    """
     existing = {
         row[0]
         for row in conn.execute(
@@ -167,6 +214,24 @@ def ensure_surface_asset_tables(
     include_file_store_links: bool = False,
     include_file_folder_links: bool = False,
 ) -> None:
+    """
+    Add requested fixture asset tables, then commit and refresh metadata if needed.
+
+    Use db.conn with the SQLite-specific helper. A successful creation commits
+    that connection's pending transaction, not merely these schema additions.
+    If all requested names already exist, neither commit nor metadata refresh
+    runs. DDL, commit, and refresh failures propagate without compensating cleanup.
+
+    Example:
+        >>> ensure_surface_asset_tables(db, include_images=True)  # doctest: +SKIP
+
+
+    :param db: Open Database exposing a SQLite-compatible connection and schema metadata.
+    :param include_images: Request the images fixture table in addition to files.
+    :param include_file_store_links: Request legacy file-to-store link scaffolding.
+    :param include_file_folder_links: Request legacy file-to-folder link scaffolding.
+    :return: None, including when no schema changes were necessary.
+    """
     created = ensure_surface_asset_tables_sqlite(
         db.conn,
         include_images=include_images,

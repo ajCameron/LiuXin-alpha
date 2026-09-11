@@ -1,5 +1,10 @@
 """
-Concrete reusable storage drivers shipped with LiuXin.
+Export reusable filesystem, database, remote, and archive storage drivers.
+
+The package imports concrete driver modules and publishes their address types,
+drivers, and selected option/client contracts. These raw endpoints handle bytes
+and scoped addresses; configured Store identity and manager policy belong to
+higher layers. Importing this namespace does not instantiate a driver.
 """
 
 from LiuXin_alpha.storage.drivers.filesystem import (

@@ -1,4 +1,15 @@
-"""Persistence SPI for durable ``StorageManagerAPI`` implementations."""
+"""
+Export the six implementation-facing storage metadata persistence protocols.
+
+Four repositories describe Asset, Replica, Composite, and derivation records;
+the unit-of-work and factory protocols define explicit metadata transaction
+coordination. All names are re-exported unchanged from repositories.py. This
+package supplies no database implementation or external Store transaction.
+
+Durable manager adapters import these ports here. Application code should use
+StorageManagerAPI; its facade and historical repositories_api module retain
+identity-preserving compatibility exports of the same protocols.
+"""
 
 from LiuXin_alpha.storage.api.persistence_api.repositories import (
     CompositeDigitalAssetRepositoryAPI,

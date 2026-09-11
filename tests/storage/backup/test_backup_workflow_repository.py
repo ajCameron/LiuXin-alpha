@@ -1,3 +1,11 @@
+"""
+Exercise backup intent/checkpoint/result persistence through a real miniature SQLite schema.
+
+Synthetic source identities and byte expectations test value encoding and reconstruction,
+not physical backup verification. Cases cover replacement/deletion preconditions and
+changed-intent rejection, with explicit database connection cleanup.
+"""
+
 from __future__ import annotations
 
 import dataclasses
@@ -14,6 +22,22 @@ from LiuXin_alpha.storage.backup import BackupWorkflowRepository
 
 
 def _declaration(tmp_path: Path) -> api.BackupWorkflowDeclaration:
+    """
+    Build mixed local/routed backup intent with synthetic byte expectations and catalogue
+    references.
+
+    Allocate independent source/output Store UUIDs, retain two ordered member paths, and provide
+    compression/deterministic options and a temporary staging path. No source files or Stores are
+    created. Sizes/digests and Asset/Replica IDs exercise persistence encoding rather than verified
+    physical provenance.
+
+    Example:
+        >>> declaration = _declaration(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real SQLite catalogue and local source/image paths.
+    :return: BackupWorkflowDeclaration containing one local and one Location source with distinct expectation/provenance fields.
+    """
     store_ref = uuid4()
     return api.BackupWorkflowDeclaration(
         "nightly-squashfs",
@@ -43,6 +67,22 @@ def _declaration(tmp_path: Path) -> api.BackupWorkflowDeclaration:
 
 
 def test_repository_roundtrips_declaration_checkpoint_and_result(tmp_path: Path) -> None:
+    """
+    Verify typed backup intent and staged/final evidence survive SQLite row reconstruction.
+
+    Use the real miniature SQLite schema and repository adapter. Check initial DRAFT synthesis, a
+    running checkpoint with a routed staging report, and a final checkpoint/result with stored
+    status filtering and one output row. The successful flag is persisted metadata; no actual backup
+    image, hash verification, or Store registration is performed. Close the SQLite connection in
+    finally.
+
+    Example:
+        >>> test_repository_roundtrips_declaration_checkpoint_and_result(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real SQLite catalogue and local source/image paths.
+    :return: None after the stated regression assertions pass.
+    """
     db = build_mini_db(tmp_path / "workflow.sqlite")
     try:
         repository = BackupWorkflowRepository(db)
@@ -113,6 +153,20 @@ def test_repository_roundtrips_declaration_checkpoint_and_result(tmp_path: Path)
 
 
 def test_repository_replacement_and_deletion_preconditions(tmp_path: Path) -> None:
+    """
+    Verify intent replacement retains an ID and deletion respects the stored lifecycle guard.
+
+    Replace a DRAFT workflow name, reload the declaration, require default deletion to reject, then
+    bypass the terminal check and confirm a repeated delete returns False. This does not claim
+    checkpoint/output cleanup during replacement. The miniature SQLite connection closes in finally.
+
+    Example:
+        >>> test_repository_replacement_and_deletion_preconditions(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real SQLite catalogue and local source/image paths.
+    :return: None after the stated regression assertions pass.
+    """
     db = build_mini_db(tmp_path / "workflow-delete.sqlite")
     try:
         repository = BackupWorkflowRepository(db)
@@ -135,6 +189,20 @@ def test_repository_replacement_and_deletion_preconditions(tmp_path: Path) -> No
 
 
 def test_repository_rejects_checkpoint_for_different_intent(tmp_path: Path) -> None:
+    """
+    Verify a checkpoint with a changed declaration is rejected against durable intent.
+
+    Persist one declaration in the miniature SQLite schema and construct a DRAFT checkpoint with a
+    different name. save_checkpoint must raise StorePreconditionFailed identifying changed intent.
+    The connection closes in finally.
+
+    Example:
+        >>> test_repository_rejects_checkpoint_for_different_intent(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real SQLite catalogue and local source/image paths.
+    :return: None after the stated regression assertions pass.
+    """
     db = build_mini_db(tmp_path / "workflow-mismatch.sqlite")
     try:
         repository = BackupWorkflowRepository(db)

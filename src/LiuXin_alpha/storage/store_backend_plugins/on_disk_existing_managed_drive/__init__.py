@@ -1,4 +1,9 @@
-"""On-disk existing-managed store plugin."""
+"""
+Expose the writable managed-directory Store and common Location alias.
+
+The separate legacy single-file wrapper is not exported here. Managed allocation
+policy belongs to the backend rather than the Location value.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,11 @@
-"""Storage CLI parser stores ownership."""
+"""
+Declare backend discovery, interactive/typed Store addition, updates, and evacuation grammar.
+
+Top-level add permits an incomplete positional triple for wizard mode and leaves
+check tri-state; compatibility store add requires kind/root/--name and defaults
+to no probe. Neither parser validates live capabilities or secret-bearing values;
+those decisions belong to the bound execution helpers.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +32,19 @@ from LiuXin_alpha.surfaces.cli.storage_commands.store_wizard import cmd_storage_
 def _add_backends_parser(
     commands: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Register backends/providers discovery with optional internal descriptors.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_backends_parser(parser.add_subparsers())
+        >>> parser.parse_args(["providers"]).include_internal
+        False
+
+
+    :param commands: Storage subparser collection receiving the backend discovery leaf and alias.
+    :return: None; bind discovery without loading providers or checking capabilities.
+    """
     backends = commands.add_parser(
         "backends",
         aliases=["providers"],
@@ -42,6 +62,25 @@ def _add_backends_parser(
 def _add_add_store_parser(
     commands: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Register top-level Store add with optional NAME/KIND/ROOT, backend assignments, and wizard controls.
+
+    read_only and check default to None so execution can choose backend/wizard
+    defaults. Each has mutually exclusive positive/negative flags. Positional options
+    and repeated --option values are preserved for later parsing; policy/root/name
+    semantics and whether the triple is complete are not validated here.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_add_store_parser(parser.add_subparsers())
+        >>> args = parser.parse_args(["add"])
+        >>> args.name, args.kind, args.root, args.check, args.read_only
+        (None, None, None, None, None)
+
+
+    :param commands: Storage subparser collection receiving the interactive-or-automated add leaf.
+    :return: None; register options and bind cmd_storage_add without prompting or saving.
+    """
     add_store = commands.add_parser(
         "add",
         help=(
@@ -125,6 +164,19 @@ def _add_add_store_parser(
 def _add_stores_parser(
     commands: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Register Store listing with an opt-in configuration refresh selector.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_stores_parser(parser.add_subparsers())
+        >>> parser.parse_args(["stores"]).refresh
+        False
+
+
+    :param commands: Storage subparser collection receiving the stores leaf.
+    :return: None; no catalogue or cached configuration is read during registration.
+    """
     stores = commands.add_parser("stores", help="List configured stores.")
     _core_json(stores)
     stores.add_argument("--refresh", action="store_true")
@@ -134,6 +186,25 @@ def _add_stores_parser(
 def _add_store_parser(
     commands: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Register one-Store show/get, raw save, typed add, update, probe, delete, and evacuation.
+
+    Compatibility add requires kind/root/--name, defaults check to False, and has
+    no wizard or --no-check flag. Update's clear/domain, clear/region, and access
+    pairs are mutually exclusive. Evacuation defaults to preview with 100 assets,
+    1,000 actions, and 1,024 GiB; handlers interpret confirmation and numeric ranges.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_store_parser(parser.add_subparsers())
+        >>> args = parser.parse_args(["store", "add", "filesystem", "/books", "--name", "Books"])
+        >>> args.check, args.read_only, args.handler is cmd_storage_store_add
+        (False, None, True)
+
+
+    :param commands: Storage subparser collection receiving the required store action family.
+    :return: None; declare controls and bind handlers without reading files or changing a Store.
+    """
     store = commands.add_parser("store", help="Inspect or administer one Store.")
     store_commands = store.add_subparsers(dest="store_action", required=True)
     show = store_commands.add_parser("show", aliases=["get"])
@@ -256,6 +327,19 @@ def _add_store_parser(
 def _add_default_parser(
     commands: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Register default-Store show/get and set with an unparsed Store selector.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_default_parser(parser.add_subparsers())
+        >>> parser.parse_args(["default", "set", "007"]).store
+        '007'
+
+
+    :param commands: Storage subparser collection receiving required default-selection actions.
+    :return: None; numeric-reference conversion and selection eligibility are deferred.
+    """
     default = commands.add_parser("default", help="Inspect or set the default Store.")
     default_commands = default.add_subparsers(dest="default_action", required=True)
     default_show = default_commands.add_parser("show", aliases=["get"])
@@ -270,6 +354,20 @@ def _add_default_parser(
 def _add_refresh_parser(
     commands: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Register storage refresh with startup, offline, keep-existing, and strict opt-ins.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_refresh_parser(parser.add_subparsers())
+        >>> args = parser.parse_args(["refresh"])
+        >>> args.startup_on_add, args.include_offline, args.keep_existing, args.strict
+        (False, False, False, False)
+
+
+    :param commands: Storage subparser collection receiving the refresh leaf.
+    :return: None; no Store is opened or reloaded during argument declaration.
+    """
     refresh = commands.add_parser(
         "refresh", help="Reload Store configurations from the database."
     )

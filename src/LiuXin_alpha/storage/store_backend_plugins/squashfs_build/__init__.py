@@ -1,9 +1,9 @@
-"""Writable staging plugin for building SquashFS archives.
+"""
+Expose the SquashFS staging Store and its common Location compatibility alias.
 
-This plugin is intentionally *not* a normal mutable store. It is a staging
-surface for collecting a finite pack of files, then sealing them into one
-SquashFS archive. After a build, callers should generally switch to the paired
-`SquashfsReadOnlyStorageBackend` for archive access.
+Committed filesystem staging becomes a validated archive through explicit seal.
+Use the returned read-only Store for archive access after successful sealing;
+the builder retains its staging view and refuses new leased mutations.
 """
 
 from .squashfs_build_location import SquashfsBuildStoreLocation

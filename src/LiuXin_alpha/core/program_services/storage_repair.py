@@ -1,4 +1,11 @@
-"""Core-owned storage repair operations and wire translation."""
+"""
+Plan and apply non-deleting verification/replication repair through Core's storage manager.
+
+Manager policy chooses source/destination eligibility. Adapters retain surplus
+removal and exact recreation as deferred actions, limit attempted actions, and
+budget estimated sizes of successfully returned copy calls rather than actual
+I/O. Before/after replanning is observational, not an enclosing transaction.
+"""
 
 from __future__ import annotations
 
@@ -20,7 +27,29 @@ def _storage_repair_plan_payload(
     asset_id: int | None,
     max_assets: int,
 ) -> dict[str, Any]:
-    """Build a deterministic, non-deleting repair plan from manager APIs."""
+    """
+    Plan selected Assets in numeric-ID order, preserving manager action order and deferring deletion/recreation.
+
+    All-Asset enumeration is materialized/sorted before slicing; a requested Asset
+    uses direct lookup. Failures in an Asset's replication/backup/policy calls add
+    a warning and skip its actions, but other attribute/projection errors propagate.
+    Verification IDs are deduplicated across the whole selected scope; destinations
+    and deferred removals are not deduplicated across replication and backup plans.
+
+    complete counts selected versus available Assets, including failed planning,
+    not successful coverage. blocked means any warning or deferred exact recreation;
+    surplus removal alone does not block. Transfer estimates sum Asset sizes for
+    copy actions only, with no capacity reservation or executor invocation here.
+
+    Example:
+        >>> plan = _storage_repair_plan_payload(manager, asset_id=None, max_assets=100)  # doctest: +SKIP
+
+
+    :param manager: Storage manager providing Asset records, replication/backup plans, and effective policies.
+    :param asset_id: Optional single Asset selector; None enumerates the complete current Asset registry.
+    :param max_assets: Raw slice bound for selected Assets; public handlers validate/cap it before calling.
+    :return: Actions, deferred actions, warnings, scope counts, estimated transfer bytes, and non-deleting plan flags.
+    """
 
     from LiuXin_alpha.storage import api as storage_api
 
@@ -138,6 +167,21 @@ def storage_repair_plan(
     runtime: CoreRuntime,
     query: CoreQuery,
 ) -> dict[str, Any]:
+    """
+    Build a fresh non-deleting repair plan for one Asset or a capped prefix of the Asset registry.
+
+    Optional asset_id must be positive. max_assets defaults to 100, must be positive,
+    and is capped at 10,000; explicit None reaches an assertion rather than selecting
+    the default. Manager planning may inspect backend state but no action is applied.
+
+    Example:
+        >>> plan = storage_repair_plan(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime whose storage manager supplies the repair-planning APIs.
+    :param query: Query with optional asset_id and max_assets.
+    :return: Fresh plan with selected-scope completeness, actions, deferrals, estimates, and warnings.
+    """
     payload = _payload(query)
     asset_id = _optional_int(payload, "asset_id", minimum=1)
     max_assets = _optional_int(payload, "max_assets", default=100, minimum=1)
@@ -153,6 +197,29 @@ def storage_repair_apply(
     runtime: CoreRuntime,
     command: CoreCommand,
 ) -> dict[str, Any]:
+    """
+    Plan, attempt bounded verification/copy actions, and replan the same selected scope without removing replicas.
+
+    Positive max_assets/max_actions default to 100 and cap at 10,000. The positive
+    transfer budget defaults to 100 GiB. Action limits count attempts, including
+    failures; transferred_bytes charges estimated sizes only after copy calls return,
+    not actual bytes or partial failed transfers. An over-budget copy stops the
+    sequence rather than skipping ahead. Plan blocked does not suppress its actions.
+
+    Verification must report healthy; normally returned copy calls count as success
+    with verify=True delegated to the manager. Call failures become receipts, but
+    successful-result projection or replanning can still fail after changes. Final
+    ok requires no failed/truncated attempts and no remaining actions/blockers in the
+    replanned subset; it does not require that every available Asset was scanned.
+
+    Example:
+        >>> receipt = storage_repair_apply(runtime, command)  # doctest: +SKIP
+
+
+    :param runtime: Runtime providing repair planning, replica verification, and Asset replication.
+    :param command: Command with optional asset_id, max_assets, max_actions, and max_transfer_bytes; no stored plan or confirmation is consumed.
+    :return: Before/after plans, attempt receipts/counts, estimated successful transfer bytes, budgets, truncation, and selected-scope ok.
+    """
     from LiuXin_alpha.storage import api as storage_api
 
     payload = _payload(command)

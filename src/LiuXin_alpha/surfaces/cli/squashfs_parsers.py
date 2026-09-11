@@ -1,4 +1,10 @@
-"""Register SquashFS arguments without owning publication or provenance execution."""
+"""
+Register SquashFS publication and provenance grammar without executing workflows.
+
+Each leaf receives Core connection arguments and a bound command-owner handler.
+Archive validation, source-ID collection, provenance filter requirements, and
+publication guarantees belong to handlers/Core, not parser construction.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +21,26 @@ from LiuXin_alpha.surfaces.core import add_core_client_arguments
 def build_squashfs_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    """Register publication/provenance arguments and their command owners."""
+    """
+    Add required SquashFS subcommands for store publication, file IDs, and provenance.
+
+    Publish-store defaults to duplicating verified metadata rows and refreshing
+    storage; strict/report-error options control handler failure policy. File-ID
+    collection and provenance's requirement for at least one filter are deferred
+    to execution. The parser does not check paths, positive IDs, tool availability,
+    supported compression codecs, or mutually constrain provenance filters.
+
+    Example:
+        >>> root = argparse.ArgumentParser()
+        >>> build_squashfs_parser(root.add_subparsers())
+        >>> args = root.parse_args(['squashfs', 'publish-store', '--database', 'library.sqlite', '--store-id', '7'])
+        >>> (args.compression, args.duplicate_verified_files, args.strict)
+        ('zstd', True, False)
+
+
+    :param subparsers: Parent argparse collection receiving the squashfs command family.
+    :return: None; register three leaf parsers with their argument and handler defaults.
+    """
     parser = subparsers.add_parser(
         "squashfs",
         help="SquashFS archival workflows (designated files -> archive -> locked store).",

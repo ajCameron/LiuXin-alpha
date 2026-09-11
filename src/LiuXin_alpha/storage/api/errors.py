@@ -1,134 +1,168 @@
 """
-Typed failures shared by raw storage drivers, Stores, and managers.
+Define the shared storage-contract failure hierarchy and Store-facing aliases.
+
+StoreError and the other Store names are identical class objects, so no exception
+translation is required between those names and their Storage counterparts.
+The legacy LiuXin_alpha.storage.errors hierarchy remains separate.
 """
 
 
 class StorageError(Exception):
     """
-    Base class for failures produced by the storage contracts.
+    Base exception for failures reported by the shared raw-driver, Store, and manager contracts.
+
+    Subclasses use ordinary Exception arguments and behavior. This hierarchy is separate from the
+    legacy LiuXinException-based storage.errors hierarchy.
 
     Example:
-        >>> str(StorageError("backend failure"))
-        'backend failure'
+        >>> isinstance(StorageError("operation failed"), StorageError)
+        True
     """
 
 
 class StorageNotFound(StorageError):
     """
-    The requested concrete object genuinely does not exist.
+    Report that the requested concrete object or storage target was not found.
+
+    Callers can distinguish reported absence from other access failures by catching this specific
+    category.
 
     Example:
-        >>> isinstance(StorageNotFound("missing.bin"), StorageError)
+        >>> isinstance(StorageNotFound("operation failed"), StorageError)
         True
     """
 
 
 class StorageAlreadyExists(StorageError):
     """
-    A create-only publication collided with an existing object.
+    Report a create-only publication collision with an existing target.
+
+    The producer supplies target/context details through ordinary exception arguments.
 
     Example:
-        >>> str(StorageAlreadyExists("objects/42"))
-        'objects/42'
+        >>> isinstance(StorageAlreadyExists("operation failed"), StorageError)
+        True
     """
 
 
 class StorageInvalidAddress(StorageError):
     """
-    An object address, Location, URI, or read range is invalid.
+    Report an invalid or foreign object address, Location, URI, or read range.
+
+    The producing boundary defines the exact ownership and syntax checks.
 
     Example:
-        >>> isinstance(StorageInvalidAddress("wrong address space"), StorageError)
+        >>> isinstance(StorageInvalidAddress("operation failed"), StorageError)
         True
     """
 
 
 class StorageReadOnly(StorageError):
     """
-    The endpoint is available for reads but refuses mutation.
+    Report a refused mutation under endpoint or configured-Store read-only policy.
+
+    The category does not independently establish that reads are currently available.
 
     Example:
-        >>> str(StorageReadOnly("archive is sealed"))
-        'archive is sealed'
+        >>> isinstance(StorageReadOnly("operation failed"), StorageError)
+        True
     """
 
 
 class StorageNoSpace(StorageError):
     """
-    The endpoint cannot accept the write due to capacity.
+    Report that capacity or an endpoint space constraint prevents the requested operation.
+
+    The exception carries ordinary arguments rather than a structured capacity measurement.
 
     Example:
-        >>> isinstance(StorageNoSpace("12 bytes required"), StorageError)
+        >>> isinstance(StorageNoSpace("operation failed"), StorageError)
         True
     """
 
 
 class StoragePreconditionFailed(StorageError):
     """
-    A version or other race-protection precondition did not hold.
+    Report a failed version or other operation precondition, including observed changes around a
+    request.
+
+    The producing backend determines the evidence checked and any publication already performed.
 
     Example:
-        >>> str(StoragePreconditionFailed("expected version v2"))
-        'expected version v2'
+        >>> isinstance(StoragePreconditionFailed("operation failed"), StorageError)
+        True
     """
 
 
 class StorageIntegrityError(StorageError):
     """
-    Observed bytes do not match their required size or digest.
+    Report malformed storage evidence or a mismatch with required bytes, size, digest, or topology.
+
+    Raising this category does not itself provide rollback or identify which validation the producer
+    performed.
 
     Example:
-        >>> isinstance(StorageIntegrityError("sha256 mismatch"), StorageError)
+        >>> isinstance(StorageIntegrityError("operation failed"), StorageError)
         True
     """
 
 
 class StorageUnavailable(StorageError):
     """
-    The storage endpoint cannot currently be contacted or accessed.
+    Report that the endpoint or backend process cannot currently complete the requested operation.
+
+    Transport, filesystem, external-tool, and unusable-output failures may use this category with
+    producer-specific details.
 
     Example:
-        >>> str(StorageUnavailable("FTP server is offline"))
-        'FTP server is offline'
+        >>> isinstance(StorageUnavailable("operation failed"), StorageError)
+        True
     """
 
 
 class StoragePermissionDenied(StorageError):
     """
-    The authenticated principal lacks permission for the operation.
+    Report that an access-permission check refused the storage operation.
+
+    The producer supplies the relevant local or remote context through the message.
 
     Example:
-        >>> isinstance(StoragePermissionDenied("read denied"), StorageError)
+        >>> isinstance(StoragePermissionDenied("operation failed"), StorageError)
         True
     """
 
 
 class StorageAuthenticationFailed(StorageError):
     """
-    Credentials were absent, invalid, or no longer accepted.
+    Report missing, invalid, expired, or rejected credentials at a storage authentication boundary.
 
     Example:
-        >>> str(StorageAuthenticationFailed("token expired"))
-        'token expired'
+        >>> isinstance(StorageAuthenticationFailed("operation failed"), StorageError)
+        True
     """
 
 
 class StorageTimeout(StorageError):
     """
-    A storage operation exceeded its backend or caller time limit.
+    Report expiry of a backend or caller time allowance.
+
+    The producing implementation defines what the timer covers; this category alone does not bound
+    later cleanup or guarantee cancellation.
 
     Example:
-        >>> isinstance(StorageTimeout("read timed out"), StorageError)
+        >>> isinstance(StorageTimeout("operation failed"), StorageError)
         True
     """
 
 
 class StorageUnsupportedOperation(StorageError):
     """
-    The backend fundamentally cannot provide an operation.
+    Report an operation, object feature, or configured limit that the backend will not support.
+
+    This category also covers policy-bounded archive operations, not only missing methods.
 
     Example:
-        >>> isinstance(StorageUnsupportedOperation("no replacement"), StorageError)
+        >>> isinstance(StorageUnsupportedOperation("operation failed"), StorageError)
         True
     """
 

@@ -1,4 +1,10 @@
-"""Core endpoint declarations for storage operations."""
+"""
+Register Core Store inspection/configuration, integrity, repair, evacuation, and ingest-recovery endpoints.
+
+This family supplements storage routes owned by other Core APIs; it is not the
+complete storage graph or file API. Field metadata and read/write/planning tags
+are declarations, not authorization, validation, health probes, or execution.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +16,26 @@ from LiuXin_alpha.core.program_endpoints.handlers import StorageHandlers
 
 
 def install_queries(api: StorageHandlers, runtime: ProgramEndpointRegistrar) -> None:
-    """Register this family's query endpoints."""
+    """
+    Bind ten Store/default/location, source/backend discovery, health, planning, and recovery-list queries.
+
+    The overview and reconciliation plan advertise refresh_stores, while repair
+    and evacuation expose their own bounded-selection fields. None of those
+    observations or plans is computed during installation. Other APIs retain
+    ownership of base file/resource/Asset query routes.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> registrar = Mock()
+        >>> install_queries(Mock(), registrar)
+        >>> registrar.register_query_handler.call_count
+        10
+
+
+    :param api: Provider of Store inspection, health/planning, backend discovery, and recovery query methods.
+    :param runtime: Registrar receiving ten ordered query bindings with their field metadata and tags.
+    :return: None on successful registration; errors propagate without removing previously registered family queries.
+    """
 
     query = runtime.register_query_handler
 
@@ -114,7 +139,27 @@ def install_queries(api: StorageHandlers, runtime: ProgramEndpointRegistrar) -> 
 
 
 def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) -> None:
-    """Register this family's command endpoints."""
+    """
+    Bind fourteen Store mutation/probe, Asset copy, source registration, integrity, repair, evacuation, and recovery commands.
+
+    Verification/audit and bounded repair are separate routes, as are pending
+    publication recovery and explicit ingest retry. Evacuation advertises source-byte
+    retention while unregistering a Store advertises canonical-row deletion; these
+    fields do not themselves perform deletion or enforce safety policies. No handler
+    is invoked or work scheduled by registration.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> registrar = Mock()
+        >>> install_commands(Mock(), registrar)
+        >>> registrar.register_command_handler.call_count
+        14
+
+
+    :param api: Provider of the fourteen configured-Store, integrity, placement, and recovery command methods.
+    :param runtime: Registrar accepting ordered command bindings and descriptive selectors, limits, switches, and tags.
+    :return: None after installation, with partial registration retained if later lookup or registration raises.
+    """
 
     command = runtime.register_command_handler
 

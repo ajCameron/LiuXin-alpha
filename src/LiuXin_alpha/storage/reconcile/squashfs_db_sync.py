@@ -1,12 +1,20 @@
 """
-Database-driven SquashFS archival workflow.
+Designate local catalogue files and publish a verified SquashFS archive view.
 
-Workflow:
-1. Create/reuse an "open" SquashFS store row.
-2. Designate source files via `file_store_links` (type: squashfs_designation).
-3. Build the SquashFS archive, lock the store, verify hashes from the archive.
-4. Duplicate verified legacy file rows into the locked archive store.
-5. Register each archived member as a Replica of its source Digital Asset.
+Open Store declarations and designation snapshots are written incrementally.
+Publication compares current source bytes with those snapshots, builds an archive,
+then checks members before a legacy-row transaction records state, duplicates, and
+links. Optional StorageManager bootstrap and Asset/Replica adoption form a later
+phase; unchanged archived bytes remain replicas of the source Asset, not derivations.
+
+No transaction covers filesystem publication and every database phase together.
+Strict mode controls failure reporting rather than whole-operation rollback.
+Reports can retain counters from work preceding a rollback, and temporary-manifest
+cleanup does not remove a built archive. Source paths follow local filesystem
+resolution and are not restricted to their declared Store root by these helpers.
+
+Example:
+    >>> report = publish_squashfs_archive_from_file_ids(db, file_ids=[7], archive_path=archive_path)  # doctest: +SKIP
 """
 
 from __future__ import annotations
@@ -120,7 +128,28 @@ LINK_STATE_TRANSITIONS: dict[str, set[str]] = {
 
 @dataclasses.dataclass
 class _SquashfsDesignation:
-    """Resolved designation entry with source snapshot and link row context."""
+    """
+    Carry a resolved designation, its recorded snapshot, and later live observations.
+
+    This mutable record retains live source/link Row objects. Snapshot claims can come from legacy
+    metadata; construction does not establish that the source is unchanged. Publication fills
+    current hash/size during its separate pre-build check.
+
+    Example:
+        >>> item.current_sha256  # doctest: +SKIP
+
+
+    :ivar file_id: Legacy source file identity.
+    :ivar archive_path: Normalized relative member target.
+    :ivar source_row: Borrowed source Row supplying metadata and Store identity.
+    :ivar source_path: Resolved existing local source file path.
+    :ivar snapshot_sha256: Selected normalized digest claim or fallback calculated digest.
+    :ivar snapshot_size_bytes: Recorded size or current-stat fallback in bytes.
+    :ivar snapshot_mtime_ns: Recorded/fallback modification time in nanoseconds, or None.
+    :ivar current_sha256: Live pre-build digest, initially None.
+    :ivar current_size_bytes: Live pre-build stat size, initially None.
+    :ivar link_row: Borrowed designation Row used for policy updates.
+    """
     file_id: int
     archive_path: str
     source_row: Row
@@ -134,14 +163,48 @@ class _SquashfsDesignation:
 
 
 def _now_ep_ms() -> int:
+    """
+    Read wall-clock Unix-epoch milliseconds, truncating fractional milliseconds.
+
+    Example:
+        >>> isinstance(_now_ep_ms(), int)
+        True
+
+
+    :return: Current epoch milliseconds, without a monotonicity guarantee.
+    """
     return int(time.time() * 1000)
 
 
 def _table_columns(db, table_name: str) -> set[str]:
+    """
+    Collect database-advertised column headings into a set.
+
+    Example:
+        >>> columns = _table_columns(db, "stores")  # doctest: +SKIP
+
+
+    :param db: Database facade supplying column headings.
+    :param table_name: Table requested without independent validation.
+    :return: Unique advertised column names.
+    """
     return set(db.get_column_headings(table_name))
 
 
 def _coerce_int(value) -> Optional[int]:
+    """
+    Convert a value with int, returning None for absence, TypeError, or ValueError.
+
+    Other failures, including OverflowError, propagate; successful conversion can truncate a float.
+
+    Example:
+        >>> _coerce_int('7')
+        7
+
+
+    :param value: Candidate integer-like value.
+    :return: Converted integer, or None for the handled invalid cases.
+    """
     if value is None:
         return None
     try:
@@ -151,6 +214,17 @@ def _coerce_int(value) -> Optional[int]:
 
 
 def _coerce_text(value) -> Optional[str]:
+    """
+    Stringify and strip a non-None value, treating blank text as absent.
+
+    Example:
+        >>> _coerce_text('  books  ')
+        'books'
+
+
+    :param value: Value converted through str, or None.
+    :return: Nonblank stripped text or None; stringification errors propagate.
+    """
     if value is None:
         return None
     text = str(value).strip()
@@ -158,6 +232,22 @@ def _coerce_text(value) -> Optional[str]:
 
 
 def _normalize_archive_path(raw: str) -> str:
+    """
+    Normalize slash-separated member text while rejecting empty, leading-slash, and parent-traversal
+    paths.
+
+    Trim outer whitespace, replace backslashes, and remove empty/dot components. This lexical helper
+    does not enforce every backend path rule, such as control-character, drive-prefix, or length
+    policy.
+
+    Example:
+        >>> _normalize_archive_path(' ./books//one.epub ')
+        'books/one.epub'
+
+
+    :param raw: Member target stringified before lexical normalization.
+    :return: Nonempty relative-looking POSIX key; rejected forms raise InputIntegrityError.
+    """
     text = str(raw).strip().replace("\\", "/")
     if not text:
         raise InputIntegrityError("archive_path cannot be empty.")
@@ -178,6 +268,20 @@ def _normalize_archive_path(raw: str) -> str:
 
 
 def _sha256_file(path: pathlib.Path, *, chunk_size: int = 1024 * 1024) -> str:
+    """
+    Hash bytes from a binary file stream in chunks.
+
+    No stable-file snapshot or chunk-size validation is added. A zero chunk size reads no bytes; a
+    negative size uses the underlying read-all behavior.
+
+    Example:
+        >>> digest = _sha256_file(path)  # doctest: +SKIP
+
+
+    :param path: Path opened for binary reading.
+    :param chunk_size: Maximum bytes requested per read, normally a positive integer.
+    :return: Lowercase SHA-256 hex digest of bytes read; I/O failures propagate.
+    """
     hasher = hashlib.sha256()
     with path.open("rb") as handle:
         while True:
@@ -189,6 +293,19 @@ def _sha256_file(path: pathlib.Path, *, chunk_size: int = 1024 * 1024) -> str:
 
 
 def _normalize_sha256(candidate: Optional[str]) -> Optional[str]:
+    """
+    Accept only stripped, lowercased 64-digit hexadecimal SHA-256 text.
+
+    This validates the claim shape without hashing bytes or proving correspondence to a file.
+
+    Example:
+        >>> _normalize_sha256('A' * 64) == 'a' * 64
+        True
+
+
+    :param candidate: Digest-like value, or None.
+    :return: Normalized digest text, or None for absence/invalid shape.
+    """
     if candidate is None:
         return None
     text = str(candidate).strip().lower()
@@ -200,6 +317,20 @@ def _normalize_sha256(candidate: Optional[str]) -> Optional[str]:
 
 
 def _parse_policy_json(value: Optional[str]) -> dict[str, object]:
+    """
+    Parse designation policy as a JSON object, falling back to an empty mapping.
+
+    None, blank text, ordinary JSON-decoding failures, and non-object JSON become an empty dict.
+    Stringification before parsing can still raise. Object contents are not schema-validated.
+
+    Example:
+        >>> _parse_policy_json('[]')
+        {}
+
+
+    :param value: Optional JSON-like value stringified and stripped before parsing.
+    :return: Decoded object dict or a fresh empty dict.
+    """
     if value is None:
         return {}
     text = str(value).strip()
@@ -215,10 +346,37 @@ def _parse_policy_json(value: Optional[str]) -> dict[str, object]:
 
 
 def _dump_policy_json(payload: dict[str, object]) -> str:
+    """
+    Serialize a policy mapping with sorted keys, compact separators, and unescaped Unicode.
+
+    Use json.dumps defaults for other values; this is stable formatting, not validation or secret
+    redaction.
+
+    Example:
+        >>> _dump_policy_json({'state': 'open'})
+        '{"state":"open"}'
+
+
+    :param payload: JSON-serializable policy dict.
+    :return: Compact JSON text; serialization failures propagate.
+    """
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def _is_open_store_kind(kind: Optional[str]) -> bool:
+    """
+    Recognize the canonical open Store kind and its retained historical spelling.
+
+    Comparison strips text and ignores case; None and other labels return False.
+
+    Example:
+        >>> _is_open_store_kind(OPEN_SQUASHFS_STORE_KIND_COMPAT.upper())
+        True
+
+
+    :param kind: Optional Store-kind label.
+    :return: Whether the label denotes an open SquashFS Store kind.
+    """
     if kind is None:
         return False
     normalized = str(kind).strip().lower()
@@ -226,6 +384,19 @@ def _is_open_store_kind(kind: Optional[str]) -> bool:
 
 
 def _infer_store_state_from_kind(kind: Optional[str]) -> str:
+    """
+    Infer locked only from the locked kind, defaulting every other label to open.
+
+    This fallback does not prove that an unknown Store kind supports SquashFS.
+
+    Example:
+        >>> _infer_store_state_from_kind('other')
+        'open'
+
+
+    :param kind: Optional kind normalized through the text helper.
+    :return: locked for squashfs_readonly, otherwise open.
+    """
     text = _coerce_text(kind)
     if text is None:
         return STORE_STATE_OPEN
@@ -237,6 +408,20 @@ def _infer_store_state_from_kind(kind: Optional[str]) -> str:
 
 
 def _parse_json_object(value: Optional[str]) -> dict[str, object]:
+    """
+    Parse scratch metadata as a JSON object, falling back to an empty mapping.
+
+    None, blank text, ordinary JSON-decoding failures, and non-object JSON become an empty dict.
+    Stringification before parsing can still raise. Object contents are not schema-validated.
+
+    Example:
+        >>> _parse_json_object('[]')
+        {}
+
+
+    :param value: Optional JSON-like value stringified and stripped before parsing.
+    :return: Decoded object dict or a fresh empty dict.
+    """
     if value is None:
         return {}
     text = str(value).strip()
@@ -252,6 +437,17 @@ def _parse_json_object(value: Optional[str]) -> dict[str, object]:
 
 
 def _encode_json_object(payload: Mapping[str, object]) -> str:
+    """
+    Shallow-copy a mapping and encode compact sorted JSON without ASCII escaping.
+
+    Example:
+        >>> _encode_json_object({'state': 'open'})
+        '{"state":"open"}'
+
+
+    :param payload: Mapping whose values must be JSON-serializable under json.dumps defaults.
+    :return: JSON object text, without writing it to a Row.
+    """
     return json.dumps(dict(payload), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
@@ -262,6 +458,24 @@ def _history_with_transition(
     now_epk: int,
     detail: Optional[str] = None,
 ) -> list[dict[str, object]]:
+    """
+    Copy usable history rows and append or refresh the final state observation.
+
+    Retain only dict entries with nonblank states, coercible timestamps, and optional stringified
+    detail. State names are not validated here. Repeating the last state updates its timestamp and
+    preserves old detail when none is supplied.
+
+    Example:
+        >>> _history_with_transition([], to_state='open', now_epk=1)
+        [{'state': 'open', 'timestamp_ep_k': 1}]
+
+
+    :param history: Prior list-like history; only an actual list is traversed.
+    :param to_state: New state label retained verbatim.
+    :param now_epk: Epoch milliseconds int-converted for the appended/refreshed row.
+    :param detail: Optional explanatory value stringified when supplied.
+    :return: Fresh sanitized history list; input dictionaries are not mutated.
+    """
     out: list[dict[str, object]] = []
     if isinstance(history, list):
         for item in history:
@@ -288,6 +502,19 @@ def _history_with_transition(
 
 
 def _validate_transition(*, current_state: str, next_state: str, transitions: Mapping[str, set[str]], kind: str) -> None:
+    """
+    Require a known current state and an allowed outgoing edge in the supplied graph.
+
+    Example:
+        >>> _validate_transition(current_state="open", next_state="building", transitions=STORE_STATE_TRANSITIONS, kind="store")
+
+
+    :param current_state: Exact source state key.
+    :param next_state: Requested destination label.
+    :param transitions: Mapping from state to accepted destination labels.
+    :param kind: Object label included in diagnostic errors.
+    :return: None for a permitted edge; otherwise raise InputIntegrityError.
+    """
     allowed = transitions.get(current_state)
     if allowed is None:
         raise InputIntegrityError("Unknown {} state {!r}.".format(kind, current_state))
@@ -304,6 +531,23 @@ def _store_scratch_with_state(
     now_epk: int,
     detail: Optional[str] = None,
 ) -> str:
+    """
+    Validate a Store transition and retain unrelated decoded metadata.
+
+    Malformed/non-object JSON falls back to defaults; missing current state defaults to the initial
+    state. Preserve old detail when detail is None, and update repeated-state history timestamps.
+    Unknown states or forbidden transitions raise InputIntegrityError.
+
+    Example:
+        >>> value = _store_scratch_with_state(None, next_state=STORE_STATE_OPEN, now_epk=1)
+
+
+    :param existing_store_scratch: Prior serialized metadata, or None for initial state.
+    :param next_state: Requested exact state from the corresponding state vocabulary.
+    :param now_epk: Epoch milliseconds for current-state and history timestamps.
+    :param detail: Optional detail replacing the retained detail when supplied.
+    :return: Compact JSON scratch object with state/history updates.
+    """
     if next_state not in STORE_STATES:
         raise InputIntegrityError("Unknown store state: {!r}".format(next_state))
 
@@ -338,6 +582,23 @@ def _policy_with_state(
     now_epk: int,
     detail: Optional[str] = None,
 ) -> dict[str, object]:
+    """
+    Validate a designation link transition and retain unrelated decoded metadata.
+
+    Malformed/non-object JSON falls back to defaults; missing current state defaults to the initial
+    state. Preserve old detail when detail is None, and update repeated-state history timestamps.
+    Unknown states or forbidden transitions raise InputIntegrityError.
+
+    Example:
+        >>> value = _policy_with_state(None, next_state=LINK_STATE_DESIGNATED, now_epk=1)
+
+
+    :param existing_policy_json: Prior serialized metadata, or None for initial state.
+    :param next_state: Requested exact state from the corresponding state vocabulary.
+    :param now_epk: Epoch milliseconds for current-state and history timestamps.
+    :param detail: Optional detail replacing the retained detail when supplied.
+    :return: Fresh decoded policy dict with validated state/history updates.
+    """
     if next_state not in LINK_STATES:
         raise InputIntegrityError("Unknown designation link state: {!r}".format(next_state))
 
@@ -366,6 +627,22 @@ def _policy_with_state(
 
 @contextmanager
 def _db_transaction(db):
+    """
+    Yield a driver connection after BEGIN IMMEDIATE and commit on normal context exit.
+
+    For ordinary Exceptions from begin/body/commit, attempt rollback and re-raise. Ignore ordinary
+    rollback/close failures, always attempting close after acquisition. BaseException subclasses
+    bypass the explicit rollback handler. This context owns this connection, not external file
+    publication or another manager transaction.
+
+    Example:
+        >>> with _db_transaction(db) as connection:  # doctest: +SKIP
+        ...     connection.execute(statement, values)
+
+
+    :param db: Database whose driver supplies a fresh transaction connection.
+    :return: Context manager yielding the connection; it commits or attempts rollback/close on exit.
+    """
     conn = db.driver.get_connection()
     try:
         conn.execute("BEGIN IMMEDIATE")
@@ -392,6 +669,23 @@ def _update_row_in_tx(
     row_id: int,
     updates: Mapping[str, object],
 ) -> None:
+    """
+    Execute a parameterized row update on the supplied connection, skipping empty updates.
+
+    Values are bound, but table/column identifiers are interpolated with backticks and must be
+    trusted. This does not check affected-row count, commit, or update cached Row objects.
+
+    Example:
+        >>> _update_row_in_tx(connection, table="stores", id_column="store_id", row_id=1, updates={"store_name": "Archive"})  # doctest: +SKIP
+
+
+    :param conn: Borrowed active transaction connection.
+    :param table: Trusted SQL table identifier.
+    :param id_column: Trusted primary-key column identifier.
+    :param row_id: Identity int-converted for the WHERE value.
+    :param updates: Ordered trusted column/value mapping.
+    :return: None after execution, or immediately for an empty mapping.
+    """
     if not updates:
         return
     assignments = ", ".join("`{}` = ?".format(col) for col in updates.keys())
@@ -401,6 +695,21 @@ def _update_row_in_tx(
 
 
 def _insert_row_in_tx(conn, *, table: str, payload: Mapping[str, object]) -> int:
+    """
+    Insert mapped values through a borrowed transaction and return the cursor lastrowid.
+
+    Identifiers are trusted interpolated text; values are bound. No empty-payload special case,
+    commit, or uniqueness handling is added.
+
+    Example:
+        >>> identity = _insert_row_in_tx(connection, table="files", payload=payload)  # doctest: +SKIP
+
+
+    :param conn: Borrowed active transaction connection.
+    :param table: Trusted SQL table identifier.
+    :param payload: Ordered trusted column/value mapping.
+    :return: lastrowid converted to int; SQL/conversion failures propagate.
+    """
     columns = list(payload.keys())
     placeholders = ", ".join("?" for _ in columns)
     col_sql = ", ".join("`{}`".format(col) for col in columns)
@@ -410,6 +719,19 @@ def _insert_row_in_tx(conn, *, table: str, payload: Mapping[str, object]) -> int
 
 
 def _ensure_schema_support(db) -> tuple[set[str], set[str], set[str], set[str]]:
+    """
+    Require the legacy Store/file/link tables and minimal SquashFS address/link columns.
+
+    Return all advertised columns without validating every later field or requiring a derivation
+    table. Missing required tables/columns raise InputIntegrityError.
+
+    Example:
+        >>> tables, stores, files, links = _ensure_schema_support(db)  # doctest: +SKIP
+
+
+    :param db: Database facade supplying table and column inventories.
+    :return: Table names and the Store, file, link column sets.
+    """
     tables = set(db.get_tables())
     required_tables = {"stores", "files", "file_store_links"}
     missing_tables = sorted(required_tables - tables)
@@ -442,12 +764,35 @@ def _ensure_schema_support(db) -> tuple[set[str], set[str], set[str], set[str]]:
 
 
 def _store_row_id(store_row: Row) -> int:
+    """
+    Prefer Row.row_id and otherwise read store_id, then convert to int.
+
+    Example:
+        >>> identity = _store_row_id(row)  # doctest: +SKIP
+
+
+    :param store_row: Store Row with either identity representation.
+    :return: Integer Store row identity; missing/invalid values propagate errors.
+    """
     if store_row.row_id is not None:
         return int(store_row.row_id)
     return int(store_row["store_id"])
 
 
 def _designation_link_rows_for_store(db, *, store_id: int) -> list[Row]:
+    """
+    Select a Store's links whose stripped type exactly matches squashfs_designation.
+
+    Retain database order and duplicates; other link types are ignored.
+
+    Example:
+        >>> links = _designation_link_rows_for_store(db, store_id=1)  # doctest: +SKIP
+
+
+    :param db: Database searched for legacy links.
+    :param store_id: Store identity int-converted for the search.
+    :return: List of matching live Row objects.
+    """
     rows = db.search("file_store_links", "file_store_link_store_id", int(store_id))
     out: list[Row] = []
     for row in rows:
@@ -458,6 +803,17 @@ def _designation_link_rows_for_store(db, *, store_id: int) -> list[Row]:
 
 
 def _get_store_row(db, *, store_id: int) -> Row:
+    """
+    Fetch a Store Row by integer identity and reject a missing result.
+
+    Example:
+        >>> row = _get_store_row(db, store_id=1)  # doctest: +SKIP
+
+
+    :param db: Database facade providing row lookup.
+    :param store_id: Requested Store row identity.
+    :return: Found Row; absence raises InputIntegrityError.
+    """
     row = db.get_row_from_id("stores", int(store_id))
     if row is None:
         raise InputIntegrityError("Store row not found: store_id={}".format(store_id))
@@ -465,6 +821,22 @@ def _get_store_row(db, *, store_id: int) -> Row:
 
 
 def _resolve_source_file_path(db, *, file_row: Row, store_cache: dict[int, Row]) -> pathlib.Path:
+    """
+    Resolve a source file's local Store root/key and require an existing regular file.
+
+    Cache Store Rows by integer ID. Absolute keys override the root, while relative keys are joined
+    and resolved, following normal filesystem symlinks. No root-containment or Store-kind check is
+    imposed, and file URIs are not decoded. Later reads can observe different bytes.
+
+    Example:
+        >>> path = _resolve_source_file_path(db, file_row=row, store_cache={})  # doctest: +SKIP
+
+
+    :param db: Database used for cache-miss Store lookup.
+    :param file_row: Source Row supplying Store ID and storage key.
+    :param store_cache: Mutable Store-ID/Row cache populated before later path checks.
+    :return: Resolved local Path; invalid metadata or missing files raise.
+    """
     file_store_id = _coerce_int(file_row["file_store_id"])
     if file_store_id is None:
         raise InputIntegrityError("File {} has no file_store_id.".format(file_row.row_id))
@@ -501,6 +873,22 @@ def _resolve_source_file_path(db, *, file_row: Row, store_cache: dict[int, Row])
 
 
 def _coerce_designation_item(item) -> tuple[int, Optional[str]]:
+    """
+    Extract file identity and optional member target from supported designation shapes.
+
+    Accept a Row, integer-like scalar, two-element nontext Sequence, or Mapping. Mapping aliases are
+    file_id/id/file and archive_path/internal_path/target/dest; a present None value does not fall
+    through to later aliases. IDs are int-coerced without positivity checks, and target
+    normalization occurs later.
+
+    Example:
+        >>> _coerce_designation_item({'id': 7, 'target': ' book.epub '})
+        (7, 'book.epub')
+
+
+    :param item: Caller-supplied designation value.
+    :return: Integer file ID and stripped optional target; most invalid shapes raise InputIntegrityError.
+    """
     if isinstance(item, Row):
         file_id = _coerce_int(item.row_id if item.row_id is not None else item["file_id"])
         return int(file_id), _coerce_text(item["file_storage_key"])
@@ -536,6 +924,20 @@ def _coerce_designation_item(item) -> tuple[int, Optional[str]]:
 
 
 def _set_store_row_values(store_row: Row, *, updates: Mapping[str, object]) -> None:
+    """
+    Assign supported unequal values to any Row and sync only when changed.
+
+    Despite its name this also updates link Rows. None values can clear fields; an error can follow
+    earlier in-memory assignments.
+
+    Example:
+        >>> _set_store_row_values(row, updates={"store_name": "Archive"})  # doctest: +SKIP
+
+
+    :param store_row: Borrowed Row whose allowed_columns filters updates.
+    :param updates: Candidate field/value mapping.
+    :return: None after any needed sync; failures propagate.
+    """
     changed = False
     for key, value in updates.items():
         if key not in store_row.allowed_columns:
@@ -554,7 +956,21 @@ def ensure_open_squashfs_store(
     store_name: Optional[str] = None,
 ) -> Row:
     """
-    Create or refresh a store row representing an open (not yet locked) SquashFS archive target.
+    Create or refresh an open SquashFS target declaration at a resolved local archive path.
+
+    Reject an existing directory. Inspect matching Store rows in database order: encountering a
+    locked row raises, while the first open-kind row is refreshed and returned without checking
+    later duplicates. Other kinds are skipped. Reuse or generate its UUID, validate the transition
+    to open, and write supported fields. No archive is built or removed.
+
+    Example:
+        >>> row = ensure_open_squashfs_store(db, archive_path=archive_path)  # doctest: +SKIP
+
+
+    :param db: Database receiving the Store declaration.
+    :param archive_path: Target path expanded and resolved; need not exist.
+    :param store_name: Truthy name override, otherwise existing name or sanitized target path.
+    :return: Created/refreshed Store Row; path/schema/state/write failures propagate.
     """
     _, store_columns, _, _ = _ensure_schema_support(db)
 
@@ -641,13 +1057,26 @@ def designate_files_for_squashfs_store(
     replace_existing: bool = False,
 ) -> SquashfsDesignationReport:
     """
-    Designate source files for inclusion in an open SquashFS store.
+    Write source snapshots and relative member targets into an open Store's designation links.
 
-    `designations` accepts:
-    - file_id ints
-    - (file_id, archive_path) tuples
-    - mappings with `file_id` and optional `archive_path`
-    - file `Row` objects
+    Resolve each source and stat it; trust a syntactically valid stored SHA-256 or hash the bytes
+    when absent/invalid. Retain existing snapshots when the target matches and replacement is
+    disabled. Replacement refreshes the snapshot and can retarget after collision checks.
+
+    Writes are incremental, so later input failures leave prior links. The initial file-ID map is
+    not updated after new inserts; repeated new file IDs in one iterable are not promised
+    deduplication. Target collisions across different file IDs raise. Iteration failures escape
+    without a finished report.
+
+    Example:
+        >>> report = designate_files_for_squashfs_store(db, store_id=1, designations=[(7, "books/a.epub")])  # doctest: +SKIP
+
+
+    :param db: Database used for source/Store lookup and link writes.
+    :param store_id: Identity of a declaration whose kind must be open SquashFS.
+    :param designations: Iterable of supported ID, Row, pair, or mapping values.
+    :param replace_existing: Whether an existing file designation may refresh its snapshot or change target.
+    :return: Finished designation counter report after normal completion; failures propagate.
     """
     _, _, _, link_columns = _ensure_schema_support(db)
     store_row = _get_store_row(db, store_id=int(store_id))
@@ -795,6 +1224,23 @@ def designate_files_for_squashfs_store(
 
 
 def _collect_designations(db, *, store_id: int) -> list[_SquashfsDesignation]:
+    """
+    Resolve and sort designation entries, filling missing legacy snapshot fields from fallback
+    metadata.
+
+    Require at least one matching link and unique normalized targets. Prefer nested snapshot fields,
+    then flat policy fields; hashes further fall back to the source Row and finally current bytes.
+    Missing sizes/mtimes fall back to current stat. Those fallbacks do not establish a historical
+    snapshot, and sources can change after resolution.
+
+    Example:
+        >>> items = _collect_designations(db, store_id=1)  # doctest: +SKIP
+
+
+    :param db: Database supplying designation, source, and Store Rows.
+    :param store_id: Target Store identity.
+    :return: Mutable designation records sorted by archive path, with current hash/size initially None.
+    """
     link_rows = _designation_link_rows_for_store(db, store_id=store_id)
     if not link_rows:
         raise InputIntegrityError(
@@ -878,6 +1324,22 @@ def _collect_designations(db, *, store_id: int) -> list[_SquashfsDesignation]:
 
 
 def _validate_snapshot_consistency(designations: list[_SquashfsDesignation]) -> list[str]:
+    """
+    Stat and hash each current source, recording observations and reporting snapshot size/hash
+    drift.
+
+    Populate current fields before comparing. A size mismatch suppresses the additional
+    hash-mismatch message for that item; mtime is not compared. Stat and hash are separate
+    observations with no file lock. I/O failures propagate after earlier records may already be
+    updated.
+
+    Example:
+        >>> errors = _validate_snapshot_consistency(items)  # doctest: +SKIP
+
+
+    :param designations: Mutable records carrying expected snapshot hash/size and source paths.
+    :return: Drift diagnostic strings, possibly empty; successful checking does not freeze later source bytes.
+    """
     errors: list[str] = []
     for item in designations:
         live_stat = item.source_path.stat()
@@ -905,6 +1367,20 @@ def _validate_snapshot_consistency(designations: list[_SquashfsDesignation]) -> 
 
 
 def _lock_store_row_for_squashfs(store_row: Row, *, archive_path: pathlib.Path) -> None:
+    """
+    Validate transition to locked and sync supported archive capability fields on a Store Row.
+
+    This helper performs no archive build, probe, or member verification before marking metadata
+    online/read-only. It relies on a caller to have established those facts.
+
+    Example:
+        >>> _lock_store_row_for_squashfs(row, archive_path=path)  # doctest: +SKIP
+
+
+    :param store_row: Mutable Store Row with state scratch JSON.
+    :param archive_path: Archive path stringified into the declaration.
+    :return: None after the supported Row updates are synced.
+    """
     now_epk = _now_ep_ms()
     scratch = _store_scratch_with_state(
         _coerce_text(store_row["store_scratch"]),
@@ -942,6 +1418,24 @@ def _upsert_designation_state(
     archive_hash: Optional[str] = None,
     detail: Optional[str] = None,
 ) -> None:
+    """
+    Validate a link-state transition and sync target/digest metadata into its policy.
+
+    Digest strings are claims, not verified here. An absent archive_hash retains any prior claim, as
+    does absent detail. Unrelated policy keys survive decoding.
+
+    Example:
+        >>> _upsert_designation_state(link, state="building", archive_path="a.epub", source_hash=digest)  # doctest: +SKIP
+
+
+    :param designation_link_row: Borrowed designation link Row to mutate.
+    :param state: Requested exact link state after string conversion.
+    :param archive_path: Member target retained without normalization here.
+    :param source_hash: Digest claim stringified into the policy.
+    :param archive_hash: Optional archive digest claim replacing the old value when supplied.
+    :param detail: Optional state explanation.
+    :return: None after policy sync; validation/write failures propagate.
+    """
     now_epk = _now_ep_ms()
     policy = _policy_with_state(
         _coerce_text(designation_link_row["file_store_link_policy"]),
@@ -960,6 +1454,23 @@ def _upsert_designation_state(
 
 
 def _ensure_primary_link_for_file(db, *, file_id: int, store_id: int, link_columns: set[str]) -> None:
+    """
+    Ensure one primary file/Store association through the Row facade.
+
+    Return on any exact existing association, otherwise insert supported link fields with priority
+    zero. Do not repair other fields or remove duplicates; concurrent uniqueness depends on the
+    database.
+
+    Example:
+        >>> _ensure_primary_link_for_file(db, file_id=1, store_id=2, link_columns=columns)  # doctest: +SKIP
+
+
+    :param db: Database/connection used for the matching-link query and insertion.
+    :param file_id: Legacy file identity int-converted for lookup/writes.
+    :param store_id: Legacy Store identity int-converted for lookup/writes.
+    :param link_columns: Supported columns used to filter the inserted mapping.
+    :return: None after finding or inserting the association; errors propagate.
+    """
     for link_row in db.search("file_store_links", "file_store_link_file_id", int(file_id)):
         if _coerce_int(link_row["file_store_link_store_id"]) != int(store_id):
             continue
@@ -978,6 +1489,23 @@ def _ensure_primary_link_for_file(db, *, file_id: int, store_id: int, link_colum
 
 
 def _ensure_primary_link_for_file_tx(tx_conn, *, file_id: int, store_id: int, link_columns: set[str]) -> None:
+    """
+    Ensure one primary file/Store association through the borrowed transaction.
+
+    Return on any exact existing association, otherwise insert supported link fields with priority
+    zero. Do not repair other fields or remove duplicates; concurrent uniqueness depends on the
+    database.
+
+    Example:
+        >>> _ensure_primary_link_for_file_tx(tx_conn, file_id=1, store_id=2, link_columns=columns)  # doctest: +SKIP
+
+
+    :param tx_conn: Database/connection used for the matching-link query and insertion.
+    :param file_id: Legacy file identity int-converted for lookup/writes.
+    :param store_id: Legacy Store identity int-converted for lookup/writes.
+    :param link_columns: Supported columns used to filter the inserted mapping.
+    :return: None after finding or inserting the association; errors propagate.
+    """
     rows = tx_conn.execute(
         """
         SELECT file_store_link_id
@@ -1015,6 +1543,30 @@ def _duplicate_verified_file_row(
     link_columns: set[str],
     existing_rows_by_key: dict[str, object],
 ) -> tuple[bool, bool, Optional[int]]:
+    """
+    Reuse a matching target digest or insert copied source metadata for a verified archive member.
+
+    Existing rows match by case-insensitive digest text only, not size or refreshed verification. A
+    match skips insertion and primary-link repair. New rows copy supported source columns, override
+    archive fields, omit None values, and create a primary link in the borrowed transaction. The
+    in-memory key cache is updated before link insertion and is not rolled back here.
+
+    Example:
+        >>> inserted, skipped, file_id = _duplicate_verified_file_row(connection, source_row=row, source_path=path, locked_store_id=1, archive_path="a.epub", archive_hash=digest, archive_size=3, file_columns=columns, link_columns=links, existing_rows_by_key=known)  # doctest: +SKIP
+
+
+    :param tx_conn: Borrowed transaction connection for new file/link rows.
+    :param source_row: Legacy source Row whose supported metadata is copied.
+    :param source_path: Original local path retained as provenance.
+    :param locked_store_id: Target Store ID; the helper does not check its current state.
+    :param archive_path: Target member key and filename source.
+    :param archive_hash: Caller-verified digest, compared/stored case-insensitively.
+    :param archive_size: Caller-supplied member size in bytes.
+    :param file_columns: Supported destination file columns.
+    :param link_columns: Supported primary-link columns.
+    :param existing_rows_by_key: Mutable key-to-Row/identity-mapping cache.
+    :return: Inserted flag, matching-existing flag, and resulting optional file ID; conflicts raise InputIntegrityError.
+    """
     existing = existing_rows_by_key.get(archive_path)
     if existing is not None:
         if isinstance(existing, Mapping):
@@ -1082,6 +1634,19 @@ def _duplicate_verified_file_row(
 
 
 def _current_store_state(store_row: Row) -> str:
+    """
+    Prefer a recognized scratch state, otherwise infer state from the Store kind.
+
+    A valid scratch state wins even when inconsistent with kind. Unknown/malformed scratch metadata
+    falls back to locked-kind-or-open inference.
+
+    Example:
+        >>> state = _current_store_state(row)  # doctest: +SKIP
+
+
+    :param store_row: Store Row supplying scratch JSON and kind.
+    :return: Recognized scratch state or inferred open/locked label.
+    """
     scratch = _parse_json_object(_coerce_text(store_row["store_scratch"]))
     state = _coerce_text(scratch.get("squashfs_state"))
     if state in STORE_STATES:
@@ -1090,6 +1655,22 @@ def _current_store_state(store_row: Row) -> str:
 
 
 def _best_effort_mark_store_failed(db, *, store_row: Row, detail: str) -> None:
+    """
+    Attempt to mark an open-kind Store offline/failed and suppress ordinary update failures.
+
+    Transition validation can refuse the change, and partial Row mutations may survive errors. This
+    does not remove an archive or undo committed records. The initial clock call is outside the
+    suppression guard.
+
+    Example:
+        >>> _best_effort_mark_store_failed(db, store_row=row, detail="publish_failed")  # doctest: +SKIP
+
+
+    :param db: Retained compatibility argument; this implementation updates through store_row.
+    :param store_row: Borrowed Row used for state validation and supported writes.
+    :param detail: Failure explanation retained in scratch state/history.
+    :return: None after the attempted update or a suppressed ordinary failure.
+    """
     now_epk = _now_ep_ms()
     try:
         scratch = _store_scratch_with_state(
@@ -1120,13 +1701,23 @@ def _register_verified_digital_asset_replicas(
     locked_store_id: int,
     outcomes: Sequence[Mapping[str, object]],
 ) -> tuple[int, int]:
-    """Register verified archive members without inventing derivation edges.
+    """
+    Adopt verified source/archive locations as two Replicas of one Digital Asset within a database
+    macro transaction.
 
-    Packing bytes into a SquashFS address space does not change the member
-    bytes. The source and archived locations are consequently two Replicas of
-    one Digital Asset. The surrounding portable transaction makes the group
-    all-or-nothing; callers reload the manager if it rolls back so its in-memory
-    views cannot retain uncommitted records.
+    Process only outcomes marked should_duplicate; require designation context, source/target Store
+    UUIDs, and a database StorageManager. Adopt the source as ACTIVE and the same Asset in the
+    archive as ARCHIVE, both with verification enabled. No derivation edges are created. Manager
+    maps may mutate before rollback, so the publication caller attempts a reload after failure.
+
+    Example:
+        >>> assets, replicas = _register_verified_digital_asset_replicas(db, locked_store_id=1, outcomes=outcomes)  # doctest: +SKIP
+
+
+    :param db: Database supplying storage manager, row lookup, and macros.transaction.
+    :param locked_store_id: Archive Store row ID used to resolve its durable UUID.
+    :param outcomes: Verification mappings; falsey should_duplicate entries are skipped.
+    :return: New source Asset count and new source/archive Replica count after transaction completion.
     """
 
     manager = getattr(db, "storage", None)
@@ -1211,6 +1802,23 @@ def _add_reproducibility_metadata_to_scratch(
     now_epk: int,
     published_state: str,
 ) -> str:
+    """
+    Replace squashfs_last_build with selected builder observations and publication state/time.
+
+    Copy only the declared build keys and retain other scratch metadata. Values are recorded claims;
+    output bytes and hashes are not rechecked here.
+
+    Example:
+        >>> json.loads(_add_reproducibility_metadata_to_scratch('{}', build_report=None, now_epk=1, published_state='locked'))['squashfs_last_build']['published_state']
+        'locked'
+
+
+    :param scratch_json: Prior scratch JSON, with malformed/non-object input treated as empty.
+    :param build_report: Optional dict of builder observations; unselected keys are discarded.
+    :param now_epk: Publication epoch milliseconds int-converted for storage.
+    :param published_state: State label stringified without state-graph validation.
+    :return: Compact sorted JSON containing the replaced build-metadata object.
+    """
     scratch_payload = _parse_json_object(scratch_json)
     meta: dict[str, object] = {
         "published_state": str(published_state),
@@ -1250,9 +1858,39 @@ def publish_open_squashfs_store(
     refresh_storage_manager: bool = True,
 ) -> SquashfsArchivePublishReport:
     """
-    Build and lock an open SquashFS store, then duplicate verified file rows into it.
+    Build a designated SquashFS archive, verify members, and persist publication records in distinct
+    phases.
 
-    If `strict=True`, any verification or persistence error raises and aborts publication.
+    Collect sources and check live size/SHA-256 against snapshots before building. Setup and read
+    failures before the main guard propagate even when strict is false; detected drift records
+    failure and returns or raises by policy. The builder writes the archive before the legacy-row
+    transaction. Verify an exact sha256 stat claim when available, otherwise read member bytes and
+    hash them.
+
+    Persist Store/link state transitions, verified duplicate rows, and primary links in one BEGIN
+    IMMEDIATE transaction. Non-strict missing/mismatched members can produce a failed Store
+    alongside duplicates of verified members. Report counters and the built archive are not undone
+    by a later row rollback. Only the temporary manifest receives best-effort cleanup here.
+
+    After that phase, optional manager bootstrap precedes a separate macro transaction for eligible
+    Asset/Replica adoption. Failure can leave the earlier archive and legacy rows committed; reload
+    manager views after adoption rollback is best-effort. Strict mode raises recorded failures but
+    does not merge these phases into an all-run transaction.
+
+    Example:
+        >>> report = publish_open_squashfs_store(db, store_id=1, deterministic=True)  # doctest: +SKIP
+
+
+    :param db: Borrowed database providing legacy rows, transaction connections, and optional manager bootstrap.
+    :param store_id: Open-kind target Store row in open or failed scratch state.
+    :param output_archive: Optional target override, otherwise the Store root; expanded and resolved.
+    :param compression: Compression selector forwarded to the archive builder.
+    :param deterministic: Whether to request the builder deterministic configuration.
+    :param force: Whether to allow the builder to replace an existing output archive.
+    :param duplicate_verified_files: Whether verified outcomes create legacy duplicates and participate in later Asset/Replica adoption.
+    :param strict: Whether detected/reportable publication errors raise; this does not make all phases atomic.
+    :param refresh_storage_manager: Whether available strict manager bootstrap and subsequent eligible replica registration are attempted.
+    :return: Finished publication report on a non-raising path, possibly with errors or hash mismatches.
     """
     _, _, file_columns, link_columns = _ensure_schema_support(db)
 
@@ -1656,7 +2294,27 @@ def publish_squashfs_archive_from_file_ids(
     refresh_storage_manager: bool = True,
 ) -> SquashfsArchivePublishReport:
     """
-    Convenience helper: create an open store, designate file ids, then publish.
+    Ensure an open target, designate supplied file IDs, and publish with verified duplication
+    enabled.
+
+    Materialize/int-convert IDs after Store setup, preserve existing matching designations, and
+    forward build/strict/bootstrap policy. Earlier Store/link effects survive later conversion,
+    designation, or publication failure; no outer transaction is added.
+
+    Example:
+        >>> report = publish_squashfs_archive_from_file_ids(db, file_ids=[7], archive_path=archive_path)  # doctest: +SKIP
+
+
+    :param db: Borrowed database providing legacy rows, transaction connections, and optional manager bootstrap.
+    :param file_ids: Iterable materialized as integer file IDs for designation.
+    :param archive_path: Target archive path used for Store setup and publication.
+    :param store_name: Optional truthy target Store name override.
+    :param compression: Compression selector forwarded to the archive builder.
+    :param deterministic: Whether to request the builder deterministic configuration.
+    :param force: Whether to allow the builder to replace an existing output archive.
+    :param strict: Whether detected/reportable publication errors raise; this does not make all phases atomic.
+    :param refresh_storage_manager: Whether available strict manager bootstrap and subsequent eligible replica registration are attempted.
+    :return: Delegated publication report; earlier setup/designation reports are not returned.
     """
     store_row = ensure_open_squashfs_store(db, archive_path=archive_path, store_name=store_name)
     store_id = _store_row_id(store_row)

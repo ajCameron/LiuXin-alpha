@@ -1,5 +1,9 @@
 """
-Replication and backup policy management and planning.
+Implement policy registration, Asset assignment, effective resolution, and planning.
+
+Mutation uses shared metadata transactions with explicit candidate restoration around
+recreation validation. Assessment observes current state/status/size; planning uses
+recorded/configuration evidence and returns proposals without physical execution.
 """
 
 from __future__ import annotations
@@ -14,12 +18,16 @@ from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerSt
 
 class StoragePolicyMixin(_StorageManagerState):
     """
-    Register, resolve, assess, and plan storage policies.
+    Manage registered policies and derive Asset assessments and maintenance proposals from shared
+    hooks.
 
-    Replication policies describe live-copy placement; backup policies describe
-    recoverable archive placement.  Assessment observes current metadata and
-    Store capabilities, while planning returns proposed actions without
-    publishing bytes or mutating Replica records.
+    Policy mutations use the manager lock and metadata transaction. Candidate updates are installed
+    while recreation dependencies are validated, with explicit restoration limited to validation
+    failures. Assessment observes Store status/size through helpers; planning primarily uses
+    recorded VERIFIED claims and configuration rules, so the two can disagree about current health.
+
+    Example:
+        >>> plan = manager.plan_replication(asset_id)  # doctest: +SKIP
     """
 
     @override
@@ -28,11 +36,19 @@ class StoragePolicyMixin(_StorageManagerState):
         policy: api.ReplicationPolicy,
     ) -> api.ReplicationPolicyRecord:
         """
-        Register one replication policy with stable manager identity.
+        Allocate a new replication policy ID and revision, then store the supplied definition under
+        the metadata lock/transaction.
+
+        Equivalent definitions are not deduplicated. The record constructor adds no definition-type
+        or content validation, and creation does not assign the policy to Assets or run global
+        recreation validation.
+
+        Example:
+            >>> record = manager.create_replication_policy(policy)  # doctest: +SKIP
 
 
-        :param policy:
-        :return:
+        :param policy: Definition retained by the new record without copying.
+        :return: New registered policy record after allocation and mapping assignment succeed.
         """
 
         with self._lock, self._metadata_transaction():
@@ -53,11 +69,17 @@ class StoragePolicyMixin(_StorageManagerState):
         replication_policy_id: api.ReplicationPolicyID,
     ) -> api.ReplicationPolicyRecord:
         """
-        Return one registered replication policy.
+        Look up the exact replication policy key under the lock.
+
+        A mapping KeyError becomes StorageManagementError with the original error chained. Other
+        repository failures propagate, and manager defaults are not consulted.
+
+        Example:
+            >>> record = manager.get_replication_policy_record(policy_id)  # doctest: +SKIP
 
 
-        :param replication_policy_id:
-        :return:
+        :param replication_policy_id: Exact registered policy identity to resolve.
+        :return: Retained policy record for the requested key.
         """
 
         with self._lock:
@@ -77,13 +99,27 @@ class StoragePolicyMixin(_StorageManagerState):
         if_revision: str | None = None,
     ) -> api.ReplicationPolicyRecord:
         """
-        Replace a policy without invalidating recreation guarantees.
+        Replace a registered replication definition after checking its optional revision and all
+        effective recreation dependencies.
+
+        Under the metadata lock/transaction, install a candidate with the old revision so validation
+        sees the proposed definition. A BaseException from recreation validation triggers
+        restoration of the old mapping value before re-raising. After validation, allocate a new
+        revision and assign the final record.
+
+        Revision allocation, final assignment, and transaction-exit failures lie outside that
+        explicit restoration block; persistence behavior then belongs to the transaction
+        implementation. Missing identities raise StorageManagementError before candidate
+        installation.
+
+        Example:
+            >>> updated = manager.update_replication_policy(policy_id, policy, if_revision=record.revision)  # doctest: +SKIP
 
 
-        :param replication_policy_id:
-        :param policy:
-        :param if_revision:
-        :return:
+        :param replication_policy_id: Registered identity retained by the replacement.
+        :param policy: Complete replacement definition visible during recreation validation.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Updated record with a new revision after validation and persistence succeed.
         """
 
         with self._lock, self._metadata_transaction():
@@ -117,11 +153,19 @@ class StoragePolicyMixin(_StorageManagerState):
         replication_policy_id: api.ReplicationPolicyID,
     ) -> bool:
         """
-        Delete an unreferenced replication policy.
+        Remove a replication definition only when no Asset assignment or Store default references
+        its ID.
+
+        Absence returns False before reference scanning. Checks and deletion use the lock/metadata
+        transaction, without a revision precondition, cascading reassignment, or byte changes.
+        Reference conflicts raise StoragePreconditionFailed; other repository failures propagate.
+
+        Example:
+            >>> removed = manager.delete_replication_policy(policy_id)  # doctest: +SKIP
 
 
-        :param replication_policy_id:
-        :return:
+        :param replication_policy_id: Policy identity to remove after checking Asset and Store references.
+        :return: True after deletion, False for an absent identity.
         """
 
         with self._lock, self._metadata_transaction():
@@ -146,10 +190,16 @@ class StoragePolicyMixin(_StorageManagerState):
         self,
     ) -> Iterator[api.ReplicationPolicyRecord]:
         """
-        Iterate over a stable snapshot of replication policies.
+        Capture replication records under the lock in ascending mapping-key order.
+
+        The returned iterator holds a tuple of record references. Later mapping updates do not
+        change that sequence, but nested values are not deep copies.
+
+        Example:
+            >>> records = tuple(manager.iter_replication_policy_records())  # doctest: +SKIP
 
 
-        :return:
+        :return: Iterator over the captured ordered policy records.
         """
 
         with self._lock:
@@ -165,11 +215,19 @@ class StoragePolicyMixin(_StorageManagerState):
         policy: api.BackupPolicy,
     ) -> api.BackupPolicyRecord:
         """
-        Register one backup policy with stable manager identity.
+        Allocate a new backup/archive policy ID and revision, then store the supplied definition
+        under the metadata lock/transaction.
+
+        Equivalent definitions are not deduplicated. The record constructor adds no definition-type
+        or content validation, and creation does not assign the policy to Assets or run global
+        recreation validation.
+
+        Example:
+            >>> record = manager.create_backup_policy(policy)  # doctest: +SKIP
 
 
-        :param policy:
-        :return:
+        :param policy: Definition retained by the new record without copying.
+        :return: New registered policy record after allocation and mapping assignment succeed.
         """
 
         with self._lock, self._metadata_transaction():
@@ -190,11 +248,17 @@ class StoragePolicyMixin(_StorageManagerState):
         backup_policy_id: api.BackupPolicyID,
     ) -> api.BackupPolicyRecord:
         """
-        Return one registered backup policy.
+        Look up the exact backup/archive policy key under the lock.
+
+        A mapping KeyError becomes StorageManagementError with the original error chained. Other
+        repository failures propagate, and manager defaults are not consulted.
+
+        Example:
+            >>> record = manager.get_backup_policy_record(policy_id)  # doctest: +SKIP
 
 
-        :param backup_policy_id:
-        :return:
+        :param backup_policy_id: Exact registered policy identity to resolve.
+        :return: Retained policy record for the requested key.
         """
 
         with self._lock:
@@ -214,13 +278,27 @@ class StoragePolicyMixin(_StorageManagerState):
         if_revision: str | None = None,
     ) -> api.BackupPolicyRecord:
         """
-        Replace a policy without invalidating recreation guarantees.
+        Replace a registered backup/archive definition after checking its optional revision and all
+        effective recreation dependencies.
+
+        Under the metadata lock/transaction, install a candidate with the old revision so validation
+        sees the proposed definition. A BaseException from recreation validation triggers
+        restoration of the old mapping value before re-raising. After validation, allocate a new
+        revision and assign the final record.
+
+        Revision allocation, final assignment, and transaction-exit failures lie outside that
+        explicit restoration block; persistence behavior then belongs to the transaction
+        implementation. Missing identities raise StorageManagementError before candidate
+        installation.
+
+        Example:
+            >>> updated = manager.update_backup_policy(policy_id, policy, if_revision=record.revision)  # doctest: +SKIP
 
 
-        :param backup_policy_id:
-        :param policy:
-        :param if_revision:
-        :return:
+        :param backup_policy_id: Registered identity retained by the replacement.
+        :param policy: Complete replacement definition visible during recreation validation.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Updated record with a new revision after validation and persistence succeed.
         """
 
         with self._lock, self._metadata_transaction():
@@ -254,11 +332,19 @@ class StoragePolicyMixin(_StorageManagerState):
         backup_policy_id: api.BackupPolicyID,
     ) -> bool:
         """
-        Delete an unreferenced backup policy.
+        Remove a backup/archive definition only when no Asset assignment or Store default references
+        its ID.
+
+        Absence returns False before reference scanning. Checks and deletion use the lock/metadata
+        transaction, without a revision precondition, cascading reassignment, or byte changes.
+        Reference conflicts raise StoragePreconditionFailed; other repository failures propagate.
+
+        Example:
+            >>> removed = manager.delete_backup_policy(policy_id)  # doctest: +SKIP
 
 
-        :param backup_policy_id:
-        :return:
+        :param backup_policy_id: Policy identity to remove after checking Asset and Store references.
+        :return: True after deletion, False for an absent identity.
         """
 
         with self._lock, self._metadata_transaction():
@@ -278,10 +364,16 @@ class StoragePolicyMixin(_StorageManagerState):
     @override
     def iter_backup_policy_records(self) -> Iterator[api.BackupPolicyRecord]:
         """
-        Iterate over a stable snapshot of backup policies.
+        Capture backup/archive records under the lock in ascending mapping-key order.
+
+        The returned iterator holds a tuple of record references. Later mapping updates do not
+        change that sequence, but nested values are not deep copies.
+
+        Example:
+            >>> records = tuple(manager.iter_backup_policy_records())  # doctest: +SKIP
 
 
-        :return:
+        :return: Iterator over the captured ordered policy records.
         """
 
         with self._lock:
@@ -300,14 +392,27 @@ class StoragePolicyMixin(_StorageManagerState):
         if_revision: str | None = None,
     ) -> api.DigitalAssetRecord:
         """
-        Assign explicit policies after validating references and recreation.
+        Validate supplied policy IDs, then replace both Asset references after optional revision
+        checking.
+
+        None clears the corresponding explicit assignment; it does not preserve the old reference.
+        Policy lookup precedes the locked Asset lookup. The candidate retains the old revision while
+        global recreation validation runs, and a validation BaseException restores the original
+        Asset record before re-raising.
+
+        On successful validation a new revision is allocated and the final record stored. Later
+        allocation/assignment/transaction failures are outside the explicit restoration block. Byte
+        identity and descriptive metadata are retained, and no Replica mutation is performed.
+
+        Example:
+            >>> asset = manager.set_digital_asset_policies(asset_id, backup_policy_id=backup_id, if_revision=asset.revision)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param replication_policy_id:
-        :param backup_policy_id:
-        :param if_revision:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :param replication_policy_id: Registered replication ID, or None to clear the explicit reference.
+        :param backup_policy_id: Registered backup ID, or None to clear the explicit reference.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Updated Asset record with both requested policy references and a new revision.
         """
 
         self._validate_declared_policy_ids(
@@ -342,11 +447,19 @@ class StoragePolicyMixin(_StorageManagerState):
         digital_asset_id: api.DigitalAssetID,
     ) -> api.ResolvedStoragePolicies:
         """
-        Resolve captured Asset policy, then manager-default policy.
+        Read the Asset and each explicit policy record, falling back independently to manager
+        defaults.
+
+        Origins are labelled digital_asset for an explicit reference and manager_default otherwise.
+        No Replica or Store-default scan occurs here. Reads are separate, and unknown referenced
+        policies or repository failures propagate.
+
+        Example:
+            >>> policies = manager.resolve_effective_policies(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :return: New pair of effective definitions and reported origin labels.
         """
 
         asset_record = self.get_digital_asset_record(digital_asset_id)
@@ -376,11 +489,19 @@ class StoragePolicyMixin(_StorageManagerState):
         digital_asset_id: api.DigitalAssetID,
     ) -> api.StoragePolicyAssessment:
         """
-        Assess live Replicas against the effective replication policy.
+        Resolve effective policies and pass the replication definition to the shared assessment
+        helper.
+
+        The helper checks state, current Store availability and stat size, then applies recorded
+        VERIFIED state, configuration tags/mode, and per-dimension capacity limits. This wrapper
+        adds no hashing, repair, transaction, or error suppression.
+
+        Example:
+            >>> assessment = manager.assess_replication(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :return: Assessment returned by _assess_policy for the selected definition.
         """
 
         policy = self.resolve_effective_policies(digital_asset_id).replication
@@ -392,11 +513,18 @@ class StoragePolicyMixin(_StorageManagerState):
         digital_asset_id: api.DigitalAssetID,
     ) -> api.StoragePolicyAssessment:
         """
-        Assess backup Replicas against the effective backup policy.
+        Resolve effective policies and pass the backup definition to the shared assessment helper.
+
+        The helper checks state, current Store availability and stat size, then applies recorded
+        VERIFIED state, configuration tags/mode, and per-dimension capacity limits. This wrapper
+        adds no hashing, repair, transaction, or error suppression.
+
+        Example:
+            >>> assessment = manager.assess_backup(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :return: Assessment returned by _assess_policy for the selected definition.
         """
 
         policy = self.resolve_effective_policies(digital_asset_id).backup
@@ -408,11 +536,22 @@ class StoragePolicyMixin(_StorageManagerState):
         digital_asset_id: api.DigitalAssetID,
     ) -> api.DigitalAssetStorageAssessment:
         """
-        Combine readability, policy satisfaction, and exact recreation.
+        Collect currently readable claims across modes, recoverable exact derivations, and both
+        policy assessments.
+
+        The Asset is required first. Shared readability checks use state/status/size, while
+        recursive derivation checks evaluate current managed prerequisites or resolver-reported
+        artifacts. Exact route IDs are retained in derivation iteration order; no recipe executes.
+
+        Replication and backup assessments are collected afterwards through separate lookups. This
+        is not a single physical or repository snapshot, and unsuppressed helper failures propagate.
+
+        Example:
+            >>> assessment = manager.assess_digital_asset(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :return: Aggregate of reported readable claims, current exact routes, and policy threshold results.
         """
 
         self.get_digital_asset_record(digital_asset_id)
@@ -443,11 +582,29 @@ class StoragePolicyMixin(_StorageManagerState):
         digital_asset_id: api.DigitalAssetID,
     ) -> api.DigitalAssetReplicationPlan:
         """
-        Plan verification, placement, removal, or exact recreation.
+        Propose replication work from recorded state, Store configuration eligibility, and declared
+        spread limits.
+
+        The planning healthy set contains policy-mode VERIFIED claims passing configuration rules,
+        without checking current status, stat size, or digests. Needed copies use the shared
+        separated-capacity calculation. Destination planning excludes every Store with a nondeleted
+        claim for the Asset, regardless of mode or health.
+
+        A zero target proposes every policy-mode claim for removal, including tombstones; otherwise
+        the ID-ordered healthy suffix after target is proposed without solving a separate
+        optimal-retention problem. PRESENT, UNVERIFIED, and STAGED claims are proposed for
+        verification. With no healthy claim and RECREATE loss action, select the first currently
+        recoverable exact derivation, warning if none exists.
+
+        Short destination lists become warnings. The method does not consult auto_heal or retention
+        priority, reserve capacity, verify claims, or execute any proposal.
+
+        Example:
+            >>> plan = manager.plan_replication(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :return: Replication destinations, verification/removal IDs, optional exact route, and shortage diagnostics.
         """
 
         asset = self.get_digital_asset_record(digital_asset_id)
@@ -537,11 +694,29 @@ class StoragePolicyMixin(_StorageManagerState):
         digital_asset_id: api.DigitalAssetID,
     ) -> api.DigitalAssetBackupPlan:
         """
-        Plan backup placement, verification, and surplus removal.
+        Propose backup destinations, sources, verification, and removals using recorded policy-mode
+        claims.
+
+        As in replication planning, healthy counts require recorded VERIFIED state and configuration
+        eligibility without a current physical check. Destination selection excludes all Stores with
+        any nondeleted claim for the Asset. Source IDs come from other modes and must pass the
+        current state/status/size readability helper.
+
+        A zero target proposes all policy-mode claims for removal; otherwise the healthy suffix
+        after target is proposed. Every policy-mode claim except VERIFIED and DELETED is proposed
+        for verification, including unavailable or corrupt observations. Only destination shortages
+        produce warnings here; an empty source list adds no warning.
+
+        This planner does not enforce retention_locked, auto_heal, periodic verification, or
+        retention priority, and performs no copy, verification, or deletion. Execution must recheck
+        its own constraints.
+
+        Example:
+            >>> plan = manager.plan_backup(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :return: Backup proposal containing destination/source IDs, verification/removal IDs, and destination warnings.
         """
 
         asset = self.get_digital_asset_record(digital_asset_id)

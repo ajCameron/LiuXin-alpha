@@ -1,4 +1,11 @@
-"""Core-owned schema operations and wire translation."""
+"""
+Adapt Core column-policy, relationship-capability, and custom-field requests to database schema services.
+
+Schema/backends own semantic validation and mutation policy. Metadata refresh
+and read-side reconciliation follow writes without an enclosing adapter transaction.
+Custom-field listing has a legacy-map fallback that can hide failed canonical reads;
+it is not a general schema-health check or an authorization boundary.
+"""
 
 from __future__ import annotations
 
@@ -24,6 +31,20 @@ if TYPE_CHECKING:
 
 
 def schema_column(runtime: CoreRuntime, query: CoreQuery) -> Any:
+    """
+    Read one column's policy through the database-level metadata capability and project the result.
+
+    This operation does not fall back to the driver wrapper or validate column
+    existence separately; missing/invalid-column behavior belongs to the database.
+
+    Example:
+        >>> policy = schema_column(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime exposing database.get_column_metadata.
+    :param query: Query with required stripped table and column text.
+    :return: Plain-projected column metadata value; backend failures propagate.
+    """
     payload = _payload(query)
     table = _required_text(payload, "table")
     column = _required_text(payload, "column")
@@ -36,6 +57,20 @@ def schema_column(runtime: CoreRuntime, query: CoreQuery) -> Any:
 
 
 def schema_link(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
+    """
+    Describe database-declared relationship capabilities for a requested pair of tables.
+
+    This reads schema capabilities rather than linked row data and does not create
+    an interlink. Table-pair validation belongs to get_link_capabilities.
+
+    Example:
+        >>> relation = schema_link(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime whose database exposes get_link_capabilities.
+    :param query: Query with required table and related_table text.
+    :return: Requested table labels and projected relationship capabilities.
+    """
     payload = _payload(query)
     table = _required_text(payload, "table")
     related = _required_text(payload, "related_table")
@@ -56,6 +91,23 @@ def schema_column_update(
     runtime: CoreRuntime,
     command: CoreCommand,
 ) -> dict[str, Any]:
+    """
+    Build a replacement column policy from current metadata and supplied known fields, then persist and reconcile.
+
+    Missing known fields inherit current values; unknown policy keys are ignored.
+    case_sensitive is truth-tested, enum-valued fields use their constructors, and
+    comparison/format/display values pass to ColumnMetadata validation. An empty
+    policy still invokes the setter. updated=True reports returned delegation,
+    with reconciliation failure possible after persistence and no separate readback.
+
+    Example:
+        >>> receipt = schema_column_update(runtime, command)  # doctest: +SKIP
+
+
+    :param runtime: Runtime exposing database column-metadata get/set and service reconciliation.
+    :param command: Command with table, column, and Mapping policy containing optional known ColumnMetadata fields.
+    :return: Reconciled table/column receipt with updated=True and the projected constructed policy.
+    """
     payload = _payload(command)
     table = _required_text(payload, "table")
     column = _required_text(payload, "column")
@@ -146,6 +198,23 @@ def custom_fields_list(
     runtime: CoreRuntime,
     query: CoreQuery,
 ) -> dict[str, Any]:
+    """
+    List projected custom-column definitions, falling back to a label-sorted legacy map after canonical read failure.
+
+    Canonical reading, iteration, and projection share the fallback catch; fallback
+    errors propagate, and a successful empty canonical result does not trigger it.
+    Non-Mapping projections are skipped. Keys lose a leading custom_column_ prefix,
+    with collisions resolved by later entries; id becomes num even when its value
+    is None. Display JSON accepts any parsed value, retaining text on parse failure.
+
+    Example:
+        >>> fields = custom_fields_list(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime providing database custom_columns rows and optional custom_column_label_map.
+    :param query: Ignored query envelope; the complete discovered set is returned without paging.
+    :return: Normalized field mappings and count; an empty result does not prove canonical-read availability.
+    """
     del query
     db = runtime.database
     try:
@@ -196,6 +265,24 @@ def custom_fields_create(
     runtime: CoreRuntime,
     command: CoreCommand,
 ) -> dict[str, Any]:
+    """
+    Create a custom field through database-first capability lookup, then refresh field metadata and reconcile.
+
+    Name is required/stripped; falsey datatype/table select text/books. Optional
+    label remains unstripped, booleans are truth-tested, and make_category preserves
+    None. Display accepts verbatim text or a Mapping serialized as sorted-key JSON;
+    backend policy owns its meaning. Refresh, ID conversion, or reconciliation can
+    fail after creation without adapter rollback.
+
+    Example:
+        >>> receipt = custom_fields_create(runtime, command)  # doctest: +SKIP
+
+
+    :param runtime: Runtime supplying create_custom_column, field metadata refresh, and reconciliation.
+    :param command: Command with name and optional datatype, is_multiple, label, editable, display, table, and make_category.
+    :return: Reconciled created=True/schema_changed=True receipt and integer field num.
+    :raises CoreDispatchError: If required text/display validation fails or creation capability is unavailable.
+    """
     payload = _payload(command)
     method = _database_callable(
         runtime,
@@ -237,6 +324,23 @@ def custom_fields_update(
     runtime: CoreRuntime,
     command: CoreCommand,
 ) -> dict[str, Any]:
+    """
+    Forward allowlisted custom-field metadata changes, refresh the field registry, and reconcile.
+
+    Allowed keys are name, label, is_editable, display, in_table, notify, and
+    update_last_modified. Values are passed unchanged and an empty changes Mapping
+    is allowed. updated/schema_changed flags do not depend on the returned changed
+    row collection being nonempty. Later refresh/report failures can follow a write.
+
+    Example:
+        >>> receipt = custom_fields_update(runtime, command)  # doctest: +SKIP
+
+
+    :param runtime: Runtime supplying database-first set_custom_column_metadata and read-side refresh/reconciliation.
+    :param command: Command with required integer-convertible num and Mapping changes.
+    :return: Reconciled field num, optimistic update/schema flags, and projected changed_row_ids result.
+    :raises CoreDispatchError: If required fields are invalid, unknown keys are supplied, or capability lookup fails.
+    """
     payload = _payload(command)
     num = _required_int(payload, "num")
     changes = _mapping(payload, "changes")
@@ -275,6 +379,23 @@ def custom_fields_delete(
     runtime: CoreRuntime,
     command: CoreCommand,
 ) -> dict[str, Any]:
+    """
+    Delegate custom-field deletion by optional numeric ID and/or label, then refresh metadata and reconcile.
+
+    num must be nonnegative when supplied; label is stripped text. At least one
+    selector must be usable, but both may be passed, with precedence owned by the
+    backend. No confirmation field is checked here, and the deletion result is
+    ignored before reporting deleted=True. Refresh/reconciliation can fail afterwards.
+
+    Example:
+        >>> receipt = custom_fields_delete(runtime, command)  # doctest: +SKIP
+
+
+    :param runtime: Runtime providing database-first deletion capability and metadata refresh/reconciliation.
+    :param command: Command with optional num and label selecting the custom field.
+    :return: Reconciled selectors and deleted=True/schema_changed=True after delegation and refresh.
+    :raises CoreDispatchError: If selectors are invalid/absent or deletion capability is unavailable.
+    """
     payload = _payload(command)
     num = _optional_int(payload, "num", minimum=0)
     label_raw = payload.get("label")

@@ -1,4 +1,9 @@
-"""Command for adding a note and attaching it to a specific row."""
+"""
+Attach exact note text to one existing row, reusing matching note records where possible.
+
+The standalone ``note-on`` command differs from bulk ``on note``: it checks all
+matching notes for an existing link and creates new notes through the catalog API.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +12,17 @@ from LiuXin_alpha.surfaces.terminal.commands.link import _split_row_ref
 
 
 def _safe_int(value: str):
+    """
+    Convert an ID token with ``int``, returning ``None`` on ordinary conversion failures.
+
+    Example:
+        >>> _safe_int("12"), _safe_int("twelve")
+        (12, None)
+
+
+    :param value: Value passed directly to integer conversion without range validation.
+    :return: Integer result, or ``None`` if conversion raises an ``Exception``.
+    """
     try:
         return int(value)
     except Exception:
@@ -14,7 +30,17 @@ def _safe_int(value: str):
 
 
 class NoteOnCommand(TerminalCommandAPI):
-    """Create and link a note with one command."""
+    """
+    Expose single-row note attachment through ``note-on`` and ``noteon``.
+
+    Reuse an already-linked exact match first, otherwise reuse the first matching
+    note or create one. New attachment requests priority zero; failures do not
+    trigger cleanup of a newly created note here.
+
+    Example:
+        >>> NoteOnCommand().aliases
+        ('noteon',)
+    """
 
     name = "note-on"
     aliases = ("noteon",)
@@ -22,6 +48,24 @@ class NoteOnCommand(TerminalCommandAPI):
     usage = "note-on <table> <id> <note text>"
 
     def execute(self, browser, args: list[str]) -> bool:
+        """
+        Validate the target and text, reuse or create a note, and request its relation through Core.
+
+        Note tokens are joined with single spaces and outer-stripped. The notes
+        table, target row, and relation schema are checked before creating anything.
+        If creation succeeds but reloading/linking/output fails, no rollback is
+        attempted. Existing-link detection returns before another write.
+
+        Example:
+            >>> NoteOnCommand().execute(browser, ["works:1", "Check", "edition"])  # doctest: +SKIP
+
+
+        :param browser: Host supplying table/row/relation reads, Core commands, and output.
+        :param args: Compact or split target reference followed by nonblank note text tokens.
+        :return: ``True`` after attachment or reporting an already-linked matching note.
+        :raises ValueError: If syntax, target, note text, or required schema is invalid.
+        :raises RuntimeError: If a newly created note cannot be reloaded from its returned ID.
+        """
         if not args:
             raise ValueError("Usage: {}".format(self.usage))
 
@@ -51,16 +95,24 @@ class NoteOnCommand(TerminalCommandAPI):
 
         target_row = browser.db.get_row_from_id(target_table, target_id)
         if target_row is None:
-            raise ValueError("No row found in {} for id {}.".format(target_table, target_id))
+            raise ValueError(
+                "No row found in {} for id {}.".format(target_table, target_id)
+            )
 
-        link_table = browser.db.driver_wrapper.get_link_table_name("notes", target_table)
+        link_table = browser.db.driver_wrapper.get_link_table_name(
+            "notes", target_table
+        )
         if not link_table:
-            raise ValueError("No note link table exists for target table {!r}.".format(target_table))
+            raise ValueError(
+                "No note link table exists for target table {!r}.".format(target_table)
+            )
 
         note_row = None
         candidate_notes = browser.db.search("notes", "note", note_text)
         for row in candidate_notes:
-            existing_link = browser.db.get_interlink_row(primary_row=row, secondary_row=target_row, onelink=False)
+            existing_link = browser.db.get_interlink_row(
+                primary_row=row, secondary_row=target_row, onelink=False
+            )
             if existing_link:
                 browser.emit(
                     "Note already linked: note_id={} -> {}:{}".format(

@@ -1,4 +1,9 @@
-"""Flat on-disk hash-named store plugin."""
+"""
+Expose the flat local Store and its common Location compatibility alias.
+
+Importing the package resolves those classes without constructing a Store or
+creating a filesystem root.
+"""
 
 from __future__ import annotations
 

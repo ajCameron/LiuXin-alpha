@@ -1,4 +1,11 @@
-"""Chatty prototype pipeline for indexing existing drives and building SquashFS packs."""
+"""
+Coordinate operator-visible indexing and checkpointed SquashFS pack production.
+
+The prototype composes Library, schema-dependent indexers, planning, execution, persistence,
+and Store registration without a transaction spanning those phases. The direct-FRBR path
+retains a legacy SHA-512-plus-size fingerprint in SHA-256-named columns. Progress and result
+values report observed incremental effects; failures can leave completed earlier work.
+"""
 
 from __future__ import annotations
 
@@ -27,10 +34,40 @@ if TYPE_CHECKING:
 
 
 def _now_ep_ms() -> int:
+    """
+    Read wall-clock Unix time in milliseconds and truncate it to an integer.
+
+    This is neither a monotonic clock nor a uniqueness source; adjustments can make later
+    observations earlier.
+
+    Example:
+        >>> isinstance(_now_ep_ms(), int)
+        True
+
+
+    :return: Integer epoch milliseconds from time.time().
+    """
     return int(time.time() * 1000)
 
 
 def _format_bytes(value: int) -> str:
+    """
+    Render an int-converted nonnegative byte count using binary units through TiB.
+
+    Convert to int, clamp below zero, then scale a float by 1024. Bytes use an integer spelling;
+    larger units use one decimal. TiB is the final unit even for larger values. Conversion/overflow
+    failures propagate without a custom validation layer.
+
+    Example:
+        >>> _format_bytes(1536)
+        '1.5 KiB'
+        >>> _format_bytes(-1)
+        '0 B'
+
+
+    :param value: Int-convertible byte count to format for operator output.
+    :return: Human-readable size with a B, KiB, MiB, GiB, or TiB suffix.
+    """
     size = float(max(0, int(value)))
     units = ["B", "KiB", "MiB", "GiB", "TiB"]
     for unit in units:
@@ -43,6 +80,26 @@ def _format_bytes(value: int) -> str:
 
 
 def _render_progress(current: int, total: int | None, *, width: int = 28) -> str:
+    """
+    Render a bounded progress bar or repeating unknown-total pulse.
+
+    Int-convert and clamp current below zero. None/nonpositive totals select a hash pulse cycling
+    modulo width+1 with the unbounded current count. Positive totals are int-converted and bounded
+    below by one; clamp displayed current at that total and show one-decimal percent. Width is not
+    validated, and this helper does not print or retain progress.
+
+    Example:
+        >>> _render_progress(3, 4, width=4)
+        '[###-] 3/4 ( 75.0%)'
+        >>> _render_progress(6, None, width=4)
+        '[#   ] 6'
+
+
+    :param current: Observed count, int-converted and clamped to zero before display.
+    :param total: Expected count or None/nonpositive input for the unknown-total pulse.
+    :param width: Requested character width used directly in bar arithmetic and formatting.
+    :return: Bracketed bar/pulse with count and optional percentage; malformed numeric/width input may raise.
+    """
     current = max(0, int(current))
     if total is None or total <= 0:
         spinner = "#" * min(width, (current % (width + 1)))
@@ -56,6 +113,22 @@ def _render_progress(current: int, total: int | None, *, width: int = 28) -> str
 
 
 def _normalize_ebook_extensions(ebook_extensions: Iterable[str] | None) -> set[str]:
+    """
+    Collect lowercase suffix tokens, using project book extensions when input is None.
+
+    Filter entries whose string spelling is whitespace-only, but do not strip whitespace from
+    retained spellings. Strip leading dots only after lowercase conversion. Thus " EPUB " retains
+    surrounding spaces while ".EPUB" becomes "epub". A supplied empty iterable stays empty, and a
+    bare string is consumed character by character.
+
+    Example:
+        >>> sorted(_normalize_ebook_extensions([".EPUB", "mobi", " "]))
+        ['epub', 'mobi']
+
+
+    :param ebook_extensions: Optional iterable of extension spellings; None imports BOOK_EXTENSIONS as the default.
+    :return: Set of normalized spellings, without a leading-dot or whitespace validity check beyond the stated transformation.
+    """
     if ebook_extensions is None:
         from LiuXin_alpha.constants.file_extensions import BOOK_EXTENSIONS
         ebook_extensions = BOOK_EXTENSIONS
@@ -63,10 +136,46 @@ def _normalize_ebook_extensions(ebook_extensions: Iterable[str] | None) -> set[s
 
 
 def _table_columns(db, table_name: str) -> set[str]:
+    """
+    Return a set of the database adapter's reported column headings without caching or schema
+    checks.
+
+    Example:
+        >>> columns = _table_columns(db, "stores")  # doctest: +SKIP
+
+
+    :param db: Borrowed database exposing get_column_headings.
+    :param table_name: Schema table whose reported column names are requested.
+    :return: New set of column names; adapter/iteration errors propagate.
+    """
     return set(db.get_column_headings(table_name))
 
 
 def _ensure_or_create_unmanaged_store_row(db, *, root: pathlib.Path, store_name: str, store_kind: str = "on_disk_existing_unmanaged_drive"):
+    """
+    Prepare a local unmanaged backend and upsert its Store metadata by raw root text.
+
+    Instantiate the fixed unmanaged backend before searching str(root); canonical file-URI rows are
+    not searched here. Reuse the first match, reconstructing the backend with a persisted UUID when
+    available or filling a missing UUID. Apply changed allowed fields and sync once. The requested
+    store_kind is a persisted label independent of the concrete backend class.
+
+    New rows use reported columns and wall-clock created/modified timestamps. No transaction,
+    root-identity deduplication across URI spellings, manager attachment, or backend startup is
+    added. Earlier row mutations or backend setup can precede a later failure.
+
+    Example:
+        >>> row, backend = _ensure_or_create_unmanaged_store_row(  # doctest: +SKIP
+        ...     db, root=pathlib.Path("/books"), store_name="source",
+        ... )
+
+
+    :param db: Borrowed database supporting Store lookup and Row insertion/update.
+    :param root: Local source root used verbatim as the Store lookup/persistence string.
+    :param store_name: Display name used by the unmanaged backend and persisted payload.
+    :param store_kind: Store-kind label written to admitted columns; does not change the instantiated backend class.
+    :return: Pair of persisted Store row and unmanaged backend sharing the selected UUID.
+    """
     backend = OnDiskUnmanagedStorageBackend(url=str(root), name=store_name)
     rows = db.search("stores", "store_root_uri", str(root))
     payload = {
@@ -114,6 +223,41 @@ def _ensure_or_create_unmanaged_store_row(db, *, root: pathlib.Path, store_name:
 
 
 def _index_existing_disk_frbr(db, *, disk_path: pathlib.Path, store_name: str, ebook_extensions: Iterable[str] | None, progress_callback=None) -> UnmanagedDiskRegistrationReport:
+    """
+    Index a local tree directly into Digital Asset and Replica rows for the FRBR schema path.
+
+    Resolve the root, ensure its Store row, emit start, normalize extensions, and map existing
+    Replicas by storage key with the last match winning. Materialize/sort paths whose is_file
+    succeeds, count all scanned entries, and emit scan for excluded suffixes. File symlinks follow
+    ordinary stat/open behavior without a separate containment check.
+
+    For candidates, stat and hash the current path, guess MIME by filename, then insert an Asset
+    followed by its Replica or update the rows associated with the existing key. This reuses an
+    existing Asset identity when source bytes change. The legacy get_file_hash helper returns
+    SHA-512 hex followed by decimal byte length; that value is currently written to columns named
+    hash_sha256/observed_hash_sha256. Those column names do not make the value a SHA-256 digest.
+    Stat and hashing do not form a pinned byte snapshot.
+
+    Update counters according to Replica row mutation, so an Asset-only update is not counted as an
+    updated file; timestamp refresh can count even unchanged bytes. Missing files are not deleted,
+    and no cross-row transaction or manager refresh is performed here. Filesystem, database, hash,
+    and callback errors propagate after earlier effects rather than being appended to report.errors.
+    Finish time and done callback occur only after normal traversal.
+
+    Example:
+        >>> report = _index_existing_disk_frbr(  # doctest: +SKIP
+        ...     db, disk_path=pathlib.Path("/books"), store_name="source",
+        ...     ebook_extensions=("epub", "mobi"),
+        ... )
+
+
+    :param db: Borrowed FRBR database with Store, digital_assets, and asset_replicas tables.
+    :param disk_path: Local directory root resolved before backend creation and sorted recursive scanning.
+    :param store_name: Display name used for the source Store and report.
+    :param ebook_extensions: Optional accepted suffix iterable; None selects the project defaults.
+    :param progress_callback: Optional truthy callable receiving event, live mutable report, and detail mapping synchronously; its errors propagate.
+    :return: Finished UnmanagedDiskRegistrationReport after normal traversal, with counters describing incremental row effects.
+    """
     root = disk_path.resolve()
     store_row, backend = _ensure_or_create_unmanaged_store_row(db, root=root, store_name=store_name)
     store_id = int(store_row.row_id if store_row.row_id is not None else store_row["store_id"])
@@ -232,43 +376,183 @@ def _index_existing_disk_frbr(db, *, disk_path: pathlib.Path, store_name: str, e
 
 
 class ConsoleReporter:
-    """Render human-readable indexing and pack progress to one text stream."""
+    """
+    Print flushed operator text and independently tracked indexing/pack progress lines.
+
+    This reporter writes carriage-return updates without checking whether the stream is a terminal.
+    Padding uses Python string lengths, not terminal display-cell widths. Index and pack widths are
+    separate, and no lock coordinates concurrent or interleaved writers. Stream errors propagate;
+    the stream remains caller-owned.
+
+    Example:
+        >>> import io
+        >>> output = io.StringIO()
+        >>> ConsoleReporter(stream=output).info("ready")
+        >>> output.getvalue().splitlines()
+        ['ready']
+    """
 
     def __init__(self, *, stream=None) -> None:
+        """
+        Choose a truthy stream or current stdout and reset both progress-width counters.
+
+        No stream conformance check or ownership transfer occurs; a falsey supplied stream selects
+        stdout.
+
+        Example:
+            >>> import io
+            >>> stream = io.StringIO()
+            >>> ConsoleReporter(stream=stream).stream is stream
+            True
+
+
+        :param stream: Optional borrowed text stream; falsey input uses sys.stdout at construction.
+        :return: None after retaining the stream and setting index/pack remembered lengths to zero.
+        """
         self.stream = stream or sys.stdout
         self._last_index_line_len = 0
         self._last_pack_line_len = 0
 
     def line(self, text: str = "") -> None:
+        """
+        Print one newline-terminated value and flush the borrowed stream.
+
+        Delegate conversion and writing to print. Progress-width state is unchanged, so this does
+        not finish an active carriage-return line.
+
+        Example:
+            >>> import io
+            >>> stream = io.StringIO()
+            >>> ConsoleReporter(stream=stream).line("ready")
+            >>> stream.getvalue().splitlines()
+            ['ready']
+
+
+        :param text: Value printed with a trailing newline; empty text emits a blank line.
+        :return: None after print and flush succeed.
+        """
         print(text, file=self.stream, flush=True)
 
     def section(self, title: str) -> None:
+        """
+        Print a blank line, title, and equal-sign borders sized by title string length.
+
+        Each line delegates separately and flushes immediately. A later print failure can follow
+        already visible earlier lines; progress counters are not reset.
+
+        Example:
+            >>> import io
+            >>> stream = io.StringIO()
+            >>> ConsoleReporter(stream=stream).section("Go")
+            >>> stream.getvalue().splitlines()
+            ['', '==', 'Go', '==']
+
+
+        :param title: Title text whose len determines both border lengths.
+        :return: None after the four line writes return.
+        """
         self.line()
         self.line("=" * len(title))
         self.line(title)
         self.line("=" * len(title))
 
     def info(self, text: str) -> None:
+        """
+        Delegate an informational value to the newline-and-flush line method.
+
+        Example:
+            >>> reporter.info("Database opened")  # doctest: +SKIP
+
+
+        :param text: Informational text passed unchanged to line.
+        :return: None after the delegated line write returns.
+        """
         self.line(text)
 
     def index_progress(self, *, label: str, scanned: int, total: int | None, ebooks: int, inserted: int, updated: int, skipped: int) -> None:
+        """
+        Overwrite the current indexing display with a bar and observed row counters.
+
+        Prefix a carriage return, format scanned/total through the progress helper, and append raw
+        ebook/insert/update/skip counts. Pad to at least the prior indexing line length, print
+        without a newline, and flush before remembering the new padded length. This neither
+        validates counter consistency nor changes pack-line state.
+
+        Example:
+            >>> reporter.index_progress(  # doctest: +SKIP
+            ...     label="Index 1", scanned=3, total=10, ebooks=2,
+            ...     inserted=1, updated=1, skipped=1,
+            ... )
+
+
+        :param label: Human-readable prefix for the current source scan.
+        :param scanned: Observed scan count passed to progress formatting.
+        :param total: Optional pre-counted file total; unknown/nonpositive selects pulse rendering.
+        :param ebooks: Reported accepted ebook candidates displayed without coercion.
+        :param inserted: Reported newly inserted file/Replica count.
+        :param updated: Reported updated file/Replica count.
+        :param skipped: Reported rejected-extension count.
+        :return: None after writing/flushing and updating remembered indexing width.
+        """
         msg = f"\r{label}: {_render_progress(scanned, total)}  ebooks={ebooks} inserted={inserted} updated={updated} skipped={skipped}"
         padded = msg.ljust(max(len(msg), self._last_index_line_len))
         print(padded, end="", file=self.stream, flush=True)
         self._last_index_line_len = len(padded)
 
     def finish_index_progress(self) -> None:
+        """
+        Terminate an active indexing line once and reset its remembered width.
+
+        A zero remembered length is a no-op. Reset follows the flushed newline, so an output error
+        leaves the previous remembered state.
+
+        Example:
+            >>> reporter.finish_index_progress()  # doctest: +SKIP
+
+
+        :return: None after an optional newline and indexing-width reset.
+        """
         if self._last_index_line_len:
             print(file=self.stream, flush=True)
             self._last_index_line_len = 0
 
     def pack_progress(self, *, label: str, staged: int, total: int, status: str) -> None:
+        """
+        Overwrite the pack display with staged-source progress and status text.
+
+        Prefix a carriage return, pad to the prior pack-line length, and print/flush without a
+        newline before updating remembered width. Index-line state is independent; status is
+        displayed as supplied without lifecycle validation.
+
+        Example:
+            >>> reporter.pack_progress(  # doctest: +SKIP
+            ...     label="pack-0001", staged=2, total=5, status="running",
+            ... )
+
+
+        :param label: Pack display label used before the progress bar.
+        :param staged: Reported staged-source count passed to progress formatting.
+        :param total: Declared source total; nonpositive values select unknown-total rendering.
+        :param status: Lifecycle label displayed without validation.
+        :return: None after writing/flushing and remembering the padded pack-line length.
+        """
         msg = f"\r{label}: {_render_progress(staged, total)}  status={status}"
         padded = msg.ljust(max(len(msg), self._last_pack_line_len))
         print(padded, end="", file=self.stream, flush=True)
         self._last_pack_line_len = len(padded)
 
     def finish_pack_progress(self) -> None:
+        """
+        Terminate an active pack line once and clear its remembered width after flushing.
+
+        An inactive line is a no-op. Printing errors propagate before the counter is reset.
+
+        Example:
+            >>> reporter.finish_pack_progress()  # doctest: +SKIP
+
+
+        :return: None after an optional newline and pack-width reset.
+        """
         if self._last_pack_line_len:
             print(file=self.stream, flush=True)
             self._last_pack_line_len = 0
@@ -276,7 +560,30 @@ class ConsoleReporter:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class IndexedStoreRun:
-    """Summary of indexing one source drive as a durable Store."""
+    """
+    Retain the operator summary of indexing one input directory.
+
+    This frozen record performs no validation, catalogue lookup, or counter reconciliation. Counts
+    describe reported row operations, which can include timestamp refreshes rather than byte
+    changes. Errors and skipped/link counts from the richer registration report are not fields of
+    this summary.
+
+    Example:
+        >>> summary = IndexedStoreRun("/books", 1, "source", "/books", 4, 3, 2, 1, 0)
+        >>> summary.ebook_candidates
+        3
+
+
+    :ivar input_path: Recorded input directory spelling.
+    :ivar store_id: Numeric database Store row identity reported by indexing.
+    :ivar store_name: Reported source Store display name.
+    :ivar store_root_uri: Reported source root path/URI spelling.
+    :ivar scanned_files: Count of observed file entries including excluded suffixes.
+    :ivar ebook_candidates: Count accepted by the indexing extension policy.
+    :ivar inserted_files: Reported successful new file/Replica insertions.
+    :ivar updated_files: Reported changed existing file/Replica rows.
+    :ivar unchanged_files: Reported existing rows requiring no counted update.
+    """
 
     input_path: str
     store_id: int
@@ -291,7 +598,26 @@ class IndexedStoreRun:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class PackExecutionRun:
-    """Summary of building and registering one SquashFS backup pack."""
+    """
+    Retain the reported outcome of one built and registered backup pack.
+
+    The frozen value does not inspect output bytes, validate IDs/counts, or confirm Store
+    availability. It records source-size estimates rather than a measured compressed-image size.
+
+    Example:
+        >>> summary = PackExecutionRun(3, "pack", "/backups/pack.sqsh", 2, 100, UUID(int=1), 2)
+        >>> summary.source_count
+        2
+
+
+    :ivar workflow_id: Repository ID assigned to the executed workflow.
+    :ivar workflow_name: Planned pack name used for operator output.
+    :ivar output_url: Local image pathname recorded as text, despite the URL field name.
+    :ivar source_count: Declared pack source count.
+    :ivar estimated_size_bytes: Planner estimate of source payload bytes.
+    :ivar backup_store_ref: Stable UUID of the registered archive Store.
+    :ivar presence_links_created: Registry-reported count of member-presence insertions.
+    """
 
     workflow_id: int
     workflow_name: str
@@ -304,7 +630,22 @@ class PackExecutionRun:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class PrototypeRunResult:
-    """Aggregate indexing and pack-building results for one prototype run."""
+    """
+    Collect successful indexing and pack summaries after a normal prototype run.
+
+    Frozen fields prevent reassignment without deeply freezing caller-supplied collections or
+    validating their contents. A failed run raises instead of returning this aggregate, even when
+    earlier indexing or packs already produced persistent effects.
+
+    Example:
+        >>> PrototypeRunResult("catalogue.sqlite", (), ()).total_executed_packs
+        0
+
+
+    :ivar database_path: Recorded catalogue pathname.
+    :ivar indexed_stores: Ordered source-indexing summaries accumulated during the run.
+    :ivar executed_packs: Ordered pack summaries appended after registration succeeds.
+    """
 
     database_path: str
     indexed_stores: tuple[IndexedStoreRun, ...]
@@ -312,17 +653,87 @@ class PrototypeRunResult:
 
     @property
     def total_indexed_stores(self) -> int:
+        """
+        Count retained indexing summaries without deduplicating Store identity or querying the
+        catalogue.
+
+        Example:
+            >>> PrototypeRunResult("catalogue.sqlite", (), ()).total_indexed_stores
+            0
+
+
+        :return: Current len(indexed_stores).
+        """
         return len(self.indexed_stores)
 
     @property
     def total_executed_packs(self) -> int:
+        """
+        Count retained pack summaries without inspecting image existence, uniqueness, or current
+        readability.
+
+        Example:
+            >>> PrototypeRunResult("catalogue.sqlite", (), ()).total_executed_packs
+            0
+
+
+        :return: Current len(executed_packs).
+        """
         return len(self.executed_packs)
 
 
 class ExistingDriveSquashfsPrototype:
-    """Coordinate source indexing and immutable SquashFS pack production."""
+    """
+    Coordinate local indexing, pack planning, checkpoint writes, and artifact Store registration.
+
+    This synchronous operator prototype opens its own Library for each run and borrows a reporter
+    and optional workflow factory. It chooses legacy-file or direct-FRBR indexing from the current
+    schema, persists each workflow's effective initial declaration, and saves checkpoints after each
+    returned unit. It does not resume existing workflow IDs or wrap the whole run in a transaction.
+
+    Failures can leave indexed rows, workflow evidence, staged bytes, completed images, and earlier
+    registrations. Successful registration concerns the archive Store and presence links; the
+    prototype does not add whole-image Asset derivation provenance. Output/staging paths are not
+    excluded automatically from input scans when directories overlap.
+
+    Example:
+        >>> prototype = ExistingDriveSquashfsPrototype(  # doctest: +SKIP
+        ...     database_path="catalogue.sqlite", output_dir="packs",
+        ...     target_pack_size_bytes=1024**3,
+        ... )
+        >>> result = prototype.run(["/media/books"])  # doctest: +SKIP
+    """
 
     def __init__(self, *, database_path: str | pathlib.Path, output_dir: str | pathlib.Path, target_pack_size_bytes: int, max_files_per_pack: int | None = None, ebook_extensions: Iterable[str] | None = None, verify_after_build: bool = True, cleanup_staging_after_success: bool = False, staging_root: str | pathlib.Path | None = None, reporter: ConsoleReporter | None = None, workflow_factory: Callable[[BackupWorkflowDeclaration], Any] | None = None) -> None:
+        """
+        Normalize prototype settings and create the output directory immediately.
+
+        Expand user syntax for paths without making them absolute. Output mkdir precedes numeric
+        conversion, extension collection, and later run validation, so a rejected setting can leave
+        that directory. Counts use int conversion; positivity is deferred to the planner.
+        Collect/sort extension tokens, convert flags to bool, and choose a truthy reporter or a new
+        stdout reporter. No catalogue is opened or workflow executed here.
+
+        Example:
+            >>> prototype = ExistingDriveSquashfsPrototype(  # doctest: +SKIP
+            ...     database_path="catalogue.sqlite", output_dir="packs",
+            ...     target_pack_size_bytes=100_000_000, max_files_per_pack=500,
+            ...     ebook_extensions=("epub", "mobi"),
+            ... )
+
+
+        :param database_path: Catalogue path expanded at construction and opened later by Library.
+        :param output_dir: Directory expanded and created immediately for published pack images.
+        :param target_pack_size_bytes: Int-convertible planner target for summed source bytes; positivity checked during planning.
+        :param max_files_per_pack: Optional int-convertible source-count target, passed to the planner.
+        :param ebook_extensions: Optional extension iterable; None selects project defaults and an empty iterable remains empty.
+        :param verify_after_build: Flag converted to bool and applied to effective pack declarations.
+        :param cleanup_staging_after_success: Flag requesting workflow staging cleanup after successful publication.
+        :param staging_root: Optional expanded staging base; None uses output_dir/.liuxin-staging.
+        :param reporter: Optional borrowed ConsoleReporter-like object; falsey input selects a new stdout reporter.
+        :param workflow_factory: Optional callable receiving the adjusted declaration; otherwise construct SquashfsBackupWorkflow with the run's manager.
+        :return: None after output-directory creation and retained setting initialization.
+        """
         self.database_path = pathlib.Path(database_path).expanduser()
         self.output_dir = pathlib.Path(output_dir).expanduser()
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -336,6 +747,38 @@ class ExistingDriveSquashfsPrototype:
         self.workflow_factory = workflow_factory
 
     def run(self, input_paths: Sequence[str | pathlib.Path]) -> PrototypeRunResult:
+        """
+        Index each input and synchronously build/register its proposed packs with saved checkpoints.
+
+        Expand/resolve all input paths and require at least one existing directory before opening
+        Library. Create the catalogue only when its path is absent; ensure an output Store row,
+        refresh manager Stores, then process inputs in supplied order. Pre-count files for display
+        and derive an ordinal-based Store name. A files table selects the existing legacy indexer;
+        otherwise use the direct-FRBR fallback. Reports containing legacy-indexer errors are
+        displayed but do not automatically stop subsequent planning.
+
+        Resolve the indexed Store UUID and plan using configured size/count/extension limits. Add
+        staging and verification settings to each declaration, construct a workflow, and persist its
+        effective progress().declaration with DRAFT status before saving the initial checkpoint.
+        Repeatedly call run_next, save returned state, and report progress until terminal. A
+        non-COMPLETE state raises after its checkpoint has been saved. There is no loop time limit
+        or recovery of prior workflow IDs.
+
+        Request the terminal result, require an output reference, derive its local display/name
+        path, and register the artifact with source links. Append a pack summary only after
+        registration and reporting return. Library context cleanup runs on exit; later failures can
+        follow completed writes, images, or earlier packs without returning a partial aggregate. No
+        cross-step transaction or rollback is provided.
+
+        Example:
+            >>> result = prototype.run(["/media/books-a", "/media/books-b"])  # doctest: +SKIP
+            >>> result.total_indexed_stores  # doctest: +SKIP
+            2
+
+
+        :param input_paths: Ordered nonempty sequence of local directory paths; duplicates are processed again rather than deduplicated.
+        :return: PrototypeRunResult after all inputs/packs and final reporting succeed; earlier effects may remain when any step raises.
+        """
         paths = [pathlib.Path(p).expanduser().resolve() for p in input_paths]
         if not paths:
             raise ValueError("Provide at least one input path.")
@@ -368,6 +811,25 @@ class ExistingDriveSquashfsPrototype:
                 self.reporter.info(f"Store name: {store_name}")
                 self.reporter.info(f"All files observed before index pass: {total_files}")
                 def _progress(event: str, report, details: dict[str, object]) -> None:
+                    """
+                    Translate one indexer event into the current input's operator progress display.
+
+                    The closure reads the current label, pre-counted total, and reporter. start/scan
+                    render int-converted report counters; error finishes the line and prints
+                    supplied error/path details; done renders once more and finishes. Unknown events
+                    are ignored. No report mutation or exception guard is added here; the calling
+                    indexer's callback policy determines whether errors escape.
+
+                    Example:
+                        During run(), the chosen indexer invokes this callback with start, scan, error,
+                        or done and the live registration report for the current input directory.
+
+
+                    :param event: Indexer event label controlling display or no-op behavior.
+                    :param report: Live report supplying scanned/candidate/insert/update/skip counters.
+                    :param details: Event metadata; error display reads its optional error and path entries.
+                    :return: None after the selected reporter calls or an unrecognized-event no-op.
+                    """
                     if event in {"scan", "start"}:
                         self.reporter.index_progress(label=label, scanned=int(report.scanned_files), total=total_files, ebooks=int(report.ebook_candidates), inserted=int(report.inserted_files), updated=int(report.updated_files), skipped=int(report.skipped_non_ebook_files))
                     elif event == "error":
@@ -456,6 +918,22 @@ class ExistingDriveSquashfsPrototype:
         return PrototypeRunResult(database_path=str(self.database_path), indexed_stores=tuple(indexed_runs), executed_packs=tuple(executed_runs))
 
     def _ensure_output_store_row(self, db) -> UUID:
+        """
+        Reuse the first Store row for the resolved output file URI or insert filesystem
+        configuration.
+
+        A matching row is returned through its UUID without replacing its name, kind, or
+        capabilities; only a missing UUID is generated and synced. New configuration is filtered to
+        reported Store columns. This helper does not search historical raw-path spellings, check
+        manager attachment, or open an enclosing transaction.
+
+        Example:
+            >>> store_ref = prototype._ensure_output_store_row(db)  # doctest: +SKIP
+
+
+        :param db: Borrowed database receiving output Store lookup or insertion.
+        :return: UUID of the reused/new output Store row; malformed persisted UUID or adapter errors propagate.
+        """
         root_uri = self.output_dir.resolve().as_uri()
         existing = db.search("stores", "store_root_uri", root_uri)
         if existing:
@@ -488,6 +966,21 @@ class ExistingDriveSquashfsPrototype:
         return store_ref
 
     def _output_path(self, reference) -> pathlib.Path:
+        """
+        Project a result reference into the local pathname used for display and Store naming.
+
+        For a Location, join its POSIX key beneath output_dir and resolve, ignoring its Store UUID.
+        Other values become expanded/resolved Paths without file-URI parsing. There is no existence
+        or post-resolution containment check here; actual registry resolution remains a separate
+        later operation.
+
+        Example:
+            >>> path = prototype._output_path(result.output_artifact_reference)  # doctest: +SKIP
+
+
+        :param reference: Workflow output Location or local path-like reference to project.
+        :return: Resolved local Path derived from the output directory/key or supplied local spelling.
+        """
         from LiuXin_alpha.storage.api import Location
 
         if isinstance(reference, Location):
@@ -498,12 +991,43 @@ class ExistingDriveSquashfsPrototype:
 
     @staticmethod
     def _derive_store_name(path: pathlib.Path, ordinal: int) -> str:
+        """
+        Combine an input ordinal with a sanitized basename token and stable helper hash.
+
+        Prefer path.name, then drive, then a slash-replaced path spelling. safe_path_to_name
+        supplies its default sanitization/hash; strip surrounding underscores and use
+        input_<ordinal> only if the resulting token is empty. No root lookup or uniqueness check
+        occurs, and ordinal formatting does not validate positivity.
+
+        Example:
+            >>> ExistingDriveSquashfsPrototype._derive_store_name(pathlib.Path("/books"), 2).startswith("existing_disk_002_books-")
+            True
+
+
+        :param path: Resolved input path whose basename supplies the human-readable token.
+        :param ordinal: Input position formatted with at least three decimal digits.
+        :return: existing_disk_<ordinal>_<sanitized-token> display name.
+        """
         base = path.name or path.drive or path.as_posix().replace("/", "_")
         token = safe_path_to_name(base).strip("_") or f"input_{ordinal:03d}"
         return f"existing_disk_{ordinal:03d}_{token}"
 
     @staticmethod
     def _count_all_files(root: pathlib.Path) -> int:
+        """
+        Count recursive entries whose current is_file check succeeds for progress estimation.
+
+        No suffix filtering, path deduplication, output/staging exclusion, or file-version snapshot
+        is added. File symlinks follow ordinary pathlib checks; enumeration failures propagate and
+        the later indexing count can differ as the tree changes.
+
+        Example:
+            >>> total = ExistingDriveSquashfsPrototype._count_all_files(pathlib.Path("/books"))  # doctest: +SKIP
+
+
+        :param root: Directory Path traversed recursively with rglob.
+        :return: Count of file entries observed during this traversal.
+        """
         return sum(1 for path in root.rglob('*') if path.is_file())
 
 

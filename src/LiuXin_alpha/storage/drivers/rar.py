@@ -1,5 +1,11 @@
 """
-Read-only RAR storage driver with explicit extractor boundaries.
+Index bounded RAR projections and verify staged members through explicit parser/tool paths.
+
+Modern rarfile is preferred, with an embedded fallback for older archive signatures.
+Stored members use parser reads; compressed members use bounded-output subprocess
+handling. Complete local spools are checked against indexed size and available
+checksum fields before ranges are exposed, while filesystem signatures supply
+archive-wide change evidence rather than content identity.
 """
 
 from __future__ import annotations
@@ -83,7 +89,10 @@ _RAR_PARSE_LOCK = threading.RLock()
 @dataclasses.dataclass(slots=True, frozen=True)
 class RarObjectAddress(ArchiveObjectAddress):
     """
-    Canonical member path scoped to one RAR driver.
+    Carry a RAR member key and the UUID owning its address space.
+
+    Inherited basic record validation does not apply canonical path, encoded-length, or depth
+    policy; typed driver checks do not reparse the key.
 
     Example:
         >>> RarObjectAddress("books/novel.epub", UUID(int=1)).value
@@ -93,7 +102,11 @@ class RarObjectAddress(ArchiveObjectAddress):
 
 class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
     """
-    Index RAR 3/4/5 archives and read regular members without extraction paths.
+    Index regular RAR members and verify complete member spools before exposing ranges.
+
+    Stored members use the selected parser; compressed members require an external unrar/rar
+    executable. Optional modern rarfile support is required for RAR5. Filesystem signatures provide
+    archive-wide version evidence, while available CRC/BLAKE2sp fields govern member verification.
 
     Example:
         >>> driver = RarStorageDriver(path, address_space_uuid=UUID(int=1))  # doctest: +SKIP
@@ -116,20 +129,28 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
         max_path_bytes: int = DEFAULT_MAX_RAR_PATH_BYTES,
     ) -> None:
         """
-        Configure bounded reads and optional extraction for one RAR archive.
+        Resolve an existing regular archive and initialize ownership, limits, and empty cached
+        state.
+
+        Construction does not parse the archive or discover an extractor. Count/byte/depth limits
+        are converted to int after positivity checks; the timeout is converted to float without a
+        separate finiteness check. Compression ratio alone must be finite and at least one.
 
         Example:
-            >>> driver = RarStorageDriver(path, address_space_uuid=UUID(int=1))  # doctest: +SKIP
+            >>> driver = RarStorageDriver(path, address_space_uuid=UUID(int=1), extract_timeout_s=12.0)  # doctest: +SKIP
 
 
-        :param archive_path:
-        :param address_space_uuid:
-        :param extractor_exe:
-        :param extract_timeout_s:
-        :param max_inventory_entries:
-        :param max_member_bytes:
-        :param max_depth:
-        :return:
+        :param archive_path: Local archive filename expanded and resolved before the regular-file check.
+        :param address_space_uuid: UUID required by the RarObjectAddress checker.
+        :param extractor_exe: Optional executable name/path; false values use unrar then rar discovery.
+        :param extract_timeout_s: Positive timeout passed to extraction process.wait, not an end-to-end operation deadline.
+        :param max_inventory_entries: Positive maximum entries inspected after the parser has built its inventory, including directories.
+        :param max_member_bytes: Positive maximum regular-member size in bytes, further bounded by the total-byte cap.
+        :param max_depth: Positive maximum slash-separated member-key component count.
+        :param max_total_uncompressed_bytes: Positive maximum sum of declared regular-member sizes.
+        :param max_compression_ratio: Finite ratio of at least one for positive member sizes versus packed sizes and total regular bytes versus container size.
+        :param max_path_bytes: Positive maximum UTF-8/surrogateescape byte count for the entire key.
+        :return: None after configuring locks, index state, compression count, and initial unavailable status.
         """
 
         self._archive_path = pathlib.Path(archive_path).expanduser().resolve(strict=False)
@@ -184,13 +205,14 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
     @property
     def archive_path(self) -> pathlib.Path:
         """
-        Return the resolved local RAR path.
+        Return the local path resolved during construction without checking it again.
 
         Example:
-            >>> driver.archive_path  # doctest: +SKIP
+            >>> driver.archive_path.is_absolute()  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: Resolved Path naming the RAR container.
         """
 
         return self._archive_path
@@ -198,13 +220,15 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
     @property
     def object_address_checker(self):
         """
-        Return the checker that enforces RAR address type and Store scope.
+        Expose the checker requiring RAR address type and this driver's UUID.
+
+        Checking a typed record does not reparse its member path.
 
         Example:
-            >>> driver.object_address_checker  # doctest: +SKIP
+            >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
 
 
-        :return:
+        :return: Retained scoped checker for RarObjectAddress values.
         """
 
         return self._checker
@@ -212,14 +236,16 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
     @property
     def root_uri(self) -> str:
         """
-        Return the archive's local file URI.
+        Render the resolved container path as a file URI.
+
+        This root label does not enable parsing external member URIs.
 
         Example:
             >>> driver.root_uri.startswith("file:")  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: File URI of the container path, without a member suffix.
         """
 
         return self._archive_path.as_uri()
@@ -227,14 +253,16 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
     @property
     def extractor_executable(self) -> str | None:
         """
-        Return the configured or discovered extractor executable.
+        Resolve the configured extractor, or discover unrar followed by rar.
+
+        A truthy explicit override is tried alone; its failure does not fall back to other names.
+        Discovery is repeated on each property access and does not test tool compatibility.
 
         Example:
-            >>> driver.extractor_executable  # doctest: +SKIP
-            '/usr/bin/unrar'
+            >>> executable = driver.extractor_executable  # doctest: +SKIP
 
 
-        :return:
+        :return: Resolved executable path, or None when discovery finds no selected tool.
         """
 
         if self._extractor_exe:
@@ -244,14 +272,16 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Advertise complete, conditional, ranged RAR reads.
+        Advertise complete hierarchical inventory, ranged/conditional reads, and concurrent reading.
+
+        These capabilities do not establish current extractor availability or archive readability.
 
         Example:
-            >>> driver.capabilities.range_reads  # doctest: +SKIP
-            True
+            >>> driver.capabilities.concurrency.recommended_parallel_reads  # doctest: +SKIP
+            2
 
 
-        :return:
+        :return: Read-only capabilities with two parallel reads recommended and thread-safe use advertised.
         """
 
         return DriverCapabilities(
@@ -270,14 +300,17 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
         """
-        Describe RAR parser, extractor, and member-spooling limitations.
+        Describe whole-member spooling, parser/extractor requirements, and RAR policy limits.
+
+        The exposed component-byte ceiling is applied to the complete canonical key. Multi-volume
+        and unsupported members are rejected; nested expansion budgeting remains external.
 
         Example:
-            >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
-            <StoragePublicationModel.READ_ONLY: 'read_only'>
+            >>> driver.storage_characteristics.temporary_space  # doctest: +SKIP
+            <StorageTemporarySpaceRequirement.OBJECT_STAGE: 'object_stage'>
 
 
-        :return:
+        :return: Read-only characteristics with object staging and effective size/path bounds.
         """
 
         return StorageCharacteristics(
@@ -321,28 +354,33 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
 
     def startup(self) -> DriverStatus:
         """
-        Validate the archive and return its current operational status.
+        Run the current probe implementation and return its result.
+
+        Writable subclasses use their own probe through this dispatch.
 
         Example:
             >>> driver.startup().available  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Status returned by probe; probe failures propagate.
         """
 
         return self.probe()
 
     def probe(self) -> DriverStatus:
         """
-        Re-index the RAR and report compressed-member readability.
+        Force indexing and report whether all compressed members have a discoverable extractor.
+
+        The snapshot can be unavailable while stored-member reads and inventory remain usable. Loss
+        reasons and missing-tool warnings are included. Parsing failures propagate without updating
+        cached status; discovery does not execute or validate the tool.
 
         Example:
-            >>> driver.probe().object_count  # doctest: +SKIP
-            1
+            >>> status = driver.probe()  # doctest: +SKIP
 
 
-        :return:
+        :return: Cached read-only status with regular-member count, compressed count, selected extractor, and limits.
         """
 
         index = self._get_index(force=True)
@@ -384,27 +422,30 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
 
     def status(self) -> DriverStatus:
         """
-        Return the most recently observed RAR status.
+        Return the last successful probe result, or the initial unavailable snapshot.
+
+        No filesystem access, freshness check, or probe is performed.
 
         Example:
-            >>> driver.status().available  # doctest: +SKIP
-            True
+            >>> status = driver.status()  # doctest: +SKIP
 
 
-        :return:
+        :return: Cached DriverStatus, which may no longer describe the current container.
         """
 
         return self._last_status
 
     def close(self) -> None:
         """
-        Complete lifecycle cleanup; each read owns its resources.
+        Finish the driver lifecycle hook without changing cached state or closing readers.
+
+        Each open reader owns its containing archive and must be closed by its caller.
 
         Example:
             >>> driver.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None; this hook performs no cleanup work.
         """
 
         return None
@@ -414,15 +455,18 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
         identifier: DriverObjectAddressInput[RarObjectAddress],
     ) -> RarObjectAddress:
         """
-        Validate one canonical member path in this RAR address space.
+        Check typed ownership or validate relative RAR member text under depth and byte limits.
+
+        Canonical parsing uses UTF-8 surrogateescape for the entire key. Existing typed addresses
+        are checked without reparsing. No member existence or external URI decoding is performed.
 
         Example:
-            >>> str(driver.parse_object_address("books/novel.epub"))  # doctest: +SKIP
-            'books/novel.epub'
+            >>> str(driver.parse_object_address("books/雪.epub"))  # doctest: +SKIP
+            'books/雪.epub'
 
 
-        :param identifier:
-        :return:
+        :param identifier: Owned RAR address or relative member-key text.
+        :return: Owned RarObjectAddress retaining validated key spelling.
         """
 
         if isinstance(identifier, DriverObjectAddress):
@@ -437,15 +481,18 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
 
     def join_object_address(self, *tokens: str) -> RarObjectAddress:
         """
-        Join RAR path components without weakening canonical validation.
+        Join one or more stringified key fragments with slashes, then parse the result.
+
+        Fragments are not trimmed or normalized before validation; empty fragments can therefore
+        produce an invalid key.
 
         Example:
-            >>> str(driver.join_object_address("books", "novel.epub"))  # doctest: +SKIP
+            >>> driver.join_object_address("books", "novel.epub").value  # doctest: +SKIP
             'books/novel.epub'
 
 
-        :param tokens:
-        :return:
+        :param tokens: One or more member-key fragments, in path order.
+        :return: Owned RAR address; an empty argument list or invalid combined key raises StorageInvalidAddress.
         """
 
         if not tokens:
@@ -457,15 +504,14 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
         object_address: RarObjectAddress,
     ) -> DriverObjectInfo[RarObjectAddress]:
         """
-        Return indexed member size, timestamp, version, and hints.
+        Look up an owned member in a current index snapshot without reading its body.
 
         Example:
-            >>> driver.stat(address).size  # doctest: +SKIP
-            42
+            >>> info = driver.stat(driver.parse_object_address("book.epub"))  # doctest: +SKIP
 
 
-        :param object_address:
-        :return:
+        :param object_address: Owned RarObjectAddress selecting a regular member.
+        :return: Indexed size/time, archive-wide version, and hints; a missing key raises StorageNotFound.
         """
 
         checked = self.check_object_address(object_address)
@@ -484,19 +530,24 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
         if_version: str | None = None,
     ) -> BinaryIO:
         """
-        Verify and open an exact range tied to the containing RAR version.
+        Verify and spool a complete member, then expose its requested byte range.
+
+        Ownership, nonnegative range, indexed existence, and optional archive version are checked
+        first. Zero-length/past-EOF reads return an empty stream without spooling. Other reads
+        compare archive signatures before and after materialization. A failure in the second
+        comparison or reader construction has no explicit staged-file cleanup guard here.
+        Successfully returned readers own their temporary spool.
 
         Example:
-            >>> with driver.open_read(address, offset=2, length=4) as source:  # doctest: +SKIP
-            ...     source.read()
-            b'book'
+            >>> with driver.open_read(address, offset=2, length=4, if_version=version) as source:  # doctest: +SKIP
+            ...     payload = source.read()
 
 
-        :param object_address:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param object_address: Owned regular-member address.
+        :param offset: Nonnegative offset within the verified member; offsets at/beyond indexed size return empty bytes.
+        :param length: Nonnegative maximum exposed bytes, clipped to the remainder, or None for all remaining bytes.
+        :param if_version: Required whole-archive version, or None to omit the initial version condition.
+        :return: Caller-owned buffered range reader or empty BytesIO; nonempty ranges incur complete-member materialization.
         """
 
         checked = self.check_object_address(object_address)
@@ -532,14 +583,17 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
         prefix: RarObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[RarObjectAddress]]:
         """
-        Yield the complete regular-file RAR inventory under an optional prefix.
+        Yield sorted regular-member observations from one index/signature snapshot.
+
+        A prefix includes its exact key and descendants separated by slash, rather than arbitrary
+        lexical matches. No member body is read or hashed during enumeration.
 
         Example:
-            >>> list(driver.iter_inventory())  # doctest: +SKIP
+            >>> keys = [str(item.object_address) for item in driver.iter_inventory()]  # doctest: +SKIP
 
 
-        :param prefix:
-        :return:
+        :param prefix: Owned RAR address restricting the exact key and its descendants, or None for the entire index.
+        :return: Iterator of size/time/version observations and hints for the selected regular members.
         """
 
         prefix_key = None if prefix is None else str(self.check_object_address(prefix))
@@ -563,16 +617,19 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
         signature: ArchiveSignature,
     ) -> DriverObjectInfo[RarObjectAddress]:
         """
-        Project one indexed RAR member into driver metadata.
+        Project one indexed member into public driver information.
+
+        Filename and MIME hints derive from the key. The RAR format and member metadata are
+        observations; no body read or fresh filesystem check occurs.
 
         Example:
             >>> info = driver._info(address, entry, signature)  # doctest: +SKIP
 
 
-        :param address:
-        :param entry:
-        :param signature:
-        :return:
+        :param address: Member address to attach to the information record.
+        :param entry: Indexed size/time and metadata for that member.
+        :param signature: Whole-container metadata signature used to render the version.
+        :return: DriverObjectInfo containing the supplied address and indexed facts.
         """
 
         return DriverObjectInfo(
@@ -589,14 +646,18 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
 
     def _get_index(self, *, force: bool = False) -> dict[str, ArchiveEntry]:
         """
-        Return a current index, rebuilding it when the RAR identity changes.
+        Return a shallow cached index copy, rebuilding when forced or filesystem metadata changes.
+
+        The instance lock covers cache access and parsing. A before/after signature mismatch rejects
+        the new index. Index, inspection, compressed count, and signature are replaced only after a
+        successful build; metadata equality is not a content hash or a pinned descriptor.
 
         Example:
-            >>> driver._get_index()  # doctest: +SKIP
+            >>> index = driver._get_index(force=True)  # doctest: +SKIP
 
 
-        :param force:
-        :return:
+        :param force: Whether to rebuild even when current filesystem metadata matches the cached signature.
+        :return: New dictionary of regular-member keys to retained ArchiveEntry records.
         """
 
         with self._index_lock:
@@ -639,13 +700,20 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
         self,
     ) -> tuple[dict[str, ArchiveEntry], ArchiveInspection, int]:
         """
-        Parse a bounded RAR 3/4/5 regular-file projection and count compression.
+        Parse the regular-member projection and enforce topology, size, and expansion policies.
+
+        Require exactly one reported volume. The parser inventory exists before the entry cap is
+        applied. Canonical keys/topology precede directory omission; later regular-member checks
+        reject links, redirections, unsupported Unix kinds, and password requirements. Bound member
+        packed-size ratios, total bytes, and total-to-container ratio. Compression method and
+        available CRC/BLAKE2sp headers become metadata, without payload verification here. Parser
+        selection occurs before the main translation guard.
 
         Example:
             >>> index, inspection, compressed = driver._build_index()  # doctest: +SKIP
 
 
-        :return:
+        :return: Regular-member map, projection inspection, and count whose compression method differs from stored.
         """
 
         rarfile = _rarfile_module(self._archive_path)
@@ -843,7 +911,23 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
         file_keys: set[str],
         implicit_directory_keys: set[str],
     ) -> None:
-        """Reject duplicate names and file/directory overwrite aliases."""
+        """
+        Reject duplicate names and file/ancestor aliases before updating topology state.
+
+        The caller supplies a canonical key. File keys cannot serve as parents or replace
+        directories required by previously seen descendants.
+
+        Example:
+            >>> driver._record_member_topology("books/a", is_directory=False, seen_keys={}, file_keys=set(), implicit_directory_keys=set())  # doctest: +SKIP
+
+
+        :param key: Canonical key without a directory trailing slash.
+        :param is_directory: Whether this entry is an explicit directory.
+        :param seen_keys: Mutable key-to-kind map for previously inspected entries.
+        :param file_keys: Mutable set of previously seen file keys.
+        :param implicit_directory_keys: Mutable set of ancestors required by prior members.
+        :return: None after recording the member and ancestors; conflicts raise StorageIntegrityError.
+        """
 
         kind = "directory" if is_directory else "file"
         previous_kind = seen_keys.get(key)
@@ -881,13 +965,18 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
 
     def _open_rar_index(self, rarfile: ModuleType | None = None):
         """
-        Open the selected RAR parser while safely scoping its tool setting.
+        Construct a parser archive while temporarily setting its global extractor option.
+
+        The module lock covers UNRAR_TOOL lookup, optional assignment, parser construction, and
+        restoration. The setting is restored before the returned archive is used; this is not a lock
+        around later member reads or unrelated parser consumers.
 
         Example:
             >>> archive = driver._open_rar_index()  # doctest: +SKIP
 
 
-        :return:
+        :param rarfile: Selected parser module, or None to inspect the archive and select one now.
+        :return: Open parser archive constructed with crc_check=True, owned by the caller.
         """
 
         rarfile = rarfile or _rarfile_module(self._archive_path)
@@ -907,15 +996,21 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
         entry: ArchiveEntry,
     ) -> BinaryIO:
         """
-        Spool one complete member and verify its declared size and CRC-32.
+        Spool an entire member, check its size and available checksum evidence, then rewind.
+
+        Stored bytes use the parser and exact-copy helper; compressed bytes use the external
+        extractor. The spool is reread for CRC-32 and optional BLAKE2sp. CRC is compared only when
+        present; declared BLAKE2sp requires implementation support and matching bytes.
+        Storage/OS/ordinary failures attempt spool closure, with selected errors translated.
+        BaseException and close failures can escape outside that cleanup guarantee.
 
         Example:
             >>> staged = driver._materialize_member(key, entry)  # doctest: +SKIP
 
 
-        :param key:
-        :param entry:
-        :return:
+        :param key: Canonical member key passed to the parser or extractor.
+        :param entry: Indexed declared size and native checksum/compression metadata.
+        :return: Rewound temporary binary file containing verified bytes, owned by the caller.
         """
 
         try:
@@ -1010,15 +1105,23 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
         expected_size: int,
     ) -> None:
         """
-        Stream one compressed member from a bounded external extractor.
+        Run non-interactive unrar/rar output for one member into a caller-owned spool.
+
+        Daemon threads drain stdout and stderr. The stdout offered-byte count may not exceed
+        expected_size; destination write counts are not checked here. Retain only the first 64 KiB
+        of diagnostics while draining the rest. Process wait uses the configured timeout, with
+        unbounded waits after kill and two-second joins per pipe. Pipe failures, nonzero exits, and
+        unfinished drainers are reported; finally cleanup can itself fail. Exact final size and
+        checksums belong to materialization.
 
         Example:
-            >>> driver._extract_compressed_member(key, destination)  # doctest: +SKIP
+            >>> driver._extract_compressed_member(key, destination, expected_size=entry.size)  # doctest: +SKIP
 
 
-        :param key:
-        :param destination:
-        :return:
+        :param key: Member name supplied as a separate extractor argument after the archive path.
+        :param destination: Caller-owned writable binary spool receiving stdout chunks.
+        :param expected_size: Maximum offered stdout bytes, normally the indexed member size.
+        :return: None after zero process exit and completed drain threads without recorded failure; no exact-size check occurs here.
         """
 
         executable = self.extractor_executable
@@ -1069,6 +1172,19 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
             process_stderr = process.stderr
 
             def copy_stdout() -> None:
+                """
+                Drain member stdout in 1 MiB requests and enforce the indexed offered-byte cap.
+
+                Chunk lengths, not destination accepted counts, update the closure counter. A size
+                excess records an integrity failure and kills the process. Other BaseExceptions are
+                recorded and also trigger kill; a failing kill can escape the thread.
+
+                Example:
+                    >>> copy_stdout()  # doctest: +SKIP
+
+
+                :return: None at EOF or after handling an oversized/failed copy path; shared failures and byte count record the outcome.
+                """
                 nonlocal extracted_bytes
                 try:
                     while chunk := process_stdout.read(1024 * 1024):
@@ -1091,6 +1207,18 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
                     process.kill()
 
             def copy_stderr() -> None:
+                """
+                Drain all diagnostic output while retaining its first 64 KiB in the shared buffer.
+
+                A read/buffer BaseException is recorded and triggers process kill; retention bounds
+                memory, not total output or elapsed time.
+
+                Example:
+                    >>> copy_stderr()  # doctest: +SKIP
+
+
+                :return: None when stderr reaches EOF or the handled failure path completes.
+                """
                 try:
                     while chunk := process_stderr.read(64 * 1024):
                         remaining = DEFAULT_MAX_RAR_STDERR_BYTES - len(stderr_buffer)
@@ -1161,13 +1289,14 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
         self,
     ) -> tuple[dict[str, ArchiveEntry], ArchiveSignature, ArchiveInspection]:
         """
-        Capture an index, archive identity, and projection inspection together.
+        Obtain a current index copy and its matching cached signature and inspection under the index
+        lock.
 
         Example:
             >>> index, signature, inspection = driver._index_snapshot()  # doctest: +SKIP
 
 
-        :return:
+        :return: Tuple of shallow index copy, non-None archive signature, and retained inspection record.
         """
 
         with self._index_lock:
@@ -1182,15 +1311,19 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
         if_version: str | None,
     ) -> None:
         """
-        Reject a RAR replacement before exposing staged member bytes.
+        Stat the archive and require the supplied filesystem signature to still match.
+
+        A mismatch is a precondition failure when if_version is present, otherwise unavailability.
+        The version text itself is not compared here, and matching stat fields do not prove
+        identical content.
 
         Example:
-            >>> driver._require_current_signature(signature, if_version=None)  # doctest: +SKIP
+            >>> driver._require_current_signature(signature, if_version=version)  # doctest: +SKIP
 
 
-        :param signature:
-        :param if_version:
-        :return:
+        :param signature: Expected archive filesystem identity/change tuple.
+        :param if_version: Optional condition whose presence selects mismatch classification.
+        :return: None for matching metadata; stat OSErrors are translated.
         """
 
         try:
@@ -1217,16 +1350,21 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
         key: str | None,
     ) -> BaseException:
         """
-        Classify embedded-parser and extractor failures as storage errors.
+        Construct a storage exception by matching available parser exception classes.
+
+        Recognized structure/name/CRC errors become integrity failures. Password, crypto,
+        first-volume, execution, and otherwise unrecognized failures become unsupported-operation
+        errors. Selecting the current parser performs fresh archive inspection and can itself raise
+        before classification.
 
         Example:
-            >>> translated = driver._translate_rar_error(rarfile.BadRarFile(), operation="read", key=None)  # doctest: +SKIP
+            >>> translated = driver._translate_rar_error(_legacy_rarfile.BadRarFile("bad"), operation="read", key=None)  # doctest: +SKIP
 
 
-        :param error:
-        :param operation:
-        :param key:
-        :return:
+        :param error: Parser/extractor-related exception to classify; OS translation is handled by callers.
+        :param operation: Action label for diagnostics.
+        :param key: Member suffix for the archive target, or None for the container alone.
+        :return: Translated exception instance, without raising it here.
         """
 
         rarfile = _rarfile_module(self._archive_path)
@@ -1262,17 +1400,18 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
 
     def _failure(self, operation: str, key: str | None, reason: str) -> str:
         """
-        Build one safe RAR operation failure message.
+        Format a backend operation failure with the container or container/member target.
+
+        The shared formatter supplies its selective sensitive-text filtering.
 
         Example:
-            >>> "RAR" in driver._failure("read", "book", "bad")  # doctest: +SKIP
-            True
+            >>> message = driver._failure("read", "book.epub", "member is missing")  # doctest: +SKIP
 
 
-        :param operation:
-        :param key:
-        :param reason:
-        :return:
+        :param operation: Action that failed.
+        :param key: Member key for an archive::member target, or None for the archive alone.
+        :param reason: Human-readable cause passed to the shared formatter.
+        :return: Formatted diagnostic text.
         """
 
         target = self._archive_path if key is None else f"{self._archive_path}::{key}"
@@ -1285,7 +1424,20 @@ class RarStorageDriver(StorageDriverAPI[RarObjectAddress]):
 
 
 def _rarfile_module(target: pathlib.Path) -> ModuleType:
-    """Select the maintained parser, requiring it only for RAR 5."""
+    """
+    Prefer the installed rarfile module and require its RAR5 support for RAR5 magic.
+
+    Read the initial signature on every selection. ImportError falls back to the embedded parser
+    only for other signatures. RAR5 requires a RAR5Parser attribute; this is not a complete
+    interface or archive-validity check. File inspection OSErrors are translated.
+
+    Example:
+        >>> module = _rarfile_module(path)  # doctest: +SKIP
+
+
+    :param target: Local archive whose initial bytes determine whether modern RAR5 support is required.
+    :return: Installed rarfile module or the embedded non-RAR5 fallback.
+    """
 
     try:
         with target.open("rb") as source:
@@ -1326,7 +1478,21 @@ def _rarfile_module(target: pathlib.Path) -> ModuleType:
 
 
 def _rar_named_error_types(rarfile: ModuleType, *names: str) -> tuple[type, ...]:
-    """Return exception classes present in either supported parser module."""
+    """
+    Collect named attributes that are exception classes in supplied order.
+
+    Missing values and non-exception classes are ignored; duplicate names can yield duplicate
+    classes.
+
+    Example:
+        >>> _rar_named_error_types(_legacy_rarfile, "Error") == (_legacy_rarfile.Error,)
+        True
+
+
+    :param rarfile: Parser module whose named attributes are inspected.
+    :param names: Exception attribute names to consider in order.
+    :return: Tuple of present BaseException subclasses, possibly empty.
+    """
 
     return tuple(
         value
@@ -1337,20 +1503,56 @@ def _rar_named_error_types(rarfile: ModuleType, *names: str) -> tuple[type, ...]
 
 
 def _rar_error_types(rarfile: ModuleType) -> tuple[type, ...]:
-    """Return the selected parser's common base exception type."""
+    """
+    Look up the selected parser's common Error exception class through the shared filter.
+
+    Example:
+        >>> _rar_error_types(_legacy_rarfile) == (_legacy_rarfile.Error,)
+        True
+
+
+    :param rarfile: Parser module to inspect for its Error attribute.
+    :return: Tuple containing Error when it is an exception class, otherwise empty.
+    """
 
     return _rar_named_error_types(rarfile, "Error")
 
 
 def _rar_info_is_directory(info: object) -> bool:
-    """Accept the modern and legacy rarfile directory predicates."""
+    """
+    Call a supported modern or legacy directory predicate when callable.
+
+    The first truthy is_dir/isdir attribute wins; a truthy non-callable modern attribute therefore
+    prevents legacy fallback. Predicate and attribute failures propagate.
+
+    Example:
+        >>> _rar_info_is_directory(object())
+        False
+
+
+    :param info: Native parser member record to inspect.
+    :return: Boolean predicate result, or False when the selected attribute is not callable.
+    """
 
     predicate = getattr(info, "is_dir", None) or getattr(info, "isdir", None)
     return bool(predicate()) if callable(predicate) else False
 
 
 def _rar_info_is_symlink(info: object) -> bool:
-    """Recognize RAR 5 redirections and Unix-mode RAR 3 symbolic links."""
+    """
+    Call the member's is_symlink predicate when available and callable.
+
+    This helper does not inspect Unix mode or redirection fields; the indexer applies those separate
+    checks.
+
+    Example:
+        >>> _rar_info_is_symlink(object())
+        False
+
+
+    :param info: Native parser member record to inspect.
+    :return: Boolean predicate result, otherwise False.
+    """
 
     predicate = getattr(info, "is_symlink", None)
     return bool(predicate()) if callable(predicate) else False
@@ -1358,15 +1560,20 @@ def _rar_info_is_symlink(info: object) -> bool:
 
 def _rar_datetime(value: object) -> datetime | None:
     """
-    Convert embedded RAR timestamp forms into aware UTC datetimes.
+    Interpret supported native timestamps, retaining aware datetimes unchanged.
+
+    Naive datetimes acquire UTC without conversion. Tuples of at least six values use integer date
+    fields and fractional seconds truncated into microseconds, ignoring later values. Tuple
+    TypeError/ValueError becomes None, while overflow can propagate. Other input shapes return None;
+    aware non-UTC values retain their zone.
 
     Example:
         >>> _rar_datetime((2020, 1, 2, 3, 4, 5))
         datetime.datetime(2020, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc)
 
 
-    :param value:
-    :return:
+    :param value: Datetime or tuple of native year/month/day/hour/minute/seconds fields.
+    :return: Retained or constructed aware datetime, or None for unsupported/handled-invalid input.
     """
 
     if isinstance(value, datetime):
@@ -1400,7 +1607,12 @@ def _copy_rar_payload(
     target: str,
 ) -> None:
     """
-    Copy exactly one declared stored RAR payload into its verification spool.
+    Copy a stored member's declared bytes with full-write checks and a trailing EOF probe.
+
+    Requests are at most 1 MiB, while oversized responses are compared with the whole remaining
+    count. Empty/non-byte premature output and partial accepted writes raise integrity errors. The
+    final read accepts empty bytes or None; unhashable malformed output can raise TypeError. Input
+    bounds and underlying I/O errors are not validated/translated here.
 
     Example:
         >>> destination = io.BytesIO()
@@ -1409,12 +1621,12 @@ def _copy_rar_payload(
         b'book'
 
 
-    :param source:
-    :param destination:
-    :param expected_size:
-    :param backend:
-    :param target:
-    :return:
+    :param source: Caller-owned stored-member reader at its first payload byte.
+    :param destination: Caller-owned verification spool whose writes must report complete chunk lengths.
+    :param expected_size: Declared bytes to copy before probing EOF.
+    :param backend: Backend label for integrity diagnostics.
+    :param target: Archive/member target for integrity diagnostics.
+    :return: None after complete copying and the trailing EOF indication.
     """
 
     remaining = expected_size

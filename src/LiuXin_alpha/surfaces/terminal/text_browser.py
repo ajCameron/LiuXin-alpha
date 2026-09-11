@@ -1,7 +1,11 @@
-"""Historical terminal imports backed by explicit implementation owners.
+"""
+Preserve historical terminal imports as aliases of explicit implementation owners.
 
 Application startup lives in app; browser execution and the curses adapter
-never import this facade. Replace dependencies in their consuming owners.
+never import this facade. Public browser/wizard/application objects and the
+listed private presentation aliases retain their original object identities.
+Replacing a facade alias does not replace an owner's already-imported dependency;
+tests and integrations should patch the actual consuming owner when needed.
 """
 
 import LiuXin_alpha.surfaces.terminal.presentation as _presentation

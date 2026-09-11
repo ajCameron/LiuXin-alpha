@@ -1,5 +1,8 @@
 """
-Short-lived operational facade for an opaque storage Location.
+Bind a passive Location to a live router through a narrow structural contract.
+
+Handles retain references and delegate each operation; they do not own routing
+resources, cache metadata, interpret paths, or add publication guarantees.
 """
 
 from __future__ import annotations
@@ -19,49 +22,51 @@ from LiuXin_alpha.storage.api.models import (
 
 class _StorageRouterLike(Protocol):
     """
-    Operations used by ``BoundLocation`` without importing the facade.
+    Describe only the manager operations needed by BoundLocation. This structural typing seam avoids
+    importing the full manager facade. It supplies signatures rather than routing, validation, or
+    runtime protocol checks.
 
     Example:
-        >>> def accepts_router(router: _StorageRouterLike) -> None:
-        ...     pass
+        >>> router: _StorageRouterLike = manager  # doctest: +SKIP
     """
 
     def stat(self, location: Location) -> FileInfo:
         """
-        Describe one Location.
+        Report current metadata for an addressed object, preserving access errors.
 
         Example:
             >>> info = router.stat(location)  # doctest: +SKIP
 
 
-        :param location:
-        :return:
+        :param location: Opaque address whose Store UUID selects the route and whose key is interpreted by that Store.
+        :return: Current FileInfo supplied by the routed implementation.
         """
         ...
 
     def try_stat(self, location: Location) -> FileInfo | None:
         """
-        Describe one Location or return ``None`` for absence.
+        Return current metadata or None for concrete object absence. Other route, availability,
+        permission, and validation failures remain errors under this contract.
 
         Example:
             >>> info = router.try_stat(location)  # doctest: +SKIP
 
 
-        :param location:
-        :return:
+        :param location: Opaque address whose Store UUID selects the route and whose key is interpreted by that Store.
+        :return: Current FileInfo, or None only when the addressed object is absent.
         """
         ...
 
     def exists(self, location: Location) -> bool:
         """
-        Test concrete existence without suppressing other failures.
+        Test concrete object existence without concealing other access failures.
 
         Example:
             >>> present = router.exists(location)  # doctest: +SKIP
 
 
-        :param location:
-        :return:
+        :param location: Opaque address whose Store UUID selects the route and whose key is interpreted by that Store.
+        :return: True for an existing addressed object and False for concrete absence.
         """
         ...
 
@@ -74,17 +79,18 @@ class _StorageRouterLike(Protocol):
         if_version: str | None = None,
     ) -> BinaryIO:
         """
-        Open a routed binary stream.
+        Open a current routed binary reader, optionally guarded by a version. The caller owns the
+        returned stream; the implementation supplies range and precondition checks.
 
         Example:
-            >>> source = router.get(location)  # doctest: +SKIP
+            >>> reader = router.get(location, offset=10, length=20)  # doctest: +SKIP
 
 
-        :param location:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param location: Opaque address whose Store UUID selects the route and whose key is interpreted by that Store.
+        :param offset: Requested starting byte offset, normally nonnegative; the routed implementation validates the range.
+        :param length: Optional requested byte count; None reads to the end of the selected object.
+        :param if_version: Optional opaque version precondition; None requests an unconditional read.
+        :return: Caller-owned binary reader for the selected object or range.
         """
         ...
 
@@ -97,17 +103,18 @@ class _StorageRouterLike(Protocol):
         if_version: str | None = None,
     ) -> bytes:
         """
-        Read a routed object into memory.
+        Materialize a routed object or range into memory. The implementation owns its temporary
+        reader and preserves routing/read failures.
 
         Example:
-            >>> payload = router.read_bytes(location)  # doctest: +SKIP
+            >>> payload = router.read_bytes(location, length=4)  # doctest: +SKIP
 
 
-        :param location:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param location: Opaque address whose Store UUID selects the route and whose key is interpreted by that Store.
+        :param offset: Requested starting byte offset, normally nonnegative; the routed implementation validates the range.
+        :param length: Optional requested byte count; None reads to the end of the selected object.
+        :param if_version: Optional opaque version precondition; None requests an unconditional read.
+        :return: Bytes read from the selected object or range.
         """
         ...
 
@@ -121,18 +128,20 @@ class _StorageRouterLike(Protocol):
         expected_digest: Digest | None = None,
     ) -> FileInfo:
         """
-        Publish a streamed write.
+        Publish a streamed payload under the selected collision and validation requirements.
+        Destination behavior owns staging and integrity checks; this protocol supplies no
+        implementation.
 
         Example:
-            >>> info = router.put(location, source)  # doctest: +SKIP
+            >>> info = router.put(location, source, expected_size=4)  # doctest: +SKIP
 
 
-        :param location:
-        :param source:
-        :param mode:
-        :param expected_size:
-        :param expected_digest:
-        :return:
+        :param location: Opaque address whose Store UUID selects the route and whose key is interpreted by that Store.
+        :param source: Borrowed binary input read from its current position; the caller retains ownership.
+        :param mode: Destination collision policy, defaulting to CREATE_ONLY.
+        :param expected_size: Optional exact expected logical byte count for publication validation.
+        :param expected_digest: Optional expected digest for publication validation by the destination.
+        :return: FileInfo for the successfully published destination.
         """
         ...
 
@@ -145,17 +154,18 @@ class _StorageRouterLike(Protocol):
         expected_digest: Digest | None = None,
     ) -> FileInfo:
         """
-        Publish an in-memory payload.
+        Publish a complete in-memory payload with an exact size expectation. The routed
+        implementation owns publication and digest checks.
 
         Example:
             >>> info = router.write_bytes(location, b"book")  # doctest: +SKIP
 
 
-        :param location:
-        :param data:
-        :param mode:
-        :param expected_digest:
-        :return:
+        :param location: Opaque address whose Store UUID selects the route and whose key is interpreted by that Store.
+        :param data: Complete in-memory byte payload to publish.
+        :param mode: Destination collision policy, defaulting to CREATE_ONLY.
+        :param expected_digest: Optional expected digest for publication validation by the destination.
+        :return: FileInfo for the successfully published destination.
         """
         ...
 
@@ -167,16 +177,17 @@ class _StorageRouterLike(Protocol):
         if_version: str | None = None,
     ) -> None:
         """
-        Delete one routed object.
+        Delete a routed object with explicit absence and version policy. The implementation must
+        preserve unsupported-protection and precondition failures.
 
         Example:
-            >>> router.delete(location)  # doctest: +SKIP
+            >>> router.delete(location, if_version="v3")  # doctest: +SKIP
 
 
-        :param location:
-        :param missing_ok:
-        :param if_version:
-        :return:
+        :param location: Opaque address whose Store UUID selects the route and whose key is interpreted by that Store.
+        :param missing_ok: Whether absence at the addressed Store is permitted as a successful no-op.
+        :param if_version: Optional opaque version required to match before deletion.
+        :return: None after successful deletion or allowed absence.
         """
         ...
 
@@ -184,22 +195,22 @@ class _StorageRouterLike(Protocol):
 @dataclass(slots=True, frozen=True, eq=False)
 class BoundLocation:
     """
-    Short-lived operational handle pairing a manager with a Location.
+    Pair a live router with an opaque Location for short-lived operational use. Frozen fields retain
+    both references without validating their types; eq=False preserves object-identity equality
+    rather than comparing addresses. The manager is omitted from the generated representation.
 
-    The durable identity remains the immutable ``location`` value.  This facade
-    contains no cached size, digest, version, status, connection, or path state;
-    every operation delegates to the manager so current routing, policy, typed
-    errors, and transactional semantics remain authoritative.
-
-    ``BoundLocation`` is intentionally not path-like.  In particular, it does
-    not join or parse keys, expose parents, or implement ``os.PathLike``.
+    The handle stores no size, digest, version, connection, or routing snapshot. Operations delegate
+    to the current manager, including its errors and any partial effects. The handle neither
+    implements filesystem path navigation nor owns the manager lifetime.
 
     Example:
-        >>> from uuid import UUID
-        >>> location = Location(UUID(int=1), "objects/42")
         >>> bound = manager.bind(location)  # doctest: +SKIP
-        >>> bound.location == location  # doctest: +SKIP
+        >>> bound.location is location  # doctest: +SKIP
         True
+
+
+    :ivar _manager: Live router reference used by every operation; not closed by this handle.
+    :ivar location: Retained passive address, exposed unchanged to callers.
     """
 
     _manager: _StorageRouterLike = field(repr=False)
@@ -208,14 +219,14 @@ class BoundLocation:
     @property
     def store_ref(self) -> StoreUUID:
         """
-        Return the configured Store UUID from the durable Location.
+        Read the Store UUID from the retained Location without routing or probing it.
 
         Example:
-            >>> bound.store_ref  # doctest: +SKIP
-            UUID('00000000-0000-0000-0000-000000000001')
+            >>> bound.store_ref == bound.location.store_ref  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: Configured Store UUID from location.store_ref.
         """
 
         return self.location.store_ref
@@ -223,57 +234,56 @@ class BoundLocation:
     @property
     def key(self) -> str:
         """
-        Return the opaque backend key without interpreting it.
+        Read the retained opaque key without parsing, joining, or normalizing it.
 
         Example:
-            >>> bound.key  # doctest: +SKIP
-            'objects/42'
+            >>> bound.key == bound.location.key  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: Key value from location.key, unchanged.
         """
 
         return self.location.key
 
     def stat(self) -> FileInfo:
         """
-        Fetch fresh information through the bound manager.
-
-        No result is cached on the handle.
+        Delegate a fresh metadata request for this Location. The handle caches no result and does
+        not translate manager errors.
 
         Example:
             >>> info = bound.stat()  # doctest: +SKIP
 
 
-        :return:
+        :return: Current FileInfo returned by the manager.
         """
 
         return self._manager.stat(self.location)
 
     def try_stat(self) -> FileInfo | None:
         """
-        Return fresh information or ``None`` only for genuine absence.
-
-        Availability, permission, and connection errors remain visible.
+        Delegate optional metadata lookup for this Location. The manager owns absence handling; this
+        wrapper adds no exception suppression or cache.
 
         Example:
             >>> info = bound.try_stat()  # doctest: +SKIP
 
 
-        :return:
+        :return: Manager-provided FileInfo or None for reported concrete absence.
         """
 
         return self._manager.try_stat(self.location)
 
     def exists(self) -> bool:
         """
-        Test current existence without concealing non-absence failures.
+        Delegate an existence check for this Location without retaining the result. Non-absence
+        errors remain governed by the manager contract.
 
         Example:
             >>> present = bound.exists()  # doctest: +SKIP
 
 
-        :return:
+        :return: Boolean existence result returned by the manager.
         """
 
         return self._manager.exists(self.location)
@@ -286,17 +296,20 @@ class BoundLocation:
         if_version: str | None = None,
     ) -> BinaryIO:
         """
-        Open a current binary read stream, optionally range-limited.
+        Return the manager reader for this Location with the requested range/version. A None version
+        omits the if_version keyword entirely, allowing ordinary reads through older router
+        signatures. No capability or range check occurs in this wrapper, and the caller must close
+        the returned reader.
 
         Example:
-            >>> with bound.open_read(offset=10, length=20) as source:  # doctest: +SKIP
-            ...     header = source.read()
+            >>> with bound.open_read(offset=10, length=20) as reader:  # doctest: +SKIP
+            ...     header = reader.read()
 
 
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param offset: Requested starting byte offset, normally nonnegative; the routed implementation validates the range.
+        :param length: Optional requested byte count; None reads to the end of the selected object.
+        :param if_version: Optional opaque version precondition; None requests an unconditional read.
+        :return: Caller-owned binary reader returned by manager.get.
         """
 
         if if_version is None:
@@ -318,16 +331,18 @@ class BoundLocation:
         if_version: str | None = None,
     ) -> bytes:
         """
-        Read the current object or range fully into memory.
+        Delegate complete materialization of the selected object or range. A None version omits the
+        if_version keyword. The manager owns any reader lifetime and allocation; this wrapper adds
+        no byte limit or cache.
 
         Example:
             >>> payload = bound.read_bytes(length=4)  # doctest: +SKIP
 
 
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param offset: Requested starting byte offset, normally nonnegative; the routed implementation validates the range.
+        :param length: Optional requested byte count; None reads to the end of the selected object.
+        :param if_version: Optional opaque version precondition; None requests an unconditional read.
+        :return: Bytes returned by the manager for the selected range.
         """
 
         if if_version is None:
@@ -350,22 +365,19 @@ class BoundLocation:
         expected_digest: Digest | None = None,
     ) -> FileInfo:
         """
-        Publish a streamed write through the manager's transactional route.
-
-        ``CREATE_ONLY`` remains the safe default; replacement must be explicit.
+        Forward a borrowed stream and publication requirements to the current manager. The wrapper
+        adds no staging, size/digest checks, or cleanup of the caller stream. Errors and any
+        publication already performed remain visible through the manager behavior.
 
         Example:
-            >>> import io
-            >>> info = bound.put(  # doctest: +SKIP
-            ...     io.BytesIO(b"book"), expected_size=4,
-            ... )
+            >>> info = bound.put(source, expected_size=4)  # doctest: +SKIP
 
 
-        :param source:
-        :param mode:
-        :param expected_size:
-        :param expected_digest:
-        :return:
+        :param source: Borrowed binary input read from its current position; the caller retains ownership.
+        :param mode: Destination collision policy, defaulting to CREATE_ONLY.
+        :param expected_size: Optional exact expected logical byte count for publication validation.
+        :param expected_digest: Optional expected digest for publication validation by the destination.
+        :return: FileInfo returned after manager publication succeeds.
         """
 
         return self._manager.put(
@@ -384,16 +396,18 @@ class BoundLocation:
         expected_digest: Digest | None = None,
     ) -> FileInfo:
         """
-        Publish a small in-memory payload through the manager.
+        Forward an in-memory payload, collision policy, and optional digest requirement. The manager
+        constructs the write stream and exact-size expectation; the handle does not duplicate that
+        work.
 
         Example:
             >>> info = bound.write_bytes(b"book")  # doctest: +SKIP
 
 
-        :param data:
-        :param mode:
-        :param expected_digest:
-        :return:
+        :param data: Complete in-memory byte payload to publish.
+        :param mode: Destination collision policy, defaulting to CREATE_ONLY.
+        :param expected_digest: Optional expected digest for publication validation by the destination.
+        :return: FileInfo returned by the manager for the published destination.
         """
 
         return self._manager.write_bytes(
@@ -410,15 +424,16 @@ class BoundLocation:
         if_version: str | None = None,
     ) -> None:
         """
-        Delete through the manager with optional idempotence and protection.
+        Forward this Location and both deletion policies without interpreting the key. The manager
+        owns absence, conditional protection, and any backend errors.
 
         Example:
             >>> bound.delete(if_version="v3")  # doctest: +SKIP
 
 
-        :param missing_ok:
-        :param if_version:
-        :return:
+        :param missing_ok: Whether absence at the addressed Store is permitted as a successful no-op.
+        :param if_version: Optional opaque version required to match before deletion.
+        :return: None after the manager call succeeds.
         """
 
         self._manager.delete(

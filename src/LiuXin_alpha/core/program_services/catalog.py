@@ -1,4 +1,11 @@
-"""Core-owned catalog operations and wire translation."""
+"""
+Adapt Core field discovery, WEMI adjacency, identifiers, Agent links, and cross-table search to Catalog services.
+
+Repositories retain level validation and semantic mutation policy. Write receipts
+are projected and reconciled after repository calls without an adapter transaction.
+Global search is a full materialized scan with suppressed initial table-read errors,
+not a completeness-guaranteed indexed search or an authorization boundary.
+"""
 
 from __future__ import annotations
 
@@ -28,6 +35,22 @@ def catalog_fields_list(
     runtime: CoreRuntime,
     query: CoreQuery,
 ) -> dict[str, Any]:
+    """
+    Enumerate one field-metadata family and project each key's metadata in provider order.
+
+    Kind is stripped/lowercased, with falsey input selecting all. include_composites
+    is truth-tested but used only for custom fields. Keys are not deduplicated or
+    sorted by this adapter, and no per-key lookup failures are suppressed.
+
+    Example:
+        >>> fields = catalog_fields_list(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime exposing the shared field_metadata service.
+    :param query: Query with kind (all, sortable, displayable, standard, custom, searchable) and optional include_composites=True.
+    :return: Normalized kind, ordered key/projected-metadata records, and their count.
+    :raises CoreDispatchError: If the normalized kind is not supported.
+    """
     payload = _payload(query)
     metadata = runtime.services.field_metadata
     kind = str(payload.get("kind") or "all").strip().lower()
@@ -56,6 +79,17 @@ def catalog_fields_get(
     runtime: CoreRuntime,
     query: CoreQuery,
 ) -> dict[str, Any]:
+    """
+    Look up one required field key, distinguishing None from falsey-but-present metadata.
+
+    Example:
+        >>> field = catalog_fields_get(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime supplying field_metadata.get.
+    :param query: Query containing a required stripped key.
+    :return: Key, exists based solely on non-None metadata, and its plain projection.
+    """
     key = _required_text(_payload(query), "key")
     metadata = runtime.services.field_metadata
     value = metadata.get(key)
@@ -70,6 +104,23 @@ def catalog_hierarchy_list(
     runtime: CoreRuntime,
     query: CoreQuery,
 ) -> dict[str, Any]:
+    """
+    Retrieve parent or child WEMI adjacency and project the returned entities without paging.
+
+    Level and direction are lowercased; falsey direction selects children. Any
+    ValueError from the chosen operation is wrapped as unavailable adjacency,
+    including an internal ValueError unrelated to level selection. Other failures
+    propagate. Returned labels come from the adjacency object, not the raw request.
+
+    Example:
+        >>> adjacency = catalog_hierarchy_list(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime whose Catalog supplies hierarchy.parents and hierarchy.children.
+    :param query: Query with level, entity_id, and optional children/parents direction.
+    :return: Adjacency labels, related result_level, and projected entities in retriever order.
+    :raises CoreDispatchError: For invalid request fields/direction or a ValueError during adjacency retrieval.
+    """
     payload = _payload(query)
     level = _required_text(payload, "level").lower()
     entity_id = _required_int(payload, "entity_id")
@@ -99,6 +150,21 @@ def catalog_identifiers_list(
     runtime: CoreRuntime,
     query: CoreQuery,
 ) -> dict[str, Any]:
+    """
+    List identifiers for an Agent or WEMI entity through the corresponding repository capability.
+
+    Lowercased agent selects list_for_agent; every other level is passed to
+    list_for_wemi for repository validation. No adapter sorting, paging, or primary
+    selection is applied.
+
+    Example:
+        >>> identifiers = catalog_identifiers_list(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime exposing Catalog identifier repository capabilities.
+    :param query: Query containing level and required integer-convertible entity_id.
+    :return: Normalized requested level/ID, projected identifier list, and list count.
+    """
     payload = _payload(query)
     level = _required_text(payload, "level").lower()
     entity_id = _required_int(payload, "entity_id")
@@ -130,6 +196,20 @@ def catalog_identifiers_primary_values(
     runtime: CoreRuntime,
     query: CoreQuery,
 ) -> dict[str, Any]:
+    """
+    Retrieve repository-selected primary identifier values for one WEMI entity.
+
+    This path has no Agent-specific branch or capability wrapper. Identifier
+    values are shallow-copied with dict, not recursively plain-projected here.
+
+    Example:
+        >>> identifiers = catalog_identifiers_primary_values(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime whose identifier repository implements primary_values_for_wemi.
+    :param query: Query containing required level text and integer-convertible entity_id.
+    :return: Lowercased level/ID, identifier dictionary, and length of the original result.
+    """
     payload = _payload(query)
     level = _required_text(payload, "level").lower()
     entity_id = _required_int(payload, "entity_id")
@@ -149,6 +229,22 @@ def catalog_agents_list(
     runtime: CoreRuntime,
     query: CoreQuery,
 ) -> dict[str, Any]:
+    """
+    List WEMI-linked Agents and optionally retain only projected links matching a normalized role.
+
+    Filtering requires a non-None, nonblank stringified role; otherwise all projected
+    rows remain. Filtered entries must be Mappings with a Mapping _catalog_link
+    whose type exactly equals the normalized role code. Missing link metadata is
+    excluded, not inferred from Agent attributes. The response echoes raw role text.
+
+    Example:
+        >>> agents = catalog_agents_list(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime providing the Agents repository's list_for_wemi capability.
+    :param query: Query with level, entity_id, and optional role name/code.
+    :return: Normalized level/ID, original role text or None, filtered projected Agents, and count.
+    """
     payload = _payload(query)
     level = _required_text(payload, "level").lower()
     entity_id = _required_int(payload, "entity_id")
@@ -182,6 +278,24 @@ def catalog_agents_list(
 
 
 def search_global(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
+    """
+    Scan selected tables for a casefolded text substring, then page all accumulated matches.
+
+    A normalized nonempty tables list preserves requested order; otherwise all
+    advertised names are sorted. Initial get_all_rows errors skip that table, but
+    later iteration/projection errors propagate. Search uses flattened projected
+    values, not keys, and the entire text as one substring rather than split terms.
+    Zero limit still scans/counts. Limit defaults to 100 and is capped at 1000;
+    bounds are nonnegative, with explicit None reaching assertions.
+
+    Example:
+        >>> results = search_global(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime whose selected read_source enumerates tables and rows.
+    :param query: Query with required text and optional tables, offset, and limit.
+    :return: Text, successfully opened table names, page items, observed total, bounds, and has_more; no completeness guarantee for skipped tables.
+    """
     payload = _payload(query)
     text = _required_text(payload, "text")
     needle = text.casefold()
@@ -225,6 +339,22 @@ def catalog_identifiers_replace(
     runtime: CoreRuntime,
     command: CoreCommand,
 ) -> dict[str, Any]:
+    """
+    Replace WEMI identifiers using the repository's own input policy, then project and reconcile.
+
+    The identifiers key must exist, but its value is passed unchanged, including
+    None. updated=True records a returned repository call rather than a readback
+    comparison; projection/reconciliation can fail after the mutation.
+
+    Example:
+        >>> receipt = catalog_identifiers_replace(runtime, command)  # doctest: +SKIP
+
+
+    :param runtime: Runtime providing replace_for_wemi and read-side reconciliation.
+    :param command: Command with level, entity_id, and required identifiers value.
+    :return: Reconciled lowercased level/ID, projected repository result, and updated=True.
+    :raises CoreDispatchError: If the required payload/capability is unavailable.
+    """
     payload = _payload(command)
     level = _required_text(payload, "level").lower()
     entity_id = _required_int(payload, "entity_id")
@@ -254,6 +384,22 @@ def catalog_agent_link(
     runtime: CoreRuntime,
     command: CoreCommand,
 ) -> dict[str, Any]:
+    """
+    Link an Agent to a WEMI entity using normalized role and optional priority, then reconcile.
+
+    Falsey roles select author/aut; known role names map to relator codes. Priority
+    is omitted for missing/None values, otherwise uses required integer conversion
+    without a range check here. Repository policy owns level, role, and link validity.
+    linked=True follows returned delegation, before any independent link readback.
+
+    Example:
+        >>> receipt = catalog_agent_link(runtime, command)  # doctest: +SKIP
+
+
+    :param runtime: Runtime supplying Agents.link_to_wemi and service reconciliation.
+    :param command: Command with agent_id, level, entity_id, and optional role/priority.
+    :return: Reconciled Agent/entity IDs, normalized level, projected link result, and linked=True.
+    """
     payload = _payload(command)
     agent_id = _required_int(payload, "agent_id")
     level = _required_text(payload, "level").lower()

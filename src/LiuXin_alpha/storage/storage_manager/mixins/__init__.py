@@ -1,5 +1,11 @@
 """
-Composable implementation slices for the storage manager.
+Export the twelve responsibility-specific storage-manager implementation mixins.
+
+These classes mirror Store administration, routing, Asset/Replica workflows,
+Item and Composite links, provenance, policy, reconciliation, and operational
+contracts. They share an internal state base and are assembled by manager.py;
+individual mixins are not independent complete managers. Private request values,
+state, protocols, and support helpers remain outside this public export list.
 """
 
 from LiuXin_alpha.storage.storage_manager.mixins.catalog import (

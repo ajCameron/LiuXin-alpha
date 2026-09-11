@@ -1,12 +1,16 @@
 """
-Durable database repository used by the application storage manager.
+Persist manager metadata through portable database macros and typed envelopes.
 
-The public storage values deliberately remain independent of database rows.
-This adapter stores their useful scalar fields in the existing catalogue
-columns and a versioned, lossless envelope in each table's scratch column.
-The database is the source of truth whenever this repository is bound. Reads
-may be routed through LiuXin's shared cache facade, but this adapter does not
-retain a second manager-owned copy of the catalogue.
+Supported domain values are encoded in marked scratch columns, with selected
+scalar projections for queries and legacy compatibility. Reads prefer valid typed
+envelopes, can reconstruct selected legacy records, and optionally use LiuXin's
+shared cache. Mapping facades retain callbacks rather than a second catalogue.
+
+Transaction boundaries are explicit: most single-row methods rely on their
+caller, while Composite/link replacement and envelope migration open macro
+contexts. Invalidation and migration bookkeeping can fail after database writes.
+The journal records workflow evidence without verifying Store bytes, and the
+codec has documented marker/type limitations rather than arbitrary losslessness.
 """
 
 from __future__ import annotations
@@ -33,11 +37,23 @@ _FORMAT_VERSION = 1
 
 class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
     """
-    Mapping-shaped orchestration port over an authoritative repository.
+    Adapt repository callables to a mutable mapping without retaining records.
 
-    The mapping exists so the manager core can stay storage-neutral. It owns
-    no record dictionary: reads go to the repository (and therefore the shared
-    LiuXin cache when one is attached), while writes commit before returning.
+    Each lookup or collection operation calls its supplied provider afresh. A write invokes upsert,
+    and deletion first requires the value to exist. This facade adds no transaction, lock, commit,
+    revision check, or rollback: those guarantees belong to the bound callables and their enclosing
+    context. Its collection views belong to the mapping returned by load_all, not this facade.
+
+    Example:
+        >>> records = {}
+        >>> mapping = RepositoryRecordMapping(
+        ...     get_one=records.__getitem__, load_all=lambda: dict(records),
+        ...     upsert=lambda value: records.update({value[0]: value}),
+        ...     remove=records.__delitem__, key_of=lambda value: value[0],
+        ... )
+        >>> mapping[7] = (7, "book")
+        >>> mapping[7]
+        (7, 'book')
     """
 
     def __init__(
@@ -50,15 +66,19 @@ class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
         key_of: Callable[[_V], _K] | None = None,
     ) -> None:
         """
-        Bind mapping operations to authoritative repository callables.
+        Retain repository callbacks without calling or validating them. key_of optionally protects
+        assignment identity; it is not used for reads or deletions.
+
+        Example:
+            >>> mapping = RepositoryRecordMapping(get_one=get_one, load_all=load_all, upsert=save, remove=remove)  # doctest: +SKIP
 
 
-        :param get_one:
-        :param load_all:
-        :param upsert:
-        :param remove:
-        :param key_of:
-        :return:
+        :param get_one: Callable loading one key and raising KeyError when absent.
+        :param load_all: Callable returning the mapping used for each fresh collection view or size query.
+        :param upsert: Callable persisting the supplied value; the assignment key is not passed separately.
+        :param remove: Callable removing one key after a successful lookup.
+        :param key_of: Optional value-to-key extractor whose result must equal the assignment key.
+        :return: None after retaining the callbacks.
         """
 
         self._get_one = get_one
@@ -69,23 +89,32 @@ class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
 
     def __getitem__(self, key: _K) -> _V:
         """
-        Load one value directly from the repository.
+        Load one record through the bound provider. Propagate KeyError and all other provider
+        failures without substituting defaults or caching the result.
+
+        Example:
+            >>> value = mapping[key]  # doctest: +SKIP
 
 
-        :param key:
-        :return:
+        :param key: Repository key forwarded without coercion.
+        :return: The provider-supplied record value.
         """
 
         return self._get_one(key)
 
     def __setitem__(self, key: _K, value: _V) -> None:
         """
-        Validate identity, when configured, and persist ``value``.
+        Check key_of(value) against key when configured, then call upsert(value). A mismatch raises
+        ValueError before writing. Without key_of, the key is ignored by the write callback;
+        persistence and commit timing belong to the provider.
+
+        Example:
+            >>> mapping[key] = value  # doctest: +SKIP
 
 
-        :param key:
-        :param value:
-        :return:
+        :param key: Repository key forwarded without coercion.
+        :param value: Complete value passed to the upsert callback.
+        :return: None after the provider write returns; this wrapper does not commit a surrounding transaction.
         """
 
         if self._key_of is not None and self._key_of(value) != key:
@@ -96,11 +125,16 @@ class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
 
     def __delitem__(self, key: _K) -> None:
         """
-        Require and remove one repository value.
+        Load the record to require its existence, then invoke removal. The read and remove calls are
+        separate and not protected by this wrapper; later failures propagate after any provider side
+        effects.
+
+        Example:
+            >>> del mapping[key]  # doctest: +SKIP
 
 
-        :param key:
-        :return:
+        :param key: Repository key forwarded without coercion.
+        :return: None after successful lookup and removal.
         """
 
         self._get_one(key)
@@ -108,31 +142,45 @@ class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
 
     def __iter__(self) -> Iterator[_K]:
         """
-        Iterate keys from a freshly loaded repository snapshot.
+        Call the load_all callback immediately and return an iterator over that mapping's keys.
+        Ordering and snapshot stability belong to the returned mapping; later facade calls load
+        independently.
+
+        Example:
+            >>> keys = tuple(mapping)  # doctest: +SKIP
 
 
-        :return:
+        :return: An iterator over keys in the freshly obtained provider mapping.
         """
 
         return iter(self._load_all())
 
     def __len__(self) -> int:
         """
-        Return the size of a freshly loaded repository snapshot.
+        Call the load_all callback and return its size. This can load every value and does not use a
+        cached count or a dedicated database COUNT query.
+
+        Example:
+            >>> count = len(mapping)  # doctest: +SKIP
 
 
-        :return:
+        :return: The number of entries in the newly obtained provider mapping.
         """
 
         return len(self._load_all())
 
     def __contains__(self, key: object) -> bool:
         """
-        Return whether the authoritative repository contains ``key``.
+        Attempt get_one(key), returning False only for KeyError. No key coercion or type validation
+        is added; provider errors of other types propagate, and an existing value of None still
+        counts as present.
+
+        Example:
+            >>> present = key in mapping  # doctest: +SKIP
 
 
-        :param key:
-        :return:
+        :param key: Candidate lookup key, forwarded even when its runtime type differs from the annotation.
+        :return: True when lookup returns successfully, otherwise False for KeyError.
         """
 
         try:
@@ -143,12 +191,16 @@ class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
 
     def get(self, key: _K, default: Any = None) -> _V | Any:
         """
-        Load ``key`` or return ``default`` without retaining local state.
+        Load the requested key and substitute default only for KeyError. Other decoding, database,
+        or provider failures remain visible, and no result is cached by the facade.
+
+        Example:
+            >>> value = mapping.get(key, None)  # doctest: +SKIP
 
 
-        :param key:
-        :param default:
-        :return:
+        :param key: Repository key forwarded without coercion.
+        :param default: Value returned unchanged when the lookup raises KeyError; defaults to None.
+        :return: The loaded value, or the exact supplied default for a missing key.
         """
 
         try:
@@ -158,32 +210,50 @@ class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
 
     def values(self):
         """
-        Return values from a freshly loaded repository snapshot.
+        Call the load_all callback and return its values view. The view belongs to that returned
+        mapping; this method does not retain it or promise live updates from subsequent repository
+        writes.
+
+        Example:
+            >>> snapshot = tuple(mapping.values())  # doctest: +SKIP
 
 
-        :return:
+        :return: The provider mapping view containing its values.
         """
 
         return self._load_all().values()
 
     def items(self):
         """
-        Return items from a freshly loaded repository snapshot.
+        Call the load_all callback and return its items view. The view belongs to that returned
+        mapping; this method does not retain it or promise live updates from subsequent repository
+        writes.
+
+        Example:
+            >>> snapshot = tuple(mapping.items())  # doctest: +SKIP
 
 
-        :return:
+        :return: The provider mapping view containing its key/value pairs.
         """
 
         return self._load_all().items()
 
     def pop(self, key: _K, default: Any = dataclasses.MISSING) -> _V | Any:
         """
-        Load and remove ``key``, applying normal mapping default semantics.
+        Load and remove one value, substituting a default only when lookup raises KeyError.
+
+        The dataclasses.MISSING sentinel means no default, even if passed explicitly; that path
+        raises a new KeyError(key). A successful lookup is followed by a separate remove call.
+        Removal errors propagate rather than returning default, and a provider whose remove callback
+        is a no-op retains the entry.
+
+        Example:
+            >>> previous = mapping.pop(key, None)  # doctest: +SKIP
 
 
-        :param key:
-        :param default:
-        :return:
+        :param key: Repository key forwarded without coercion.
+        :param default: Missing-key result, or dataclasses.MISSING to require the key.
+        :return: The value loaded before removal, or the supplied default when lookup reports absence.
         """
 
         try:
@@ -203,7 +273,15 @@ class RepositoryItemTargetMapping(
     ]
 ):
     """
-    Repository-backed mapping for role-keyed Item targets.
+    Present role-keyed Item links as a mapping over the database repository.
+
+    Keys are (ItemID, role) pairs and values identify an Asset or Composite. The facade retains only
+    its repository; collection access reloads both link tables. It adds no transaction or
+    normalization, and failed writes/deletions retain the repository's partial-failure and
+    backend-constraint behavior.
+
+    Example:
+        >>> target = repository.item_targets().get((api.ItemID(7), "cover"))  # doctest: +SKIP
     """
 
     def __init__(
@@ -212,11 +290,14 @@ class RepositoryItemTargetMapping(
         repository: DatabaseStorageMetadataRepository,
     ) -> None:
         """
-        Bind Item-target operations to one metadata repository.
+        Retain the metadata repository without loading links or opening a transaction.
+
+        Example:
+            >>> mapping = RepositoryItemTargetMapping(repository=repository)  # doctest: +SKIP
 
 
-        :param repository:
-        :return:
+        :param repository: Authoritative metadata adapter supplying Item-link reads and writes.
+        :return: None after retaining the repository.
         """
 
         self._repository = repository
@@ -225,11 +306,15 @@ class RepositoryItemTargetMapping(
         self, key: tuple[api.ItemID, str]
     ) -> tuple[str, api.DigitalAssetID | api.CompositeDigitalAssetID]:
         """
-        Load the target assigned to one Item role.
+        Load one Item target through the bound provider. Propagate KeyError and all other provider
+        failures without substituting defaults or caching the result.
+
+        Example:
+            >>> value = mapping[key]  # doctest: +SKIP
 
 
-        :param key:
-        :return:
+        :param key: Pair of Item identity and exact role text.
+        :return: The provider-supplied Item target value.
         """
 
         return self._repository.get_item_target(key)
@@ -240,23 +325,33 @@ class RepositoryItemTargetMapping(
         value: tuple[str, api.DigitalAssetID | api.CompositeDigitalAssetID],
     ) -> None:
         """
-        Persist the atomic or Composite target for one Item role.
+        Pass the key/value pair to upsert_item_target. The repository replaces matching role links
+        in its transaction; this wrapper does not validate the kind, normalize the role, or resolve
+        referenced objects.
+
+        Example:
+            >>> mapping[key] = value  # doctest: +SKIP
 
 
-        :param key:
-        :param value:
-        :return:
+        :param key: Pair of Item identity and exact role text.
+        :param value: Pair of target kind and Asset or Composite identity.
+        :return: None after the provider write returns; this wrapper does not commit a surrounding transaction.
         """
 
         self._repository.upsert_item_target((key, value))
 
     def __delitem__(self, key: tuple[api.ItemID, str]) -> None:
         """
-        Require and remove one Item-role target.
+        Load the Item target to require its existence, then invoke removal. The read and remove
+        calls are separate and not protected by this wrapper; later failures propagate after any
+        provider side effects.
+
+        Example:
+            >>> del mapping[key]  # doctest: +SKIP
 
 
-        :param key:
-        :return:
+        :param key: Pair of Item identity and exact role text.
+        :return: None after successful lookup and removal.
         """
 
         self._repository.get_item_target(key)
@@ -264,32 +359,45 @@ class RepositoryItemTargetMapping(
 
     def __iter__(self):
         """
-        Iterate Item-role keys from a fresh database snapshot.
+        Call the repository link loader immediately and return an iterator over that mapping's keys.
+        Ordering and snapshot stability belong to the returned mapping; later facade calls load
+        independently.
+
+        Example:
+            >>> keys = tuple(mapping)  # doctest: +SKIP
 
 
-        :return:
+        :return: An iterator over keys in the freshly obtained provider mapping.
         """
 
         return iter(self._repository.load_item_targets())
 
     def __len__(self) -> int:
         """
-        Return the number of currently persisted Item-role targets.
+        Call the repository link loader and return its size. This can load every value and does not
+        use a cached count or a dedicated database COUNT query.
+
+        Example:
+            >>> count = len(mapping)  # doctest: +SKIP
 
 
-        :return:
+        :return: The number of entries in the newly obtained provider mapping.
         """
 
         return len(self._repository.load_item_targets())
 
     def get(self, key, default=None):
         """
-        Load an Item-role target or return ``default``.
+        Load the requested key and substitute default only for KeyError. Other decoding, database,
+        or provider failures remain visible, and no result is cached by the facade.
+
+        Example:
+            >>> value = mapping.get(key, None)  # doctest: +SKIP
 
 
-        :param key:
-        :param default:
-        :return:
+        :param key: Pair of Item identity and exact role text.
+        :param default: Value returned unchanged when the lookup raises KeyError; defaults to None.
+        :return: The loaded value, or the exact supplied default for a missing key.
         """
 
         try:
@@ -299,32 +407,50 @@ class RepositoryItemTargetMapping(
 
     def values(self):
         """
-        Return targets from a fresh database snapshot.
+        Call the repository link loader and return its values view. The view belongs to that
+        returned mapping; this method does not retain it or promise live updates from subsequent
+        repository writes.
+
+        Example:
+            >>> snapshot = tuple(mapping.values())  # doctest: +SKIP
 
 
-        :return:
+        :return: The provider mapping view containing its values.
         """
 
         return self._repository.load_item_targets().values()
 
     def items(self):
         """
-        Return Item-role pairs from a fresh database snapshot.
+        Call the repository link loader and return its items view. The view belongs to that returned
+        mapping; this method does not retain it or promise live updates from subsequent repository
+        writes.
+
+        Example:
+            >>> snapshot = tuple(mapping.items())  # doctest: +SKIP
 
 
-        :return:
+        :return: The provider mapping view containing its key/value pairs.
         """
 
         return self._repository.load_item_targets().items()
 
     def pop(self, key, default=dataclasses.MISSING):
         """
-        Load and remove a target with normal mapping default semantics.
+        Load and remove one value, substituting a default only when lookup raises KeyError.
+
+        The dataclasses.MISSING sentinel means no default, even if passed explicitly; that path
+        raises a new KeyError(key). A successful lookup is followed by a separate remove call.
+        Removal errors propagate rather than returning default, and a provider whose remove callback
+        is a no-op retains the entry.
+
+        Example:
+            >>> previous = mapping.pop(key, None)  # doctest: +SKIP
 
 
-        :param key:
-        :param default:
-        :return:
+        :param key: Pair of Item identity and exact role text.
+        :param default: Missing-key result, or dataclasses.MISSING to require the key.
+        :return: The value loaded before removal, or the supplied default when lookup reports absence.
         """
 
         try:
@@ -339,13 +465,22 @@ class RepositoryItemTargetMapping(
 
 class DatabaseStorageMetadataRepository:
     """
-    Translate storage-manager values through portable database macros.
+    Translate manager records through portable catalogue macros and optional shared caches.
 
-    Scalar columns remain useful to queries and older LiuXin code, while a
-    versioned JSON envelope in each scratch column preserves the complete typed
-    public value.  Database rows are authoritative.  An attached shared cache
-    may serve reads, but every mutation commits through the macro interface and
-    invalidates affected records or relationship indexes.
+    Row scalars support legacy queries; marked scratch envelopes preserve supported typed values and
+    take precedence during loading. The codec has explicit type and container limits, so arbitrary
+    Python values are not guaranteed to round-trip. Recognized malformed envelopes fail visibly
+    instead of silently using scalars.
+
+    The adapter retains no second record catalogue. Cached reads use the attached shared facade,
+    while writes call database macros and then invalidate selected records or links. Most methods
+    rely on the caller's transaction; only specified multi-row operations open their own context.
+    Invalidation can fail after database mutation, and this class supplies no lock, universal
+    rollback, or physical Store transaction. Manager reference, loss-policy, and byte-integrity
+    checks are separate.
+
+    Example:
+        >>> repository = DatabaseStorageMetadataRepository(database)  # doctest: +SKIP
     """
 
     _RECORD_IDENTITIES = {
@@ -452,13 +587,19 @@ class DatabaseStorageMetadataRepository:
         cache: Any | None = None,
     ) -> None:
         """
-        Validate ``db`` and configure value decoding and optional caching.
+        Require supports(db), retain the database/macros, build the decoder registry, and optionally
+        attach a shared cache. Unsupported schema/callable shape raises TypeError. Table inspection
+        and cache initialization can have side effects or fail after attributes are assigned; no
+        cleanup is added.
+
+        Example:
+            >>> repository = DatabaseStorageMetadataRepository(database, additional_types=private_types)  # doctest: +SKIP
 
 
-        :param db:
-        :param additional_types:
-        :param cache:
-        :return:
+        :param db: Database exposing the required storage tables and portable macros.
+        :param additional_types: Extra constructor types used when decoding private or extension values.
+        :param cache: Optional shared cache bound to this exact database object; None leaves reads on macros.
+        :return: None after repository setup and any requested cache preparation.
         """
 
         if not self.supports(db):
@@ -480,11 +621,18 @@ class DatabaseStorageMetadataRepository:
     @classmethod
     def supports(cls, db: Any) -> bool:
         """
-        Return whether a database can provide durable manager metadata.
+        Check required table names and callable transaction/get/insert/update/delete macro
+        attributes. Exceptions while obtaining tables or macros return False; failures during later
+        callable-attribute inspection can propagate. Column definitions, transaction semantics, and
+        actual operations are not exercised.
+
+        Example:
+            >>> DatabaseStorageMetadataRepository.supports(object())
+            False
 
 
-        :param db:
-        :return:
+        :param db: Candidate database-like object to inspect without issuing writes.
+        :return: Whether the required table/callable shape is present.
         """
 
         try:
@@ -507,15 +655,17 @@ class DatabaseStorageMetadataRepository:
     @classmethod
     def resembles_storage_catalogue(cls, db: Any) -> bool:
         """
-        Return whether ``db`` appears intended to own storage metadata.
+        Look for any Asset, Replica, or Composite sentinel table. Inspection exceptions return
+        False. This deliberately distinguishes a partly provisioned catalogue from a tiny Store-only
+        bootstrap adapter; it does not establish complete persistence support.
 
-        Tiny Store-row adapters are useful for focused bootstrap tests and do
-        not claim to be a manager catalogue. A real catalogue that is merely
-        incomplete must not silently turn an application manager volatile.
+        Example:
+            >>> DatabaseStorageMetadataRepository.resembles_storage_catalogue(object())
+            False
 
 
-        :param db:
-        :return:
+        :param db: Candidate whose get_tables result supplies the heuristic table names.
+        :return: True if at least one storage-catalogue sentinel table is present.
         """
 
         try:
@@ -527,11 +677,17 @@ class DatabaseStorageMetadataRepository:
     @classmethod
     def missing_tables(cls, db: Any) -> tuple[str, ...]:
         """
-        Return durable catalogue tables absent from ``db``.
+        Return sorted required table names absent from get_tables. If table inspection raises an
+        ordinary Exception, report every required table as missing; no column or macro capability
+        checks are made.
+
+        Example:
+            >>> bool(DatabaseStorageMetadataRepository.missing_tables(object()))
+            True
 
 
-        :param db:
-        :return:
+        :param db: Candidate database whose table names are inspected.
+        :return: A sorted tuple of missing required names, possibly empty.
         """
 
         try:
@@ -542,20 +698,36 @@ class DatabaseStorageMetadataRepository:
 
     def transaction(self):
         """
-        Return the portable database transaction used by manager mutations.
+        Return macros.transaction() without entering it. Transaction nesting, commit, rollback, and
+        resource ownership belong to the database provider; this wrapper neither begins a with block
+        nor changes cache state.
+
+        Example:
+            >>> with repository.transaction():  # doctest: +SKIP
+            ...     repository.upsert_asset(record)
 
 
-        :return:
+        :return: The provider transaction context for the caller to enter.
         """
 
         return self.macros.transaction()
 
     def migrate_envelopes(self) -> int:
         """
-        Upgrade known older storage envelopes transactionally in place.
+        Rewrite recognized version-zero scratch envelopes in one macro transaction.
+
+        Scan every configured envelope table, validate older payloads with the decoder, and update
+        only changed scratch columns. Unsupported versions or write failures leave transaction
+        handling to the provider. After successful context exit, record the migration separately,
+        then invalidate covered tables if any rows changed. Migration-recording or invalidation
+        errors can occur after the rewrites, and a recording failure prevents the subsequent
+        invalidation call.
+
+        Example:
+            >>> result = repository.migrate_envelopes()  # doctest: +SKIP
 
 
-        :return:
+        :return: The number of scratch columns rewritten after migration recording and requested invalidation succeed.
         """
 
         upgraded = 0
@@ -581,16 +753,20 @@ class DatabaseStorageMetadataRepository:
 
     def allocate_record_id(self, kind: str) -> int:
         """
-        Reserve a database-generated identity inside the caller transaction.
+        Insert a reservation row and return its database-generated integer identity.
 
-        The manager immediately replaces the reservation scratch value with a
-        complete record before its surrounding transaction commits. This uses
-        SQLite rowid or PostgreSQL identity allocation instead of a racy
-        process-local ``max(id) + 1`` counter.
+        Accept only digital_asset, replica, composite, derivation, replication_policy, or
+        backup_policy; unknown kinds raise ValueError before insertion. The marker contains no
+        record payload. Callers must replace it with the completed record within their transaction.
+        This method neither opens that transaction nor guarantees rollback/reuse of allocated IDs on
+        every database backend.
+
+        Example:
+            >>> identifier = repository.allocate_record_id("digital_asset")  # doctest: +SKIP
 
 
-        :param kind:
-        :return:
+        :param kind: Exact metadata family key selecting the table and identity/scratch columns.
+        :return: The int-converted database-generated reservation ID.
         """
 
         try:
@@ -616,11 +792,21 @@ class DatabaseStorageMetadataRepository:
 
     def set_cache(self, cache: Any | None) -> None:
         """
-        Route catalogue reads through LiuXin's shared cache when supplied.
+        Attach a usable shared cache for this exact database, or detach it with None.
+
+        EMPTY caches load and DIRTY caches reload; CLOSED caches reject. Require Asset and Replica
+        tables among the cached record tables, then retain the cache and its available table names.
+        Other states receive no readiness validation here. Candidate load/reload can occur before a
+        later rejection; an existing binding is replaced only after validation. Detachment clears
+        routing metadata without closing the old cache, and provider errors propagate without a
+        macro fallback.
+
+        Example:
+            >>> repository.set_cache(None)  # doctest: +SKIP
 
 
-        :param cache:
-        :return:
+        :param cache: Shared cache whose database is self.db by identity, or None to disable cached reads.
+        :return: None after successful attachment or detachment.
         """
 
         if cache is None:
@@ -656,10 +842,15 @@ class DatabaseStorageMetadataRepository:
         api.DigitalAssetID, api.DigitalAssetRecord
     ]:
         """
-        Return the compatibility mapping for authoritative Asset records.
+        Return a new mapping facade over Asset reads/upserts/removals. Assignment checks
+        value.digital_asset_id against the key, but adds no revision, reference, or transaction
+        checks. The facade owns no record snapshot; each operation consults the repository.
+
+        Example:
+            >>> result = repository.asset_records()  # doctest: +SKIP
 
 
-        :return:
+        :return: A new RepositoryRecordMapping bound to this adapter's Asset operations.
         """
 
         return RepositoryRecordMapping(
@@ -674,10 +865,15 @@ class DatabaseStorageMetadataRepository:
         api.ReplicaID, api.ReplicaRecord
     ]:
         """
-        Return the compatibility mapping for authoritative Replica records.
+        Return a new mapping facade over Replica reads/upserts/removals. Assignment checks
+        value.replica_id against the key, but adds no revision, reference, or transaction checks.
+        The facade owns no record snapshot; each operation consults the repository.
+
+        Example:
+            >>> result = repository.replica_records()  # doctest: +SKIP
 
 
-        :return:
+        :return: A new RepositoryRecordMapping bound to this adapter's Replica operations.
         """
 
         return RepositoryRecordMapping(
@@ -692,10 +888,16 @@ class DatabaseStorageMetadataRepository:
         api.CompositeDigitalAssetID, api.CompositeDigitalAssetRecord
     ]:
         """
-        Return the compatibility mapping for Composite records.
+        Return a new mapping facade over Composite reads/upserts/removals. Assignment checks
+        value.composite_digital_asset_id against the key, but adds no revision, reference, or
+        transaction checks. The facade owns no record snapshot; each operation consults the
+        repository.
+
+        Example:
+            >>> result = repository.composite_records()  # doctest: +SKIP
 
 
-        :return:
+        :return: A new RepositoryRecordMapping bound to this adapter's Composite operations.
         """
 
         return RepositoryRecordMapping(
@@ -710,10 +912,16 @@ class DatabaseStorageMetadataRepository:
         api.DigitalAssetDerivationID, api.DigitalAssetDerivationRecord
     ]:
         """
-        Return the compatibility mapping for derivation records.
+        Return a new mapping facade over derivation reads/upserts/removals. Assignment checks
+        value.digital_asset_derivation_id against the key, but adds no revision, reference, or
+        transaction checks. The facade owns no record snapshot; each operation consults the
+        repository.
+
+        Example:
+            >>> result = repository.derivation_records()  # doctest: +SKIP
 
 
-        :return:
+        :return: A new RepositoryRecordMapping bound to this adapter's derivation operations.
         """
 
         return RepositoryRecordMapping(
@@ -728,10 +936,16 @@ class DatabaseStorageMetadataRepository:
         api.ReplicationPolicyID, api.ReplicationPolicyRecord
     ]:
         """
-        Return the compatibility mapping for replication policies.
+        Return a new mapping facade over replication-policy reads/upserts/removals. Assignment
+        checks value.replication_policy_id against the key, but adds no revision, reference, or
+        transaction checks. The facade owns no record snapshot; each operation consults the
+        repository.
+
+        Example:
+            >>> result = repository.replication_policy_records()  # doctest: +SKIP
 
 
-        :return:
+        :return: A new RepositoryRecordMapping bound to this adapter's replication-policy operations.
         """
 
         return RepositoryRecordMapping(
@@ -746,10 +960,15 @@ class DatabaseStorageMetadataRepository:
         api.BackupPolicyID, api.BackupPolicyRecord
     ]:
         """
-        Return the compatibility mapping for backup policies.
+        Return a new mapping facade over backup-policy reads/upserts/removals. Assignment checks
+        value.backup_policy_id against the key, but adds no revision, reference, or transaction
+        checks. The facade owns no record snapshot; each operation consults the repository.
+
+        Example:
+            >>> result = repository.backup_policy_records()  # doctest: +SKIP
 
 
-        :return:
+        :return: A new RepositoryRecordMapping bound to this adapter's backup-policy operations.
         """
 
         return RepositoryRecordMapping(
@@ -762,20 +981,32 @@ class DatabaseStorageMetadataRepository:
 
     def item_targets(self) -> RepositoryItemTargetMapping:
         """
-        Return the compatibility mapping for role-keyed Item targets.
+        Return a fresh role-keyed Item-target facade bound to this repository. Construction loads no
+        links; later reads and writes use the current repository and cache configuration.
+
+        Example:
+            >>> result = repository.item_targets()  # doctest: +SKIP
 
 
-        :return:
+        :return: A new RepositoryItemTargetMapping without a local target dictionary.
         """
 
         return RepositoryItemTargetMapping(repository=self)
 
     def ingest_operations(self) -> RepositoryRecordMapping[UUID, Any]:
         """
-        Return the read/upsert facade for committed ingest operations.
+        Expose committed ingest results through a compatibility mapping with no-op removal.
+
+        Assignment ignores the mapping key and persists using operation.result.operation_id; no
+        key_of check is installed. Reads require committed journal entries. Successful del/pop calls
+        do not delete the journal because the removal callback does nothing; inherited bulk-clear
+        behavior therefore must not be used to purge this facade.
+
+        Example:
+            >>> result = repository.ingest_operations()  # doctest: +SKIP
 
 
-        :return:
+        :return: A new mapping for committed-operation reads and upserts, without journal deletion support.
         """
 
         return RepositoryRecordMapping(
@@ -789,11 +1020,17 @@ class DatabaseStorageMetadataRepository:
         self, digital_asset_id: api.DigitalAssetID
     ) -> api.DigitalAssetRecord:
         """
-        Load one typed Digital Asset record by its database identity.
+        Load one Asset through the current cache/macro route and family decoder. The key is
+        int-converted for row lookup but retained for the decoded mapping lookup. Missing rows,
+        skipped legacy rows, or envelopes with a different embedded identity raise KeyError;
+        malformed recognized envelopes propagate decoding errors.
+
+        Example:
+            >>> record = repository.get_asset(identifier)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Identity of the requested Asset record.
+        :return: The decoded Asset record, with envelope values preferred over scalar columns.
         """
 
         return self._get_record(
@@ -805,11 +1042,17 @@ class DatabaseStorageMetadataRepository:
 
     def get_replica(self, replica_id: api.ReplicaID) -> api.ReplicaRecord:
         """
-        Load one typed Replica record by its database identity.
+        Load one Replica through the current cache/macro route and family decoder. The key is
+        int-converted for row lookup but retained for the decoded mapping lookup. Missing rows,
+        skipped legacy rows, or envelopes with a different embedded identity raise KeyError;
+        malformed recognized envelopes propagate decoding errors.
+
+        Example:
+            >>> record = repository.get_replica(identifier)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :return:
+        :param replica_id: Identity of the requested Replica record.
+        :return: The decoded Replica record, with envelope values preferred over scalar columns.
         """
 
         return self._get_record(
@@ -823,11 +1066,17 @@ class DatabaseStorageMetadataRepository:
         self, composite_id: api.CompositeDigitalAssetID
     ) -> api.CompositeDigitalAssetRecord:
         """
-        Load one typed Composite record by its database identity.
+        Load one Composite through the current cache/macro route and family decoder. The key is
+        int-converted for row lookup but retained for the decoded mapping lookup. Missing rows,
+        skipped legacy rows, or envelopes with a different embedded identity raise KeyError;
+        malformed recognized envelopes propagate decoding errors.
+
+        Example:
+            >>> record = repository.get_composite(identifier)  # doctest: +SKIP
 
 
-        :param composite_id:
-        :return:
+        :param composite_id: Identity of the requested Composite record.
+        :return: The decoded Composite record, with envelope values preferred over scalar columns.
         """
 
         return self._get_record(
@@ -841,11 +1090,17 @@ class DatabaseStorageMetadataRepository:
         self, derivation_id: api.DigitalAssetDerivationID
     ) -> api.DigitalAssetDerivationRecord:
         """
-        Load one typed derivation record by its database identity.
+        Load one derivation through the current cache/macro route and family decoder. The key is
+        int-converted for row lookup but retained for the decoded mapping lookup. Missing rows,
+        skipped legacy rows, or envelopes with a different embedded identity raise KeyError;
+        malformed recognized envelopes propagate decoding errors.
+
+        Example:
+            >>> record = repository.get_derivation(identifier)  # doctest: +SKIP
 
 
-        :param derivation_id:
-        :return:
+        :param derivation_id: Identity of the requested derivation record.
+        :return: The decoded derivation record, with envelope values preferred over scalar columns.
         """
 
         return self._get_record(
@@ -859,11 +1114,17 @@ class DatabaseStorageMetadataRepository:
         self, policy_id: api.ReplicationPolicyID
     ) -> api.ReplicationPolicyRecord:
         """
-        Load one typed replication-policy record by identity.
+        Load one replication-policy through the current cache/macro route and family decoder. The
+        key is int-converted for row lookup but retained for the decoded mapping lookup. Missing
+        rows, skipped legacy rows, or envelopes with a different embedded identity raise KeyError;
+        malformed recognized envelopes propagate decoding errors.
+
+        Example:
+            >>> record = repository.get_replication_policy(identifier)  # doctest: +SKIP
 
 
-        :param policy_id:
-        :return:
+        :param policy_id: Identity of the requested replication-policy record.
+        :return: The decoded replication-policy record, with envelope values preferred over scalar columns.
         """
 
         return self._get_record(
@@ -877,11 +1138,17 @@ class DatabaseStorageMetadataRepository:
         self, policy_id: api.BackupPolicyID
     ) -> api.BackupPolicyRecord:
         """
-        Load one typed backup-policy record by identity.
+        Load one backup-policy through the current cache/macro route and family decoder. The key is
+        int-converted for row lookup but retained for the decoded mapping lookup. Missing rows,
+        skipped legacy rows, or envelopes with a different embedded identity raise KeyError;
+        malformed recognized envelopes propagate decoding errors.
+
+        Example:
+            >>> record = repository.get_backup_policy(identifier)  # doctest: +SKIP
 
 
-        :param policy_id:
-        :return:
+        :param policy_id: Identity of the requested backup-policy record.
+        :return: The decoded backup-policy record, with envelope values preferred over scalar columns.
         """
 
         return self._get_record(
@@ -898,10 +1165,15 @@ class DatabaseStorageMetadataRepository:
         tuple[str, api.DigitalAssetID | api.CompositeDigitalAssetID],
     ]:
         """
-        Load every role-keyed Item target from both link tables.
+        Read both Item-link tables into a fresh map. Scratch role text takes precedence over scalar
+        role and the primary_payload default. Later row IDs win within each table, and Composite
+        targets overwrite atomic targets sharing the same Item/role key.
+
+        Example:
+            >>> result = repository.load_item_targets()  # doctest: +SKIP
 
 
-        :return:
+        :return: A fresh dictionary from (ItemID, role) to (target kind, target ID).
         """
 
         return self._load_item_targets()
@@ -910,11 +1182,16 @@ class DatabaseStorageMetadataRepository:
         self, key: tuple[api.ItemID, str]
     ) -> tuple[str, api.DigitalAssetID | api.CompositeDigitalAssetID]:
         """
-        Load one role-keyed Item target or raise ``KeyError``.
+        Reload every Item target, then look up the exact pair. Missing keys raise a new KeyError
+        without a chained missing-key cause; malformed rows and database errors propagate rather
+        than producing an absent target.
+
+        Example:
+            >>> target = repository.get_item_target((api.ItemID(7), "cover"))  # doctest: +SKIP
 
 
-        :param key:
-        :return:
+        :param key: Exact Item identity and role pair used in the merged target mapping.
+        :return: The target-kind/identity pair stored for that role.
         """
 
         try:
@@ -924,11 +1201,17 @@ class DatabaseStorageMetadataRepository:
 
     def get_committed_ingest_operation(self, operation_id: UUID) -> Any:
         """
-        Load one committed ingest operation or raise ``KeyError``.
+        Require one unique journal row in committed state and decode its operation entry.
+        Missing/noncommitted rows or a non-dictionary payload or None operation raise KeyError; the
+        returned operation is not type-checked or compared with the row UUID. This method does not
+        bypass lookup when has_ingest_journal is false.
+
+        Example:
+            >>> operation = repository.get_committed_ingest_operation(operation_id)  # doctest: +SKIP
 
 
-        :param operation_id:
-        :return:
+        :param operation_id: UUID used for exact durable journal lookup.
+        :return: The non-None decoded operation retained in the committed payload.
         """
 
         row = self._journal_row(operation_id)
@@ -948,14 +1231,19 @@ class DatabaseStorageMetadataRepository:
         loader: Callable[[Iterable[Mapping[str, Any]] | None], Mapping[_K, _V]],
     ) -> _V:
         """
-        Load and decode one record while preserving mapping ``KeyError``.
+        Int-convert key for one raw row lookup, decode that singleton through loader, then index by
+        the original key. A missing row or absent decoded key raises KeyError; coercion, row access,
+        and loader failures otherwise propagate.
+
+        Example:
+            >>> record = repository._get_record("digital_assets", "digital_asset_id", 7, repository._load_assets)  # doctest: +SKIP
 
 
-        :param table:
-        :param id_column:
-        :param key:
-        :param loader:
-        :return:
+        :param table: Metadata table routed through cache or macros.
+        :param id_column: Explicit row identity column for macro lookup.
+        :param key: Original repository key, int-converted only for row selection.
+        :param loader: Family decoder accepting the singleton row iterable and returning an identity-keyed mapping.
+        :return: The decoded value stored under the original key.
         """
 
         row = self._record_row(table, id_column, int(key))
@@ -974,13 +1262,18 @@ class DatabaseStorageMetadataRepository:
         row_id: int,
     ) -> Mapping[str, Any] | None:
         """
-        Read one raw row through the shared cache when it covers ``table``.
+        Read one row from a covered shared cache, otherwise call macros.get_row with the explicit
+        identity column. Cache misses return None without consulting macros, and cache errors remain
+        visible. Cached record values are returned without copying.
+
+        Example:
+            >>> row = repository._record_row("digital_assets", "digital_asset_id", 7)  # doctest: +SKIP
 
 
-        :param table:
-        :param id_column:
-        :param row_id:
-        :return:
+        :param table: Metadata table whose cached coverage selects the read path.
+        :param id_column: Row identity column passed only on the macro path.
+        :param row_id: Integer row identity requested from the provider.
+        :return: The raw row mapping, or None for a missing provider value.
         """
 
         if self.cache is None or table not in self._cached_tables:
@@ -995,12 +1288,17 @@ class DatabaseStorageMetadataRepository:
         order_by: tuple[str, ...],
     ) -> tuple[Mapping[str, Any], ...]:
         """
-        Read an ordered raw-row snapshot through cache or database macros.
+        Materialize ordered row references from macros or a covered cache query. The cache path
+        creates one ascending CacheSort per requested column and returns record.values. Neither path
+        independently deep-copies rows, retries failure, or ensures a cross-table snapshot.
+
+        Example:
+            >>> rows = repository._record_rows("digital_assets", order_by=("digital_asset_id",))  # doctest: +SKIP
 
 
-        :param table:
-        :param order_by:
-        :return:
+        :param table: Metadata table to enumerate.
+        :param order_by: Ordered column names passed to macros or converted to ascending cache sorts.
+        :return: A tuple of provider row mappings in the requested provider order.
         """
 
         if self.cache is None or table not in self._cached_tables:
@@ -1017,11 +1315,16 @@ class DatabaseStorageMetadataRepository:
 
     def _invalidate_records(self, *tables: str) -> None:
         """
-        Invalidate complete cached tables affected by a bulk mutation.
+        Filter requested names to tables exposed by the bound cache and invalidate that tuple. No
+        cache or no covered names is a no-op. Input ordering and duplicates are retained;
+        invalidation errors propagate after any prior database mutation.
+
+        Example:
+            >>> repository._invalidate_records("digital_assets")  # doctest: +SKIP
 
 
-        :param tables:
-        :return:
+        :param tables: Variadic table names whose cached data may have changed.
+        :return: None after the requested invalidation or no-op.
         """
 
         if self.cache is not None:
@@ -1031,12 +1334,17 @@ class DatabaseStorageMetadataRepository:
 
     def _invalidate_record_ids(self, table: str, *row_ids: int) -> None:
         """
-        Invalidate selected durable records without reloading their catalogue.
+        Invalidate int-converted IDs only when the cache covers the table and IDs were supplied.
+        Uncovered/no-cache calls do not even convert IDs. No reload or transaction is added, and
+        invalidation failures propagate.
+
+        Example:
+            >>> repository._invalidate_record_ids("digital_assets", 7)  # doctest: +SKIP
 
 
-        :param table:
-        :param row_ids:
-        :return:
+        :param table: Table whose available cache coverage permits targeted invalidation.
+        :param row_ids: Variadic row identities, int-converted without deduplication on the active path.
+        :return: None after targeted invalidation or a no-op.
         """
 
         if (
@@ -1054,11 +1362,17 @@ class DatabaseStorageMetadataRepository:
 
     def ensure_store(self, configuration: api.StoreConfiguration) -> int:
         """
-        Return the Store row ID, inserting a supplied configuration if needed.
+        Find Store rows by UUID and return the first row ID without updating or rejecting
+        duplicates. If absent, project configuration onto supported columns, insert it, and
+        invalidate its ID. Lookup/insertion is not made atomic here; provider constraints arbitrate
+        competing inserts.
+
+        Example:
+            >>> store_id = repository.ensure_store(configuration)  # doctest: +SKIP
 
 
-        :param configuration:
-        :return:
+        :param configuration: Store configuration used for UUID lookup and, only if absent, row insertion.
+        :return: The int-converted existing or inserted Store row identity.
         """
 
         rows = self.macros.get_rows(
@@ -1076,11 +1390,17 @@ class DatabaseStorageMetadataRepository:
 
     def update_store(self, configuration: api.StoreConfiguration) -> None:
         """
-        Persist a complete replacement configuration for one Store UUID.
+        Require exactly one row for the supplied UUID, project supported configuration columns
+        including null values, then update and invalidate it. Missing rows raise
+        StoreConfigurationNotFound and duplicates raise StorageManagementError. No facade lifecycle
+        or manager reference validation occurs here.
+
+        Example:
+            >>> repository.update_store(configuration)  # doctest: +SKIP
 
 
-        :param configuration:
-        :return:
+        :param configuration: Complete replacement configuration whose UUID selects the existing row.
+        :return: None after the row update and cache invalidation.
         """
 
         rows = self.macros.get_rows(
@@ -1105,11 +1425,17 @@ class DatabaseStorageMetadataRepository:
 
     def remove_store(self, store_ref: api.StoreUUID) -> None:
         """
-        Delete one unclaimed durable Store configuration.
+        Require exactly one durable row for the Store UUID, delete it, then invalidate its ID.
+        Missing/duplicate rows raise typed manager errors. This method does not establish that the
+        Store is unclaimed, close its facade, or delete physical contents; manager checks and
+        backend constraints govern removal.
+
+        Example:
+            >>> repository.remove_store(store_uuid)  # doctest: +SKIP
 
 
-        :param store_ref:
-        :return:
+        :param store_ref: UUID of the durable configuration to remove.
+        :return: None after successful row deletion and invalidation.
         """
 
         rows = self.macros.get_rows(
@@ -1129,11 +1455,22 @@ class DatabaseStorageMetadataRepository:
 
     def upsert_asset(self, record: api.DigitalAssetRecord) -> None:
         """
-        Persist searchable Asset scalars and its lossless typed envelope.
+        Persist searchable Asset scalars and the supplied record envelope.
+
+        Project name/media/original-name text, size, SHA-256/BLAKE3 evidence, and policy IDs
+        alongside the complete typed envelope. Selected scalar text escapes surrogates; the envelope
+        retains supported original values. No bytes are read, and additional digest algorithms live
+        only in the envelope.
+
+        Use schema-filtered insert/update, then invalidate the record ID. No transaction is opened
+        here, and an invalidation error can follow a successful database write.
+
+        Example:
+            >>> repository.upsert_asset(record)  # doctest: +SKIP
 
 
-        :param record:
-        :return:
+        :param record: Complete Asset record whose retained identity selects insertion or update.
+        :return: None after persistence and cache invalidation return successfully.
         """
 
         values = {
@@ -1161,11 +1498,17 @@ class DatabaseStorageMetadataRepository:
 
     def remove_asset(self, digital_asset_id: api.DigitalAssetID) -> None:
         """
-        Delete one Asset row and invalidate its cached record.
+        Delete the Asset row by int-converted identity, then invalidate its cached record. No
+        existence, revision, reference, or loss-policy check is added, and backend
+        missing-row/constraint behavior propagates. This does not delete Store bytes or open a
+        transaction.
+
+        Example:
+            >>> repository.remove_asset(identifier)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Identity of the Asset row passed to portable deletion.
+        :return: None after database deletion and requested invalidation.
         """
 
         self.macros.delete_row("digital_assets", int(digital_asset_id))
@@ -1173,11 +1516,22 @@ class DatabaseStorageMetadataRepository:
 
     def upsert_replica(self, record: api.ReplicaRecord) -> None:
         """
-        Persist searchable Replica scalars and its lossless typed envelope.
+        Persist searchable Replica scalars and the supplied record envelope.
+
+        Resolve the Location's Store UUID to a row ID before writing claim/mode/state, timestamps,
+        size, SHA-256/BLAKE3 evidence, and the complete envelope. Selected scalar text escapes
+        surrogates. No Store availability, byte integrity, or unique live-claim check is performed
+        here.
+
+        Use schema-filtered insert/update, then invalidate the record ID. No transaction is opened
+        here, and an invalidation error can follow a successful database write.
+
+        Example:
+            >>> repository.upsert_replica(record)  # doctest: +SKIP
 
 
-        :param record:
-        :return:
+        :param record: Complete Replica record whose retained identity selects insertion or update.
+        :return: None after persistence and cache invalidation return successfully.
         """
 
         store_id = self._store_id(record.location.store_ref)
@@ -1220,11 +1574,17 @@ class DatabaseStorageMetadataRepository:
 
     def remove_replica(self, replica_id: api.ReplicaID) -> None:
         """
-        Delete one Replica row and invalidate its cached record.
+        Delete the Replica row by int-converted identity, then invalidate its cached record. No
+        existence, revision, reference, or loss-policy check is added, and backend
+        missing-row/constraint behavior propagates. This does not delete Store bytes or open a
+        transaction.
+
+        Example:
+            >>> repository.remove_replica(identifier)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :return:
+        :param replica_id: Identity of the Replica row passed to portable deletion.
+        :return: None after database deletion and requested invalidation.
         """
 
         self.macros.delete_row("asset_replicas", int(replica_id))
@@ -1232,11 +1592,21 @@ class DatabaseStorageMetadataRepository:
 
     def upsert_composite(self, record: api.CompositeDigitalAssetRecord) -> None:
         """
-        Atomically replace a Composite envelope and ordered member links.
+        Replace the Composite row and all member links inside one macro transaction.
+
+        Preserve the full Composite/member values in envelopes. Scalar roles retain
+        member/chapter/track/disc_member/part and use member for other roles; member sequence and
+        required flags are projected separately. Existing links are deleted before supplied members
+        are inserted. Provider transaction behavior governs rollback. After exit, invalidate the
+        Composite ID and both relationship directions; those later failures can leave the database
+        already changed.
+
+        Example:
+            >>> repository.upsert_composite(record)  # doctest: +SKIP
 
 
-        :param record:
-        :return:
+        :param record: Complete Composite identity, membership, name, attributes, and revision to persist.
+        :return: None after row/link replacement and subsequent cache invalidation.
         """
 
         composite_id = int(record.composite_digital_asset_id)
@@ -1294,11 +1664,18 @@ class DatabaseStorageMetadataRepository:
         self, composite_digital_asset_id: api.CompositeDigitalAssetID
     ) -> None:
         """
-        Delete one Composite and invalidate record and membership caches.
+        Delete the Composite row by int-converted identity, then invalidate its cached record. No
+        existence, revision, reference, or loss-policy check is added, and backend
+        missing-row/constraint behavior propagates. This does not delete Store bytes or open a
+        transaction. Composite membership relationships are invalidated in both directions after
+        record invalidation.
+
+        Example:
+            >>> repository.remove_composite(identifier)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :return:
+        :param composite_digital_asset_id: Identity of the Composite row passed to portable deletion.
+        :return: None after database deletion and requested invalidation.
         """
 
         self.macros.delete_row(
@@ -1317,11 +1694,22 @@ class DatabaseStorageMetadataRepository:
 
     def upsert_derivation(self, record: api.DigitalAssetDerivationRecord) -> None:
         """
-        Persist queryable provenance scalars and its complete envelope.
+        Persist searchable derivation scalars and the supplied record envelope.
+
+        Project the first direct atomic source, result, workflow ID, kind, and notes alongside the
+        complete declaration envelope. A supplied creation time is projected, but None omits that
+        column and can leave an older scalar value on update. Other sources and recipe evidence
+        depend on the envelope; no graph or replay checks run.
+
+        Use schema-filtered insert/update, then invalidate the record ID. No transaction is opened
+        here, and an invalidation error can follow a successful database write.
+
+        Example:
+            >>> repository.upsert_derivation(record)  # doctest: +SKIP
 
 
-        :param record:
-        :return:
+        :param record: Complete derivation record whose retained identity selects insertion or update.
+        :return: None after persistence and cache invalidation return successfully.
         """
 
         declaration = record.declaration
@@ -1362,11 +1750,17 @@ class DatabaseStorageMetadataRepository:
         self, digital_asset_derivation_id: api.DigitalAssetDerivationID
     ) -> None:
         """
-        Delete one derivation row and invalidate its cached record.
+        Delete the derivation row by int-converted identity, then invalidate its cached record. No
+        existence, revision, reference, or loss-policy check is added, and backend
+        missing-row/constraint behavior propagates. This does not delete Store bytes or open a
+        transaction.
+
+        Example:
+            >>> repository.remove_derivation(identifier)  # doctest: +SKIP
 
 
-        :param digital_asset_derivation_id:
-        :return:
+        :param digital_asset_derivation_id: Identity of the derivation row passed to portable deletion.
+        :return: None after database deletion and requested invalidation.
         """
 
         self.macros.delete_row(
@@ -1378,11 +1772,21 @@ class DatabaseStorageMetadataRepository:
 
     def upsert_replication_policy(self, record: api.ReplicationPolicyRecord) -> None:
         """
-        Persist queryable replication settings and their complete envelope.
+        Persist searchable replication-policy scalars and the supplied record envelope.
+
+        Project casefolded name, copy targets, separation dimensions, sorted tag lists, mode, and
+        healing/write-copy settings alongside the complete record envelope. These writes do not
+        validate policy assignments, place bytes, or reserve capacity.
+
+        Use schema-filtered insert/update, then invalidate the record ID. No transaction is opened
+        here, and an invalidation error can follow a successful database write.
+
+        Example:
+            >>> repository.upsert_replication_policy(record)  # doctest: +SKIP
 
 
-        :param record:
-        :return:
+        :param record: Complete replication-policy record whose retained identity selects insertion or update.
+        :return: None after persistence and cache invalidation return successfully.
         """
 
         policy = record.policy
@@ -1422,11 +1826,17 @@ class DatabaseStorageMetadataRepository:
         self, replication_policy_id: api.ReplicationPolicyID
     ) -> None:
         """
-        Delete one replication policy and invalidate its cached record.
+        Delete the replication policy row by int-converted identity, then invalidate its cached
+        record. No existence, revision, reference, or loss-policy check is added, and backend
+        missing-row/constraint behavior propagates. This does not delete Store bytes or open a
+        transaction.
+
+        Example:
+            >>> repository.remove_replication_policy(identifier)  # doctest: +SKIP
 
 
-        :param replication_policy_id:
-        :return:
+        :param replication_policy_id: Identity of the replication policy row passed to portable deletion.
+        :return: None after database deletion and requested invalidation.
         """
 
         self.macros.delete_row("replication_policies", int(replication_policy_id))
@@ -1436,11 +1846,21 @@ class DatabaseStorageMetadataRepository:
 
     def upsert_backup_policy(self, record: api.BackupPolicyRecord) -> None:
         """
-        Persist queryable backup settings and their complete envelope.
+        Persist searchable backup-policy scalars and the supplied record envelope.
+
+        Project casefolded name, backup-copy targets, dimensions, sorted tags, mode, verification,
+        and retention settings alongside the complete envelope. No referenced-Asset checks, backup
+        execution, or physical retention enforcement is added.
+
+        Use schema-filtered insert/update, then invalidate the record ID. No transaction is opened
+        here, and an invalidation error can follow a successful database write.
+
+        Example:
+            >>> repository.upsert_backup_policy(record)  # doctest: +SKIP
 
 
-        :param record:
-        :return:
+        :param record: Complete backup-policy record whose retained identity selects insertion or update.
+        :return: None after persistence and cache invalidation return successfully.
         """
 
         policy = record.policy
@@ -1478,11 +1898,17 @@ class DatabaseStorageMetadataRepository:
 
     def remove_backup_policy(self, backup_policy_id: api.BackupPolicyID) -> None:
         """
-        Delete one backup policy and invalidate its cached record.
+        Delete the backup policy row by int-converted identity, then invalidate its cached record.
+        No existence, revision, reference, or loss-policy check is added, and backend
+        missing-row/constraint behavior propagates. This does not delete Store bytes or open a
+        transaction.
+
+        Example:
+            >>> repository.remove_backup_policy(identifier)  # doctest: +SKIP
 
 
-        :param backup_policy_id:
-        :return:
+        :param backup_policy_id: Identity of the backup policy row passed to portable deletion.
+        :return: None after database deletion and requested invalidation.
         """
 
         self.macros.delete_row("backup_policies", int(backup_policy_id))
@@ -1496,11 +1922,21 @@ class DatabaseStorageMetadataRepository:
         ],
     ) -> None:
         """
-        Atomically replace one Item role's atomic or Composite target.
+        Replace matching Item-role links across both target tables in one macro transaction.
+
+        Exact kind digital_asset selects the atomic table; every other kind selects the Composite
+        table without validation. Preserve role text in the envelope, project recognized roles
+        directly, and use primary_payload for unsupported scalar roles. The primary flag reflects
+        the original role, not that fallback. After transaction exit, invalidate only the newly
+        selected relationship pair; no independent invalidation of a replaced other-kind pair is
+        issued here.
+
+        Example:
+            >>> repository.upsert_item_target(((api.ItemID(7), "cover"), ("digital_asset", api.DigitalAssetID(2))))  # doctest: +SKIP
 
 
-        :param value:
-        :return:
+        :param value: Nested pair ((ItemID, exact role), (target kind, target ID)) to persist.
+        :return: None after link replacement and requested relationship invalidation.
         """
 
         (item_id, role), (kind, target_id) = value
@@ -1563,11 +1999,16 @@ class DatabaseStorageMetadataRepository:
 
     def remove_item_target(self, key: tuple[api.ItemID, str]) -> None:
         """
-        Remove one Item-role target and invalidate relationship indexes.
+        Delete every atomic/Composite link matching the exact Item-role key, then invalidate all
+        four Item/target relationship directions. No surrounding transaction or prior existence
+        check is added; multi-row deletion and later invalidation can fail after earlier mutations.
+
+        Example:
+            >>> repository.remove_item_target((api.ItemID(7), "cover"))  # doctest: +SKIP
 
 
-        :param key:
-        :return:
+        :param key: Item identity and exact role text whose links should be removed.
+        :return: None after matching deletions and relationship invalidation.
         """
 
         self._delete_item_target(*key)
@@ -1587,12 +2028,22 @@ class DatabaseStorageMetadataRepository:
 
     def journal_start(self, operation_id: UUID, request: Any) -> None:
         """
-        Start or idempotently restart a durable ingest journal entry.
+        Insert a started request or reset an existing matching request to started.
+
+        No journal support is a no-op. Otherwise require a unique operation UUID and compare the
+        decoded existing request by equality; a non-dictionary or unequal request raises
+        StoragePreconditionFailed. A match resets state and clears the last error even if the row
+        was previously committed or failed, while retaining its other columns and payload. This is
+        not a state-preserving no-op or an atomic compare-and-swap; callers own retry ordering and
+        transaction boundaries.
+
+        Example:
+            >>> repository.journal_start(operation_id, request)  # doctest: +SKIP
 
 
-        :param operation_id:
-        :param request:
-        :return:
+        :param operation_id: UUID identifying the request across retries.
+        :param request: Typed request value to encode or compare with the existing decoded request.
+        :return: None after insertion/reset, or immediately when journal support is disabled.
         """
 
         if not self.has_ingest_journal:
@@ -1634,16 +2085,22 @@ class DatabaseStorageMetadataRepository:
         placement_hints: api.StoragePlacementHints | None,
     ) -> None:
         """
-        Record enough planned publication state for crash recovery.
+        Merge recovery values into a started journal payload and set state to publishing. The helper
+        requires an existing dictionary payload, updates selected scalar identity/location columns,
+        and imposes no state-transition or byte-publication check. Disabled journal support is a
+        no-op.
+
+        Example:
+            >>> repository.journal_publication_pending(operation_id, asset_record=asset, asset_created=True, location=location, replica_mode=api.ReplicaMode.ACTIVE, placement_hints=None)  # doctest: +SKIP
 
 
-        :param operation_id:
-        :param asset_record:
-        :param asset_created:
-        :param location:
-        :param replica_mode:
-        :param placement_hints:
-        :return:
+        :param operation_id: UUID of the existing journal entry.
+        :param asset_record: Asset evidence to retain for recovery and scalar Asset-ID projection.
+        :param asset_created: Whether the workflow created this Asset, retained for later recovery/cleanup decisions.
+        :param location: Planned destination Location retained in the payload and projected into journal columns.
+        :param replica_mode: Replica role to retain for later metadata registration.
+        :param placement_hints: Optional placement hints retained unchanged for recovery.
+        :return: None after the journal update, or a no-op when journaling is disabled.
         """
 
         if not self.has_ingest_journal:
@@ -1662,11 +2119,17 @@ class DatabaseStorageMetadataRepository:
 
     def journal_published(self, operation_id: UUID) -> None:
         """
-        Mark physical publication complete before metadata commit.
+        Set an existing dictionary journal payload to published without altering its recovery
+        values. The helper may re-project existing location/Asset scalars; it does not inspect
+        bytes, require a particular prior state, or clear a previous error. Disabled journal support
+        is a no-op.
+
+        Example:
+            >>> repository.journal_published(operation_id)  # doctest: +SKIP
 
 
-        :param operation_id:
-        :return:
+        :param operation_id: UUID whose existing recovery entry should be marked published.
+        :return: None after update or disabled-journal no-op.
         """
 
         if self.has_ingest_journal:
@@ -1674,12 +2137,22 @@ class DatabaseStorageMetadataRepository:
 
     def journal_failed(self, operation_id: UUID, error: BaseException) -> None:
         """
-        Mark an existing ingest failed with an operator-safe error string.
+        Mark an existing journal entry failed and project a bounded error description.
+
+        Disabled support or an absent entry is a no-op. Use str(error), falling back to its type
+        name when empty, then truncate to 2,000 characters before escaping unencodable scalar text.
+        Escapes can expand the stored length. This is neither secret redaction nor removal of
+        ordinary control characters, and stringification or write failures can replace the
+        workflow's original error. Payload values and other scalar columns remain retained
+        regardless of prior state.
+
+        Example:
+            >>> repository.journal_failed(operation_id, error)  # doctest: +SKIP
 
 
-        :param operation_id:
-        :param error:
-        :return:
+        :param operation_id: UUID of the journal row to mark failed when present.
+        :param error: Failure whose string or class name supplies the stored diagnostic.
+        :return: None after the update or a no-op for disabled/missing journal state.
         """
 
         if not self.has_ingest_journal:
@@ -1700,11 +2173,20 @@ class DatabaseStorageMetadataRepository:
 
     def commit_ingest_operation(self, operation: Any) -> None:
         """
-        Persist a completed operation as the idempotent retry result.
+        Upsert a committed journal result using the operation's own result UUID.
+
+        Project destination/Asset/Replica identities, clear last_error, and replace scratch with
+        only request and completed operation. Prior recovery-only fields disappear from that
+        payload. Existing request equality, prior state, and byte presence are not checked here.
+        Disabled journaling returns before accessing the operation. Persistence follows the caller's
+        transaction, not this method's name.
+
+        Example:
+            >>> repository.commit_ingest_operation(operation)  # doctest: +SKIP
 
 
-        :param operation:
-        :return:
+        :param operation: Completed request/result object exposing the required result identities and Replica Location.
+        :return: None after insertion/update, or a no-op when journal support is disabled.
         """
 
         if not self.has_ingest_journal:
@@ -1742,10 +2224,16 @@ class DatabaseStorageMetadataRepository:
 
     def pending_ingests(self) -> tuple[tuple[UUID, str, dict[str, Any]], ...]:
         """
-        Return decoded journal entries still eligible for recovery.
+        Load journal rows in ID order, excluding exactly committed and failed state strings. All
+        other states are included without transition validation. Require dictionary payloads and
+        parse row UUIDs; malformed entries fail the whole call rather than returning an earlier
+        partial tuple. Disabled journaling returns an empty tuple.
+
+        Example:
+            >>> result = repository.pending_ingests()  # doctest: +SKIP
 
 
-        :return:
+        :return: An ordered tuple of (operation UUID, state text, decoded recovery dictionary).
         """
 
         if not self.has_ingest_journal:
@@ -1773,11 +2261,16 @@ class DatabaseStorageMetadataRepository:
         operation_id: UUID,
     ) -> tuple[str, dict[str, Any], str | None] | None:
         """
-        Return one decoded durable ingest entry for explicit recovery.
+        Read one unique journal entry regardless of state and require a decoded dictionary payload.
+        Disabled support or absence yields None; empty/None last_error becomes None and other errors
+        are stringified. No byte inspection, request validation, or secret redaction occurs.
+
+        Example:
+            >>> entry = repository.ingest_journal_entry(operation_id)  # doctest: +SKIP
 
 
-        :param operation_id:
-        :return:
+        :param operation_id: UUID selecting the unique journal row.
+        :return: A (state, payload, optional error text) tuple, or None for disabled/absent state.
         """
 
         if not self.has_ingest_journal:
@@ -1799,10 +2292,16 @@ class DatabaseStorageMetadataRepository:
 
     def ingest_journal_statuses(self) -> tuple[dict[str, object], ...]:
         """
-        Return operator-safe journal summaries without decoded requests.
+        Return ID-ordered journal summaries without decoding scratch requests. UUID is parsed and
+        state stringified, while last_error, store_ref, and storage_key retain raw row values.
+        Excluding the payload does not redact sensitive text already present in those scalar
+        columns. Disabled support returns an empty tuple.
+
+        Example:
+            >>> result = repository.ingest_journal_statuses()  # doctest: +SKIP
 
 
-        :return:
+        :return: A tuple of summary dictionaries, including entries from every journal state.
         """
 
         if not self.has_ingest_journal:
@@ -1836,11 +2335,23 @@ class DatabaseStorageMetadataRepository:
         rows: Iterable[Mapping[str, Any]] | None = None,
     ) -> dict[api.DigitalAssetID, api.DigitalAssetRecord]:
         """
-        Decode Asset envelopes, falling back to usable legacy scalars.
+        Decode Asset rows, preferring correctly typed scratch envelopes.
+
+        An envelope's embedded identity keys the result without comparison to the scalar row ID;
+        repeated decoded identities overwrite earlier entries. Recognized malformed envelopes raise
+        instead of falling back.
+
+        Require scalar size and at least one SHA-256/BLAKE3 digest when no typed Asset envelope is
+        present; otherwise skip that legacy row. Rebuild selected metadata and optional policy IDs
+        with a synthetic db-ID revision. Numeric, digest, and record-construction errors propagate,
+        and no physical content or referenced policy is checked.
+
+        Example:
+            >>> records = repository._load_assets(())  # doctest: +SKIP
 
 
-        :param rows:
-        :return:
+        :param rows: Optional row iterable consumed once; None obtains the family's ordered rows through current cache/macro routing.
+        :return: A fresh identity-keyed dictionary of decoded or reconstructible Asset records.
         """
 
         records: dict[api.DigitalAssetID, api.DigitalAssetRecord] = {}
@@ -1886,11 +2397,24 @@ class DatabaseStorageMetadataRepository:
         rows: Iterable[Mapping[str, Any]] | None = None,
     ) -> dict[api.ReplicaID, api.ReplicaRecord]:
         """
-        Decode Replica envelopes, falling back to usable legacy scalars.
+        Decode Replica rows, preferring correctly typed scratch envelopes.
+
+        An envelope's embedded identity keys the result without comparison to the scalar row ID;
+        repeated decoded identities overwrite earlier entries. Recognized malformed envelopes raise
+        instead of falling back.
+
+        Legacy rows require non-None Asset ID, Store ID, and key. Invalid presence-state or mode
+        text skips the row, but timestamp/conversion and record errors can propagate. Missing
+        presence/mode default to unverified/active. Integrity-check time wins by truthiness over
+        last-seen time. Resolve Store UUID through macros, restore only supported observation
+        scalars, omit placement hints, and assign a synthetic db-ID revision; no byte read occurs.
+
+        Example:
+            >>> records = repository._load_replicas(())  # doctest: +SKIP
 
 
-        :param rows:
-        :return:
+        :param rows: Optional row iterable consumed once; None obtains the family's ordered rows through current cache/macro routing.
+        :return: A fresh identity-keyed dictionary of decoded or reconstructible Replica records.
         """
 
         records: dict[api.ReplicaID, api.ReplicaRecord] = {}
@@ -1945,11 +2469,24 @@ class DatabaseStorageMetadataRepository:
         rows: Iterable[Mapping[str, Any]] | None = None,
     ) -> dict[api.CompositeDigitalAssetID, api.CompositeDigitalAssetRecord]:
         """
-        Decode Composites, rebuilding legacy records from member links.
+        Decode Composite rows, preferring correctly typed scratch envelopes.
+
+        An envelope's embedded identity keys the result without comparison to the scalar row ID;
+        repeated decoded identities overwrite earlier entries. Recognized malformed envelopes raise
+        instead of falling back.
+
+        For legacy rows, query member links through macros in sequence order. Typed membership
+        envelopes win; other links need an Asset ID and use sequence zero for false values, optional
+        scalar role, and required-flag truthiness. Skip links lacking an Asset ID and Composites
+        with no reconstructed members. The fallback retains name and a synthetic db-ID revision but
+        not arbitrary attributes. Link/record validation errors propagate.
+
+        Example:
+            >>> records = repository._load_composites(())  # doctest: +SKIP
 
 
-        :param rows:
-        :return:
+        :param rows: Optional row iterable consumed once; None obtains the family's ordered rows through current cache/macro routing.
+        :return: A fresh identity-keyed dictionary of decoded or reconstructible Composite records.
         """
 
         records: dict[api.CompositeDigitalAssetID, api.CompositeDigitalAssetRecord] = {}
@@ -2030,11 +2567,24 @@ class DatabaseStorageMetadataRepository:
         rows: Iterable[Mapping[str, Any]] | None = None,
     ) -> dict[api.DigitalAssetDerivationID, api.DigitalAssetDerivationRecord]:
         """
-        Decode derivations, rebuilding simple legacy parent-child records.
+        Decode derivation rows, preferring correctly typed scratch envelopes.
+
+        An envelope's embedded identity keys the result without comparison to the scalar row ID;
+        repeated decoded identities overwrite earlier entries. Recognized malformed envelopes raise
+        instead of falling back.
+
+        Legacy rows need both direct parent and child Asset IDs. Rebuild one source at index zero,
+        optional notes/workflow ID, and the kind, using OTHER for invalid kind text. Recipe, other
+        sources, workflow reference, and creation timestamp are not reconstructed from scalars.
+        Missing endpoints skip the row; other conversion/construction errors propagate. No
+        graph/reference or replay validation occurs.
+
+        Example:
+            >>> records = repository._load_derivations(())  # doctest: +SKIP
 
 
-        :param rows:
-        :return:
+        :param rows: Optional row iterable consumed once; None obtains the family's ordered rows through current cache/macro routing.
+        :return: A fresh identity-keyed dictionary of decoded or reconstructible derivation records.
         """
 
         records: dict[api.DigitalAssetDerivationID, api.DigitalAssetDerivationRecord] = {}
@@ -2087,11 +2637,29 @@ class DatabaseStorageMetadataRepository:
         rows: Iterable[Mapping[str, Any]] | None = None,
     ) -> dict[api.ReplicationPolicyID, api.ReplicationPolicyRecord]:
         """
-        Decode replication policies with scalar-column compatibility.
+        Decode replication-policy rows, preferring correctly typed scratch envelopes.
+
+        An envelope's embedded identity keys the result without comparison to the scalar row ID;
+        repeated decoded identities overwrite earlier entries. Recognized malformed envelopes raise
+        instead of falling back.
+
+        Legacy rows receive a fallback name, minimum/synchronous copies zero, STORE separation,
+        bucket limit one, and ACTIVE mode when selected scalars are absent or false. JSON-list
+        helpers string-convert members and bool uses scalar truthiness. Invalid construction or
+        JSON/numeric conversion inside the policy block skips the row for TypeError/ValueError;
+        converting the row ID happens outside that catch. Rebuilt records receive a synthetic db-ID
+        revision.
+
+        Missing copy settings can make these defaults invalid: zero copies conflict with the
+        policy's default loss action, while a positive target requires positive synchronous copies.
+        Such rows are skipped rather than returned as default policies.
+
+        Example:
+            >>> records = repository._load_replication_policies(())  # doctest: +SKIP
 
 
-        :param rows:
-        :return:
+        :param rows: Optional row iterable consumed once; None obtains the family's ordered rows through current cache/macro routing.
+        :return: A fresh identity-keyed dictionary of decoded or reconstructible replication-policy records.
         """
 
         records: dict[api.ReplicationPolicyID, api.ReplicationPolicyRecord] = {}
@@ -2154,11 +2722,24 @@ class DatabaseStorageMetadataRepository:
         rows: Iterable[Mapping[str, Any]] | None = None,
     ) -> dict[api.BackupPolicyID, api.BackupPolicyRecord]:
         """
-        Decode backup policies with scalar-column compatibility.
+        Decode backup-policy rows, preferring correctly typed scratch envelopes.
+
+        An envelope's embedded identity keys the result without comparison to the scalar row ID;
+        repeated decoded identities overwrite earlier entries. Recognized malformed envelopes raise
+        instead of falling back.
+
+        Legacy rows receive a fallback name, minimum copies zero, STORE separation, bucket limit
+        one, and BACKUP mode for absent/false scalars. Verification/retention flags use truthiness,
+        so nonempty text can mean True. JSON-list members are stringified. TypeError/ValueError
+        inside policy construction skips that row, but row-ID conversion occurs outside the catch.
+        Rebuilt records receive a synthetic db-ID revision.
+
+        Example:
+            >>> records = repository._load_backup_policies(())  # doctest: +SKIP
 
 
-        :param rows:
-        :return:
+        :param rows: Optional row iterable consumed once; None obtains the family's ordered rows through current cache/macro routing.
+        :return: A fresh identity-keyed dictionary of decoded or reconstructible backup-policy records.
         """
 
         records: dict[api.BackupPolicyID, api.BackupPolicyRecord] = {}
@@ -2215,10 +2796,16 @@ class DatabaseStorageMetadataRepository:
 
     def _load_item_targets(self) -> dict[tuple[api.ItemID, str], tuple[str, Any]]:
         """
-        Merge atomic and Composite Item-link rows into one role-keyed map.
+        Read atomic links first and Composite links second, each in row-ID order through macros.
+        Skip rows missing Item/target IDs; choose nonempty scratch role, then scalar type, then
+        primary_payload without stripping. Later rows overwrite duplicate keys, and Composite
+        targets win across tables. No target lookup or relationship-cache read is performed.
+
+        Example:
+            >>> result = repository._load_item_targets()  # doctest: +SKIP
 
 
-        :return:
+        :return: A new role-keyed map of target kind and converted target ID.
         """
 
         targets: dict[tuple[api.ItemID, str], tuple[str, Any]] = {}
@@ -2256,10 +2843,16 @@ class DatabaseStorageMetadataRepository:
 
     def _load_committed_ingest_operations(self) -> dict[UUID, Any]:
         """
-        Decode committed operations used to make ingest retries idempotent.
+        Load committed rows in ID order and decode their payloads. Retain any non-None operation
+        entry without type or row-UUID agreement checks; skip non-dictionary/missing-operation
+        payloads. Malformed envelopes/UUIDs raise, later duplicate UUIDs overwrite earlier values,
+        and disabled journaling returns an empty dictionary.
+
+        Example:
+            >>> result = repository._load_committed_ingest_operations()  # doctest: +SKIP
 
 
-        :return:
+        :return: A fresh mapping from journal-row UUID to its decoded completed operation.
         """
 
         if not self.has_ingest_journal:
@@ -2289,14 +2882,22 @@ class DatabaseStorageMetadataRepository:
         values: Mapping[str, Any],
     ) -> None:
         """
-        Insert or update only values supported by the bound table schema.
+        Filter supplied values to available columns, then insert or update the selected row.
+
+        Column headings are queried while filtering each item. Unknown columns are dropped silently.
+        The existence lookup and write are separate macro calls; no transaction, concurrency guard,
+        or invalidation is added. Insert merges the supplied payload after the explicit identity, so
+        a retained identity key in values can override it. Provider and conversion errors propagate.
+
+        Example:
+            >>> repository._upsert("digital_assets", "digital_asset_id", 7, columns)  # doctest: +SKIP
 
 
-        :param table:
-        :param id_column:
-        :param row_id:
-        :param values:
-        :return:
+        :param table: Destination table inspected for supported columns.
+        :param id_column: Identity column used for lookup and writing.
+        :param row_id: Requested row identity used for existence lookup.
+        :param values: Scalar/envelope column values filtered against the current schema.
+        :return: None after the macro insertion or update.
         """
 
         payload = {
@@ -2320,13 +2921,18 @@ class DatabaseStorageMetadataRepository:
         where: Mapping[str, Any],
     ) -> None:
         """
-        Delete every row matching ``where`` through portable macros.
+        Read rows matching the supplied predicate and delete each by its explicit identity column.
+        No surrounding transaction or invalidation is added; a later deletion failure can follow
+        earlier successful removals.
+
+        Example:
+            >>> repository._delete_matching(table, id_column, where)  # doctest: +SKIP
 
 
-        :param table:
-        :param id_column:
-        :param where:
-        :return:
+        :param table: Table containing rows to remove.
+        :param id_column: Identity column read from each selected row and passed to deletion.
+        :param where: Column/value predicate forwarded to get_rows.
+        :return: None after all selected deletions return.
         """
 
         for row in self.macros.get_rows(table, where=where):
@@ -2336,12 +2942,18 @@ class DatabaseStorageMetadataRepository:
 
     def _delete_item_target(self, item_id: api.ItemID, role: str) -> None:
         """
-        Delete matching atomic and Composite links for one Item role.
+        Visit both Item-link tables and delete rows whose resolved role equals the supplied text.
+        Scratch role takes precedence over scalar type and primary_payload fallback, with no
+        whitespace normalization. No transaction, cache invalidation, or target-existence check is
+        added; errors can follow partial deletion.
+
+        Example:
+            >>> repository._delete_item_target(api.ItemID(7), "cover")  # doctest: +SKIP
 
 
-        :param item_id:
-        :param role:
-        :return:
+        :param item_id: Item identity int-converted for both link-table predicates.
+        :param role: Exact resolved role text identifying links to delete.
+        :return: None after all matching links are deleted.
         """
 
         for table, prefix in (
@@ -2366,11 +2978,17 @@ class DatabaseStorageMetadataRepository:
 
     def _store_id(self, store_ref: api.StoreUUID) -> int:
         """
-        Resolve a public Store UUID to its durable foreign-key identity.
+        Query Store rows by the string form of the public UUID. Absence raises
+        StoreConfigurationNotFound; multiple matches are accepted and the first row ID is returned
+        without ordering or duplicate validation. Shared cache and live Store facades are not
+        consulted.
+
+        Example:
+            >>> store_id = repository._store_id(store_uuid)  # doctest: +SKIP
 
 
-        :param store_ref:
-        :return:
+        :param store_ref: Public Store UUID used for exact scalar lookup.
+        :return: The first matching Store row ID converted to int.
         """
 
         rows = self.macros.get_rows(
@@ -2384,11 +3002,16 @@ class DatabaseStorageMetadataRepository:
 
     def _store_uuid(self, store_id: int) -> api.StoreUUID:
         """
-        Resolve a durable Store identity to its public UUID.
+        Load a Store row directly through macros. Missing rows or None/empty UUID values raise
+        StoreConfigurationNotFound; other values pass through str and UUID parsing, whose errors
+        propagate. No facade is attached or probed.
+
+        Example:
+            >>> store_uuid = repository._store_uuid(7)  # doctest: +SKIP
 
 
-        :param store_id:
-        :return:
+        :param store_id: Database Store row identity used for lookup.
+        :return: The parsed public Store UUID.
         """
 
         row = self.macros.get_row("stores", store_id, id_column="store_id")
@@ -2400,11 +3023,16 @@ class DatabaseStorageMetadataRepository:
 
     def _journal_row(self, operation_id: UUID) -> Mapping[str, Any] | None:
         """
-        Return the unique raw journal row for an operation UUID.
+        Find journal rows by the UUID's string form. Return the sole row or None, and raise
+        StorageManagementError for duplicates. No journal-support flag, payload/state validation, or
+        transaction lock is checked here.
+
+        Example:
+            >>> row = repository._journal_row(operation_id)  # doctest: +SKIP
 
 
-        :param operation_id:
-        :return:
+        :param operation_id: Operation UUID whose scalar journal identity is queried.
+        :return: The unique raw row mapping, or None.
         """
 
         rows = self.macros.get_rows(
@@ -2425,13 +3053,20 @@ class DatabaseStorageMetadataRepository:
         values: Mapping[str, Any],
     ) -> None:
         """
-        Merge typed recovery values and advance one journal state.
+        Require a unique existing row with a dictionary payload, shallow-merge values, then store
+        the requested state and re-encoded payload. Project location/Asset scalars only when their
+        retained values have the expected runtime types. Missing/invalid entries raise
+        StorageManagementError; no transition guard, last-error clearing, or independent transaction
+        is added.
+
+        Example:
+            >>> repository._update_journal_payload(operation_id, state="published", values={})  # doctest: +SKIP
 
 
-        :param operation_id:
-        :param state:
-        :param values:
-        :return:
+        :param operation_id: UUID of the existing journal entry.
+        :param state: State text assigned without validating an allowed transition.
+        :param values: Recovery entries overwriting same-named payload keys; absent keys remain retained.
+        :return: None after the journal row update.
         """
 
         row = self._journal_row(operation_id)
@@ -2474,12 +3109,21 @@ class DatabaseStorageMetadataRepository:
         self, row: Mapping[str, Any], scratch_column: str
     ) -> Any | None:
         """
-        Decode our marked envelope while ignoring unrelated scratch text.
+        Ignore unrelated scratch content and decode only an envelope marked with this format.
+
+        Missing/empty text, invalid JSON, and unmarked JSON return None for legacy fallback. Once
+        the marker matches, decoding failures deriving from Exception become StorageManagementError
+        with the original cause; BaseException propagates. No expected record type or embedded
+        identity is checked. A valid marked envelope without payload can decode to None, including
+        an allocation reservation.
+
+        Example:
+            >>> value = repository._load_optional_record(row, "digital_asset_scratch")  # doctest: +SKIP
 
 
-        :param row:
-        :param scratch_column:
-        :return:
+        :param row: Raw database row whose scratch value is inspected.
+        :param scratch_column: Column containing an optional marked storage envelope.
+        :return: The decoded value, or None for unrelated/absent content or a None payload.
         """
 
         raw = row.get(scratch_column)
@@ -2502,11 +3146,21 @@ class DatabaseStorageMetadataRepository:
 
     def _migrate_envelope(self, raw: Any) -> str | None:
         """
-        Upgrade a recognised version-zero envelope or return no change.
+        Validate and rewrite a recognized version-zero envelope to the current wrapper.
+
+        Ignore absent, malformed/unmarked JSON and already-current versions; current payloads are
+        not validated here. Missing version counts as zero. Any other version raises
+        StorageManagementError, including values that are not actually newer. For version zero,
+        prefer an existing payload key over record, decode it for validation, then preserve that
+        encoded payload in canonical ASCII JSON. Ordinary decode failures are wrapped with their
+        cause; source data is not mutated.
+
+        Example:
+            >>> migrated = repository._migrate_envelope(old_scratch)  # doctest: +SKIP
 
 
-        :param raw:
-        :return:
+        :param raw: Optional scratch scalar whose string form may contain a legacy envelope.
+        :return: The upgraded JSON text, or None when no rewrite is selected.
         """
 
         if raw in (None, ""):
@@ -2545,11 +3199,20 @@ class DatabaseStorageMetadataRepository:
 
     def _dump(self, value: Any) -> str:
         """
-        Encode one typed value in the current lossless ASCII JSON envelope.
+        Encode a supported value in the version-one storage wrapper as compact ASCII JSON.
+
+        Sorted object keys and ASCII escapes keep surrogate-containing text representable in
+        database scratch columns. This does not make every Python value round-trip: codec markers,
+        constructor fields, and registry coverage still matter. Default JSON handling permits
+        nonfinite floats; enum values must themselves serialize. Unsupported values and
+        recursive/serialization failures propagate.
+
+        Example:
+            >>> scratch = repository._dump(record)  # doctest: +SKIP
 
 
-        :param value:
-        :return:
+        :param value: Supported typed value or container to encode; its decode types must be registered separately.
+        :return: Compact marked JSON text containing format, version, and encoded payload.
         """
 
         return json.dumps(
@@ -2569,11 +3232,17 @@ class DatabaseStorageMetadataRepository:
 
     def _load(self, raw: Any) -> Any:
         """
-        Validate and decode one current-version storage envelope.
+        Parse str(raw), require a dictionary with the current format/version values, then decode its
+        payload through the registry. Missing payload decodes as None. JSON/shape/version and
+        constructor errors propagate directly; this method does not perform legacy migration or
+        compare a decoded record with row scalars.
+
+        Example:
+            >>> restored = repository._load(scratch)  # doctest: +SKIP
 
 
-        :param raw:
-        :return:
+        :param raw: Scratch value whose string representation is a current storage envelope.
+        :return: The decoded payload, possibly None; not restricted to a particular record class.
         """
 
         envelope = json.loads(str(raw))
@@ -2588,16 +3257,22 @@ class DatabaseStorageMetadataRepository:
 
 def _database_scalar_text(value: str | None) -> str | None:
     """
-    Make fallback text columns safe without weakening scratch envelopes.
+    Retain valid UTF-8 text and visibly escape unencodable surrogate code points.
 
-    Well-formed Unicode is kept exactly.  Lone surrogates originating from a
-    POSIX ``surrogateescape`` filename are rendered visibly as ``\\udcXX`` in
-    legacy scalar columns; the authoritative JSON envelope retains and reloads
-    the exact original string.
+    None passes through. On UnicodeEncodeError, UTF-8 backslashreplace produces printable escapes
+    for scalar database columns; the scratch envelope can retain the original string separately.
+    This is not secret redaction or general control-character filtering, and escaped output can be
+    longer than its input.
+
+    Example:
+        >>> _database_scalar_text("book")
+        'book'
+        >>> _database_scalar_text(None) is None
+        True
 
 
-    :param value:
-    :return:
+    :param value: Optional scalar text, potentially containing surrogateescaped filename code points.
+    :return: The original text or None when encodable, otherwise text with unencodable code points escaped.
     """
 
     if value is None:
@@ -2611,11 +3286,21 @@ def _database_scalar_text(value: str | None) -> str | None:
 
 def _storage_value_types(additional: Iterable[type[Any]]) -> dict[str, type[Any]]:
     """
-    Build the allowlist of enum and dataclass types accepted by decoding.
+    Build the decoder registry from explicit types and storage API dataclasses/enums.
+
+    Additional entries are set-collected without verifying their category. API exports are scanned
+    without importing types by serialized name; keys use each type's actual module and qualified
+    name. Distinct types sharing a name collide with set-iteration-dependent precedence.
+    Constructors remain responsible for decoded field/value validation.
+
+    Example:
+        >>> types = _storage_value_types(())
+        >>> types[_type_name(api.Digest)] is api.Digest
+        True
 
 
-    :param additional:
-    :return:
+    :param additional: Additional constructor types, such as private journal request/result classes, accepted during decoding.
+    :return: A fresh qualified-name-to-type dictionary used for explicit constructor lookup.
     """
 
     values: set[type[Any]] = set(additional)
@@ -2630,11 +3315,16 @@ def _storage_value_types(additional: Iterable[type[Any]]) -> dict[str, type[Any]
 
 def _type_name(value: type[Any]) -> str:
     """
-    Return the stable module-qualified name stored in typed envelopes.
+    Combine the supplied type's current module and qualified name. No importability or name
+    stability is checked; explicit __module__ assignments affect persisted identities.
+
+    Example:
+        >>> _type_name(int)
+        'builtins.int'
 
 
-    :param value:
-    :return:
+    :param value: Type whose module and qualified name identify it in an envelope.
+    :return: The dotted module-qualified type name.
     """
 
     return f"{value.__module__}.{value.__qualname__}"
@@ -2642,11 +3332,26 @@ def _type_name(value: type[Any]) -> str:
 
 def _encode(value: Any) -> Any:
     """
-    Convert a supported typed storage value into JSON-compatible data.
+    Recursively convert supported values into tagged JSON-compatible structures.
+
+    Enums retain their raw value; dataclass instances encode every field, including fields their
+    constructor may not accept on decode. UUIDs, datetimes, tuples, and frozensets receive markers;
+    frozensets sort by str without a tie-breaker. Lists recurse, and dictionaries with any
+    non-string key use paired mappings. Other string-key dictionaries remain ordinary objects,
+    including reserved marker keys that the decoder may reinterpret.
+
+    None, text, numeric values, and booleans pass through. Unsupported values raise TypeError;
+    cycles are not detected independently of Python recursion errors. This helper neither checks the
+    type registry nor guarantees every encoded shape will round-trip. Nonfinite floats are left for
+    the JSON encoder.
+
+    Example:
+        >>> _encode((1, "book"))
+        {'$tuple': [1, 'book']}
 
 
-    :param value:
-    :return:
+    :param value: Supported storage value or recursively composed container to encode.
+    :return: Tagged containers or primitive values for JSON serialization.
     """
 
     if isinstance(value, Enum):
@@ -2684,12 +3389,26 @@ def _encode(value: Any) -> Any:
 
 def _decode(value: Any, types: Mapping[str, type[Any]]) -> Any:
     """
-    Reconstruct typed storage values using the supplied type allowlist.
+    Reconstruct tagged values using explicit constructors from the supplied registry.
+
+    Lists recurse and non-dictionary values pass through. Dictionary markers are tested in UUID,
+    datetime, tuple, frozenset, mapping, enum, then dataclass order; the first recognized marker
+    wins even when extra keys exist. Ordinary string-key dictionaries containing reserved markers
+    may therefore change shape.
+
+    Enum/dataclass names must exist in types; no dynamic import is performed. Dataclass fields must
+    be a dictionary and are passed as keyword arguments to the registered callable. Constructor,
+    malformed-container, hashability, and recursion errors propagate. The registry does not
+    independently enforce the named type category or restrict its constructor behavior.
+
+    Example:
+        >>> _decode({'$tuple': [1, "book"]}, {})
+        (1, 'book')
 
 
-    :param value:
-    :param types:
-    :return:
+    :param value: Parsed JSON payload, possibly containing the codec's reserved marker dictionaries.
+    :param types: Qualified-name registry of constructors permitted for enum/dataclass markers.
+    :return: The reconstructed value, or unchanged untagged primitive.
     """
 
     if isinstance(value, list):
@@ -2729,12 +3448,17 @@ def _decode(value: Any, types: Mapping[str, type[Any]]) -> Any:
 
 def _digest_value(digests: Iterable[api.Digest], algorithm: str) -> str | None:
     """
-    Return the first digest value for ``algorithm`` when present.
+    Consume digests until the first exact algorithm-name match. No case normalization, duplicate
+    rejection, or digest verification is performed; later matches are ignored.
+
+    Example:
+        >>> _digest_value((api.Digest("sha256", "aa"),), "sha256")
+        'aa'
 
 
-    :param digests:
-    :param algorithm:
-    :return:
+    :param digests: Iterable of digest values consumed until a match or exhaustion.
+    :param algorithm: Exact algorithm string to compare against each digest.
+    :return: The first matching digest value, or None.
     """
 
     return next(
@@ -2744,12 +3468,18 @@ def _digest_value(digests: Iterable[api.Digest], algorithm: str) -> str | None:
 
 def _row_digests(row: Mapping[str, Any], prefix: str) -> tuple[api.Digest, ...]:
     """
-    Collect supported digest columns from one legacy database row.
+    Read only SHA-256 and BLAKE3 scalar columns in that order. Nonempty values are stringified
+    without stripping; other algorithms and absent/empty columns are ignored. Digest construction
+    errors propagate.
+
+    Example:
+        >>> _row_digests({"hash_sha256": "aa"}, "hash_")
+        (Digest(algorithm='sha256', value='aa'),)
 
 
-    :param row:
-    :param prefix:
-    :return:
+    :param row: Legacy row mapping containing optional digest scalar columns.
+    :param prefix: Column-name prefix before sha256 and blake3.
+    :return: A tuple of supplied digest evidence in SHA-256/BLAKE3 order.
     """
 
     values: list[api.Digest] = []
@@ -2762,11 +3492,17 @@ def _row_digests(row: Mapping[str, Any], prefix: str) -> tuple[api.Digest, ...]:
 
 def _epoch_ms(value: datetime | None) -> int | None:
     """
-    Convert an optional timestamp to integer Unix milliseconds.
+    Convert datetime.timestamp seconds to integer milliseconds by truncating toward zero. None
+    passes through; naive datetimes use the host's local-time interpretation, and no awareness check
+    is added.
+
+    Example:
+        >>> _epoch_ms(datetime(1970, 1, 1, tzinfo=UTC))
+        0
 
 
-    :param value:
-    :return:
+    :param value: Optional datetime to project into an integer database timestamp.
+    :return: Unix milliseconds truncated toward zero, or None.
     """
 
     return None if value is None else int(value.timestamp() * 1000)
@@ -2774,11 +3510,17 @@ def _epoch_ms(value: datetime | None) -> int | None:
 
 def _datetime_from_epoch(value: Any) -> datetime | None:
     """
-    Convert optional Unix milliseconds to an aware UTC timestamp.
+    Convert an optional int-coercible millisecond scalar to an aware UTC datetime. None and empty
+    text yield None; fractional inputs first follow int truncation. Conversion and timestamp-range
+    errors propagate.
+
+    Example:
+        >>> _datetime_from_epoch(0).isoformat()
+        '1970-01-01T00:00:00+00:00'
 
 
-    :param value:
-    :return:
+    :param value: Nullable Unix-millisecond scalar accepted by _optional_int.
+    :return: An aware UTC datetime, or None for absent input.
     """
 
     parsed = _optional_int(value)
@@ -2787,11 +3529,16 @@ def _datetime_from_epoch(value: Any) -> datetime | None:
 
 def _optional_text(value: Any) -> str | None:
     """
-    Normalise a nullable scalar to non-empty text or ``None``.
+    Return str(value) unless value is None or its string representation is empty. Whitespace is
+    retained, and false numeric/boolean values become their ordinary nonempty text.
+
+    Example:
+        >>> _optional_text("  ") == "  "
+        True
 
 
-    :param value:
-    :return:
+    :param value: Nullable legacy scalar to stringify without whitespace normalization.
+    :return: Nonempty text, or None for None/empty text.
     """
 
     if value is None:
@@ -2802,11 +3549,17 @@ def _optional_text(value: Any) -> str | None:
 
 def _optional_int(value: Any) -> int | None:
     """
-    Normalise a nullable scalar to an integer or ``None``.
+    Return None for None or empty text, otherwise apply int directly. This accepts numeric strings
+    and booleans and truncates convertible fractional numbers; it does not enforce positivity.
+    Conversion errors propagate.
+
+    Example:
+        >>> (_optional_int("7"), _optional_int(""), _optional_int(2.9))
+        (7, None, 2)
 
 
-    :param value:
-    :return:
+    :param value: Nullable legacy scalar to convert using int.
+    :return: The converted integer, or None for an absent scalar.
     """
 
     if value in (None, ""):
@@ -2816,12 +3569,18 @@ def _optional_int(value: Any) -> int | None:
 
 def _optional_id(value: Any, constructor: Callable[[int], Any]) -> Any | None:
     """
-    Construct a typed identifier from a nullable database scalar.
+    Normalize a nullable integer scalar, then call the supplied constructor only when present. The
+    helper adds no identity/reference validation beyond the constructor and propagates conversion
+    errors.
+
+    Example:
+        >>> _optional_id("7", api.DigitalAssetID)
+        7
 
 
-    :param value:
-    :param constructor:
-    :return:
+    :param value: Nullable int-coercible legacy identity.
+    :param constructor: Callable receiving the converted integer to produce the desired identity type.
+    :return: The constructed identity, or None for absent input.
     """
 
     parsed = _optional_int(value)
@@ -2830,12 +3589,18 @@ def _optional_id(value: Any, constructor: Callable[[int], Any]) -> Any | None:
 
 def _json_list(value: Any, default: list[str]) -> list[str]:
     """
-    Decode a JSON string list, copying ``default`` for absent/non-list data.
+    Parse JSON and stringify each element only when the result is a list. Absent or non-list data
+    returns a fresh shallow copy of default; malformed JSON raises rather than using the default.
+    Ordering and duplicate values are retained.
+
+    Example:
+        >>> _json_list('[1, "store"]', [])
+        ['1', 'store']
 
 
-    :param value:
-    :param default:
-    :return:
+    :param value: JSON text or a value whose string representation is JSON; None/empty text selects the default.
+    :param default: Fallback list copied for absent input or valid JSON of another shape.
+    :return: The list of stringified decoded elements, or a shallow default copy.
     """
 
     if value in (None, ""):

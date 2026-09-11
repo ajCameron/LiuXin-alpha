@@ -1,20 +1,16 @@
 """
-Second-generation transactional storage contracts.
+Expose the shared storage contracts, values, typed failures, and workflow APIs.
 
-The configured-store core is intentionally limited to ``stat``, ``open_read``,
-``begin_write`` with commit/abort, ``delete``, ``iter_locations``, static-ish
-``capabilities``, and dynamic ``status``.  Convenience operations are derived
-from those primitives.  Asset identity, replica policy, reconciliation jobs,
-and database transactions remain above the store boundary.  Backend-specific
-driver mechanics are isolated below it in ``store_driver_api``.
-Resumable multi-store processes are isolated above the manager in
-``workflow_api``.  ``Location`` remains an immutable opaque address; callers
-wanting object-style ergonomics may ask a manager for a short-lived
-``BoundLocation`` without adding path or cached-state semantics to the address.
-Everyday manager code may use the concrete convenience operations such as
-``store()``, ``read_asset()``, and ``create_composite()``; precise declaration
-and result values remain available underneath them.
-Free operations over these contracts live in ``LiuXin_alpha.storage.utils``.
+Raw-driver mechanics sit below configured Stores; manager contracts own assets,
+replicas, routing, policy, and persistence. Resumable workflow contracts compose
+those manager operations. Store conveniences derive from file primitives, and
+free operations live in LiuXin_alpha.storage.utils.
+
+This initializer eagerly imports and re-exports the contract families without
+constructing a concrete backend or manager. Location remains the opaque address;
+BoundLocation is a separate manager-bound operational handle. StorageError here
+belongs to the shared API hierarchy, distinct from the legacy storage package
+export of the same name. The explicit export list preserves those public objects.
 """
 
 from __future__ import annotations

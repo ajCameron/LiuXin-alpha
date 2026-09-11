@@ -1,3 +1,11 @@
+"""
+Exercise real SquashFS read-only images, escaped keys, and bounded extraction.
+
+Most tests require installed mksquashfs and unsquashfs. Synthetic pseudo headers
+and temporary shell commands isolate topology, expansion, overrun, and timeout
+failures while adjacent tests exercise real inventory, ranges, and ownership.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -42,6 +50,20 @@ from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
 
 
 def _build_squashfs(tmp_path: pathlib.Path) -> pathlib.Path:
+    """
+    Require both external tools and create a real two-file fixture image under the supplied
+    directory.
+
+    The source contains a space-bearing text filename and a nested EPUB-named byte payload. Tool
+    execution has no timeout here; failures propagate from subprocess.run.
+
+    Example:
+        >>> image = _build_squashfs(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: Path to library.squashfs after mksquashfs succeeds; missing tools skip the test.
+    """
     if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
         pytest.skip("squashfs-tools not available in environment")
     source = tmp_path / "src"
@@ -61,6 +83,16 @@ def _build_squashfs(tmp_path: pathlib.Path) -> pathlib.Path:
 def test_squashfs_readonly_preserves_unicode_archive_paths_and_bytes(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Build a real Unicode member and verify prefix lookup, basename hints, and exact payload bytes.
+
+    Example:
+        >>> test_squashfs_readonly_preserves_unicode_archive_paths_and_bytes(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
         pytest.skip("squashfs-tools not available in environment")
     source = tmp_path / "unicode-src"
@@ -90,6 +122,20 @@ def test_squashfs_readonly_preserves_unicode_archive_paths_and_bytes(
 def test_squashfs_readonly_reads_tortured_and_undecodable_archive_paths(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Round-trip the shared difficult Unicode cases and a raw undecodable POSIX filename through a
+    real image.
+
+    The shared harness exercises each named case, and the separate surrogateescaped entry is found
+    through inventory and read exactly.
+
+    Example:
+        >>> test_squashfs_readonly_reads_tortured_and_undecodable_archive_paths(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
         pytest.skip("squashfs-tools not available in environment")
     source = tmp_path / "tortured-src"
@@ -127,6 +173,17 @@ def test_squashfs_readonly_reads_tortured_and_undecodable_archive_paths(
 
 
 def test_squashfs_readonly_init_and_status(tmp_path: pathlib.Path) -> None:
+    """
+    Check real startup availability, two-file inventory, archive URI, read-only capabilities, and
+    recorded default expansion policy.
+
+    Example:
+        >>> test_squashfs_readonly_init_and_status(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     store = SquashfsReadOnlyStorageBackend(url=str(image))
 
@@ -152,6 +209,17 @@ def test_squashfs_readonly_init_and_status(tmp_path: pathlib.Path) -> None:
 
 
 def test_squashfs_readonly_locate_stat_read_and_range(tmp_path: pathlib.Path) -> None:
+    """
+    Resolve the legacy image-path/member form and verify ownership, existence, declared size, full
+    payload, and a four-byte range.
+
+    Example:
+        >>> test_squashfs_readonly_locate_stat_read_and_range(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     store = SquashfsReadOnlyStorageBackend(url=str(image))
     canonical = str(image.resolve()) + "/nested/book_two.epub"
@@ -168,6 +236,16 @@ def test_squashfs_readonly_locate_stat_read_and_range(tmp_path: pathlib.Path) ->
 
 
 def test_squashfs_readonly_iter_locations_and_prefix_lists_files(tmp_path: pathlib.Path) -> None:
+    """
+    Enumerate both real fixture files and restrict a nested-directory prefix to its one member.
+
+    Example:
+        >>> test_squashfs_readonly_iter_locations_and_prefix_lists_files(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     store = SquashfsReadOnlyStorageBackend(url=str(image))
 
@@ -184,6 +262,17 @@ def test_squashfs_readonly_iter_locations_and_prefix_lists_files(tmp_path: pathl
 def test_squashfs_readonly_prefix_enumeration_obeys_path_boundaries(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Build books and bookstore members and verify that the books prefix excludes the similarly
+    spelled sibling.
+
+    Example:
+        >>> test_squashfs_readonly_prefix_enumeration_obeys_path_boundaries(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
         pytest.skip("squashfs-tools not available in environment")
     source = tmp_path / "prefix-src"
@@ -213,6 +302,17 @@ def test_squashfs_readonly_prefix_enumeration_obeys_path_boundaries(
 def test_squashfs_readonly_reads_control_characters_in_archive_paths(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Preserve LF, CR, tab, and wildcard punctuation in POSIX archive keys and read each payload
+    literally.
+
+    Example:
+        >>> test_squashfs_readonly_reads_control_characters_in_archive_paths(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
         pytest.skip("squashfs-tools not available in environment")
     source = tmp_path / "control-src"
@@ -243,6 +343,17 @@ def test_squashfs_readonly_reads_control_characters_in_archive_paths(
 def test_squashfs_readonly_range_boundaries_and_empty_member(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Read an empty file, a range crossing the 1 MiB boundary, an end-offset range, and an explicit
+    zero-length range from a real image.
+
+    Example:
+        >>> test_squashfs_readonly_range_boundaries_and_empty_member(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
         pytest.skip("squashfs-tools not available in environment")
     source = tmp_path / "range-src"
@@ -269,6 +380,17 @@ def test_squashfs_readonly_range_boundaries_and_empty_member(
 def test_squashfs_readonly_supports_concurrent_indexed_reads(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Run twenty-four full/range requests through eight workers and compare every returned payload
+    with its expected slice.
+
+    Example:
+        >>> test_squashfs_readonly_supports_concurrent_indexed_reads(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     store = SquashfsReadOnlyStorageBackend(str(image))
     requests = [
@@ -278,6 +400,18 @@ def test_squashfs_readonly_supports_concurrent_indexed_reads(
     ] * 8
 
     def read_one(request: tuple[str, int, int | None, bytes]) -> bytes:
+        """
+        Read the key/range from one request through the captured shared Store; leave expected-byte
+        comparison to the parent test.
+
+        Example:
+            >>> read_one(("book one.txt", 0, None, b"hello"))  # doctest: +SKIP
+            b'hello'
+
+
+        :param request: Tuple of member key, offset, optional length, and expected bytes; the last item is not used by this worker.
+        :return: Bytes returned for the requested member range.
+        """
         key, offset, length, _expected = request
         return store.read_file(key, offset=offset, length=length)
 
@@ -288,6 +422,17 @@ def test_squashfs_readonly_supports_concurrent_indexed_reads(
 
 
 def test_squashfs_readonly_rejects_mutating_ops(tmp_path: pathlib.Path) -> None:
+    """
+    Verify that byte creation and file deletion through the read-only Store both raise
+    StoreReadOnly.
+
+    Example:
+        >>> test_squashfs_readonly_rejects_mutating_ops(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     store = SquashfsReadOnlyStorageBackend(url=str(image))
 
@@ -298,6 +443,17 @@ def test_squashfs_readonly_rejects_mutating_ops(tmp_path: pathlib.Path) -> None:
 
 
 def test_squashfs_readonly_hash_streaming_matches_sha256(tmp_path: pathlib.Path) -> None:
+    """
+    Compute a real archived member digest through the Store and compare it with the known payload
+    SHA-256.
+
+    Example:
+        >>> test_squashfs_readonly_hash_streaming_matches_sha256(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     store = SquashfsReadOnlyStorageBackend(url=str(image))
 
@@ -314,6 +470,18 @@ def test_squashfs_readonly_rejects_noncanonical_internal_paths(
     tmp_path: pathlib.Path,
     invalid: str,
 ) -> None:
+    """
+    Require the selected empty, absolute, parent, repeated-separator, or backslash key to reject
+    during Store location parsing.
+
+    Example:
+        >>> test_squashfs_readonly_rejects_noncanonical_internal_paths(tmp_path, invalid)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :param invalid: Parameterized noncanonical member key expected to reject.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     store = SquashfsReadOnlyStorageBackend(url=str(image))
     with pytest.raises((StorageInvalidAddress, ValueError)):
@@ -321,6 +489,16 @@ def test_squashfs_readonly_rejects_noncanonical_internal_paths(
 
 
 def test_squashfs_readonly_missing_stat_remains_typed(tmp_path: pathlib.Path) -> None:
+    """
+    Require a missing member in a readable image to raise StorageNotFound when statted.
+
+    Example:
+        >>> test_squashfs_readonly_missing_stat_remains_typed(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     store = SquashfsReadOnlyStorageBackend(url=str(image))
     with pytest.raises(StorageNotFound):
@@ -350,6 +528,20 @@ def test_squashfs_rejects_ambiguous_member_topology(
     header: bytes,
     message: str,
 ) -> None:
+    """
+    Inject duplicate or file/ancestor-conflicting pseudo records and verify startup propagates the
+    matching StorageIntegrityError.
+
+    Example:
+        >>> test_squashfs_rejects_ambiguous_member_topology(tmp_path, monkeypatch, header, message)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :param monkeypatch: Pytest fixture restoring injected inventory or build methods after the test.
+    :param header: Synthetic pseudo-file header containing the selected topology conflict.
+    :param message: Expected diagnostic pattern for the injected topology conflict.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     driver = SquashfsStorageDriver(image, address_space_uuid=uuid4())
     monkeypatch.setattr(driver, "_read_pseudo_header", lambda: header)
@@ -362,6 +554,18 @@ def test_squashfs_rejects_non_regular_members(
     tmp_path: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Inject a symbolic-link pseudo record and verify startup rejects it as an unsupported non-regular
+    member.
+
+    Example:
+        >>> test_squashfs_rejects_non_regular_members(tmp_path, monkeypatch)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :param monkeypatch: Pytest fixture restoring injected inventory or build methods after the test.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     driver = SquashfsStorageDriver(image, address_space_uuid=uuid4())
     monkeypatch.setattr(
@@ -378,6 +582,18 @@ def test_squashfs_bounds_member_total_ratio_entry_count_and_header(
     tmp_path: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Exercise member, total, ratio, and directory-entry limits using synthetic records, then the
+    header-byte limit through the real tool.
+
+    Example:
+        >>> test_squashfs_bounds_member_total_ratio_entry_count_and_header(tmp_path, monkeypatch)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :param monkeypatch: Pytest fixture restoring injected inventory or build methods after the test.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     records = (
         b"first R 0 600 0 0 8 0 0\n"
@@ -438,6 +654,17 @@ def test_squashfs_bounds_member_total_ratio_entry_count_and_header(
 def test_squashfs_extraction_rejects_output_beyond_indexed_size(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Replace only the extractor after real indexing with a shell command emitting one extra byte and
+    require an integrity error before a stream is returned.
+
+    Example:
+        >>> test_squashfs_extraction_rejects_output_beyond_indexed_size(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     driver = SquashfsStorageDriver(image, address_space_uuid=uuid4())
     driver.startup()
@@ -451,6 +678,19 @@ def test_squashfs_extraction_rejects_output_beyond_indexed_size(
 
 
 def test_squashfs_extraction_timeout_is_enforced(tmp_path: pathlib.Path) -> None:
+    """
+    Replace a started driver's extractor with a sleeping shell command and require StorageTimeout.
+
+    The test checks the error type/message, not a wall-clock upper bound on process and pipe
+    cleanup.
+
+    Example:
+        >>> test_squashfs_extraction_timeout_is_enforced(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     driver = SquashfsStorageDriver(
         image,
@@ -470,6 +710,17 @@ def test_squashfs_extraction_timeout_is_enforced(tmp_path: pathlib.Path) -> None
 def test_squashfs_conditional_read_rejects_archive_replacement(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Replace an indexed image with another real archive and require the earlier member version to
+    fail a conditional read.
+
+    Example:
+        >>> test_squashfs_conditional_read_rejects_archive_replacement(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     image = _build_squashfs(tmp_path)
     store = SquashfsReadOnlyStorageBackend(str(image))
     info = store.stat_file("book one.txt")

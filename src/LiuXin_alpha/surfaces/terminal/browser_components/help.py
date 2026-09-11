@@ -1,4 +1,9 @@
-"""Command and group help rendered from the live registration metadata."""
+"""
+Render terminal help from registered command objects and group/alias mappings.
+
+Help reads command metadata, not Python docstrings. Aliases may resolve to the
+same command object; listings deduplicate those objects where noted below.
+"""
 
 from __future__ import annotations
 
@@ -12,9 +17,30 @@ from .contracts import BrowserState
 
 
 class HelpMixin[HostT](BrowserState[HostT]):
-    """Command and group help rendered from the live registration metadata."""
+    """
+    Supply overview, group, and individual-command help to a composed browser.
+
+    The registry owner supplies commands and normalized tokens; the host owner
+    supplies output. Rendering help does not execute commands or query table data.
+
+    Example:
+        >>> browser.execute_line("help browse")  # doctest: +SKIP
+    """
 
     def _format_command_aliases(self, aliases: Sequence[str]) -> str:
+        """
+        Format normalized nonblank aliases as a parenthesized listing suffix.
+
+        Input order and repeated aliases are retained; this helper does not deduplicate.
+
+        Example:
+            >>> browser._format_command_aliases([" LS ", "", "ls"])  # doctest: +SKIP
+            ' (aliases: ls, ls)'
+
+
+        :param aliases: Alias strings to strip, lowercase, and display.
+        :return: Space-prefixed alias suffix, or an empty string when all aliases are blank.
+        """
         normalized = [self._normalize_command_token(alias) for alias in aliases]
         filtered = [alias for alias in normalized if alias]
         if not filtered:
@@ -22,6 +48,17 @@ class HelpMixin[HostT](BrowserState[HostT]):
         return " (aliases: {})".format(", ".join(filtered))
 
     def _normalized_command_tokens(self, tokens: Sequence[str]) -> list[str]:
+        """
+        Normalize tokens and retain the first occurrence of each nonblank result.
+
+        Example:
+            >>> browser._normalized_command_tokens([" LS ", "ls", ""])  # doctest: +SKIP
+            ['ls']
+
+
+        :param tokens: Command or alias tokens in the desired display order.
+        :return: New ordered list of unique normalized nonblank tokens.
+        """
         normalized: list[str] = []
         seen: set[str] = set()
         for raw in tokens:
@@ -33,6 +70,16 @@ class HelpMixin[HostT](BrowserState[HostT]):
         return normalized
 
     def _group_aliases(self, group_name: str) -> list[str]:
+        """
+        Find registered aliases for a canonical group, excluding the group's own name.
+
+        Example:
+            >>> aliases = browser._group_aliases("add")  # doctest: +SKIP
+
+
+        :param group_name: Canonical group name matched directly against registry targets.
+        :return: Alphabetically sorted aliases for that group, possibly empty.
+        """
         aliases: list[str] = []
         for alias, target in sorted(self._group_alias_to_group.items()):
             if target == group_name and alias != group_name:
@@ -40,6 +87,20 @@ class HelpMixin[HostT](BrowserState[HostT]):
         return aliases
 
     def _write_group_help(self, group_name: str) -> None:
+        """
+        Print a group's aliases, unique subcommands, and detailed-help hint.
+
+        Commands are deduplicated by identity and sorted by primary name. A command's
+        usage metadata takes precedence over the generated group/name fallback.
+
+        Example:
+            >>> browser._write_group_help("show")  # doctest: +SKIP
+
+
+        :param group_name: Canonical registry group whose help should be printed.
+        :return: ``None``; formatted lines are sent to the browser output hook.
+        :raises ValueError: If the group is absent or has no registered subcommands.
+        """
         commands = dict(self._command_groups.get(group_name, {}))
         if not commands:
             raise ValueError(f"Unknown command group: {group_name!r}.")
@@ -63,6 +124,20 @@ class HelpMixin[HostT](BrowserState[HostT]):
     def _write_command_help(
         self, command: TerminalCommandAPI[HostT], *, group_name: str | None = None
     ) -> None:
+        """
+        Print one command's name, optional summary, usage, and applicable aliases.
+
+        Grouped help includes direct names only when direct exposure is enabled,
+        plus aliases of the group. Ungrouped help instead lists command aliases.
+
+        Example:
+            >>> browser._write_command_help(command, group_name="show")  # doctest: +SKIP
+
+
+        :param command: Registered implementation supplying help metadata.
+        :param group_name: Optional canonical group prefix for grouped help.
+        :return: ``None``; help is written without invoking the command.
+        """
         canonical_name = command.name
         if group_name:
             canonical_name = f"{group_name} {command.name}"
@@ -92,6 +167,21 @@ class HelpMixin[HostT](BrowserState[HostT]):
                 self._write("Aliases: {}".format(", ".join(aliases)))
 
     def _print_help(self, args: Sequence[str] | None = None) -> None:
+        """
+        Route zero, one, or two nonblank help arguments to the appropriate listing.
+
+        No arguments prints an overview. One token resolves group aliases before
+        direct commands; two tokens select a group and subcommand, accepting aliases.
+        Arguments are separate tokens here, not a command line to shell-parse.
+
+        Example:
+            >>> browser._print_help(["show", "note"])  # doctest: +SKIP
+
+
+        :param args: Optional command/group and subcommand tokens; blank entries are ignored.
+        :return: ``None`` after writing the selected help.
+        :raises ValueError: If more than two arguments survive or a requested name is unknown.
+        """
         help_args = [str(arg) for arg in (args or []) if str(arg).strip()]
         if len(help_args) > 2:
             raise ValueError("Usage: help [command] [subcommand]")
@@ -125,6 +215,19 @@ class HelpMixin[HostT](BrowserState[HostT]):
         self._write_help_overview()
 
     def _write_help_overview(self) -> None:
+        """
+        Print grouped commands first, then direct commands not already shown in a group.
+
+        Shared command instances are excluded from the direct section by identity.
+        Registry iterators supply group/name ordering, while each row includes usage,
+        summary, and any nonblank command aliases.
+
+        Example:
+            >>> browser._write_help_overview()  # doctest: +SKIP
+
+
+        :return: ``None``; the overview and detailed-help hint are written to output.
+        """
         self._write("Commands:")
         self._write(
             "  Use `help <command>` or `help <group> <subcommand>` for details."

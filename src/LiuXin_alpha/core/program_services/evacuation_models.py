@@ -1,4 +1,11 @@
-"""Typed plans and execution limits shared by the evacuation workflow."""
+"""
+Carry typed evacuation snapshots, render Core plan receipts, and check entry-level execution budgets.
+
+These frozen records do not validate their fields or reserve destination capacity.
+Planning supplies observations and estimates; execution must recheck live replacement
+safety before source removal. Wire dictionaries are presentation receipts rather
+than accepted executable workflow state.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +17,25 @@ from LiuXin_alpha.storage import api
 
 @dataclass(frozen=True)
 class EvacuationEntry:
-    """Replacement and removal work for one Asset and target Replica mode."""
+    """
+    Describe replacement destinations and source claims for one Digital Asset/target-mode group.
+
+    source_mode records the first grouped source's mode, not necessarily every
+    source's mode. target_copies is required placement capacity; verified_outside_source
+    counts existing verified claims and is not a failure-domain-aware capacity.
+    shortfall counts missing planned destinations. estimated_transfer_bytes sums
+    the planned new copies' payload sizes, excluding protocol overhead or retries.
+
+    Example:
+        >>> entry = EvacuationEntry(
+        ...     asset_id=api.DigitalAssetID(7), source_replica_ids=(api.ReplicaID(9),),
+        ...     source_mode=api.ReplicaMode.UNMANAGED, target_mode=api.ReplicaMode.ACTIVE,
+        ...     target_copies=1, verified_outside_source=0,
+        ...     destination_store_refs=(UUID(int=2),), shortfall=0, estimated_transfer_bytes=4,
+        ... )
+        >>> entry.to_wire()["digital_asset_id"]
+        7
+    """
 
     asset_id: api.DigitalAssetID
     source_replica_ids: tuple[api.ReplicaID, ...]
@@ -23,7 +48,22 @@ class EvacuationEntry:
     estimated_transfer_bytes: int
 
     def to_wire(self) -> dict[str, object]:
-        """Retain the public plan receipt without using it as workflow state."""
+        """
+        Render this entry with integer IDs, enum values, text UUIDs, and fresh list containers.
+
+        Scalar counts and estimates are passed through without range checks.
+
+        Example:
+            >>> entry = EvacuationEntry(
+            ...     api.DigitalAssetID(7), (), api.ReplicaMode.ACTIVE, api.ReplicaMode.ACTIVE,
+            ...     1, 1, (), 0, 0,
+            ... )
+            >>> entry.to_wire()["destination_store_refs"]
+            []
+
+
+        :return: New dictionary containing the public plan-entry fields; no storage operations occur.
+        """
         return {
             "digital_asset_id": int(self.asset_id),
             "source_replica_ids": [int(value) for value in self.source_replica_ids],
@@ -41,7 +81,21 @@ class EvacuationEntry:
 
 @dataclass(frozen=True)
 class EvacuationPlan:
-    """A bounded snapshot; apply must recheck replacement safety before removal."""
+    """
+    Hold a source-store evacuation snapshot bounded by the selected Digital Asset count.
+
+    assets_available counts source Assets with live claims; assets_planned counts
+    selected Assets, each of which may contribute multiple mode entries. source
+    retains its planning-time configuration, and destination_ref optionally confines
+    destination selection. deletes_source_bytes describes potential byte deletion
+    from that snapshot, not the operator's later keep-bytes choice or an execution result.
+
+    Example:
+        >>> source = api.StoreConfiguration(UUID(int=1), "source", "filesystem", "file:///source")
+        >>> plan = EvacuationPlan(source, False, None, 0, 0, 10, (), False)
+        >>> plan.to_wire()["complete"], plan.to_wire()["blocked"]
+        (True, False)
+    """
 
     source: api.StoreConfiguration
     source_is_default: bool
@@ -54,10 +108,38 @@ class EvacuationPlan:
 
     @property
     def replicas_planned(self) -> int:
+        """
+        Count source Replica references across entries, not replacement destinations or distinct IDs.
+
+        Repeated references in manually constructed entries are counted repeatedly.
+
+        Example:
+            >>> source = api.StoreConfiguration(UUID(int=1), "source", "filesystem", "file:///source")
+            >>> EvacuationPlan(source, False, None, 0, 0, 10, (), False).replicas_planned
+            0
+
+
+        :return: Sum of the lengths of all entry source_replica_ids tuples.
+        """
         return sum(len(entry.source_replica_ids) for entry in self.entries)
 
     def to_wire(self) -> dict[str, object]:
-        """Render the stable Core plan shape."""
+        """
+        Render plan identity, selection counts, entries, positive shortfalls, and transfer estimates.
+
+        complete compares only planned/available Asset counts; a complete plan can
+        still be blocked. blocked_entries shares dictionary objects with entries
+        within this result. No manager state is refreshed or replacement safety proven.
+
+        Example:
+            >>> source = api.StoreConfiguration(UUID(int=1), "source", "filesystem", "file:///source")
+            >>> receipt = EvacuationPlan(source, False, None, 3, 0, 0, (), False).to_wire()
+            >>> receipt["complete"], receipt["estimated_transfer_bytes"]
+            (False, 0)
+
+
+        :return: New Core receipt with text store references, aggregate counts, and newly rendered entry dictionaries.
+        """
         entries = [entry.to_wire() for entry in self.entries]
         blocked = [
             value
@@ -89,7 +171,16 @@ class EvacuationPlan:
 
 @dataclass(frozen=True)
 class EvacuationLimits:
-    """Operator bounds checked before starting the next Asset/mode entry."""
+    """
+    Carry inclusive action-count and estimated-transfer-byte limits for an evacuation attempt.
+
+    Values are not range-validated here. The permits calculation is a pre-entry
+    budget check, not a reservation or a bound on every later failure receipt.
+
+    Example:
+        >>> EvacuationLimits(max_actions=2, max_transfer_bytes=4).max_transfer_bytes
+        4
+    """
 
     max_actions: int
     max_transfer_bytes: int
@@ -97,6 +188,30 @@ class EvacuationLimits:
     def permits(
         self, entry: EvacuationEntry, *, actions: int, transferred: int
     ) -> bool:
+        """
+        Check whether current usage plus a whole entry's estimated work fits both inclusive limits.
+
+        One action is budgeted per destination and per source Replica reference.
+        The supplied counts and byte estimate are trusted, not validated or updated;
+        shortfalls, availability, policy compliance, and deletion safety are not checked.
+
+        Example:
+            >>> entry = EvacuationEntry(
+            ...     api.DigitalAssetID(7), (api.ReplicaID(9),), api.ReplicaMode.ACTIVE,
+            ...     api.ReplicaMode.ACTIVE, 1, 0, (UUID(int=2),), 0, 4,
+            ... )
+            >>> limits = EvacuationLimits(2, 4)
+            >>> limits.permits(entry, actions=0, transferred=0)
+            True
+            >>> limits.permits(entry, actions=1, transferred=0)
+            False
+
+
+        :param entry: Planned replacements/removals whose counts and transfer estimate are added to current usage.
+        :param actions: Number of action receipts already accumulated by the execution attempt.
+        :param transferred: Payload bytes already counted as transferred by the execution attempt.
+        :return: True exactly when both projected totals are at or below their respective limits.
+        """
         required_actions = len(entry.destination_store_refs) + len(
             entry.source_replica_ids
         )

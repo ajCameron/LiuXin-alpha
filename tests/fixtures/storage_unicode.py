@@ -1,4 +1,19 @@
-"""Shared Unicode torture values for storage backend contract tests."""
+"""
+Define exact Unicode keys, metadata text, and binary payloads for storage contracts.
+
+The eight path cases retain normalization variants, case/script distinctions,
+bidirectional controls, emoji/variation selectors, unusual scalars, significant
+spaces, URL punctuation, and combining marks. Their flat-identifier counterparts
+retain the same filenames and payloads without directory prefixes. These constants
+are test data, not filenames normalized or validated for every host filesystem.
+
+Shared title/author/path values combine several scripts and supplementary-plane
+characters. UNICODE_PAYLOAD includes UTF-8 text followed by binary marker bytes.
+POSIX_BAD_BYTES_FILENAME is decoded from raw directory-entry bytes with os.fsdecode
+at import time; its representation depends on the host filesystem codec and error
+handler. StoragePathCase.url_key uses strict URL encoding rather than the separate
+surrogate-preserving file-URI reconstruction path in production storage.
+"""
 
 from __future__ import annotations
 
@@ -27,7 +42,22 @@ UNICODE_PAYLOAD = (
 
 @dataclass(frozen=True, slots=True)
 class StoragePathCase:
-    """One exact durable key and payload used at storage boundaries."""
+    """
+    Hold a case label, exact opaque key, and expected bytes without normalization. This frozen
+    dataclass performs no type, path-safety, encoding, or filename validation. Filename and URL
+    properties are computed on access; retained fields are not deep-copied and the case does not
+    create backend objects.
+
+    Example:
+        >>> case = StoragePathCase("spaces", "books/my book.epub", b"payload")
+        >>> case.filename, case.url_key
+        ('my book.epub', 'books/my%20book.epub')
+
+
+    :ivar case_id: Descriptive pytest case label, retained without uniqueness validation.
+    :ivar key: Exact Store key text, including significant Unicode distinctions and whitespace.
+    :ivar payload: Expected bytes used by seeding, size, full-read, and range assertions.
+    """
 
     case_id: str
     key: str
@@ -35,10 +65,34 @@ class StoragePathCase:
 
     @property
     def filename(self) -> str:
+        """
+        Take the final slash-delimited component of the retained key without path normalization.
+        Empty keys or trailing slashes yield an empty filename; backslashes and whitespace remain
+        literal characters.
+
+        Example:
+            >>> StoragePathCase("trailing", "books/", b"").filename
+            ''
+
+
+        :return: The substring after the last forward slash, unchanged.
+        """
         return self.key.rsplit("/", 1)[-1]
 
     @property
     def url_key(self) -> str:
+        """
+        Percent-encode the key with slash separators left safe and quote's default UTF-8 strict
+        encoding. No Unicode normalization occurs; literal percent signs and URI punctuation are
+        escaped. Lone surrogate values can raise UnicodeEncodeError.
+
+        Example:
+            >>> StoragePathCase("punctuation", "books/100%#?.epub", b"").url_key
+            'books/100%25%23%3F.epub'
+
+
+        :return: URL-quoted key text preserving slash separators; strict encoding failures propagate.
+        """
         return quote(self.key, safe="/")
 
 

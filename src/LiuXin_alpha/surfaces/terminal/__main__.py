@@ -1,4 +1,10 @@
-"""Entrypoint for terminal surfaces."""
+"""
+Run the terminal application's shared main function when this package is executed with python -m.
+
+Importing the module only binds main; direct package execution raises SystemExit
+with its result. Argument parsing, UI selection, Core composition, and session
+cleanup remain in the terminal application and its browser owners.
+"""
 
 from __future__ import annotations
 

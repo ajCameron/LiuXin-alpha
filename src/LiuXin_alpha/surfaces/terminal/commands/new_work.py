@@ -1,4 +1,10 @@
-"""Interactive wizard command for adding work entries."""
+"""
+Collect a work's title and optional descriptive fields for standalone Core catalog creation.
+
+This flow creates a work rather than the full title/WEMI stack. Canonical-title
+duplicates require advisory confirmation, and permissive date/language conversion
+does not validate all supplied metadata before dispatch.
+"""
 
 from __future__ import annotations
 
@@ -9,11 +15,33 @@ from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort, to_epoch_ms
 
 
 def _clean_optional(value: str) -> Optional[str]:
+    """
+    Strip optional work prompt text, returning ``None`` for a blank result.
+
+    Example:
+        >>> _clean_optional(" Novel "), _clean_optional("")
+        ('Novel', None)
+
+
+    :param value: Prompt result stringified before stripping.
+    :return: Nonblank text or ``None`` without metadata-specific validation.
+    """
     text = str(value).strip()
     return text or None
 
 
 def _safe_int(value: str) -> Optional[int]:
+    """
+    Parse optional original-year text without restricting its numeric range.
+
+    Example:
+        >>> _safe_int("2020"), _safe_int("unknown")
+        (2020, None)
+
+
+    :param value: Prompt value stringified and stripped before integer parsing.
+    :return: Parsed integer or ``None`` for blank/invalid text.
+    """
     text = str(value).strip()
     if not text:
         return None
@@ -24,6 +52,17 @@ def _safe_int(value: str) -> Optional[int]:
 
 
 def _epoch_ms(value: Optional[str]) -> Optional[int]:
+    """
+    Convert original-date text to epoch milliseconds, returning ``None`` on absence or conversion failure.
+
+    Example:
+        >>> _epoch_ms("1970-01-01"), _epoch_ms("not-a-date")
+        (0, None)
+
+
+    :param value: Optional timestamp-like string forwarded to the shared date converter.
+    :return: Converted integer milliseconds or ``None`` without an input-error diagnostic.
+    """
     if value is None:
         return None
     try:
@@ -33,7 +72,16 @@ def _epoch_ms(value: Optional[str]) -> Optional[int]:
 
 
 class NewWorkWizardCommand(TerminalCommandAPI):
-    """Create a work row through guided prompts."""
+    """
+    Prompt for a required title, editable canonical/sort titles, and optional work metadata.
+
+    Fiction defaults to true. Exact canonical-title matches request permission for
+    another creation attempt rather than being reused automatically.
+
+    Example:
+        >>> NewWorkWizardCommand().usage
+        'add work'
+    """
 
     group = "add"
     name = "work"
@@ -42,6 +90,23 @@ class NewWorkWizardCommand(TerminalCommandAPI):
     usage = "add work"
 
     def execute(self, browser, args: list[str]) -> bool:
+        """
+        Validate prompted title/year data, confirm the summary, and submit a Core work creation.
+
+        Year is checked only as an integer. Original-date failures become ``None``;
+        optional language is resolved while building the payload, and an unresolved
+        ``None`` is forwarded rather than explicitly rejected. Duplicate checking
+        is separate from creation, and post-write output failure has no rollback.
+
+        Example:
+            >>> NewWorkWizardCommand().execute(browser, [])  # doctest: +SKIP
+
+
+        :param browser: Host providing work/schema/language reads, prompts, Core creation, and output.
+        :param args: Must be empty; work fields are prompted.
+        :return: ``True`` after reporting the created work.
+        :raises ValueError: For arguments, missing works table/title, invalid year syntax, or declined confirmation.
+        """
         if args:
             raise ValueError("Usage: {}".format(self.usage))
 
@@ -58,26 +123,50 @@ class NewWorkWizardCommand(TerminalCommandAPI):
         default_canonical = work_title
         default_sort = title_sort(work_title)
 
-        work_canonical_title = browser.prompt_text("Work canonical title", default=default_canonical).strip() or default_canonical
-        work_sort_title = browser.prompt_text("Work sort title", default=default_sort).strip() or default_sort
-        work_creator_sort = _clean_optional(browser.prompt_text("Work creator sort", default=""))
+        work_canonical_title = (
+            browser.prompt_text(
+                "Work canonical title", default=default_canonical
+            ).strip()
+            or default_canonical
+        )
+        work_sort_title = (
+            browser.prompt_text("Work sort title", default=default_sort).strip()
+            or default_sort
+        )
+        work_creator_sort = _clean_optional(
+            browser.prompt_text("Work creator sort", default="")
+        )
         work_type = _clean_optional(browser.prompt_text("Work type", default=""))
         work_medium = _clean_optional(browser.prompt_text("Work medium", default=""))
-        work_original_language = _clean_optional(browser.prompt_text("Work original language", default=""))
-        work_original_date = _clean_optional(browser.prompt_text("Work original date", default=""))
+        work_original_language = _clean_optional(
+            browser.prompt_text("Work original language", default="")
+        )
+        work_original_date = _clean_optional(
+            browser.prompt_text("Work original date", default="")
+        )
 
         work_original_year_text = browser.prompt_text("Work original year", default="")
         work_original_year = _safe_int(work_original_year_text)
         if work_original_year_text.strip() and work_original_year is None:
             raise ValueError("Work original year must be an integer.")
 
-        work_wikipedia_link = _clean_optional(browser.prompt_text("Work Wikipedia link", default=""))
+        work_wikipedia_link = _clean_optional(
+            browser.prompt_text("Work Wikipedia link", default="")
+        )
         work_is_fiction = int(browser.prompt_yes_no("Is fiction?", default=True))
-        work_audience = _clean_optional(browser.prompt_text("Work audience", default=""))
-        work_completion_status = _clean_optional(browser.prompt_text("Work completion status", default=""))
-        work_discovery_note = _clean_optional(browser.prompt_text("Work discovery note", default=""))
+        work_audience = _clean_optional(
+            browser.prompt_text("Work audience", default="")
+        )
+        work_completion_status = _clean_optional(
+            browser.prompt_text("Work completion status", default="")
+        )
+        work_discovery_note = _clean_optional(
+            browser.prompt_text("Work discovery note", default="")
+        )
 
-        existing = browser.db.search("works", "work_canonical_title", work_canonical_title)
+        existing = browser.db.search(
+            "works", "work_canonical_title", work_canonical_title
+        )
         if existing:
             browser.emit(
                 "Possible duplicate work exists: work_id={} canonical_title={!r}".format(
@@ -85,7 +174,9 @@ class NewWorkWizardCommand(TerminalCommandAPI):
                     existing[0]["work_canonical_title"],
                 )
             )
-            proceed_duplicate = browser.prompt_yes_no("Create another work with this canonical title?", default=False)
+            proceed_duplicate = browser.prompt_yes_no(
+                "Create another work with this canonical title?", default=False
+            )
             if not proceed_duplicate:
                 raise ValueError("Work wizard canceled to avoid duplicate entry.")
 
@@ -100,7 +191,12 @@ class NewWorkWizardCommand(TerminalCommandAPI):
                         ("type", work_type or ""),
                         ("medium", work_medium or ""),
                         ("original_language", work_original_language or ""),
-                        ("original_year", work_original_year if work_original_year is not None else ""),
+                        (
+                            "original_year",
+                            work_original_year
+                            if work_original_year is not None
+                            else "",
+                        ),
                         ("is_fiction", bool(work_is_fiction)),
                     ],
                 )
@@ -117,23 +213,23 @@ class NewWorkWizardCommand(TerminalCommandAPI):
             payload={
                 "repository": "works",
                 "data": {
-                "work_title": work_title,
-                "work_canonical_title": work_canonical_title,
-                "work_sort_title": work_sort_title,
-                "work_creator_sort": work_creator_sort,
-                "work_type": work_type,
-                "work_medium": work_medium,
-                "work_original_language_id": (
-                    browser.resolve_language_id(work_original_language)
-                    if work_original_language is not None
-                    else None
-                ),
-                "work_original_date": _epoch_ms(work_original_date),
-                "work_original_year": work_original_year,
-                "work_wikipedia_link": work_wikipedia_link,
-                "work_is_fiction": work_is_fiction,
-                "work_audience": work_audience,
-                "work_completion_status": work_completion_status,
+                    "work_title": work_title,
+                    "work_canonical_title": work_canonical_title,
+                    "work_sort_title": work_sort_title,
+                    "work_creator_sort": work_creator_sort,
+                    "work_type": work_type,
+                    "work_medium": work_medium,
+                    "work_original_language_id": (
+                        browser.resolve_language_id(work_original_language)
+                        if work_original_language is not None
+                        else None
+                    ),
+                    "work_original_date": _epoch_ms(work_original_date),
+                    "work_original_year": work_original_year,
+                    "work_wikipedia_link": work_wikipedia_link,
+                    "work_is_fiction": work_is_fiction,
+                    "work_audience": work_audience,
+                    "work_completion_status": work_completion_status,
                     "work_discovery_note": work_discovery_note,
                 },
             },

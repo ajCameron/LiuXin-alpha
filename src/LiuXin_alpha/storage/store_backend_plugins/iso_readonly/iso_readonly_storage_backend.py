@@ -1,5 +1,10 @@
 """
-Configured read-only ISO image Store.
+Bind the ISO reader to configured Store locations and compatibility path helpers.
+
+The adapter owns one raw reader, preserves supplied configuration, and exposes
+legacy aliases without extracting the image. Runtime parser options come from
+constructor arguments; an existing configuration is not automatically replayed
+into those arguments. Registry construction performs its own URI/option mapping.
 """
 
 from __future__ import annotations
@@ -30,10 +35,16 @@ from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 class IsoReadOnlyStorageBackend(DriverBackedStoreAPI[IsoObjectAddress]):
     """
-    Expose one immutable ISO image through opaque internal paths.
+    Expose a local ISO image through configured Store locations and a reusable raw reader.
+
+    The driver selects the readable namespace and enforces read-only operations. Construction binds
+    configuration without indexing. Compatibility path properties refer to the image file, not an
+    extracted directory or database.
 
     Example:
-        >>> store = IsoReadOnlyStorageBackend("library.iso")  # doctest: +SKIP
+        >>> store = IsoReadOnlyStorageBackend(path, name="Disc archive")  # doctest: +SKIP
+        >>> store.startup().available  # doctest: +SKIP
+        True
     """
 
     store_kind = "iso_readonly"
@@ -56,22 +67,32 @@ class IsoReadOnlyStorageBackend(DriverBackedStoreAPI[IsoObjectAddress]):
         configuration: StoreConfiguration | None = None,
     ) -> None:
         """
-        Configure one image and its bounded parser limits.
+        Bind a raw ISO reader and retain or construct its durable Store configuration.
+
+        A supplied configuration provides the UUID and is retained as-is; explicit uuid/name and
+        configuration path/options are not reconciled with runtime arguments. Without configuration,
+        uuid is parsed or generated, a false name gets a path-derived name, and driver
+        limits/options are recorded with read-only ISO defaults. The raw driver checks the existing
+        file and policy but does not parse it during construction.
 
         Example:
-            >>> IsoReadOnlyStorageBackend("library.iso", name="Archive")  # doctest: +SKIP
+            >>> store = IsoReadOnlyStorageBackend(path, name="Archive", enable_udf=False)  # doctest: +SKIP
 
 
-        :param url:
-        :param name:
-        :param uuid:
-        :param max_inventory_entries:
-        :param max_directory_bytes:
-        :param max_depth:
-        :param max_susp_bytes:
-        :param max_udf_member_bytes:
-        :param enable_udf:
-        :return:
+        :param url: Local image pathname; URI decoding belongs to registry construction, not this parameter.
+        :param name: Optional Store name used only when creating configuration; a false value selects a generated name.
+        :param uuid: UUID object/text or None for a new UUID, ignored when configuration is supplied.
+        :param max_inventory_entries: Positive all-entry cap passed to the raw parser.
+        :param max_directory_bytes: Positive maximum bytes loaded per direct-parser directory.
+        :param max_depth: Positive traversal/key-component policy.
+        :param max_susp_bytes: Positive per-record Rock Ridge continuation-byte budget.
+        :param max_udf_member_bytes: Positive member-byte ceiling also applied to direct ISO files.
+        :param max_total_uncompressed_bytes: Positive maximum indexed logical regular-file bytes.
+        :param max_logical_expansion_ratio: Finite maximum indexed logical bytes per physical image byte, at least one.
+        :param max_path_bytes: Positive whole-key UTF-8/surrogatepass byte limit.
+        :param enable_udf: Whether namespace selection may invoke optional pycdlib UDF support.
+        :param configuration: Existing durable configuration whose UUID wins and whose fields are retained unchanged, or None.
+        :return: None after binding the driver and configuration; path/policy errors propagate.
         """
 
         store_uuid = configuration.store_uuid if configuration is not None else (
@@ -123,14 +144,14 @@ class IsoReadOnlyStorageBackend(DriverBackedStoreAPI[IsoObjectAddress]):
     @property
     def configuration(self) -> StoreConfiguration:
         """
-        Return this Store's durable configuration.
+        Return the retained durable configuration without reconciling it with live driver policy.
 
         Example:
-            >>> store.configuration.store_kind  # doctest: +SKIP
-            'iso_readonly'
+            >>> store.configuration.store_uuid == store.driver.object_address_checker.address_space_uuid  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: Supplied configuration object or the configuration created during construction.
         """
 
         return self._configuration
@@ -138,14 +159,14 @@ class IsoReadOnlyStorageBackend(DriverBackedStoreAPI[IsoObjectAddress]):
     @property
     def _driver(self) -> IsoStorageDriver:
         """
-        Return the private driver used by the Store adapter.
+        Expose the retained raw reader to inherited driver-backed Store operations.
 
         Example:
-            >>> isinstance(store._driver, IsoStorageDriver)  # doctest: +SKIP
+            >>> store._driver is store.driver  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Same IsoStorageDriver instance bound at construction.
         """
 
         return self.__driver
@@ -153,14 +174,16 @@ class IsoReadOnlyStorageBackend(DriverBackedStoreAPI[IsoObjectAddress]):
     @property
     def driver(self) -> IsoStorageDriver:
         """
-        Return the reusable ISO driver for diagnostics and advanced callers.
+        Expose the same raw reader for diagnostics and driver-level operations.
+
+        No additional driver or ownership boundary is created; callers must use its address space.
 
         Example:
-            >>> store.driver.image_path  # doctest: +SKIP
-            PosixPath('/srv/archive/library.iso')
+            >>> store.driver.image_path == store.image_path  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: Retained IsoStorageDriver shared with the Store adapter.
         """
 
         return self.__driver
@@ -168,14 +191,14 @@ class IsoReadOnlyStorageBackend(DriverBackedStoreAPI[IsoObjectAddress]):
     @property
     def image_path(self) -> pathlib.Path:
         """
-        Return the resolved path of the ISO image.
+        Return the driver's resolved image pathname without another filesystem check.
 
         Example:
-            >>> store.image_path  # doctest: +SKIP
-            PosixPath('/srv/archive/library.iso')
+            >>> store.image_path.is_absolute()  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: Path of the configured image file.
         """
 
         return self.__driver.image_path
@@ -183,14 +206,16 @@ class IsoReadOnlyStorageBackend(DriverBackedStoreAPI[IsoObjectAddress]):
     @property
     def db_path(self) -> pathlib.Path:
         """
-        Return the image path for legacy path-backed Store callers.
+        Provide the image pathname under the legacy db_path property.
+
+        This alias does not identify a database.
 
         Example:
             >>> store.db_path == store.image_path  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Same Path returned by image_path.
         """
 
         return self.image_path
@@ -198,14 +223,16 @@ class IsoReadOnlyStorageBackend(DriverBackedStoreAPI[IsoObjectAddress]):
     @property
     def root_path(self) -> pathlib.Path:
         """
-        Return the image path for legacy path-backed Store callers.
+        Provide the image pathname under the legacy root_path property.
+
+        This alias does not identify an extracted directory.
 
         Example:
             >>> store.root_path == store.image_path  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Same Path returned by image_path.
         """
 
         return self.image_path
@@ -213,29 +240,36 @@ class IsoReadOnlyStorageBackend(DriverBackedStoreAPI[IsoObjectAddress]):
     @staticmethod
     def url_to_name(url: str) -> str:
         """
-        Derive a readable Store name from an image path.
+        Derive a display name using the shared path-name helper's default sanitizing and hash
+        policy.
+
+        This is text conversion only; it neither resolves the path nor inspects the image.
 
         Example:
-            >>> IsoReadOnlyStorageBackend.url_to_name("/srv/library.iso")  # doctest: +SKIP
+            >>> IsoReadOnlyStorageBackend.url_to_name("/srv/library.iso").startswith("root__srv__library.iso-")
+            True
 
 
-        :param url:
-        :return:
+        :param url: Path text passed unchanged to safe_path_to_name.
+        :return: Generated path-derived name string.
         """
 
         return safe_path_to_name(url)
 
     def locate(self, identifier: str | Location) -> Location:
         """
-        Accept an internal key or legacy ``image-path/internal`` form.
+        Check an existing Location or adapt a legacy image-path prefix before normal Store parsing.
+
+        Only the exact resolved image pathname followed by slash is stripped. Other text is
+        delegated unchanged; this performs address conversion, not member existence checks.
 
         Example:
-            >>> store.locate("books/novel.epub").key  # doctest: +SKIP
+            >>> store.locate(str(store.image_path) + "/books/novel.epub").key  # doctest: +SKIP
             'books/novel.epub'
 
 
-        :param identifier:
-        :return:
+        :param identifier: Owned Location, internal member key, or exact image-path/member compatibility text.
+        :return: Validated Store Location for the selected member key.
         """
 
         if isinstance(identifier, Location):
@@ -248,14 +282,14 @@ class IsoReadOnlyStorageBackend(DriverBackedStoreAPI[IsoObjectAddress]):
 
     def self_test(self):
         """
-        Probe the image through the legacy Store health-check name.
+        Run the current Store probe through the legacy health-check name.
 
         Example:
             >>> store.self_test().available  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Probe status; indexing/dependency failures propagate.
         """
 
         return self.probe()

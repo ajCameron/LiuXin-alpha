@@ -1,10 +1,11 @@
 """
-Compatibility imports for the storage-manager persistence SPI.
+Retain historical import paths for the six storage persistence protocols.
 
-New durable-manager implementations should import these ports from
-``LiuXin_alpha.storage.api.persistence_api``. They remain available here so
-existing adapters do not break while persistence concerns move out of the
-consumer-facing manager facade.
+Each exported name is the identical object defined through persistence_api;
+this module adds no adapter, transaction behavior, or repository implementation.
+New durable-manager adapters should import from LiuXin_alpha.storage.api.persistence_api.
+Application code should use StorageManagerAPI operations instead of these
+implementation-facing metadata ports.
 """
 
 from LiuXin_alpha.storage.api.persistence_api import (

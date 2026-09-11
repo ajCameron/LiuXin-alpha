@@ -1,4 +1,12 @@
-"""Database-row translation for second-generation Store configurations."""
+"""
+Translate durable Store rows and configurations across legacy and current schemas.
+
+Readers support scalar columns and versioned policy extensions while preserving
+UUID routing identity. Writers project supported columns without owning database
+writes or merging old policy JSON. Compatibility coercions, null omission, and
+option-name filtering are deliberate implementation boundaries, not proof of
+schema completeness, secret-free values, or an exact round trip for every input.
+"""
 
 from __future__ import annotations
 
@@ -41,7 +49,33 @@ def store_configuration_from_row(
     *,
     fallback_store_id: int | None = None,
 ) -> StoreConfiguration:
-    """Build a durable configuration without leaking row IDs into Locations."""
+    """
+    Reconstruct a configured Store from current or compatibility row fields.
+
+    Read mapping keys or row attributes through _row_get, strip optional text, and require a
+    nonblank kind and root URI (falling back to store_url). Missing names use the parsed/fallback
+    row ID. Missing UUIDs derive from that row ID, or from the root when no ID is available;
+    existing UUIDs are validated rather than replaced. This neither writes the generated UUID back
+    nor builds a Store.
+
+    Missing legacy mode flags enable active, backup, and archive modes; a version-1 policy extension
+    can replace that whole set and supply a backing reference. Malformed outer policy JSON is
+    ignored, but malformed recognized extensions raise. Backend options use registry-selected
+    sections and name filtering, which does not inspect scalar values for credentials. The final
+    StoreConfiguration constructor applies its own selected validation.
+
+    Example:
+        >>> config = store_configuration_from_row({
+        ...     "store_id": 7, "store_kind": "filesystem", "store_url": "file:///srv/books",
+        ... })
+        >>> config.store_name, config.store_root_uri
+        ('store-7', 'file:///srv/books')
+
+
+    :param row: Mapping or row-like object containing Store columns; unavailable fields use the documented fallbacks.
+    :param fallback_store_id: ID used for default naming and deterministic UUID derivation when store_id cannot be int-converted; not independently converted here.
+    :return: A new StoreConfiguration; malformed required text, UUIDs, extension fields, or constructor invariants can raise.
+    """
 
     store_id = _to_int(_row_get(row, "store_id"))
     if store_id is None:
@@ -138,11 +172,45 @@ def store_configuration_to_row_dict(
     allowed_columns: Iterable[str] | None = None,
     include_nulls: bool = False,
 ) -> dict[str, Any]:
-    """Serialize only schema-supported, non-secret configuration fields."""
+    """
+    Project configuration into selected Store columns without writing a row.
+
+    Encode UUIDs as text, legacy mode/boolean flags as integers, tags as JSON, and backend/manager
+    extensions as policy JSON. No store_id or legacy store_url column is emitted. A missing or empty
+    allowed-column set allows every projected column; a nonempty set filters keys only after all
+    values have been computed, so excluded fields can still fail serialization.
+
+    None values are omitted by default. Updating a row with this default result therefore cannot
+    clear old nullable fields or an old policy value. Policy serialization builds a new supported
+    payload rather than merging unknown sections. Option-name filtering does not establish that
+    arbitrary values, URLs, or other configuration text are free of secrets.
+
+    Example:
+        >>> config = StoreConfiguration(UUID(int=1), "books", "filesystem", "file:///srv")
+        >>> store_configuration_to_row_dict(config, allowed_columns={"store_name"})
+        {'store_name': 'books'}
+
+
+    :param configuration: Configuration whose values are read and converted without mutating it.
+    :param allowed_columns: Optional iterable of permitted column names; None and an empty resulting set both disable filtering.
+    :param include_nulls: Whether to retain None values so callers may explicitly clear nullable columns.
+    :return: A fresh dictionary of projected columns; conversion or JSON errors propagate even for subsequently filtered fields.
+    """
 
     allowed = set(allowed_columns or ())
 
     def keep(key: str) -> bool:
+        """
+        Accept any column when the captured allowlist is empty, otherwise require membership. This
+        closure only selects keys; it does not validate values or schema compatibility.
+
+        Example:
+            >>> keep("store_name")  # doctest: +SKIP
+
+
+        :param key: Projected column name to compare with the enclosing call's captured set.
+        :return: True for an unrestricted or explicitly allowed key, otherwise False.
+        """
         return not allowed or key in allowed
 
     modes = configuration.supported_replica_modes
@@ -195,6 +263,24 @@ def store_configuration_to_row_dict(
 
 
 def _row_get(row: Any, key: str, default: Any = None) -> Any:
+    """
+    Read a compatibility row field using mapping, declared-column, and attribute conventions.
+
+    None returns the default. Mappings use get directly. Other objects with an allowed_columns value
+    reject undeclared keys before attempting access. For allowed/unrestricted objects, any Exception
+    from subscription triggers an attribute lookup, potentially masking a read failure. Mapping,
+    column-list, and final attribute-access errors are not caught here.
+
+    Example:
+        >>> _row_get({"store_name": "books"}, "missing", "fallback")
+        'fallback'
+
+
+    :param row: Mapping, row-like object, or None.
+    :param key: Column or fallback attribute name.
+    :param default: Value used when the field is unavailable; explicit stored None is retained.
+    :return: The retrieved value or default, without copying or coercion.
+    """
     if row is None:
         return default
     if isinstance(row, Mapping):
@@ -209,6 +295,18 @@ def _row_get(row: Any, key: str, default: Any = None) -> Any:
 
 
 def _optional_text(value: Any) -> str | None:
+    """
+    Stringify and strip a supplied value, treating None or resulting blank text as absent. False and
+    zero become nonempty strings; conversion errors propagate.
+
+    Example:
+        >>> _optional_text("  books  "), _optional_text("  ")
+        ('books', None)
+
+
+    :param value: Optional value whose textual spelling is requested.
+    :return: Stripped nonempty text, or None.
+    """
     if value is None:
         return None
     text = str(value).strip()
@@ -216,6 +314,19 @@ def _optional_text(value: Any) -> str | None:
 
 
 def _to_int(value: Any) -> int | None:
+    """
+    Attempt integer conversion, treating None, empty text, TypeError, and ValueError as absent.
+    Boolean and truncatable numeric values are accepted; positivity is not checked. Other failures
+    such as OverflowError propagate.
+
+    Example:
+        >>> _to_int("12"), _to_int("invalid"), _to_int(2.9)
+        (12, None, 2)
+
+
+    :param value: Potential database integer or optional-ID value.
+    :return: The converted integer, or None for the handled absence/conversion cases.
+    """
     if value is None or value == "":
         return None
     try:
@@ -225,6 +336,21 @@ def _to_int(value: Any) -> int | None:
 
 
 def _boolish(value: Any, *, default: bool) -> bool:
+    """
+    Interpret legacy boolean columns with an explicit fallback for unknown values. Preserve
+    booleans, use numeric truthiness, and recognize stripped case-insensitive yes/no, y/n, on/off,
+    true/false, and 1/0 text. Empty text is false; None, unrecognized strings, and other object
+    types return default without using their general truthiness.
+
+    Example:
+        >>> _boolish("off", default=True), _boolish("unknown", default=True)
+        (False, True)
+
+
+    :param value: Stored scalar or compatibility value to interpret.
+    :param default: Fallback returned for missing or unrecognized input.
+    :return: The recognized boolean or supplied default.
+    """
     if value is None:
         return default
     if isinstance(value, bool):
@@ -241,6 +367,21 @@ def _boolish(value: Any, *, default: bool) -> bool:
 
 
 def _parse_tags(value: Any) -> tuple[str, ...]:
+    """
+    Convert legacy tag text, JSON, collections, or scalars to a tuple of tag strings. Strings are
+    recursively JSON-decoded when possible; failed decoding/conversion falls back to the original
+    stripped string. Lists, tuples, and sets contribute stripped nonblank item spellings without
+    recursive flattening or deduplication. Set order is not stabilized, and JSON scalar text can
+    change spelling during conversion. None and empty input yield no tags.
+
+    Example:
+        >>> _parse_tags('[" books ", "", "books"]')
+        ('books', 'books')
+
+
+    :param value: Stored JSON/text tags, a supported collection, or a scalar.
+    :return: A tuple of nonblank strings in encountered order; duplicates are retained.
+    """
     if value is None or value == "" or value == ():
         return ()
     if isinstance(value, str):
@@ -257,6 +398,23 @@ def _parse_tags(value: Any) -> tuple[str, ...]:
 
 
 def _store_uuid(value: Any, *, store_id: int | None, root_uri: str) -> UUID:
+    """
+    Retain/parse an explicit UUID or derive a deterministic legacy Store identity. UUID objects are
+    returned unchanged. Other nonempty values must parse as UUID text; whitespace-only input is
+    invalid. For None or empty text, UUID5 in the URL namespace hashes liuxin-store-row:<id> when an
+    ID exists, otherwise liuxin-store-root:<root>. Row-ID derivation ignores the root and database
+    identity, so equal IDs in different catalogues derive equal UUIDs.
+
+    Example:
+        >>> _store_uuid(None, store_id=7, root_uri="a") == _store_uuid(None, store_id=7, root_uri="b")
+        True
+
+
+    :param value: Optional persisted UUID object or text.
+    :param store_id: Legacy ID used as the stable key when not None, without positivity validation.
+    :param root_uri: Fallback identity text used only when both explicit UUID and row ID are absent.
+    :return: An explicit or derived UUID; malformed explicit UUID text raises ValueError.
+    """
     if isinstance(value, UUID):
         return value
     if value is not None and value != "":
@@ -269,16 +427,55 @@ def _store_uuid(value: Any, *, store_id: int | None, root_uri: str) -> UUID:
 
 
 def _optional_uuid(value: Any) -> UUID | None:
+    """
+    Strip optional text and parse a nonblank UUID. Blank values become None; other malformed values
+    raise through UUID construction.
+
+    Example:
+        >>> _optional_uuid("  ") is None
+        True
+
+
+    :param value: Optional UUID/text value, stringified through _optional_text.
+    :return: A parsed UUID or None; no Store lookup occurs.
+    """
     text = _optional_text(value)
     return None if text is None else UUID(text)
 
 
 def _policy_id(value: Any, constructor):
+    """
+    Convert a legacy policy value with _to_int and wrap any resulting integer with the supplied
+    constructor. Invalid optional text becomes None; constructor validation and other conversion
+    errors propagate.
+
+    Example:
+        >>> _policy_id("12", int), _policy_id("bad", int)
+        (12, None)
+
+
+    :param value: Stored optional policy identifier.
+    :param constructor: Callable receiving the parsed integer, commonly a nominal ID constructor.
+    :return: The constructed identifier, or None when _to_int treats the input as absent.
+    """
     parsed = _to_int(value)
     return None if parsed is None else constructor(parsed)
 
 
 def _policy_section(store_kind: str) -> str | None:
+    """
+    Resolve the backend policy section through the shared default registry. Invalid/unknown kinds
+    return None when lookup raises ValueError or StoreUnsupportedOperation; other errors propagate.
+    A known descriptor can also declare no section.
+
+    Example:
+        >>> _policy_section("S3-compatible")
+        's3'
+
+
+    :param store_kind: Backend kind or alias accepted by the default registry.
+    :return: The descriptor's policy section name, or None.
+    """
     try:
         return DEFAULT_BACKEND_REGISTRY.descriptor(store_kind).policy_section
     except (ValueError, StoreUnsupportedOperation):
@@ -286,6 +483,21 @@ def _policy_section(store_kind: str) -> str | None:
 
 
 def _safe_option_name(key: str) -> bool:
+    """
+    Apply the legacy option-name exclusion heuristic using stripped lowercase text. Reject empty
+    names, env, and names containing access_key, credential, password, private_key, api_key, secret,
+    or token anywhere. This neither validates a backend-specific option schema nor examines values;
+    innocuous names can still carry sensitive values and substring matches can exclude harmless
+    names.
+
+    Example:
+        >>> _safe_option_name("timeout_s"), _safe_option_name("SESSION_TOKEN")
+        (True, False)
+
+
+    :param key: Option-name string; non-string inputs can fail at strip/lower.
+    :return: True when the name passes this heuristic, without a secrecy guarantee.
+    """
     lowered = key.strip().lower()
     return (
         bool(lowered)
@@ -298,6 +510,26 @@ def _parse_backend_options(
     store_kind: str,
     policy_json: Any,
 ) -> tuple[tuple[str, object], ...]:
+    """
+    Extract sorted scalar/string-tuple options from the backend's policy section. Resolve the
+    section through the default registry and JSON-decode str(policy_json). Missing sections,
+    malformed outer JSON, or non-object sections produce no options. Strip keys, discard excluded
+    names and unsupported value shapes, and turn JSON arrays consisting entirely of strings into
+    tuples. Scalar values, including None and nonfinite floats accepted by json, are retained.
+
+    The policy's backend label is ignored in favor of store_kind. Keys are not case-normalized or
+    deduplicated after stripping; collisions can later fail sorting or StoreConfiguration
+    validation. Values are not scanned for secrets.
+
+    Example:
+        >>> _parse_backend_options("s3", '{"s3":{"timeout_s":4,"secret":"x","labels":["a"]}}')
+        (('labels', ('a',)), ('timeout_s', 4))
+
+
+    :param store_kind: Kind or alias selecting a policy section from the default registry.
+    :param policy_json: Optional JSON source; arbitrary mapping objects are stringified, not read directly.
+    :return: Sorted (name, value) pairs for retained options, or an empty tuple for handled missing/malformed containers.
+    """
     section_name = _policy_section(store_kind)
     if section_name is None or policy_json is None or policy_json == "":
         return ()
@@ -326,7 +558,20 @@ def _parse_backend_options(
 
 
 def _parse_configuration_extension(policy_json: Any) -> Mapping[str, Any]:
-    """Return manager-owned Store metadata from an otherwise backend policy."""
+    """
+    Decode the manager-owned _liuxin_storage section from backend policy JSON. Missing/invalid outer
+    JSON, a non-object outer value, or an absent/null extension returns an empty mapping. A present
+    extension must be an object with version equal to 1, defaulting to 1 when omitted. Equality
+    admits True and 1.0; unknown fields are retained and mode/backing validation occurs later.
+
+    Example:
+        >>> _parse_configuration_extension('{"_liuxin_storage":{"version":1}}')
+        {'version': 1}
+
+
+    :param policy_json: Optional policy source, passed to JSON decoding after str conversion.
+    :return: The decoded extension mapping or a fresh empty dictionary; invalid recognized shape/version raises ValueError.
+    """
 
     if policy_json is None or policy_json == "":
         return {}
@@ -352,7 +597,21 @@ def _parse_configuration_extension(policy_json: Any) -> Mapping[str, Any]:
 
 
 def _parse_backing_reference(value: Any) -> StoreBackingReference | None:
-    """Parse one durable Asset-backed Store relationship."""
+    """
+    Reconstruct an optional Asset-backed Store reference from a policy mapping. None means no
+    backing. Require a mapping and an int-convertible Asset ID; invalid optional Replica IDs become
+    absent through _to_int. Nonempty materialization UUID text must parse. Integer coercion precedes
+    the StoreBackingReference positive-ID checks, so True and positive truncatable floats can become
+    accepted integer identities. No referenced record is resolved.
+
+    Example:
+        >>> int(_parse_backing_reference({"digital_asset_id": "7"}).digital_asset_id)
+        7
+
+
+    :param value: Decoded backing object with digital_asset_id and optional Replica/materialization fields, or None.
+    :return: A validated StoreBackingReference or None; malformed required fields, nonpositive IDs, and invalid UUIDs raise.
+    """
 
     if value is None:
         return None
@@ -386,6 +645,26 @@ def _parse_backing_reference(value: Any) -> StoreBackingReference | None:
 
 
 def _backend_policy_json(configuration: StoreConfiguration) -> str | None:
+    """
+    Build a fresh policy payload for supported backend options and manager metadata. Resolve the
+    backend section, discard excluded option names, and encode string tuples as JSON arrays. Emit
+    the backend label only when retained options exist. Emit a version-1 manager extension for
+    backing or any cache/transient/ unmanaged mode; when extended modes are present, serialize the
+    complete mode set in ReplicaMode declaration order. Legacy-only modes use scalar row flags.
+
+    No prior policy sections are merged. An unknown backend can still carry a manager extension.
+    Name filtering does not inspect values, and JSON encoding may fail or emit nonfinite numeric
+    literals under the default json settings.
+
+    Example:
+        >>> config = StoreConfiguration(UUID(int=1), "books", "filesystem", "file:///srv")
+        >>> _backend_policy_json(config) is None
+        True
+
+
+    :param configuration: Configuration supplying backend options, mode set, and optional backing relationship.
+    :return: Sorted-key JSON text, or None when there are no supported options or manager extension fields.
+    """
     section_name = _policy_section(configuration.store_kind)
     payload: dict[str, object] = {}
     if section_name is not None and configuration.backend_options:

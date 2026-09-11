@@ -1,7 +1,11 @@
-"""Compatibility exports for SquashFS commands and the historical CLI entry point.
+"""
+Preserve SquashFS command aliases and the historical complete-CLI entry point.
 
 Parser construction imports ``squashfs_commands`` directly. This facade may
 call the application, but command implementations never import back through it.
+Exports bind the implementation objects directly, including historical private
+helpers and the PostgreSQL parser attribute outside __all__. Importing this
+facade does not construct the full application grammar or publish an archive.
 """
 
 from __future__ import annotations
@@ -39,7 +43,19 @@ from LiuXin_alpha.surfaces.cli.squashfs_parsers import (
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the complete installed CLI, not a separate SquashFS-only parser."""
+    """
+    Lazily dispatch the complete installed CLI through the historical SquashFS seam.
+
+    Forward the same argument object without adding a squashfs command prefix.
+    Application exit codes and uncaught parser/runtime exceptions remain intact.
+
+    Example:
+        >>> main(['squashfs', 'provenance', '--database', 'library.sqlite', '--file-id', '1'])  # doctest: +SKIP
+
+
+    :param argv: Complete command tokens, or None for the application's process arguments.
+    :return: Integer status returned by the application dispatcher.
+    """
     from LiuXin_alpha.surfaces.cli.app import main as application_main
 
     return application_main(argv)

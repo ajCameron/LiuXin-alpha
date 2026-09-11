@@ -1,4 +1,10 @@
-"""Storage CLI parser files ownership."""
+"""
+Declare storage file-transfer, exact-location, and source-registration grammar.
+
+Handlers own execution and semantic validation. File get/read emits bytes and has
+connection options only; other leaves share JSON output controls. Registration
+does not read control files, probe Core, or mutate storage.
+"""
 
 from __future__ import annotations
 
@@ -23,6 +29,24 @@ from LiuXin_alpha.surfaces.cli.storage_commands.core_access import _core_json
 def _add_files_parser(
     commands: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Register required files actions for list, locate, get/read, put, copy, and delete.
+
+    Get takes a positional destination and independent replacement flag, not JSON
+    options. Put defaults to 512 MiB. Delete exposes --yes but its handler enforces
+    confirmation; numeric ranges remain unchecked by these declarations.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_files_parser(parser.add_subparsers())
+        >>> args = parser.parse_args(["files", "read", "7", "-"])
+        >>> args.asset_id, args.file_output, args.handler is cmd_storage_file_get
+        (7, '-', True)
+
+
+    :param commands: Storage subparser collection receiving files and its action leaves.
+    :return: None; mutate grammar and bind handlers without file/storage operations.
+    """
     files = commands.add_parser(
         "files", help="List, transfer, locate, copy, or delete stored files."
     )
@@ -78,6 +102,20 @@ def _add_files_parser(
 def _add_location_parser(
     commands: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Register location stat with positional Store UUID/key and Core/JSON controls.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_location_parser(parser.add_subparsers())
+        >>> args = parser.parse_args(["location", "stat", "store-id", "book.epub"])
+        >>> args.store_uuid, args.key
+        ('store-id', 'book.epub')
+
+
+    :param commands: Storage subparser collection receiving the required location action family.
+    :return: None; UUID/key syntax and backend existence remain execution concerns.
+    """
     location = commands.add_parser("location", help="Inspect an exact Store key.")
     location_commands = location.add_subparsers(dest="location_action", required=True)
     location_stat = location_commands.add_parser("stat")
@@ -90,6 +128,25 @@ def _add_location_parser(
 def _add_sources_parser(
     commands: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """
+    Register source list/supported, generic JSON registration, and typed addition.
+
+    Generic register accepts any kind; typed add permits five CLI spellings for
+    local disk, three HTTP implementations, and open SquashFS. All typed flags are
+    declared across kinds; the handler chooses applicability and applies optional
+    JSON overrides after typed defaults.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_sources_parser(parser.add_subparsers())
+        >>> args = parser.parse_args(["sources", "add", "unmanaged-disk", "/books"])
+        >>> args.kind, args.location, args.no_hash
+        ('unmanaged-disk', '/books', False)
+
+
+    :param commands: Storage subparser collection receiving source discovery/registration leaves.
+    :return: None; register names, aliases, arguments, and handlers without probing sources.
+    """
     sources = commands.add_parser("sources", help="Inspect or register ingest sources.")
     source_commands = sources.add_subparsers(dest="sources_action", required=True)
     source_list = source_commands.add_parser("list", aliases=["supported"])

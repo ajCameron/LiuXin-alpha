@@ -1,5 +1,12 @@
 """
-Atomic whole-image mutation for ISO 9660, Rock Ridge, and Joliet storage.
+Stage ISO member changes and publish normalized whole-image rebuilds.
+
+The writer emits primary/Rock Ridge metadata and conditional Joliet, copying
+member sources into planned extents. Driver publication validates candidate
+names/sizes and checks the current image signature before a separate pathname
+replacement. Session expectations, source-copy checks, candidate validation,
+and post-publication synchronization have distinct guarantees; none provides
+a universal content-hash or rollback promise.
 """
 
 from __future__ import annotations
@@ -75,12 +82,20 @@ _COPY_CHUNK_SIZE = 1024 * 1024
 @dataclasses.dataclass(slots=True, frozen=True)
 class _IsoWriteSource:
     """
-    Describe one finite payload supplied to an image rebuild.
+    Retain declared length, optional modification time, and a lazy payload opener.
+
+    The frozen record does not validate size or check that opened bytes match it. The builder owns
+    each opened stream for the duration of copying.
 
     Example:
         >>> source = _IsoWriteSource(4, None, lambda: open("book", "rb"))
         >>> source.size
         4
+
+
+    :ivar size: Declared payload length in bytes.
+    :ivar modified_at: Timestamp used for non-deterministic file records, or None for the epoch fallback.
+    :ivar open: Zero-argument callable returning a context-managed readable binary stream.
     """
 
     size: int
@@ -91,11 +106,26 @@ class _IsoWriteSource:
 @dataclasses.dataclass(slots=True)
 class _IsoWriteNode:
     """
-    Retain one directory-tree node and its assigned image extents.
+    Represent a mutable output-tree node with parent links and assigned layout positions.
+
+    A missing source identifies a directory, independently of its children or name. Construction
+    validates neither topology nor allocation fields.
 
     Example:
         >>> _IsoWriteNode(None).is_directory
         True
+
+
+    :ivar name: Original component text, or None for the root.
+    :ivar source: Payload source for a file, or None for a directory.
+    :ivar children: Mutable component-to-node mapping.
+    :ivar parent: Parent node, or None for the root.
+    :ivar alias: Assigned conservative primary-namespace identifier.
+    :ivar primary_lba: Primary directory logical block address.
+    :ivar primary_blocks: Primary directory extent length in sectors.
+    :ivar joliet_lba: Joliet directory logical block address.
+    :ivar joliet_blocks: Joliet directory extent length in sectors.
+    :ivar file_lba: Shared payload logical block address for a file.
     """
 
     name: str | None
@@ -112,14 +142,14 @@ class _IsoWriteNode:
     @property
     def is_directory(self) -> bool:
         """
-        Return whether this node represents a directory.
+        Classify the node solely by whether its source is absent.
 
         Example:
             >>> _IsoWriteNode("docs").is_directory
             True
 
 
-        :return:
+        :return: True when source is None, otherwise False.
         """
 
         return self.source is None
@@ -128,11 +158,15 @@ class _IsoWriteNode:
 @dataclasses.dataclass(slots=True, frozen=True)
 class _SuspNamePlan:
     """
-    Split a Rock Ridge name between its record and continuation area.
+    Retain encoded in-record Rock Ridge bytes and optional continuation bytes without validation.
 
     Example:
         >>> _SuspNamePlan(b"NM", b"").continuation
         b''
+
+
+    :ivar direct: Encoded SUSP bytes stored directly in the directory record.
+    :ivar continuation: Encoded remaining name fragments stored elsewhere, or empty bytes.
     """
 
     direct: bytes
@@ -142,11 +176,16 @@ class _SuspNamePlan:
 @dataclasses.dataclass(slots=True, frozen=True)
 class _ContinuationLocation:
     """
-    Locate one SUSP continuation payload in the output image.
+    Retain an assigned SUSP continuation address and its encoded payload without checking bounds.
 
     Example:
         >>> _ContinuationLocation(30, 12, b"NM").offset
         12
+
+
+    :ivar block: Logical sector containing the first payload byte.
+    :ivar offset: Byte displacement within that sector.
+    :ivar payload: Encoded continuation bytes, which may span sectors.
     """
 
     block: int
@@ -156,7 +195,11 @@ class _ContinuationLocation:
 
 class _IsoWriteSession:
     """
-    Stage one member privately and publish only on explicit commit.
+    Stage one member in a sibling file and publish only on explicit commit.
+
+    Accepted write counts and incremental digest state supply expectations; commit later stats and
+    reopens the staged path. Those checks do not independently authenticate changed staging
+    contents. Context exit aborts unless commit completed.
 
     Example:
         >>> session = driver.begin_write(address)  # doctest: +SKIP
@@ -172,18 +215,23 @@ class _IsoWriteSession:
         expected_digest: Digest | None,
     ) -> None:
         """
-        Create one private staged member with integrity expectations.
+        Retain driver/address/expectations, create a sibling staging file, and initialize
+        accepted-byte accounting.
+
+        Digest construction precedes file allocation. Only mkstemp OSErrors are translated; fdopen
+        occurs after allocation without a separate failure-cleanup guard. This constructor does not
+        validate mode or expectations.
 
         Example:
             >>> _IsoWriteSession(driver, address, mode=WriteMode.CREATE_ONLY, expected_size=4, expected_digest=None)  # doctest: +SKIP
 
 
-        :param driver:
-        :param address:
-        :param mode:
-        :param expected_size:
-        :param expected_digest:
-        :return:
+        :param driver: Writable driver used for limits and eventual publication.
+        :param address: Member address retained for commit.
+        :param mode: Collision mode forwarded unchanged to commit.
+        :param expected_size: Required accepted-byte count, or None to omit equality checking.
+        :param expected_digest: Algorithm/value used to hash accepted writes, or None.
+        :return: None after opening the staging stream and marking the session active.
         """
 
         self._driver = driver
@@ -217,15 +265,20 @@ class _IsoWriteSession:
 
     def write(self, data: bytes) -> int:
         """
-        Append bytes to the private staged member.
+        Write bytes to an active stage while enforcing the driver ceiling against offered length.
+
+        Non-bytes are rejected. A None write result counts as the entire offer; other accepted
+        counts are used without additional validation. Only accepted prefixes update the
+        count/digest. OSErrors are translated, and expected_size is checked later rather than
+        limiting each write.
 
         Example:
             >>> session.write(b"book")  # doctest: +SKIP
             4
 
 
-        :param data:
-        :return:
+        :param data: Bytes offered to the staging stream.
+        :return: Accepted-byte count after updating session accounting; finished sessions reject writes.
         """
 
         if self._finished:
@@ -255,14 +308,19 @@ class _IsoWriteSession:
 
     def commit(self) -> DriverObjectInfo[IsoObjectAddress]:
         """
-        Validate the staged member and atomically rebuild the ISO image.
+        Flush, fsync, close, and check session expectations before publishing from the staged path.
+
+        The driver can fail after replacing the image. Any BaseException from the main commit path
+        calls abort and is re-raised unless cleanup itself fails. Successful publication sets
+        finished/committed before the final staging unlink, whose failure can escape after success.
+        The session cannot be recommitted.
 
         Example:
             >>> session.commit().size  # doctest: +SKIP
             4
 
 
-        :return:
+        :return: DriverObjectInfo returned after publication and stat; errors do not universally imply an unchanged image.
         """
 
         if self._finished:
@@ -289,13 +347,16 @@ class _IsoWriteSession:
 
     def _validate_expectations(self) -> None:
         """
-        Require staged size and digest to match the caller's declarations.
+        Check the accepted-byte total and incremental digest without rereading the staging file.
+
+        The current driver limit is checked again. A configured digest is compared with the
+        lowercased computed hex; the supplied value is used as stored.
 
         Example:
             >>> session._validate_expectations()  # doctest: +SKIP
 
 
-        :return:
+        :return: None when all configured expectations match; size/digest mismatches raise StorageIntegrityError and limit excess raises unsupported.
         """
 
         if self._size > self._driver.max_write_member_bytes:
@@ -315,13 +376,17 @@ class _IsoWriteSession:
 
     def abort(self) -> None:
         """
-        Close and remove the unpublished staged member.
+        Attempt staging-stream closure and pathname removal, then mark the session finished.
+
+        OSErrors from each operation are suppressed. Other close errors can prevent later cleanup;
+        other unlink errors still set finished. No published image is restored and repeated aborts
+        can retry an earlier failed unlink.
 
         Example:
             >>> session.abort()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after the attempted cleanup; committed state is not cleared.
         """
 
         try:
@@ -338,13 +403,13 @@ class _IsoWriteSession:
 
     def __enter__(self) -> _IsoWriteSession:
         """
-        Return this active staged-write session.
+        Return this session only while it remains active.
 
         Example:
             >>> entered = session.__enter__()  # doctest: +SKIP
 
 
-        :return:
+        :return: Same session object; a finished session raises StorageError.
         """
 
         if self._finished:
@@ -358,16 +423,16 @@ class _IsoWriteSession:
         traceback: TracebackType | None,
     ) -> None:
         """
-        Abort automatically unless the context body committed explicitly.
+        Abort an uncommitted session on context exit without suppressing the body exception.
 
         Example:
             >>> session.__exit__(None, None, None)  # doctest: +SKIP
 
 
-        :param exc_type:
-        :param exc:
-        :param traceback:
-        :return:
+        :param exc_type: Exception class supplied by the context protocol, unused here.
+        :param exc: Body exception instance, unused here.
+        :param traceback: Body traceback, unused here.
+        :return: None; committed sessions are left alone and other sessions delegate to abort.
         """
 
         if not self._committed:
@@ -376,11 +441,13 @@ class _IsoWriteSession:
 
 class WritableIsoStorageDriver(IsoStorageDriver):
     """
-    Mutate an ISO by validating and atomically publishing whole-image rebuilds.
+    Mutate a direct ISO projection by rebuilding a complete sibling image and replacing the
+    pathname.
 
-    Existing images are imported through the reader on every mutation; no
-    extracted mirror or in-memory payload cache is kept. Successful commits
-    are immediately readable from the published image after process restart.
+    An instance lock serializes publication operations while sessions stage independently. Existing
+    members are opened lazily under image-version conditions. Detected metadata loss blocks mutation
+    unless configured otherwise; UDF extraction is disabled. Atomic replacement does not remove the
+    stat/replace race or guarantee rollback after later synchronization/refresh errors.
 
     Example:
         >>> driver = WritableIsoStorageDriver("library.iso", address_space_uuid=UUID(int=1))  # doctest: +SKIP
@@ -407,29 +474,36 @@ class WritableIsoStorageDriver(IsoStorageDriver):
         max_path_bytes: int = DEFAULT_MAX_ISO_PATH_BYTES,
     ) -> None:
         """
-        Configure a mutable image, creating a valid empty ISO when requested.
+        Validate output policy and optionally create an empty image before binding the direct ISO
+        reader.
+
+        Numeric limits, normalized volume ID, and writable allocation prefix are checked before
+        creation. The prefix must leave room for another component. Missing parents may be created;
+        empty-image publication uses a non-overwriting hard link. Existing images are not parsed at
+        construction. Inherited reading disables UDF selection and omits unsafe members so
+        inspection can gate normalization.
 
         Example:
             >>> WritableIsoStorageDriver("library.iso", address_space_uuid=UUID(int=1))  # doctest: +SKIP
 
 
-        :param image_path:
-        :param address_space_uuid:
-        :param create_image:
-        :param volume_id:
-        :param include_joliet:
-        :param deterministic:
-        :param allow_lossy_rebuild:
-        :param allocation_prefix:
-        :param max_inventory_entries:
-        :param max_directory_bytes:
-        :param max_depth:
-        :param max_susp_bytes:
-        :param max_udf_member_bytes:
-        :param max_total_uncompressed_bytes:
-        :param max_logical_expansion_ratio:
-        :param max_path_bytes:
-        :return:
+        :param image_path: Local image pathname expanded and resolved before configuration.
+        :param address_space_uuid: Owner UUID for member addresses.
+        :param create_image: Whether an absent path may receive a new empty image.
+        :param volume_id: Text normalized to the output ASCII identifier.
+        :param include_joliet: Whether to emit Joliet when every component fits its encoding limits.
+        :param deterministic: Whether directory/member timestamps use the fixed fallback policy.
+        :param allow_lossy_rebuild: Whether recorded unpreserved image features may be discarded during normalization.
+        :param allocation_prefix: Canonical writable key prefix leaving at least one component of depth headroom.
+        :param max_inventory_entries: Positive parser all-entry cap; source preflight counts regular members only.
+        :param max_directory_bytes: Positive maximum bytes loaded per reader directory.
+        :param max_depth: Positive key-component and direct traversal policy.
+        :param max_susp_bytes: Positive reader continuation-byte budget per Rock Ridge record.
+        :param max_udf_member_bytes: Positive member ceiling inherited by direct reads and staged writes despite disabled UDF.
+        :param max_total_uncompressed_bytes: Positive maximum indexed/rebuilt regular-file bytes.
+        :param max_logical_expansion_ratio: Finite maximum logical bytes per physical image byte, at least one.
+        :param max_path_bytes: Positive whole-key byte limit checked by writable validation and candidate reader.
+        :return: None after optional creation and binding policy, mutation synchronization, and inherited cache state.
         """
 
         target = pathlib.Path(image_path).expanduser().resolve(strict=False)
@@ -515,21 +589,31 @@ class WritableIsoStorageDriver(IsoStorageDriver):
 
     @property
     def max_write_member_bytes(self) -> int:
-        """Return the effective staged-member limit for image rebuilds."""
+        """
+        Return the smaller inherited member ceiling and unsigned 32-bit ISO file-size limit.
+
+        Example:
+            >>> driver.max_write_member_bytes <= MAX_ISO_FILE_SIZE  # doctest: +SKIP
+            True
+
+
+        :return: Maximum accepted member bytes, at most 2**32 - 1.
+        """
 
         return min(MAX_ISO_FILE_SIZE, self._effective_member_limit)
 
     @property
     def volume_id(self) -> str:
         """
-        Return the normalized ISO volume identifier used for rebuilt images.
+        Return the normalized identifier retained for newly built images without inspecting the
+        current descriptor.
 
         Example:
             >>> driver.volume_id  # doctest: +SKIP
             'LIUXIN'
 
 
-        :return:
+        :return: Configured output volume ID.
         """
 
         return self._volume_id
@@ -537,14 +621,19 @@ class WritableIsoStorageDriver(IsoStorageDriver):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Advertise atomic staged mutation alongside complete ISO reads.
+        Advertise whole-image create/replace/delete, native copy/move, allocation, and conditional
+        range reads.
+
+        The fresh record advertises atomic pathname publication and thread-safe concurrent reads,
+        with four reads recommended and concurrent writes disabled. It does not evaluate current
+        metadata-loss or filesystem policy.
 
         Example:
             >>> driver.capabilities.atomic_publish  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: New DriverCapabilities record describing implemented operations.
         """
 
         return DriverCapabilities(
@@ -571,13 +660,19 @@ class WritableIsoStorageDriver(IsoStorageDriver):
 
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
-        """Advertise ISO rebuild cost, limits, and normalization behaviour.
+        """
+        Describe full-image rebuild cost, normalization, and retained member/path limits.
+
+        The record advertises whole-store temporary copying and archival-snapshot use. Joliet is
+        conditional and unmodelled entries are not preserved. These fixed limitations do not
+        constitute a fresh image inspection.
 
         Example:
             >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
             <StoragePublicationModel.WHOLE_STORE_REBUILD: 'whole_store_rebuild'>
 
-        :return: Structured writable ISO characteristics.
+
+        :return: New StorageCharacteristics with whole-store rebuild publication and normalized-format limitations.
         """
 
         return StorageCharacteristics(
@@ -623,14 +718,20 @@ class WritableIsoStorageDriver(IsoStorageDriver):
 
     def probe(self) -> DriverStatus:
         """
-        Parse the image and verify that its containing directory is writable.
+        Force indexing, assess metadata-loss policy, and attempt sibling temporary-file
+        creation/removal.
+
+        The parent probe runs even when policy blocks mutation. It tests neither replacement nor
+        fsync. Creation OSErrors are translated; descriptor close and unlink errors from finally can
+        propagate directly and prevent status replacement. Successful status reports availability
+        and policy-based writability.
 
         Example:
             >>> driver.probe().writable  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: New cached DriverStatus with count, namespace, output policy, and loss warnings.
         """
 
         index = self._get_index(force=True)
@@ -699,15 +800,19 @@ class WritableIsoStorageDriver(IsoStorageDriver):
         identifier: DriverObjectAddressInput[IsoObjectAddress],
     ) -> IsoObjectAddress:
         """
-        Validate both the reader address contract and writable ISO limits.
+        Apply inherited address parsing and then writable Rock Ridge component/path checks.
+
+        Even typed addresses receive the writable-key validation after ownership checking. Text
+        first passes the reader's surrogatepass byte accounting, then writable surrogateescape
+        accounting; neither branch checks existence.
 
         Example:
             >>> str(driver.parse_object_address("books/novel.epub"))  # doctest: +SKIP
             'books/novel.epub'
 
 
-        :param identifier:
-        :return:
+        :param identifier: Owned ISO address or relative member-key text.
+        :return: Same owned address returned by the reader parser after writable validation.
         """
 
         address = super().parse_object_address(identifier)
@@ -728,18 +833,24 @@ class WritableIsoStorageDriver(IsoStorageDriver):
         metadata: tuple[tuple[str, str], ...] = (),
     ) -> _IsoWriteSession:
         """
-        Begin a private file stage for one atomic image mutation.
+        Check ownership, writable key, expected size, metadata policy, and current rebuild
+        inspection before staging.
+
+        Nonempty native metadata is unsupported. Collision mode is retained without coercion and
+        existence is checked at commit. Digest algorithm support is delegated to session hash
+        construction. The staging lifetime does not hold the mutation lock; commit checks a fresh
+        snapshot again.
 
         Example:
             >>> session = driver.begin_write(address, expected_size=4)  # doctest: +SKIP
 
 
-        :param object_address:
-        :param mode:
-        :param expected_size:
-        :param expected_digest:
-        :param metadata:
-        :return:
+        :param object_address: Owned destination address.
+        :param mode: Collision mode retained for commit, normally CREATE_ONLY, REPLACE, or UPSERT.
+        :param expected_size: Nonnegative required accepted-byte count within the write ceiling, or None.
+        :param expected_digest: Digest to verify over accepted writes, or None.
+        :param metadata: Native metadata pairs; only an empty tuple is supported.
+        :return: New active _IsoWriteSession with a private sibling file; caller must commit or abort it.
         """
 
         checked = self.check_object_address(object_address)
@@ -775,16 +886,21 @@ class WritableIsoStorageDriver(IsoStorageDriver):
         if_version: str | None = None,
     ) -> None:
         """
-        Delete one member through an atomic whole-image rebuild.
+        Remove an indexed member through a serialized rebuild after metadata-loss and optional
+        version checks.
+
+        Safety inspection precedes absence handling. missing_ok returns before version comparison
+        when the member is absent. Typed ownership is checked, without an additional writable-key
+        parse at entry.
 
         Example:
             >>> driver.delete(address, if_version=info.version)  # doctest: +SKIP
 
 
-        :param object_address:
-        :param missing_ok:
-        :param if_version:
-        :return:
+        :param object_address: Owned member address to remove.
+        :param missing_ok: Whether an absent member succeeds after the safety-policy check.
+        :param if_version: Required whole-image version for an existing member, or None.
+        :return: None after successful publication, or the allowed missing-member short circuit.
         """
 
         checked = self.check_object_address(object_address)
@@ -820,17 +936,21 @@ class WritableIsoStorageDriver(IsoStorageDriver):
         name_hint: str | None = None,
     ) -> IsoObjectAddress:
         """
-        Allocate a digest-derived or random member path.
+        Construct a digest-derived or UUID-prefixed member key without reserving it.
+
+        Digest paths use algorithm/two-character-prefix/value when depth allows, otherwise one
+        algorithm-value component. Non-digest hints pass through the component sanitizer. The method
+        checks expected size and key validity, not existence or rebuild safety.
 
         Example:
             >>> str(driver.allocate_object_address(name_hint="book.epub")).startswith("objects/")  # doctest: +SKIP
             True
 
 
-        :param expected_size:
-        :param expected_digest:
-        :param name_hint:
-        :return:
+        :param expected_size: Nonnegative proposed byte count within the write ceiling, or None.
+        :param expected_digest: Digest supplying algorithm/value key components, or None for a random key.
+        :param name_hint: Optional filename hint used only for random allocation.
+        :return: Validated owned member address with no reservation or collision guarantee.
         """
 
         if expected_size is not None and expected_size < 0:
@@ -865,17 +985,22 @@ class WritableIsoStorageDriver(IsoStorageDriver):
         mode: WriteMode = WriteMode.CREATE_ONLY,
     ) -> DriverObjectInfo[IsoObjectAddress]:
         """
-        Copy one member through a single atomic image rebuild.
+        Copy an indexed source to a destination through one serialized image rebuild.
+
+        Checks ownership, rebuild safety, source presence, and destination mode before planning lazy
+        version-conditioned sources. Same-key copies still follow collision policy and may rebuild.
+        Final stat can fail after publication; this method performs no independent payload hash
+        pass.
 
         Example:
             >>> driver.native_copy(source, destination).object_address == destination  # doctest: +SKIP
             True
 
 
-        :param source:
-        :param destination:
-        :param mode:
-        :return:
+        :param source: Owned existing member address.
+        :param destination: Owned target address; layout and candidate validation enforce representability.
+        :param mode: Destination collision policy, checked by enum identity.
+        :return: Destination information read after publication.
         """
 
         checked_source = self.check_object_address(source)
@@ -916,18 +1041,23 @@ class WritableIsoStorageDriver(IsoStorageDriver):
         if_source_version: str | None = None,
     ) -> DriverObjectInfo[IsoObjectAddress]:
         """
-        Move one member through a single conditional atomic image rebuild.
+        Move an indexed source through one serialized rebuild with an optional image-version
+        condition.
+
+        Safety and source presence precede version and destination checks. Same-key moves retain the
+        source under that key when mode permits. Lazy sources preserve the original payload opener;
+        final stat occurs after publication.
 
         Example:
             >>> driver.native_move(source, destination).object_address == destination  # doctest: +SKIP
             True
 
 
-        :param source:
-        :param destination:
-        :param mode:
-        :param if_source_version:
-        :return:
+        :param source: Owned existing member address.
+        :param destination: Owned target address.
+        :param mode: Destination collision policy, checked by enum identity.
+        :param if_source_version: Required whole-image source version, or None.
+        :return: Destination information read after publication; failures after replacement do not restore the prior image.
         """
 
         checked_source = self.check_object_address(source)
@@ -971,16 +1101,21 @@ class WritableIsoStorageDriver(IsoStorageDriver):
         mode: WriteMode,
     ) -> DriverObjectInfo[IsoObjectAddress]:
         """
-        Add one staged payload and publish its complete candidate image.
+        Stat a staged pathname and insert its current size/time/opener into a serialized rebuild.
+
+        The helper trusts the supplied address, checks the current inspection and enum-identity
+        collision policy, and uses staged stat metadata rather than session accepted-byte
+        accounting. It does not compare staged bytes with the earlier expected digest or
+        independently require a regular file.
 
         Example:
             >>> driver._commit_staged_file(address, staged, mode=WriteMode.CREATE_ONLY)  # doctest: +SKIP
 
 
-        :param address:
-        :param staged_path:
-        :param mode:
-        :return:
+        :param address: Destination address previously checked by the session entry point.
+        :param staged_path: Closed staged pathname to stat and reopen while building.
+        :param mode: Collision mode checked against current inventory.
+        :return: Member information from final stat after publication; staging cleanup belongs to the session.
         """
 
         with self._mutation_lock:
@@ -1027,15 +1162,18 @@ class WritableIsoStorageDriver(IsoStorageDriver):
         version: str,
     ) -> dict[str, _IsoWriteSource]:
         """
-        Project indexed members into lazy, version-pinned rebuild sources.
+        Wrap indexed members in lazy openers conditioned on the supplied whole-image version.
+
+        Keys are reparsed through writable validation before source creation. No payload is opened
+        here, and each later opener checks the version through inherited reading.
 
         Example:
             >>> sorted(driver._existing_sources(index, version="iso:v1"))  # doctest: +SKIP
 
 
-        :param index:
-        :param version:
-        :return:
+        :param index: Member-key mapping with retained size/time metadata.
+        :param version: Image token required when each existing member is opened.
+        :return: New mapping of keys to declared-size/time/opener records.
         """
 
         result: dict[str, _IsoWriteSource] = {}
@@ -1052,13 +1190,15 @@ class WritableIsoStorageDriver(IsoStorageDriver):
         return result
 
     def _inspection_for_current_image(self) -> _IsoInspection:
-        """Return inspection evidence paired with the current cached image.
+        """
+        Refresh the index as needed and return its inspection under the index lock.
 
         Example:
             >>> driver._inspection_for_current_image().rebuild_loss_reasons  # doctest: +SKIP
             ()
 
-        :return: Current immutable ISO inspection evidence.
+
+        :return: Retained inspection for the current cache snapshot.
         """
 
         with self._index_lock:
@@ -1066,13 +1206,18 @@ class WritableIsoStorageDriver(IsoStorageDriver):
             return self._inspection
 
     def _require_safe_rebuild(self, inspection: _IsoInspection) -> None:
-        """Block normalization that would discard detected image features.
+        """
+        Reject recorded metadata loss unless the configured normalization policy permits it.
+
+        An empty reason list means no detected loss, not proof that all image features are modelled.
+        This helper does not inspect the filesystem or change policy.
 
         Example:
             >>> driver._require_safe_rebuild(_IsoInspection())  # doctest: +SKIP
 
-        :param inspection: Evidence collected from the image being mutated.
-        :return: None when the rebuild is lossless or explicitly authorized.
+
+        :param inspection: Recorded image features to evaluate.
+        :return: None for no detected loss or enabled lossy rebuilding; otherwise StorageUnsupportedOperation.
         """
 
         reasons = inspection.rebuild_loss_reasons
@@ -1092,15 +1237,25 @@ class WritableIsoStorageDriver(IsoStorageDriver):
         expected_signature: tuple[int, int, int, int, int],
     ) -> None:
         """
-        Build, validate, and atomically publish one candidate image.
+        Build a sibling candidate, validate its key/size projection, and replace the image after a
+        metadata check.
+
+        Preflight bounds regular-source count and declared member/total sizes. The candidate reader
+        additionally applies all-entry/path/parser/ratio limits. Verification compares keys and
+        sizes, not payload hashes. A path-stat check precedes a separate os.replace call, leaving an
+        external-writer race.
+
+        After replacement, file/parent fsync and cache reset/reindex can fail with the new image
+        already visible. This helper does not acquire the mutation lock itself. Finally unlinks a
+        retained candidate without suppressing errors, so cleanup can replace an earlier failure.
 
         Example:
             >>> driver._publish_sources({}, expected_signature=signature)  # doctest: +SKIP
 
 
-        :param sources:
-        :param expected_signature:
-        :return:
+        :param sources: Requested regular-member snapshot with declared sizes and lazy openers.
+        :param expected_signature: Image metadata expected immediately before the separate replace operation.
+        :return: None after publication and final reindex; no universal rollback guarantee is provided.
         """
 
         temporary: pathlib.Path | None = None
@@ -1198,7 +1353,12 @@ class WritableIsoStorageDriver(IsoStorageDriver):
 
 class _IsoImageWriter:
     """
-    Lay out one standards-shaped hybrid ISO without buffering member payloads.
+    Lay out a primary/Rock Ridge image with optional Joliet and stream payloads into its assigned
+    extents.
+
+    Metadata trees/tables/directories are held in memory; member bytes are copied incrementally. The
+    builder writes an unpublished destination without performing driver policy, candidate-readback,
+    or publication checks.
 
     Example:
         >>> writer = _IsoImageWriter(volume_id="LIUXIN", include_joliet=True, deterministic=True)
@@ -1212,17 +1372,17 @@ class _IsoImageWriter:
         deterministic: bool,
     ) -> None:
         """
-        Retain output namespace and timestamp policy.
+        Normalize output volume ID and retain boolean namespace/timestamp policy.
 
         Example:
             >>> _IsoImageWriter(volume_id="LIUXIN", include_joliet=True, deterministic=False).volume_id
             'LIUXIN'
 
 
-        :param volume_id:
-        :param include_joliet:
-        :param deterministic:
-        :return:
+        :param volume_id: Text passed through ASCII volume-ID normalization.
+        :param include_joliet: Whether to attempt Joliet emission when every name fits.
+        :param deterministic: Whether member/directory timestamps use the fixed fallback.
+        :return: None after retaining normalized writer policy.
         """
 
         self.volume_id = _volume_id(volume_id)
@@ -1235,15 +1395,25 @@ class _IsoImageWriter:
         sources: Mapping[str, _IsoWriteSource],
     ) -> None:
         """
-        Stream a complete hybrid image to one unpublished destination.
+        Plan both namespace layouts and write a complete candidate to a truncated destination file.
+
+        Assigns stable aliases, paired-endian path tables, directory extents, packed SUSP
+        continuations, and shared payload extents. Joliet is emitted only if all components fit. The
+        volume reserves at least 24 sectors and one trailing sector; format-size limits are checked
+        before opening output.
+
+        Opening w+b can truncate an existing candidate. Metadata write counts are not checked;
+        payload copying checks declared exhaustion but not accepted output counts or hashes.
+        Successful completion flushes/fsyncs the output. A failed build can leave a partial
+        candidate for the caller to remove.
 
         Example:
             >>> writer.build(path, {})  # doctest: +SKIP
 
 
-        :param destination:
-        :param sources:
-        :return:
+        :param destination: Unpublished writable Path; its parent must already exist.
+        :param sources: Canonical validated member-key mapping expected from the driver; the builder does not repeat every policy check.
+        :return: None after the candidate file closes successfully.
         """
 
         root = _write_tree(sources)
@@ -1345,21 +1515,25 @@ class _IsoImageWriter:
         continuation_locations: Mapping[int, _ContinuationLocation],
     ) -> None:
         """
-        Write descriptors, tables, directories, and continuation payloads.
+        Write descriptors, paired path tables, directories, and continuation bytes at their assigned
+        positions.
+
+        The stream and layout mappings are trusted; output write counts are ignored. Payload extents
+        are written separately by build, and this helper does not flush or fsync.
 
         Example:
             >>> writer._write_metadata(output, root=root, directories=[root], layouts=("primary",), table_locations=tables, volume_blocks=24, susp_plans={}, continuation_locations={})  # doctest: +SKIP
 
 
-        :param output:
-        :param root:
-        :param directories:
-        :param layouts:
-        :param table_locations:
-        :param volume_blocks:
-        :param susp_plans:
-        :param continuation_locations:
-        :return:
+        :param output: Borrowed seekable binary output stream.
+        :param root: Root node with assigned directory extents.
+        :param directories: Path-table ordered directory nodes.
+        :param layouts: Selected primary and optional joliet layouts.
+        :param table_locations: Layout/byte-order mapping to table LBA and unpadded size.
+        :param volume_blocks: Total output sector count encoded in descriptors.
+        :param susp_plans: Node-identity mapping to direct/continuation name bytes.
+        :param continuation_locations: Node-identity mapping to assigned continuation byte ranges.
+        :return: None after the delegated metadata writes complete.
         """
 
         for descriptor_index, layout in enumerate(layouts, start=16):
@@ -1418,17 +1592,21 @@ def _create_empty_iso(
     deterministic: bool,
 ) -> None:
     """
-    Create and durably publish an empty ISO without replacing a raced path.
+    Build an empty sibling image and hard-link it into an absent target pathname.
+
+    A raced existing target is retained without validating its contents. Successful linking precedes
+    candidate unlink and file/parent fsync, so later failures can leave a visible image. OSErrors in
+    the main block are translated; finally cleanup is not suppressed. The parent must already exist.
 
     Example:
         >>> _create_empty_iso(path, volume_id="LIUXIN", include_joliet=True, deterministic=True)  # doctest: +SKIP
 
 
-    :param target:
-    :param volume_id:
-    :param include_joliet:
-    :param deterministic:
-    :return:
+    :param target: Destination pathname to create without replacement.
+    :param volume_id: Output identifier normalized by the image writer.
+    :param include_joliet: Whether the empty image includes a Joliet layout.
+    :param deterministic: Whether timestamp policy uses fixed fallbacks.
+    :return: None after publication/synchronization or a raced-existing-target return, subject to final cleanup errors.
     """
 
     temporary: pathlib.Path | None = None
@@ -1467,18 +1645,21 @@ def _require_iso_destination_mode(
     image_path: pathlib.Path,
 ) -> None:
     """
-    Enforce explicit collision behavior for a native ISO destination.
+    Reject existing CREATE_ONLY targets and absent REPLACE targets by enum identity.
+
+    UPSERT and any value not identical to those enum members pass this helper; no coercion or
+    general mode validation occurs.
 
     Example:
         >>> _require_iso_destination_mode("book", exists=False, mode=WriteMode.CREATE_ONLY, operation="copy", image_path=path)  # doctest: +SKIP
 
 
-    :param key:
-    :param exists:
-    :param mode:
-    :param operation:
-    :param image_path:
-    :return:
+    :param key: Destination member key for diagnostics.
+    :param exists: Whether current inventory contains that destination.
+    :param mode: Collision policy to inspect by identity.
+    :param operation: Action label included in typed failures.
+    :param image_path: Container path used in the diagnostic target.
+    :return: None when the two collision checks permit the operation; otherwise StorageAlreadyExists or StorageNotFound.
     """
 
     if mode is WriteMode.CREATE_ONLY and exists:
@@ -1503,15 +1684,19 @@ def _require_iso_destination_mode(
 
 def _write_tree(sources: Mapping[str, _IsoWriteSource]) -> _IsoWriteNode:
     """
-    Build a canonical directory tree from rebuild sources.
+    Build a parent-linked output tree from sorted source keys, rejecting file/directory collisions.
+
+    Keys are assumed canonical and are not passed through writable-key validation here. Missing
+    parents are synthesized; an existing file cannot become an ancestor, and an occupied final child
+    is rejected.
 
     Example:
         >>> _write_tree({}).children
         {}
 
 
-    :param sources:
-    :return:
+    :param sources: Member-key mapping to retained payload source records.
+    :return: New root node with stable child insertion order and references to the supplied sources.
     """
 
     root = _IsoWriteNode(None)
@@ -1543,15 +1728,17 @@ def _write_tree(sources: Mapping[str, _IsoWriteSource]) -> _IsoWriteNode:
 
 def _write_directories(root: _IsoWriteNode) -> list[_IsoWriteNode]:
     """
-    Return directories in path-table breadth-first order.
+    Collect the root and descendant directories in breadth-first order with sorted siblings.
+
+    The root is included unconditionally; input topology is trusted and cycles are not detected.
 
     Example:
         >>> _write_directories(_IsoWriteNode(None))[0].name is None
         True
 
 
-    :param root:
-    :return:
+    :param root: Root of a finite parent/child tree.
+    :return: List of retained directory nodes in path-table order.
     """
 
     result: list[_IsoWriteNode] = []
@@ -1569,15 +1756,15 @@ def _write_directories(root: _IsoWriteNode) -> list[_IsoWriteNode]:
 
 def _write_files(directories: list[_IsoWriteNode]) -> list[_IsoWriteNode]:
     """
-    Return all regular-file nodes in stable directory order.
+    Collect each supplied directory's non-directory children in sorted name order.
 
     Example:
         >>> _write_files([_IsoWriteNode(None)])
         []
 
 
-    :param directories:
-    :return:
+    :param directories: Directory nodes in the desired outer traversal order.
+    :return: List of retained file nodes; duplicate directories would repeat their files.
     """
 
     return [
@@ -1593,7 +1780,11 @@ def _assign_primary_aliases(
     files: list[_IsoWriteNode],
 ) -> None:
     """
-    Assign unique conservative ISO 9660 identifiers.
+    Mutate non-root directory and file nodes with sequential ASCII primary identifiers.
+
+    Directories use D plus at least seven digits; files use F plus at least six digits and .DAT;1.
+    Root alias is unchanged. Uniqueness follows sequence position, without collision or field-width
+    checks for unusually large lists.
 
     Example:
         >>> root, child = _IsoWriteNode(None), _IsoWriteNode("docs")
@@ -1602,9 +1793,9 @@ def _assign_primary_aliases(
         b'D0000001'
 
 
-    :param directories:
-    :param files:
-    :return:
+    :param directories: Ordered directories with root first.
+    :param files: Ordered file nodes receiving their own sequential aliases.
+    :return: None after assigning alias fields.
     """
 
     for index, node in enumerate(directories[1:], start=1):
@@ -1618,16 +1809,19 @@ def _supports_joliet(
     files: list[_IsoWriteNode],
 ) -> bool:
     """
-    Return whether every visible component fits a valid Joliet identifier.
+    Check every non-root name for surrogate code points and the 128-byte UTF-16BE identifier limit.
+
+    File names include the emitted ;1 suffix in that limit; directories do not. This does not
+    validate total path length or every Joliet interoperability restriction.
 
     Example:
         >>> _supports_joliet([_IsoWriteNode(None)], [])
         True
 
 
-    :param directories:
-    :param files:
-    :return:
+    :param directories: Directory nodes with root first and named descendants.
+    :param files: Named file nodes.
+    :return: True when all names pass these encoding/size checks, otherwise False.
     """
 
     for node in (*directories[1:], *files):
@@ -1642,16 +1836,20 @@ def _supports_joliet(
 
 def _susp_name_plan(identifier: bytes, name: bytes) -> _SuspNamePlan:
     """
-    Fit an RRIP alternate name into a record plus optional continuation.
+    Fit RR and NM bytes into a 255-byte directory record, reserving a CE pointer when needed.
+
+    The identifier length determines available space. A split reserves 28 CE bytes and an NM header,
+    keeps up to 240 name bytes directly, and places the rest in continuation NM entries. Name bytes
+    themselves are not validated here.
 
     Example:
         >>> _susp_name_plan(b"F000001.DAT;1", b"book.epub").continuation
         b''
 
 
-    :param identifier:
-    :param name:
-    :return:
+    :param identifier: Primary identifier bytes determining base record overhead.
+    :param name: Complete encoded Rock Ridge component bytes.
+    :return: Direct/continuation byte plan; insufficient room for a first fragment raises StorageInvalidAddress.
     """
 
     base_length = 33 + len(identifier) + int(len(identifier) % 2 == 0)
@@ -1671,16 +1869,18 @@ def _susp_name_plan(identifier: bytes, name: bytes) -> _SuspNamePlan:
 
 def _nm_entry(name: bytes, *, continued: bool) -> bytes:
     """
-    Encode one Rock Ridge ``NM`` entry.
+    Encode one NM fragment with version one and the supplied continuation flag.
+
+    Only the 240-byte fragment limit is checked; bytes are not decoded or normalized.
 
     Example:
         >>> _nm_entry(b"book", continued=False)[:2]
         b'NM'
 
 
-    :param name:
-    :param continued:
-    :return:
+    :param name: Encoded name fragment, including empty bytes.
+    :param continued: Whether another NM fragment follows.
+    :return: Encoded NM header plus fragment; excess length raises ValueError.
     """
 
     if len(name) > 240:
@@ -1690,15 +1890,17 @@ def _nm_entry(name: bytes, *, continued: bool) -> bytes:
 
 def _nm_entries(name: bytes) -> bytes:
     """
-    Encode a complete byte name as consecutive Rock Ridge entries.
+    Split encoded name bytes into 240-byte NM fragments with continuation flags on all but the last.
+
+    An empty name still emits one empty NM entry.
 
     Example:
         >>> _nm_entries(b"book")[:2]
         b'NM'
 
 
-    :param name:
-    :return:
+    :param name: Complete encoded name bytes without an overall size check here.
+    :return: Concatenated NM entries preserving byte order.
     """
 
     chunks = [name[index : index + 240] for index in range(0, len(name), 240)]
@@ -1712,15 +1914,17 @@ def _nm_entries(name: bytes) -> bytes:
 
 def _ce_entry(location: _ContinuationLocation) -> bytes:
     """
-    Encode one SUSP continuation-area pointer.
+    Encode a 28-byte continuation pointer using paired-endian block, offset, and payload length.
+
+    The payload is not embedded, and address bounds are not checked beyond integer encoding.
 
     Example:
         >>> len(_ce_entry(_ContinuationLocation(30, 0, b"NM")))
         28
 
 
-    :param location:
-    :return:
+    :param location: Assigned block/offset and encoded continuation payload.
+    :return: Encoded CE entry; integer conversion errors propagate.
     """
 
     return b"CE" + bytes((28, 1)) + b"".join(
@@ -1734,14 +1938,14 @@ def _ce_entry(location: _ContinuationLocation) -> bytes:
 
 def _sp_entry() -> bytes:
     """
-    Return the mandatory SUSP marker for the root self record.
+    Return the fixed version-one SP marker with BE/EF check bytes and zero skip.
 
     Example:
         >>> _sp_entry()[:2]
         b'SP'
 
 
-    :return:
+    :return: Seven encoded SUSP marker bytes.
     """
 
     return b"SP" + bytes((7, 1, 190, 239, 0))
@@ -1749,14 +1953,14 @@ def _sp_entry() -> bytes:
 
 def _er_entry() -> bytes:
     """
-    Register the Rock Ridge extension in the root SUSP area.
+    Encode the fixed RRIP_1991A extension identifier with empty description and source fields.
 
     Example:
         >>> _er_entry()[8:]
         b'RRIP_1991A'
 
 
-    :return:
+    :return: Encoded version-one ER record.
     """
 
     identifier = b"RRIP_1991A"
@@ -1769,14 +1973,14 @@ def _er_entry() -> bytes:
 
 def _rr_entry() -> bytes:
     """
-    Advertise the Rock Ridge alternate-name field present in one record.
+    Return the fixed RR entry advertising the alternate-name feature bit.
 
     Example:
         >>> _rr_entry()[:2]
         b'RR'
 
 
-    :return:
+    :return: Five encoded RR bytes with flag 0x08.
     """
 
     return b"RR" + bytes((5, 1, 0x08))
@@ -1789,17 +1993,21 @@ def _write_directory_blocks(
     susp_plans: Mapping[int, _SuspNamePlan],
 ) -> int:
     """
-    Calculate sectors needed by one directory extent.
+    Calculate directory sectors while keeping individual records within sector boundaries.
+
+    Includes self/parent records and encoded-identifier-sorted children, reserving CE bytes for
+    split names. Primary calculations reserve SP/ER space even for non-root self records, making
+    some allocations conservative. The result is at least one sector.
 
     Example:
         >>> _write_directory_blocks(_IsoWriteNode(None), layout="primary", susp_plans={})
         1
 
 
-    :param node:
-    :param layout:
-    :param susp_plans:
-    :return:
+    :param node: Directory whose child records are planned.
+    :param layout: Primary alias/SUSP or Joliet layout.
+    :param susp_plans: Node-identity map supplying direct and continuation lengths.
+    :return: Number of 2048-byte sectors reserved for the directory.
     """
 
     root_system_use = _sp_entry() + _er_entry()
@@ -1838,19 +2046,27 @@ def _write_directory_payload(
     deterministic: bool,
 ) -> bytes:
     """
-    Render one complete directory extent.
+    Render self, parent, and sorted child records into the assigned directory extent.
+
+    Primary root self records receive SP/ER; primary children receive planned RR/NM and optional CE
+    pointers. Records never intentionally cross a sector boundary. Assigned sizes/maps are trusted,
+    and bytearray slice writes do not independently prevent growth past the allocation.
+
+    Self/parent timestamps use current UTC unless deterministic. Child directory records use the
+    epoch fallback; file records use source modification time unless deterministic. No payload data
+    is copied here.
 
     Example:
         >>> len(_write_directory_payload(root, layout="primary", susp_plans={}, continuation_locations={}, deterministic=True))  # doctest: +SKIP
         2048
 
 
-    :param node:
-    :param layout:
-    :param susp_plans:
-    :param continuation_locations:
-    :param deterministic:
-    :return:
+    :param node: Directory node with parent and assigned extents.
+    :param layout: Primary or Joliet identifier/layout selection.
+    :param susp_plans: Node-identity map of Rock Ridge name plans.
+    :param continuation_locations: Node-identity map of assigned continuation addresses.
+    :param deterministic: Whether all record times use the fixed fallback.
+    :return: Directory bytes with zero-filled padding around the rendered records.
     """
 
     parent = node.parent or node
@@ -1926,20 +2142,24 @@ def _directory_record(
     system_use: bytes = b"",
 ) -> bytes:
     """
-    Encode one ISO 9660 directory record with optional SUSP bytes.
+    Encode the supplied identifier, extent, time, directory flag, and optional system-use bytes.
+
+    Identifier padding makes its boundary even. Records over 255 bytes reject; numeric encoding and
+    byte assignments supply other range failures. Extended-attribute/interleaving fields remain zero
+    and volume sequence is one. The helper does not validate canonical names or image bounds.
 
     Example:
         >>> len(_directory_record(b"A;1", lba=20, size=4, directory=False, recorded_at=None))
         36
 
 
-    :param identifier:
-    :param lba:
-    :param size:
-    :param directory:
-    :param recorded_at:
-    :param system_use:
-    :return:
+    :param identifier: Raw primary/Joliet identifier bytes.
+    :param lba: Logical data-block address.
+    :param size: Declared data length in bytes.
+    :param directory: Whether to set the directory flag.
+    :param recorded_at: Timestamp to encode, or None for the fixed epoch fallback.
+    :param system_use: Encoded SUSP bytes appended after identifier padding.
+    :return: Complete encoded directory record.
     """
 
     padding = b"\x00" if len(identifier) % 2 == 0 else b""
@@ -1965,16 +2185,19 @@ def _write_identifier(
     layout: Literal["primary", "joliet"],
 ) -> bytes:
     """
-    Return one primary alias or Joliet UTF-16 identifier.
+    Return the assigned primary alias or encode the original name for Joliet.
+
+    Joliet files append ;1 and directories do not. The caller is responsible for prior name-size
+    checks; invalid UTF-16 input errors propagate.
 
     Example:
         >>> _write_identifier(_IsoWriteNode("book", alias=b"F000001.DAT;1"), layout="primary")
         b'F000001.DAT;1'
 
 
-    :param node:
-    :param layout:
-    :return:
+    :param node: Node whose alias or original name is required.
+    :param layout: Primary selects alias; the Joliet branch encodes the name.
+    :return: Identifier bytes for a directory record.
     """
 
     if layout == "primary":
@@ -1990,16 +2213,16 @@ def _path_identifier(
     layout: Literal["primary", "joliet"],
 ) -> bytes:
     """
-    Return one path-table directory identifier.
+    Use a single zero byte for the root, otherwise delegate namespace identifier encoding.
 
     Example:
         >>> len(_path_identifier(_IsoWriteNode(None), layout="primary"))
         1
 
 
-    :param node:
-    :param layout:
-    :return:
+    :param node: Directory node, with name=None identifying the root.
+    :param layout: Namespace layout for non-root identifiers.
+    :return: Path-table directory identifier bytes.
     """
 
     return b"\x00" if node.name is None else _write_identifier(node, layout=layout)
@@ -2011,16 +2234,17 @@ def _path_table_size(
     layout: Literal["primary", "joliet"],
 ) -> int:
     """
-    Return the exact byte length of one path table.
+    Sum path-table headers, identifiers, and odd-length identifier padding without rendering
+    extents.
 
     Example:
         >>> _path_table_size([_IsoWriteNode(None)], layout="primary")
         10
 
 
-    :param directories:
-    :param layout:
-    :return:
+    :param directories: Directory nodes to include in supplied order.
+    :param layout: Namespace used to encode each directory identifier.
+    :return: Unpadded total path-table byte length.
     """
 
     return sum(
@@ -2038,17 +2262,21 @@ def _path_table(
     byte_order: Literal["little", "big"],
 ) -> bytes:
     """
-    Render one little- or big-endian ISO path table.
+    Render directory extents and one-based parent numbers in the requested byte order.
+
+    Numbers derive from object identity in the supplied order. Every parent must be included; absent
+    parents, oversized integers, or unsuitable identifiers propagate their encoding errors. The
+    returned table is not sector-padded.
 
     Example:
         >>> len(_path_table([_IsoWriteNode(None)], layout="primary", byte_order="little"))
         10
 
 
-    :param directories:
-    :param layout:
-    :param byte_order:
-    :return:
+    :param directories: Directory nodes in assigned path-table order, including each parent.
+    :param layout: Namespace supplying directory identifiers and extents.
+    :param byte_order: Little or big endian for block and parent-number fields.
+    :return: Encoded path table with per-record identifier padding.
     """
 
     numbers = {id(node): index for index, node in enumerate(directories, start=1)}
@@ -2076,19 +2304,23 @@ def _volume_descriptor(
     table_locations: Mapping[tuple[str, str], tuple[int, int]],
 ) -> bytes:
     """
-    Render one primary or Joliet supplementary volume descriptor.
+    Render one 2048-byte primary or Joliet descriptor from prevalidated layout values.
+
+    Writes fixed LIUXIN system text, the ASCII volume ID, paired-endian counts, table pointers, and
+    a root record with epoch time. Type two receives the %/E Joliet marker. Inputs and cross-field
+    consistency are trusted; an overlong unnormalized ID can grow the bytearray slice.
 
     Example:
         >>> descriptor = _volume_descriptor(descriptor_type=1, root=root, layout="primary", volume_id="LIUXIN", volume_blocks=24, table_locations=tables)  # doctest: +SKIP
 
 
-    :param descriptor_type:
-    :param root:
-    :param layout:
-    :param volume_id:
-    :param volume_blocks:
-    :param table_locations:
-    :return:
+    :param descriptor_type: Descriptor type byte, normally 1 for primary or 2 for supplementary.
+    :param root: Root node with an assigned directory extent.
+    :param layout: Layout used for tables and the root extent.
+    :param volume_id: Previously normalized ASCII identifier of at most 32 characters.
+    :param volume_blocks: Declared volume size in 2048-byte sectors.
+    :param table_locations: Layout/byte-order map to path-table LBA and unpadded byte count.
+    :return: Descriptor bytes; expected length is 2048 for valid planned inputs.
     """
 
     descriptor = bytearray(ISO_DESCRIPTOR_SECTOR_SIZE)
@@ -2128,16 +2360,16 @@ def _node_extent(
     layout: Literal["primary", "joliet"],
 ) -> tuple[int, int]:
     """
-    Return the assigned LBA and byte size for one node.
+    Project assigned directory layout fields or the shared file extent without validating them.
 
     Example:
         >>> _node_extent(_IsoWriteNode(None, primary_lba=20, primary_blocks=1), layout="primary")
         (20, 2048)
 
 
-    :param node:
-    :param layout:
-    :return:
+    :param node: Directory or file node with allocated positions.
+    :param layout: Directory layout selection; file positions are shared between layouts.
+    :return: Pair of logical block address and declared byte length.
     """
 
     if node.is_directory:
@@ -2150,15 +2382,20 @@ def _node_extent(
 
 def _copy_exact(source: _IsoWriteSource, output: BinaryIO) -> None:
     """
-    Copy exactly the declared payload size and reject source drift.
+    Open a source, consume its declared byte count, and reject a truthy trailing read.
+
+    Read requests are capped at 1 MiB or the remaining count. Truthy chunks are written without
+    checking their type, requested length, or the output's accepted count. A malformed overlong
+    chunk can be written before a later failure. The final one-byte probe accepts any false value as
+    EOF. No hash is computed; the source context closes on exit.
 
     Example:
         >>> _copy_exact(source, output)  # doctest: +SKIP
 
 
-    :param source:
-    :param output:
-    :return:
+    :param source: Declared size and context-managed binary opener; caller supplies valid size/stream behavior.
+    :param output: Borrowed destination positioned at the payload extent.
+    :return: None when the declared consumption and trailing-EOF checks pass; early exhaustion or trailing bytes raise StorageIntegrityError.
     """
 
     remaining = source.size
@@ -2179,16 +2416,17 @@ def _copy_exact(source: _IsoWriteSource, output: BinaryIO) -> None:
 
 def _write_at(output: BinaryIO, lba: int, payload: bytes | bytearray) -> None:
     """
-    Write bytes beginning at one logical block address.
+    Seek to a logical sector boundary and delegate one payload write without checking the accepted
+    count.
 
     Example:
         >>> _write_at(output, 16, b"CD001")  # doctest: +SKIP
 
 
-    :param output:
-    :param lba:
-    :param payload:
-    :return:
+    :param output: Borrowed seekable binary destination.
+    :param lba: Logical block address multiplied by 2048.
+    :param payload: Metadata bytes offered in one write.
+    :return: None after seek/write return; errors propagate.
     """
 
     output.seek(lba * ISO_DESCRIPTOR_SECTOR_SIZE)
@@ -2197,15 +2435,19 @@ def _write_at(output: BinaryIO, lba: int, payload: bytes | bytearray) -> None:
 
 def _recording_time(value: datetime | None) -> bytes:
     """
-    Encode an ISO seven-byte timestamp with a UTC fallback.
+    Encode UTC calendar fields, discarding fractions and clamping only the year to 1900–2155.
+
+    None uses 1970-01-01 UTC; naive times are interpreted as UTC and aware times are converted.
+    Other calendar fields are retained after year clamping, without revalidating combinations such
+    as leap days. Conversion errors propagate.
 
     Example:
         >>> len(_recording_time(None))
         7
 
 
-    :param value:
-    :return:
+    :param value: Datetime to encode, or None for the fixed epoch.
+    :return: Seven recording-time bytes with a zero UTC-offset byte.
     """
 
     current = value or datetime(1970, 1, 1, tzinfo=timezone.utc)
@@ -2228,15 +2470,15 @@ def _recording_time(value: datetime | None) -> bytes:
 
 def _both16(value: int) -> bytes:
     """
-    Encode one ISO both-endian unsigned 16-bit integer.
+    Encode an unsigned integer as little-endian then big-endian 16-bit halves.
 
     Example:
         >>> len(_both16(1))
         4
 
 
-    :param value:
-    :return:
+    :param value: Integer expected to fit in the unsigned 16-bit range.
+    :return: Four bytes; out-of-range values raise through int.to_bytes.
     """
 
     return value.to_bytes(2, "little") + value.to_bytes(2, "big")
@@ -2244,15 +2486,15 @@ def _both16(value: int) -> bytes:
 
 def _both32(value: int) -> bytes:
     """
-    Encode one ISO both-endian unsigned 32-bit integer.
+    Encode an unsigned integer as little-endian then big-endian 32-bit halves.
 
     Example:
         >>> len(_both32(1))
         8
 
 
-    :param value:
-    :return:
+    :param value: Integer expected to fit in the unsigned 32-bit range.
+    :return: Eight bytes; out-of-range values raise through int.to_bytes.
     """
 
     return value.to_bytes(4, "little") + value.to_bytes(4, "big")
@@ -2260,15 +2502,15 @@ def _both32(value: int) -> bytes:
 
 def _blocks(length: int) -> int:
     """
-    Round a byte length up to the number of ISO logical blocks.
+    Apply ceiling division by 2048 to a supplied byte length without validating its sign.
 
     Example:
         >>> _blocks(2049)
         2
 
 
-    :param length:
-    :return:
+    :param length: Byte count expected to be nonnegative by callers.
+    :return: Sector count, with zero bytes producing zero sectors.
     """
 
     return (length + ISO_DESCRIPTOR_SECTOR_SIZE - 1) // ISO_DESCRIPTOR_SECTOR_SIZE
@@ -2276,15 +2518,18 @@ def _blocks(length: int) -> int:
 
 def _rock_ridge_name(value: str | None) -> bytes:
     """
-    Encode one Unicode or surrogateescaped component for Rock Ridge.
+    Encode a non-None component using UTF-8 surrogateescape and enforce its 255-byte ceiling.
+
+    Other surrogate forms reject. This helper does not validate slashes, empty names, or other key
+    topology; full-key validation supplies those checks.
 
     Example:
         >>> _rock_ridge_name("Café").decode("utf-8")
         'Café'
 
 
-    :param value:
-    :return:
+    :param value: Unicode or POSIX-surrogateescaped component text; None violates an assertion.
+    :return: Encoded bytes, or StorageInvalidAddress for unsupported encoding or excessive length.
     """
 
     assert value is not None
@@ -2308,17 +2553,21 @@ def _validate_writable_key(
     max_path_bytes: int = DEFAULT_MAX_ISO_PATH_BYTES,
 ) -> str:
     """
-    Enforce writable ISO depth and Rock Ridge component limits.
+    Validate relative canonical path shape, depth, and surrogateescape-encoded name/path limits.
+
+    Rejects empty/NUL/backslash/absolute/dot/parent components, then applies the 255-byte component
+    bound and whole-key byte bound. Text is stringified but not trimmed or Unicode-normalized; the
+    supplied limits are trusted.
 
     Example:
         >>> _validate_writable_key("books/novel.epub", max_depth=8)
         'books/novel.epub'
 
 
-    :param value:
-    :param max_depth:
-    :param max_path_bytes:
-    :return:
+    :param value: Relative member-key candidate.
+    :param max_depth: Maximum allowed component count.
+    :param max_path_bytes: Maximum bytes in the complete surrogateescape-encoded key.
+    :return: Unchanged canonical key spelling, or StorageInvalidAddress.
     """
 
     key = str(value)
@@ -2348,15 +2597,20 @@ def _validate_writable_key(
 
 def _safe_iso_name(value: str | None) -> str:
     """
-    Reduce a name hint to one bounded harmless ISO member component.
+    Sanitize a platform-style basename hint and shorten representable results to 180 encoded bytes.
+
+    Keeps alphanumeric, dash, underscore, and dot characters; other characters become underscores,
+    with surrounding dots/underscores removed. Empty results use object. The encoder checks 255
+    bytes before the trimming loop can shorten, so an initial result over that ceiling raises
+    instead of being truncated.
 
     Example:
         >>> _safe_iso_name("A book?.epub")
         'A_book_.epub'
 
 
-    :param value:
-    :return:
+    :param value: Optional path/name hint; None directly selects object.
+    :return: Sanitized component within 180 encoded bytes when accepted; encoding/initial-size failures propagate.
     """
 
     if value is None:
@@ -2376,15 +2630,19 @@ def _safe_iso_name(value: str | None) -> str:
 
 def _volume_id(value: str) -> str:
     """
-    Normalize and validate one interoperable ISO volume identifier.
+    Uppercase stripped input, replace non-ASCII/non-alphanumeric characters with underscores, and
+    trim to 32 characters.
+
+    Surrounding underscores are removed after replacement. Unicode uppercasing occurs before ASCII
+    filtering, so expansions can contribute ASCII letters.
 
     Example:
         >>> _volume_id("LiuXin library")
         'LIUXIN_LIBRARY'
 
 
-    :param value:
-    :return:
+    :param value: Input text stringified before normalization.
+    :return: Nonempty normalized volume ID; no retained ASCII letter/digit raises ValueError.
     """
 
     normalized = "".join(
@@ -2398,14 +2656,17 @@ def _volume_id(value: str) -> str:
 
 def _temporary_image_path(target: pathlib.Path) -> pathlib.Path:
     """
-    Allocate an unpublished image path beside its atomic destination.
+    Create a reserved empty sibling .part file and return its path after closing its descriptor.
+
+    The caller owns cleanup. Allocation/close errors propagate; there is no compensating unlink or
+    close retry if descriptor closure fails.
 
     Example:
         >>> temporary = _temporary_image_path(path)  # doctest: +SKIP
 
 
-    :param target:
-    :return:
+    :param target: Final image path supplying the candidate parent and filename prefix.
+    :return: Path to the newly created empty candidate file.
     """
 
     descriptor, name = tempfile.mkstemp(
@@ -2419,14 +2680,18 @@ def _temporary_image_path(target: pathlib.Path) -> pathlib.Path:
 
 def _fsync_path_and_parent(path: pathlib.Path) -> None:
     """
-    Flush a published image and its containing directory where supported.
+    Synchronize the image and, when O_DIRECTORY exists, its containing directory.
+
+    File open/fsync/close and supported directory open/fsync/close errors propagate. Directory
+    synchronization is skipped only when the flag is absent; this is not best-effort suppression and
+    may fail after publication.
 
     Example:
         >>> _fsync_path_and_parent(path)  # doctest: +SKIP
 
 
-    :param path:
-    :return:
+    :param path: Published image pathname to open for synchronization.
+    :return: None after required synchronization and closure succeed.
     """
 
     with path.open("rb") as image:

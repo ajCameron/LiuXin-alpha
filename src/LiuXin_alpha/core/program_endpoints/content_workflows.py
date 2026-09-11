@@ -1,4 +1,10 @@
-"""Core endpoint declarations for content workflows operations."""
+"""
+Declare Core ingestion, metadata-file/online-source, and conversion workflow endpoints.
+
+Registration describes supported request fields and binds handlers; it does not
+probe plugins, open content files, access online services, or submit jobs. Payload
+metadata is descriptive, with actual validation and execution left to each handler.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +18,25 @@ from LiuXin_alpha.core.program_endpoints.handlers import ContentWorkflowsHandler
 def install_queries(
     api: ContentWorkflowsHandlers, runtime: ProgramEndpointRegistrar
 ) -> None:
-    """Register this family's query endpoints."""
+    """
+    Install six queries for ingest/metadata/conversion formats, file metadata inspection, online sources, and conversion options.
+
+    Metadata inspection advertises path/base64/type alternatives without enforcing
+    their exclusivity here. Conversion options advertise an input/output path pair;
+    plugin loading and file inspection happen on dispatch, not on registration.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> registrar = Mock()
+        >>> install_queries(Mock(), registrar)
+        >>> registrar.register_query_handler.call_count
+        6
+
+
+    :param api: Handler provider for content capability discovery and synchronous metadata/option inspection.
+    :param runtime: Registrar accepting six ordered query bindings and their advertised payload fields and tags.
+    :return: None after installation, with a late registration error propagated rather than rolling back earlier bindings.
+    """
 
     query = runtime.register_query_handler
 
@@ -71,7 +95,26 @@ def install_queries(
 def install_commands(
     api: ContentWorkflowsHandlers, runtime: ProgramEndpointRegistrar
 ) -> None:
-    """Register this family's command endpoints."""
+    """
+    Bind metadata-file writing and five job-start routes for online metadata, cover lookup, ingestion, and conversion.
+
+    The file-write route is distinct from managed-job submission. Job controls
+    accepted by shared submission helpers are not exhaustively listed in these
+    endpoint fields; the declarations neither constrain payload keys nor promise
+    completion of a requested job. Installation executes no content operations.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> registrar = Mock()
+        >>> install_commands(Mock(), registrar)
+        >>> registrar.register_command_handler.call_count
+        6
+
+
+    :param api: Provider of file-write and asynchronous content-workflow submission handlers.
+    :param runtime: Registrar receiving six command bindings, explicit summaries, payload metadata, and tags.
+    :return: None after sequential registration; failures propagate without provider-level cleanup of prior registrations.
+    """
 
     command = runtime.register_command_handler
 

@@ -1,5 +1,9 @@
 """
-Replication and backup policy values, assessments, and plans.
+Represent replication/backup intent, registered definitions, assessments, and plans.
+
+Constructors validate selected relationships without executing policy or proving
+current storage state. Assessment predicates consume supplied evidence, while plan
+values describe proposed work without reservations or publication side effects.
 """
 
 from __future__ import annotations
@@ -21,7 +25,10 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
 
 class ReplicaSeparationDimension(StrEnum):
     """
-    Failure boundaries across which policy copies should be spread.
+    Name a configured boundary used to limit how many copies share a bucket.
+
+    Store, host, device, failure-domain, and region values describe declared placement metadata.
+    They do not discover physical independence or supply missing topology information.
 
     Example:
         >>> ReplicaSeparationDimension.FAILURE_DOMAIN.value
@@ -37,10 +44,12 @@ class ReplicaSeparationDimension(StrEnum):
 
 class DigitalAssetLossAction(StrEnum):
     """
-    Intended response when no readable live Replica remains.
+    Name the intended response when an Asset has no usable retained copy.
 
-    ``RECREATE`` is valid only when the manager can find a complete exact
-    derivation recipe whose own source Assets remain recoverable.
+    REQUIRE_COPY requests retained bytes, RECREATE permits an exact derivation route, and
+    ACCEPT_LOSS permits loss. Choosing the enum performs no recovery or validation. Manager policy
+    assignment separately checks recreation recipes and whether their prerequisites have retaining
+    or recreating policies.
 
     Example:
         >>> DigitalAssetLossAction.RECREATE.value
@@ -55,7 +64,11 @@ class DigitalAssetLossAction(StrEnum):
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicationPolicy:
     """
-    Desired state for live readable replicas.
+    Describe desired replication counts, placement constraints, and loss-handling intent.
+
+    Construction validates selected numeric relationships and nonempty separation rules. It does not
+    enforce integer types, validate label/tag contents, coerce enum fields, resolve recipes, or
+    enforce the declared policy. Frozen fields can retain caller-owned mutable values.
 
     Example:
         >>> policy = ReplicationPolicy(
@@ -64,6 +77,21 @@ class ReplicationPolicy:
         ... )
         >>> policy.effective_target_copies
         3
+
+
+    :ivar name: Policy label retained without constructor-level nonblank validation.
+    :ivar min_copies: Required minimum copy count; numeric comparisons are checked without integer coercion.
+    :ivar target_copies: Desired copy count, or None to use min_copies.
+    :ivar distinct_by: Nonempty sequence of separation dimensions; entries are not normalized or validated here.
+    :ivar max_copies_per_bucket: Maximum counted copies sharing each declared dimension bucket; must compare at least one.
+    :ivar required_store_tags: Placement labels that a Store must contain, retained without copying.
+    :ivar preferred_store_tags: Labels used to rank eligible destination Stores, without making them mandatory.
+    :ivar forbidden_store_tags: Labels that disqualify a Store from the policy.
+    :ivar synchronous_write_copies: Requested publication count within the target; a positive target requires at least one.
+    :ivar auto_heal: Declared automatic-repair preference; this value does not schedule work.
+    :ivar mode: Replica class considered by the policy, defaulting to ACTIVE without coercion.
+    :ivar loss_action: Declared loss response; zero targets reject the REQUIRE_COPY enum singleton.
+    :ivar retention_priority: Declared nonnegative retention priority, not an action or independent deletion guard.
     """
 
     name: str = "default"
@@ -84,7 +112,13 @@ class ReplicationPolicy:
 
     def __post_init__(self) -> None:
         """
-        Validate copy counts, synchronous durability, and spread rules.
+        Check minimum/target order, bucket limit, synchronous count, separation presence, and
+        retention priority.
+
+        A zero target rejects the REQUIRE_COPY enum singleton; positive targets reject zero
+        synchronous publications. Comparisons do not enforce integer types or finiteness, and enum
+        fields are not coerced. Policy name, tag collections, individual dimensions, and auto_heal
+        are not examined.
 
         Example:
             >>> ReplicationPolicy(min_copies=0)
@@ -93,7 +127,7 @@ class ReplicationPolicy:
             ValueError: zero-copy policy must explicitly permit recreation or loss.
 
 
-        :return:
+        :return: None when the selected count/spread constraints pass; invalid values or comparisons raise.
         """
 
         target = self.effective_target_copies
@@ -119,14 +153,15 @@ class ReplicationPolicy:
     @property
     def effective_target_copies(self) -> int:
         """
-        Return the explicit target, falling back to the required minimum.
+        Return min_copies only when target_copies is None, otherwise return the explicit target
+        unchanged.
 
         Example:
             >>> ReplicationPolicy(min_copies=2).effective_target_copies
             2
 
 
-        :return:
+        :return: Retained explicit target or minimum fallback, without conversion or new validation.
         """
 
         return self.min_copies if self.target_copies is None else self.target_copies
@@ -135,7 +170,12 @@ class ReplicationPolicy:
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupPolicy:
     """
-    Desired state for recoverable backup or archival replicas.
+    Describe desired backup/archive counts, placement constraints, and verification/retention
+    intent.
+
+    Construction checks selected numeric relationships, nonempty separation rules, allowed mode
+    equality, and the zero-target/retention-lock combination. It does not execute backups, normalize
+    enum/tag values, or enforce all declared flags in every planning workflow.
 
     Example:
         >>> policy = BackupPolicy(
@@ -144,6 +184,22 @@ class BackupPolicy:
         ... )
         >>> policy.effective_target_copies
         2
+
+
+    :ivar name: Policy label retained without constructor-level nonblank validation.
+    :ivar min_copies: Required minimum copy count; numeric comparisons are checked without integer coercion.
+    :ivar target_copies: Desired copy count, or None to use min_copies.
+    :ivar distinct_by: Nonempty sequence of separation dimensions; entries are not normalized or validated here.
+    :ivar max_copies_per_bucket: Maximum counted copies sharing each declared dimension bucket; must compare at least one.
+    :ivar required_store_tags: Placement labels that a Store must contain, retained without copying.
+    :ivar preferred_store_tags: Labels used to rank eligible destination Stores, without making them mandatory.
+    :ivar forbidden_store_tags: Labels that disqualify a Store from the policy.
+    :ivar auto_heal: Declared automatic-repair preference, without scheduling or execution here.
+    :ivar verify_after_write: Declared post-publication verification preference.
+    :ivar periodic_verification: Declared preference for later verification of retained copies.
+    :ivar retention_locked: Declared retention protection; a truthy value is rejected for a zero target.
+    :ivar mode: BACKUP or ARCHIVE by equality; equal StrEnum strings can pass without coercion.
+    :ivar retention_priority: Declared nonnegative retention priority, retained without integer coercion.
     """
 
     name: str = "default_backup"
@@ -165,7 +221,12 @@ class BackupPolicy:
 
     def __post_init__(self) -> None:
         """
-        Validate backup copy counts, spread rules, and replica mode.
+        Check target ordering, bucket/separation constraints, backup/archive mode equality, and
+        retention limits.
+
+        Mode membership uses equality, so matching strings can pass without becoming enum members.
+        Name, tag contents, verification flags, and auto_heal are not checked. Numeric comparisons
+        do not enforce integer or finite values.
 
         Example:
             >>> BackupPolicy(mode=ReplicaMode.ACTIVE)
@@ -174,7 +235,7 @@ class BackupPolicy:
             ValueError: backup policy mode must be backup or archive.
 
 
-        :return:
+        :return: None when the selected policy constraints pass; invalid spread/count/mode/retention combinations raise.
         """
 
         target = self.effective_target_copies
@@ -192,14 +253,14 @@ class BackupPolicy:
     @property
     def effective_target_copies(self) -> int:
         """
-        Return the explicit backup target or its required minimum.
+        Return the explicit target unchanged, using min_copies only for None.
 
         Example:
             >>> BackupPolicy(min_copies=2).effective_target_copies
             2
 
 
-        :return:
+        :return: Retained backup target or minimum fallback.
         """
 
         return self.min_copies if self.target_copies is None else self.target_copies
@@ -208,10 +269,11 @@ class BackupPolicy:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicationPolicyRecord:
     """
-    Manager-maintained registration of one replication policy.
+    Retain a registered replication-policy identity, definition, and optional revision.
 
-    This is a policy definition with stable identity, not an exposed database
-    row. ``revision`` may be used for optimistic concurrency control.
+    This frozen value adds no validation of ID positivity, definition type, or revision text.
+    Manager methods own registration and optimistic-update behavior; constructing the record does
+    not persist it.
 
     Example:
         >>> record = ReplicationPolicyRecord(
@@ -219,6 +281,11 @@ class ReplicationPolicyRecord:
         ... )
         >>> record.replication_policy_id
         4
+
+
+    :ivar replication_policy_id: Attributed registered policy ID, not validated or allocated here.
+    :ivar policy: Retained replication-policy definition without a defensive copy.
+    :ivar revision: Optional optimistic-lock token, without constructor validation.
     """
 
     replication_policy_id: ReplicationPolicyID
@@ -229,12 +296,21 @@ class ReplicationPolicyRecord:
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupPolicyRecord:
     """
-    Manager-maintained registration of one backup policy.
+    Retain a registered backup-policy identity, definition, and optional revision without additional
+    validation.
+
+    The value does not allocate a row, check ID positivity, or enforce retention. Persistence and
+    update preconditions belong to manager operations.
 
     Example:
         >>> record = BackupPolicyRecord(BackupPolicyID(5), BackupPolicy())
         >>> record.policy.mode is ReplicaMode.BACKUP
         True
+
+
+    :ivar backup_policy_id: Attributed backup-policy identity, not resolved here.
+    :ivar policy: Retained backup/archive definition.
+    :ivar revision: Optional optimistic-lock token retained as supplied.
     """
 
     backup_policy_id: BackupPolicyID
@@ -245,10 +321,11 @@ class BackupPolicyRecord:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ResolvedStoragePolicies:
     """
-    Replication and backup policies resolved for one asset.
+    Pair effective replication/backup definitions with their reported origins.
 
-    The source strings explain whether each effective policy was captured on
-    the Asset or supplied by the manager default.
+    The manager normally reports digital_asset for a captured explicit reference and manager_default
+    otherwise. Construction does not validate those labels, copy the definitions, or resolve any
+    policy itself.
 
     Example:
         >>> policies = ResolvedStoragePolicies(
@@ -257,6 +334,12 @@ class ResolvedStoragePolicies:
         ... )
         >>> policies.backup_source
         'manager_default'
+
+
+    :ivar replication: Selected replication-policy definition.
+    :ivar backup: Selected backup/archive-policy definition.
+    :ivar replication_source: Reported origin of the replication definition.
+    :ivar backup_source: Reported origin of the backup definition.
     """
 
     replication: ReplicationPolicy
@@ -268,10 +351,11 @@ class ResolvedStoragePolicies:
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoragePolicyAssessment:
     """
-    Assessment of an asset against one replication or backup policy.
+    Carry the observations and count-threshold flags produced for one Asset policy.
 
-    ``mode`` states whether the assessment concerns live, backup, archival, or
-    another Replica class without creating duplicate data structures.
+    The constructor checks the Asset-ID comparison, nonblank policy name, and the implication from
+    meets_target to meets_minimum. It does not recompute counts, check Replica ownership, validate
+    modes, or reconcile errors with the supplied flags.
 
     Example:
         >>> assessment = StoragePolicyAssessment(
@@ -281,6 +365,16 @@ class StoragePolicyAssessment:
         ... )
         >>> assessment.meets_minimum
         True
+
+
+    :ivar digital_asset_id: Attributed Asset ID, rejected when it compares at or below zero.
+    :ivar policy_name: Required nonblank label retained without stripping.
+    :ivar mode: Replica mode being assessed, retained without enum coercion.
+    :ivar present_replica_ids: Reported currently readable claims in the policy mode.
+    :ivar healthy_replica_ids: Reported VERIFIED claims that also satisfy Store configuration rules.
+    :ivar meets_minimum: Reported minimum-capacity result, not calculated from these ID tuples.
+    :ivar meets_target: Reported target-capacity result; truthy requires a truthy minimum result.
+    :ivar errors: Reported diagnostics, which do not independently override the threshold flags.
     """
 
     digital_asset_id: DigitalAssetID
@@ -294,7 +388,10 @@ class StoragePolicyAssessment:
 
     def __post_init__(self) -> None:
         """
-        Require positive identity and internally consistent target state.
+        Reject nonpositive IDs, blank policy names, and a target result without a minimum result.
+
+        Original values are retained; integer/bool types, mode, Replica IDs, diagnostics, and count
+        consistency are not validated.
 
         Example:
             >>> StoragePolicyAssessment(
@@ -306,7 +403,7 @@ class StoragePolicyAssessment:
             ValueError: meeting a target implies meeting its minimum.
 
 
-        :return:
+        :return: None when the selected identity/name/flag checks pass; validation and malformed-input errors propagate.
         """
 
         if self.digital_asset_id <= 0:
@@ -320,7 +417,12 @@ class StoragePolicyAssessment:
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetStorageAssessment:
     """
-    Readable availability and policy state for one Digital Asset.
+    Combine reported policy satisfaction, readable claims, and exact-recreation routes for one
+    Asset.
+
+    Construction checks only that both policy assessments carry the same Asset ID. Derived flags
+    trust the supplied lists and assessment values without querying storage or proving that a
+    recorded recipe can execute.
 
     Example:
         >>> replication_assessment = StoragePolicyAssessment(
@@ -335,6 +437,13 @@ class DigitalAssetStorageAssessment:
         ... )
         >>> (assessment.readable, assessment.at_risk)
         (True, False)
+
+
+    :ivar digital_asset_id: Asset attributed to the aggregate.
+    :ivar replication_assessment: Replication assessment required to carry the same Asset ID.
+    :ivar backup_assessment: Backup assessment required to carry the same Asset ID.
+    :ivar readable_replica_ids: Reported readable claims across the modes considered by the producer.
+    :ivar exact_recreation_derivation_ids: Reported exact recipes whose prerequisites the producer considered recoverable.
     """
 
     digital_asset_id: DigitalAssetID
@@ -345,14 +454,15 @@ class DigitalAssetStorageAssessment:
 
     def __post_init__(self) -> None:
         """
-        Require both assessments to describe this Digital Asset.
+        Require each supplied policy assessment to carry the aggregate Asset ID, without checking
+        other fields or physical state.
 
         Example:
             >>> assessment.digital_asset_id == assessment.replication_assessment.digital_asset_id  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: None for matching Asset IDs; disagreement raises ValueError and malformed attributes can raise.
         """
 
         if self.replication_assessment.digital_asset_id != self.digital_asset_id:
@@ -363,14 +473,14 @@ class DigitalAssetStorageAssessment:
     @property
     def readable(self) -> bool:
         """
-        Return whether at least one current Replica can serve the Asset.
+        Return the truthiness of readable_replica_ids without resolving any listed claim.
 
         Example:
             >>> bool(assessment.readable_replica_ids) == assessment.readable  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: True when the reported readable-Replica collection is nonempty.
         """
 
         return bool(self.readable_replica_ids)
@@ -378,14 +488,15 @@ class DigitalAssetStorageAssessment:
     @property
     def replication_satisfied(self) -> bool:
         """
-        Return whether the live-copy minimum is met.
+        Project the replication assessment's supplied minimum flag without interpreting target or
+        error fields.
 
         Example:
             >>> assessment.replication_satisfied  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: The retained replication_assessment.meets_minimum value.
         """
 
         return self.replication_assessment.meets_minimum
@@ -393,14 +504,15 @@ class DigitalAssetStorageAssessment:
     @property
     def backup_satisfied(self) -> bool:
         """
-        Return whether the backup-copy minimum is met.
+        Project the backup assessment's supplied minimum flag without counting its claims or
+        inspecting diagnostics.
 
         Example:
             >>> assessment.backup_satisfied  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: The retained backup_assessment.meets_minimum value.
         """
 
         return self.backup_assessment.meets_minimum
@@ -408,14 +520,15 @@ class DigitalAssetStorageAssessment:
     @property
     def at_risk(self) -> bool:
         """
-        Return whether bytes are readable but minimum policy is unmet.
+        Return whether reported bytes are readable while either supplied policy minimum is
+        unsatisfied. An unreadable Asset is not at_risk under this predicate.
 
         Example:
             >>> assessment.at_risk  # doctest: +SKIP
             False
 
 
-        :return:
+        :return: True for a nonempty readable list and at least one false minimum flag.
         """
 
         return self.readable and not (
@@ -425,14 +538,14 @@ class DigitalAssetStorageAssessment:
     @property
     def unavailable(self) -> bool:
         """
-        Return whether no current Replica can serve the Asset.
+        Negate reported readability without querying current Store availability.
 
         Example:
             >>> assessment.unavailable is (not assessment.readable)  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: True when readable_replica_ids is empty.
         """
 
         return not self.readable
@@ -440,17 +553,15 @@ class DigitalAssetStorageAssessment:
     @property
     def recreatable(self) -> bool:
         """
-        Return whether a complete exact recipe can regenerate the bytes.
-
-        Source reachability is part of the manager's assessment before it
-        places a derivation identifier in this collection.
+        Return the truthiness of reported exact-derivation IDs without inspecting recipes or their
+        prerequisites.
 
         Example:
             >>> assessment.recreatable  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: True when at least one exact-recreation route is listed.
         """
 
         return bool(self.exact_recreation_derivation_ids)
@@ -458,14 +569,17 @@ class DigitalAssetStorageAssessment:
     @property
     def recoverable(self) -> bool:
         """
-        Return whether bytes are readable, backed up, or exactly recreatable.
+        Return whether readable claims, healthy backup claims, or exact-recreation IDs are reported.
+
+        Backup minimum/target flags and diagnostics are not consulted. This combines supplied
+        evidence rather than independently verifying recoverability.
 
         Example:
             >>> assessment.recoverable  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: True when any of the three reported recovery routes is nonempty.
         """
 
         return (
@@ -477,14 +591,14 @@ class DigitalAssetStorageAssessment:
     @property
     def irrecoverable(self) -> bool:
         """
-        Return whether no present copy or reachable exact recipe can recover bytes.
+        Negate the aggregate recoverable predicate without a new storage or recipe check.
 
         Example:
             >>> assessment.irrecoverable is (not assessment.recoverable)  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: True when no readable, healthy-backup, or exact-recreation route is reported.
         """
 
         return not self.recoverable
@@ -493,7 +607,11 @@ class DigitalAssetStorageAssessment:
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetReplicationPlan:
     """
-    Non-mutating plan for bringing live replicas toward desired state.
+    Carry proposed destination, verification, removal, and exact-recreation work for an Asset.
+
+    Construction adds no validation of IDs, Store UUIDs, conflicts, or current feasibility. The
+    value reserves no destination and executes no action; callers must apply current execution
+    preconditions before acting.
 
     Example:
         >>> plan = DigitalAssetReplicationPlan(
@@ -501,6 +619,14 @@ class DigitalAssetReplicationPlan:
         ... )
         >>> plan.destination_store_refs
         (UUID('00000000-0000-0000-0000-000000000001'),)
+
+
+    :ivar digital_asset_id: Asset identity to which the proposed work is attributed.
+    :ivar destination_store_refs: Proposed Store destinations, retained in planner order.
+    :ivar replica_ids_to_verify: Recorded claims proposed for observation refresh.
+    :ivar replica_ids_to_remove: Proposed removals, requiring execution-time checks.
+    :ivar exact_recreation_derivation_id: Optional selected exact recipe, without execution or validation here.
+    :ivar warnings: Planner diagnostics about incomplete or unavailable options.
     """
 
     digital_asset_id: DigitalAssetID
@@ -514,7 +640,11 @@ class DigitalAssetReplicationPlan:
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetBackupPlan:
     """
-    Non-mutating plan for bringing backup replicas toward desired state.
+    Carry proposed backup destinations, source claims, verification, and removal work.
+
+    The frozen value does not validate identities, enforce retention locks, reserve Stores, or
+    perform copying/deletion. Its tuples are the producing planner's proposals rather than durable
+    execution commitments.
 
     Example:
         >>> plan = DigitalAssetBackupPlan(
@@ -523,6 +653,14 @@ class DigitalAssetBackupPlan:
         ... )
         >>> plan.source_replica_ids
         (12,)
+
+
+    :ivar digital_asset_id: Asset identity to which the backup proposal is attributed.
+    :ivar destination_store_refs: Proposed destination Stores in planner order.
+    :ivar source_replica_ids: Proposed source claims from other Replica modes.
+    :ivar replica_ids_to_verify: Claims proposed for further verification.
+    :ivar replica_ids_to_remove: Proposed removals subject to execution-time retention and race checks.
+    :ivar warnings: Planner diagnostics retained without validation.
     """
 
     digital_asset_id: DigitalAssetID

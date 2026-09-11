@@ -1,4 +1,10 @@
-"""Exports for the native-HTTP read-only HTML crawler store backend."""
+"""
+Export the native HTML discovery options and configured read-only HTTP Store.
+
+Exports retain the implementation objects and shared preference aliases. Importing
+this package does not construct a Store or start network discovery. Legacy
+Location/FileInfo aliases remain in their dedicated compatibility modules.
+"""
 
 from .native_html_storage_backend import (
     NATIVE_HTML_MAX_REQUESTS_PER_HOUR_DEFAULT,

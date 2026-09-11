@@ -1,4 +1,10 @@
-"""Core endpoint declarations for backup maintenance operations."""
+"""
+Register backup planning/checkpoints, SquashFS job submission, and maintenance operations with Core.
+
+These declarations bind the supplied handler methods and publish field metadata;
+they do not build archives, read workflow rows, or execute maintenance. Registration
+is sequential and has no family-wide rollback if a later lookup or registration fails.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +18,25 @@ from LiuXin_alpha.core.program_endpoints.handlers import BackupMaintenanceHandle
 def install_queries(
     api: BackupMaintenanceHandlers, runtime: ProgramEndpointRegistrar
 ) -> None:
-    """Register this family's query endpoints."""
+    """
+    Install five queries for backup planning, workflow listing/detail, maintenance status, and duplicate discovery.
+
+    Planning inputs and workflow pagination are advertised as payload metadata,
+    not validated here. Each handler remains responsible for its inspection costs,
+    optional capabilities, and error behavior when subsequently dispatched.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> registrar = Mock()
+        >>> install_queries(Mock(), registrar)
+        >>> registrar.register_query_handler.call_count
+        5
+
+
+    :param api: Provider whose backup and maintenance query methods are bound without invocation.
+    :param runtime: Registrar receiving the five ordered bindings, summaries, field declarations, and tags.
+    :return: None after all registrations succeed; earlier bindings are not undone on a later error.
+    """
 
     query = runtime.register_query_handler
 
@@ -74,7 +98,26 @@ def install_queries(
 def install_commands(
     api: BackupMaintenanceHandlers, runtime: ProgramEndpointRegistrar
 ) -> None:
-    """Register this family's command endpoints."""
+    """
+    Install eight commands for durable workflow saving, backup job submission, and synchronous maintenance.
+
+    Saving a workflow, submitting its execution, and directly submitting a SquashFS
+    build/publication are distinct routes. Field metadata does not enforce handler
+    preconditions or imply that a submitted job has completed; installation runs none
+    of these operations.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> registrar = Mock()
+        >>> install_commands(Mock(), registrar)
+        >>> registrar.register_command_handler.call_count
+        8
+
+
+    :param api: Provider exposing workflow/SquashFS submission and maintenance mutation handlers.
+    :param runtime: Registrar receiving command bindings and their explicit payload descriptions and tags.
+    :return: None after registration, with lookup/registration failures propagated without undoing prior bindings.
+    """
 
     command = runtime.register_command_handler
 

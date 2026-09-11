@@ -1,7 +1,11 @@
-"""Compatibility imports for the packaged storage CLI.
+"""
+Preserve historical storage CLI imports as aliases to responsibility-specific owners.
 
 Implementation lives in ``storage_commands`` by responsibility. New commands
-belong there, not in this public import boundary.
+belong there, not in this public import boundary. Public and private names below
+refer to the original objects, not wrappers; replacing an alias here does not
+replace references already held inside an implementation module. __all__ retains
+the narrower historical wildcard-import surface rather than every bound alias.
 """
 
 from LiuXin_alpha.surfaces.cli.storage_commands import administration as _administration

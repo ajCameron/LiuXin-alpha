@@ -1,7 +1,12 @@
-"""Combine durable Store configuration, live observations, and replica accounting.
+"""
+Combine durable Store configuration, manager registrations, live observations, and replica accounting for Core status.
 
 Inventory loading, per-Store presentation, and overall health aggregation are
 separate stages; malformed durable rows remain visible in the result.
+Sources are sampled independently rather than in an atomic snapshot. Durable
+configuration wins in the presentation without reloading the manager, and missing
+observations remain distinct from explicit unavailability. Byte accounting uses
+declared Asset sizes, not backend disk usage or newly verified content lengths.
 """
 
 from __future__ import annotations
@@ -23,6 +28,19 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class _StoreInventory:
+    """
+    Hold the merged configuration view, canonical row hints, invalid-row diagnostics, and observed row count.
+
+    configurations includes manager entries overlaid by successfully parsed durable
+    rows. persisted keeps the last valid row's ID/online-status hints per UUID;
+    invalid_rows retains parse failures and row_count counts all enumerated rows,
+    including duplicates. Frozen attributes do not make the contained dicts/lists immutable.
+
+    Example:
+        >>> _StoreInventory({}, {}, [], 0).row_count
+        0
+    """
+
     configurations: dict[UUID, storage_api.StoreConfiguration]
     persisted: dict[UUID, dict[str, Any]]
     invalid_rows: list[dict[str, Any]]
@@ -33,7 +51,24 @@ def _load_store_inventory(
     runtime: CoreRuntime,
     manager_configurations: Mapping[UUID, storage_api.StoreConfiguration],
 ) -> _StoreInventory:
-    """Merge durable Store rows with the manager's loaded configuration view."""
+    """
+    Overlay parsed durable Store rows onto copied manager configurations and retain invalid-row diagnostics.
+
+    Table-enumeration errors suppress canonical loading; Store row reads and plain
+    projection errors propagate. Row configuration parsing errors are collected,
+    leaving prior configurations intact. Later valid rows replace earlier values
+    for the same UUID, while row_count includes all rows. Store IDs use int(str(...))
+    with None on type/value failures; persisted online status is stripped/casefolded.
+    This builds a presentation view without registering or updating live Stores.
+
+    Example:
+        >>> inventory = _load_store_inventory(runtime, {})  # doctest: +SKIP
+
+
+    :param runtime: Runtime providing database table enumeration and canonical stores rows.
+    :param manager_configurations: UUID-keyed manager view shallow-copied before durable overlays.
+    :return: _StoreInventory with merged configurations, last-valid-row hints, parse failures, and source row count.
+    """
     configurations = dict(manager_configurations)
     persisted: dict[UUID, dict[str, Any]] = {}
     invalid_store_rows: list[dict[str, Any]] = []
@@ -98,6 +133,19 @@ def _load_store_inventory(
 
 @dataclass(frozen=True)
 class _StatusContext:
+    """
+    Bundle independently sampled inputs used to render each Store's status without repeating manager reads.
+
+    inventory and manager_configurations distinguish durable presentation from
+    registrations; observations and live_store_refs distinguish reported status
+    from loaded instances. default_store_ref may be unknown. asset_sizes provides
+    canonical byte accounting, replicas_by_store groups supplied claims, and status
+    supplies attributed issues. Frozen fields retain mutable container references.
+
+    Example:
+        >>> context = _StatusContext(inventory, {}, {}, set(), None, {}, {}, status)  # doctest: +SKIP
+    """
+
     inventory: _StoreInventory
     manager_configurations: Mapping[UUID, storage_api.StoreConfiguration]
     observations: Mapping[UUID, storage_api.StoreStatus]
@@ -112,7 +160,30 @@ def _render_store_status(
     configuration: storage_api.StoreConfiguration,
     context: _StatusContext,
 ) -> dict[str, Any]:
-    """Project one Store's topology, replica accounting, and observed health."""
+    """
+    Render one Store's configuration, observation, supplied replica accounting, and attributed issue health.
+
+    Registered, loaded, and configuration_in_sync are separate facts; unregistered
+    configurations report in-sync by convention. Missing observations yield unknown
+    availability except persisted offline/retired labels, and unknown writability
+    except configured read-only. Present observations take precedence over those hints.
+    Health priority is missing-observation offline/unknown, unavailable, attributed
+    error, attributed warning, then healthy; free-text status warnings alone do not
+    change that label. Issues match Store UUID or one of its supplied replica IDs.
+
+    Replica bytes count declared Asset size per claim, while logical bytes count
+    each distinct Asset once. Unknown Assets contribute zero bytes and increment
+    unaccounted_replicas. Capacity arithmetic is unclamped; free_percent is rounded
+    to two decimals, or None when either capacity is unknown or the total is zero.
+
+    Example:
+        >>> record = _render_store_status(configuration, context)  # doctest: +SKIP
+
+
+    :param configuration: Store configuration chosen for presentation, usually the durable overlay.
+    :param context: Shared sampled lookups for manager registrations, status, default selection, Assets, claims, and issues.
+    :return: Transport-facing Store record with identity/topology, independent state flags, capacity/accounting, and issue projections.
+    """
     observations = context.observations
     persisted = context.inventory.persisted
     manager_configurations = context.manager_configurations
@@ -232,6 +303,29 @@ def storage_status(
     runtime: CoreRuntime,
     query: CoreQuery,
 ) -> dict[str, Any]:
+    """
+    Assemble an unpaged storage overview from manager status, durable configuration, Assets, and live replica claims.
+
+    refresh_stores requests manager observation refresh, not a configuration reload.
+    Durable rows override manager configuration only in the report. Default-reference
+    lookup errors become None; most other enumeration/projection failures propagate.
+    Only claims whose state is not the DELETED enum member enter live accounting.
+    Stores sort by casefolded name then UUID; global Asset bytes include Assets
+    without replicas, and replica totals can include claims for unconfigured Stores.
+
+    Invalid rows, registered-configuration drift, and unregistered configurations
+    not marked offline/retired add overview issues. Any such issue, even a warning,
+    makes healthy=False despite a healthy manager report. Counts and observations
+    are independently sampled, not a transactional or verified-byte snapshot.
+
+    Example:
+        >>> overview = storage_status(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime providing storage observations/registries and canonical Store rows.
+    :param query: Query with optional truth-tested refresh_stores=False; no paging/filter fields are consumed.
+    :return: Overall health/time, accounting summary, sorted Store records, invalid-row diagnostics, overview issues, and manager status projection.
+    """
     payload = _payload(query)
     manager = runtime.library.storage
     status = manager.get_operational_status(

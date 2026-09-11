@@ -1,3 +1,12 @@
+"""
+Verify end-to-end prototype composition and optional genuine SquashFS persistence/readback.
+
+One case uses a source-count/fixed-image double with real Library indexing and metadata
+writes. The second requires installed SquashFS tools, builds and reads a real image after
+Library/database reopen and source-directory rename, and checks byte and Store identity
+persistence without claiming a separate operating-system process restart.
+"""
+
 from __future__ import annotations
 
 import dataclasses
@@ -16,9 +25,33 @@ from LiuXin_alpha.storage.backup import (
 
 
 class _FakeWorkflow:
-    """Fast workflow double preserving the new declaration/checkpoint contract."""
+    """
+    Model source-count checkpoint transitions and write a fixed output marker for prototype tests.
+
+    The double retains declaration/output-root objects and replaces immutable checkpoints as each
+    source is counted. It neither stages source bytes nor adds staging reports, verifies digests,
+    executes archive tools, or checks recipe evidence. Only finalization writes a local marker at
+    the declared Location key. It is a structural test double, not a BackupWorkflowAPI subclass.
+
+    Example:
+        >>> workflow = _FakeWorkflow(declaration, output_dir)  # doctest: +SKIP
+    """
 
     def __init__(self, declaration, output_root: Path):
+        """
+        Retain test intent/output root and create the initial DRAFT checkpoint.
+
+        No directory is created, source opened, or repository identity assigned. Checkpoint
+        construction applies its ordinary selected value validation.
+
+        Example:
+            >>> workflow = _FakeWorkflow(declaration, output_dir)  # doctest: +SKIP
+
+
+        :param declaration: Backup intent retained unchanged by the double.
+        :param output_root: Local root used later to project the declared output Location key.
+        :return: None after creating the initial checkpoint.
+        """
         self.declaration = declaration
         self.output_root = output_root
         self.checkpoint = api.BackupWorkflowCheckpoint(
@@ -27,9 +60,33 @@ class _FakeWorkflow:
         )
 
     def progress(self):
+        """
+        Return the currently retained checkpoint object without copying or advancing it.
+
+        Example:
+            >>> checkpoint = workflow.progress()  # doctest: +SKIP
+
+
+        :return: Original current BackupWorkflowCheckpoint object.
+        """
         return self.checkpoint
 
     def run_next(self):
+        """
+        Count one source as staged or write the fake image and set COMPLETE.
+
+        Before source exhaustion, increment both source cursor and staged count without reading any
+        source or adding reports. After exhaustion, require a Location output, join its key beneath
+        the supplied root, create parents, overwrite marker bytes, and replace the checkpoint with
+        COMPLETE and a seal milestone. There is no terminal-state guard, so a direct call after
+        completion writes the marker again.
+
+        Example:
+            >>> state = workflow.run_next()  # doctest: +SKIP
+
+
+        :return: Replaced RUNNING/COMPLETE checkpoint; file and value errors propagate without a FAILED transition.
+        """
         index = self.checkpoint.next_source_index
         if index < len(self.declaration.sources):
             self.checkpoint = dataclasses.replace(
@@ -53,6 +110,19 @@ class _FakeWorkflow:
         return self.checkpoint
 
     def run_to_completion(self):
+        """
+        Drive the fake workflow until its checkpoint is terminal and construct a result.
+
+        Copy declaration, status, output, milestones, and final checkpoint into the result; source
+        reports and workflow ID use their defaults. A preexisting terminal state stops the loop
+        without another marker write.
+
+        Example:
+            >>> result = workflow.run_to_completion()  # doctest: +SKIP
+
+
+        :return: BackupWorkflowResult containing the retained terminal checkpoint and fake output evidence.
+        """
         while not self.checkpoint.status.terminal:
             self.run_next()
         return api.BackupWorkflowResult(
@@ -65,6 +135,22 @@ class _FakeWorkflow:
 
 
 def test_existing_drive_prototype_indexes_plans_and_registers_packs(tmp_path: Path) -> None:
+    """
+    Verify the prototype composes real indexing/planning/persistence around fake pack execution.
+
+    Two source directories contain three ebooks and an excluded cover. A 16-byte target yields three
+    singleton packs through the workflow double. Assert output files and distinct archive Store
+    UUIDs, then reopen Library and inspect source/archive Stores, workflow/source rows, and presence
+    links. The written images are markers; this case does not validate SquashFS content or run an
+    external builder.
+
+    Example:
+        >>> test_existing_drive_prototype_indexes_plans_and_registers_packs(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real SQLite catalogue and local source/image paths.
+    :return: None after the stated regression assertions pass.
+    """
     source_a = tmp_path / "source_a"
     source_b = tmp_path / "source_b"
     source_a.mkdir()
@@ -117,6 +203,23 @@ def test_existing_drive_prototype_indexes_plans_and_registers_packs(tmp_path: Pa
 def test_existing_drive_prototype_pack_reads_after_database_restart_and_source_loss(
     tmp_path: Path,
 ) -> None:
+    """
+    Verify a genuine SquashFS pack remains readable after Library reopen and source-root removal.
+
+    Skip only when mksquashfs or unsquashfs is unavailable. Build a real verified image containing
+    two ebook paths with composed/decomposed Unicode and punctuation plus binary payload bytes,
+    excluding a cover. Request staging cleanup, rename the original source directory, then reopen
+    Library and read every archived member through the registered Store. Assert exact
+    inventory/content and persisted registration/link count. The process remains the same;
+    Library/database and Store objects are reconstructed.
+
+    Example:
+        >>> test_existing_drive_prototype_pack_reads_after_database_restart_and_source_loss(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real SQLite catalogue and local source/image paths.
+    :return: None after the stated regression assertions pass.
+    """
     if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
         pytest.skip("squashfs-tools not available in environment")
     source = tmp_path / "indexed-source"

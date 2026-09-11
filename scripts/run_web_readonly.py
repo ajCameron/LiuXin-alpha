@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Run the read-only web surface using the repo-local virtualenv."""
+"""
+Launch the generic read-only web surface with the repository's existing virtualenv.
+
+The wrapper requires an explicit database or Core endpoint, forwards its selected
+options to the module runner, and prepends src to a copied PYTHONPATH. It does
+not create/install the environment. The child inherits standard streams, runs
+from the repository root, and supplies the wrapper's return code. Page-size
+options available in the application parser are not exposed by this wrapper.
+"""
 
 from __future__ import annotations
 
@@ -12,16 +20,59 @@ from pathlib import Path
 
 
 def venv_python_path(venv_dir: Path) -> Path:
+    """
+    Choose the conventional Windows or POSIX interpreter path within a virtualenv.
+
+    This computes a path only; it neither checks executability nor creates files.
+
+    Example:
+        >>> venv_python_path(Path(".venv")).name in {"python", "python.exe"}
+        True
+
+
+    :param venv_dir: Virtual-environment root, retained without resolving it here.
+    :return: Scripts/python.exe on Windows, otherwise bin/python beneath that root.
+    """
     if os.name == "nt":
         return venv_dir / "Scripts" / "python.exe"
     return venv_dir / "bin" / "python"
 
 
 def shell_join(parts: list[str]) -> str:
+    """
+    Format argument tokens with POSIX shell quoting for diagnostic display.
+
+    Execution still uses the original argument list, not this string or a shell.
+
+    Example:
+        >>> shell_join(["python", "a b"])
+        "python 'a b'"
+
+
+    :param parts: Ordered command tokens to display without modifying them.
+    :return: Space-separated, shell-quoted command representation.
+    """
     return shlex.join(parts)
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Parse wrapper options, print the command, and wait for the child web runner.
+
+    Exactly one database/endpoint is required. Interpreter validation checks
+    existence only. Nondefault cache choices and enabled boolean flags are
+    forwarded; Core timeout is forwarded only with an endpoint and is not a
+    subprocess timeout. PYTHONPATH is prepended in a copied environment, and
+    subprocess startup failures propagate. No listener is opened by the wrapper.
+
+    Example:
+        >>> main(["--database", "library.sqlite", "--no-file-downloads"])  # doctest: +SKIP
+
+
+    :param argv: Wrapper arguments without program name, or None for process arguments.
+    :return: Child process return code, including nonzero termination results.
+    :raises SystemExit: Help, invalid options, or a missing interpreter triggers argparse.
+    """
     parser = argparse.ArgumentParser(
         description="Run the LiuXin read-only web surface from the repo-local virtualenv.",
         formatter_class=argparse.RawDescriptionHelpFormatter,

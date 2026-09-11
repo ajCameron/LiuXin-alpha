@@ -1,5 +1,8 @@
 """
-Item-to-Digital-Asset association facade.
+Define Item-role associations to atomic or Composite Asset identities.
+
+Links select at most one target for each exact Item-role pair. These metadata
+operations do not select Replicas, publish bytes, or control Item lifecycle.
 """
 
 import abc
@@ -13,16 +16,14 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 
 class ItemDigitalAssetLinkAPI(abc.ABC):
     """
-    Create and remove the Item-role links used by asset retrieval.
+    Set or remove the atomic/Composite target selected by an Item-role pair.
 
-    One ``(ItemID, role)`` selects at most one atomic or Composite target.
-    These methods change reference metadata only; they do not mutate the Item,
-    target Asset, or any physical Replica.
+    One exact pair selects at most one target. Linking replaces the pair's previous target and
+    changes association metadata rather than Item fields, target identity, or Replica bytes.
+    Implementations own reference validation and persistence.
 
     Example:
-        >>> manager.link_item_to_digital_asset(  # doctest: +SKIP
-        ...     ItemID(9), DigitalAssetID(7), role="cover",
-        ... )
+        >>> manager.link_item_to_digital_asset(item_id, asset_id, role="cover")  # doctest: +SKIP
     """
 
     @abc.abstractmethod
@@ -34,18 +35,17 @@ class ItemDigitalAssetLinkAPI(abc.ABC):
         role: str = "primary_payload",
     ) -> None:
         """
-        Link one Item role to an atomic Digital Asset.
+        Set an Item role to a known atomic Asset, replacing any previous target for that pair
+        without requiring readable bytes.
 
         Example:
-            >>> manager.link_item_to_digital_asset(  # doctest: +SKIP
-            ...     ItemID(9), DigitalAssetID(7), role="cover",
-            ... )
+            >>> manager.link_item_to_digital_asset(item_id, asset_id, role="cover")  # doctest: +SKIP
 
 
-        :param item_id:
-        :param digital_asset_id:
-        :param role:
-        :return:
+        :param item_id: Library Item identity whose role association is updated.
+        :param digital_asset_id: Registered atomic Asset selected by this role.
+        :param role: Exact Item-role key, defaulting to primary_payload; spelling and whitespace are significant.
+        :return: None after the association is stored.
         """
         ...
 
@@ -58,18 +58,17 @@ class ItemDigitalAssetLinkAPI(abc.ABC):
         role: str = "primary_payload",
     ) -> None:
         """
-        Link one Item role to a Composite Digital Asset.
+        Set an Item role to a known Composite, replacing any previous target without resolving
+        member availability.
 
         Example:
-            >>> manager.link_item_to_composite_digital_asset(  # doctest: +SKIP
-            ...     ItemID(9), CompositeDigitalAssetID(3),
-            ... )
+            >>> manager.link_item_to_composite_digital_asset(item_id, composite_id)  # doctest: +SKIP
 
 
-        :param item_id:
-        :param composite_digital_asset_id:
-        :param role:
-        :return:
+        :param item_id: Library Item identity whose role association is updated.
+        :param composite_digital_asset_id: Registered Composite selected by this role.
+        :param role: Exact Item-role key, defaulting to primary_payload; spelling and whitespace are significant.
+        :return: None after the association is stored.
         """
         ...
 
@@ -81,16 +80,16 @@ class ItemDigitalAssetLinkAPI(abc.ABC):
         role: str = "primary_payload",
     ) -> bool:
         """
-        Remove an Item-role association and report whether it existed.
+        Remove one exact Item-role association without deleting the target Asset, Composite, or any
+        physical bytes.
 
         Example:
-            >>> manager.unlink_item_digital_asset(ItemID(9))  # doctest: +SKIP
-            True
+            >>> removed = manager.unlink_item_digital_asset(item_id, role="cover")  # doctest: +SKIP
 
 
-        :param item_id:
-        :param role:
-        :return:
+        :param item_id: Item identity identifying the association to remove.
+        :param role: Exact Item-role key, defaulting to primary_payload; spelling and whitespace are significant.
+        :return: True when an association existed and was removed, otherwise False.
         """
         ...
 

@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Inspect and read one remote object through the read-only HTTP driver."""
+"""
+Stat and read a scoped HTTP object, optionally saving its bytes locally.
+
+The driver receives a fresh address-space UUID and an unlimited hourly-request
+setting. Pass the stat result's version into the read, hash the full in-memory
+payload, and optionally compare SHA-256 before writing an output file. This example
+makes remote read requests and prints metadata plus a short hexadecimal preview.
+"""
 
 from __future__ import annotations
 
@@ -24,6 +31,17 @@ from LiuXin_alpha.storage.drivers import HttpStorageDriver
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse required base URL/object key and optional local output, expected SHA-256, and
+    floating-point timeout in seconds, default 30. URL/key validation occurs in the driver; main
+    strips/lowercases an expected digest before comparison.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Parsed argparse namespace; help and invalid arguments raise SystemExit.
+    """
     parser = argparse.ArgumentParser(
         description=(
             "Read a scoped remote object with HTTP HEAD/GET requests through "
@@ -58,6 +76,22 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """
+    Read one HTTP object with its observed version and print a metadata/digest report. Require an
+    available startup status, stat the parsed address, and pass info.version as if_version to the
+    full read; a missing version supplies no version token. Hash all bytes in memory and raise
+    ValueError on an expected-digest mismatch before saving anything. When output is supplied,
+    expand/resolve it, create its parents, and overwrite it using Path.write_bytes without an atomic
+    publication wrapper. Report the stat size/version and first 32 payload bytes in hex. Close the
+    constructed driver in finally; a local output already written remains if subsequent reporting or
+    cleanup fails.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero after printing the report; parsing, storage, and cleanup errors propagate.
+    """
     args = parse_args()
     driver = HttpStorageDriver(
         args.base_url,

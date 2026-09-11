@@ -1,5 +1,12 @@
 """
-Transactional SQLite BLOB storage driver.
+Implement opaque-key BLOB storage with transactional SQLite publication.
+
+Rows retain complete payloads, sizes, SHA-256, integer versions, and modification
+times. Writes spool before materializing a payload for one transaction; reads
+load the full BLOB before applying ranges. Stored metadata is trusted rather
+than revalidated on every read. Connection contexts manage transaction completion
+without explicitly closing connections, and successful sessions retain their
+spools until explicit or eventual cleanup.
 """
 
 from __future__ import annotations
@@ -55,7 +62,10 @@ from LiuXin_alpha.storage.drivers._errors import (
 @dataclasses.dataclass(slots=True, frozen=True)
 class SQLiteObjectAddress(DriverObjectAddress):
     """
-    Opaque BLOB key inside one SQLite database.
+    Carry an opaque BLOB key and its configured driver UUID.
+
+    The inherited value object checks UUID, nonempty value, and NULs. Flat key syntax is validated
+    by SQLiteStorageDriver when parsing text, not by directly constructing this record.
 
     Example:
         >>> SQLiteObjectAddress("object-42", UUID(int=1)).value
@@ -65,12 +75,18 @@ class SQLiteObjectAddress(DriverObjectAddress):
 
 class _SQLiteWriteSession:
     """
-    Stage bytes locally before publishing them in one SQLite transaction.
+    Spool accepted bytes and publish one complete BLOB through a SQLite transaction.
+
+    The spool starts in memory and can spill to a temporary file above eight MiB. Commit checks
+    expectations, then reads the entire spool into a bytes payload for publication. A successful
+    commit and context exit leave the spool open; explicit abort closes it without deleting a
+    published row. Post-publication stat failures can raise even though the BLOB transaction already
+    committed.
 
     Example:
-        >>> session = driver.begin_write(address)  # doctest: +SKIP
-        >>> session.write(b"book")  # doctest: +SKIP
-        4
+        >>> with driver.begin_write(address, expected_size=4) as session:  # doctest: +SKIP
+        ...     session.write(b"book")
+        ...     info = session.commit()
     """
 
     def __init__(
@@ -83,18 +99,21 @@ class _SQLiteWriteSession:
         expected_digest: Digest | None,
     ) -> None:
         """
-        Create a single-use write session with optional integrity expectations.
+        Prepare an eight-MiB spooled temporary stream and SHA-256 accounting.
+
+        This does not open the database or validate the optional expected digest algorithm. The
+        caller supplies an already checked address and WriteMode member.
 
         Example:
-            >>> _SQLiteWriteSession(driver, address, mode=WriteMode.CREATE_ONLY, expected_size=4, expected_digest=None)  # doctest: +SKIP
+            >>> session = _SQLiteWriteSession(driver, address, mode=WriteMode.CREATE_ONLY, expected_size=4, expected_digest=None)  # doctest: +SKIP
 
 
-        :param driver:
-        :param address:
-        :param mode:
-        :param expected_size:
-        :param expected_digest:
-        :return:
+        :param driver: SQLite driver used later for publication and metadata lookup.
+        :param address: Scoped destination address already checked by the driver.
+        :param mode: WriteMode member passed unchanged to commit-time publication.
+        :param expected_size: Optional accepted-byte count required at commit.
+        :param expected_digest: Optional digest to verify by rereading the spool at commit.
+        :return: None after creating the spool, SHA-256 accumulator, and unfinished state.
         """
 
         self._driver = driver
@@ -110,15 +129,18 @@ class _SQLiteWriteSession:
 
     def write(self, data: bytes) -> int:
         """
-        Append bytes to the private spool and update staged integrity facts.
+        Append bytes to the spool and update SHA-256 and size for the accepted prefix.
+
+        Reject finished sessions and non-bytes input. Translate spool OSError into a contextual
+        storage error. The expected size is a commit-time check rather than an acceptance cap.
 
         Example:
             >>> session.write(b"book")  # doctest: +SKIP
             4
 
 
-        :param data:
-        :return:
+        :param data: Object bytes to append; accounting uses the prefix accepted by the spool.
+        :return: Accepted byte count; write failures leave cleanup to the caller/context.
         """
 
         if self._finished:
@@ -140,14 +162,23 @@ class _SQLiteWriteSession:
 
     def commit(self) -> DriverObjectInfo[SQLiteObjectAddress]:
         """
-        Validate and atomically publish the complete staged BLOB.
+        Check staged expectations, publish a complete BLOB, and stat the destination.
+
+        Size and stored SHA-256 come from accepted-write accounting. An expected digest is
+        separately computed by rereading the spool; unsupported hashlib names raise directly.
+        Publication then receives the entire spooled payload in memory.
+
+        After publication, mark the session committed before querying metadata. Errors attempt
+        abort, translating OSError and propagating other exceptions. A later stat failure does not
+        roll back the committed row, and returned metadata can reflect another writer. Success does
+        not explicitly close the spool.
 
         Example:
             >>> session.commit().size  # doctest: +SKIP
             4
 
 
-        :return:
+        :return: DriverObjectInfo obtained after publication, or an error that can follow a committed write.
         """
 
         if self._finished:
@@ -192,13 +223,14 @@ class _SQLiteWriteSession:
 
     def abort(self) -> None:
         """
-        Discard staged bytes without changing the database object.
+        Close the spool, suppressing OSError, and mark the session finished without deleting
+        database rows.
 
         Example:
             >>> session.abort()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after closing or suppressing an OS close failure and updating session state.
         """
 
         try:
@@ -209,14 +241,14 @@ class _SQLiteWriteSession:
 
     def __enter__(self) -> _SQLiteWriteSession:
         """
-        Return the active session for context-managed staging.
+        Return this unfinished session for explicit commit or context-managed abort.
 
         Example:
             >>> with driver.begin_write(address) as session:  # doctest: +SKIP
-            ...     session.write(b"book")
+            ...     session.write(b"temporary")
 
 
-        :return:
+        :return: This session, or StorageError if it has already finished.
         """
 
         if self._finished:
@@ -230,16 +262,19 @@ class _SQLiteWriteSession:
         traceback: TracebackType | None,
     ) -> None:
         """
-        Abort automatically unless the context body committed explicitly.
+        Abort an uncommitted context while leaving committed-session spools untouched.
+
+        Exception arguments are not inspected and body exceptions are not suppressed. Closing a
+        committed spool requires explicit abort or eventual object cleanup.
 
         Example:
             >>> session.__exit__(None, None, None)  # doctest: +SKIP
 
 
-        :param exc_type:
-        :param exc:
-        :param traceback:
-        :return:
+        :param exc_type: Body exception type or None, unused by cleanup selection.
+        :param exc: Body exception instance or None, unused.
+        :param traceback: Body traceback or None, unused.
+        :return: None; uncommitted sessions are aborted and body exceptions remain visible.
         """
 
         if not self._committed:
@@ -248,23 +283,33 @@ class _SQLiteWriteSession:
 
 class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
     """
-    Durable BLOB driver using one SQLite database file.
+    Store opaque-keyed BLOBs and metadata in one SQLite database.
+
+    Startup creates the storage_objects schema; each database operation obtains its own connection
+    with WAL and FULL synchronous settings. The connection context manages transaction completion,
+    not explicit connection closure. Reads load full BLOBs before slicing, and writes publish a
+    fully materialized spool. Neither path imposes an object-size memory cap.
+
+    SHA-256 is persisted with each row and trusted by stat. Per-key integer versions start at one
+    and increment on replacement; deleting and recreating a key can reuse a version. Close clears a
+    flag rather than preventing later operations.
 
     Example:
         >>> driver = SQLiteStorageDriver("objects.sqlite", address_space_uuid=UUID(int=1))  # doctest: +SKIP
+        >>> driver.startup()  # doctest: +SKIP
     """
 
     def __init__(self, path: str | os.PathLike[str], *, address_space_uuid: UUID):
         """
-        Configure a database path without opening or creating it yet.
+        Resolve a database path and configure scoped address ownership without opening the database.
 
         Example:
-            >>> SQLiteStorageDriver("objects.sqlite", address_space_uuid=UUID(int=1))  # doctest: +SKIP
+            >>> driver = SQLiteStorageDriver("objects.sqlite", address_space_uuid=UUID(int=1))  # doctest: +SKIP
 
 
-        :param path:
-        :param address_space_uuid:
-        :return:
+        :param path: Database filesystem path, expanded and resolved with strict=False.
+        :param address_space_uuid: UUID required on SQLite object addresses accepted by this driver.
+        :return: None after retaining the path/checker and clearing the started flag.
         """
 
         self._path = Path(path).expanduser().resolve(strict=False)
@@ -277,14 +322,14 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
     @property
     def db_path(self) -> Path:
         """
-        Return the resolved SQLite database path.
+        Return the expanded, resolved database filename without checking availability.
 
         Example:
             >>> driver.db_path.name  # doctest: +SKIP
             'objects.sqlite'
 
 
-        :return:
+        :return: Absolute Path retained when constructing the driver.
         """
 
         return self._path
@@ -292,14 +337,14 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
     @property
     def object_address_checker(self):
         """
-        Return the checker that scopes BLOB keys to this database.
+        Return the subtype/UUID checker without adding flat-key parsing or existence checks.
 
         Example:
             >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
             UUID('00000000-0000-0000-0000-000000000001')
 
 
-        :return:
+        :return: Existing ScopedDriverObjectAddressChecker for this SQLite address space.
         """
 
         return self._checker
@@ -307,14 +352,14 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
     @property
     def root_uri(self) -> str:
         """
-        Return the credential-free file URI for the database.
+        Render the configured database filename as a file URI.
 
         Example:
             >>> driver.root_uri.endswith("objects.sqlite")  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Database file URI, not an externally renderable URI for an individual BLOB.
         """
 
         return self._path.as_uri()
@@ -322,14 +367,18 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Describe transactional BLOB reads, writes, deletion, and enumeration.
+        Declare transactional mutation, versioned reads/deletes, inventory, and stored checksums.
+
+        Keys are flat with lexical prefix enumeration. No native copy/move, paging, or external
+        object URI flags are enabled. Concurrency and writability are declared mechanics, not
+        current lock, permission, or capacity observations.
 
         Example:
-            >>> driver.capabilities.atomic_publish  # doctest: +SKIP
+            >>> driver.capabilities.conditional_delete  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: DriverCapabilities with mutation support, authoritative stat digests, and recommended parallel reads of four.
         """
 
         return DriverCapabilities(
@@ -357,13 +406,15 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
 
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
-        """Describe transactional per-object BLOB publication.
+        """
+        Describe per-object BLOB publication and object staging without whole-container rewriting.
 
         Example:
             >>> driver.storage_characteristics.temporary_space  # doctest: +SKIP
             <StorageTemporarySpaceRequirement.OBJECT_STAGE: 'object_stage'>
 
-        :return: SQLite BLOB Store characteristics.
+
+        :return: General-write characteristics preserving unmodelled entries, without a calculated size/capacity limit.
         """
 
         return StorageCharacteristics(
@@ -376,14 +427,19 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
 
     def startup(self) -> DriverStatus:
         """
-        Create the object schema if needed and report current status.
+        Create the containing directory and storage schema if absent, then report status.
+
+        CREATE IF NOT EXISTS preserves existing rows but does not migrate or validate every aspect
+        of a preexisting schema. Directory OS failures and SQLite failures follow their respective
+        translators. The started flag is set before collecting status, whose later capacity or count
+        failure may report unavailable.
 
         Example:
             >>> driver.startup().available  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Fresh DriverStatus after schema setup; initialization errors may raise instead.
         """
 
         try:
@@ -415,14 +471,18 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
 
     def probe(self) -> DriverStatus:
         """
-        Check that SQLite can open and query the configured database.
+        Open a configured connection, execute SELECT 1, then obtain normal status.
+
+        Connection setup can create a missing database file and change journal settings; this is not
+        a read-only probe or schema initializer. StorageUnavailable and StorageTimeout become
+        unavailable statuses, while other probe exceptions propagate.
 
         Example:
             >>> driver.probe().available  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Status from normal collection or a caught availability/timeout failure.
         """
 
         try:
@@ -439,14 +499,18 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
 
     def status(self) -> DriverStatus:
         """
-        Report availability, object count, and containing-volume capacity.
+        Count stored rows and query containing-volume capacity without caching the result.
+
+        An absent file returns unavailable before connecting. Count/volume OS and storage errors
+        become unavailable statuses. Success reports writable=True without an explicit write test.
+        Capacity uses statvfs available blocks and is observed separately from the row count.
 
         Example:
             >>> driver.status().writable  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Fresh availability/count/capacity status with a sqlite container detail on success.
         """
 
         if not self._path.exists():
@@ -498,13 +562,13 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
 
     def close(self) -> None:
         """
-        Mark the lifecycle closed; operations use short-lived connections.
+        Clear the started flag without tracking or closing connections, spools, or later operations.
 
         Example:
             >>> driver.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after recording _started=False.
         """
 
         self._started = False
@@ -514,15 +578,19 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         identifier: DriverObjectAddressInput[SQLiteObjectAddress],
     ) -> SQLiteObjectAddress:
         """
-        Validate an opaque, flat BLOB key in this address space.
+        Parse a nonempty flat key or check subtype/UUID of an already constructed address.
+
+        Text may not contain NUL, slash, or backslash; it is not stripped or normalized for Unicode
+        equivalence. Existing addresses take the ownership checker only, bypassing these
+        parser-specific syntax checks.
 
         Example:
             >>> str(driver.parse_object_address("object-42"))  # doctest: +SKIP
             'object-42'
 
 
-        :param identifier:
-        :return:
+        :param identifier: Opaque key text or SQLiteObjectAddress expected to belong to this driver.
+        :return: Scoped SQLiteObjectAddress; invalid text/type or ownership raises through the corresponding check.
         """
 
         if isinstance(identifier, DriverObjectAddress):
@@ -536,15 +604,19 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
 
     def stat(self, object_address: SQLiteObjectAddress) -> DriverObjectInfo[SQLiteObjectAddress]:
         """
-        Return authoritative size, SHA-256, version, and modification time.
+        Read stored size, SHA-256, version, and modification time without reading BLOB bytes.
+
+        A missing key raises StorageNotFound. Stored checksum/size columns are trusted rather than
+        verified against current bytes, so out-of-band database mutations are outside this method's
+        integrity guarantee.
 
         Example:
             >>> driver.stat(address).digest.algorithm  # doctest: +SKIP
             'sha256'
 
 
-        :param object_address:
-        :return:
+        :param object_address: Scoped key selecting the row whose metadata should be returned.
+        :return: DriverObjectInfo with stored digest, stringified integer version, and UTC modification time.
         """
 
         checked = self.check_object_address(object_address)
@@ -580,18 +652,24 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         if_version: str | None = None,
     ) -> io.BytesIO:
         """
-        Return an in-memory stream for a checked object version and range.
+        Load a whole BLOB/version row, check an optional version, then return an in-memory slice.
+
+        Even a short or zero-length requested range fetches the full BLOB first. Version and bytes
+        come from the same selected row; a mismatch raises StoragePreconditionFailed. No stored
+        checksum is compared with those bytes. Negative ranges are invalid, while offsets past the
+        object end produce an empty stream.
 
         Example:
-            >>> driver.open_read(address, offset=1, length=2).read()  # doctest: +SKIP
+            >>> with driver.open_read(address, offset=1, length=2) as source:  # doctest: +SKIP
+            ...     source.read()
             b'oo'
 
 
-        :param object_address:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param object_address: Scoped BLOB address whose complete bytes and version are selected.
+        :param offset: Nonnegative byte offset applied after loading the BLOB.
+        :param length: Optional maximum slice length in bytes, or None for the remaining bytes.
+        :param if_version: Optional string version compared with the selected row before returning content.
+        :return: Caller-owned BytesIO holding the selected payload slice.
         """
 
         if offset < 0 or (length is not None and length < 0):
@@ -630,18 +708,22 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         metadata: tuple[tuple[str, str], ...] = (),
     ) -> _SQLiteWriteSession:
         """
-        Begin a staged create or replacement of one BLOB.
+        Reject unsupported metadata or negative size, check address ownership, and create a spool.
+
+        Mode passes through unchanged and must be a WriteMode member. Database startup is not
+        performed here; schema availability is discovered when commit publishes. Spool-setup OS
+        failures are translated with the database/object target.
 
         Example:
             >>> session = driver.begin_write(address, expected_size=4)  # doctest: +SKIP
 
 
-        :param object_address:
-        :param mode:
-        :param expected_size:
-        :param expected_digest:
-        :param metadata:
-        :return:
+        :param object_address: Destination key with this driver subtype/UUID.
+        :param mode: WriteMode member controlling publication preconditions; not string-coerced here.
+        :param expected_size: Nonnegative accepted-byte count to require at commit, or None.
+        :param expected_digest: Optional digest verified from spooled bytes at commit.
+        :param metadata: Native metadata tuple; nonempty values are unsupported.
+        :return: New uncommitted _SQLiteWriteSession owning its spool.
         """
 
         if metadata:
@@ -676,17 +758,24 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         mode: WriteMode,
     ) -> None:
         """
-        Publish validated bytes with create-only or replace preconditions.
+        Insert or replace the complete BLOB and metadata within a BEGIN IMMEDIATE transaction.
+
+        Check CREATE_ONLY/REPLACE existence while holding the transaction, then upsert payload
+        length, supplied SHA-256, and a timestamp. Existing rows increment their integer version;
+        new rows start at one, including recreation after deletion. The supplied digest is not
+        recomputed or validated here. Mode is compared by enum identity and is assumed to have been
+        selected correctly by the caller.
 
         Example:
-            >>> driver._publish(address, b"book", sha256="00", mode=WriteMode.CREATE_ONLY)  # doctest: +SKIP
+            >>> digest = hashlib.sha256(b"book").hexdigest()
+            >>> driver._publish(address, b"book", sha256=digest, mode=WriteMode.CREATE_ONLY)  # doctest: +SKIP
 
 
-        :param address:
-        :param payload:
-        :param sha256:
-        :param mode:
-        :return:
+        :param address: Already checked destination address used as the SQL object_key.
+        :param payload: Complete materialized bytes to store in the transaction.
+        :param sha256: SHA-256 text supplied by write-time accounting and persisted unchanged.
+        :param mode: WriteMode member selecting create-only, replace-existing, or upsert behavior.
+        :return: None after normal transaction exit commits the row; errors roll back through the connection context.
         """
 
         now = datetime.now(timezone.utc).timestamp()
@@ -734,16 +823,20 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         if_version: str | None = None,
     ) -> None:
         """
-        Delete one BLOB, optionally protecting a known version.
+        Check existence/version and remove one row within a BEGIN IMMEDIATE transaction.
+
+        The version test and deletion share the transaction. Missing tolerance is evaluated before
+        any version condition; an absent key with missing_ok succeeds even when if_version was
+        supplied. Version strings can be reused after recreation.
 
         Example:
             >>> driver.delete(address, if_version="1")  # doctest: +SKIP
 
 
-        :param object_address:
-        :param missing_ok:
-        :param if_version:
-        :return:
+        :param object_address: Scoped key of the BLOB to delete.
+        :param missing_ok: Whether an absent row is accepted before checking a version condition.
+        :param if_version: Optional string version required for an existing row.
+        :return: None after committed deletion or accepted absence; stale existing rows raise StoragePreconditionFailed.
         """
 
         checked = self.check_object_address(object_address)
@@ -777,15 +870,19 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         prefix: SQLiteObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[SQLiteObjectAddress]]:
         """
-        Yield all BLOB records whose opaque keys share an optional prefix.
+        Iterate stored metadata in object-key order, filtering an optional lexical prefix in Python.
+
+        The query scans all metadata rows even with a prefix. Keep the query/context active while
+        yielding; consumers that stop early should close the generator. Size/checksum/version
+        columns are trusted and BLOB contents are not inspected.
 
         Example:
             >>> [str(item.object_address) for item in driver.iter_inventory()]  # doctest: +SKIP
             ['object-42']
 
 
-        :param prefix:
-        :return:
+        :param prefix: Optional scoped opaque key whose literal text is matched using startswith.
+        :return: Iterator of checked row keys and stored metadata; malformed persisted keys can raise during iteration.
         """
 
         prefix_value = "" if prefix is None else str(self.check_object_address(prefix))
@@ -815,17 +912,20 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         name_hint: str | None = None,
     ) -> SQLiteObjectAddress:
         """
-        Allocate a digest key when known, otherwise a random flat key.
+        Suggest the digest value as a flat key, or generate a random UUID hex key.
+
+        Size and name hints are ignored. Digest algorithm is not part of the key, and no collision,
+        reservation, or capacity check is performed.
 
         Example:
             >>> len(str(driver.allocate_object_address()))  # doctest: +SKIP
             32
 
 
-        :param expected_size:
-        :param expected_digest:
-        :param name_hint:
-        :return:
+        :param expected_size: Accepted hint but unused by this allocator.
+        :param expected_digest: Optional digest whose value alone selects the key.
+        :param name_hint: Accepted hint but unused for opaque SQLite keys.
+        :return: Scoped flat address without publishing or reserving an object.
         """
 
         _ = (expected_size, name_hint)
@@ -839,16 +939,20 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         algorithm: str = "sha256",
     ) -> Digest:
         """
-        Return stored SHA-256 directly or stream another requested algorithm.
+        Return persisted SHA-256 for that algorithm or hash a fully loaded BLOB for another.
+
+        The SHA-256 path does not verify bytes. Other supported algorithms read through open_read,
+        then update the hasher in one-MiB chunks over the in-memory stream. Invalid hashlib names
+        become StorageUnsupportedOperation.
 
         Example:
             >>> driver.native_compute_digest(address).algorithm  # doctest: +SKIP
             'sha256'
 
 
-        :param object_address:
-        :param algorithm:
-        :return:
+        :param object_address: Scoped BLOB address to inspect or read.
+        :param algorithm: Requested algorithm name; case-insensitive sha256 selects stored metadata.
+        :return: Stored SHA-256 Digest or a newly computed digest for another algorithm.
         """
 
         if algorithm.lower() == "sha256":
@@ -868,14 +972,18 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
 
     def _connect(self) -> sqlite3.Connection:
         """
-        Open one fully durable WAL-mode SQLite connection.
+        Open SQLite with a 30-second lock timeout and configure foreign keys, WAL, and FULL sync.
+
+        Connection setup can create the database and change persistent journal mode. A PRAGMA
+        failure has no explicit close guard here. Returning a connection does not itself start a
+        storage write transaction or initialize the object schema.
 
         Example:
             >>> connection = driver._connect()  # doctest: +SKIP
             >>> connection.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: New sqlite3.Connection; the caller is responsible for explicit connection closure.
         """
 
         connection = sqlite3.connect(self._path, timeout=30)
@@ -892,7 +1000,12 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
         target: str | None = None,
     ):
         """
-        Yield a transaction-scoped connection and translate SQLite failures.
+        Yield a connection under SQLite transaction handling and translate sqlite3.Error failures.
+
+        Normal context exit commits an open transaction, while exceptional exit rolls it back. The
+        sqlite3 connection context does not close the connection, and this wrapper adds no explicit
+        close. Errors from setup, body, or transaction exit that are sqlite3.Error receive storage
+        classification and cause chaining; other exception types propagate unchanged.
 
         Example:
             >>> with driver._connection("probe") as connection:  # doctest: +SKIP
@@ -900,9 +1013,9 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
             (1,)
 
 
-        :param operation:
-        :param target:
-        :return:
+        :param operation: Context label used when translating SQLite failures.
+        :param target: Optional diagnostic database/object text, or None to use the root URI.
+        :return: Context manager yielding the transaction-managed connection without an explicit close guarantee.
         """
 
         try:
@@ -917,15 +1030,18 @@ class SQLiteStorageDriver(StorageDriverAPI[SQLiteObjectAddress]):
 
     def _target(self, address: SQLiteObjectAddress) -> str:
         """
-        Render a safe database-and-key target for diagnostic messages.
+        Append repr-formatted object-key text to the database URI for diagnostic context.
+
+        This formatter does not validate ownership or perform secret filtering; callers pass its
+        output to shared error-message helpers where applicable.
 
         Example:
             >>> driver._target(address).endswith("object 'object-42'")  # doctest: +SKIP
             True
 
 
-        :param address:
-        :return:
+        :param address: Object address whose string value should identify the diagnostic target.
+        :return: Database URI followed by object and the repr of the key.
         """
 
         return f"{self.root_uri} object {str(address)!r}"

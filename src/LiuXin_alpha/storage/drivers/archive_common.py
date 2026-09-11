@@ -1,5 +1,10 @@
 """
-Shared local-container mechanics for ZIP, TAR, and RAR storage drivers.
+Share archive address validation, bounded member streams, and rebuild staging mechanics.
+
+Concrete format drivers supply index validation and publication policy. These helpers
+retain filesystem metadata as version evidence, compare accepted-write expectations,
+and own selected local resources without promising rollback after publication or
+content identity from filesystem signatures alone.
 """
 
 from __future__ import annotations
@@ -40,7 +45,10 @@ _COPY_CHUNK_SIZE = 1024 * 1024
 @dataclasses.dataclass(slots=True, frozen=True)
 class ArchiveObjectAddress(DriverObjectAddress):
     """
-    Canonical relative path within one local archive.
+    Carry a member path and the identity owning its archive address space.
+
+    Inherited record validation checks identity and basic text. Construction does not apply the
+    concrete driver's canonical path, depth, or encoding policy.
 
     Example:
         >>> ArchiveObjectAddress("books/novel.epub", __import__("uuid").UUID(int=1)).value
@@ -51,11 +59,19 @@ class ArchiveObjectAddress(DriverObjectAddress):
 @dataclasses.dataclass(slots=True, frozen=True)
 class ArchiveEntry:
     """
-    Indexed facts needed to expose one regular archive member.
+    Retain the indexed size, time, native record, and extra facts for one member.
+
+    The frozen record adds no value validation and does not copy or freeze the native parser object.
 
     Example:
         >>> ArchiveEntry(size=4, modified_at=None, native=None).size
         4
+
+
+    :ivar size: Declared uncompressed byte count supplied by the driver.
+    :ivar modified_at: Parsed member time, or None when unavailable.
+    :ivar native: Format-specific parser record retained by reference.
+    :ivar metadata: Additional key/value observations exposed with member information.
     """
 
     size: int
@@ -67,11 +83,21 @@ class ArchiveEntry:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ArchiveInspection:
     """
-    Features outside the normalized regular-file projection.
+    Collect archive features that a normalized regular-file rebuild may discard.
+
+    Counts and metadata reasons are supplied by the indexer without extra record validation. An
+    inspection alone does not prove that reading or rewriting the archive is safe.
 
     Example:
-        >>> ArchiveInspection(explicit_directories=1).explicit_directories
-        1
+        >>> ArchiveInspection(explicit_directories=1).rebuild_loss_reasons
+        ('1 explicit directory',)
+
+
+    :ivar explicit_directories: Count of directory entries omitted from the regular-file projection.
+    :ivar symbolic_links: Count of symbolic links reported by the indexer.
+    :ivar non_regular_entries: Count of other unsupported member kinds.
+    :ivar encrypted_entries: Count of encrypted members reported by the indexer.
+    :ivar archive_metadata: Additional loss reasons, retained in supplied order.
     """
 
     explicit_directories: int = 0
@@ -83,14 +109,17 @@ class ArchiveInspection:
     @property
     def rebuild_loss_reasons(self) -> tuple[str, ...]:
         """
-        Return operator-facing reasons a normalized rebuild could be lossy.
+        Describe nonzero feature counts, followed by the supplied metadata reasons.
+
+        Count reasons have a fixed directory/link/non-regular/encryption order. Truthy counts are
+        included without checking their sign; only a count of one uses the singular form.
 
         Example:
-            >>> ArchiveInspection(symbolic_links=1).rebuild_loss_reasons
-            ('1 symbolic link',)
+            >>> ArchiveInspection(symbolic_links=1, archive_metadata=("comment",)).rebuild_loss_reasons
+            ('1 symbolic link', 'comment')
 
 
-        :return:
+        :return: Tuple of loss descriptions; empty when all counts are false and no metadata reasons were supplied.
         """
 
         reasons: list[str] = []
@@ -111,15 +140,18 @@ ArchiveSignature = tuple[int, int, int, int, int]
 
 def archive_file_signature(result: os.stat_result) -> ArchiveSignature:
     """
-    Return local identity fields used by conditional archive reads.
+    Extract filesystem identity and change fields used to detect archive replacement.
+
+    The signature is metadata evidence, not a content digest; unchanged fields do not establish
+    unchanged bytes.
 
     Example:
         >>> len(archive_file_signature(os.stat(__file__)))
         5
 
 
-    :param result:
-    :return:
+    :param result: Stat or fstat result for the archive file.
+    :return: Integer tuple of device, inode, byte size, mtime_ns, and ctime_ns, in that order.
     """
 
     return (
@@ -133,16 +165,18 @@ def archive_file_signature(result: os.stat_result) -> ArchiveSignature:
 
 def archive_version(format_name: str, signature: ArchiveSignature) -> str:
     """
-    Render an archive signature as one opaque version token.
+    Render a format-qualified version from the supplied filesystem signature.
+
+    No signature shape, format-name, or content validation is performed here.
 
     Example:
         >>> archive_version("zip", (1, 2, 3, 4, 5))
         'zip:1:2:3:4:5'
 
 
-    :param format_name:
-    :param signature:
-    :return:
+    :param format_name: Format label prepended to the version, such as zip or tar.
+    :param signature: Filesystem identity/change fields to stringify in supplied order.
+    :return: Colon-separated format label and signature fields.
     """
 
     return f"{format_name}:" + ":".join(str(value) for value in signature)
@@ -156,18 +190,23 @@ def canonical_archive_key(
     max_path_bytes: int | None = None,
 ) -> str:
     """
-    Validate a relative POSIX member name without Unicode normalization.
+    Validate a relative slash-separated member key while preserving its spelling.
+
+    Reject empty text, NUL, backslashes, absolute paths, empty/dot/parent components, and excessive
+    depth. Whitespace and other controls are retained. Only a supplied byte limit triggers UTF-8
+    encoding with surrogateescape; that permits its supported escaped bytes but rejects other
+    unencodable surrogates. Bounds themselves are not independently validated.
 
     Example:
-        >>> canonical_archive_key("books/novel.epub", format_name="ZIP")
-        'books/novel.epub'
+        >>> canonical_archive_key("books/雪.epub", format_name="zip")
+        'books/雪.epub'
 
 
-    :param value:
-    :param format_name:
-    :param max_depth:
-    :param max_path_bytes:
-    :return:
+    :param value: Member identifier converted to text before validation.
+    :param format_name: Format label used in invalid-address diagnostics.
+    :param max_depth: Maximum number of slash-separated path components.
+    :param max_path_bytes: Maximum encoded bytes for the entire key, or None to skip encoding and byte-length checks.
+    :return: Validated text unchanged; invalid keys raise StorageInvalidAddress.
     """
 
     key = str(value)
@@ -203,12 +242,20 @@ def canonical_archive_key(
 
 class OwnedArchiveMemberReader(io.RawIOBase):
     """
-    Bound a member stream and close its owning archive with it.
+    Expose a bounded member stream and close its source and containing archive together.
+
+    The caller supplies validated ranges and the byte count available after the requested offset.
+    Reads stop at that declared range without checking trailing member data. Construction seeks or
+    discards immediately, so callers must account for cleanup if construction fails.
 
     Example:
-        >>> reader = OwnedArchiveMemberReader(io.BytesIO(b"book"), io.BytesIO(), offset=0, available=4, length=None, backend="ZIP", target="book")
-        >>> reader.read()
-        b'book'
+        >>> source = io.BytesIO(b"abcd")
+        >>> owner = io.BytesIO()
+        >>> with OwnedArchiveMemberReader(source, owner, offset=1, available=3, length=2, backend="ZIP", target="book") as reader:
+        ...     reader.read()
+        b'bc'
+        >>> source.closed and owner.closed
+        True
     """
 
     def __init__(
@@ -223,20 +270,23 @@ class OwnedArchiveMemberReader(io.RawIOBase):
         target: str,
     ) -> None:
         """
-        Bind one source range to the lifetime of its archive owner.
+        Retain both owned resources, set the remaining byte count, and move to the offset.
+
+        The remaining count is min(available, length) when length is supplied. Neither range
+        validation nor a constructor failure-cleanup guard is added here.
 
         Example:
-            >>> reader = OwnedArchiveMemberReader(io.BytesIO(b"book"), io.BytesIO(), offset=0, available=4, length=2, backend="ZIP", target="book")
+            >>> reader = OwnedArchiveMemberReader(source, archive, offset=0, available=4, length=None, backend="ZIP", target="book")  # doctest: +SKIP
 
 
-        :param source:
-        :param owner:
-        :param offset:
-        :param available:
-        :param length:
-        :param backend:
-        :param target:
-        :return:
+        :param source: Binary member stream whose close method belongs to this reader.
+        :param owner: Containing archive object, closed through a callable close attribute when present.
+        :param offset: Absolute source byte offset to seek to or discard from its initial position.
+        :param available: Number of bytes available to expose after offset, as established by the caller.
+        :param length: Requested maximum exposed byte count, or None for all available bytes.
+        :param backend: Backend label used to translate source-read failures.
+        :param target: Archive/member description used in diagnostics.
+        :return: None after retaining the resources and positioning the source.
         """
 
         self._source = source
@@ -248,29 +298,35 @@ class OwnedArchiveMemberReader(io.RawIOBase):
 
     def readable(self) -> bool:
         """
-        Report that the bounded wrapper supports binary reads.
+        Advertise support for binary reads without consulting source or closed state.
 
         Example:
             >>> reader.readable()  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: True.
         """
 
         return True
 
     def readinto(self, buffer: Buffer) -> int:
         """
-        Read at most the remaining declared member range into a buffer.
+        Copy up to the remaining declared range into a writable buffer.
+
+        Zero remaining bytes or zero buffer capacity returns zero without reading. Non-byte output,
+        premature EOF, and output larger than requested raise integrity errors. OSErrors from
+        source.read are translated; other ordinary read exceptions become integrity errors.
+        Memoryview creation and buffer assignment failures propagate outside that guard. Bytes
+        beyond the declared range are not inspected.
 
         Example:
-            >>> buffer = bytearray(4); reader.readinto(buffer)  # doctest: +SKIP
-            4
+            >>> buffer = bytearray(4)
+            >>> count = reader.readinto(buffer)  # doctest: +SKIP
 
 
-        :param buffer:
-        :return:
+        :param buffer: Writable destination compatible with byte-slice assignment; its memoryview length bounds this read.
+        :return: Number of bytes copied, subtracting only a successful copy from the remaining count.
         """
 
         if self._remaining == 0:
@@ -330,14 +386,19 @@ class OwnedArchiveMemberReader(io.RawIOBase):
 
     def _discard(self, count: int) -> None:
         """
-        Advance to a requested logical member offset without escaping bounds.
+        Position the source using a callable seek, or consume bytes when seek is absent.
+
+        Seek is absolute and its returned position is not checked; a seek failure does not trigger a
+        read fallback. The fallback requests chunks of at most 1 MiB and rejects non-byte or empty
+        output, without separately rejecting an oversized chunk. Existing storage errors propagate,
+        OSErrors are translated, and other ordinary failures become integrity errors.
 
         Example:
-            >>> reader._discard(2)  # doctest: +SKIP
+            >>> reader._discard(12)  # doctest: +SKIP
 
 
-        :param count:
-        :return:
+        :param count: Offset to pass to seek, or bytes to consume from the current position when seek is unavailable.
+        :return: None once seeking returns or the discard count is exhausted.
         """
 
         remaining = count
@@ -374,13 +435,17 @@ class OwnedArchiveMemberReader(io.RawIOBase):
 
     def close(self) -> None:
         """
-        Close both the member stream and its owning archive resource.
+        Attempt source closure, containing-archive closure, and base stream closure once.
+
+        An already closed reader returns immediately. Ordinary source/owner close-call failures are
+        suppressed, but owner attribute lookup and BaseException failures can escape before base
+        closure.
 
         Example:
             >>> reader.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after the closure attempts complete.
         """
 
         if self.closed:
@@ -405,18 +470,31 @@ ArchiveAddressT = TypeVar("ArchiveAddressT", bound=ArchiveObjectAddress)
 
 class ArchiveMutationDriver(Protocol[ArchiveAddressT]):
     """
-    Describe the private callback required by a shared archive write session.
+    Specify the driver operations used to publish a staged archive member.
+
+    Concrete implementations own address/collision validation, archive rebuilding, and publication
+    semantics. This protocol adds no runtime enforcement or rollback.
 
     Example:
-        >>> isinstance(driver.archive_path, pathlib.Path)  # doctest: +SKIP
-        True
+        >>> publisher: ArchiveMutationDriver = driver  # doctest: +SKIP
+
+
+    :ivar backend_label: Backend name used by the shared write-session diagnostics.
     """
 
     backend_label: str
 
     @property
     def archive_path(self) -> pathlib.Path:
-        """Return the archive path used for private sibling staging."""
+        """
+        Provide the local archive path whose parent holds member staging files.
+
+        Example:
+            >>> driver.archive_path.parent  # doctest: +SKIP
+
+
+        :return: Local container path used to choose sibling staging names and directories.
+        """
 
         ...
 
@@ -429,17 +507,21 @@ class ArchiveMutationDriver(Protocol[ArchiveAddressT]):
         mode: WriteMode,
     ) -> DriverObjectInfo[ArchiveAddressT]:
         """
-        Publish a verified private member stage into a rebuilt archive.
+        Publish staged member bytes according to the concrete archive driver's policy.
+
+        The shared session has already checked its accepted-byte expectations. Implementations
+        decide how to rebuild, verify, and publish; an exception does not by itself establish that
+        publication had no effect.
 
         Example:
-            >>> info = driver._commit_staged_member(address, path, size=4, mode=WriteMode.CREATE_ONLY)  # doctest: +SKIP
+            >>> info = driver._commit_staged_member(address, staged_path, size=4, mode=WriteMode.CREATE_ONLY)  # doctest: +SKIP
 
 
-        :param address:
-        :param staged_path:
-        :param size:
-        :param mode:
-        :return:
+        :param address: Member destination in the driver's address space.
+        :param staged_path: Closed local staging file to read during publication.
+        :param size: Byte count accepted by the shared session.
+        :param mode: Requested create/replace collision policy.
+        :return: Driver information for the published member on success.
         """
 
         ...
@@ -447,10 +529,15 @@ class ArchiveMutationDriver(Protocol[ArchiveAddressT]):
 
 class ArchiveWriteSession(Generic[ArchiveAddressT]):
     """
-    Stage one archive member and publish only on explicit commit.
+    Stage member bytes beside an archive, then delegate publication to its driver.
+
+    Accepted-byte counters and an optional running digest supply commit expectations; staging is not
+    reread to establish them. Context exit aborts an uncommitted session, while a completed commit
+    may already have changed the archive before a later failure. Cleanup removes local staging
+    rather than rolling back publication.
 
     Example:
-        >>> with session:  # doctest: +SKIP
+        >>> with driver.begin_write(address, expected_size=4) as session:  # doctest: +SKIP
         ...     session.write(b"book")
         ...     info = session.commit()
     """
@@ -466,19 +553,23 @@ class ArchiveWriteSession(Generic[ArchiveAddressT]):
         max_size: int | None = None,
     ) -> None:
         """
-        Create a private sibling member stage with optional expectations.
+        Initialize optional hashing and create an open sibling member staging file.
+
+        Digest setup precedes file creation. mkstemp OSErrors are translated, while fdopen follows
+        that guard. Caller-supplied address, mode, sizes, and digest support are not independently
+        validated here.
 
         Example:
             >>> session = ArchiveWriteSession(driver, address, mode=WriteMode.CREATE_ONLY, expected_size=4, expected_digest=None)  # doctest: +SKIP
 
 
-        :param driver:
-        :param address:
-        :param mode:
-        :param expected_size:
-        :param expected_digest:
-        :param max_size:
-        :return:
+        :param driver: Publisher providing the archive path, backend label, and commit callback.
+        :param address: Destination retained for publication and session information.
+        :param mode: Collision policy forwarded unchanged to the publisher.
+        :param expected_size: Exact accepted-byte total required at commit, or None for no expected-total check.
+        :param expected_digest: Digest to accumulate and compare at commit, or None to omit hashing.
+        :param max_size: Maximum offered cumulative byte count before each write, or None for no staging cap.
+        :return: None after opening staging and initializing unfinished/uncommitted state.
         """
 
         self._driver = driver
@@ -513,15 +604,20 @@ class ArchiveWriteSession(Generic[ArchiveAddressT]):
 
     def write(self, data: bytes) -> int:
         """
-        Append bytes to the private member stage.
+        Append bytes to staging and update the accepted count and optional digest.
+
+        Finished sessions reject writes. Only bytes are accepted. The staging cap checks the whole
+        offered chunk before writing, so a potentially short write does not bypass the bound. The
+        stream's accepted count is used directly, without a None fallback or independent count
+        validation; write OSErrors are translated.
 
         Example:
             >>> session.write(b"book")  # doctest: +SKIP
             4
 
 
-        :param data:
-        :return:
+        :param data: Byte chunk to offer to the staging stream.
+        :return: Accepted byte count reported by the stream; only that prefix contributes to the digest.
         """
 
         if self._finished:
@@ -548,13 +644,18 @@ class ArchiveWriteSession(Generic[ArchiveAddressT]):
 
     def commit(self) -> DriverObjectInfo[ArchiveAddressT]:
         """
-        Verify expectations and atomically publish the rebuilt archive.
+        Close durable staging, check accepted-byte expectations, and invoke publication.
+
+        Flush, fsync, and close precede size/digest comparisons. Success marks the session finished
+        and committed before attempting staging removal. Any escaping BaseException triggers abort
+        and is reraised unless abort itself fails. Flush/fsync errors have no separate translation
+        here, and a callback or cleanup failure after publication cannot undo the archive change.
 
         Example:
             >>> info = session.commit()  # doctest: +SKIP
 
 
-        :return:
+        :return: Driver information returned by the publication callback.
         """
 
         if self._finished:
@@ -596,14 +697,17 @@ class ArchiveWriteSession(Generic[ArchiveAddressT]):
 
     def abort(self) -> None:
         """
-        Discard private member staging; repeated calls remain safe.
+        Attempt staging-stream closure and removal, then mark the session finished.
+
+        Close/removal OSErrors are suppressed. Other failures can escape before the finished marker
+        is assigned. Abort neither resets the committed marker nor restores an already published
+        archive.
 
         Example:
             >>> session.abort()  # doctest: +SKIP
-            >>> session.abort()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after local cleanup attempts and the finished-state assignment.
         """
 
         try:
@@ -621,14 +725,14 @@ class ArchiveWriteSession(Generic[ArchiveAddressT]):
 
     def __enter__(self) -> "ArchiveWriteSession[ArchiveAddressT]":
         """
-        Enter the staged-write lifetime and return this session.
+        Return this session without checking whether it has already finished.
 
         Example:
-            >>> session.__enter__() is session  # doctest: +SKIP
-            True
+            >>> with session as active:  # doctest: +SKIP
+            ...     assert active is session
 
 
-        :return:
+        :return: This same write-session object.
         """
 
         return self
@@ -640,16 +744,18 @@ class ArchiveWriteSession(Generic[ArchiveAddressT]):
         traceback: TracebackType | None,
     ) -> None:
         """
-        Abort an uncommitted stage when its context exits.
+        Abort an uncommitted session on context exit without suppressing an exception.
+
+        Exception metadata is ignored, and successful commits are left alone.
 
         Example:
             >>> session.__exit__(None, None, None)  # doctest: +SKIP
 
 
-        :param exc_type:
-        :param exc:
-        :param traceback:
-        :return:
+        :param exc_type: Exception class supplied by context management, ignored here.
+        :param exc: Escaping exception instance, ignored here.
+        :param traceback: Escaping exception traceback, ignored here.
+        :return: None; any exception from the with block remains unsuppressed.
         """
 
         del exc_type, exc, traceback
@@ -660,12 +766,21 @@ class ArchiveWriteSession(Generic[ArchiveAddressT]):
 @dataclasses.dataclass(slots=True, frozen=True)
 class ArchiveWriteSource:
     """
-    Finite payload used while rebuilding an archive.
+    Describe member bytes that a rebuild will open lazily.
+
+    Construction retains the callable and declared facts without opening, reading, validating, or
+    copying the source.
 
     Example:
-        >>> source = ArchiveWriteSource(4, None, lambda: io.BytesIO(b"book"))
-        >>> source.size
-        4
+        >>> source = ArchiveWriteSource(size=4, modified_at=None, open=lambda: io.BytesIO(b"book"))
+        >>> with source.open() as stream:
+        ...     stream.read()
+        b'book'
+
+
+    :ivar size: Declared uncompressed member byte count used by the rebuild plan.
+    :ivar modified_at: Member time for the writer, or None to use its fallback.
+    :ivar open: Zero-argument callable returning a fresh binary stream owned by its caller.
     """
 
     size: int
@@ -682,21 +797,27 @@ def copy_exact(
     target: str,
 ) -> None:
     """
-    Copy exactly one declared member payload without materializing it.
+    Copy a declared byte total, require full writes, and check for trailing data.
+
+    Reads request at most 1 MiB, but oversized output is rejected against the entire remaining
+    total. Each destination write must report the full chunk length. After copying, one further read
+    accepts empty bytes or None as EOF; other hashable values raise an integrity error. The helper
+    validates neither expected_size nor resource ownership and leaves underlying I/O exceptions
+    untranslated.
 
     Example:
-        >>> source, destination = io.BytesIO(b"book"), io.BytesIO()
-        >>> copy_exact(source, destination, expected_size=4, backend="ZIP", target="book")
+        >>> destination = io.BytesIO()
+        >>> copy_exact(io.BytesIO(b"book"), destination, expected_size=4, backend="ZIP", target="book")
         >>> destination.getvalue()
         b'book'
 
 
-    :param source:
-    :param destination:
-    :param expected_size:
-    :param backend:
-    :param target:
-    :return:
+    :param source: Binary stream positioned at the first byte to copy; remains caller-owned.
+    :param destination: Caller-owned stream whose write method must report each full chunk length.
+    :param expected_size: Exact byte total to copy before probing for a trailing byte.
+    :param backend: Backend label for integrity diagnostics.
+    :param target: Archive/member description for integrity diagnostics.
+    :return: None after the declared bytes are copied and the trailing read indicates EOF.
     """
 
     remaining = expected_size
@@ -745,14 +866,17 @@ def copy_exact(
 
 def ensure_supported_digest(digest: Digest | None) -> None:
     """
-    Fail early when a staged write requests an unknown digest algorithm.
+    Check whether hashlib can construct the requested digest algorithm.
+
+    None needs no check. Only ValueError is translated to StorageUnsupportedOperation; digest text
+    and expected content are not verified.
 
     Example:
         >>> ensure_supported_digest(None)
 
 
-    :param digest:
-    :return:
+    :param digest: Digest carrying the requested algorithm, or None when no hashing is requested.
+    :return: None when no digest was supplied or algorithm construction succeeded.
     """
 
     if digest is None:
@@ -767,15 +891,21 @@ def ensure_supported_digest(digest: Digest | None) -> None:
 
 def safe_archive_name(value: str | None) -> str:
     """
-    Return one non-special filename hint for allocated archive members.
+    Select a filename hint with a fallback for unusable basenames.
+
+    Backslashes become separators before PurePosixPath selects the basename. Empty, dot/parent, or
+    NUL-bearing results fall back to object.bin. Whitespace, other controls, Unicode, and length are
+    not validated here; final address parsing belongs to the driver.
 
     Example:
-        >>> safe_archive_name("folder/book.epub")
-        'book.epub'
+        >>> safe_archive_name("books/novel.epub")
+        'novel.epub'
+        >>> safe_archive_name(None)
+        'object.bin'
 
 
-    :param value:
-    :return:
+    :param value: Optional path/name hint; false values start from object.bin.
+    :return: Selected basename or object.bin when the selected name is unusable.
     """
 
     name = pathlib.PurePosixPath(
@@ -790,15 +920,19 @@ def safe_archive_name(value: str | None) -> str:
 
 def probe_archive_parent_writable(path: pathlib.Path, *, backend: str) -> None:
     """
-    Prove that a sibling candidate can be created beside an archive.
+    Try creating a sibling probe file and attempt to close and remove it.
+
+    Creation OSErrors are translated; cleanup OSErrors are suppressed. The parent is not created.
+    Success proves only this temporary-file creation, not future capacity, archive replacement
+    permission, or durability.
 
     Example:
         >>> probe_archive_parent_writable(path, backend="ZIP")  # doctest: +SKIP
 
 
-    :param path:
-    :param backend:
-    :return:
+    :param path: Archive path supplying the parent directory and probe-name prefix.
+    :param backend: Backend label for creation-failure diagnostics.
+    :return: None after successful creation and best-effort cleanup.
     """
 
     descriptor: int | None = None
@@ -831,14 +965,17 @@ def probe_archive_parent_writable(path: pathlib.Path, *, backend: str) -> None:
 
 def fsync_directory(path: pathlib.Path) -> None:
     """
-    Best-effort sync a directory after atomic archive replacement.
+    Attempt to open, fsync, and close a path while suppressing OSErrors.
+
+    The helper does not independently require a directory or report whether synchronization
+    succeeded. Other exception types can propagate.
 
     Example:
-        >>> fsync_directory(pathlib.Path("."))
+        >>> fsync_directory(path.parent)  # doctest: +SKIP
 
 
-    :param path:
-    :return:
+    :param path: Directory path whose metadata the publisher wants to synchronize.
+    :return: None whether synchronization succeeds or an OSError is suppressed.
     """
 
     try:

@@ -1,9 +1,10 @@
 """
-Compatibility exports for storage-manager Asset domain values.
+Preserve the compatibility import surface for storage-manager Asset domain values.
 
-The values are organized by responsibility in ``asset_identity``,
-``replicas``, ``composites``, and ``resolutions``. This module remains as a
-stable import surface for existing callers.
+Identity/metadata, Replica, composite, and resolution values are imported eagerly
+from their owning modules and re-exported as the same objects. This module adds no
+wrappers, validation, repository access, or physical storage operations. New domain
+behavior belongs to the responsibility-specific owners.
 """
 
 from LiuXin_alpha.storage.api.storage_manager_api.models.asset_identity import (

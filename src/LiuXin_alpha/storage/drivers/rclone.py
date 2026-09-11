@@ -1,5 +1,12 @@
 """
-Read-only and staged-write storage drivers backed by rclone commands.
+Adapt rclone commands to owned addresses, streamed reads/inventory, and staged writes.
+
+Injected runners own executable selection, credentials, and command deadlines.
+The raw drivers validate selected address and response contracts, translate
+failures, and expose remote metadata as evidence. Writable operations stage locally
+or remotely before publication, without promising atomic backend moves or rollback
+after publication. Process and incremental-parser helpers document their exact
+completion, buffering, and cleanup boundaries.
 """
 
 from __future__ import annotations
@@ -77,21 +84,31 @@ DEFAULT_MAX_RCLONE_JSON_TOKEN_CHARS = 8 * 1024 * 1024
 @dataclasses.dataclass(slots=True, frozen=True)
 class RcloneObjectAddress(DriverObjectAddress):
     """
-    Canonical relative POSIX path within one rclone filesystem root.
+    Carry an rclone-relative path and the UUID owning its address space.
+
+    Inherited construction validates record text and identity, without applying the driver's
+    canonical-key parser. Typed ownership checks likewise do not reparse stored path components.
 
     Example:
-        >>> str(RcloneObjectAddress("authors/book.epub", UUID(int=0)))
+        >>> str(RcloneObjectAddress("authors/book.epub", UUID(int=1)))
         'authors/book.epub'
     """
 
 
 class _ProcessAPI(Protocol):
     """
-    Structural process contract required by streamed rclone commands.
+    Describe the process streams and lifecycle methods used by rclone readers and inventory.
+
+    stdout must supply binary reads for those consumers; stderr may be absent as None. Wait/poll
+    expose completion, while terminate/kill support cleanup. The driver's runtime shape checks cover
+    only a subset of this protocol.
 
     Example:
-        >>> def accepts_process(process: _ProcessAPI) -> None:
-        ...     pass
+        >>> process: _ProcessAPI = spawned  # doctest: +SKIP
+
+
+    :ivar stdout: Binary output stream consumed by the reader or incremental inventory decoder.
+    :ivar stderr: Diagnostic stream read after an unsuccessful exit, or None.
     """
 
     stdout: Any
@@ -99,61 +116,65 @@ class _ProcessAPI(Protocol):
 
     def wait(self, timeout: float | None = None) -> int:
         """
-        Wait for process completion.
+        Wait for command completion or report a timeout according to the process implementation.
 
         Example:
-            >>> process.wait(timeout=1)  # doctest: +SKIP
-            0
+            >>> code = process.wait(timeout=1)  # doctest: +SKIP
 
 
-        :param timeout: Optional maximum wait in seconds.
-        :return: Process exit status.
+        :param timeout: Optional maximum wait in seconds; None leaves the wait unbounded at this protocol boundary.
+        :return: Process exit status when completion is observed; the implementation may raise on timeout.
         """
         ...
 
     def poll(self) -> int | None:
         """
-        Inspect process completion without waiting.
+        Inspect completion without waiting for a running command.
 
         Example:
-            >>> process.poll()  # doctest: +SKIP
+            >>> running = process.poll() is None  # doctest: +SKIP
 
 
-        :return: Exit status, or ``None`` while running.
+        :return: Exit status, or None while the process remains running.
         """
         ...
 
     def terminate(self) -> None:
         """
-        Request graceful process termination.
+        Request process termination without requiring synchronous exit or stream cleanup.
 
         Example:
             >>> process.terminate()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after requesting termination; completion is observed separately.
         """
         ...
 
     def kill(self) -> None:
         """
-        Force process termination.
+        Request forceful process termination without waiting for it to exit.
 
         Example:
             >>> process.kill()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after requesting termination through the implementation kill operation.
         """
         ...
 
 
 class _RcloneProcessReader(io.RawIOBase):
     """
-    Own an ``rclone cat`` process and validate its eventual exit status.
+    Adapt one process stdout to raw binary reads with optional exact-length accounting.
+
+    EOF or a read after the remaining count reaches zero checks the process result. Returning a
+    requested prefix does not itself prove successful process exit. Closing stops the process and
+    streams without draining unread bytes or requiring a successful command. No independent timer or
+    stderr-draining thread is added.
 
     Example:
-        >>> reader.read()  # doctest: +SKIP
+        >>> reader = _RcloneProcessReader(process, "archive:book", remaining=4)  # doctest: +SKIP
     """
 
     def __init__(
@@ -163,16 +184,17 @@ class _RcloneProcessReader(io.RawIOBase):
         remaining: int | None = None,
     ) -> None:
         """
-        Wrap a spawned process and its output streams.
+        Retain process streams, diagnostic target, optional remaining count, and an unchecked EOF
+        marker.
 
         Example:
-            >>> _RcloneProcessReader(process, "remote:book.epub")  # doctest: +SKIP
+            >>> reader = _RcloneProcessReader(process, "archive:book")  # doctest: +SKIP
 
 
-        :param process: Spawned rclone process.
-        :param target: Safe remote object description for diagnostics.
-        :param remaining: Expected response bytes for a bounded range.
-        :return:
+        :param process: Owned process whose stdout and stderr attributes are read immediately without further validation.
+        :param target: Remote identifier passed to shared diagnostic formatting.
+        :param remaining: Exact expected bytes for a bounded response, or None to read until stdout EOF.
+        :return: None after retaining collaborators; no process I/O or size validation occurs here.
         """
         self._process = process
         self._stdout = process.stdout
@@ -183,27 +205,33 @@ class _RcloneProcessReader(io.RawIOBase):
 
     def readable(self) -> bool:
         """
-        Report that this process wrapper supports reads.
+        Advertise raw read support without probing process state.
 
         Example:
             >>> reader.readable()  # doctest: +SKIP
             True
 
 
-        :return: Always ``True``.
+        :return: True, including after process completion or wrapper closure.
         """
         return True
 
     def readinto(self, buffer: bytearray | memoryview) -> int:
         """
-        Read process output and enforce the requested byte count.
+        Copy at most the buffer capacity and remaining count from process stdout.
+
+        Reject non-byte output and oversized chunks. Translate read timeouts separately from other
+        ordinary read failures. EOF checks process success before rejecting a positive missing
+        count; a zero-capacity buffer can therefore trigger that check without consuming bytes.
+        Reaching the requested count is checked on a subsequent read, without inspecting output
+        beyond that count.
 
         Example:
-            >>> reader.readinto(bytearray(1024))  # doctest: +SKIP
+            >>> count = reader.readinto(bytearray(4096))  # doctest: +SKIP
 
 
-        :param buffer: Writable destination buffer.
-        :return: Number of bytes copied, or zero after a successful exit.
+        :param buffer: Writable destination receiving the returned bytes; its length limits the underlying read request.
+        :return: Number of copied bytes, or zero after the applicable completion check; short bounded responses raise StorageUnavailable.
         """
         if self._remaining == 0:
             self._check_process_result()
@@ -283,13 +311,17 @@ class _RcloneProcessReader(io.RawIOBase):
 
     def _check_process_result(self) -> None:
         """
-        Wait once and translate an unsuccessful rclone exit.
+        Mark EOF checked, wait without an explicit timeout, and translate an unsuccessful exit.
+
+        The marker is set before waiting, so later calls do not retry a failed check. A nonzero
+        result reads stderr in full and classifies its text; diagnostic read failures use a fixed
+        message naming the exception type. A supplied process wrapper may impose its own timeout.
 
         Example:
             >>> reader._check_process_result()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after a falsey exit status or an earlier check marker; first-check wait/exit failures propagate as storage errors.
         """
         if self._checked_eof:
             return
@@ -346,13 +378,16 @@ class _RcloneProcessReader(io.RawIOBase):
 
     def close(self) -> None:
         """
-        Stop the owned process and close its streams.
+        Stop the owned process and close the raw wrapper, returning immediately if already closed.
+
+        The base close runs in finally even if cleanup fails. This operation does not validate EOF,
+        a requested byte count, or a successful process exit.
 
         Example:
             >>> reader.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after cleanup/base closure, unless a failure escapes those operations.
         """
         if self.closed:
             return
@@ -364,10 +399,16 @@ class _RcloneProcessReader(io.RawIOBase):
 
 class _RcloneWriteSession:
     """
-    Stage bytes locally and publish them through rclone only on commit.
+    Accumulate a local staged file and publish it through the owning writable driver on commit.
+
+    Expectations use accepted-write counters and an optional running digest. A failed commit can
+    follow remote publication; abort removes local staging but does not reverse remote effects.
+    Context exit aborts unless commit succeeded.
 
     Example:
-        >>> session.write(b"book")  # doctest: +SKIP
+        >>> with driver.begin_write(address) as session:  # doctest: +SKIP
+        ...     session.write(b"book")
+        ...     info = session.commit()
     """
 
     def __init__(
@@ -380,18 +421,22 @@ class _RcloneWriteSession:
         expected_digest: Digest | None,
     ) -> None:
         """
-        Create a private local staging file for one remote write.
+        Create an optional digest accumulator and a local mkstemp staging stream.
+
+        Unsupported hashlib algorithms raise StorageUnsupportedOperation. Creation OSErrors are
+        translated, but fdopen follows mkstemp outside that creation guard. Mode, address, and
+        expected-size validation belong to the caller.
 
         Example:
-            >>> _RcloneWriteSession(driver, address, mode=WriteMode.CREATE_ONLY, expected_size=None, expected_digest=None)  # doctest: +SKIP
+            >>> session = _RcloneWriteSession(driver, address, mode=WriteMode.CREATE_ONLY, expected_size=4, expected_digest=None)  # doctest: +SKIP
 
 
-        :param driver: Owning writable rclone driver.
-        :param address: Final remote object address.
-        :param mode: Required create or replace semantics.
-        :param expected_size: Optional final byte count.
-        :param expected_digest: Optional digest verified before upload.
-        :return:
+        :param driver: Writable driver supplying local staging location and remote publication behavior.
+        :param address: Retained requested destination passed to publication on commit.
+        :param mode: Retained WriteMode used by remote existence and publication checks.
+        :param expected_size: Optional accepted-byte total to require at commit; None omits that comparison.
+        :param expected_digest: Optional algorithm/value used to accumulate and compare accepted bytes.
+        :return: None after creating the local stream and initializing unfinished/uncommitted session state.
         """
         self._driver = driver
         self._address = address
@@ -432,14 +477,18 @@ class _RcloneWriteSession:
 
     def write(self, data: bytes) -> int:
         """
-        Append bytes to the local staging file.
+        Append bytes to an unfinished staging stream and account for its reported acceptance.
+
+        Reject non-bytes input. A None write result means all input bytes were accepted; other
+        counts are accumulated without an independent range check here. The optional digest sees the
+        reported accepted prefix. Local OSErrors are translated.
 
         Example:
-            >>> session.write(b"chapter")  # doctest: +SKIP
+            >>> accepted = session.write(b"chapter")  # doctest: +SKIP
 
 
-        :param data: Bytes to append.
-        :return: Number of bytes accepted.
+        :param data: Bytes offered to the local staging stream.
+        :return: Reported accepted count, or the input length when the stream returns None.
         """
         if self._finished:
             raise StorageError("rclone write session is finished.")
@@ -463,13 +512,19 @@ class _RcloneWriteSession:
 
     def commit(self) -> DriverObjectInfo[RcloneObjectAddress]:
         """
-        Validate and publish the complete staged file.
+        Flush, fsync, and close local staging, check accumulated expectations, then publish
+        remotely.
+
+        Successful publication and its final stat precede setting finished/committed. On failure,
+        abort is attempted; a remote object can already be visible. The local path is unlinked in
+        finally with OSErrors suppressed. Expectation checks do not reread the staged file, and no
+        remote rollback is promised.
 
         Example:
             >>> info = session.commit()  # doctest: +SKIP
 
 
-        :return: Information read back from the published remote object.
+        :return: DriverObjectInfo from final publication stat; reuse after a finished session raises StorageError.
         """
         if self._finished:
             raise StorageError("rclone write session is finished.")
@@ -505,13 +560,14 @@ class _RcloneWriteSession:
 
     def _validate_expectations(self) -> None:
         """
-        Reject staged content that violates declared size or digest.
+        Compare retained size and digest expectations with accepted-write accumulators, without
+        rereading local bytes.
 
         Example:
             >>> session._validate_expectations()  # doctest: +SKIP
 
 
-        :return:
+        :return: None when supplied expectations match; size or digest mismatch raises StorageIntegrityError.
         """
         if self._expected_size is not None and self._size != self._expected_size:
             raise StorageIntegrityError(
@@ -526,13 +582,17 @@ class _RcloneWriteSession:
 
     def abort(self) -> None:
         """
-        Close and remove the unpublished local staging file.
+        Attempt stream closure and local-path removal, then mark the session finished.
+
+        OSErrors from close/unlink are suppressed; other failures can escape before the finished
+        marker. Remote staging/publication belongs to driver operations and cannot be undone by this
+        local cleanup.
 
         Example:
             >>> session.abort()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after the attempted local cleanup and finished-state update.
         """
         try:
             if not self._stream.closed:
@@ -547,14 +607,15 @@ class _RcloneWriteSession:
 
     def __enter__(self) -> _RcloneWriteSession:
         """
-        Enter this unfinished write session.
+        Require an unfinished session and return it without publishing or acquiring a driver write
+        lock.
 
         Example:
             >>> with session as active:  # doctest: +SKIP
-            ...     active.write(b"book")
+            ...     accepted = active.write(b"book")
 
 
-        :return: This write session.
+        :return: This session; entering after finish raises StorageError.
         """
         if self._finished:
             raise StorageError("rclone write session is finished.")
@@ -567,16 +628,16 @@ class _RcloneWriteSession:
         traceback: TracebackType | None,
     ) -> None:
         """
-        Abort an uncommitted session on context exit.
+        Abort locally unless a commit completed successfully, regardless of the escaping exception.
 
         Example:
             >>> session.__exit__(None, None, None)  # doctest: +SKIP
 
 
-        :param exc_type: Escaping exception type, if any.
-        :param exc: Escaping exception, if any.
-        :param traceback: Escaping traceback, if any.
-        :return:
+        :param exc_type: Context exception type, or None; ignored when deciding whether to abort.
+        :param exc: Context exception instance, or None; not suppressed by this method.
+        :param traceback: Context traceback, or None; unused by local cleanup.
+        :return: None, allowing any context exception to propagate; abort failures can also escape.
         """
         if not self._committed:
             self.abort()
@@ -584,13 +645,17 @@ class _RcloneWriteSession:
 
 class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
     """
-    Expose one rclone filesystem as a Store-neutral read-only driver.
+    Expose an injected rclone command interface through a read-only raw storage driver.
 
-    Inventory is streamed and complete within configured safety limits. Digest
-    authority depends on the hashes reported by the selected rclone remote.
+    Local construction establishes root/address identity and inventory limits. Stat trusts selected
+    remote metadata; reads stream cat output, and inventory prefers incremental process output with
+    a restricted legacy-runner fallback. Declared digest authority depends on backend evidence
+    rather than an independent byte verification performed here.
 
     Example:
-        >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=0), json_runner=run_json, process_spawner=spawn)  # doctest: +SKIP
+        >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+        >>> driver.root_uri, driver.status().available
+        ('archive:', False)
     """
 
     def __init__(
@@ -605,20 +670,27 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
         max_json_token_chars: int = DEFAULT_MAX_RCLONE_JSON_TOKEN_CHARS,
     ) -> None:
         """
-        Configure a read-only rclone filesystem root and injected runners.
+        Validate the root and positive inventory bounds, then retain injected command collaborators.
+
+        Strip outer root whitespace; reject empty roots, NUL/newline/carriage-return, malformed
+        Unicode, and selected recognizable inline-secret options. The secret check is not a complete
+        parser or redactor. Bounds are compared before int conversion. Construction runs no command
+        and does not validate runner behavior.
 
         Example:
-            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=0), json_runner=run_json, process_spawner=spawn)  # doctest: +SKIP
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> driver.status().writable
+            False
 
 
-        :param fs_root: Rclone remote or filesystem root.
-        :param address_space_uuid: Stable identity of this address space.
-        :param json_runner: Callable returning decoded JSON command output.
-        :param process_spawner: Callable spawning streamed rclone commands.
-        :param probe: Optional backend-specific health check.
-        :param max_inventory_entries: Maximum entries accepted in one inventory.
-        :param max_json_token_chars: Maximum buffered JSON token size.
-        :return:
+        :param fs_root: Rclone filesystem identifier converted to stripped text and retained as the root.
+        :param address_space_uuid: UUID used by the scoped RcloneObjectAddress checker.
+        :param json_runner: Callable receiving rclone arguments without an executable and returning already-decoded output.
+        :param process_spawner: Callable receiving streamed-command arguments and returning a process-like object.
+        :param probe: Optional zero-argument health callback; None selects the default depth-one listing.
+        :param max_inventory_entries: Positive bound on observed inventory values, including later skipped or duplicate entries.
+        :param max_json_token_chars: Positive bound on newly buffered decoded inventory text before the next parsing pass.
+        :return: None after initializing an unavailable cached status and the configured address/runners/limits.
         """
         root = str(fs_root).strip()
         reject_malformed_unicode(root, label="rclone filesystem root")
@@ -650,42 +722,50 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
         self,
     ) -> ScopedDriverObjectAddressChecker[RcloneObjectAddress]:
         """
-        Return the checker that owns this driver's address space.
+        Expose the retained checker for rclone address subtype and UUID ownership.
 
         Example:
-            >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
-            UUID('00000000-0000-0000-0000-000000000000')
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> driver.object_address_checker.address_space_uuid == UUID(int=1)
+            True
 
 
-        :return: Scoped rclone address checker.
+        :return: Scoped checker instance; it does not reparse an existing address key.
         """
         return self._checker
 
     @property
     def root_uri(self) -> str:
         """
-        Return the configured rclone filesystem root.
+        Return the validated, outer-whitespace-stripped rclone filesystem identifier.
 
         Example:
-            >>> driver.root_uri  # doctest: +SKIP
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> driver.root_uri
             'archive:'
 
 
-        :return: Rclone remote or filesystem root.
+        :return: Retained root text, which need not be a conventional HTTP-style URI.
         """
         return self._fs_root
 
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Advertise the read guarantees available across generic rclone remotes.
+        Describe generic range reads, hierarchical addresses, complete enumeration, and remote
+        digest evidence.
+
+        Conditional reads, paging, and writes remain unsupported. Concurrent-read declarations
+        assume the injected runners tolerate independent calls; no shared process or global
+        synchronization is supplied by this property.
 
         Example:
-            >>> driver.capabilities.enumeration is EnumerationCompleteness.COMPLETE  # doctest: +SKIP
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> driver.capabilities.enumeration is EnumerationCompleteness.COMPLETE
             True
 
 
-        :return: Conservative read-only rclone capabilities.
+        :return: New DriverCapabilities with read/inventory/address support and four recommended parallel reads.
         """
         return DriverCapabilities(
             range_reads=True,
@@ -704,13 +784,16 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
 
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
-        """Advertise a generic rclone filesystem as read-only.
+        """
+        Describe the read-only driver publication and write-space profile.
 
         Example:
-            >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
-            <StoragePublicationModel.READ_ONLY: 'read_only'>
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> driver.storage_characteristics.publication_model is StoragePublicationModel.READ_ONLY
+            True
 
-        :return: Read-only rclone characteristics.
+
+        :return: New read-only characteristics with no write-staging requirement and inapplicable write usage.
         """
 
         return StorageCharacteristics(
@@ -721,27 +804,34 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
 
     def startup(self) -> DriverStatus:
         """
-        Probe the configured filesystem before first use.
+        Run the active probe and return its freshly cached status.
 
         Example:
-            >>> driver.startup().available  # doctest: +SKIP
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> driver.startup().available
             True
 
 
-        :return: Current backend status.
+        :return: DriverStatus from probe; injected callback or listing I/O may occur.
         """
         return self.probe()
 
     def probe(self) -> DriverStatus:
         """
-        Check whether the configured rclone filesystem is readable.
+        Run the optional health callback or a depth-one JSON listing and update cached availability.
+
+        The callback is called directly and its return value is ignored. The default listing result
+        is not checked for shape or content. Only StorageUnavailable and StorageTimeout become
+        unavailable status; other failures propagate without a replacement status. Success does not
+        enumerate the root or test writes.
 
         Example:
-            >>> driver.probe().available  # doctest: +SKIP
-            True
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> driver.probe().available, driver.status().writable
+            (True, False)
 
 
-        :return: Updated read-only availability status.
+        :return: New timestamped read-only DriverStatus after a successful or handled unavailable/timeout probe.
         """
         try:
             if self._probe_callback is not None:
@@ -766,26 +856,28 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
 
     def status(self) -> DriverStatus:
         """
-        Return the most recently observed driver status.
+        Return the latest retained health observation without running a command.
 
         Example:
-            >>> driver.status().writable  # doctest: +SKIP
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> driver.status().available
             False
 
 
-        :return: Cached status; this call runs no rclone command.
+        :return: Cached initial or last-probe DriverStatus; access does not refresh it.
         """
         return self._last_status
 
     def close(self) -> None:
         """
-        Close this stateless read-only driver.
+        Return without retaining a driver-level process pool or changing cached status.
 
         Example:
-            >>> driver.close()  # doctest: +SKIP
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> driver.close()
 
 
-        :return:
+        :return: None; individual reader/inventory consumers own their processes.
         """
         return None
 
@@ -794,15 +886,16 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
         identifier: DriverObjectAddressInput[RcloneObjectAddress],
     ) -> RcloneObjectAddress:
         """
-        Parse a relative canonical POSIX path in this address space.
+        Check existing address ownership or validate text as a relative canonical rclone key.
 
         Example:
-            >>> str(driver.parse_object_address("authors/book.epub"))  # doctest: +SKIP
-            'authors/book.epub'
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> str(driver.parse_object_address("authors/café.epub"))
+            'authors/café.epub'
 
 
-        :param identifier: Existing address or relative path text.
-        :return: Checked rclone object address.
+        :param identifier: Existing driver address checked for subtype/UUID, or text passed through the canonical-key parser.
+        :return: Owned RcloneObjectAddress; an existing typed key is not reparsed and no existence check occurs.
         """
         if isinstance(identifier, DriverObjectAddress):
             return self.check_object_address(identifier)
@@ -811,15 +904,16 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
 
     def join_object_address(self, *tokens: str) -> RcloneObjectAddress:
         """
-        Join canonical POSIX path components into one address.
+        Join one or more stringified tokens with slashes, then apply text-key validation.
 
         Example:
-            >>> str(driver.join_object_address("authors", "book.epub"))  # doctest: +SKIP
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> str(driver.join_object_address("authors", "book.epub"))
             'authors/book.epub'
 
 
-        :param tokens: One or more relative path components.
-        :return: Checked rclone object address.
+        :param tokens: Nonempty sequence of relative path fragments; leading/trailing slashes and empty fragments are not trimmed.
+        :return: Owned canonical address, or StorageInvalidAddress when the joined key is invalid.
         """
         if not tokens:
             raise StorageInvalidAddress("at least one rclone path token is required.")
@@ -827,15 +921,17 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
 
     def object_address_from_uri(self, uri: str) -> RcloneObjectAddress:
         """
-        Parse an rclone object identifier below this exact filesystem root.
+        Remove the exact configured root prefix and validate the remaining relative key without URL
+        decoding.
 
         Example:
-            >>> str(driver.object_address_from_uri("archive:book.epub"))  # doctest: +SKIP
-            'book.epub'
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> str(driver.object_address_from_uri("archive:book%20one.epub"))
+            'book%20one.epub'
 
 
-        :param uri: Rclone remote object identifier.
-        :return: Relative object address.
+        :param uri: Stringified rclone object identifier starting with the root and its applicable slash separator.
+        :return: Owned address below the textual root; case and literal percent spelling remain significant.
         """
         text = str(uri)
         prefix = self._fs_root if self._fs_root.endswith(":") else self._fs_root.rstrip("/") + "/"
@@ -845,15 +941,16 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
 
     def object_uri(self, object_address: RcloneObjectAddress) -> str:
         """
-        Resolve a checked address below the configured rclone root.
+        Append owned address text to the root with the rclone-specific separator.
 
         Example:
-            >>> driver.object_uri(driver.parse_object_address("book.epub"))  # doctest: +SKIP
-            'archive:book.epub'
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> driver.object_uri(driver.parse_object_address("book one.epub"))
+            'archive:book one.epub'
 
 
-        :param object_address: Address in this driver's address space.
-        :return: Rclone remote object identifier.
+        :param object_address: Address checked for subtype/UUID without reparsing its stored key.
+        :return: Root-plus-key text; roots ending in a colon concatenate directly, and other roots use one slash without percent quoting.
         """
         checked = self.check_object_address(object_address)
         if self._fs_root.endswith(":"):
@@ -865,18 +962,20 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
         object_address: RcloneObjectAddress,
     ) -> DriverObjectInfo[RcloneObjectAddress]:
         """
-        Read one file's size, hashes, version evidence, and native hints.
+        Request lsjson --stat --hash and interpret the returned object record.
 
-        Directories are not valid storage objects. The strongest reported hash
-        is selected in SHA-256, SHA-1, then MD5 order.
+        Require a dictionary, falsey IsDir, and a nonnegative int-convertible Size. Prefer reported
+        SHA-256, SHA-1, then MD5 without reading object bytes or checking digest length/hex syntax.
+        The returned record remains bound to the requested address; response Path is not checked
+        against it. Name Unicode is validated, while other optional metadata uses its respective
+        coercion helper.
 
         Example:
-            >>> driver.stat(address).size  # doctest: +SKIP
-            1024
+            >>> info = driver.stat(address)  # doctest: +SKIP
 
 
-        :param object_address: Address in this driver's address space.
-        :return: Normalized remote object information.
+        :param object_address: Owned file address rendered as the stat command target.
+        :return: DriverObjectInfo with required size, selected digest/version/time, and filename/media/native hints; invalid remote facts may raise.
         """
         checked = self.check_object_address(object_address)
         blob = self._run_json(
@@ -931,21 +1030,25 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
         if_version: str | None = None,
     ) -> BinaryIO:
         """
-        Stream a full or ranged object through ``rclone cat``.
+        Spawn cat and return a buffered process reader for the selected byte range.
 
-        The stream validates both its requested byte count and the command's
-        eventual exit status. Generic remotes cannot enforce conditional reads.
+        Ownership, unsupported version conditions, and negative ranges are checked before a
+        zero-length BytesIO shortcut. No stat preflight establishes existence or available length. A
+        supplied count becomes an exact expected byte total, so a shorter successful response fails
+        when consumed. Unbounded reads only check EOF/process outcome. Invalid process shape
+        attempts terminate, without a full wait/stream cleanup. The process adapter supplies any
+        command deadline.
 
         Example:
-            >>> with driver.open_read(address, offset=10, length=20) as stream:  # doctest: +SKIP
+            >>> with driver.open_read(address, offset=2, length=4) as stream:  # doctest: +SKIP
             ...     payload = stream.read()
 
 
-        :param object_address: Address in this driver's address space.
-        :param offset: First byte offset to read.
-        :param length: Maximum bytes to return, or through end of object.
-        :param if_version: Unsupported conditional version token.
-        :return: Owned binary stream backed by the rclone process.
+        :param object_address: Owned address used as the cat target, without reparsing typed key text.
+        :param offset: Nonnegative byte offset sent as --offset when nonzero.
+        :param length: Exact expected response count sent as --count, None for EOF-driven reads, or zero for an immediate empty stream.
+        :param if_version: Must be None; generic rclone remotes have no supported conditional-read contract here.
+        :return: Caller-owned BufferedReader over the process, or an empty BytesIO for length zero; callers must close it.
         """
         checked = self.check_object_address(object_address)
         if if_version is not None:
@@ -1011,19 +1114,20 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
         prefix: RcloneObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[RcloneObjectAddress]]:
         """
-        Stream a bounded complete recursive file inventory.
+        Request recursive file/hash listings and yield unique, optionally prefix-filtered addresses.
 
-        Modern runners use incremental JSON decoding so inventory size does not
-        imply retaining the full response in memory. Legacy injected runners
-        may fall back to returning a decoded list only when process startup
-        fails before producing output.
+        Count every observed value before shape/path/filter/deduplication handling. Missing/falsey
+        paths are skipped, duplicate accepted addresses are suppressed, and prefix matching is
+        lexical startswith. The command requests --files-only, but returned IsDir fields are not
+        checked here. Earlier entries may escape before later parse, metadata, count, or exit
+        failures. Process parsing and legacy-list fallback have different buffering behavior.
 
         Example:
-            >>> list(driver.iter_inventory())  # doctest: +SKIP
+            >>> entries = list(driver.iter_inventory(prefix=prefix))  # doctest: +SKIP
 
 
-        :param prefix: Optional relative path prefix applied to yielded entries.
-        :return: Iterator over unique normalized file entries.
+        :param prefix: Optional owned address whose text filters file keys lexically, or None for all accepted entries.
+        :return: Lazy DriverInventoryEntry iterator with optional listing-derived size/digest/version/time and filename/media hints.
         """
         prefix_key = None if prefix is None else str(self.check_object_address(prefix))
         arguments = ["lsjson", "-R", "--files-only", "--hash", self._fs_root]
@@ -1062,13 +1166,19 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
 
         def _items() -> Iterator[Any]:
             """
-            Yield raw inventory objects from a streamed or legacy runner.
+            Yield streamed JSON values or select the restricted decoded-list compatibility fallback.
+
+            A missing process permits fallback. After streamed StorageError, fallback is allowed
+            only before any item was yielded, with a known nonzero poll result, and excluding
+            StorageTimeout. Successful malformed output and failures after yielding remain fatal. A
+            legacy None result is empty; other legacy results must be lists and may already occupy
+            memory in full.
 
             Example:
-                >>> list(_items())  # doctest: +SKIP
+                >>> raw_items = list(_items())  # doctest: +SKIP
 
 
-            :return: Iterator over decoded rclone inventory values.
+            :return: Iterator over unnormalized remote values, with process cleanup owned by the streamed decoder.
             """
             if process is not None:
                 yielded = False
@@ -1173,14 +1283,17 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
 
     def _run_json(self, arguments: Sequence[str]) -> Any:
         """
-        Run an injected JSON command and translate backend failures.
+        Forward a JSON command and retain typed storage errors while translating timeout or other
+        runner failures.
 
         Example:
-            >>> driver._run_json(["lsjson", "archive:"])  # doctest: +SKIP
+            >>> driver = RcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=lambda args: [], process_spawner=lambda args: None)
+            >>> driver._run_json(["lsjson", "archive:"])
+            []
 
 
-        :param arguments: Complete rclone argument vector.
-        :return: Decoded JSON-compatible result from the injected runner.
+        :param arguments: Argument sequence including a command name, but not the executable; the first item labels failures.
+        :return: Runner result unchanged, without JSON decoding or response-shape validation at this boundary.
         """
         try:
             return self._json_runner(arguments)
@@ -1205,15 +1318,16 @@ class RcloneStorageDriver(StorageDriverAPI[RcloneObjectAddress]):
 
 class WritableRcloneStorageDriver(RcloneStorageDriver):
     """
-    Transactional writable rclone driver with conservative capabilities.
+    Add local staging, remote staging, create/replace publication, and deletion to generic rclone
+    reads.
 
-    Bytes are first staged in a private local file. Commit uploads to a unique
-    remote staging key and then asks rclone to move that complete object into
-    place. Some rclone remotes implement that move as copy-and-delete, so the
-    driver deliberately advertises ``atomic_publish=False``.
+    Publication uses copyto followed by moveto with existence checks under an instance lock. Backend
+    moves may copy and delete, so publication is not guaranteed atomic. A completed remote change
+    can precede a reported failure during final metadata inspection. The driver does not provide a
+    cross-object transaction or independent verification of reported remote hashes.
 
     Example:
-        >>> driver = WritableRcloneStorageDriver("archive:", address_space_uuid=UUID(int=0), json_runner=run_json, command_runner=run, process_spawner=spawn)  # doctest: +SKIP
+        >>> driver = WritableRcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=run_json, command_runner=run, process_spawner=spawn)  # doctest: +SKIP
     """
 
     def __init__(
@@ -1230,22 +1344,27 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
         max_json_token_chars: int = DEFAULT_MAX_RCLONE_JSON_TOKEN_CHARS,
     ) -> None:
         """
-        Configure a writable rclone root with local and remote staging.
+        Configure inherited read operations, a command runner, an instance lock, and local write
+        staging.
+
+        None staging creates an owned TemporaryDirectory. A supplied path is expanded, resolved
+        non-strictly, and created with parents; existing permissions are not rewritten. Construction
+        performs local filesystem I/O without testing remote availability or write permission.
 
         Example:
-            >>> driver = WritableRcloneStorageDriver("archive:", address_space_uuid=UUID(int=0), json_runner=run_json, command_runner=run, process_spawner=spawn)  # doctest: +SKIP
+            >>> driver = WritableRcloneStorageDriver("archive:", address_space_uuid=UUID(int=1), json_runner=run_json, command_runner=run, process_spawner=spawn)  # doctest: +SKIP
 
 
-        :param fs_root: Rclone remote or filesystem root.
-        :param address_space_uuid: Stable identity of this address space.
-        :param json_runner: Callable returning decoded JSON command output.
-        :param command_runner: Callable executing non-streamed rclone commands.
-        :param process_spawner: Callable spawning streamed rclone commands.
-        :param probe: Optional backend-specific health check.
-        :param local_staging_directory: Optional directory for complete staged writes.
-        :param max_inventory_entries: Maximum entries accepted in one inventory.
-        :param max_json_token_chars: Maximum buffered JSON token size.
-        :return:
+        :param fs_root: Rclone root validated and retained by the read-only base constructor.
+        :param address_space_uuid: UUID owning both public and internally generated staging addresses.
+        :param json_runner: Injected command-to-decoded-output callable used for probe/stat and legacy inventory.
+        :param command_runner: Injected callable executing copyto/moveto/deletefile and signaling failure by exception.
+        :param process_spawner: Injected process factory for cat and streamed inventory arguments.
+        :param probe: Optional zero-argument health callback, or None for the base JSON probe.
+        :param local_staging_directory: Caller-managed local path, or None to create an automatically cleaned temporary directory.
+        :param max_inventory_entries: Positive bound on observed inventory values, captured by the base driver.
+        :param max_json_token_chars: Positive bound on buffered decoded inventory text before a parsing pass.
+        :return: None after configuring local staging and command collaborators; local setup OSErrors become storage failures.
         """
         super().__init__(
             fs_root,
@@ -1291,31 +1410,28 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
     @property
     def local_staging_directory(self) -> pathlib.Path:
         """
-        Return the directory used for complete local staged writes.
+        Expose the configured local directory used when creating complete-file write sessions.
 
         Example:
-            >>> driver.local_staging_directory.is_dir()  # doctest: +SKIP
-            True
+            >>> directory = driver.local_staging_directory  # doctest: +SKIP
 
 
-        :return: Local staging directory.
+        :return: Retained pathlib.Path; access neither reserves capacity nor checks continued existence.
         """
         return self._local_staging_directory
 
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Advertise conservative cross-remote write guarantees.
-
-        Rclone moves are not necessarily atomic and generic remotes do not
-        provide conditional deletion or durable native metadata.
+        Extend generic read capabilities with create, replace, delete, and address allocation while
+        retaining conservative publication guarantees.
 
         Example:
             >>> driver.capabilities.atomic_publish  # doctest: +SKIP
             False
 
 
-        :return: Writable rclone capabilities.
+        :return: New capabilities with non-atomic publication, no conditional deletion, and concurrent_writes=False.
         """
         return dataclasses.replace(
             super().capabilities,
@@ -1335,17 +1451,16 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
 
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
-        """Describe complete local staging and per-object remote upload.
-
-        Rclone remotes differ in their publication atomicity and object-size
-        limits; those service-specific facts remain unknown rather than being
-        inferred from the rclone transport.
+        """
+        Describe per-object publication and complete local staging with backend-dependent size and
+        atomicity limits.
 
         Example:
-            >>> driver.storage_characteristics.temporary_space  # doctest: +SKIP
-            <StorageTemporarySpaceRequirement.OBJECT_STAGE: 'object_stage'>
+            >>> driver.storage_characteristics.temporary_space is StorageTemporarySpaceRequirement.OBJECT_STAGE  # doctest: +SKIP
+            True
 
-        :return: Conservative writable-rclone characteristics.
+
+        :return: New characteristics declaring object staging, general write usage, and an explicit backend-dependent limitation.
         """
 
         return StorageCharacteristics(
@@ -1364,17 +1479,14 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
 
     def probe(self) -> DriverStatus:
         """
-        Probe readability and report configured staged-write support.
-
-        The probe does not mutate the remote to prove write permission; actual
-        permission is established when a write is attempted.
+        Run the inherited readability probe and mark a successful result as configured for staged
+        writes.
 
         Example:
-            >>> driver.probe().writable  # doctest: +SKIP
-            True
+            >>> status = driver.probe()  # doctest: +SKIP
 
 
-        :return: Updated availability and configured-writability status.
+        :return: Cached status with writable=True after availability succeeds; no write permission test or publication is performed.
         """
         status = super().probe()
         if not status.available:
@@ -1396,21 +1508,19 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
         metadata: tuple[tuple[str, str], ...] = (),
     ) -> _RcloneWriteSession:
         """
-        Begin a complete-file local staged write.
-
-        Generic rclone remotes do not provide a common native metadata contract,
-        so non-empty metadata is rejected rather than silently discarded.
+        Validate public destination, empty native metadata, nonnegative expected size, and WriteMode
+        before creating a local session.
 
         Example:
             >>> session = driver.begin_write(address, expected_size=4)  # doctest: +SKIP
 
 
-        :param object_address: Public destination address.
-        :param mode: Required create or replace semantics.
-        :param expected_size: Optional final byte count.
-        :param expected_digest: Optional digest verified before upload.
-        :param metadata: Must be empty for generic rclone remotes.
-        :return: Uncommitted local staging session.
+        :param object_address: Owned destination outside the reserved .liuxin-staging/ prefix.
+        :param mode: WriteMode or accepted enum input converted before session construction.
+        :param expected_size: Nonnegative expected accepted-byte total, or None to omit the size comparison.
+        :param expected_digest: Optional expected accepted-byte digest checked before remote upload.
+        :param metadata: Must be empty because generic rclone writes have no shared native metadata contract.
+        :return: Uncommitted local staging session; destination existence is checked later during publication.
         """
         self._require_public_address(object_address)
         if metadata:
@@ -1435,16 +1545,16 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
         if_version: str | None = None,
     ) -> None:
         """
-        Delete a public object without conditional version enforcement.
+        Delete an owned public key and optionally suppress typed not-found failure.
 
         Example:
             >>> driver.delete(address, missing_ok=True)  # doctest: +SKIP
 
 
-        :param object_address: Public address in this driver's address space.
-        :param missing_ok: Suppress an error when the object is absent.
-        :param if_version: Unsupported conditional version token.
-        :return:
+        :param object_address: Owned key rejected when its text starts with the reserved staging prefix.
+        :param missing_ok: Whether a translated StorageNotFound from deletefile is suppressed.
+        :param if_version: Must be None; generic conditional deletion is unsupported.
+        :return: None after command success or an allowed missing object; no publication lock is acquired here.
         """
         checked = self.check_object_address(object_address)
         self._require_public_address(checked)
@@ -1466,17 +1576,17 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
         name_hint: str | None = None,
     ) -> RcloneObjectAddress:
         """
-        Allocate a digest-derived or random public object path.
+        Suggest a digest-derived key or a UUID-prefixed filename without checking remote existence
+        or reserving space.
 
         Example:
-            >>> str(driver.allocate_object_address(name_hint="book.epub")).startswith("objects/")  # doctest: +SKIP
-            True
+            >>> address = driver.allocate_object_address(name_hint="book.epub")  # doctest: +SKIP
 
 
-        :param expected_size: Reserved sizing hint; it does not affect the path.
-        :param expected_digest: Optional digest used for deterministic allocation.
-        :param name_hint: Optional filename retained in a random allocation.
-        :return: Newly allocated public address.
+        :param expected_size: Unused sizing hint; this helper does not enforce a capacity or size bound.
+        :param expected_digest: Optional digest forming objects/algorithm/prefix/value deterministically.
+        :param name_hint: Optional basename hint for random allocation; ignored when a digest is supplied.
+        :return: Owned canonical address suggestion, without collision, capacity, or reservation guarantees.
         """
         _ = expected_size
         if expected_digest is not None:
@@ -1494,15 +1604,14 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
         object_address: RcloneObjectAddress,
     ) -> DriverObjectInfo[RcloneObjectAddress]:
         """
-        Read information for a public object.
+        Reject reserved staging access before using the inherited remote metadata inspection.
 
         Example:
-            >>> driver.stat(address).size  # doctest: +SKIP
-            1024
+            >>> info = driver.stat(address)  # doctest: +SKIP
 
 
-        :param object_address: Public address in this driver's address space.
-        :return: Normalized remote object information.
+        :param object_address: Owned public destination whose metadata is requested.
+        :return: DriverObjectInfo from the base stat implementation, with its reported-fact validation and limitations.
         """
         self._require_public_address(object_address)
         return super().stat(object_address)
@@ -1516,18 +1625,18 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
         if_version: str | None = None,
     ) -> BinaryIO:
         """
-        Stream a public object through the read-only driver contract.
+        Reject reserved staging access before using the inherited cat-backed read contract.
 
         Example:
             >>> with driver.open_read(address) as stream:  # doctest: +SKIP
             ...     payload = stream.read()
 
 
-        :param object_address: Public address in this driver's address space.
-        :param offset: First byte offset to read.
-        :param length: Maximum bytes to return, or through end of object.
-        :param if_version: Unsupported conditional version token.
-        :return: Owned binary stream backed by the rclone process.
+        :param object_address: Owned public address accepted by the staging-prefix guard.
+        :param offset: Nonnegative starting byte offset forwarded to the base reader.
+        :param length: Exact expected bounded response count, None for EOF-driven reading, or zero for an empty stream.
+        :param if_version: Must be None because the inherited conditional-read contract is unsupported.
+        :return: Caller-owned binary stream with the base process/count/cleanup behavior.
         """
         self._require_public_address(object_address)
         return super().open_read(
@@ -1543,14 +1652,15 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
         prefix: RcloneObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[RcloneObjectAddress]]:
         """
-        Iterate public objects while hiding transactional staging keys.
+        Validate an optional public prefix and omit reserved staging entries from the inherited
+        inventory.
 
         Example:
-            >>> list(driver.iter_inventory())  # doctest: +SKIP
+            >>> entries = list(driver.iter_inventory())  # doctest: +SKIP
 
 
-        :param prefix: Optional public relative path prefix.
-        :return: Iterator over public inventory entries.
+        :param prefix: Optional owned public address used by inherited lexical prefix filtering.
+        :return: Lazy iterator of entries outside .liuxin-staging/; hidden entries still consume inherited observation limits.
         """
         if prefix is not None:
             self._require_public_address(prefix)
@@ -1563,15 +1673,14 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
         object_address: RcloneObjectAddress,
     ) -> RcloneObjectAddress:
         """
-        Reject caller access to the reserved transactional namespace.
+        Check address ownership and reject keys starting with the reserved staging prefix.
 
         Example:
-            >>> driver._require_public_address(address) is address  # doctest: +SKIP
-            True
+            >>> checked = driver._require_public_address(address)  # doctest: +SKIP
 
 
-        :param object_address: Candidate address in this driver's address space.
-        :return: Checked public address.
+        :param object_address: Typed candidate checked for subtype and UUID before its stored text prefix is examined.
+        :return: Owned address when its text does not start with .liuxin-staging/; this does not reparse arbitrary typed keys.
         """
         checked = self.check_object_address(object_address)
         if str(checked).startswith(".liuxin-staging/"):
@@ -1588,20 +1697,22 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
         mode: WriteMode,
     ) -> DriverObjectInfo[RcloneObjectAddress]:
         """
-        Upload a complete local file to staging and move it into place.
+        Copy local bytes to a unique remote staging key, recheck existence, and move into place.
 
-        Create or replace preconditions are checked before upload and again
-        immediately before publication. This narrows races but cannot make a
-        generic remote's move atomic.
+        An instance lock covers preflight, upload, second preflight, and publication. CREATE_ONLY
+        uses --immutable; REPLACE checks presence without a version-pinned condition. The uploaded
+        marker is set only after copyto returns, so a failed copy with remote side effects may leave
+        staging. Marked staging receives a best-effort delete on later failure. Final stat occurs
+        outside the lock after publication; its failure cannot undo destination visibility.
 
         Example:
-            >>> driver._publish_local_file(path, address, mode=WriteMode.CREATE_ONLY)  # doctest: +SKIP
+            >>> info = driver._publish_local_file(path, address, mode=WriteMode.CREATE_ONLY)  # doctest: +SKIP
 
 
-        :param local_path: Complete local staging file.
-        :param destination: Public destination address.
-        :param mode: Required create or replace semantics.
-        :return: Information read back after publication.
+        :param local_path: Closed local file whose current bytes are offered to copyto; this helper does not recompute expectations.
+        :param destination: Owned destination inspected by inherited public stat checks.
+        :param mode: Retained WriteMode compared by enum identity for create/replace existence policy.
+        :return: Final public stat result after moveto; failures may leave remote effects despite local cleanup.
         """
         checked = self.check_object_address(destination)
         staging = super().parse_object_address(
@@ -1649,22 +1760,25 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
         expected_digest: Digest,
     ) -> DriverObjectInfo[RcloneObjectAddress]:
         """
-        Copy through rclone's remote-to-remote path and verify staging.
+        Copy a remote source to staging, compare reported identity, and publish with a final
+        identity check.
 
-        This optimization is safe only when the source supplies a required size
-        and digest that the destination remote can report authoritatively. Both
-        the staging object and published result are verified.
+        Size and digest comparisons use remote stat evidence, not independently read bytes. The
+        instance lock and upload marker follow local-file publication; final stat/identity
+        comparison occur outside the lock after moveto. A missing or differently named digest is
+        unsupported, while size/value mismatch is an integrity failure. No failure after publication
+        rolls back the destination.
 
         Example:
-            >>> driver.import_from_uri("source:book.epub", address, mode=WriteMode.CREATE_ONLY, expected_size=4, expected_digest=digest)  # doctest: +SKIP
+            >>> info = driver.import_from_uri("source:book", address, mode=WriteMode.CREATE_ONLY, expected_size=4, expected_digest=digest)  # doctest: +SKIP
 
 
-        :param source_uri: Rclone-readable source object identifier.
-        :param destination: Public destination address.
-        :param mode: Required create or replace semantics.
-        :param expected_size: Required source identity byte count.
-        :param expected_digest: Required source identity digest.
-        :return: Verified information for the published destination.
+        :param source_uri: Source identifier forwarded directly to copyto without local source parsing or byte retrieval.
+        :param destination: Owned destination used for preflight checks and publication.
+        :param mode: WriteMode compared by enum identity; this method does not coerce it.
+        :param expected_size: Required size compared to staging and final reported object sizes.
+        :param expected_digest: Required algorithm/value compared to staging and final reported digests.
+        :return: Final DriverObjectInfo after both remote-evidence comparisons pass; this is not independent byte authentication.
         """
 
         checked = self.check_object_address(destination)
@@ -1717,14 +1831,15 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
 
     def _run_command(self, arguments: Sequence[str]) -> Any:
         """
-        Run an injected rclone command and translate backend failures.
+        Execute injected non-streamed arguments, preserving StorageError and translating timeout or
+        other failures.
 
         Example:
-            >>> driver._run_command(["deletefile", "archive:book.epub"])  # doctest: +SKIP
+            >>> result = driver._run_command(["deletefile", "archive:book"])  # doctest: +SKIP
 
 
-        :param arguments: Complete rclone argument vector.
-        :return: Runner-specific successful command result.
+        :param arguments: Command-name-and-arguments sequence without an executable; the first item labels translated failures.
+        :return: Runner-specific result unchanged; a returned nonzero status is not inspected here and must be signaled by the runner.
         """
         try:
             return self._command_runner(arguments)
@@ -1748,13 +1863,13 @@ class WritableRcloneStorageDriver(RcloneStorageDriver):
 
     def close(self) -> None:
         """
-        Release the automatically managed local staging directory.
+        Clean the automatically owned staging directory when one was created.
 
         Example:
             >>> driver.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after owned-directory cleanup; caller-managed directories, remote staging, active streams, and cached status are not managed here.
         """
         if self._temporary_directory is not None:
             self._temporary_directory.cleanup()
@@ -1767,19 +1882,27 @@ def _iter_json_array_process(
     max_token_chars: int = DEFAULT_MAX_RCLONE_JSON_TOKEN_CHARS,
 ) -> Iterator[Any]:
     """
-    Incrementally decode one JSON array while owning an rclone process.
+    Incrementally yield array values from process stdout and attempt process cleanup on exit.
 
-    The decoder bounds the largest incomplete token and validates UTF-8,
-    trailing data, process completion, and cleanup.
+    Read 64 KiB chunks, decode UTF-8 incrementally, and bound the full newly buffered text before
+    the next parsing pass. Yielded values precede final syntax/exit checks. Stream and wait timeouts
+    receive typed errors; stderr is collected only after unsuccessful completion. The process is
+    stopped when the guarded parser body exits or its generator is closed; initial stream lookup
+    precedes that guard.
+
+    This state machine accepts a trailing comma and stops reading on a closing bracket. It checks
+    trailing text already buffered, without draining later stdout or finalizing a pending UTF-8
+    suffix on that path. A number split across chunks can be decoded prematurely and cause a later
+    syntax failure. These limits distinguish this helper from strict whole-document JSON validation.
 
     Example:
-        >>> list(_iter_json_array_process(process, target="archive:"))  # doctest: +SKIP
+        >>> values = list(_iter_json_array_process(process, target="archive:"))  # doctest: +SKIP
 
 
-    :param process: Spawned process whose stdout contains one JSON array.
-    :param target: Safe remote description for diagnostics.
-    :param max_token_chars: Maximum buffered incomplete JSON token size.
-    :return: Iterator over incrementally decoded array values.
+    :param process: Owned process with stdout/stderr attributes, binary stdout.read, and applicable lifecycle methods.
+    :param target: Remote identifier included in translated stream/process diagnostics.
+    :param max_token_chars: Maximum buffered decoded character count after reading a chunk; can include several complete elements.
+    :return: Lazy iterator of raw JSON values, without entry-shape validation; earlier values may precede a later failure.
     """
 
     stdout = process.stdout
@@ -1931,17 +2054,18 @@ _RCLONE_SECRET_OPTION = re.compile(
 
 def _reject_inline_rclone_secrets(root: str) -> None:
     """
-    Reject connection-string roots that embed recognizable credentials.
+    Reject recognized secret option assignments only in colon-prefixed connection-string roots.
 
-    Named remotes and non-secret connection options remain supported; secrets
-    belong in rclone configuration or the runtime environment.
+    Matching is a case-insensitive textual pattern at the start or after a comma, not a complete
+    rclone option/credential parser. Named remotes and unmatched text are retained; the helper
+    neither rewrites nor redacts input.
 
     Example:
         >>> _reject_inline_rclone_secrets("archive:")
 
 
-    :param root: Candidate configured rclone root.
-    :return:
+    :param root: Configured root text checked for the leading colon and selected secret-option names.
+    :return: None when no recognized assignment is found; a match raises StorageInvalidAddress.
     """
     if root.startswith(":") and _RCLONE_SECRET_OPTION.search(root[1:]):
         raise StorageInvalidAddress(
@@ -1952,15 +2076,19 @@ def _reject_inline_rclone_secrets(root: str) -> None:
 
 def _canonical_rclone_key(value: str) -> str:
     """
-    Validate and return one relative canonical POSIX object path.
+    Validate a relative slash-separated key while preserving accepted text spelling.
+
+    Reject empty text, malformed Unicode, NUL, backslashes, leading slash, and empty/dot/dot-dot
+    components. Other controls, whitespace, and literal percent characters remain allowed. No
+    normalization, decoding, or remote lookup occurs.
 
     Example:
-        >>> _canonical_rclone_key("authors/book.epub")
-        'authors/book.epub'
+        >>> _canonical_rclone_key("authors/café book.epub")
+        'authors/café book.epub'
 
 
-    :param value: Candidate relative path.
-    :return: Canonical path text.
+    :param value: Candidate converted to text before canonical component checks.
+    :return: Accepted slash-joined key text, or a typed address failure.
     """
     key = str(value)
     reject_malformed_unicode(key, label="rclone object address")
@@ -1974,15 +2102,15 @@ def _canonical_rclone_key(value: str) -> str:
 
 def _valid_rclone_process(process: object) -> bool:
     """
-    Return whether a spawned process exposes the stream contract we use.
+    Check for callable wait/poll and a non-None stdout with callable read, without invoking them.
 
     Example:
         >>> _valid_rclone_process(object())
         False
 
 
-    :param process: Candidate process object.
-    :return: Whether required wait, poll, stdout, and read members exist.
+    :param process: Candidate whose attributes are inspected; hostile attribute lookup can itself raise.
+    :return: Whether this limited shape check passes; stderr, termination methods, read results, and real liveness are not validated.
     """
 
     stdout = getattr(process, "stdout", None)
@@ -1996,14 +2124,19 @@ def _valid_rclone_process(process: object) -> bool:
 
 def _stop_rclone_process(process: _ProcessAPI) -> None:
     """
-    Best-effort cleanup that cannot replace a transfer's real outcome.
+    Attempt stdout closure, stop a possibly running process, and attempt stderr closure.
+
+    A poll exception is treated as running. Try terminate and a one-second wait; failure of that
+    wait triggers kill without a second wait. Ordinary failures from those calls and stream close
+    attempts are suppressed. Outer stdout/stderr attribute lookup and BaseException failures can
+    still escape this helper.
 
     Example:
         >>> _stop_rclone_process(process)  # doctest: +SKIP
 
 
-    :param process: Spawned process and its owned streams.
-    :return:
+    :param process: Process-like object whose output streams and lifecycle methods are used for best-effort cleanup.
+    :return: None after attempted cleanup, without proving process reaping or successful stream/command completion.
     """
 
     best_effort_close(getattr(process, "stdout", None))
@@ -2033,16 +2166,20 @@ def _require_rclone_process_success(
     operation: str,
 ) -> None:
     """
-    Wait for a streamed command and translate timeout/exit failures.
+    Wait without an explicit timeout and classify diagnostics from a truthy exit status.
+
+    The process wrapper supplies any deadline. Wait timeouts are distinct from other ordinary
+    failures. After nonzero exit, read stderr in full, replacing diagnostic-read failures with the
+    exception type; process exit codes are not used to choose the storage exception category.
 
     Example:
         >>> _require_rclone_process_success(process, target="archive:", operation="inventory")  # doctest: +SKIP
 
 
-    :param process: Spawned rclone process.
-    :param target: Safe remote description for diagnostics.
-    :param operation: Operation being completed.
-    :return:
+    :param process: Process whose completion is awaited and whose stderr may be consumed.
+    :param target: Remote context passed to diagnostic formatting.
+    :param operation: Operation label attached to timeout, wait, or backend failure messages.
+    :return: None for a falsey exit status; unsuccessful completion raises the translated storage exception.
     """
 
     try:
@@ -2098,15 +2235,15 @@ def _require_rclone_process_success(
 
 def _rclone_datetime(value: Any) -> datetime | None:
     """
-    Parse an rclone timestamp and normalize it to aware UTC.
+    Convert stripped optional ISO timestamp text to UTC, treating naive parsed values as UTC.
 
     Example:
         >>> _rclone_datetime("2020-01-01T00:00:00Z").tzinfo is timezone.utc
         True
 
 
-    :param value: Optional ISO-formatted backend timestamp.
-    :return: UTC datetime or ``None`` when absent or invalid.
+    :param value: Optional backend value stringified and stripped; every literal Z is replaced before ISO parsing.
+    :return: Aware UTC datetime, or None for absent/blank text or ValueError during ISO parsing; other conversion failures may propagate.
     """
     text = _optional_text(value)
     if text is None:
@@ -2122,15 +2259,20 @@ def _rclone_datetime(value: Any) -> datetime | None:
 
 def _rclone_digest(value: Any) -> Digest | None:
     """
-    Select the strongest recognized digest reported by rclone.
+    Select the first truthy normalized SHA-256, SHA-1, or MD5 mapping value in that preference
+    order.
+
+    Hash names are lowercased with hyphens/underscores removed. Selected values are stringified and
+    passed through Digest's nonempty/lowercase normalization; neither that record nor this helper
+    validates digest length or hex syntax. Backend bytes are not read or independently hashed.
 
     Example:
-        >>> _rclone_digest({"SHA-256": "ab"}).algorithm
-        'sha256'
+        >>> _rclone_digest({"SHA-256": "AB"})
+        Digest(algorithm='sha256', value='ab')
 
 
-    :param value: Candidate rclone hash mapping.
-    :return: SHA-256, SHA-1, or MD5 digest, in preference order.
+    :param value: Candidate dictionary of reported hashes; non-dictionaries provide no digest evidence.
+    :return: Selected Digest or None when no recognized truthy value exists; invalid selected record text may raise ValueError.
     """
     if not isinstance(value, dict):
         return None
@@ -2148,15 +2290,15 @@ def _rclone_digest(value: Any) -> Digest | None:
 
 def _rclone_native_metadata(blob: dict[str, Any]) -> tuple[tuple[str, str], ...]:
     """
-    Retain the small portable subset of native rclone metadata.
+    Retain non-None Tier, Encrypted, and OrigID fields in that fixed order as text pairs.
 
     Example:
         >>> _rclone_native_metadata({"Tier": "cold", "Size": 4})
         (('Tier', 'cold'),)
 
 
-    :param blob: Decoded rclone object fields.
-    :return: Stable metadata pairs for recognized fields.
+    :param blob: Decoded object dictionary whose selected native fields are inspected.
+    :return: Tuple of recognized key/string-value pairs, preserving falsey non-None values and ignoring other fields.
     """
     allowed = ("Tier", "Encrypted", "OrigID")
     return tuple(
@@ -2173,19 +2315,20 @@ def _require_rclone_identity(
     expected_digest: Digest,
 ) -> None:
     """
-    Require remote object information to match a source identity.
+    Compare reported object size and digest with the required source identity.
 
-    A missing or differently named digest is unsupported rather than treated as
-    a mismatch because the selected remote cannot prove the requested identity.
+    Size mismatch is an integrity failure. Missing/differently named digest evidence is unsupported;
+    matching-algorithm value mismatch is an integrity failure. The comparison examines metadata
+    records, not object bytes.
 
     Example:
         >>> _require_rclone_identity(info, expected_size=4, expected_digest=digest)  # doctest: +SKIP
 
 
-    :param info: Remote object information to verify.
-    :param expected_size: Required byte count.
-    :param expected_digest: Required digest algorithm and value.
-    :return:
+    :param info: Reported staging or published object metadata to compare.
+    :param expected_size: Required byte count compared exactly to info.size.
+    :param expected_digest: Required algorithm and normalized value compared to info.digest.
+    :return: None when both reported identity components match, otherwise a typed integrity or unsupported-operation error.
     """
     if info.size != expected_size:
         raise StorageIntegrityError(
@@ -2203,15 +2346,15 @@ def _require_rclone_identity(
 
 def _optional_text(value: Any) -> str | None:
     """
-    Convert a present, non-blank backend value to stripped text.
+    Stringify and strip a present value, collapsing an empty result to absence.
 
     Example:
-        >>> _optional_text("  token ")
+        >>> _optional_text("  token  ")
         'token'
 
 
-    :param value: Optional backend value.
-    :return: Stripped text or ``None``.
+    :param value: Backend value, or None for immediate absence; conversion does not validate Unicode.
+    :return: Stripped nonempty text or None; failures of string conversion are not suppressed.
     """
     if value is None:
         return None
@@ -2221,15 +2364,15 @@ def _optional_text(value: Any) -> str | None:
 
 def _opaque_text(value: Any) -> str | None:
     """
-    Return backend-supplied opaque text without changing its identity.
+    Stringify a present opaque value without trimming whitespace or normalizing its spelling.
 
     Example:
         >>> _opaque_text("  filename  ")
         '  filename  '
 
 
-    :param value: Optional backend value.
-    :return: Unstripped text or ``None``.
+    :param value: Backend value, or None for absence; only an empty string conversion also becomes None.
+    :return: Unstripped text or None, without Unicode/path validation.
     """
 
     if value is None:
@@ -2240,16 +2383,17 @@ def _opaque_text(value: Any) -> str | None:
 
 def _remote_rclone_text(value: Any, *, label: str) -> str | None:
     """
-    Validate text emitted by rclone before exposing it to callers.
+    Preserve opaque backend text and translate malformed-Unicode rejection into a remote-data
+    failure.
 
     Example:
-        >>> _remote_rclone_text("book.epub", label="object name")
-        'book.epub'
+        >>> _remote_rclone_text(" café.epub ", label="object name")
+        ' café.epub '
 
 
-    :param value: Optional backend text.
-    :param label: Human-readable field name for errors.
-    :return: Unicode-valid opaque text or ``None``.
+    :param value: Optional backend value converted to opaque text without trimming.
+    :param label: Field description used in the malformed-Unicode diagnostic.
+    :return: Unicode-valid nonempty text or None; this helper does not enforce canonical path components.
     """
 
     text = _opaque_text(value)
@@ -2266,15 +2410,16 @@ def _remote_rclone_text(value: Any, *, label: str) -> str | None:
 
 def _safe_rclone_name(value: str | None) -> str:
     """
-    Reduce a filename hint to a safe final rclone path component.
+    Select a stripped POSIX basename, substitute a default for unusable names, and replace
+    separators.
 
     Example:
         >>> _safe_rclone_name("incoming/book.epub")
         'book.epub'
 
 
-    :param value: Optional filename hint.
-    :return: Safe basename, defaulting to ``payload.bin``.
+    :param value: Optional filename hint; falsey input, empty/dot/parent names, or NUL select payload.bin.
+    :return: Suggested component with slashes/backslashes replaced, without general Unicode/control validation or a length bound.
     """
     name = pathlib.PurePosixPath(str(value or "payload.bin")).name.strip()
     if not name or name in {".", ".."} or "\x00" in name:
@@ -2289,29 +2434,35 @@ def _translate_rclone_error(
     operation: str,
 ) -> Exception:
     """
-    Translate rclone diagnostics into the stable storage exception taxonomy.
+    Classify ordered diagnostic-text markers and construct a contextual storage exception.
+
+    Check existing-destination markers first, then not-found, authentication, permission, timeout,
+    and network-unavailable wording. Recognized categories generally use fixed explanations; network
+    and fallback cases retain message text through the shared selective formatter. This is not
+    exit-code parsing or exhaustive credential redaction.
 
     Example:
         >>> type(_translate_rclone_error("not found", target="archive:book", operation="stat")).__name__
         'StorageNotFound'
 
 
-    :param message: Safe command diagnostic text.
-    :param target: Safe remote or object description.
-    :param operation: Operation being attempted.
-    :return: Storage-layer exception with actionable backend context.
+    :param message: Diagnostic text lowercased for marker matching and selectively retained in formatted reasons.
+    :param target: Root/object identifier supplied to shared diagnostic formatting.
+    :param operation: Caller operation label included in the resulting exception message.
+    :return: Constructed StorageError subtype to raise; this helper itself does not raise the selected exception.
     """
     lowered = message.lower()
     def contextual(reason: str) -> str:
         """
-        Add backend, operation, and target context to one reason.
+        Format one reason with the enclosing rclone operation and target using the shared diagnostic
+        helper.
 
         Example:
-            >>> contextual("object not found")  # doctest: +SKIP
+            >>> explanation = contextual("object not found")  # doctest: +SKIP
 
 
-        :param reason: Stable error explanation.
-        :return: Complete driver failure message.
+        :param reason: Fixed category explanation or backend diagnostic selected by the enclosing classifier.
+        :return: Contextual failure text after the shared formatter applies its selective redaction and length policy.
         """
         return driver_failure_message(
             "rclone",

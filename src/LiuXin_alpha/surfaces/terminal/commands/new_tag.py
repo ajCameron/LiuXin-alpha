@@ -1,4 +1,9 @@
-"""Interactive wizard command for adding tag/label rows."""
+"""
+Prompt for tag-like metadata and create a current tag or compatible legacy label through Core.
+
+Table choice prefers tags even if labels also exist. Shared facet helpers select
+duplicate-search fields and display text; no relation to another record is created.
+"""
 
 from __future__ import annotations
 
@@ -15,12 +20,32 @@ from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 
 def _clean_optional(value: str) -> Optional[str]:
+    """
+    Stringify and strip optional prompt text, converting only blank results to ``None``.
+
+    Example:
+        >>> _clean_optional(" Description "), _clean_optional(" ")
+        ('Description', None)
+
+
+    :param value: Prompt result converted to text before whitespace stripping.
+    :return: Nonblank stripped text or ``None`` for an empty result.
+    """
     text = str(value).strip()
     return text or None
 
 
 class NewTagWizardCommand(TerminalCommandAPI):
-    """Create a tag row, falling back to legacy label rows when needed."""
+    """
+    Create one tag-like record after prompting for text, optional description, and confirmation.
+
+    Label aliases still use the preferred-table policy rather than forcing labels.
+    Duplicate matches request explicit permission instead of being automatically reused.
+
+    Example:
+        >>> NewTagWizardCommand().usage
+        'add tag'
+    """
 
     group = "add"
     name = "tag"
@@ -38,6 +63,23 @@ class NewTagWizardCommand(TerminalCommandAPI):
     usage = "add tag"
 
     def execute(self, browser, args: list[str]) -> bool:
+        """
+        Normalize nonblank tag text, show an advisory duplicate/summary flow, and create in the selected repository.
+
+        Duplicate confirmation defaults to false; final creation defaults to true.
+        A supplied description is included only when the selected schema advertises
+        its description column. Catalog creation precedes result extraction/output,
+        and failures after that write are not rolled back here.
+
+        Example:
+            >>> NewTagWizardCommand().execute(browser, [])  # doctest: +SKIP
+
+
+        :param browser: Host supplying prompts, tag/label schema/search access, Core creation, and output.
+        :param args: Must be empty; tag data is collected interactively.
+        :return: ``True`` after reporting a created tag or legacy label.
+        :raises ValueError: For arguments, unsupported schema, blank text, or declined confirmation.
+        """
         if args:
             raise ValueError("Usage: {}".format(self.usage))
 
@@ -53,7 +95,9 @@ class NewTagWizardCommand(TerminalCommandAPI):
             raise ValueError("Tag text cannot be blank.")
 
         tag_norm = tag_search_value(tag_text)
-        description = _clean_optional(browser.prompt_text("Tag description", default=""))
+        description = _clean_optional(
+            browser.prompt_text("Tag description", default="")
+        )
 
         existing = search_tag_rows(browser.db, tag_table, tag_text)
 
@@ -66,7 +110,9 @@ class NewTagWizardCommand(TerminalCommandAPI):
                     existing_value,
                 )
             )
-            proceed_duplicate = browser.prompt_yes_no("Create another tag with this normalized form?", default=False)
+            proceed_duplicate = browser.prompt_yes_no(
+                "Create another tag with this normalized form?", default=False
+            )
             if not proceed_duplicate:
                 raise ValueError("Tag wizard canceled to avoid duplicate entry.")
 
@@ -86,7 +132,9 @@ class NewTagWizardCommand(TerminalCommandAPI):
 
         if tag_table == "tags":
             tag_data = {"text": tag_text, "phash": tag_norm}
-            if description is not None and "tag_description" in set(browser.db.get_column_headings("tags")):
+            if description is not None and "tag_description" in set(
+                browser.db.get_column_headings("tags")
+            ):
                 tag_data["description"] = description
             result = browser.execute_core_command(
                 "catalog.entity.create",

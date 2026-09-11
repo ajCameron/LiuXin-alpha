@@ -1,8 +1,13 @@
 """
-Compatibility wrapper for unmanaged disk registration helpers.
+Preserve legacy imports for canonical storage reconciliation declarations.
 
-Canonical home:
-- LiuXin_alpha.storage.reconcile
+Export the same report classes and local registration callables without wrapping
+their arguments or results. Importing this module performs no registration; running
+it as a script delegates to the standalone local-disk reconciliation CLI.
+
+Example:
+    >>> StoreDbSyncReport is UnmanagedDiskRegistrationReport
+    True
 """
 
 from __future__ import annotations

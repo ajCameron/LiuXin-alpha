@@ -1,4 +1,10 @@
-"""Terminal parser and startup composition for plain, scripted, and curses modes."""
+"""
+Parse terminal options and compose a Core session with scripted, plain, or curses browsing.
+
+Command mode takes precedence over UI selection. Curses imports are deferred until
+windowed execution; parser construction and plain/scripted entry points do not
+load the curses adapter. Database creation uses the separate wizard owner.
+"""
 
 from __future__ import annotations
 
@@ -20,7 +26,21 @@ from LiuXin_alpha.surfaces.terminal.database_creation import (
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the argument parser for the text browser entry point."""
+    """
+    Build the terminal argument parser with Core connection, creation, paging, and UI options.
+
+    Repeatable ``--command`` values are collected in order. Numeric options are
+    converted by argparse but generally clamped by their runtime owners, not here.
+    Parser construction neither opens a database nor loads the curses adapter.
+
+    Example:
+        >>> args = build_parser().parse_args(["--database", "example.sqlite", "--command", "tables"])
+        >>> (args.ui_mode, args.page_size, args.command)
+        ('plain', 20, ['tables'])
+
+
+    :return: New argument parser for the terminal application entry point.
+    """
     parser = argparse.ArgumentParser(description="LiuXin text browser")
     add_core_client_arguments(parser, database_help="Path to LiuXin database")
     parser.add_argument(
@@ -112,7 +132,26 @@ def run_windowed_text_browser(
     job_panel_height: int = 10,
     telemetry_panel_height: int = 9,
 ) -> int:
-    """Run the split-pane curses UI wrapper around the text browser."""
+    """
+    Lazily load the curses adapter, normalize its configuration, and run it with the supplied Core client.
+
+    Status height clamps to five rows and both auxiliary heights to four. Refresh
+    seconds are converted to float; the drawing owner applies its minimum cadence.
+    Import, configuration-conversion, and UI execution failures propagate.
+
+    Example:
+        >>> status = run_windowed_text_browser(core, page_size=25)  # doctest: +SKIP
+
+
+    :param core: Core client used by the windowed browser; this helper does not open a session.
+    :param page_size: Default row-page size forwarded to the browser composition.
+    :param history_file: Optional path forwarded to windowed input/history management.
+    :param status_refresh_s: Requested status/telemetry refresh interval in seconds.
+    :param status_height: Requested status-pane height in terminal rows.
+    :param job_panel_height: Requested job-output-pane height in terminal rows.
+    :param telemetry_panel_height: Requested telemetry-pane height in terminal rows.
+    :return: Exit status returned by the windowed browser runner.
+    """
     from LiuXin_alpha.surfaces.terminal.windowed_ui import (
         WindowedUiConfig,
         run_windowed_browser,
@@ -133,7 +172,25 @@ def run_windowed_text_browser(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """CLI entry point for the text browser."""
+    """
+    Parse options, optionally create a database, then run the selected terminal mode in a Core session.
+
+    Creation-wizard cancellation returns one; combining that wizard with an explicit
+    ``--core-endpoint`` option is rejected. Missing database paths can trigger parent creation
+    unless disabled. Repeated commands run before considering windowed/plain mode.
+    The Core context closes after the chosen runner returns or raises.
+
+    Operational ``Exception`` failures print an ERROR line to stderr and return two.
+    Argument parsing occurs outside that handler, so argparse's SystemExit behavior
+    remains intact; KeyboardInterrupt is not handled here either.
+
+    Example:
+        >>> status = main(["--database", "library.sqlite", "--command", "tables"])  # doctest: +SKIP
+
+
+    :param argv: Argument tokens excluding the executable name, or ``None`` for process arguments.
+    :return: Selected runner's status, one for wizard cancellation, or two for a caught operational error.
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
 

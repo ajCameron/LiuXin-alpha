@@ -1,10 +1,10 @@
 """
-Storage workflow layer above manager, store, and driver contracts.
+Expose storage workflow contracts and their public declaration/evidence values.
 
-Workflows own explicit multi-step processes such as staging and sealing backup
-artifacts.  They use ``StorageManagerAPI`` for managed byte access, repositories
-for durable checkpoints, and registries for completed artifacts.  They do not
-perform raw driver operations or expose database row classes.
+Generic lifecycle helpers, backup planning/execution/persistence/Store registration,
+and sealed-image Asset provenance are separate interfaces. Imports here re-export those
+objects without selecting concrete implementations, starting workflows, or opening storage.
+The explicit __all__ is the supported package export set.
 """
 
 from LiuXin_alpha.storage.api.workflow_api.backup_api import (

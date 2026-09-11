@@ -1,3 +1,14 @@
+"""
+Verify unmanaged local registration against real temporary bytes and catalogue rows.
+
+Cases cover suffix selection, repeated upserts, database reopening, compatibility
+export identity, and manager bootstrap visibility. Legacy hash fields are checked
+for presence only; they are not asserted to contain a standard SHA-256 digest.
+
+Example:
+    >>> test_register_existing_disk_creates_store_and_files(db, tmp_path)  # doctest: +SKIP
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,11 +25,37 @@ from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _write_file(path: Path, payload: bytes) -> None:
+    """
+    Create parent directories and write the requested fixture bytes, replacing any existing file.
+
+    Example:
+        >>> _write_file(path, b"book")  # doctest: +SKIP
+
+
+    :param path: Temporary destination Path.
+    :param payload: Exact bytes written by Path.write_bytes.
+    :return: None after writing; filesystem errors propagate.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(payload)
 
 
 def test_register_existing_disk_creates_store_and_files(db, tmp_path: Path) -> None:
+    """
+    Register real local files selected by suffix into the provisioned catalogue and skip the JPEG.
+
+    Assert resolved Store metadata, three keys/extensions, positive sizes, and nonempty legacy hash
+    values, plus links when supported. The hash assertion does not establish SHA-256 correctness or
+    ebook-format validity.
+
+    Example:
+        >>> test_register_existing_disk_creates_store_and_files(db, tmp_path)  # doctest: +SKIP
+
+
+    :param db: Provisioned catalogue fixture receiving actual legacy Store/file/link writes.
+    :param tmp_path: Pytest temporary directory for real local source bytes and any explicitly created catalogue/archive.
+    :return: None after the stated regression assertions pass.
+    """
     ensure_surface_asset_tables(db)
     disk_root = tmp_path / "unmanaged_disk"
     _write_file(disk_root / "Book One.epub", b"epub-data")
@@ -60,6 +97,20 @@ def test_register_existing_disk_creates_store_and_files(db, tmp_path: Path) -> N
 
 
 def test_register_existing_disk_is_idempotent_and_updates_changed_files(db, tmp_path: Path) -> None:
+    """
+    Repeat registration without duplicate rows, then rewrite one source and observe its new size.
+
+    Use real temporary bytes and catalogue operations; the unchanged pass asserts zero updates
+    despite fresh volatile timestamps.
+
+    Example:
+        >>> test_register_existing_disk_is_idempotent_and_updates_changed_files(db, tmp_path)  # doctest: +SKIP
+
+
+    :param db: Provisioned catalogue fixture receiving actual legacy Store/file/link writes.
+    :param tmp_path: Pytest temporary directory for real local source bytes and any explicitly created catalogue/archive.
+    :return: None after the stated regression assertions pass.
+    """
     ensure_surface_asset_tables(db)
     disk_root = tmp_path / "unmanaged_disk"
     _write_file(disk_root / "book.epub", b"first-version")
@@ -86,6 +137,22 @@ def test_register_existing_disk_is_idempotent_and_updates_changed_files(db, tmp_
 def test_register_existing_disk_with_database_path_helper(
     provision_test_database, driver_spec, tmp_path: Path
 ) -> None:
+    """
+    Open an existing provisioned catalogue through the path wrapper and verify persistence after
+    reopening it.
+
+    Register one real file with hashing disabled, then query the stored key in a new Database
+    context within the same process.
+
+    Example:
+        >>> test_register_existing_disk_with_database_path_helper(provision_test_database, driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param provision_test_database: Fixture callable provisioning the named catalogue for reopen tests.
+    :param driver_spec: Fixture selecting the catalogue database adapter.
+    :param tmp_path: Pytest temporary directory for real local source bytes and any explicitly created catalogue/archive.
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.databases.database import Database
 
     provisioned = provision_test_database("test_db_13")
@@ -121,6 +188,18 @@ def test_register_existing_disk_with_database_path_helper(
 
 
 def test_legacy_library_wrapper_re_exports_canonical_api() -> None:
+    """
+    Preserve object identity between legacy Library-module exports and canonical reconciliation
+    callables.
+
+    Imports and identity assertions perform no file registration.
+
+    Example:
+        >>> test_legacy_library_wrapper_re_exports_canonical_api()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.library import unmanaged_disk_ingest as legacy_ingest
     from LiuXin_alpha.storage import reconcile
 
@@ -135,6 +214,21 @@ def test_legacy_library_wrapper_re_exports_canonical_api() -> None:
 
 
 def test_register_existing_disk_refreshes_db_storage_manager(db, tmp_path: Path) -> None:
+    """
+    Bootstrap the database manager after local registration and read the original bytes through the
+    resulting Store.
+
+    Use the persisted Store UUID and real local backend to verify manager visibility, beyond
+    legacy-row insertion alone.
+
+    Example:
+        >>> test_register_existing_disk_refreshes_db_storage_manager(db, tmp_path)  # doctest: +SKIP
+
+
+    :param db: Provisioned catalogue fixture receiving actual legacy Store/file/link writes.
+    :param tmp_path: Pytest temporary directory for real local source bytes and any explicitly created catalogue/archive.
+    :return: None after the stated regression assertions pass.
+    """
     ensure_surface_asset_tables(db)
     disk_root = tmp_path / "unmanaged_refresh"
     _write_file(disk_root / "book.epub", b"payload")
@@ -156,6 +250,21 @@ def test_register_existing_disk_refreshes_db_storage_manager(db, tmp_path: Path)
 
 
 def test_register_existing_disk_can_skip_storage_manager_refresh(db, tmp_path: Path) -> None:
+    """
+    Persist a local Store declaration while leaving it absent from the existing manager when refresh
+    is disabled.
+
+    Assert the row exists and UUID lookup raises StoreConfigurationNotFound; source bytes remain on
+    disk.
+
+    Example:
+        >>> test_register_existing_disk_can_skip_storage_manager_refresh(db, tmp_path)  # doctest: +SKIP
+
+
+    :param db: Provisioned catalogue fixture receiving actual legacy Store/file/link writes.
+    :param tmp_path: Pytest temporary directory for real local source bytes and any explicitly created catalogue/archive.
+    :return: None after the stated regression assertions pass.
+    """
     ensure_surface_asset_tables(db)
     disk_root = tmp_path / "unmanaged_no_refresh"
     _write_file(disk_root / "book.epub", b"payload")

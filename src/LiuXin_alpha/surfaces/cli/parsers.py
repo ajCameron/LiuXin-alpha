@@ -1,4 +1,5 @@
-"""Construct the complete CLI grammar independently of application execution.
+"""
+Construct the complete CLI grammar independently of application execution.
 
 Completion needs to inspect this grammar, so its registrar is supplied by the
 caller instead of importing the completion command back into this owner.
@@ -40,7 +41,24 @@ from LiuXin_alpha.surfaces.cli.workflows import (
 def create_parser(
     *, register_completion: CompletionRegistrar
 ) -> argparse.ArgumentParser:
-    """Build every command family in stable help order, without running commands."""
+    """
+    Register required command families in stable help order on a fresh parser.
+
+    Invoke the supplied completion registrar exactly once between diagnostics
+    and Core registration. Global selectors use separate namespace destinations;
+    position normalization and mutual-exclusion policy belong to the application.
+    Imported builders may fail during construction, but no handler is run here.
+
+    Example:
+        >>> from LiuXin_alpha.surfaces.cli.completion import build_completion_parser
+        >>> parser = create_parser(register_completion=build_completion_parser)
+        >>> parser.parse_args(['completion', 'zsh']).shell
+        'zsh'
+
+
+    :param register_completion: Callback adding completion to the root subparser collection.
+    :return: Fresh liuxin parser with version, global selectors, and required surface choice.
+    """
     parser = argparse.ArgumentParser(
         prog="liuxin",
         description="LiuXin operational command-line surfaces",

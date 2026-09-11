@@ -62,6 +62,9 @@ check pass.
   omit implicit ``self`` and ``cls`` parameters.
 - End every function field list with ``:return:``, including functions that
   return ``None``. Type annotations remain the authoritative type declaration.
+- Describe what each parameter and return value means, including units,
+  sentinel values, or side effects where relevant. Empty field placeholders
+  are unfinished documentation, not a completed migration.
 - Preserve typed exceptions and other meaningful Sphinx fields after the
   parameter and return fields.
 - Do not leave trailing whitespace in empty field placeholders.
@@ -87,10 +90,10 @@ def native_copy(
         >>> info = driver.native_copy(source, destination)  # doctest: +SKIP
 
 
-    :param source:
-    :param destination:
-    :param mode:
-    :return:
+    :param source: Address of the complete readable object to copy.
+    :param destination: Address at which the copied object should be published.
+    :param mode: Collision policy for an object already at the destination.
+    :return: Information about the complete copied object at ``destination``.
     """
 ```
 

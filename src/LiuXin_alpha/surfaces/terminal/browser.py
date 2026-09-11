@@ -1,7 +1,11 @@
-"""Public Core-backed terminal browser composition and compatibility types.
+"""
+Compose the public Core-backed terminal browser and retain historical model/helper aliases.
 
 Command, session, completion, and browsing behavior live in browser_components.
 Application startup selects the UI; this owner never imports the curses adapter.
+Construction initializes the owners' shared state and registers default extensions;
+session execution and cleanup remain with the session mixin. Legacy database inputs
+are enclosed at the shared surface/Core boundary rather than retained as a raw backend.
 """
 
 from __future__ import annotations
@@ -58,13 +62,37 @@ class TextDatabaseBrowser(
     HostMixin["TextDatabaseBrowser"],
     BrowsingMixin["TextDatabaseBrowser"],
 ):
-    """Core-backed command shell with browsing, mutation, and lifecycle extensions."""
+    """
+    Combine command/session, completion, schema/row, output, and browsing owners into one Core-backed shell.
+
+    Construction prepares the shell without starting its command loop or lifecycle
+    plugins. Commands and plugins receive this concrete instance through _extension_host.
+    Existing Core clients are borrowed; legacy database inputs may bootstrap an owned
+    compatibility session whose eventual cleanup belongs to the session owner.
+
+    Example:
+        >>> from io import StringIO
+        >>> from unittest.mock import Mock
+        >>> shell = TextDatabaseBrowser(Mock(spec=CoreClientAPI), input=StringIO(), output=StringIO(), job_manager=Mock())
+        >>> shell.page_size, shell.current_table
+        (20, None)
+    """
 
     prompt = "liuxin-db> "
 
     @property
     def _extension_host(self) -> TextDatabaseBrowser:
-        """Supply the concrete browser to typed command and lifecycle extensions."""
+        """
+        Expose this exact browser instance to typed commands and lifecycle plugins without wrapping it.
+
+        Example:
+            >>> shell = object.__new__(TextDatabaseBrowser)
+            >>> shell._extension_host is shell
+            True
+
+
+        :return: Self, preserving the concrete browser's extension capabilities and identity.
+        """
         return self
 
     def __init__(
@@ -80,6 +108,33 @@ class TextDatabaseBrowser(
         job_manager: JobManagerAPI | None = None,
         metadata_read_source: Any = None,
     ) -> None:
+        """
+        Coerce the Core input, initialize browser state, and register default commands and optional lifecycle plugins.
+
+        Legacy coercion precedes page/history validation and may bootstrap Core.
+        Later initialization/registration errors propagate without constructor-level
+        rollback of that session. No command loop, history loading, or plugin startup
+        runs here. Metadata-read-source and stream fallbacks use truthiness, while
+        a supplied job manager is selected by its being non-None.
+
+        Example:
+            >>> from io import StringIO
+            >>> from unittest.mock import Mock
+            >>> shell = TextDatabaseBrowser(Mock(spec=CoreClientAPI), page_size=0, input=StringIO(), output=StringIO(), job_manager=Mock())
+            >>> shell.page_size, shell._started, shell._closed
+            (1, False, False)
+
+
+        :param core: Borrowed CoreClientAPI or legacy database object enclosed by coerce_surface_core.
+        :param page_size: Initial page length integer-converted and clamped to at least one, without an upper limit.
+        :param input: Input stream, with a missing/falsey value selecting current sys.stdin.
+        :param output: Output stream, with a missing/falsey value selecting current sys.stdout.
+        :param history_file: Path expanded for a leading user marker, or None for the default history path; an explicit empty string becomes Path('.').
+        :param lifecycle_plugins: Optional sequence registered in input order after all default commands.
+        :param job_manager: Optional manager passed through legacy coercion and retained locally; None selects default_job_manager afterward.
+        :param metadata_read_source: Compatibility read source forwarded to coercion and retained when truthy, otherwise replaced locally by the CoreSurfaceModel.
+        :return: None after fully initializing the shell; construction does not itself run or shut down a session.
+        """
         core, compatibility_session = coerce_surface_core(
             core,
             job_manager=job_manager,

@@ -1,5 +1,9 @@
 """
-Build-once RAR archive Store plugin.
+Export the build-once RAR Store and its creator timeout/compression defaults.
+
+RarBuildStoreLocation remains an alias of the shared Location class, not a separate
+address type. The backend owns filesystem staging and explicit sealing; its returned
+read-only Store addresses the published archive.
 """
 
 from LiuXin_alpha.storage.api import Location

@@ -1,4 +1,9 @@
-"""Compatibility re-export for the managed on-disk storage backend class."""
+"""
+Re-export the managed-directory Store through its older module path.
+
+The exported class is the same implementation object as the canonical backend
+module and adds no constructor adaptation or alternate allocation policy.
+"""
 
 from __future__ import annotations
 

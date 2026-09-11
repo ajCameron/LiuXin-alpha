@@ -1,5 +1,10 @@
 """
-Read-only SquashFS archive storage driver.
+Read SquashFS regular members through external inventory and extraction commands.
+
+Escaped pseudo-file metadata supplies a cached index with topology and expansion
+limits. Nonempty reads finish extracting a member before exposing a requested
+range from its temporary spool. Metadata signatures, offered-byte checks, process
+timeouts, and cleanup each provide distinct evidence and failure boundaries.
 """
 
 from __future__ import annotations
@@ -70,7 +75,10 @@ DEFAULT_MAX_SQUASHFS_STDERR_BYTES = 64 * 1024
 @dataclasses.dataclass(slots=True, frozen=True)
 class SquashfsObjectAddress(DriverObjectAddress):
     """
-    Canonical relative POSIX path inside one SquashFS archive.
+    Brand a member key with its SquashFS address-space identity.
+
+    Construction adds no path validation. Driver parsing validates text, whereas an already typed
+    address is checked for ownership without reparsing its spelling.
 
     Example:
         >>> SquashfsObjectAddress("books/novel.epub", UUID(int=1)).value
@@ -81,11 +89,15 @@ class SquashfsObjectAddress(DriverObjectAddress):
 @dataclasses.dataclass(slots=True, frozen=True)
 class _SquashfsEntry:
     """
-    Retain the inventory facts needed to serve stat calls.
+    Retain declared member size and modification time without additional validation.
 
     Example:
         >>> _SquashfsEntry(4, None).size
         4
+
+
+    :ivar size: Declared uncompressed byte count from the pseudo-file record.
+    :ivar modified_at: UTC record time, or None for a manually constructed entry.
     """
 
     size: int
@@ -94,7 +106,11 @@ class _SquashfsEntry:
 
 class _SquashfsProcessReader(io.RawIOBase):
     """
-    Read an exact range while owning one ``unsquashfs -cat`` process.
+    Expose a selected stdout range while owning a running extraction process.
+
+    This retained reader is separate from the driver's current full-member spool path. Reads can
+    block independently of the process-wait timeout. Reaching a selected range boundary does not
+    require process success or the declared member length.
 
     Example:
         >>> reader = _SquashfsProcessReader(process, archive_path=path, internal_path="a", offset=0, length=None, timeout_s=60)  # doctest: +SKIP
@@ -111,19 +127,19 @@ class _SquashfsProcessReader(io.RawIOBase):
         timeout_s: float,
     ) -> None:
         """
-        Bind the stream, requested range, and process-cleanup context.
+        Retain process pipes, range counters, and error context without validating them.
 
         Example:
             >>> _SquashfsProcessReader(process, archive_path=path, internal_path="a", offset=0, length=4, timeout_s=60)  # doctest: +SKIP
 
 
-        :param process:
-        :param archive_path:
-        :param internal_path:
-        :param offset:
-        :param length:
-        :param timeout_s:
-        :return:
+        :param process: Process-like owner supplying stdout, stderr, wait, poll, terminate, and kill.
+        :param archive_path: Image pathname used in error messages.
+        :param internal_path: Member key used in error messages.
+        :param offset: Leading stdout bytes to discard before exposing data; expected nonnegative.
+        :param length: Maximum exposed byte count, or None to read until stdout EOF.
+        :param timeout_s: Seconds allowed by the EOF process wait; stdout reads have no separate timeout.
+        :return: None after initializing range and one-shot EOF-check state.
         """
 
         self._process = process
@@ -138,29 +154,34 @@ class _SquashfsProcessReader(io.RawIOBase):
 
     def readable(self) -> bool:
         """
-        Report that the wrapper implements the binary read contract.
+        Advertise the binary-read operation without inspecting closed state or process liveness.
 
         Example:
             >>> reader.readable()  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: True, including after closure.
         """
 
         return True
 
     def readinto(self, buffer: Buffer) -> int:
         """
-        Fill a caller buffer after discarding the requested leading bytes.
+        Discard leading stdout bytes, then copy one bounded read into the supplied buffer.
+
+        A completed range returns zero before examining the buffer. Reads themselves have no
+        timeout. False stdout results trigger the one-shot EOF check, including a zero-length read
+        into an empty buffer. Payload reads must return bytes; the discard path trusts chunk type
+        and length. Early EOF does not enforce the requested range length.
 
         Example:
             >>> reader.readinto(bytearray(4))  # doctest: +SKIP
             4
 
 
-        :param buffer:
-        :return:
+        :param buffer: Writable byte-oriented buffer; its memoryview length determines the requested count.
+        :return: Copied byte count, or zero at the selected boundary or accepted EOF; buffer and stream errors propagate.
         """
 
         if self._remaining == 0:
@@ -188,13 +209,17 @@ class _SquashfsProcessReader(io.RawIOBase):
 
     def _check_eof(self) -> None:
         """
-        Convert the completed process result into the typed storage outcome.
+        Wait for process completion once and translate timeout or nonzero status.
+
+        The checked flag is set before waiting, so later calls do not retry a failed check. Timeout
+        kills the process without a second wait here. A nonzero result reads all remaining stderr
+        only after wait, with no diagnostic-size cap or concurrent drainer.
 
         Example:
             >>> reader._check_eof()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after a zero exit or an earlier check; timeout raises StorageTimeout and nonzero exit raises StorageUnavailable.
         """
 
         if self._checked_eof:
@@ -226,13 +251,17 @@ class _SquashfsProcessReader(io.RawIOBase):
 
     def close(self) -> None:
         """
-        Close pipes and stop a process whose selected range ended early.
+        Close stdout, stop a still-running process, and then close stderr.
+
+        Termination waits one second; any Exception from that wait triggers kill without a final
+        wait. Earlier cleanup errors may prevent later pipe cleanup, but RawIOBase.close is
+        attempted in finally. An already closed reader returns immediately.
 
         Example:
             >>> reader.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after cleanup returns; cleanup exceptions propagate without validating an early-ended range.
         """
 
         if self.closed:
@@ -254,7 +283,12 @@ class _SquashfsProcessReader(io.RawIOBase):
 
 class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
     """
-    Read and completely enumerate one immutable SquashFS image.
+    Index regular members through unsquashfs and serve ranges from completed temporary spools.
+
+    Pseudo-file metadata preserves escaped path bytes. Inventory enforces topology and expansion
+    policy; extraction checks offered stdout length against the index before exposing a range.
+    Archive versions describe filesystem metadata rather than content hashes. Per-instance locking
+    protects cached inventory, while each nonempty read owns its extraction process and spool.
 
     Example:
         >>> driver = SquashfsStorageDriver("library.sqsh", address_space_uuid=UUID(int=1))  # doctest: +SKIP
@@ -278,24 +312,29 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
         max_path_bytes: int = DEFAULT_MAX_SQUASHFS_PATH_BYTES,
     ) -> None:
         """
-        Configure one archive and the external ``unsquashfs`` command.
+        Resolve an existing regular image and retain extraction and inventory policy.
+
+        The file check precedes policy checks. Counts and sizes must be positive before integer
+        conversion; timeout is checked for positivity but not finiteness. Only the compression ratio
+        has an explicit finiteness check. Construction creates a lazy index and unavailable cached
+        status without starting unsquashfs.
 
         Example:
             >>> SquashfsStorageDriver("library.sqsh", address_space_uuid=UUID(int=1))  # doctest: +SKIP
 
 
-        :param archive_path:
-        :param address_space_uuid:
-        :param unsquashfs_exe:
-        :param timeout_s:
-        :param max_inventory_entries:
-        :param max_member_bytes:
-        :param max_total_uncompressed_bytes:
-        :param max_compression_ratio:
-        :param max_header_bytes:
-        :param max_depth:
-        :param max_path_bytes:
-        :return:
+        :param archive_path: Local image pathname expanded and resolved before the regular-file check.
+        :param address_space_uuid: Identity used to brand and check this driver's member addresses.
+        :param unsquashfs_exe: Executable name or path, resolved with shutil.which when each command starts.
+        :param timeout_s: Positive process/queue wait timeout in seconds; cleanup may take longer.
+        :param max_inventory_entries: Positive ceiling on non-root pseudo records, including directories.
+        :param max_member_bytes: Positive uncompressed-member byte ceiling, further limited by the total budget.
+        :param max_total_uncompressed_bytes: Positive ceiling on the sum of declared regular-member sizes.
+        :param max_compression_ratio: Finite aggregate declared-size/image-size ratio ceiling, at least one.
+        :param max_header_bytes: Positive pseudo-header byte ceiling; a read chunk can temporarily exceed it.
+        :param max_depth: Positive maximum component count for parsed member keys.
+        :param max_path_bytes: Positive maximum UTF-8 surrogateescape byte count for a complete parsed key.
+        :return: None after retaining the path, limits, checker, lock, and initial status.
         """
 
         self._archive_path = pathlib.Path(archive_path).expanduser().resolve(strict=False)
@@ -350,14 +389,14 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
     @property
     def archive_path(self) -> pathlib.Path:
         """
-        Return the resolved local path of the configured image.
+        Expose the resolved image pathname retained at construction without restatting it.
 
         Example:
             >>> driver.archive_path  # doctest: +SKIP
             PosixPath('/srv/archive/library.sqsh')
 
 
-        :return:
+        :return: The configured pathlib.Path; existence may have changed.
         """
 
         return self._archive_path
@@ -367,14 +406,14 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
         self,
     ) -> ScopedDriverObjectAddressChecker[SquashfsObjectAddress]:
         """
-        Return the checker that brands addresses for this archive.
+        Expose the retained checker for address type and archive ownership.
 
         Example:
             >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
             UUID('00000000-0000-0000-0000-000000000001')
 
 
-        :return:
+        :return: The same scoped SquashfsObjectAddress checker on each access.
         """
 
         return self._checker
@@ -382,14 +421,14 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
     @property
     def root_uri(self) -> str:
         """
-        Return the credential-free file URI for the archive.
+        Render the resolved local image path as a file URI without probing the archive.
 
         Example:
             >>> driver.root_uri  # doctest: +SKIP
             'file:///srv/archive/library.sqsh'
 
 
-        :return:
+        :return: Absolute file URI identifying the configured image pathname.
         """
 
         return self._archive_path.as_uri()
@@ -397,14 +436,18 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Describe complete enumeration and concurrent read support.
+        Describe complete regular-member enumeration, conditional ranges, and independent concurrent
+        reads.
+
+        These advertised operations do not probe tool availability. Range support still materializes
+        a full nonempty member before returning the selected bytes.
 
         Example:
             >>> driver.capabilities.range_reads  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Fresh read-only capabilities with hierarchical prefixes, thread safety, and two recommended parallel reads.
         """
 
         return DriverCapabilities(
@@ -422,13 +465,19 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
 
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
-        """Advertise regular-file reads through an external archive tool.
+        """
+        Describe read-only archive access, full-member staging, and configured expansion limits.
+
+        The component-size field reports the whole-key byte ceiling used by parsing. Extraction
+        counts bytes offered to the temporary file, without checking accepted write counts or
+        hashing the spool. Recursive ingest must impose its own cross-container budget.
 
         Example:
             >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
             <StoragePublicationModel.READ_ONLY: 'read_only'>
 
-        :return: Read-only SquashFS characteristics.
+
+        :return: Fresh characteristics with read-only publication, object staging, effective member ceiling, and tool/path/policy limitations.
         """
 
         return StorageCharacteristics(
@@ -468,28 +517,32 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
 
     def startup(self) -> DriverStatus:
         """
-        Probe the archive and build its initial member index.
+        Delegate to probe, forcing an inventory refresh rather than merely returning cached status.
 
         Example:
             >>> driver.startup().available  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: The status returned by probe; errors outside its unavailable/timeout handling propagate.
         """
 
         return self.probe()
 
     def probe(self) -> DriverStatus:
         """
-        Rebuild the index and report whether the archive is readable.
+        Force inventory reconstruction and cache the observed availability and regular-file count.
+
+        StorageUnavailable and StorageTimeout become unavailable status records. Other errors,
+        including integrity and unsupported-policy failures, propagate and leave the previous status
+        record unchanged. Success validates metadata inventory, not every member payload.
 
         Example:
             >>> driver.probe().writable  # doctest: +SKIP
             False
 
 
-        :return:
+        :return: Cached read-only DriverStatus with check time and limits; writable is always False.
         """
 
         try:
@@ -524,27 +577,28 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
 
     def status(self) -> DriverStatus:
         """
-        Return the most recently observed archive status.
+        Return the last startup/probe status without touching the image or executable.
 
         Example:
             >>> driver.status().available  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: The retained DriverStatus, initially unavailable until a successful probe.
         """
 
         return self._last_status
 
     def close(self) -> None:
         """
-        Complete lifecycle cleanup; the driver retains no shared process.
+        Complete the driver lifecycle hook without clearing its cache or closing caller-owned read
+        streams.
 
         Example:
             >>> driver.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None; extraction processes are per operation and returned streams remain the caller's responsibility.
         """
 
         return None
@@ -554,15 +608,19 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
         identifier: DriverObjectAddressInput[SquashfsObjectAddress],
     ) -> SquashfsObjectAddress:
         """
-        Validate a persisted archive-member path in this address space.
+        Check typed-address ownership or validate a stringified canonical relative key.
+
+        Text parsing rejects ambiguous/escaping components and enforces depth and encoded-path
+        limits without trimming or normalizing Unicode. Typed DriverObjectAddress inputs are checked
+        directly and do not repeat text validation.
 
         Example:
             >>> str(driver.parse_object_address("books/novel.epub"))  # doctest: +SKIP
             'books/novel.epub'
 
 
-        :param identifier:
-        :return:
+        :param identifier: Owned typed member address or text-like candidate for a relative member key.
+        :return: The checked address or a newly branded SquashfsObjectAddress; invalid text or ownership raises StorageInvalidAddress.
         """
 
         if isinstance(identifier, DriverObjectAddress):
@@ -577,15 +635,15 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
 
     def join_object_address(self, *tokens: str) -> SquashfsObjectAddress:
         """
-        Join path components without weakening canonical-path validation.
+        Stringify at least one token, join with slashes, and run normal text-key validation.
 
         Example:
             >>> str(driver.join_object_address("books", "novel.epub"))  # doctest: +SKIP
             'books/novel.epub'
 
 
-        :param tokens:
-        :return:
+        :param tokens: Ordered path pieces; embedded slashes are retained and empty/noncanonical results reject.
+        :return: Branded canonical member address; zero tokens raise StorageInvalidAddress.
         """
 
         if not tokens:
@@ -597,15 +655,19 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
         object_address: SquashfsObjectAddress,
     ) -> DriverObjectInfo[SquashfsObjectAddress]:
         """
-        Return indexed size, timestamp, and filename hints for one member.
+        Read one member's declared size, UTC timestamp, and basename hint from a coherent index
+        snapshot.
+
+        The archive-wide metadata version is shared by all members. This method does not extract or
+        hash payload bytes.
 
         Example:
             >>> driver.stat(driver.parse_object_address("books/novel.epub")).size  # doctest: +SKIP
             42
 
 
-        :param object_address:
-        :return:
+        :param object_address: Typed member address belonging to this driver.
+        :return: DriverObjectInfo for the indexed regular file; absence raises StorageNotFound.
         """
 
         checked = self.check_object_address(object_address)
@@ -639,7 +701,12 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
         if_version: str | None = None,
     ) -> BinaryIO:
         """
-        Open an owned stream over all or part of one archive member.
+        Validate ownership, range, existence, and optional version before serving a member range.
+
+        Zero-length or past-end ranges return an empty stream after those checks. Other reads
+        compare image signatures before and after full extraction, then wrap the spool at the
+        selected offset. The final signature check and wrapper creation have no explicit
+        spool-cleanup guard on failure. Metadata signatures are not content hashes.
 
         Example:
             >>> with driver.open_read(address, offset=2, length=4) as source:  # doctest: +SKIP
@@ -647,11 +714,11 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
             b'book'
 
 
-        :param object_address:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param object_address: Owned typed address of an indexed regular member.
+        :param offset: Nonnegative byte offset into the uncompressed member.
+        :param length: Nonnegative maximum exposed byte count, or None for all remaining bytes.
+        :param if_version: Required archive metadata version, or None to omit the initial equality condition.
+        :return: Caller-owned binary stream whose closure normally releases its spool; errors may occur before any stream is returned.
         """
 
         checked = self.check_object_address(object_address)
@@ -696,15 +763,18 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
         prefix: SquashfsObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[SquashfsObjectAddress]]:
         """
-        Yield indexed regular-file members beneath an optional path prefix.
+        Yield regular members in sorted key order from one index/signature snapshot.
+
+        A prefix selects itself and slash-delimited descendants, excluding merely similar names. No
+        member bytes are extracted; later image changes do not update this captured snapshot.
 
         Example:
             >>> [str(item.object_address) for item in driver.iter_inventory()]  # doctest: +SKIP
             ['books/novel.epub']
 
 
-        :param prefix:
-        :return:
+        :param prefix: Owned typed key limiting enumeration, or None for all indexed regular members.
+        :return: Iterator of address, declared size, timestamp, shared version, and basename-hint records.
         """
 
         prefix_key = None if prefix is None else str(self.check_object_address(prefix))
@@ -730,15 +800,20 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
 
     def _get_index(self, *, force: bool = False) -> dict[str, _SquashfsEntry]:
         """
-        Return a snapshot of the cached index, rebuilding after image changes.
+        Copy the cached index under its reentrant lock, rebuilding when forced or when the image
+        signature changes.
+
+        Before/after stat errors are translated. A rebuild publishes its index and signature only if
+        both observations match; a changed image raises StorageUnavailable while retaining the
+        previous cache.
 
         Example:
             >>> sorted(driver._get_index())  # doctest: +SKIP
             ['books/novel.epub']
 
 
-        :param force:
-        :return:
+        :param force: True to rebuild even when the current metadata signature matches the cache.
+        :return: Shallow copy of the current member mapping; immutable entries are shared.
         """
 
         with self._index_lock:
@@ -778,7 +853,16 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
     def _index_snapshot(
         self,
     ) -> tuple[dict[str, _SquashfsEntry], tuple[int, int, int, int, int]]:
-        """Capture the member index and exact archive identity together."""
+        """
+        Capture a refreshed index copy and its matching signature while retaining the same reentrant
+        lock.
+
+        Example:
+            >>> index, signature = driver._index_snapshot()  # doctest: +SKIP
+
+
+        :return: Pair of member mapping and five-field archive metadata signature; asserts a signature exists after refresh.
+        """
 
         with self._index_lock:
             index = self._get_index()
@@ -791,7 +875,21 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
         *,
         if_version: str | None,
     ) -> None:
-        """Fail closed if the archive changed around a member extraction."""
+        """
+        Compare current image stat evidence with the expected extraction snapshot.
+
+        Stat errors are translated. A mismatch raises StoragePreconditionFailed when a version
+        condition was supplied, otherwise StorageUnavailable. This helper uses only the presence of
+        if_version, not its text.
+
+        Example:
+            >>> driver._require_current_signature(signature, if_version=None)  # doctest: +SKIP
+
+
+        :param expected: Five-field metadata signature captured with the index.
+        :param if_version: Optional version condition selecting the mismatch error type.
+        :return: None when the signatures match; no payload hash is checked.
+        """
 
         try:
             observed = archive_file_signature(self._archive_path.stat())
@@ -820,7 +918,28 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
         key: str,
         entry: _SquashfsEntry,
     ) -> BinaryIO:
-        """Extract exactly one indexed member into bounded temporary storage."""
+        """
+        Extract one literal member to a temporary file and require the indexed stdout byte count.
+
+        Two daemon threads copy stdout and drain diagnostics. Output offers cannot exceed
+        entry.size, but destination write counts are ignored. Success requires both threads
+        finished, no recorded failure, zero exit, and matching offered-byte total; the flushed spool
+        is rewound without independent length or hash verification.
+
+        Temporary-file creation and executable lookup precede the cleanup guard. A timed-out process
+        is killed and waited on without a cleanup timeout; each drainer then has a two-second join.
+        Main-path BaseExceptions close the destination after process cleanup, while unsuppressed
+        final pipe-close errors can escape after a successful return path.
+
+        Example:
+            >>> with driver._materialize_member(key, entry) as spool:  # doctest: +SKIP
+            ...     payload = spool.read()
+
+
+        :param key: Previously validated indexed member key passed to unsquashfs with -no-wildcards.
+        :param entry: Declared size used as both output ceiling and final byte-count expectation.
+        :return: Open binary temporary file at offset zero, owned by the caller; typed process/integrity errors or cleanup errors propagate.
+        """
 
         destination = tempfile.TemporaryFile(mode="w+b")
         executable = shutil.which(self._unsquashfs_exe) or self._unsquashfs_exe
@@ -864,6 +983,19 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
             process_stderr = process.stderr
 
             def copy_stdout() -> None:
+                """
+                Copy captured stdout in requests up to 1 MiB while counting offered bytes.
+
+                An overlong chunk records an integrity failure and kills the process before writing
+                it. Accepted destination counts are ignored. BaseExceptions are recorded and trigger
+                kill; kill itself can still fail in the thread.
+
+                Example:
+                    >>> copy_stdout()  # doctest: +SKIP
+
+
+                :return: None after EOF or a recorded failure; updates the captured byte counter and failure list.
+                """
                 nonlocal extracted_bytes
                 try:
                     while chunk := process_stdout.read(1024 * 1024):
@@ -890,6 +1022,18 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
                     process.kill()
 
             def copy_stderr() -> None:
+                """
+                Drain all captured stderr while retaining only its first 64 KiB for error reporting.
+
+                BaseExceptions are appended to the shared failure list and trigger process kill;
+                errors from that kill are not separately caught.
+
+                Example:
+                    >>> copy_stderr()  # doctest: +SKIP
+
+
+                :return: None after EOF or a recorded drain failure.
+                """
                 try:
                     while chunk := process_stderr.read(64 * 1024):
                         remaining = DEFAULT_MAX_SQUASHFS_STDERR_BYTES - len(
@@ -982,22 +1126,32 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
 
     def _build_index(self) -> dict[str, _SquashfsEntry]:
         """
-        Parse losslessly escaped pseudo-file records into regular-file entries.
+        Parse escaped pseudo records into a policy-checked regular-member mapping.
+
+        Literal root records require directory type and otherwise bypass count, timestamp, and
+        topology checks. Non-root directories count and validate names/times before omission.
+        Regular files use field five for size; other member types reject. Unused fields are not
+        exhaustively validated.
+
+        Duplicate keys, file ancestors, and file/directory collisions reject. Declared size,
+        aggregate expansion, entry count, and parsed-key limits apply before returning. The
+        aggregate ratio uses a final image stat without local OSError translation; this helper does
+        not extract payload bytes.
 
         Example:
             >>> driver._build_index()["books/novel.epub"].size  # doctest: +SKIP
             42
 
 
-        :return:
+        :return: New key-to-entry mapping; malformed metadata raises integrity errors and unsupported members/limits raise StorageUnsupportedOperation.
         """
 
         # The normal ``unsquashfs -llc`` listing is line-oriented and cannot
         # represent a member name containing CR or LF without ambiguity.  The
         # pseudo-file header escapes every path metacharacter, so it gives us
-        # a lossless inventory.  Stop at its data marker: the bytes following
-        # it are member contents and must never be buffered merely to index an
-        # archive.
+        # a lossless inventory. Return only the prefix before its data marker;
+        # the chunk containing the marker may also hold member-content bytes,
+        # but inventory parsing does not consume that suffix.
         output = self._read_pseudo_header()
         index: dict[str, _SquashfsEntry] = {}
         seen_keys: dict[str, str] = {}
@@ -1113,7 +1267,23 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
         file_keys: set[str],
         implicit_directory_keys: set[str],
     ) -> None:
-        """Reject duplicate names and file/directory overwrite aliases."""
+        """
+        Reject duplicates and file/directory conflicts before recording a canonical member.
+
+        The helper assumes the key was already validated. Explicit parent directories may follow
+        their children, but a file cannot replace an implied parent or serve as an ancestor.
+
+        Example:
+            >>> driver._record_member_topology("books/a", is_directory=False, seen_keys={}, file_keys=set(), implicit_directory_keys=set())  # doctest: +SKIP
+
+
+        :param key: Previously validated relative member key.
+        :param is_directory: Whether this entry is an explicit directory rather than a file.
+        :param seen_keys: Mutable map of explicit keys to kind labels.
+        :param file_keys: Mutable set of already recorded file keys.
+        :param implicit_directory_keys: Mutable set of ancestor keys required by previous entries.
+        :return: None after updating all relevant collections; conflicts raise StorageIntegrityError before mutation.
+        """
 
         kind = "directory" if is_directory else "file"
         previous_kind = seen_keys.get(key)
@@ -1141,14 +1311,25 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
 
     def _read_pseudo_header(self) -> bytes:
         """
-        Capture inventory metadata and stop before ``unsquashfs`` emits contents.
+        Return metadata bytes preceding the pseudo-data marker from an unsquashfs process.
+
+        A header thread sends bytes or an Exception through a one-slot queue; a separate drainer
+        retains bounded stderr. The queue wait has the configured timeout. A successful marker does
+        not independently require a zero exit code, and the chunk containing it can temporarily
+        include payload bytes.
+
+        Cleanup terminates a live process, waits one second, then can kill and wait without a
+        timeout. Pipes close before one-second thread joins; final thread liveness is not checked.
+        Missing pipes and thread startup occur before the coordinating cleanup guard. Cleanup errors
+        propagate. Available diagnostics replace a queued StorageUnavailable message, while other
+        queued exceptions retain their type.
 
         Example:
             >>> b"books/novel.epub" in driver._read_pseudo_header()  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Header prefix excluding the marker and payload; timeout, malformed stream, policy, process-start, and cleanup errors propagate.
         """
 
         executable = shutil.which(self._unsquashfs_exe) or self._unsquashfs_exe
@@ -1183,13 +1364,18 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
 
         def read_header() -> None:
             """
-            Feed the escaped metadata prefix to the coordinating thread.
+            Read 64 KiB stdout chunks until a complete marker or an inventory failure can be queued.
+
+            With a marker, only the prefix length is checked. Without one, the full buffered length
+            is checked, including any partial marker. One chunk can exceed the ceiling before
+            rejection. EOF before the marker queues StorageUnavailable; Exceptions are queued, while
+            BaseExceptions outside Exception are not caught.
 
             Example:
                 >>> read_header()  # doctest: +SKIP
 
 
-            :return:
+            :return: None after queueing the header bytes or an error; the captured stdout remains owned by the coordinator.
             """
 
             buffered = bytearray()
@@ -1234,13 +1420,16 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
 
         def read_stderr() -> None:
             """
-            Drain diagnostics so a full error pipe cannot block inventory.
+            Drain diagnostics while retaining the first 64 KiB and discarding later bytes.
+
+            Read errors are not captured or sent to the header-result queue; this thread does not
+            close its pipe.
 
             Example:
                 >>> read_stderr()  # doctest: +SKIP
 
 
-            :return:
+            :return: None at stderr EOF, after updating the captured diagnostic prefix.
             """
 
             while chunk := process_stderr.read(64 * 1024):
@@ -1293,15 +1482,19 @@ class SquashfsStorageDriver(StorageDriverAPI[SquashfsObjectAddress]):
 
 def _canonical_squashfs_key(value: str) -> str:
     """
-    Validate one persisted relative POSIX member key without normalizing it.
+    Check basic relative POSIX key shape without trimming, Unicode normalization, or configured
+    limits.
+
+    Empty, absolute, NUL, backslash, empty-component, dot, and parent components reject. The current
+    driver parser uses archive-common validation with depth/byte limits instead.
 
     Example:
         >>> _canonical_squashfs_key("books/novel.epub")
         'books/novel.epub'
 
 
-    :param value:
-    :return:
+    :param value: Candidate stringified before validation.
+    :return: Canonical spelling unchanged, or StorageInvalidAddress; no member existence check is made.
     """
 
     key = str(value)
@@ -1317,7 +1510,10 @@ def _canonical_squashfs_key(value: str) -> str:
 
 def _iter_pseudo_records(header: bytes) -> Iterator[bytes]:
     """
-    Yield newline-terminated pseudo definitions without splitting escaped LF.
+    Split on unescaped LF while preserving escape bytes and escaped LF inside each record.
+
+    Empty records are ignored. A nonempty final record is yielded even without a terminator or with
+    an incomplete trailing escape; later parsing decides whether it is valid.
 
     Example:
         >>> header = b"first" + bytes((10,)) + b"second" + bytes((10,))
@@ -1325,8 +1521,8 @@ def _iter_pseudo_records(header: bytes) -> Iterator[bytes]:
         [b'first', b'second']
 
 
-    :param header:
-    :return:
+    :param header: Pseudo-header bytes, excluding the data marker.
+    :return: Iterator of nonempty record bytes without unescaped LF separators.
     """
 
     record = bytearray()
@@ -1347,7 +1543,20 @@ def _iter_pseudo_records(header: bytes) -> Iterator[bytes]:
 
 
 def _split_pseudo_record(record: bytes) -> tuple[bytes, list[bytes]] | None:
-    """Separate one escaped SquashFS path from its pseudo-file fields."""
+    """
+    Split an escaped path at the first unescaped ASCII space and tokenize the remaining fields.
+
+    Fields use ordinary byte-whitespace splitting. This helper does not unescape or validate the
+    path and accepts an empty path when fields exist.
+
+    Example:
+        >>> _split_pseudo_record(b"books/a R 0 600 0 0 4")
+        (b'books/a', [b'R', b'0', b'600', b'0', b'0', b'4'])
+
+
+    :param record: Single pseudo-record byte string without its unescaped LF terminator.
+    :return: Pair of escaped path and nonempty field list, or None when there is no separator or no fields.
+    """
 
     escaped = False
     for index, byte in enumerate(record):
@@ -1363,7 +1572,10 @@ def _split_pseudo_record(record: bytes) -> tuple[bytes, list[bytes]] | None:
 
 def _unescape_pseudo_path(value: bytes) -> bytes | None:
     """
-    Undo mksquashfs pseudo-file path quoting without decoding filename bytes.
+    Remove each quoting backslash while preserving the following byte literally.
+
+    Any following byte is accepted, including whitespace or another backslash. No filename decoding
+    or canonical-path validation occurs.
 
     Example:
         >>> quoted = b"book" + bytes((92, 32)) + b"one.epub"
@@ -1371,8 +1583,8 @@ def _unescape_pseudo_path(value: bytes) -> bytes | None:
         b'book one.epub'
 
 
-    :param value:
-    :return:
+    :param value: Escaped path bytes from one pseudo record.
+    :return: Unescaped bytes, including empty bytes for empty input, or None for a trailing unmatched backslash.
     """
 
     unescaped = bytearray()

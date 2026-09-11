@@ -1,3 +1,12 @@
+"""
+Exercise shared catalogue browsing, metadata, cache-only reads, and image delivery against real temporary databases.
+
+Fixture helpers persist WEMI entities and linkable metadata directly rather than
+running ingestion. Ebook bytes and the PNG signature are transfer fixtures, not
+validated publications or renderable images. Database-driver selection is provided
+by driver_spec; cache isolation is verified with a deliberately uncached work.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -17,6 +26,17 @@ def _build_backend(
     *,
     read_source=None,
 ) -> tuple[ReadOnlyWebApplication, ReadModelBackend]:
+    """
+    Build a read-only application around a borrowed database and expose its shared read-model instance.
+
+    Example:
+        >>> app, backend = _build_backend(database)  # doctest: +SKIP
+
+
+    :param db: Open fixture catalogue borrowed by the application's Core session.
+    :param read_source: Optional metadata provider forwarded unchanged for cache-backed composition.
+    :return: Application configured as Read Model Test and its own read_model object.
+    """
     app = ReadOnlyWebApplication(
         db,
         config=ReadOnlyWebConfig(title="Read Model Test"),
@@ -26,6 +46,17 @@ def _build_backend(
 
 
 def _insert_work_row(db: Database, *, title: str) -> int:
+    """
+    Persist a work whose display, canonical, and sort titles all use the supplied text.
+
+    Example:
+        >>> work_id = _insert_work_row(database, title="Alpha Book")  # doctest: +SKIP
+
+
+    :param db: Open database receiving the work row.
+    :param title: Text stored unchanged in all three title columns.
+    :return: Integer primary key of the new work.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -39,6 +70,18 @@ def _insert_work_row(db: Database, *, title: str) -> int:
 
 
 def _insert_store_row(db: Database, *, name: str, root_uri: str) -> int:
+    """
+    Declare a local filesystem store using the file protocol without creating its directory.
+
+    Example:
+        >>> store_id = _insert_store_row(database, name="Shelf", root_uri=str(tmp_path))  # doctest: +SKIP
+
+
+    :param db: Open database receiving the store declaration.
+    :param name: Display name of the fixture store.
+    :param root_uri: Existing temporary directory recorded as the store root.
+    :return: Integer primary key of the new store.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -53,6 +96,17 @@ def _insert_store_row(db: Database, *, name: str, root_uri: str) -> int:
 
 
 def _insert_agent_row(db: Database, *, name: str) -> int:
+    """
+    Persist a person agent with matching canonical and sort names, without linking it to a work.
+
+    Example:
+        >>> agent_id = _insert_agent_row(database, name="Alice Author")  # doctest: +SKIP
+
+
+    :param db: Open database receiving the agent row.
+    :param name: Display/sort name stored unchanged.
+    :return: Integer agent identifier for later credit linking.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -66,6 +120,17 @@ def _insert_agent_row(db: Database, *, name: str) -> int:
 
 
 def _insert_label_row(db: Database, *, text: str) -> int:
+    """
+    Persist a legacy label and its standardized search text for tag-fallback tests.
+
+    Example:
+        >>> label_id = _insert_label_row(database, text="Adventure")  # doctest: +SKIP
+
+
+    :param db: Open database receiving the label row.
+    :param text: Visible label text also passed through make_tag_search_term for normalization.
+    :return: Integer identifier of the inserted label.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -78,6 +143,17 @@ def _insert_label_row(db: Database, *, text: str) -> int:
 
 
 def _insert_tag_row(db: Database, *, text: str) -> int:
+    """
+    Persist a canonical tag with its standardized matching value in tag_phash.
+
+    Example:
+        >>> tag_id = _insert_tag_row(database, text="Canonical Tag")  # doctest: +SKIP
+
+
+    :param db: Open database receiving the tag row.
+    :param text: Visible tag text retained in tag and normalized through make_tag_search_term.
+    :return: Integer identifier for later work/tag linking.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -90,6 +166,17 @@ def _insert_tag_row(db: Database, *, text: str) -> int:
 
 
 def _insert_series_row(db: Database, *, name: str) -> int:
+    """
+    Persist a series with matching display/sort names and standardized matching text.
+
+    Example:
+        >>> series_id = _insert_series_row(database, name="Library Shelf")  # doctest: +SKIP
+
+
+    :param db: Open database receiving the series row.
+    :param name: Series display/sort text also used to derive series_name_norm.
+    :return: Integer identifier of the inserted series.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -103,6 +190,17 @@ def _insert_series_row(db: Database, *, name: str) -> int:
 
 
 def _insert_expression_row(db: Database, *, title_override: str) -> int:
+    """
+    Persist an expression title override without establishing its work relationship.
+
+    Example:
+        >>> expression_id = _insert_expression_row(database, title_override="Alpha Book")  # doctest: +SKIP
+
+
+    :param db: Open database receiving the expression row.
+    :param title_override: Expression-specific title stored unchanged.
+    :return: Integer identifier used by later graph construction.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={"expression_title_override": title_override},
@@ -112,6 +210,17 @@ def _insert_expression_row(db: Database, *, title_override: str) -> int:
 
 
 def _insert_manifestation_row(db: Database, *, format_detail: str) -> int:
+    """
+    Persist an ebook manifestation with a caller-selected format description.
+
+    Example:
+        >>> manifestation_id = _insert_manifestation_row(database, format_detail="EPUB")  # doctest: +SKIP
+
+
+    :param db: Open database receiving the manifestation row.
+    :param format_detail: Format label recorded without inspecting any physical payload.
+    :return: Integer identifier of the still-unlinked manifestation.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -124,6 +233,21 @@ def _insert_manifestation_row(db: Database, *, format_detail: str) -> int:
 
 
 def _insert_item_row(db: Database, *, manifestation_id: int, source_path: str, source_name: str) -> int:
+    """
+    Persist an ebook item under a manifestation with fixture source-file provenance.
+
+    The helper records metadata only and neither opens nor ingests the source.
+
+    Example:
+        >>> item_id = _insert_item_row(database, manifestation_id=manifestation_id, source_path=str(book_path), source_name=book_path.name)  # doctest: +SKIP
+
+
+    :param db: Open database receiving the item row.
+    :param manifestation_id: Parent identifier converted with int for the foreign-key column.
+    :param source_path: Source location stored in item provenance.
+    :param source_name: Source filename stored separately from its full path.
+    :return: Integer identifier of the new item.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -139,6 +263,23 @@ def _insert_item_row(db: Database, *, manifestation_id: int, source_path: str, s
 
 
 def _insert_file_row_for_item(db: Database, *, store_id: int, item_id: int, file_path: Path) -> int:
+    """
+    Ensure file support tables and register an existing fixture payload as an item's primary ebook.
+
+    The basename becomes the storage key, the suffix supplies a lowercase
+    extension, and stat supplies its size. No format parser or ingestion runs.
+
+    Example:
+        >>> file_id = _insert_file_row_for_item(database, store_id=store_id, item_id=item_id, file_path=book_path)  # doctest: +SKIP
+
+
+    :param db: Open database receiving any required support tables and the file row.
+    :param store_id: Store identifier converted to int for the file reference.
+    :param item_id: Owning item identifier converted to int for the file reference.
+    :param file_path: Existing payload whose path/name/suffix/size become file metadata.
+    :return: Integer primary key of the inserted file.
+    :raises OSError: If obtaining the fixture file's stat fails.
+    """
     ensure_surface_asset_tables(db)
     row = Row.from_idless_row_dict(
         db,
@@ -162,6 +303,23 @@ def _insert_file_row_for_item(db: Database, *, store_id: int, item_id: int, file
 
 
 def _insert_image_row_for_item(db: Database, *, store_id: int, item_id: int, file_path: Path) -> int:
+    """
+    Ensure image support tables and register an existing fixture payload as an item cover with fixed PNG MIME metadata.
+
+    Name, basename, lowercase extension, and size come from file_path; neither
+    bytes nor suffix are checked against the declared image/png MIME type.
+
+    Example:
+        >>> image_id = _insert_image_row_for_item(database, store_id=store_id, item_id=item_id, file_path=image_path)  # doctest: +SKIP
+
+
+    :param db: Open database receiving any required support tables and the cover row.
+    :param store_id: Local store identifier converted to int for the image reference.
+    :param item_id: Owning item identifier converted to int for the image reference.
+    :param file_path: Existing image fixture supplying storage/path/name/size metadata.
+    :return: Integer primary key of the inserted image.
+    :raises OSError: If reading the fixture file's stat fails.
+    """
     ensure_surface_asset_tables(db, include_images=True)
     row = Row.from_idless_row_dict(
         db,
@@ -186,6 +344,17 @@ def _insert_image_row_for_item(db: Database, *, store_id: int, item_id: int, fil
 
 
 def test_read_model_category_rows_and_counts(driver_spec, tmp_path: Path) -> None:
+    """
+    Build linked work/agent/label/series fixtures and verify browse counts, navigation order, and author paging.
+
+    Example:
+        >>> test_read_model_category_rows_and_counts(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Parametrized database backend selected by the test configuration.
+    :param tmp_path: Isolated directory containing the temporary catalogue.
+    :return: None after category labels, linked-work counts, fixed summary order, and page assertions.
+    """
     db_path = tmp_path / "read_model_categories.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -227,6 +396,17 @@ def test_read_model_category_rows_and_counts(driver_spec, tmp_path: Path) -> Non
 
 
 def test_read_model_prefers_real_tags_over_legacy_labels(driver_spec, tmp_path: Path) -> None:
+    """
+    Prefer a populated canonical tag table over simultaneously linked legacy labels in browsing and metadata.
+
+    Example:
+        >>> test_read_model_prefers_real_tags_over_legacy_labels(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Parametrized backend used for the fixture database.
+    :param tmp_path: Temporary catalogue directory.
+    :return: None after selected table, browse label, and work-tag metadata assertions.
+    """
     db_path = tmp_path / "read_model_real_tags.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -255,6 +435,17 @@ def test_read_model_prefers_real_tags_over_legacy_labels(driver_spec, tmp_path: 
 
 
 def test_read_model_work_and_file_payloads(driver_spec, tmp_path: Path) -> None:
+    """
+    Traverse a real work/expression/manifestation/item graph into work, credit, file, paging, and related-entity payloads.
+
+    Example:
+        >>> test_read_model_work_and_file_payloads(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Parametrized backend for the temporary catalogue.
+    :param tmp_path: Isolated root for database and ebook-transfer bytes.
+    :return: None after metadata facets/formats, detail projections, visible IDs, and file-reference/route checks.
+    """
     db_path = tmp_path / "read_model_work.sqlite"
     book_path = tmp_path / "alpha-book.epub"
     book_path.write_bytes(b"epub payload")
@@ -321,6 +512,21 @@ def test_read_model_can_use_cache_read_source_without_database_fallback(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Keep reads on a loaded schema-backed cache after inserting an additional uncached database work.
+
+    The selected CacheMetadataReadSource explicitly disables database fallback.
+    Original cached WEMI relationships and file metadata remain available while
+    the newly inserted work must not leak into browse counts or work listings.
+
+    Example:
+        >>> test_read_model_can_use_cache_read_source_without_database_fallback(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Parametrized database backend underlying the loaded cache.
+    :param tmp_path: Temporary database and cached-book fixture directory.
+    :return: None after cache-only visibility and related author/tag/series/format assertions.
+    """
     db_path = tmp_path / "read_model_cache_source.sqlite"
     book_path = tmp_path / "cached-book.epub"
     book_path.write_bytes(b"epub payload")
@@ -395,6 +601,17 @@ def test_read_model_can_use_cache_read_source_without_database_fallback(
 
 
 def test_read_model_discovers_images_and_resolves_targets(driver_spec, tmp_path: Path) -> None:
+    """
+    Discover an item cover through a work graph and delegate local image bytes, MIME, and SVG fallback through the read model.
+
+    Example:
+        >>> test_read_model_discovers_images_and_resolves_targets(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Parametrized backend used to store the temporary WEMI/image graph.
+    :param tmp_path: Isolated root for the database, ebook bytes, and PNG-signature fixture.
+    :return: None after image identity, no-local-redirect, stored-byte equality, MIME, and placeholder-title assertions.
+    """
     db_path = tmp_path / "read_model_assets.sqlite"
     book_path = tmp_path / "asset-book.epub"
     image_path = tmp_path / "cover.png"

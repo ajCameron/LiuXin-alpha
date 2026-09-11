@@ -1,11 +1,18 @@
 """
-Configured-store API above backend-specific driver mechanics.
+Publish the configured-Store facade, its constituent contracts, and driver adapter.
 
-``StoreAPI`` represents exactly one configured destination or source.  It owns
-identity, lifecycle, transactional byte access, and store-local convenience
-operations.  Cross-store routing and storage policy stay in
-``StorageManagerAPI``; backend mechanics sit below this package in
-``StorageDriverAPI``.
+A Store owns durable identity, Location routing, lifecycle, and transactional
+byte operations for one configured endpoint. StorageDriverAPI owns backend
+mechanics below that boundary; StorageManagerAPI owns cross-Store routing and
+placement policy above it. Optional ingest and native-operation protocols
+describe additional behavior without requiring every Store to implement it.
+
+These exports are eager aliases of their defining modules. Structural protocol
+membership alone does not establish the advertised operational guarantees.
+
+Example:
+    >>> StoreAPI.__name__
+    'StoreAPI'
 """
 
 from LiuXin_alpha.storage.api.store_api.file_api import (

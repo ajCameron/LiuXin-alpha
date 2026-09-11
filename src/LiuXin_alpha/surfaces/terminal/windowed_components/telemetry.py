@@ -1,4 +1,9 @@
-"""Tracked table counts, activity snapshots, and telemetry panel content."""
+"""
+Collect table-count deltas and Core activity snapshots for the telemetry pane.
+
+Sampling is synchronous and driven by rendering, not a background poller. Missing
+counts are displayed as unknown; failed Core snapshots become visible error text.
+"""
 
 from __future__ import annotations
 
@@ -10,13 +15,48 @@ from .contracts import WindowedState
 
 
 class TelemetryMixin(WindowedState):
-    """Tracked table counts, activity snapshots, and telemetry panel content."""
+    """
+    Own telemetry selection, baseline counts, and compact activity-panel content.
+
+    The composed driver supplies browser access, window layout, and rendering.
+    Re-selecting tables restarts their baseline even if the selection is unchanged.
+
+    Example:
+        >>> TelemetryMixin._format_count_delta(15, 12)
+        '+3'
+    """
 
     @staticmethod
     def _default_telemetry_tables() -> tuple[str, ...]:
+        """
+        Return the ordered table selection used when no explicit telemetry list survives.
+
+        Example:
+            >>> TelemetryMixin._default_telemetry_tables()
+            ('files', 'folders', 'items', 'works', 'stores')
+
+
+        :return: Default file, folder, item, work, and store table names in display order.
+        """
         return ("files", "folders", "items", "works", "stores")
 
     def set_telemetry_tables(self, tables: Sequence[str] | None = None) -> bool:
+        """
+        Select tracked tables, restart the count baseline, and rebuild/redraw the panes.
+
+        Names are stringified, stripped, and deduplicated in input order without
+        schema validation or case folding. ``None``, an empty sequence, or entirely
+        blank names selects the defaults. Every call resets the start time and
+        samples counts, even if the normalized selection has not changed.
+
+        Example:
+            >>> driver.set_telemetry_tables(["works", "items"])  # doctest: +SKIP
+            True
+
+
+        :param tables: Optional ordered table names; omitted or empty input uses defaults.
+        :return: ``True`` after successful setup; this is not a change-only indicator.
+        """
         normalized: list[str] = []
         for raw in list(tables or self._default_telemetry_tables()):
             token = str(raw).strip()
@@ -36,6 +76,17 @@ class TelemetryMixin(WindowedState):
         return changed or bool(next_tables)
 
     def clear_telemetry_panel(self) -> bool:
+        """
+        Disable telemetry and clear its time/count snapshots before rebuilding panes.
+
+        Layout and status redraw run even when telemetry was already disabled.
+
+        Example:
+            >>> was_enabled = driver.clear_telemetry_panel()  # doctest: +SKIP
+
+
+        :return: Whether a telemetry table selection existed before clearing it.
+        """
         had = self._telemetry_tables is not None
         self._telemetry_tables = None
         self._telemetry_started_at = None
@@ -46,6 +97,15 @@ class TelemetryMixin(WindowedState):
         return had
 
     def _telemetry_content_width(self) -> int:
+        """
+        Reserve the telemetry pane's final column for safe curses drawing.
+
+        Example:
+            >>> width = driver._telemetry_content_width()  # doctest: +SKIP
+
+
+        :return: At least one usable column, using terminal width when no pane exists.
+        """
         win = self._telemetry_win
         if win is not None:
             _, cols = win.getmaxyx()
@@ -55,6 +115,20 @@ class TelemetryMixin(WindowedState):
     def _sample_telemetry_counts(
         self, tables: tuple[str, ...]
     ) -> dict[str, int | None]:
+        """
+        Read each selected table's row count, marking unavailable queries as unknown.
+
+        A missing browser, raised count-query exception, or ``None`` result produces
+        ``None`` for that table. Integer conversion happens outside the exception
+        handler, so an invalid non-``None`` result still raises.
+
+        Example:
+            >>> counts = driver._sample_telemetry_counts(("works",))  # doctest: +SKIP
+
+
+        :param tables: Ordered table names to query independently through the browser.
+        :return: Mapping from each requested name to its integer count or ``None``.
+        """
         browser = self.browser
         counts: dict[str, int | None] = {}
         for table in tables:
@@ -70,11 +144,46 @@ class TelemetryMixin(WindowedState):
 
     @staticmethod
     def _format_count_delta(current: int | None, previous: int | None) -> str:
+        """
+        Format a signed count change, or an unknown marker if either sample is absent.
+
+        Example:
+            >>> TelemetryMixin._format_count_delta(9, 12)
+            '-3'
+            >>> TelemetryMixin._format_count_delta(9, 9)
+            '+0'
+            >>> TelemetryMixin._format_count_delta(None, 9)
+            '?'
+
+
+        :param current: Most recent count, or ``None`` when unavailable.
+        :param previous: Baseline or preceding count to subtract, or ``None``.
+        :return: Signed integer difference as text, or ``?`` for an unknown difference.
+        """
         if current is None or previous is None:
             return "?"
         return f"{int(current) - int(previous):+d}"
 
     def _build_telemetry_lines(self, *, max_lines: int) -> list[str]:
+        """
+        Sample telemetry and return a height-limited activity/count/event summary.
+
+        Disabled telemetry or a nonpositive height returns immediately without
+        querying. Otherwise request a Core activity snapshot, independently sample
+        table counts, and update the last-count snapshot before formatting deltas
+        against both the preceding sample and the selection's original baseline.
+
+        Snapshot lookup/conversion exceptions become an Errors section. This does
+        not suppress malformed nested payloads or count-conversion failures. Fixed
+        sections take priority over the recent-event tail; output is not width-wrapped.
+
+        Example:
+            >>> lines = driver._build_telemetry_lines(max_lines=12)  # doctest: +SKIP
+
+
+        :param max_lines: Maximum number of compact lines to return, including the title.
+        :return: Telemetry lines in display order, possibly truncated within the fixed sections.
+        """
         if max_lines <= 0:
             return []
         tracked_tables = self._telemetry_tables
@@ -155,7 +264,28 @@ class TelemetryMixin(WindowedState):
     def _append_recent_telemetry_events(
         lines: list[str], snapshot: dict[str, Any], max_lines: int
     ) -> None:
-        """Fit the recent-event tail after fixed telemetry sections."""
+        """
+        Append a recent-events heading and the newest events that fit after existing lines.
+
+        Preserve the selected tail's input order and render timestamps in local
+        time. Invalid timestamps use ``--:--:--``; blank table/source values use
+        ``<unknown>``/``event``. Event records must otherwise provide mapping access.
+        Existing lines are not truncated, and a single free line fits only the heading.
+
+        Example:
+            >>> lines = ["DB telemetry"]
+            >>> TelemetryMixin._append_recent_telemetry_events(
+            ...     lines, {"recent_events": [{"table": "works"}]}, 2
+            ... )
+            >>> lines
+            ['DB telemetry', 'Recent events']
+
+
+        :param lines: Existing summary lines to extend in place without clearing them.
+        :param snapshot: Core snapshot containing the ordered ``recent_events`` sequence.
+        :param max_lines: Total line budget for the existing summary and appended event tail.
+        :return: ``None``; any heading and formatted events are appended to ``lines``.
+        """
         recent_events = list(snapshot.get("recent_events", ()) or ())
         remaining = max(0, int(max_lines) - len(lines))
         if remaining > 0 and recent_events:

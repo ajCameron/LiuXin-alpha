@@ -110,6 +110,8 @@ contract suite, taking coverage to 128 files. Stage 8 adds both complete termina
 component directories and two regression suites: stage-8 coverage is 154 files.
 The CI/documentation close-out adds two contract suites, taking the current
 formatter scope to 156 files without expanding production typing coverage.
+The subsequent whole-project documentation migration adds its audit, safe
+normalizer, and regression suite: current formatter coverage is 159 files.
 
 Use the repo-local commands:
 
@@ -400,6 +402,29 @@ fallback rules, diagnostic ownership, and the count-only Core query repair
 uncovered by removing silent catches.
 
 ## Repository-wide documentation audit
+
+The new 2026-09-08 request covers every named function, class, and module,
+including private helpers, tests, examples, inherited code, and tracked Python
+in the initialized data submodule. This migration is **in progress**; the earlier
+public-boundary documentation gate below does not prove that this wider request
+is complete. See the [active handoff](../working-memory/project-docstrings-2026-09-08.md).
+
+Use `scripts/audit_project_docstrings.py` without positional paths for the whole
+project. `--output` writes a detailed generated JSON report and `--check` fails
+while structural documentation gaps remain. Explicit file arguments are labelled
+as a batch view. The migration requires source-reviewed prose and meaningful
+reST parameter/return descriptions, not just field presence. The AST audit does
+not measure descriptive accuracy or cover native C implementation comments.
+
+`scripts/normalize_docstrings.py` only standardizes existing safe literals. It
+retains unmatched/duplicate parameter descriptions and shared-line/escaped
+literals for manual editing, and compares executable syntax before returning a
+rewrite. CLI and Core code that consumes `__doc__` still needs output testing.
+Both tools and their real-source/Git regression suite enter the maintained
+formatter/lint scope; CI runs the suite without falsely requiring the unfinished
+whole-project audit to pass.
+
+### Earlier public-boundary audit
 
 The 2026-09-01 pass parsed all production and maintained-tooling Python files,
 not only the ratcheted packages. The initial snapshot covered 1,770 files,

@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Example: exercise the everyday and detailed ``StorageManager`` APIs."""
+"""
+Exercise local ingest, lookup, replication, verification, and Composite delivery.
+
+Build two filesystem Stores with a durable catalogue beneath a caller-owned work
+directory. Seed small placeholder book/cover bytes, attach Assets to an Item, export
+a Composite directory, and inspect its streamed ZIP. These payloads demonstrate
+storage contracts, not valid EPUB/JPEG parsing. Files and catalogue remain afterward.
+"""
 
 from __future__ import annotations
 
@@ -28,6 +35,17 @@ from LiuXin_alpha.storage.store_manager import StorageManager
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse the required --work-dir directory for Stores, incoming sample, catalogue, and exports.
+    main/run perform expansion and creation; argparse does not reserve the directory or check
+    existing contents.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Parsed argparse namespace; help and invalid arguments raise SystemExit.
+    """
     parser = argparse.ArgumentParser(
         description=(
             "Start a two-Store manager and demonstrate ingest, lookup, "
@@ -44,10 +62,31 @@ def parse_args() -> argparse.Namespace:
 
 def run(work_dir: Path) -> dict[str, object]:
     """
-    Run all local workflows and return a JSON-friendly summary.
+    Run the local storage demonstration and return its summary after closing owned resources.
+    Expand/resolve and create the work directory, overwrite the fixed incoming sample path, and open
+    storage-catalog.sqlite with create=True and backup=False. Redirect schema output to stderr.
+    Create an Item plus primary/archive Stores, choose the primary default, ingest with placement
+    hints and verification, then compare streamed, ID, Digest, and bare-hash reads against the
+    seeded bytes.
 
-    :param work_dir:
-    :return:
+    Replicate to the archive Store with verification, assess both Replica IDs, create an Item-linked
+    Composite from the book path and cover bytes, export its directory, and inspect ZIP member
+    names. Resolve the package role requiring verified content. Report IDs, operation ID, read
+    equality, reused placement hints, healthy Replica IDs, and export members. Flags report
+    observations rather than asserting that every value is true.
+
+    The summary is computed inside the manager/database contexts and returned after they exit,
+    closing Stores before the catalogue. Creation before context entry has no outer cleanup wrapper.
+    Prefer a fresh scratch directory: fixed-path files and completed catalogue/storage effects
+    remain on success or later failure. This call does not reopen the catalogue to test persistence
+    across a restart.
+
+    Example:
+        >>> summary = run(Path("/tmp/liuxin-workflow-demo"))  # doctest: +SKIP
+
+
+    :param work_dir: Writable demo directory for the fixed incoming, catalogue, Store, and export paths; contents are retained.
+    :return: Summary dictionary of paths, IDs, verification/read observations, and exported member names.
     """
 
     root = work_dir.expanduser().resolve()
@@ -210,6 +249,18 @@ def run(work_dir: Path) -> dict[str, object]:
 
 
 def main() -> int:
+    """
+    Run the workflows in the command-line work directory and print the sanitized summary. Parse
+    process arguments, convert work_dir to Path, and delegate all storage effects and cleanup to
+    run. Print only after run returns; false observation flags in its summary do not independently
+    change this command's exit status.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero after rendering the summary; parser, workflow, cleanup, and rendering failures propagate.
+    """
     args = parse_args()
     print(dump_json(run(Path(args.work_dir))))
     return 0

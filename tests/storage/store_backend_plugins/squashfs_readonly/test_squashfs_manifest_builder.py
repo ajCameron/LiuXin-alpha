@@ -1,3 +1,11 @@
+"""
+Check JSON manifest loading, real archive construction, and launcher reporting.
+
+Build tests skip when either SquashFS tool is missing. The significant-space
+loader regression runs without those tools. Successful report fields are checked
+without claiming cross-run reproducibility or transactional forced replacement.
+"""
+
 from __future__ import annotations
 
 import json
@@ -16,11 +24,31 @@ from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
 
 
 def _require_squashfs_tools() -> None:
+    """
+    Skip the calling test unless both mksquashfs and unsquashfs can be found on PATH.
+
+    Example:
+        >>> _require_squashfs_tools()  # doctest: +SKIP
+
+
+    :return: None when both lookups succeed; otherwise raises the pytest skip outcome.
+    """
     if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
         pytest.skip("squashfs-tools not available in environment")
 
 
 def test_build_squashfs_from_manifest_roundtrip(tmp_path: pathlib.Path) -> None:
+    """
+    Build two relative-source mappings with deterministic flags and verify report evidence plus both
+    real archived payloads through legacy and internal lookup forms.
+
+    Example:
+        >>> test_build_squashfs_from_manifest_roundtrip(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     _require_squashfs_tools()
 
     source_root = tmp_path / "src"
@@ -61,6 +89,17 @@ def test_build_squashfs_from_manifest_roundtrip(tmp_path: pathlib.Path) -> None:
 
 
 def test_build_squashfs_from_manifest_duplicate_target_fails(tmp_path: pathlib.Path) -> None:
+    """
+    Map two existing sources to one normalized target and require the manifest build to raise the
+    duplicate-target ValueError.
+
+    Example:
+        >>> test_build_squashfs_from_manifest_duplicate_target_fails(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     _require_squashfs_tools()
 
     a = tmp_path / "a.txt"
@@ -86,6 +125,17 @@ def test_build_squashfs_from_manifest_duplicate_target_fails(tmp_path: pathlib.P
 def test_manifest_loader_preserves_significant_archive_path_spaces(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Load one mapping and preserve the leading/trailing spaces in its target filename exactly,
+    without invoking archive tools.
+
+    Example:
+        >>> test_manifest_loader_preserves_significant_archive_path_spaces(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     source = tmp_path / "source.epub"
     source.write_bytes(b"book")
     manifest = tmp_path / "manifest.json"
@@ -101,6 +151,17 @@ def test_manifest_loader_preserves_significant_archive_path_spaces(
 
 
 def test_build_squashfs_script_smoke(tmp_path: pathlib.Path) -> None:
+    """
+    Run the manifest launcher as a separate Python process and check successful JSON reporting,
+    output path, hashes, version-field presence, and image existence.
+
+    Example:
+        >>> test_build_squashfs_script_smoke(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     _require_squashfs_tools()
 
     src_file = tmp_path / "demo.txt"

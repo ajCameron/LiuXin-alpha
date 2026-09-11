@@ -1,7 +1,11 @@
-"""Own one ingest invocation from logging setup to its terminal receipt.
+"""
+Own one ingest invocation from profile defaults and logging setup to its terminal receipt.
 
 Signal and lock scopes surround the application call. Path validation,
-preflight, and report publication live in their dedicated helper modules.
+preflight, and report publication live in their dedicated helper modules. Even
+discovery/preflight can create logs and reports. Application changes, report
+publication, logging, and stdout are separate effects, not one transaction;
+late failures or cancellation can follow partial catalogue/materialization work.
 """
 
 from __future__ import annotations
@@ -48,7 +52,20 @@ from LiuXin_alpha.utils.logging.run_logging import RunLoggingSession
 
 
 def ingest_main(argv: list[str] | None = None) -> int:
-    """Standalone mixed-ingest parser retained for the executable example."""
+    """
+    Parse standalone mixed-ingest options and delegate the resulting invocation.
+
+    This compatibility entry accepts ingest options directly, not the leading
+    storage/ingest words. argparse help/errors retain their SystemExit behavior.
+
+    Example:
+        >>> ingest_main(["--source-root", "books", "--discover-only"])  # doctest: +SKIP
+
+
+    :param argv: Ingest-option tokens, or None to read process command-line arguments.
+    :return: Exit code from cmd_storage_ingest after successful parsing.
+    :raises SystemExit: argparse handles help or rejects the argument sequence.
+    """
 
     parser = argparse.ArgumentParser(
         prog="liuxin storage ingest",
@@ -64,7 +81,27 @@ def ingest_main(argv: list[str] | None = None) -> int:
 
 
 def cmd_storage_ingest(args: argparse.Namespace) -> int:
-    """Execute one logged, report-producing mixed-ingest invocation."""
+    """
+    Resolve ingest configuration, open correlated logs, and dispatch one reported run.
+
+    Apply profile defaults, validate early options, resolve source/log paths, and
+    choose a UUID before opening logs. CLIUsageError/ValueError in that first stage
+    print raw stderr and return usage status without a terminal JSON report.
+    Inside the logging session choose report/lock paths, print artifact locations,
+    then delegate the run. Logs can already exist when path selection fails.
+
+    The outer logging catch also encloses run dispatch and session cleanup: late
+    OSError/ValueError may be reported as logging initialization failure even after
+    earlier effects. Exceptions outside the listed catches remain visible; no
+    catalogue, cache, log, or report effects are rolled back here.
+
+    Example:
+        >>> cmd_storage_ingest(parsed_ingest_args)  # doctest: +SKIP
+
+
+    :param args: Complete mutable ingest namespace; profile defaults may update its paths.
+    :return: Delegated run status, or EXIT_USAGE for the handled configuration/logging failures.
+    """
 
     try:
         _apply_system_root_defaults(args)
@@ -125,6 +162,34 @@ def _run_logged_command(
     lock_path: Path | None,
     log_session: RunLoggingSession,
 ) -> int:
+    """
+    Validate/log a run, execute under signal and lock scopes, then publish its terminal receipt.
+
+    Validation precedes the start event. The signal scope enters before the lock;
+    both exit before terminal enrichment/reporting. A latched first signal overrides
+    normal application status with cancelled and 128+signal, without undoing work.
+    Otherwise status is complete for zero, issues for any nonzero application code.
+    Write the report before the terminal event, flush, and optional stdout projection.
+
+    KeyboardInterrupt uses the first recorded signal or 130; CLIUsageError becomes
+    configuration_error/2; other Exceptions become failed/1. These catches include
+    late publication/logging errors. Failure reporting can itself raise or encounter
+    an already-published success report, and no earlier effects are rolled back.
+
+    Example:
+        >>> code = _run_logged_command(args, source_root=source, run_id=run_id, report_path=report, human_log=human_log, event_log=event_log, lock_path=None, log_session=session)  # doctest: +SKIP
+
+
+    :param args: Complete ingest controls including report replacement/format and stdout policy.
+    :param source_root: Resolved source directory passed through validation and application execution.
+    :param run_id: Correlation UUID shared by application, logs, lock, and receipts.
+    :param report_path: Final report destination; publication occurs after the execution scopes exit.
+    :param human_log: Current rotating-text log path included in receipts/events.
+    :param event_log: Current authoritative JSONL path included in receipts/events.
+    :param lock_path: Advisory lock path, or None to run without that lock context.
+    :param log_session: Active logging session flushed before final stdout reporting.
+    :return: Application/cancellation/error exit code if terminal reporting completes.
+    """
     controller = SignalCancellation()
     try:
         _validate_paths(

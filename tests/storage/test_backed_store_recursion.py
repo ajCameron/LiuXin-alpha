@@ -1,4 +1,11 @@
-"""End-to-end coverage for Store views backed by catalogued Assets."""
+"""
+Verify nested catalogue-backed ZIP Stores through real SQLite close and reopen.
+
+The fixture places a ZIP inside another ZIP, adopts both containers as Assets,
+and materializes the nested container into a filesystem cache. The regression
+checks plaintext access and persisted backing/replica-mode configuration after
+recreating the database and manager objects in the same process.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +20,19 @@ from LiuXin_alpha.storage.store_manager import StorageManager
 
 
 def _zip_bytes(name: str, payload: bytes) -> bytes:
+    """
+    Create an in-memory deflated ZIP containing one named payload.
+
+    Example:
+        >>> archive = _zip_bytes("book.epub", b"example")
+        >>> zipfile.is_zipfile(io.BytesIO(archive))
+        True
+
+
+    :param name: Archive member name passed directly to ZipFile.writestr.
+    :param payload: Member content to embed in the test container.
+    :return: Complete ZIP bytes after closing the archive; timestamps are not fixed for reproducible output.
+    """
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr(name, payload)
@@ -20,6 +40,18 @@ def _zip_bytes(name: str, payload: bytes) -> bytes:
 
 
 def _open_database(path: Path, *, create: bool) -> Database:
+    """
+    Open the test SQLite catalogue without backup or an automatically composed storage manager.
+
+    Example:
+        >>> with _open_database(tmp_path / "catalogue.sqlite", create=True) as database:  # doctest: +SKIP
+        ...     manager = StorageManager(db=database)
+
+
+    :param path: Local catalogue filename supplied to the real Database constructor.
+    :param create: Whether database construction should create the catalogue rather than reopen it.
+    :return: Caller-owned Database supporting context cleanup; the test constructs its manager separately.
+    """
     return Database(
         metadata={"database_path": str(path)},
         db_type="SQLite",
@@ -32,6 +64,22 @@ def _open_database(path: Path, *, create: bool) -> Database:
 def test_nested_backed_zip_store_materializes_and_survives_database_restart(
     tmp_path: Path,
 ) -> None:
+    """
+    Read a nested ZIP member before and after reopening its persisted Store topology.
+
+    Adopt the outer archive as unmanaged and the nested archive as an ARCHIVE Replica, then
+    materialize the latter into a CACHE Store. Assert one cached replica, retained live
+    configuration identity, and successful nested reads. Reopen the real SQLite catalogue and
+    manager in the same process, verifying restored backing, replica modes, and content; no separate
+    process is launched.
+
+    Example:
+        >>> test_nested_backed_zip_store_materializes_and_survives_database_restart(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest directory holding the SQLite catalogue, source archives, and materialized cache.
+    :return: None after the stated regression assertions pass.
+    """
     database_path = tmp_path / "catalogue.sqlite"
     source_root = tmp_path / "source"
     source_root.mkdir()

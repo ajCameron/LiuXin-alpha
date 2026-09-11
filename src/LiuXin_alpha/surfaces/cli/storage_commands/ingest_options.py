@@ -1,4 +1,11 @@
-"""Storage CLI ingest options ownership."""
+"""
+Declare mixed local-ingest source, safety-budget, backend, logging, and lock options.
+
+Registration mutates argparse grammar without selecting profiles, opening paths,
+or enforcing positive ranges. The command validates numeric/path relationships
+later. Standalone and packaged parsers reuse this option set; handler binding and
+outer command words belong to their respective parser owners.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +17,20 @@ from LiuXin_alpha.surfaces.cli.storage_commands.constants import _GIB
 
 
 def add_storage_ingest_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add the complete mixed-ingest option contract to ``parser``."""
+    """
+    Register mixed-ingest groups in stable source/limits/backend/logging/lock order.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> add_storage_ingest_arguments(parser)
+        >>> args = parser.parse_args(["--source-root", "books", "--discover-only"])
+        >>> args.discover_only, args.preflight_only, args.database
+        (True, False, None)
+
+
+    :param parser: Standalone or storage-ingest parser receiving the shared grammar.
+    :return: None; register options without assigning a handler or running ingest.
+    """
     _add_source_options(parser)
     _add_limits_options(parser)
     _add_backends_options(parser)
@@ -19,6 +39,20 @@ def add_storage_ingest_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def _uuid_argument(value: str) -> UUID:
+    """
+    Parse a run UUID and adapt ValueError into argparse's type-error category.
+
+    UUID's accepted textual forms are retained; no particular version is required.
+
+    Example:
+        >>> str(_uuid_argument("12345678123456789234567812345678"))
+        '12345678-1234-5678-9234-567812345678'
+
+
+    :param value: Argument text passed directly to UUID construction.
+    :return: Parsed UUID object for the command namespace.
+    :raises argparse.ArgumentTypeError: UUID construction rejects the text with ValueError.
+    """
     try:
         return UUID(value)
     except ValueError as error:
@@ -26,6 +60,24 @@ def _uuid_argument(value: str) -> UUID:
 
 
 def _add_source_options(parser: argparse.ArgumentParser) -> None:
+    """
+    Declare required source, optional catalogue/profile/cache, and traversal controls.
+
+    Discovery/preflight are parser-mutually-exclusive. Database requirements,
+    profile compatibility, and path exclusion are later checks. Traversal defaults
+    to recursive filesystem/nested containers and continuation after errors.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_source_options(parser)
+        >>> args = parser.parse_args(["--source-root", "books", "--preflight-only"])
+        >>> args.preflight_only, args.no_nested_containers, args.strict
+        (True, False, False)
+
+
+    :param parser: Ingest parser receiving local source and mode declarations.
+    :return: None; paths remain unexpanded and unvalidated argument strings.
+    """
     parser.add_argument(
         "--source-root",
         required=True,
@@ -100,6 +152,24 @@ def _add_source_options(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_limits_options(parser: argparse.ArgumentParser) -> None:
+    """
+    Declare run-wide numeric limits using a fresh shared budget's defaults.
+
+    Count/path limits parse as integers; byte ceilings use binary-GiB floats,
+    with ratio/wall time also floats. Later budget construction enforces ranges
+    and finite-value invariants; argparse performs numeric conversion only.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_limits_options(parser)
+        >>> args = parser.parse_args(["--max-source-files", "10", "--max-member-gib", "0.5"])
+        >>> args.max_source_files, args.max_member_gib
+        (10, 0.5)
+
+
+    :param parser: Parser receiving the run-wide safety limits argument group.
+    :return: None; no files, capacity, or elapsed time are measured.
+    """
     defaults = MixedIngestBudget()
     limits = parser.add_argument_group("run-wide safety limits")
     limits.add_argument(
@@ -156,6 +226,20 @@ def _add_limits_options(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_backends_options(parser: argparse.ArgumentParser) -> None:
+    """
+    Declare SquashFS/RAR executable selectors and the per-operation backend timeout.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_backends_options(parser)
+        >>> args = parser.parse_args([])
+        >>> args.unsquashfs_exe, args.rar_extractor_exe, args.backend_timeout_seconds
+        ('unsquashfs', None, 300.0)
+
+
+    :param parser: Parser receiving the container backends argument group.
+    :return: None; no executable/module lookup or timeout-range check is performed.
+    """
     backends = parser.add_argument_group("container backends")
     backends.add_argument(
         "--unsquashfs-exe",
@@ -176,6 +260,24 @@ def _add_backends_options(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_logging_group_options(parser: argparse.ArgumentParser) -> None:
+    """
+    Declare run UUID, log rotation/checkpoints, reports, and console policies.
+
+    Defaults enable DEBUG logging, pretty report/stdout JSON, and console progress.
+    UUID generation, path selection, no-clobber publication, and numeric range
+    checks occur during execution, not argument registration.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_logging_group_options(parser)
+        >>> args = parser.parse_args([])
+        >>> args.run_id, args.log_level, args.log_max_mib, args.no_stdout_report
+        (None, 'DEBUG', 100, False)
+
+
+    :param parser: Parser receiving the logging and reports argument group.
+    :return: None; no log session or output artifact is created.
+    """
     logging_group = parser.add_argument_group("logging and reports")
     logging_group.add_argument(
         "--run-id",
@@ -241,6 +343,20 @@ def _add_logging_group_options(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_locking_options(parser: argparse.ArgumentParser) -> None:
+    """
+    Declare optional advisory lock path, integer wait timeout, and lock opt-out.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _add_locking_options(parser)
+        >>> args = parser.parse_args([])
+        >>> args.lock_file, args.lock_timeout_seconds, args.no_run_lock
+        (None, 0, False)
+
+
+    :param parser: Parser receiving the concurrency argument group.
+    :return: None; no lock is acquired and negative timeouts are not rejected yet.
+    """
     locking = parser.add_argument_group("concurrency")
     locking.add_argument(
         "--lock-file",

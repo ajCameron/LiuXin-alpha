@@ -1,4 +1,10 @@
-"""Shared terminal rendering and stream prompts, independent of UI startup."""
+"""
+Format terminal values, table layouts, row-detail labels, and simple stream prompts.
+
+Rendering uses Python character counts, not terminal display-cell measurements.
+Helpers neither initialize a UI nor sanitize arbitrary control sequences; their
+documented escaping and truncation rules apply only to the named transformations.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +14,21 @@ from typing import TextIO
 
 
 def truncate(value: object, *, width: int = 80) -> str:
-    """Abbreviate a value's repr for row summaries, retaining short values intact."""
+    """
+    Abbreviate a value's Python representation, including repr quoting and escaping.
+
+    Truncation reserves three characters for an ellipsis. A width below three can
+    still produce three dots; representation and invalid-width errors propagate.
+
+    Example:
+        >>> truncate("abcdefgh", width=6)
+        "'ab..."
+
+
+    :param value: Object whose ``repr`` is used for the summary.
+    :param width: Desired maximum character count, including the truncation marker.
+    :return: Full representation when it fits, otherwise a shortened prefix plus ``...``.
+    """
     text = repr(value)
     if len(text) <= width:
         return text
@@ -16,7 +36,20 @@ def truncate(value: object, *, width: int = 80) -> str:
 
 
 def truncate_text(value: object, *, width: int = 80) -> str:
-    """Abbreviate display text without repr quoting or escaping."""
+    """
+    Abbreviate stringified display text without adding representation quotes or escaping.
+
+    Width includes the three-dot marker, which can exceed a requested width below three.
+
+    Example:
+        >>> truncate_text("abcdefgh", width=6)
+        'abc...'
+
+
+    :param value: Object to convert with ``str`` for display.
+    :param width: Desired maximum Python characters, including any ellipsis.
+    :return: Full string or its shortened prefix followed by ``...``.
+    """
     text = str(value)
     if len(text) <= width:
         return text
@@ -24,7 +57,21 @@ def truncate_text(value: object, *, width: int = 80) -> str:
 
 
 def summarize_exception(exc: BaseException) -> str:
-    """Include the exception class even when its message is empty."""
+    """
+    Combine an exception class name with its nonblank, outer-whitespace-stripped message.
+
+    Internal line breaks and other message content are retained; no traceback is included.
+
+    Example:
+        >>> summarize_exception(ValueError(" invalid id "))
+        'ValueError: invalid id'
+        >>> summarize_exception(ValueError())
+        'ValueError'
+
+
+    :param exc: Exception whose class and string message should be displayed.
+    :return: Class name alone for an empty message, otherwise ``ClassName: message``.
+    """
     text = str(exc).strip()
     name = exc.__class__.__name__
     if text:
@@ -33,7 +80,24 @@ def summarize_exception(exc: BaseException) -> str:
 
 
 def stringify_table_cell(value: object, *, width: int = 60) -> str:
-    """Escape embedded line breaks and bound one ASCII-table cell."""
+    """
+    Stringify a table cell, render line breaks as backslash-n pairs, and abbreviate long text.
+
+    ``None`` becomes empty. CRLF and lone CR normalize to newline before escaping;
+    tabs and other control characters are not changed. Width includes the ellipsis,
+    so a truncation marker can exceed a requested width below three.
+
+    Example:
+        >>> stringify_table_cell(None)
+        ''
+        >>> stringify_table_cell("abcdefgh", width=6)
+        'abc...'
+
+
+    :param value: Cell value to stringify, with ``None`` treated as absent text.
+    :param width: Desired maximum character count after line-break escaping.
+    :return: Single-line cell text, shortened with ``...`` when it exceeds the width.
+    """
     if value is None:
         text = ""
     else:
@@ -45,7 +109,24 @@ def stringify_table_cell(value: object, *, width: int = 60) -> str:
 
 
 def preview_row_text(value: object, *, max_len: int = 64) -> str:
-    """Flatten row-preview whitespace and cap the displayed length."""
+    """
+    Convert truthy values to stripped row-preview text, replacing line breaks with spaces.
+
+    Falsey values, including zero and ``False``, become empty. Other internal
+    whitespace is retained. Long previews use a three-dot truncation marker,
+    which can exceed a requested length below three.
+
+    Example:
+        >>> preview_row_text(" first " + chr(10) + "second ")
+        'first  second'
+        >>> preview_row_text(0)
+        ''
+
+
+    :param value: Row-field value to preview without repr quoting.
+    :param max_len: Desired maximum Python characters, including any ellipsis.
+    :return: Flattened, stripped, and optionally abbreviated preview text.
+    """
     text = (
         str(value or "")
         .replace("\r\n", " ")
@@ -59,7 +140,24 @@ def preview_row_text(value: object, *, max_len: int = 64) -> str:
 
 
 def row_detail_group(column: str, *, id_column: str | None) -> str:
-    """Classify columns for the existing identity/reference/detail sections."""
+    """
+    Choose a row-detail group using ordered, case-insensitive column-name heuristics.
+
+    An exact supplied ID column wins, followed by other ID suffixes, capability
+    prefixes/keywords, date keywords, access keywords, and identity keywords.
+    Keyword checks are substring matches, not schema/semantic validation.
+
+    Example:
+        >>> row_detail_group("work_id", id_column="work_id")
+        'identity'
+        >>> row_detail_group("store_id", id_column="file_id")
+        'references'
+
+
+    :param column: Column name to strip and lowercase before classification.
+    :param id_column: Optional primary-ID name whose exact normalized match takes precedence.
+    :return: ``identity``, ``references``, ``capabilities``, ``dates``, ``access``, or ``other``.
+    """
     text = str(column).strip().lower()
     if not text:
         return "other"
@@ -118,7 +216,19 @@ def row_detail_group(column: str, *, id_column: str | None) -> str:
 
 
 def pretty_row_detail_group(group: str) -> str:
-    """Render a section label, with a readable fallback for unknown groups."""
+    """
+    Render known detail-group names or title-case an unknown nonblank label.
+
+    Example:
+        >>> pretty_row_detail_group(" REFERENCES ")
+        'References'
+        >>> pretty_row_detail_group("extra fields")
+        'Extra Fields'
+
+
+    :param group: Group token or custom label to stringify and strip.
+    :return: Standard display label, title-cased fallback, or ``Other`` for blank input.
+    """
     mapping = {
         "identity": "Identity",
         "references": "References",
@@ -133,7 +243,21 @@ def pretty_row_detail_group(group: str) -> str:
 
 
 def _strip_column_prefixes(original: str, ordered_prefixes: Sequence[str]) -> str:
-    """Repeatedly remove known prefixes, retaining a nonempty label."""
+    """
+    Remove matching prefixes repeatedly in priority order, never consuming the whole label.
+
+    Matching is case-sensitive. The caller must supply nonempty prefixes; an empty
+    prefix would repeatedly match without making progress.
+
+    Example:
+        >>> _strip_column_prefixes("work_title_text", ("work_", "title_"))
+        'text'
+
+
+    :param original: Original label used as the initial text and empty-result fallback.
+    :param ordered_prefixes: Nonempty prefixes to try in their supplied precedence order.
+    :return: Remaining nonempty label, or the original value when no removal applies.
+    """
     text = original
     changed = True
     while changed:
@@ -151,7 +275,23 @@ def _strip_column_prefixes(original: str, ordered_prefixes: Sequence[str]) -> st
 def shorten_column_headers(
     headers: Sequence[str], *, table_name: str | None = None
 ) -> list[str]:
-    """Remove known table prefixes while keeping duplicate labels unambiguous."""
+    """
+    Strip known/table-derived prefixes and suffix repeated shortened labels with occurrence numbers.
+
+    Prefix removal is case-sensitive; the optional table name is normalized to
+    lowercase and also supplies a simple trailing-s singular form. Repeated labels
+    become ``label#2``, ``label#3``, and so on. Existing literal suffixed labels are
+    not reserved, so the result is not guaranteed globally unique.
+
+    Example:
+        >>> shorten_column_headers(["work_title", "title", "title#2"], table_name="works")
+        ['title', 'title#2', 'title#2']
+
+
+    :param headers: Ordered column names to stringify without otherwise changing their case.
+    :param table_name: Optional table name supplying additional plural/singular prefixes.
+    :return: New display-label list in input order, with numbered repeated shortened labels.
+    """
     originals = [str(h) for h in headers]
     table_name = (table_name or "").strip().lower()
 
@@ -208,7 +348,17 @@ def shorten_column_headers(
 
 
 def _table_width(widths: Sequence[int]) -> int:
-    """Account for each column plus the ASCII borders."""
+    """
+    Compute the renderer's character-width model, including separators and outer borders.
+
+    Example:
+        >>> _table_width([2, 4])
+        13
+
+
+    :param widths: Content widths for columns, excluding padding and border characters.
+    :return: One outer border plus each content width and three padding/separator characters.
+    """
     return 1 + sum(width + 3 for width in widths)
 
 
@@ -218,7 +368,28 @@ def _fit_table_width(
     widths: list[int],
     max_table_width: int,
 ) -> bool:
-    """Drop rightmost columns and shrink the remainder to the available width."""
+    """
+    Mutate aligned table data to fit a width by dropping rightmost columns, then shrinking the widest.
+
+    Header-derived preferred minima decide which columns survive. Add an omission
+    note to the final retained header before shrinking; that note may itself be
+    abbreviated. Shrink retained widths toward a three-character floor, then
+    truncate cells. Input lists must have matching column counts.
+
+    Example:
+        >>> headers, rows, widths = ["id", "title"], [["1", "longtitle"]], [2, 9]
+        >>> _fit_table_width(headers, rows, widths, 10)
+        True
+        >>> (len(headers), _table_width(widths))
+        (1, 10)
+
+
+    :param normalized_headers: Mutable string headers from which dropped columns are removed.
+    :param normalized_rows: Mutable rows aligned with the header/width lists.
+    :param widths: Mutable content widths, shortened and reduced during fitting.
+    :param max_table_width: Available character width including padding and borders.
+    :return: ``False`` if column dropping removes all columns; otherwise ``True`` after fitting.
+    """
     # Width model for this renderer:
     # total = 1 + sum(column_width + 3)
     preferred_min_widths = [min(max(6, len(h)), 14) for h in normalized_headers]
@@ -257,7 +428,24 @@ def _fit_table_width(
 def _truncate_fitted_cells(
     normalized_headers: list[str], normalized_rows: list[list[str]], widths: list[int]
 ) -> None:
-    """Apply final widths only after column allocation has settled."""
+    """
+    Replace overlong headers and cells in place using the final aligned column widths.
+
+    Already-fitting strings are untouched. Widths below three retain the cell
+    stringifier's three-dot behavior rather than guaranteeing a strict smaller bound.
+
+    Example:
+        >>> headers, rows = ["heading"], [["alphabet"]]
+        >>> _truncate_fitted_cells(headers, rows, [4])
+        >>> (headers, rows)
+        (['h...'], [['a...']])
+
+
+    :param normalized_headers: Mutable header strings aligned with ``widths``.
+    :param normalized_rows: Mutable string rows whose cells have corresponding width entries.
+    :param widths: Final per-column character budgets used only for overlong strings.
+    :return: ``None``; affected list entries are replaced in place.
+    """
     # Re-truncate headers and cells to final widths.
     for idx, header in enumerate(normalized_headers):
         if len(header) > widths[idx]:
@@ -275,7 +463,29 @@ def render_ascii_table(
     max_cell_width: int = 60,
     max_table_width: int | None = None,
 ) -> str:
-    """Render bounded cells and shrink columns to the requested terminal width."""
+    """
+    Render left-aligned ASCII rows with escaped/abbreviated cells and optional total-width fitting.
+
+    Short rows are padded with blanks and long rows lose extra cells. Initial
+    header text is stringified, not escaped or capped by the cell limit. A positive
+    total-width budget may drop rightmost columns and truncate remaining headers/
+    cells; omitted or nonpositive budgets disable that fitting. Inputs are not mutated.
+
+    Example:
+        >>> print(render_ascii_table(["id"], [[1]]))
+        +----+
+        | id |
+        +----+
+        | 1  |
+        +----+
+
+
+    :param headers: Ordered column names defining the table's column count.
+    :param rows: Ordered value sequences to pad/truncate to the header count.
+    :param max_cell_width: Initial character budget for each data cell, including any ellipsis.
+    :param max_table_width: Optional positive total character budget including borders and padding.
+    :return: Multiline table, ``(no columns)``, or a message when no columns survive fitting.
+    """
     if not headers:
         return "(no columns)"
 
@@ -321,7 +531,19 @@ def render_ascii_table(
 
 
 def safe_int(value: str) -> int | None:
-    """Return an integer selector, or None when conversion fails."""
+    """
+    Convert a selector with ``int``, treating ordinary conversion exceptions as unavailable.
+
+    Example:
+        >>> safe_int(" +12 ")
+        12
+        >>> safe_int("not an id") is None
+        True
+
+
+    :param value: Selector text passed directly to Python's integer conversion.
+    :return: Parsed integer, or ``None`` if conversion raises an ``Exception`` subclass.
+    """
     try:
         return int(value)
     except Exception:
@@ -329,7 +551,25 @@ def safe_int(value: str) -> int | None:
 
 
 def looks_like_id_selector(token: str) -> bool:
-    """Whether token looks like an id selector: `1`, `1,2`, `10-20`, or mixed."""
+    """
+    Recognize comma-separated integer tokens and first-dash-separated integer ranges.
+
+    This checks parsing shape, not positivity, range direction, size limits, or row
+    existence. Blank comma elements fail. A leading minus is interpreted as a
+    range separator, so a single negative integer does not pass this heuristic.
+
+    Example:
+        >>> looks_like_id_selector("1, 3-5")
+        True
+        >>> looks_like_id_selector("5-2")
+        True
+        >>> looks_like_id_selector("1,,2")
+        False
+
+
+    :param token: Candidate selector text to strip and split into comma-separated elements.
+    :return: Whether every element parses as an integer or a two-integer range shape.
+    """
     text = str(token).strip()
     if not text:
         return False
@@ -359,7 +599,28 @@ def ask_text(
     input_stream: TextIO = sys.stdin,
     output_stream: TextIO = sys.stdout,
 ) -> str:
-    """Read one stripped response, using the default for a blank response or EOF."""
+    """
+    Write/flush a prompt, read one line, and use the default for blank input or EOF.
+
+    Typed responses are stripped; returned defaults are not. Stream defaults are
+    bound when the function is defined, so callers replacing standard streams
+    later should pass them explicitly. Stream errors propagate.
+
+    Example:
+        >>> from io import StringIO
+        >>> output = StringIO()
+        >>> ask_text("Name", default="Untitled", input_stream=StringIO(""), output_stream=output)
+        'Untitled'
+        >>> output.getvalue()
+        'Name [Untitled]: '
+
+
+    :param prompt: Label displayed before the optional bracketed default and colon.
+    :param default: Optional response to return unchanged for blank input or EOF.
+    :param input_stream: Text stream supplying one ``readline`` result.
+    :param output_stream: Text stream receiving the flushed prompt.
+    :return: Stripped response, supplied default, or empty text when neither is available.
+    """
     suffix = ""
     if default is not None:
         suffix = f" [{default}]"
@@ -381,7 +642,25 @@ def ask_yes_no(
     input_stream: TextIO = sys.stdin,
     output_stream: TextIO = sys.stdout,
 ) -> bool:
-    """Accept common boolean responses and report invalid responses before defaulting."""
+    """
+    Prompt with a yes/no hint, accepting common boolean tokens and defaulting once on invalid input.
+
+    Blank input/EOF silently returns the default. Case-insensitive y/yes/1/true/t
+    and n/no/0/false/f select explicit values. Other responses print/flush a diagnostic
+    and return the default without retrying. Stream errors propagate.
+
+    Example:
+        >>> from io import StringIO
+        >>> ask_yes_no("Continue", default=False, input_stream=StringIO("YES"), output_stream=StringIO())
+        True
+
+
+    :param prompt: Label displayed with a default-sensitive Y/n or y/N hint.
+    :param default: Boolean returned for absent or unrecognized responses.
+    :param input_stream: Text stream passed explicitly to the single-response prompt helper.
+    :param output_stream: Text stream for prompts and any invalid-response diagnostic.
+    :return: Recognized boolean response or the supplied default.
+    """
     hint = "Y/n" if default else "y/N"
     raw = (
         ask_text(

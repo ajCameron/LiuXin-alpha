@@ -1,4 +1,9 @@
-"""Compatibility re-export for unmanaged on-disk storage backend class."""
+"""
+Re-export the unmanaged-directory Store through its shorter legacy module path.
+
+The exported class preserves the canonical read-only, no-root-creation behavior
+without wrapping construction or changing method dispatch.
+"""
 
 from __future__ import annotations
 

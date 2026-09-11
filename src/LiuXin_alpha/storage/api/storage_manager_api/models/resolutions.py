@@ -1,5 +1,9 @@
 """
-Readable atomic, Composite, and Item resolution values.
+Represent atomic, Composite-member, and Item-role selections as retained domain values.
+
+Constructors check selected identity relationships and membership coverage. Location
+properties project the supplied selections without opening readers or establishing
+current physical availability.
 """
 
 from __future__ import annotations
@@ -21,15 +25,19 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import Replica
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetResolution:
     """
-    Asset and Replica records selected for readable access.
+    Pair an expected Asset identity with one selected Replica record.
 
-    The value captures a manager selection at one point in time. Constructing
-    it validates record identity; it does not claim that external storage can
-    never become unavailable afterwards.
+    Construction compares the records' Asset IDs only. It does not verify state, size, digests, or
+    current Store availability, and it retains the original record references. The location
+    projection is routing information rather than a resource-owning reader.
 
     Example:
         >>> resolution.location == resolution.replica_record.location  # doctest: +SKIP
         True
+
+
+    :ivar asset_record: Expected Asset identity and metadata retained for the selection.
+    :ivar replica_record: Selected claim whose owning Asset ID must equal asset_record.digital_asset_id.
     """
 
     asset_record: DigitalAssetRecord
@@ -37,7 +45,10 @@ class DigitalAssetResolution:
 
     def __post_init__(self) -> None:
         """
-        Require the selected Replica to belong to the paired Asset.
+        Require equal owning Asset IDs on the two retained records.
+
+        Attributes are read without record-type checks or physical verification; malformed objects
+        can raise their own access errors.
 
         Example:
             >>> DigitalAssetResolution(  # doctest: +SKIP
@@ -48,7 +59,7 @@ class DigitalAssetResolution:
             ValueError: Replica does not belong to the resolved Digital Asset.
 
 
-        :return:
+        :return: None when the Asset IDs agree; disagreement raises ValueError.
         """
 
         if (
@@ -62,13 +73,14 @@ class DigitalAssetResolution:
     @property
     def location(self) -> Location:
         """
-        Return the selected Replica Location.
+        Return the exact Location held by the selected Replica without lookup, copying, or a new
+        readability check.
 
         Example:
             >>> location = resolved.location  # doctest: +SKIP
 
 
-        :return:
+        :return: Retained Replica Location.
         """
 
         return self.replica_record.location
@@ -77,11 +89,19 @@ class DigitalAssetResolution:
 @dataclasses.dataclass(slots=True, frozen=True)
 class CompositeDigitalAssetMemberResolution:
     """
-    One Composite membership paired with a readable Asset selection.
+    Pair one complete membership relationship with its selected atomic Asset and Replica.
+
+    Role, names, path, position, and required status remain available through membership.
+    Construction checks membership-to-Asset ID agreement without assessing physical readability or
+    membership in a particular Composite record.
 
     Example:
         >>> member.location == member.resolution.location  # doctest: +SKIP
         True
+
+
+    :ivar membership: Retained relationship carrying the expected atomic Asset ID and delivery metadata.
+    :ivar resolution: Atomic selection whose Asset ID must agree with the membership.
     """
 
     membership: CompositeDigitalAssetMembership
@@ -89,7 +109,10 @@ class CompositeDigitalAssetMemberResolution:
 
     def __post_init__(self) -> None:
         """
-        Require resolution of the declared member relationship.
+        Compare the membership Asset ID with the atomic selection's Asset ID.
+
+        The method does not revalidate the underlying records, inspect Store bytes, or determine
+        whether this relationship belongs to a Composite.
 
         Example:
             >>> CompositeDigitalAssetMemberResolution(  # doctest: +SKIP
@@ -100,7 +123,7 @@ class CompositeDigitalAssetMemberResolution:
             ValueError: resolved Asset does not match the Composite member.
 
 
-        :return:
+        :return: None for matching IDs; mismatch raises ValueError and malformed attributes can raise.
         """
 
         if (
@@ -114,13 +137,13 @@ class CompositeDigitalAssetMemberResolution:
     @property
     def location(self) -> Location:
         """
-        Return the selected Location for this member.
+        Delegate the Location projection to the retained atomic selection without re-resolving it.
 
         Example:
             >>> location = member.location  # doctest: +SKIP
 
 
-        :return:
+        :return: The exact Location exposed by resolution.location.
         """
 
         return self.resolution.location
@@ -129,12 +152,25 @@ class CompositeDigitalAssetMemberResolution:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ItemDigitalAssetResolution:
     """
-    Resolved atomic or Composite Asset selected for one Item role.
+    Retain one Item-role selection containing either an atomic resolution or a Composite with
+    resolved members.
+
+    Construction enforces the exclusive target choice, selected value checks, and Composite
+    membership coverage. It compares whole membership values in sets, so relationship labels and
+    positions matter while duplicate resolved relationships can collapse during validation. Supplied
+    member order and duplicates remain retained for locations.
 
     Example:
         >>> selection = ItemDigitalAssetResolution(  # doctest: +SKIP
         ...     ItemID(9), "cover", digital_asset_resolution=resolution,
         ... )
+
+
+    :ivar item_id: Item identity rejected when it compares at or below zero, without catalogue lookup.
+    :ivar role: Required nonblank role text retained in its original spelling.
+    :ivar digital_asset_resolution: Atomic target selection, mutually exclusive with a Composite record.
+    :ivar composite_digital_asset_record: Composite target whose required memberships must be represented when selected.
+    :ivar composite_member_resolutions: Retained delivery sequence of member resolutions; must be empty for an atomic target.
     """
 
     item_id: ItemID
@@ -147,7 +183,17 @@ class ItemDigitalAssetResolution:
 
     def __post_init__(self) -> None:
         """
-        Require exactly one selected Asset and consistent resolutions.
+        Require exactly one target, nonblank role text, and an Item ID not comparing at or below
+        zero.
+
+        Atomic targets reject nonempty Composite-member resolutions. Composite targets compare sets
+        of whole membership values: every resolved relationship must be declared, and every
+        truthy-required relationship must be resolved. The checks do not enforce resolution
+        uniqueness or sequence order, and set construction requires hashable relationship values.
+
+        No Item existence, current readability, or record-type validation occurs. Role spelling and
+        supplied containers remain unchanged; comparison, attribute, string, and hashing errors can
+        propagate.
 
         Example:
             >>> ItemDigitalAssetResolution(ItemID(9), "cover")
@@ -156,7 +202,7 @@ class ItemDigitalAssetResolution:
             ValueError: exactly one atomic or Composite Asset is required.
 
 
-        :return:
+        :return: None after target and membership coverage checks pass; violations raise ValueError or the underlying malformed-input error.
         """
 
         if (self.digital_asset_resolution is None) == (
@@ -199,13 +245,17 @@ class ItemDigitalAssetResolution:
     @property
     def locations(self) -> tuple[Location, ...]:
         """
-        Return selected readable Locations in delivery order.
+        Project the atomic Location as a one-item tuple, or each Composite resolution Location in
+        supplied order.
+
+        Composite results are not sorted by membership sequence or deduplicated. The projection
+        performs no new selection, byte read, or physical availability check.
 
         Example:
             >>> locations = selection.locations  # doctest: +SKIP
 
 
-        :return:
+        :return: New tuple of retained selected Location references, preserving Composite order and duplicates.
         """
 
         if self.digital_asset_resolution is not None:

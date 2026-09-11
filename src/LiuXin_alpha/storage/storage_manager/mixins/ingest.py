@@ -1,5 +1,11 @@
 """
-Transactional Digital Asset ingest workflows.
+Coordinate byte identity, Store publication or adoption, and manager ingest metadata.
+
+Ordinary streams are spooled and hashed; trusted identities and native transfer
+can avoid manager-side reads. Shared completion exposes publication/journal/retry
+boundaries, while adoption registers existing bytes without copying them. Successful
+result flags describe completed work and recorded evidence, not a single atomic
+transaction spanning the Store and every metadata operation.
 """
 
 from __future__ import annotations
@@ -23,13 +29,17 @@ from LiuXin_alpha.storage.storage_manager.mixins._types import (
 
 class DigitalAssetIngestMixin(_StorageManagerState):
     """
-    Coordinate recoverable byte publication and metadata registration.
+    Coordinate ordinary/identified streams, native Store transfer, and adoption with manager
+    metadata.
 
-    Ingest normalises identity evidence, selects a destination Store, publishes
-    through native transfer or a streamed fallback, and commits Asset, Replica,
-    and optional Item-link metadata.  Operation UUIDs make retries idempotent;
-    journal hooks expose the publication-before-metadata recovery boundary to
-    the database-backed manager.
+    Shared completion helpers serialize matching identities, consult completed operations,
+    select/reuse destination Replicas, and expose journal hooks around publication. Ordinary ingest
+    hashes before consulting retry records; identified and native paths trust supplied identity and
+    can skip source consumption on reuse. Adoption has its own metadata flow. None of these paths
+    makes physical publication and every metadata update one atomic transaction.
+
+    Example:
+        >>> result = manager.ingest_bytes(b"payload", operation_id=operation_id)  # doctest: +SKIP
     """
 
     @override
@@ -49,21 +59,36 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         verify: bool = True,
     ) -> api.DigitalAssetIngestResult:
         """
-        Spool, identify, publish, and register one stream recoverably.
+        Spool the remaining stream, calculate SHA-256 plus expected algorithms, and delegate
+        publication/registration.
+
+        Read in requested 1 MiB chunks into a temporary spool that rolls to disk above 8 MiB. A
+        false read ends input before the bytes-type check; truthy non-bytes values reject. The
+        caller stream is neither rewound nor closed. Exact size and expected digests are checked
+        only after consumption, before journaling or completed-operation lookup.
+
+        The request retains normalized expectations, metadata, link, placement, mode, and verify
+        intent. Completed retries still read/hash before equality checking; a matching result or
+        readable destination Replica can avoid publication. The spool closes on every exit, while
+        post-publication metadata/verification failures follow the shared completion helper's
+        recovery boundaries.
+
+        Example:
+            >>> result = manager.ingest_stream(stream, expected_size=4, operation_id=operation_id)  # doctest: +SKIP
 
 
-        :param stream:
-        :param operation_id:
-        :param expected_size:
-        :param expected_digests:
-        :param item_id:
-        :param role:
-        :param metadata:
-        :param placement_hints:
-        :param preferred_store_ref:
-        :param replica_mode:
-        :param verify:
-        :return:
+        :param stream: Caller-owned binary reader consumed from its current position; the manager does not close it.
+        :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
+        :param expected_size: Optional exact remaining byte count checked after consumption; it is not a read limit.
+        :param expected_digests: Expected digests to compare with computed input bytes; ordinary ingest also computes SHA-256.
+        :param item_id: Optional Item identity to link after registration; None omits linking.
+        :param role: Optional link role; None selects primary_payload when item_id is supplied.
+        :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
+        :param placement_hints: Advisory destination placement metadata, retained in retry identity and forwarded during publication.
+        :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
+        :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
+        :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+        :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
         """
 
         operation_id = uuid4() if operation_id is None else operation_id
@@ -120,13 +145,20 @@ class DigitalAssetIngestMixin(_StorageManagerState):
                 digest: api.Digest,
             ) -> None:
                 """
-                Rewind the spool and publish its verified bytes once.
+                Rewind the enclosing identified spool and publish it at the allocated destination.
+
+                Pass the measured size, selected digest, and placement hints to Store.put. This
+                closure does not close the spool or register metadata; the surrounding ingest
+                context and completion helper own those steps.
+
+                Example:
+                    >>> _publish(store, location, digest)  # doctest: +SKIP
 
 
-                :param store:
-                :param location:
-                :param digest:
-                :return:
+                :param store: Selected destination Store responsible for commit-time byte checks.
+                :param location: Allocated destination address supplied by the completion helper.
+                :param digest: Preferred registered Asset digest passed as the Store expected_digest.
+                :return: None after Store.put returns; publication errors propagate.
                 """
 
                 spool.seek(0)
@@ -170,21 +202,37 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         verify: bool = True,
     ) -> api.DigitalAssetIngestResult:
         """
-        Publish trusted identified bytes without manager-side spooling.
+        Validate authoritative size/digest structure and delegate without spooling or hashing the
+        caller stream.
+
+        Require a nonnegative size, nonempty unique algorithm set, and SHA-256, sorting digests for
+        retry identity. Source authority is a caller promise, not checked against a provider here.
+        Completed equal requests and readable existing destination Replicas can bypass consumption
+        entirely. New publication delegates the exact size and preferred digest to Store.put; extra
+        declared digests are not independently computed by this method.
+
+        Optional later verification can report an unhealthy result without undoing publication. The
+        caller owns stream position/lifetime and must supply it at the intended bytes when
+        publication is needed.
+
+        Example:
+            >>> result = manager.ingest_identified_stream(  # doctest: +SKIP
+            ...     stream, size_bytes=4, authoritative_digests=digests,
+            ... )
 
 
-        :param stream:
-        :param size_bytes:
-        :param authoritative_digests:
-        :param operation_id:
-        :param item_id:
-        :param role:
-        :param metadata:
-        :param placement_hints:
-        :param preferred_store_ref:
-        :param replica_mode:
-        :param verify:
-        :return:
+        :param stream: Caller-owned stream positioned at the identified bytes; a completed retry or reused Replica may leave it unread.
+        :param size_bytes: Authoritative remaining byte count; the composed implementation rejects values below zero.
+        :param authoritative_digests: Trusted source identity including SHA-256; the composed implementation requires unique algorithms.
+        :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
+        :param item_id: Optional Item identity to link after registration; None omits linking.
+        :param role: Optional link role; None selects primary_payload when item_id is supplied.
+        :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
+        :param placement_hints: Advisory destination placement metadata, retained in retry identity and forwarded during publication.
+        :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
+        :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
+        :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+        :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
         """
 
         if size_bytes < 0:
@@ -229,13 +277,20 @@ class DigitalAssetIngestMixin(_StorageManagerState):
             digest: api.Digest,
         ) -> None:
             """
-            Publish the caller-supplied, already identified stream.
+            Pass the enclosing caller stream directly to Store.put with its authoritative size and
+            selected digest.
+
+            No seek, manager hash, or stream close occurs here. The Store owns validation and
+            publication behavior; the completion helper owns subsequent metadata work.
+
+            Example:
+                >>> _publish(store, location, digest)  # doctest: +SKIP
 
 
-            :param store:
-            :param location:
-            :param digest:
-            :return:
+            :param store: Selected destination Store responsible for commit-time byte checks.
+            :param location: Allocated destination address supplied by the completion helper.
+            :param digest: Preferred registered Asset digest passed as the Store expected_digest.
+            :return: None after Store.put returns; source-read or destination errors propagate.
             """
 
             store.put(
@@ -277,20 +332,29 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         verify: bool = True,
     ) -> api.DigitalAssetIngestResult:
         """
-        Prefer verified native transfer, then fall back to source streaming.
+        Route advanced sources through preparation, otherwise consider native import using
+        authoritative stat identity.
+
+        IngestSourceStoreAPI sources delegate to the API preparation path, which returns through the
+        prepared-object override. Conventional sources contribute their digest only if stat
+        authority is advertised, then share native eligibility/publication logic with a streamed API
+        fallback. The supplied info is not refreshed here.
+
+        Example:
+            >>> result = manager.ingest_store_object(source, info)  # doctest: +SKIP
 
 
-        :param source:
-        :param info:
-        :param operation_id:
-        :param item_id:
-        :param role:
-        :param metadata:
-        :param placement_hints:
-        :param preferred_store_ref:
-        :param replica_mode:
-        :param verify:
-        :return:
+        :param source: Configured source Store supplying inventory/stat metadata and readable bytes.
+        :param info: Source Location, size, digest, and optional version evidence; no fresh stat is implicit here.
+        :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
+        :param item_id: Optional Item identity to link after registration; None omits linking.
+        :param role: Optional link role; None selects primary_payload when item_id is supplied.
+        :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
+        :param placement_hints: Advisory destination placement metadata, retained in retry identity and forwarded during publication.
+        :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
+        :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
+        :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+        :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
         """
 
         if isinstance(source, api.IngestSourceStoreAPI):
@@ -312,11 +376,19 @@ class DigitalAssetIngestMixin(_StorageManagerState):
             fallback_operation_id: UUID | None,
         ) -> api.DigitalAssetIngestResult:
             """
-            Use the API's streamed fallback with the selected operation ID.
+            Open the enclosing conventional source through the API wrapper using the selected retry
+            UUID.
+
+            The wrapper applies conditional-read and authoritative-digest rules before selecting
+            ordinary or identified ingest; source and all other ingest options come from the
+            enclosing call.
+
+            Example:
+                >>> result = _fallback(operation_id)  # doctest: +SKIP
 
 
-            :param fallback_operation_id:
-            :return:
+            :param fallback_operation_id: Original or newly selected operation UUID forwarded to the API streamed path.
+            :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
             """
 
             return api.DigitalAssetIngestAPI.ingest_store_object(
@@ -365,20 +437,30 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         verify: bool = True,
     ) -> api.DigitalAssetIngestResult:
         """
-        Prefer native transfer while reusing an existing preparation.
+        Validate one retained preparation and consider native transfer using its authoritative
+        SHA-256.
+
+        Require the advanced source API and correct Location ownership. Capability-validation
+        ValueError becomes StoreIntegrityError. The same preparation is passed to native selection
+        or the API fallback, avoiding a second prepare call; fallback validates it again before
+        opening. Other prepared digests may enter streamed ingest but the native identity uses the
+        selected SHA-256 only.
+
+        Example:
+            >>> result = manager.ingest_prepared_store_object(source, prepared)  # doctest: +SKIP
 
 
-        :param source:
-        :param prepared:
-        :param operation_id:
-        :param item_id:
-        :param role:
-        :param metadata:
-        :param placement_hints:
-        :param preferred_store_ref:
-        :param replica_mode:
-        :param verify:
-        :return:
+        :param source: Store implementing IngestSourceStoreAPI and owning the preparation Location.
+        :param prepared: Existing preparation whose advertised authority/read-consistency constraints are validated before opening.
+        :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
+        :param item_id: Optional Item identity to link after registration; None omits linking.
+        :param role: Optional link role; None selects primary_payload when item_id is supplied.
+        :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
+        :param placement_hints: Advisory destination placement metadata, retained in retry identity and forwarded during publication.
+        :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
+        :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
+        :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+        :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
         """
 
         if not isinstance(source, api.IngestSourceStoreAPI):
@@ -393,11 +475,18 @@ class DigitalAssetIngestMixin(_StorageManagerState):
             fallback_operation_id: UUID | None,
         ) -> api.DigitalAssetIngestResult:
             """
-            Stream the prepared object when native transfer is unavailable.
+            Reuse the enclosing preparation through the API reader path with the chosen operation
+            UUID.
+
+            The delegated method validates the preparation again, opens/closes its reader, and
+            chooses ordinary or identified streaming. It does not prepare the source a second time.
+
+            Example:
+                >>> result = _fallback(operation_id)  # doctest: +SKIP
 
 
-            :param fallback_operation_id:
-            :return:
+            :param fallback_operation_id: Operation UUID retained when the native path falls back to prepared streaming.
+            :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
             """
 
             return api.DigitalAssetIngestAPI.ingest_prepared_store_object(
@@ -457,22 +546,42 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         ],
     ) -> api.DigitalAssetIngestResult:
         """
-        Attempt verified native import and invoke one exact fallback.
+        Resolve a destination and try native import only with supported transfer, known size, and
+        SHA-256 identity.
+
+        Destination lookup precedes eligibility checks. Ineligible cases invoke fallback with the
+        original UUID. Eligible requests retain source Location/version, identity, and ingest
+        options, allocate a UUID if needed, and use shared completion. Native import passes
+        size/digest but no source-version precondition; retaining info.version in retry identity
+        does not pin the physical transfer.
+
+        StoreUnsupportedOperation from the entire completion attempt invokes fallback with the
+        selected UUID, potentially after earlier side effects. Other errors propagate. Equal
+        completed native requests can return before source transfer, while crossing to a different
+        request kind can fail retry equality; no atomic fallback or universal cross-path idempotency
+        is promised.
+
+        Example:
+            >>> result = manager._ingest_store_object_natively_or_fallback(  # doctest: +SKIP
+            ...     source, info, digest, operation_id=operation_id, item_id=None, role=None,
+            ...     metadata=None, placement_hints=None, preferred_store_ref=None,
+            ...     replica_mode=api.ReplicaMode.ACTIVE, verify=True, fallback=fallback,
+            ... )
 
 
-        :param source:
-        :param info:
-        :param digest:
-        :param operation_id:
-        :param item_id:
-        :param role:
-        :param metadata:
-        :param placement_hints:
-        :param preferred_store_ref:
-        :param replica_mode:
-        :param verify:
-        :param fallback:
-        :return:
+        :param source: Configured source Store supplying inventory/stat metadata and readable bytes.
+        :param info: Source Location, size, digest, and optional version evidence; no fresh stat is implicit here.
+        :param digest: Authoritative source digest used for native identity; absent or non-SHA-256 values force fallback.
+        :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
+        :param item_id: Optional Item identity to link after registration; None omits linking.
+        :param role: Optional link role; None selects primary_payload when item_id is supplied.
+        :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
+        :param placement_hints: Advisory destination placement metadata, retained in retry identity and forwarded during publication.
+        :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
+        :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
+        :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+        :param fallback: Callable accepting the retained operation UUID and returning the streamed ingest result.
+        :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
         """
 
         destination_ref = (
@@ -515,13 +624,20 @@ class DigitalAssetIngestMixin(_StorageManagerState):
             expected_digest: api.Digest,
         ) -> None:
             """
-            Ask the destination Store to import the source object natively.
+            Ask the selected native-capable Store to import the enclosing source Location.
+
+            Pass expected size, selected digest, and placement hints. Source info.version is not
+            passed as a conditional-read token, and no source reader is opened by this closure.
+            Assertions protect the native Store and known-size assumptions.
+
+            Example:
+                >>> _publish(store, location, expected_digest)  # doctest: +SKIP
 
 
-            :param store:
-            :param location:
-            :param expected_digest:
-            :return:
+            :param store: Destination required to implement NativeImportStoreAPI.
+            :param location: Allocated destination address for the imported bytes.
+            :param expected_digest: Preferred Asset digest forwarded to import_from for commit validation.
+            :return: None after native import returns; assertion or transfer failures propagate to the completion/fallback boundary.
             """
 
             assert isinstance(store, api.NativeImportStoreAPI)
@@ -567,18 +683,34 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         verify: bool = False,
     ) -> api.DigitalAssetIngestResult:
         """
-        Register bytes already present at one concrete Location.
+        Hash existing Store bytes and create or reuse their Asset identity and Location claim.
+
+        Check completed operation equality before stat/read. Without an explicit Asset ID, hash
+        SHA-256, find or declare identity, and capture placement-policy defaults where applicable.
+        With an explicit ID, hash its declared algorithms and require matching size/comparable
+        digests. verify=False still performs this identity read. Stat and hashing are separate, with
+        no version pin added here.
+
+        A live Location claim for another Asset rejects, possibly after a new declaration. A
+        matching claim is reused without changing mode; otherwise a PRESENT observation retains
+        measured evidence. Optional verification refreshes the observation and can yield
+        verified=False. Existing metadata is not overwritten. Asset/Replica updates precede the
+        final Item-link/completed-operation transaction, so later errors can leave partial metadata;
+        no bytes are copied or deleted.
+
+        Example:
+            >>> result = manager.adopt_location(location, verify=False)  # doctest: +SKIP
 
 
-        :param location:
-        :param operation_id:
-        :param digital_asset_id:
-        :param item_id:
-        :param role:
-        :param metadata:
-        :param replica_mode:
-        :param verify:
-        :return:
+        :param location: Concrete registered Store address whose existing bytes should be identified and claimed.
+        :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
+        :param digital_asset_id: Optional existing Asset identity that the observed size and comparable digests must match.
+        :param item_id: Optional Item identity to link after registration; None omits linking.
+        :param role: Optional link role; None selects primary_payload when item_id is supplied.
+        :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
+        :param replica_mode: Mode for a newly created claim, default UNMANAGED; a reused claim retains its mode.
+        :param verify: Request another Replica verification after registration; False still hashes bytes for adoption identity.
+        :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
         """
 
         operation_id = uuid4() if operation_id is None else operation_id

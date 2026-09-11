@@ -1,4 +1,10 @@
-"""Core endpoint declarations for database schema operations."""
+"""
+Declare Core routes for database administration, column/link semantics, preferences, and custom fields.
+
+Query and command installation are separate, sequential registration operations.
+Field declarations describe the transport interface without enforcing request
+values, backend capabilities, migration safety, or transactional behavior.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +18,26 @@ from LiuXin_alpha.core.program_endpoints.handlers import DatabaseSchemaHandlers
 def install_queries(
     api: DatabaseSchemaHandlers, runtime: ProgramEndpointRegistrar
 ) -> None:
-    """Register this family's query endpoints."""
+    """
+    Install ten database, migration, schema-policy, preference, and custom-column inspection routes.
+
+    Identity/summary/telemetry and migration status/plan use field-free declarations;
+    policy and preference lookups advertise their selectors. No database calls or
+    migration planning run here, and the provider does not install the separate
+    schema table/identity routes owned by other Core APIs.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> registrar = Mock()
+        >>> install_queries(Mock(), registrar)
+        >>> registrar.register_query_handler.call_count
+        10
+
+
+    :param api: Provider whose database/schema/preferences/custom-field query methods are bound for dispatch.
+    :param runtime: Registrar receiving these ten ordered bindings and explicit introspection metadata.
+    :return: None after installation, or a propagated lookup/registration error with earlier bindings left in place.
+    """
 
     query = runtime.register_query_handler
 
@@ -104,7 +129,26 @@ def install_queries(
 def install_commands(
     api: DatabaseSchemaHandlers, runtime: ProgramEndpointRegistrar
 ) -> None:
-    """Register this family's command endpoints."""
+    """
+    Install nine backup/vacuum/migration, column-policy, preference, and custom-field mutation routes.
+
+    Optional backup verification and custom-field selectors are advertised without
+    performing validation or writes. Confirmation, backend availability, and
+    post-write refresh/error behavior are handler concerns; installing a route
+    is not evidence that the underlying operation can succeed.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> registrar = Mock()
+        >>> install_commands(Mock(), registrar)
+        >>> registrar.register_command_handler.call_count
+        9
+
+
+    :param api: Provider supplying administrative, schema-policy, preference, and custom-column command methods.
+    :param runtime: Registrar accepting nine command bindings with summaries, field declarations, and tags.
+    :return: None after all bindings are registered; later failure does not trigger rollback of earlier registrations.
+    """
 
     command = runtime.register_command_handler
 

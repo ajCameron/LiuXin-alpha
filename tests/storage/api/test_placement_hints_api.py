@@ -1,3 +1,10 @@
+"""
+Exercise WEMI hint projection with real in-memory metadata containers.
+
+Work and Item cases include mapping round trips; Expression and Manifestation
+cases pin their distinct display-selection rules. No database or Store is opened.
+"""
+
 from __future__ import annotations
 
 from LiuXin_alpha.metadata.api import (
@@ -26,6 +33,17 @@ from LiuXin_alpha.storage.api import (
 
 
 def test_derive_work_storage_hints_from_metadata_container() -> None:
+    """
+    Verify Work identity, author, edition type, normalized formats, and filename suggestions after a
+    real metadata-container mapping round trip. Link targets are in-memory mappings; this exercises
+    neither database persistence nor destination allocation.
+
+    Example:
+        >>> test_derive_work_storage_hints_from_metadata_container()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     container = WorkMetadata(
         work=WorkIdentity(
             work_id=5,
@@ -76,6 +94,17 @@ def test_derive_work_storage_hints_from_metadata_container() -> None:
 
 
 def test_derive_item_storage_hints_from_metadata_container() -> None:
+    """
+    Verify Item hints retain selected Work/title/author fields and a linked file key after a
+    metadata-container mapping round trip. The assertions cover uppercase formats and filename/key
+    suggestions without creating or reserving a file.
+
+    Example:
+        >>> test_derive_item_storage_hints_from_metadata_container()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     container = ItemMetadata(
         item=ItemIdentity(
             item_id=44,
@@ -131,6 +160,17 @@ def test_derive_item_storage_hints_from_metadata_container() -> None:
 
 
 def test_derive_expression_storage_hints_from_metadata_container() -> None:
+    """
+    Verify Expression identity/title/type and primary author projection. A language target
+    containing both en and English projects the display name English into language_code, preserving
+    the actual field-selection behavior.
+
+    Example:
+        >>> test_derive_expression_storage_hints_from_metadata_container()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     container = ExpressionMetadata(
         expression=ExpressionIdentity(
             expression_id=20,
@@ -161,6 +201,17 @@ def test_derive_expression_storage_hints_from_metadata_container() -> None:
 
 
 def test_derive_manifestation_storage_hints_from_metadata_container() -> None:
+    """
+    Verify Manifestation edition, carrier, publication year, and first title projection. Linked file
+    formats use display text, so the asserted epub token remains lowercase rather than undergoing
+    Work/Item format normalization.
+
+    Example:
+        >>> test_derive_manifestation_storage_hints_from_metadata_container()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     container = ManifestationMetadata(
         manifestation=ManifestationIdentity(
             manifestation_id=10,
@@ -193,10 +244,39 @@ def test_derive_manifestation_storage_hints_from_metadata_container() -> None:
 
 
 def test_derive_storage_hints_accepts_direct_hints_and_ignores_broken_providers() -> None:
+    """
+    Verify direct hint values retain identity and a RuntimeError raised inside a provider method
+    produces None. This does not exercise provider attribute-lookup failures or errors from
+    structural metadata projection.
+
+    Example:
+        >>> test_derive_storage_hints_accepts_direct_hints_and_ignores_broken_providers()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     hints = WorkStorageHints(work_id=5, title="Permutation City")
 
     class BrokenProvider:
+        """
+        Supply an optional provider whose method invocation always fails. The double isolates the
+        exception boundary inside derive_storage_hints, without a failing property lookup.
+
+        Example:
+            >>> derive_storage_hints(BrokenProvider()) is None  # doctest: +SKIP
+            True
+        """
         def storage_hints(self) -> WorkStorageHints:
+            """
+            Raise a fixed RuntimeError to exercise optional provider-call suppression. No hint value
+            is constructed or returned.
+
+            Example:
+                >>> BrokenProvider().storage_hints()  # doctest: +SKIP
+
+
+            :return: Never returns; raises RuntimeError with the provider failure message.
+            """
             raise RuntimeError("provider failed")
 
     assert derive_storage_hints(hints) is hints

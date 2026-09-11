@@ -1,3 +1,11 @@
+"""
+Exercise StoreContainer configuration persistence and facade identity agreement.
+
+The persistence case uses a real temporary SQLite schema through the miniature
+database adapter. These tests validate configuration values and routing UUIDs,
+without publishing Asset bytes or claiming a full application-manager restart.
+"""
+
 from __future__ import annotations
 
 import dataclasses
@@ -15,6 +23,20 @@ from LiuXin_alpha.storage.stores import FilesystemStore
 def test_store_container_roundtrips_configuration_and_stable_uuid_via_db(
     tmp_path: Path,
 ) -> None:
+    """
+    Save, update, and reload Store configuration through a temporary SQLite catalogue.
+
+    The assigned Store row and routing UUID remain stable while role and tags change. Assertions
+    compare both returned configuration values and the stored row. The database connection closes in
+    the finally block around the save/update sequence; no Asset payload is published or read.
+
+    Example:
+        >>> test_store_container_roundtrips_configuration_and_stable_uuid_via_db(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding the SQLite catalogue and configured filesystem Store root.
+    :return: None after configuration round-trip, stable UUID, and stored-row assertions pass.
+    """
     db = build_mini_db(tmp_path / "store_container.sqlite")
     root = tmp_path / "store"
     configuration = StoreConfiguration(
@@ -51,6 +73,19 @@ def test_store_container_roundtrips_configuration_and_stable_uuid_via_db(
 
 
 def test_store_container_rejects_configuration_for_another_store(tmp_path: Path) -> None:
+    """
+    Reject a container configuration whose UUID differs from the supplied Store facade.
+
+    The copied configuration changes only identity. The test requires ValueError with the
+    UUID-mismatch diagnostic and opens no database or byte stream.
+
+    Example:
+        >>> test_store_container_rejects_configuration_for_another_store(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used to configure the filesystem Store root.
+    :return: None after the mismatched configuration raises the expected ValueError.
+    """
     store = FilesystemStore(tmp_path / "store")
     wrong = dataclasses.replace(store.configuration, store_uuid=uuid4())
 

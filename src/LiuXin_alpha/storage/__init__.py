@@ -1,9 +1,13 @@
-"""Storage subsystem package.
+"""
+Expose storage packages and selected implementations through lazy package lookup.
 
-The authoritative replacement contracts live in :mod:`LiuXin_alpha.storage.api`.
-Legacy implementation objects remain lazily reachable for the forthcoming
-full-system audit, but they are no longer imported while the new API package is
-being loaded; many still depend on the deliberately removed former contract.
+API, ingest, reconcile, utilities, registries, managers, workflows, and legacy
+write-error classes are imported only when their names are requested through this
+package hook. Successful resolutions are cached in module globals. Individual
+implementation imports retain their own dependencies and may fail independently.
+
+The package-level StorageError resolves to the legacy storage.errors class;
+storage.api.StorageError is the separate shared contract hierarchy.
 """
 
 from __future__ import annotations
@@ -131,12 +135,20 @@ __all__ = ["api", "ingest", "reconcile", "utils", *_LAZY_EXPORTS]
 
 
 def __getattr__(name: str) -> Any:
-    """Load replacement or legacy storage surfaces only when requested.
+    """
+    Import a supported subpackage or mapped implementation attribute and cache its resolved value.
+
+    Unknown names raise AttributeError chained from the missing export-map key. Import or attribute
+    failures propagate before caching. A cached attribute normally bypasses this hook on later
+    package access; direct calls to the hook perform resolution again.
 
     Example:
-        >>> api = __getattr__("api")
-        >>> api.__name__
+        >>> __getattr__("api").__name__
         'LiuXin_alpha.storage.api'
+
+
+    :param name: Requested package attribute name from the supported lazy exports.
+    :return: Resolved module or exported object, also stored in this package's globals.
     """
     if name == "api":
         value: Any = import_module("LiuXin_alpha.storage.api")
@@ -159,10 +171,17 @@ def __getattr__(name: str) -> Any:
 
 
 def __dir__() -> list[str]:
-    """Return eager and lazy package attributes for interactive discovery.
+    """
+    List current module globals and declared lazy exports in sorted, duplicate-free order.
+
+    Listing names does not import the corresponding implementation modules or prove they can be
+    loaded.
 
     Example:
-        >>> "api" in __dir__()
+        >>> "StorageManager" in __dir__()
         True
+
+
+    :return: Sorted list of eager/current global and advertised export names.
     """
     return sorted({*globals(), *__all__})

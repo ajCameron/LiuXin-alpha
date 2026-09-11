@@ -1,4 +1,16 @@
-"""Public storage reconciliation helpers and report models."""
+"""
+Export legacy file-registration and database-driven SquashFS publication workflows.
+
+Local disk and rclone registration populate legacy Store/file/link rows, while
+SquashFS designation/publication records archive state and can adopt verified
+Asset/Replica identities through a StorageManager. Their report values describe
+phase-specific observations and partial effects rather than an all-run transaction.
+Imports expose the underlying callables directly; no workflow runs on import.
+
+Example:
+    >>> StoreDbSyncReport is UnmanagedDiskRegistrationReport
+    True
+"""
 
 from __future__ import annotations
 

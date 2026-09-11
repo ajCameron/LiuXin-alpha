@@ -1,5 +1,9 @@
 """
-Backup workflow contracts and durable value objects.
+Export backup planning, execution, persistence, and artifact-Store contracts.
+
+Public values describe ordered source intent, checkpoint evidence, terminal results,
+pack estimates, and Store registration. Importing this facade does not persist intent,
+run an archive tool, or register output; concrete services live in storage.backup.
 """
 
 from LiuXin_alpha.storage.api.workflow_api.backup_api.artifact_api import (

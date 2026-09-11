@@ -1,3 +1,10 @@
+"""
+Verify surface-package lazy API exposure, the explicit protocol export list, and shared re-export identities.
+
+These contracts inspect imported modules and public names without constructing
+application instances, opening databases, or asserting runtime protocol validation.
+"""
+
 from __future__ import annotations
 
 import importlib
@@ -21,6 +28,18 @@ SURFACE_API_EXPORTS = [
 
 
 def test_surfaces_root_exposes_lazy_api_module() -> None:
+    """
+    Keep api advertised at the surface root and bound to the same importable API submodule.
+
+    This checks public availability and identity, not whether another test already
+    loaded the module before this access.
+
+    Example:
+        >>> test_surfaces_root_exposes_lazy_api_module()
+
+
+    :return: None after export membership and package/submodule identity assertions.
+    """
     surfaces = importlib.import_module("LiuXin_alpha.surfaces")
 
     assert "api" in surfaces.__all__
@@ -28,6 +47,15 @@ def test_surfaces_root_exposes_lazy_api_module() -> None:
 
 
 def test_surface_api_root_exports_current_contract_names() -> None:
+    """
+    Preserve the exact ordered API export list and require each advertised name to exist.
+
+    Example:
+        >>> test_surface_api_root_exports_current_contract_names()
+
+
+    :return: None after ordered-list equality and all exported-attribute presence checks.
+    """
     surface_api = importlib.import_module("LiuXin_alpha.surfaces.api")
 
     assert surface_api.__all__ == SURFACE_API_EXPORTS
@@ -36,6 +64,15 @@ def test_surface_api_root_exports_current_contract_names() -> None:
 
 
 def test_existing_surface_modules_reexport_shared_host_protocols() -> None:
+    """
+    Require acquisition, catalogue, image, OPDS, and read-model package/API names to share protocol identities.
+
+    Example:
+        >>> test_existing_surface_modules_reexport_shared_host_protocols()
+
+
+    :return: None after all ten compatibility import locations resolve to the central protocol objects.
+    """
     surface_api = importlib.import_module("LiuXin_alpha.surfaces.api")
     module_protocols = [
         ("LiuXin_alpha.surfaces.acquisition.api", "AcquisitionHostApi"),

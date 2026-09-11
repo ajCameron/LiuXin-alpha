@@ -1,3 +1,12 @@
+"""
+Exercise filesystem staging, digest placement, and validated SquashFS sealing.
+
+Staging tests use local files and need no archive builder. Seal round trips use
+installed tools; injected build failures, invalid candidates, and sleeping shell
+commands cover specific publication and timeout boundaries. Manager creation uses
+an in-memory registry with a real staging directory.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -44,6 +53,17 @@ from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
 def test_squashfs_build_staging_preserves_unicode_names_and_bytes(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Commit a Unicode key to real staging and verify lifecycle characteristics, inventory, filename
+    hints, Store reads, and on-disk bytes.
+
+    Example:
+        >>> test_squashfs_build_staging_preserves_unicode_names_and_bytes(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     stage = tmp_path / "stage"
     store = SquashfsBuildStorageBackend(
         str(tmp_path / "backup.squashfs"),
@@ -72,6 +92,17 @@ def test_squashfs_build_staging_preserves_unicode_names_and_bytes(
 def test_squashfs_build_staging_reads_tortured_unicode_paths_exactly(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Seed the shared difficult Unicode path cases through explicit staged writes and run their common
+    read/identity contract.
+
+    Example:
+        >>> test_squashfs_build_staging_reads_tortured_unicode_paths_exactly(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     store = SquashfsBuildStorageBackend(
         str(tmp_path / "backup.squashfs"),
         staging_root=str(tmp_path / "stage"),
@@ -92,6 +123,16 @@ def test_squashfs_build_staging_reads_tortured_unicode_paths_exactly(
 def test_squashfs_build_staging_reads_surrogateescaped_names(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Commit and read an undecodable POSIX filename through its surrogateescaped Store key.
+
+    Example:
+        >>> test_squashfs_build_staging_reads_surrogateescaped_names(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     store = SquashfsBuildStorageBackend(
         str(tmp_path / "backup.squashfs"),
         staging_root=str(tmp_path / "stage"),
@@ -107,6 +148,17 @@ def test_squashfs_build_staging_reads_surrogateescaped_names(
 
 
 def test_squashfs_build_designate_and_iter_locations(tmp_path: pathlib.Path) -> None:
+    """
+    Designate a local source under an explicit archive key and verify the committed staged key,
+    payload, size, and inventory.
+
+    Example:
+        >>> test_squashfs_build_designate_and_iter_locations(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     source = tmp_path / "source.epub"
     source.write_bytes(b"EPUB-DATA")
     store = SquashfsBuildStorageBackend(
@@ -127,6 +179,17 @@ def test_squashfs_build_designate_and_iter_locations(tmp_path: pathlib.Path) -> 
 def test_squashfs_build_implicit_write_uses_hash_layout_and_deduplicates(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Write identical bytes twice without a destination and verify one SHA-256/five-character-bucket
+    staging key with unchanged payload.
+
+    Example:
+        >>> test_squashfs_build_implicit_write_uses_hash_layout_and_deduplicates(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     payload = b"prompt-cache-payload"
     digest = hashlib.sha256(payload).hexdigest()
     store = SquashfsBuildStorageBackend(
@@ -146,6 +209,17 @@ def test_squashfs_build_implicit_write_uses_hash_layout_and_deduplicates(
 def test_squashfs_build_implicit_write_fails_loudly_on_non_file_collision(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Place a directory at the would-be digest file key and require an implicit write to raise
+    SquashfsBuildImplicitOverwriteError.
+
+    Example:
+        >>> test_squashfs_build_implicit_write_fails_loudly_on_non_file_collision(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     payload = b"collision-payload"
     digest = hashlib.sha256(payload).hexdigest()
     stage = tmp_path / "stage"
@@ -162,6 +236,17 @@ def test_squashfs_build_implicit_write_fails_loudly_on_non_file_collision(
 def test_squashfs_build_explicit_collision_requires_explicit_replace(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Require default create-only collision failure, then verify an explicit REPLACE changes the
+    staged bytes.
+
+    Example:
+        >>> test_squashfs_build_explicit_collision_requires_explicit_replace(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     store = SquashfsBuildStorageBackend(
         str(tmp_path / "backup.squashfs"),
         staging_root=str(tmp_path / "stage"),
@@ -181,6 +266,17 @@ def test_squashfs_build_explicit_collision_requires_explicit_replace(
 def test_squashfs_build_abort_never_publishes_partial_staged_file(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Exit a write context without commit after offering fewer bytes than expected and verify the
+    target remains absent.
+
+    Example:
+        >>> test_squashfs_build_abort_never_publishes_partial_staged_file(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     store = SquashfsBuildStorageBackend(
         str(tmp_path / "backup.squashfs"),
         staging_root=str(tmp_path / "stage"),
@@ -196,6 +292,17 @@ def test_squashfs_build_abort_never_publishes_partial_staged_file(
 def test_squashfs_build_refuses_to_seal_with_active_write_session(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Keep a second staged write open and require seal to reject despite an already committed member;
+    abort the pending session in finally.
+
+    Example:
+        >>> test_squashfs_build_refuses_to_seal_with_active_write_session(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     store = SquashfsBuildStorageBackend(
         str(tmp_path / "backup.squashfs"),
         staging_root=str(tmp_path / "stage"),
@@ -212,6 +319,20 @@ def test_squashfs_build_refuses_to_seal_with_active_write_session(
 def test_squashfs_build_seal_publishes_atomically_and_returns_readonly_store(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Seal a real gzip image with deterministic flags and verify returned archive reads, candidate
+    cleanup, and refusal of another mutation or seal.
+
+    Assertions cover the successful result and lifecycle state, not a concurrent-observer proof of
+    publication atomicity.
+
+    Example:
+        >>> test_squashfs_build_seal_publishes_atomically_and_returns_readonly_store(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
         pytest.skip("squashfs-tools not available in environment")
     archive = tmp_path / "backup.squashfs"
@@ -241,6 +362,18 @@ def test_failed_force_seal_preserves_existing_archive(
     tmp_path: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Inject a pre-publication build error during a forced seal and verify the old archive bytes
+    survive with no sibling candidate left.
+
+    Example:
+        >>> test_failed_force_seal_preserves_existing_archive(tmp_path, monkeypatch)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :param monkeypatch: Pytest fixture restoring injected inventory or build methods after the test.
+    :return: None after the stated regression assertions pass.
+    """
     archive = tmp_path / "backup.squashfs"
     archive.write_bytes(b"OLD-ARCHIVE")
     store = SquashfsBuildStorageBackend(
@@ -250,6 +383,17 @@ def test_failed_force_seal_preserves_existing_archive(
     store.store_bytes(b"ONE", location="one.txt")
 
     def fake_failure(_output: pathlib.Path, *, quiet: bool) -> None:
+        """
+        Raise the selected build-tool failure before writing any candidate bytes.
+
+        Example:
+            >>> fake_failure(candidate, quiet=True)  # doctest: +SKIP
+
+
+        :param _output: Unused candidate pathname supplied by seal.
+        :param quiet: Build quiet flag accepted for signature compatibility and discarded.
+        :return: Never returns normally; raises StoreUnavailable.
+        """
         del quiet
         raise StoreUnavailable("mksquashfs failed")
 
@@ -265,6 +409,17 @@ def test_failed_force_seal_preserves_existing_archive(
 def test_squashfs_seal_rejects_symbolic_links_before_build(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Place a symlink in real POSIX staging and require preflight rejection while preserving an
+    existing output archive.
+
+    Example:
+        >>> test_squashfs_seal_rejects_symbolic_links_before_build(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     archive = tmp_path / "backup.squashfs"
     archive.write_bytes(b"OLD-ARCHIVE")
     stage = tmp_path / "stage"
@@ -282,6 +437,17 @@ def test_squashfs_seal_rejects_symbolic_links_before_build(
 def test_squashfs_seal_rejects_total_budget_without_publication(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Stage two individually allowed files whose sum exceeds the configured total and require seal
+    rejection before an output exists.
+
+    Example:
+        >>> test_squashfs_seal_rejects_total_budget_without_publication(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     archive = tmp_path / "backup.squashfs"
     store = SquashfsBuildStorageBackend(
         str(archive),
@@ -301,6 +467,18 @@ def test_squashfs_seal_rejects_invalid_candidate_before_force_replace(
     tmp_path: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Inject successful creation of malformed candidate bytes and require validation failure before an
+    existing archive is replaced.
+
+    Example:
+        >>> test_squashfs_seal_rejects_invalid_candidate_before_force_replace(tmp_path, monkeypatch)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :param monkeypatch: Pytest fixture restoring injected inventory or build methods after the test.
+    :return: None after the stated regression assertions pass.
+    """
     archive = tmp_path / "backup.squashfs"
     archive.write_bytes(b"OLD-ARCHIVE")
     store = SquashfsBuildStorageBackend(
@@ -310,6 +488,18 @@ def test_squashfs_seal_rejects_invalid_candidate_before_force_replace(
     store.store_bytes(b"ONE", location="one.txt")
 
     def fake_build(output: pathlib.Path, *, quiet: bool) -> None:
+        """
+        Write malformed image bytes at the supplied candidate path and return as if the builder
+        succeeded.
+
+        Example:
+            >>> fake_build(candidate, quiet=True)  # doctest: +SKIP
+
+
+        :param output: Candidate pathname receiving the invalid payload.
+        :param quiet: Accepted build flag, discarded by the fake.
+        :return: None after writing NOT-A-SQUASHFS bytes.
+        """
         del quiet
         output.write_bytes(b"NOT-A-SQUASHFS")
 
@@ -324,6 +514,18 @@ def test_squashfs_seal_rejects_invalid_candidate_before_force_replace(
 def test_squashfs_build_enforces_external_command_timeout(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Use a sleeping build executable and require StorageTimeout with no published output.
+
+    The assertion does not impose an overall elapsed-time ceiling on cleanup.
+
+    Example:
+        >>> test_squashfs_build_enforces_external_command_timeout(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     fake = tmp_path / "slow-mksquashfs"
     fake.write_text("#!/bin/sh\nsleep 2\n", encoding="utf-8")
     fake.chmod(0o700)
@@ -345,6 +547,17 @@ def test_squashfs_build_enforces_external_command_timeout(
 def test_squashfs_build_bounds_streaming_stage_and_persists_policy(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Reject an offered write beyond the member ceiling, verify context cleanup leaves no file, and
+    inspect persisted limits/staging policy.
+
+    Example:
+        >>> test_squashfs_build_bounds_streaming_stage_and_persists_policy(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     store = SquashfsBuildStorageBackend(
         str(tmp_path / "backup.squashfs"),
         staging_root=str(tmp_path / "stage"),
@@ -369,6 +582,17 @@ def test_squashfs_build_bounds_streaming_stage_and_persists_policy(
 def test_storage_manager_can_instantiate_squashfs_builder_from_configuration(
     tmp_path: pathlib.Path,
 ) -> None:
+    """
+    Use an explicit factory with the in-memory storage manager and verify configuration registration
+    yields the builder at the expected archive path without startup.
+
+    Example:
+        >>> test_storage_manager_can_instantiate_squashfs_builder_from_configuration(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding local sources, staging, images, and helper executables.
+    :return: None after the stated regression assertions pass.
+    """
     archive = tmp_path / "backup.squashfs"
     configuration = StoreConfiguration(
         store_uuid=uuid4(),
@@ -379,6 +603,17 @@ def test_storage_manager_can_instantiate_squashfs_builder_from_configuration(
     )
 
     def factory(config: StoreConfiguration):
+        """
+        Construct a builder from the manager-provided identity and root while selecting the test's
+        explicit staging directory.
+
+        Example:
+            >>> plugin = factory(configuration)  # doctest: +SKIP
+
+
+        :param config: Store configuration supplying destination path, display name, and UUID.
+        :return: New SquashfsBuildStorageBackend backed by the captured temporary staging path.
+        """
         return SquashfsBuildStorageBackend(
             config.store_root_uri,
             name=config.store_name,

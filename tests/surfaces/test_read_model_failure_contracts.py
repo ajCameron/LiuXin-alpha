@@ -1,4 +1,11 @@
-"""Read failures must not become empty, missing, or silently retried results."""
+"""
+Keep read-model failures distinct from absence, explicit incompleteness, and rejected input.
+
+Autospecced model/client doubles isolate exception identity, partial iteration,
+query-count, conversion, and fallback boundaries. A malformed-receipt case uses
+the real CoreSurfaceModel over the fake client. AST checks reject catch-all
+handlers in both shared read and image backends without importing them again.
+"""
 
 import ast
 from pathlib import Path
@@ -28,11 +35,35 @@ FAILURES = (
 
 
 def _page(records=(), *, complete=True) -> CoreRowPage:
+    """
+    Build a test query receipt whose total equals the supplied sized collection's length.
+
+    Example:
+        >>> _page().complete, _page().total_count
+        (True, 0)
+
+
+    :param records: Sized iterable materialized as a tuple of fixture records.
+    :param complete: Completeness marker retained in the receipt to select optimized or fallback behavior.
+    :return: CoreRowPage with zero offset, no limit, matching total, and test-source metadata.
+    """
     return CoreRowPage(tuple(records), len(records), 0, None, complete, "test")
 
 
 @pytest.fixture
 def backend() -> ReadModelBackend:
+    """
+    Supply strict recording model/client doubles with successful empty reads and deterministic work-display hooks.
+
+    Host table lookup deliberately raises if consulted as a retry path. Schema,
+    query receipts, and lookup behavior can be overridden independently by tests.
+
+    Example:
+        >>> subject = request.getfixturevalue("backend")  # doctest: +SKIP
+
+
+    :return: ReadModelBackend with borrowed fake host and autospecced model; no real database or transport is opened.
+    """
     model = create_autospec(CoreSurfaceModel, instance=True, spec_set=True)
     model.table_exists.return_value = True
     model.table_names.return_value = ("works", "tags", "labels")
@@ -89,6 +120,21 @@ def backend() -> ReadModelBackend:
 def test_query_failures_propagate_unchanged(
     backend, failure, method, args, kwargs, failing_method
 ) -> None:
+    """
+    Preserve the exact exception from each parametrized read stage without host fallback or query retry.
+
+    Example:
+        >>> test_query_failures_propagate_unchanged(backend, OSError, "rows_for_table", ("works",), {}, "rows")  # doctest: +SKIP
+
+
+    :param backend: Recording read-model fixture whose selected collaborator is made to fail.
+    :param failure: Exception class instantiated once for the selected failure path.
+    :param method: ReadModelBackend operation invoked through getattr.
+    :param args: Positional arguments for the selected operation.
+    :param kwargs: Keyword arguments for the selected operation.
+    :param failing_method: Model method configured to raise the exact error instance.
+    :return: None after identity, no-host-retry, and applicable single-query assertions.
+    """
     error = failure("read failed")
     getattr(backend.model, failing_method).side_effect = error
     with pytest.raises(failure) as raised:
@@ -102,9 +148,30 @@ def test_query_failures_propagate_unchanged(
 
 @pytest.mark.parametrize("method", ("rows_for_table", "search_rows"))
 def test_iteration_failure_does_not_publish_a_partial_result(backend, method) -> None:
+    """
+    Require a post-first-row iterator failure to propagate before any materialized result can be returned.
+
+    Example:
+        >>> test_iteration_failure_does_not_publish_a_partial_result(backend, "rows_for_table")  # doctest: +SKIP
+
+
+    :param backend: Recording fixture receiving the deliberately failing result iterator.
+    :param method: Parametrized table enumeration or column-search operation.
+    :return: None after the original iteration exception escapes unchanged.
+    """
     error = OSError("iteration failed after one row")
 
     def records():
+        """
+        Yield one valid work and then raise the enclosing test's exact I/O error.
+
+        Example:
+            >>> first = next(records())  # doctest: +SKIP
+
+
+        :return: Iterator yielding WORK once, then failing instead of ending normally.
+        :raises OSError: On advancement after the first row.
+        """
         yield WORK
         raise error
 
@@ -120,6 +187,16 @@ def test_iteration_failure_does_not_publish_a_partial_result(backend, method) ->
 
 
 def test_known_empty_results_and_missing_records_remain_normal(backend) -> None:
+    """
+    Retain successful empty-list, missing-row, zero-count, and empty-page outcomes across public read methods.
+
+    Example:
+        >>> test_known_empty_results_and_missing_records_remain_normal(backend)  # doctest: +SKIP
+
+
+    :param backend: Default successful-empty fixture, without injected exceptions.
+    :return: None after all selected absence results match their normal public shapes.
+    """
     assert backend.rows_for_table("works") == []
     assert backend.row_by_id("works", 7) is None
     assert backend.table_record_count("works") == 0
@@ -132,6 +209,16 @@ def test_known_empty_results_and_missing_records_remain_normal(backend) -> None:
 
 
 def test_absent_optional_tables_are_checked_without_querying_them(backend) -> None:
+    """
+    Short-circuit row, count, relationship, and ordered-work reads when schema membership confirms absence.
+
+    Example:
+        >>> test_absent_optional_tables_are_checked_without_querying_them(backend)  # doctest: +SKIP
+
+
+    :param backend: Fixture whose table_exists result is forced to False.
+    :return: None after absence shapes and untouched data-query mocks are verified.
+    """
     backend.model.table_exists.return_value = False
     assert backend.rows_for_table("missing") == []
     assert backend.row_by_id("missing", 7) is None
@@ -145,6 +232,16 @@ def test_absent_optional_tables_are_checked_without_querying_them(backend) -> No
 
 
 def test_invalid_linked_entity_id_is_not_a_lookup_failure(backend) -> None:
+    """
+    Treat ordinary malformed linked-entity ID text as no linked works before invoking row lookup.
+
+    Example:
+        >>> test_invalid_linked_entity_id_is_not_a_lookup_failure(backend)  # doctest: +SKIP
+
+
+    :param backend: Recording fixture with a present source table.
+    :return: None after empty-result and no-row-query assertions.
+    """
     assert backend.works_for_linked_entity("tags", "not-an-id") == []
     backend.model.row.assert_not_called()
 
@@ -152,6 +249,16 @@ def test_invalid_linked_entity_id_is_not_a_lookup_failure(backend) -> None:
 def test_unsaved_row_has_no_relationships_without_consulting_the_source(
     backend,
 ) -> None:
+    """
+    Reject an unsaved CoreRow as a relationship source before schema membership or related-row queries.
+
+    Example:
+        >>> test_unsaved_row_has_no_relationships_without_consulting_the_source(backend)  # doctest: +SKIP
+
+
+    :param backend: Fixture whose model calls are inspected after the unsaved-row request.
+    :return: None after the empty relationship result and untouched source calls are checked.
+    """
     row = CoreRow("works", None, {"work_title": "unsaved"})
     assert backend.interlinked_rows(row, "tags") == []
     backend.model.table_exists.assert_not_called()
@@ -159,6 +266,16 @@ def test_unsaved_row_has_no_relationships_without_consulting_the_source(
 
 
 def test_incomplete_optimized_queries_keep_the_explicit_fallback(backend) -> None:
+    """
+    Fall back from explicitly incomplete query receipts for work sorting, paging, and host-filtered search.
+
+    Example:
+        >>> test_incomplete_optimized_queries_keep_the_explicit_fallback(backend)  # doctest: +SKIP
+
+
+    :param backend: Fixture given incomplete optimized receipts and two materialized Unicode-title works.
+    :return: None after title/recent ordering, page selection, and search-match ordering assertions.
+    """
     earlier = CoreRow("works", 2, {"work_id": 2, "work_title": "A 雪"})
     backend.model.query_rows.return_value = _page((), complete=False)
     backend.model.rows.return_value = (WORK, earlier)
@@ -168,6 +285,16 @@ def test_incomplete_optimized_queries_keep_the_explicit_fallback(backend) -> Non
 
 
 def test_no_sortable_column_uses_the_normal_materialized_path(backend) -> None:
+    """
+    Materialize a title-sorted page without issuing an optimized query when no preferred sort column exists.
+
+    Example:
+        >>> test_no_sortable_column_uses_the_normal_materialized_path(backend)  # doctest: +SKIP
+
+
+    :param backend: Fixture whose schema omits the host-preferred title column.
+    :return: None after page/total and no-query_rows assertions.
+    """
     backend.model.columns.return_value = ("work_id",)
     backend.model.rows.return_value = (WORK,)
     assert backend.work_page(sorted_by="title", limit=1, offset=0) == ([WORK], 1)
@@ -175,6 +302,16 @@ def test_no_sortable_column_uses_the_normal_materialized_path(backend) -> None:
 
 
 def test_failure_during_explicit_fallback_still_propagates(backend) -> None:
+    """
+    Preserve materialization failure even when an incomplete optimized receipt legitimately selected fallback.
+
+    Example:
+        >>> test_failure_during_explicit_fallback_still_propagates(backend)  # doctest: +SKIP
+
+
+    :param backend: Fixture with an incomplete query and a failing rows provider.
+    :return: None after fallback raises the exact injected I/O error.
+    """
     error = OSError("fallback failed")
     backend.model.query_rows.return_value = _page((), complete=False)
     backend.model.rows.side_effect = error
@@ -185,10 +322,37 @@ def test_failure_during_explicit_fallback_still_propagates(backend) -> None:
 
 @pytest.mark.parametrize("failure", (RuntimeError, OSError, TypeError, AttributeError))
 def test_row_accessor_only_handles_missing_columns(failure) -> None:
+    """
+    Distinguish ordinary missing-key access from arbitrary provider failures in the shared row helper.
+
+    Example:
+        >>> test_row_accessor_only_handles_missing_columns(RuntimeError)
+
+
+    :param failure: Parametrized non-KeyError exception class raised by the row double.
+    :return: None after exception identity and empty-dict missing-column fallback are verified.
+    """
     error = failure("row access failed")
 
     class BrokenRow:
+        """
+        Fail every subscription with the exception retained by the enclosing test.
+
+        Example:
+            >>> row = BrokenRow()  # doctest: +SKIP
+        """
+
         def __getitem__(self, key):
+            """
+            Raise the captured provider error regardless of the requested column.
+
+            Example:
+                >>> value = row["title"]  # doctest: +SKIP
+
+
+            :param key: Requested column, deliberately ignored by this failure double.
+            :return: No normal value; the enclosing test's error is always raised.
+            """
             raise error
 
     with pytest.raises(failure) as raised:
@@ -201,8 +365,37 @@ def test_row_accessor_only_handles_missing_columns(failure) -> None:
 def test_numeric_metadata_fallback_does_not_catch_arbitrary_failures(
     backend, method
 ) -> None:
+    """
+    Keep unexpected numeric-provider errors visible in file identity and size conversion paths.
+
+    Example:
+        >>> test_numeric_metadata_fallback_does_not_catch_arbitrary_failures(backend, "work_file_rows")  # doctest: +SKIP
+
+
+    :param backend: Fixture used for direct-file discovery or summary projection.
+    :param method: Parametrized discovery/summary method receiving the broken numeric value.
+    :return: None after RuntimeError escapes rather than becoming a skipped ID or missing size.
+    """
+
     class BrokenNumber:
+        """
+        Expose a numeric conversion that raises outside the documented ordinary-conversion fallback classes.
+
+        Example:
+            >>> value = BrokenNumber()  # doctest: +SKIP
+        """
+
         def __int__(self):
+            """
+            Raise a fixed RuntimeError to simulate a failed numeric provider rather than malformed numeric text.
+
+            Example:
+                >>> int(value)  # doctest: +SKIP
+
+
+            :return: No normal integer value.
+            :raises RuntimeError: Always, with numeric provider failed as its message.
+            """
             raise RuntimeError("numeric provider failed")
 
     if method == "work_file_rows":
@@ -216,6 +409,16 @@ def test_numeric_metadata_fallback_does_not_catch_arbitrary_failures(
 
 
 def test_malformed_core_payload_does_not_look_like_an_empty_catalogue(backend) -> None:
+    """
+    Exercise the real model's receipt validation so a string records field cannot masquerade as an empty catalogue.
+
+    Example:
+        >>> test_malformed_core_payload_does_not_look_like_an_empty_catalogue(backend)  # doctest: +SKIP
+
+
+    :param backend: Fixture whose fake client supplies valid schema and malformed row receipts to a real model.
+    :return: None after the record-array TypeError remains visible.
+    """
     client = backend.host.core
     client.query.side_effect = lambda name, _payload=None: (
         {"tables": [{"name": "works", "columns": ["work_id", "work_title"]}]}
@@ -229,6 +432,16 @@ def test_malformed_core_payload_does_not_look_like_an_empty_catalogue(backend) -
 
 @pytest.mark.parametrize("relative", ("read_model/api.py", "images/api.py"))
 def test_read_backends_do_not_reintroduce_catch_all_handlers(relative: str) -> None:
+    """
+    Inspect each shared backend's AST and reject bare, Exception, or BaseException handlers.
+
+    Example:
+        >>> test_read_backends_do_not_reintroduce_catch_all_handlers("read_model/api.py")
+
+
+    :param relative: Parametrized read-model or image implementation path beneath the surfaces package.
+    :return: None when every exception handler retains an explicitly bounded exception type.
+    """
     path = Path(__file__).resolve().parents[2] / "src/LiuXin_alpha/surfaces" / relative
     tree = ast.parse(path.read_text(encoding="utf-8"))
     for node in ast.walk(tree):

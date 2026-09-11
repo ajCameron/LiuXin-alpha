@@ -1,4 +1,10 @@
-"""Interactive and scripted session lifecycle, readline editing, and persistent history."""
+"""
+Own terminal command loops, lifecycle hooks, optional editing, and history I/O.
+
+Interactive command failures are reported and the loop continues; scripted
+command failures propagate. Readline configuration and history persistence stay
+best-effort so missing terminal support does not prevent stream-based browsing.
+"""
 
 from __future__ import annotations
 
@@ -18,10 +24,31 @@ except Exception:  # pragma: no cover - platform dependent (e.g. minimal Windows
 
 
 class SessionMixin[HostT](BrowserState[HostT]):
-    """Interactive and scripted session lifecycle, readline editing, and persistent history."""
+    """
+    Supply session lifecycle and command-loop behavior to a composed browser.
+
+    Startup and shutdown flags prevent duplicate lifecycle calls. Concrete
+    composition supplies command execution, output, completion, and the extension
+    host passed to plugins; this mixin is not a standalone browser constructor.
+
+    Example:
+        >>> browser.run_commands(['help', 'quit'])  # doctest: +SKIP
+    """
 
     def run(self) -> int:
-        """Run the interactive command loop until `quit`/`exit` is entered."""
+        """
+        Run commands interactively until shutdown is requested by a command or EOF.
+
+        Command-execution errors are printed before accepting another command.
+        Once startup succeeds, leaving the loop runs shutdown even if input fails.
+
+        Example:
+            >>> exit_code = browser.run()  # doctest: +SKIP
+
+
+        :return: Zero after an ordinary command-requested or end-of-input exit.
+        :raises RuntimeError: If a startup lifecycle plugin fails before the loop starts.
+        """
         self.startup()
         self._write("LiuXin text browser. Type `help` for commands.")
         exit_code = 0
@@ -43,7 +70,18 @@ class SessionMixin[HostT](BrowserState[HostT]):
             self.shutdown(reason=self._shutdown_reason or "run_complete")
 
     def _can_use_readline_prompt(self) -> bool:
-        """Whether we can safely use readline-backed `input()` prompt editing."""
+        """
+        Check that readline editing can use the browser's actual standard streams.
+
+        Both streams must be the process's current stdin/stdout and report a TTY;
+        redirected or substituted streams use the plain stream-reading path.
+
+        Example:
+            >>> editable = browser._can_use_readline_prompt()  # doctest: +SKIP
+
+
+        :return: Whether readline exists and both stream identity/TTY checks pass.
+        """
         if _readline is None:
             return False
         if self.input is not sys.stdin or self.output is not sys.stdout:
@@ -53,7 +91,20 @@ class SessionMixin[HostT](BrowserState[HostT]):
         return input_is_tty and output_is_tty
 
     def _read_command_line(self) -> str:
-        """Read one command line, enabling arrow-key history on interactive TTY."""
+        """
+        Read one command with optional editing while preserving stream EOF semantics.
+
+        Editable input gains a trailing newline; an empty entered command is
+        therefore distinct from EOF. Nonblank edited commands enter history on a
+        best-effort basis. Other streams retain their native ``readline`` behavior.
+
+        Example:
+            >>> line = browser._read_command_line()  # doctest: +SKIP
+
+
+        :return: Command text with its newline, or an empty string at end of input.
+        :raises KeyboardInterrupt: If keyboard input is interrupted by the operator.
+        """
         if self._can_use_readline_prompt():
             self._configure_readline_completion()
             try:
@@ -72,7 +123,20 @@ class SessionMixin[HostT](BrowserState[HostT]):
         return self.input.readline()
 
     def run_commands(self, commands: Sequence[str]) -> int:
-        """Run commands non-interactively with full lifecycle hooks."""
+        """
+        Execute an ordered command sequence with startup and shutdown hooks.
+
+        A command returning false stops the sequence. Unlike the interactive loop,
+        execution failures propagate to the caller after shutdown has been run.
+
+        Example:
+            >>> browser.run_commands(['help', 'quit'])  # doctest: +SKIP
+
+
+        :param commands: Complete command lines to execute in order.
+        :return: Zero when the sequence completes or a command requests its end.
+        :raises RuntimeError: If a startup lifecycle plugin fails.
+        """
         self.startup()
         exit_code = 0
         try:
@@ -85,7 +149,19 @@ class SessionMixin[HostT](BrowserState[HostT]):
             self.shutdown(reason=self._shutdown_reason or "commands_complete")
 
     def startup(self) -> None:
-        """Run startup lifecycle hooks once."""
+        """
+        Initialize history, report Core warnings, and run each startup plugin once.
+
+        The started flag is set before hooks run, so a failed hook is not retried
+        implicitly by another startup call. Plugins run in registration order.
+
+        Example:
+            >>> browser.startup()  # doctest: +SKIP
+
+
+        :return: ``None`` after startup, or immediately if startup was already attempted.
+        :raises RuntimeError: If a plugin fails; the message identifies that plugin.
+        """
         if self._started:
             return
         self._started = True
@@ -103,7 +179,20 @@ class SessionMixin[HostT](BrowserState[HostT]):
                 ) from exc
 
     def shutdown(self, *, reason: str) -> None:
-        """Run shutdown lifecycle hooks once."""
+        """
+        Save history, unwind lifecycle plugins, and close an owned compatibility session.
+
+        Plugin shutdown runs in reverse registration order. Failures are collected
+        and printed without preventing the remaining plugins from running; later
+        shutdown calls do nothing because the closed flag is set first.
+
+        Example:
+            >>> browser.shutdown(reason='operator_exit')  # doctest: +SKIP
+
+
+        :param reason: Shutdown explanation stored on the browser and passed to plugins.
+        :return: ``None`` after cleanup, or immediately if already closed.
+        """
         if self._closed:
             return
         self._closed = True
@@ -124,14 +213,34 @@ class SessionMixin[HostT](BrowserState[HostT]):
             self._compatibility_core_session.close()
 
     def request_shutdown(self, reason: str) -> None:
-        """Mark preferred shutdown reason for this browser session."""
+        """
+        Record the preferred reason to use when the command loop later shuts down.
+
+        This changes the reason only: it does not stop the loop, run hooks, or
+        close Core resources by itself.
+
+        Example:
+            >>> browser.request_shutdown('quit_command')  # doctest: +SKIP
+
+
+        :param reason: Explanation to retain for the eventual shutdown call.
+        :return: ``None`` after storing the reason as text.
+        """
         self._shutdown_reason = str(reason)
 
     def _load_command_history(self) -> None:
         """
         Load persistent readline history for interactive sessions.
 
-        This is intentionally best-effort and should never block startup.
+        Attempt loading at most once. A missing history file is acceptable and
+        still enables saving later; other loading failures disable persistence for
+        this session without interrupting startup.
+
+        Example:
+            >>> browser._load_command_history()  # doctest: +SKIP
+
+
+        :return: ``None`` after the attempt or when editing/history is unavailable.
         """
         if self._history_loaded:
             return
@@ -151,7 +260,14 @@ class SessionMixin[HostT](BrowserState[HostT]):
         """
         Persist readline history for interactive sessions.
 
-        This is intentionally best-effort and should never block shutdown.
+        Create missing parent directories only when history is enabled. Backend
+        and filesystem errors are ignored so persistence cannot prevent shutdown.
+
+        Example:
+            >>> browser._save_command_history()  # doctest: +SKIP
+
+
+        :return: ``None`` whether history is saved, disabled, or unavailable.
         """
         if _readline is None:
             return
@@ -164,7 +280,19 @@ class SessionMixin[HostT](BrowserState[HostT]):
             return
 
     def _configure_readline_completion(self) -> None:
-        """Install one readline completer for this browser session."""
+        """
+        Configure tab completion and install the browser callback when supported.
+
+        Optional binding, delimiter, and callback setters are tried independently.
+        Mark configuration complete only after callback registration succeeds;
+        unavailable or failing setters do not prevent reading commands.
+
+        Example:
+            >>> browser._configure_readline_completion()  # doctest: +SKIP
+
+
+        :return: ``None`` after best-effort configuration or when already configured.
+        """
         if self._readline_completion_configured:
             return
         readline_mod = _readline
@@ -191,7 +319,21 @@ class SessionMixin[HostT](BrowserState[HostT]):
             self._readline_completion_configured = False
 
     def _readline_completer(self, text: str, state: int) -> str | None:
-        """Readline callback returning one completion match at a time."""
+        """
+        Serve cached completion candidates using readline's numbered callback protocol.
+
+        State zero rebuilds candidates from the current buffer and completion end
+        index. If backend inspection fails, the supplied text is used as the
+        buffer. Subsequent states index the same candidate list.
+
+        Example:
+            >>> first = browser._readline_completer('he', 0)  # doctest: +SKIP
+
+
+        :param text: Readline's current token, also used as the fallback buffer.
+        :param state: Zero-based candidate index; zero starts a fresh request.
+        :return: One full candidate token, or ``None`` for negative/exhausted indices.
+        """
         if state == 0:
             readline_mod = _readline
             line_buffer = str(text)

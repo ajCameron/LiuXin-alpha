@@ -1,4 +1,10 @@
-"""Exports for the wget-backed read-only HTML crawler store backend."""
+"""
+Export wget discovery controls, its configured HTTP Store, and lookup exception.
+
+Exports retain their defining implementation objects, including the shared rate
+preference aliases. Importing the package does not execute wget or open a Store.
+Legacy Location/FileInfo names live in their dedicated compatibility modules.
+"""
 
 from .wget_html_storage_backend import (
     WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT,

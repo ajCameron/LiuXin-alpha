@@ -1,4 +1,9 @@
-"""Independent imports and unchanged contracts for shared surface primitives."""
+"""
+Verify independent surface imports, legacy export identity, and shared presentation/acquisition behavior.
+
+Import checks run in isolated child interpreters; other tests use in-memory rows
+and a recording reader, without opening databases or making acquisition requests.
+"""
 
 import subprocess
 import sys
@@ -27,6 +32,16 @@ SOURCE_ROOT = Path(__file__).resolve().parents[2] / "src"
     ),
 )
 def test_shared_modules_import_without_web_applications(module: str) -> None:
+    """
+    Import each shared module in an isolated interpreter and reject eager loading of web application owners.
+
+    Example:
+        >>> test_shared_modules_import_without_web_applications("presentation")  # doctest: +SKIP
+
+
+    :param module: Parametrized dotted module name relative to LiuXin_alpha.surfaces.
+    :return: None after the child succeeds without any checked web application in sys.modules.
+    """
     source = f"""
 import importlib
 import sys
@@ -49,6 +64,15 @@ assert not loaded, loaded
 
 
 def test_web_application_preserves_compatibility_exports() -> None:
+    """
+    Keep legacy web helper and acquisition-record names bound to the exact shared implementations.
+
+    Example:
+        >>> test_web_application_preserves_compatibility_exports()
+
+
+    :return: None after all six compatibility exports pass object-identity assertions.
+    """
     from LiuXin_alpha.surfaces.web_readonly import app
 
     assert app._escape is presentation.escape
@@ -60,6 +84,15 @@ def test_web_application_preserves_compatibility_exports() -> None:
 
 
 def test_presentation_preserves_escaping_newlines_and_truncation() -> None:
+    """
+    Retain quoted HTML escaping, Unicode/newline preservation, and literal-dot truncation at narrow widths.
+
+    Example:
+        >>> test_presentation_preserves_escaping_newlines_and_truncation()
+
+
+    :return: None after absent values, HTML metacharacters, newline normalization, and boundary widths are checked.
+    """
     assert presentation.escape(None) == ""
     assert (
         presentation.escape("<é & \"猫\" 'x'>")
@@ -87,6 +120,20 @@ def test_presentation_preserves_escaping_newlines_and_truncation() -> None:
 def test_integer_fallback_and_clamping_remain_unchanged(
     raw, default, minimum, maximum, expected
 ) -> None:
+    """
+    Preserve fallback parsing and lower-then-upper clamping, including inconsistent bound order.
+
+    Example:
+        >>> test_integer_fallback_and_clamping_remain_unchanged("1", 0, 5, 3, 3)
+
+
+    :param raw: Parametrized option text or None passed to the parser.
+    :param default: Fallback integer used when parsing fails.
+    :param minimum: Lower clamp applied before the upper clamp.
+    :param maximum: Optional upper clamp, allowed to be below minimum in this regression case.
+    :param expected: Exact final integer required by the existing behavior.
+    :return: None after the actual parser result matches the parametrized expectation.
+    """
     assert (
         presentation.coerce_int(raw, default=default, minimum=minimum, maximum=maximum)
         == expected
@@ -94,6 +141,15 @@ def test_integer_fallback_and_clamping_remain_unchanged(
 
 
 def test_row_lookup_accepts_mapping_and_core_rows_and_preserves_fallback() -> None:
+    """
+    Accept dict/CoreRow subscription while distinguishing absent keys from unexpected access failures.
+
+    Example:
+        >>> test_row_lookup_accepts_mapping_and_core_rows_and_preserves_fallback()
+
+
+    :return: None after stored/missing values and propagation from a failing row double are checked.
+    """
     values = {"title": "雪", "empty": None}
     row = CoreRow(table="works", row_id=7, values=values)
     for source in (values, row):
@@ -102,7 +158,25 @@ def test_row_lookup_accepts_mapping_and_core_rows_and_preserves_fallback() -> No
         assert presentation.row_value(source, "missing") is None
 
     class BrokenRow:
+        """
+        Supply a row-shaped double whose subscription always fails with a non-KeyError exception.
+
+        Example:
+            >>> row = BrokenRow()  # doctest: +SKIP
+        """
+
         def __getitem__(self, column: str) -> object:
+            """
+            Raise a simulated provider failure for every requested column.
+
+            Example:
+                >>> row["title"]  # doctest: +SKIP
+
+
+            :param column: Requested column, deliberately ignored by this always-failing double.
+            :return: No value; every subscription raises RuntimeError.
+            :raises RuntimeError: Always, to ensure the presentation helper does not hide provider failures.
+            """
             raise RuntimeError("lookup failed")
 
     with pytest.raises(RuntimeError, match="lookup failed"):
@@ -110,13 +184,51 @@ def test_row_lookup_accepts_mapping_and_core_rows_and_preserves_fallback() -> No
 
 
 class _Reader:
+    """
+    Record acquisition requests and return fixed binary content or raise an injected exception.
+
+    The double performs no Core or storage access; calls are recorded before
+    success/failure selection so forwarding can be asserted on both paths.
+
+    Example:
+        >>> reader = _Reader()
+        >>> reader.acquisition_read("file", 7)[1].hex()
+        '00ff7061796c6f6164'
+    """
+
     def __init__(self, error: Exception | None = None) -> None:
+        """
+        Initialize an empty request log and retain the optional failure instance.
+
+        Example:
+            >>> _Reader().calls
+            []
+
+
+        :param error: Exception to raise unchanged on each read, or None for the fixed successful result.
+        :return: None after storing the empty call list and error selection.
+        """
         self.calls: list[tuple[str, int]] = []
         self.error = error
 
     def acquisition_read(
         self, kind: str, resource_id: int
     ) -> tuple[Mapping[str, object], bytes]:
+        """
+        Record the requested resource and return fixed metadata/bytes unless an error was injected.
+
+        Example:
+            >>> reader = _Reader()
+            >>> reader.acquisition_read("file", 7)[0]
+            {'name': '雪.epub'}
+            >>> reader.calls
+            [('file', 7)]
+
+
+        :param kind: Resource kind appended unchanged to the request log.
+        :param resource_id: Resource identifier appended unchanged to the request log.
+        :return: Fixed filename metadata and binary payload, unless the retained error is raised.
+        """
         self.calls.append((kind, resource_id))
         if self.error is not None:
             raise self.error
@@ -124,6 +236,15 @@ class _Reader:
 
 
 def test_stored_file_forwards_requests_and_keeps_target_values_immutable() -> None:
+    """
+    Forward a stored-resource read exactly and keep both acquisition value objects' attributes frozen.
+
+    Example:
+        >>> test_stored_file_forwards_requests_and_keeps_target_values_immutable()
+
+
+    :return: None after request forwarding, delivery fields, and FrozenInstanceError assertions.
+    """
     reader = _Reader()
     stored = acquisition_types.CoreStoredFile(reader, "file", 42)
     assert stored.read_bytes() == b"\x00\xffpayload"
@@ -143,6 +264,15 @@ def test_stored_file_forwards_requests_and_keeps_target_values_immutable() -> No
 
 
 def test_stored_file_propagates_reader_errors_without_reinterpreting_them() -> None:
+    """
+    Preserve the exact acquisition-reader exception after recording the attempted resource request.
+
+    Example:
+        >>> test_stored_file_propagates_reader_errors_without_reinterpreting_them()
+
+
+    :return: None after failure identity and single-call forwarding are verified.
+    """
     error = OSError("read failed")
     reader = _Reader(error)
     with pytest.raises(OSError) as raised:

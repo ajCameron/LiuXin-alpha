@@ -1,4 +1,9 @@
-"""Shared dispatch heuristics for core method routing."""
+"""
+Classify method names for automatic Core proxy command/query routing.
+
+The shared exact-name/prefix lists are a naming heuristic, not authorization,
+effect analysis, or proof that a method classified as a query cannot write.
+"""
 
 from __future__ import annotations
 
@@ -33,7 +38,23 @@ WRITE_EXACT = {
 
 
 def looks_like_write_method(method_name: str) -> bool:
-    """Best-effort write-path classifier for proxy auto-dispatch."""
+    """
+    Match a stripped lowercase method name against known write names or prefixes.
+
+    Prefixes need no separator or word boundary, so names such as ``address``
+    match ``add``. An unrecognized name is classified as read-like without
+    inspecting its implementation.
+
+    Example:
+        >>> looks_like_write_method(" Update_title "), looks_like_write_method("get_title")
+        (True, False)
+        >>> looks_like_write_method("address")
+        True
+
+
+    :param method_name: Name stringified, stripped, and lowercased before classification.
+    :return: ``True`` for an exact write name or any recognized prefix, otherwise ``False``.
+    """
     token = str(method_name).strip().lower()
     if token in WRITE_EXACT:
         return True

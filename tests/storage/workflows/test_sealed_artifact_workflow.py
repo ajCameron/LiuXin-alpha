@@ -1,3 +1,12 @@
+"""
+Verify whole-image ingest/adoption and sealed-artifact provenance composition.
+
+Filesystem bytes and catalogue operations are real; image fixtures are opaque markers,
+executor references are synthetic, and the backup bridge uses paired build/validation
+substitutes. Tests inspect recorded recipe evidence and manager-reload persistence without
+claiming actual archive parsing or reproducible external-tool execution.
+"""
+
 from __future__ import annotations
 
 import dataclasses
@@ -19,6 +28,21 @@ from LiuXin_alpha.storage.workflows import SealedArtifactWorkflow
 
 
 def _executor(name: str = "mksquashfs") -> api.ReproductionRecipeArtifactReference:
+    """
+    Create a syntactically pinned tool reference without a real executable or retrieval probe.
+
+    The fixed SHA-256 text, test version, and file URI supply recipe evidence for validation. The
+    referenced file is not created or fetched; callers must not treat this fixture as executed-tool
+    proof.
+
+    Example:
+        >>> _executor("rar").name
+        'rar'
+
+
+    :param name: Tool label used in the reference and synthetic file URI; defaults to mksquashfs.
+    :return: ReproductionRecipeArtifactReference containing fixed test digest/version/retrieval metadata.
+    """
     return api.ReproductionRecipeArtifactReference(
         name,
         api.Digest("sha256", "e" * 64),
@@ -28,13 +52,43 @@ def _executor(name: str = "mksquashfs") -> api.ReproductionRecipeArtifactReferen
 
 
 def _fake_mksquashfs(self, output: Path, *, quiet: bool) -> None:
+    """
+    Write the sealed-workflow test marker as the requested archive candidate.
+
+    Create parent directories and replace candidate bytes. This is not a SquashFS encoder; the
+    accompanying validation substitute accepts the marker so tests can focus on staging and
+    provenance.
+
+    Example:
+        >>> _fake_mksquashfs(builder, output, quiet=True)  # doctest: +SKIP
+
+
+    :param self: Injected build Store receiver, ignored by the substitute.
+    :param output: Candidate Path receiving the fixed fake SquashFS image bytes.
+    :param quiet: Build flag accepted for signature compatibility and ignored.
+    :return: None after writing the fake image marker.
+    """
     del self, quiet
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(b"fake-squashfs-image")
 
 
 def _accept_fake_candidate(self, candidate: Path, manifest: object) -> None:
-    """Substitute candidate validation alongside the fake external builder."""
+    """
+    Check the paired fake image marker and require a nonempty staging manifest.
+
+    This replaces candidate validation in the end-to-end workflow test. It does not inspect real
+    archive metadata or compare extracted member contents.
+
+    Example:
+        >>> _accept_fake_candidate(builder, candidate, manifest)  # doctest: +SKIP
+
+
+    :param self: Injected build Store receiver, ignored here.
+    :param candidate: Path expected to contain the fake sealed-image marker.
+    :param manifest: Truthy staging manifest supplied by the actual builder path.
+    :return: None when both substitute-boundary assertions pass.
+    """
 
     del self
     assert candidate.read_bytes() == b"fake-squashfs-image"
@@ -42,6 +96,21 @@ def _accept_fake_candidate(self, candidate: Path, manifest: object) -> None:
 
 
 def test_managed_artifact_is_adopted_and_recorded_once(tmp_path: Path) -> None:
+    """
+    Verify routed image adoption records package evidence and reuses identical provenance.
+
+    Use real filesystem bytes and a transient manager, retaining one operation ID and workflow ID
+    across repeated calls. Assert image metadata, ARCHIVE Replica mode, PACKAGE derivation, pinned
+    member path/identity, output digests, and one reused derivation. Exact-recreation flags are
+    declared recipe evidence; no archive contents or replay command are executed.
+
+    Example:
+        >>> test_managed_artifact_is_adopted_and_recorded_once(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real source, staging, image, Store, or catalogue files.
+    :return: None after the stated regression assertions pass.
+    """
     store = FilesystemStore(tmp_path / "store")
     manager = StorageManager(stores=[store], startup_on_add=True)
     source = manager.ingest_bytes(b"source ebook")
@@ -88,6 +157,20 @@ def test_managed_artifact_is_adopted_and_recorded_once(tmp_path: Path) -> None:
 
 
 def test_local_rar_artifact_is_ingested_into_managed_storage(tmp_path: Path) -> None:
+    """
+    Verify an external local image is ingested with the expected RAR recipe and mode.
+
+    Opaque fixture bytes stand in for a RAR image. Assert their managed readback, selected media
+    type, ARCHIVE storage route, BEST_EFFORT classification, and recorded RAR 4 compression command
+    prefix. The test neither executes RAR nor validates a real container.
+
+    Example:
+        >>> test_local_rar_artifact_is_ingested_into_managed_storage(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real source, staging, image, Store, or catalogue files.
+    :return: None after the stated regression assertions pass.
+    """
     store = FilesystemStore(tmp_path / "managed")
     manager = StorageManager(stores=[store], startup_on_add=True)
     source = manager.store_bytes(b"source")
@@ -114,6 +197,23 @@ def test_squashfs_backup_result_uses_catalogued_sources_and_build_settings(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    """
+    Verify backup intent becomes complete SquashFS provenance with namespaced workflow identity.
+
+    Paired fake build/validation methods surround real source adoption, staging, and routed image
+    publication. Designation captures Asset/Replica IDs; gzip/deterministic settings become
+    command/JSON evidence. Assert the fixed build flags, same image Location, and backup:73 external
+    reference with catalogue workflow_id unset. The EXACT flag is a recipe claim rather than
+    demonstrated replay.
+
+    Example:
+        >>> test_squashfs_backup_result_uses_catalogued_sources_and_build_settings(monkeypatch, tmp_path)  # doctest: +SKIP
+
+
+    :param monkeypatch: Pytest fixture restoring substituted external-builder and candidate-validation methods after the test.
+    :param tmp_path: Pytest temporary directory for real source, staging, image, Store, or catalogue files.
+    :return: None after the stated regression assertions pass.
+    """
     monkeypatch.setattr(
         "LiuXin_alpha.storage.store_backend_plugins.squashfs_build."
         "squashfs_build_storage_backend.SquashfsBuildStorageBackend._run_mksquashfs",
@@ -172,6 +272,20 @@ def test_squashfs_backup_result_uses_catalogued_sources_and_build_settings(
 def test_backup_adapter_requires_catalogue_identity_or_explicit_override(
     tmp_path: Path,
 ) -> None:
+    """
+    Verify uncatalogued backup members require an explicit matching-path Asset override.
+
+    Build a terminal result around real opaque image bytes and a local source designation without an
+    Asset ID. The first call must reject with source_assets guidance; after ingesting the member, an
+    exact-path override records that Asset as the recipe input.
+
+    Example:
+        >>> test_backup_adapter_requires_catalogue_identity_or_explicit_override(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real source, staging, image, Store, or catalogue files.
+    :return: None after the stated regression assertions pass.
+    """
     artifact = tmp_path / "pack.squashfs"
     artifact.write_bytes(b"pack")
     source_path = tmp_path / "book.epub"
@@ -213,6 +327,23 @@ def test_derivation_recipe_survives_database_manager_restart(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Verify backup-derived provenance persists across manager reconstruction over one open catalogue.
+
+    Use the selected real database adapter and filesystem Store, persist backup intent, catalogue an
+    opaque image, then close and reconstruct the manager against the same open Database and Store
+    UUID. Assert retained recipe, member identity/path, namespaced backup reference, and reuse of
+    the same derivation on repetition. This is a manager reload, not a process or database reopen,
+    and it does not execute an archive tool.
+
+    Example:
+        >>> test_derivation_recipe_survives_database_manager_restart(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Parameterized database-driver specification selecting the real catalogue adapter for the test.
+    :param tmp_path: Pytest temporary directory for real source, staging, image, Store, or catalogue files.
+    :return: None after the stated regression assertions pass.
+    """
     store_ref = uuid4()
     root = tmp_path / "store"
     with Database(
@@ -288,6 +419,20 @@ def test_derivation_recipe_survives_database_manager_restart(
 
 
 def test_pin_local_executor_records_content_identity(tmp_path: Path) -> None:
+    """
+    Verify a local tool file becomes a digest-pinned reference with supplied version metadata.
+
+    The temporary file contains arbitrary tool bytes and need not be executable. Assert its label,
+    caller-provided version, resolved file URI, SHA-256 algorithm, and digest width; the tool is
+    never invoked.
+
+    Example:
+        >>> test_pin_local_executor_records_content_identity(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real source, staging, image, Store, or catalogue files.
+    :return: None after the stated regression assertions pass.
+    """
     tool = tmp_path / "packer"
     tool.write_bytes(b"tool bytes")
 

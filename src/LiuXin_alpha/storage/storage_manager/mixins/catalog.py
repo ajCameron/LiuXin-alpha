@@ -1,5 +1,9 @@
 """
-Digital Asset catalogue implementation for the storage manager.
+Implement Asset catalogue declaration, lookup, metadata replacement, and forgetting.
+
+Identity matching and reference checks use shared manager hooks. Mutations take the
+manager lock and metadata transaction supplied by the composition; these methods
+do not coordinate physical byte changes.
 """
 
 from __future__ import annotations
@@ -14,12 +18,15 @@ from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerSt
 
 class DigitalAssetRegistryMixin(_StorageManagerState):
     """
-    Own manager metadata for content-addressed Digital Asset identities.
+    Manage expected byte identities, descriptive metadata, and policy references in shared manager
+    repositories.
 
-    Catalogue operations declare, find, update, and remove immutable content
-    identities plus their mutable descriptive metadata and policy references.
-    They do not publish or retrieve bytes; ingest and Replica components join
-    those identities to physical Store locations.
+    Catalogue mutations use the manager lock and metadata-transaction hook. The transient hook
+    supplies no durable transaction, while application composition can provide persistence. These
+    methods do not read, publish, rename, or delete Store bytes.
+
+    Example:
+        >>> asset = manager.declare_digital_asset(declaration)  # doctest: +SKIP
     """
 
     @override
@@ -28,11 +35,23 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
         declaration: api.DigitalAssetDeclaration,
     ) -> api.DigitalAssetRecord:
         """
-        Declare a content identity, idempotently reusing an exact match.
+        Validate policy references, then reuse a matching identity or allocate a new Asset record.
+
+        Policy checks run before deduplication, including rejection of a RECREATE loss policy before
+        exact derivation registration. Under the lock and metadata transaction, the shared lookup
+        selects the first Asset by ID with equal size, at least one common digest algorithm, and no
+        disagreement across common algorithms. Digest sets need not be identical.
+
+        An existing match is returned unchanged: new metadata, extra digests, and policy choices are
+        not merged. Otherwise a new ID and revision are allocated and the declaration values are
+        retained in the stored record. Repository and transaction failures propagate.
+
+        Example:
+            >>> asset = manager.declare_digital_asset(declaration)  # doctest: +SKIP
 
 
-        :param declaration:
-        :return:
+        :param declaration: Expected identity and metadata plus optional policies that must already be registered.
+        :return: Existing matching record or newly allocated Asset record, without creating a Replica.
         """
 
         self._validate_declared_policy_ids(
@@ -76,11 +95,17 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
         digital_asset_id: api.DigitalAssetID,
     ) -> api.DigitalAssetRecord:
         """
-        Return one Digital Asset record or raise a typed domain error.
+        Look up the exact ID under the manager lock without probing physical storage.
+
+        A mapping KeyError is translated to DigitalAssetNotFound with the original error chained.
+        Other repository errors are not suppressed.
+
+        Example:
+            >>> asset = manager.get_digital_asset_record(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Manager-assigned atomic Asset ID to resolve.
+        :return: Retained Asset record for the requested key.
         """
 
         with self._lock:
@@ -100,13 +125,22 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
         if_revision: str | None = None,
     ) -> api.DigitalAssetRecord:
         """
-        Replace metadata under an optimistic revision precondition.
+        Require the record and optional matching revision, then replace metadata and advance its
+        revision.
+
+        The operation runs under the lock and metadata-transaction hook. dataclasses.replace retains
+        all other fields, including size, digests, and policy references, and record construction
+        does not validate the replacement metadata type. Errors propagate rather than becoming an
+        absent result.
+
+        Example:
+            >>> updated = manager.update_digital_asset_metadata(asset_id, metadata, if_revision=asset.revision)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param metadata:
-        :param if_revision:
-        :return:
+        :param digital_asset_id: Manager-assigned atomic Asset ID to resolve.
+        :param metadata: Complete replacement metadata value, retained without merging or copying.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Newly stored Asset record with the replacement metadata and new revision.
         """
 
         with self._lock, self._metadata_transaction():
@@ -123,10 +157,16 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
     @override
     def iter_digital_asset_records(self) -> Iterator[api.DigitalAssetRecord]:
         """
-        Iterate over a stable ID-ordered Asset snapshot.
+        Capture records under the lock in ascending Asset-key order and return a tuple iterator.
+
+        The sequence is fixed before return, but its record and nested-value references are not deep
+        copies. Repository iteration or lookup failures propagate.
+
+        Example:
+            >>> assets = tuple(manager.iter_digital_asset_records())  # doctest: +SKIP
 
 
-        :return:
+        :return: Iterator over the captured ordered Asset record references.
         """
 
         with self._lock:
@@ -141,12 +181,19 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
         size_bytes: int | None = None,
     ) -> api.DigitalAssetRecord | None:
         """
-        Return the first stable-ID record matching digest and size.
+        Run the shared identity lookup under the lock for one digest and optional exact size.
+
+        The default helper returns the first matching Asset in ID order. Missing candidates return
+        None, while repository failures propagate; no Store lookup or byte verification is
+        performed.
+
+        Example:
+            >>> candidate = manager.find_digital_asset_record_by_digest(digest)  # doctest: +SKIP
 
 
-        :param digest:
-        :param size_bytes:
-        :return:
+        :param digest: Expected algorithm/value pair supplied as the sole lookup digest.
+        :param size_bytes: Exact expected byte count, or None to accept any recorded size.
+        :return: First matching catalogue record from the shared lookup, or None.
         """
 
         with self._lock:
@@ -164,13 +211,26 @@ class DigitalAssetRegistryMixin(_StorageManagerState):
         if_revision: str | None = None,
     ) -> bool:
         """
-        Forget an unreferenced Asset record without touching Store bytes.
+        Remove an existing Asset record after revision and reference checks under the metadata
+        lock/transaction.
+
+        Absence returns False before checking the revision. With require_no_replicas enabled, every
+        Replica claim counts, including deleted tombstones. Composite membership, derivation
+        references, and direct Item links always prevent forgetting. Disabling the Replica check
+        does not cascade-delete those claims or touch their Store bytes.
+
+        The derivation helper includes result/source identities, recipe inputs, executors, and
+        dependencies. Other reference or repository failures propagate, and persistence guarantees
+        belong to the transaction implementation.
+
+        Example:
+            >>> removed = manager.forget_digital_asset(asset_id, require_no_replicas=True)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param require_no_replicas:
-        :param if_revision:
-        :return:
+        :param digital_asset_id: Manager-assigned atomic Asset ID to resolve.
+        :param require_no_replicas: Whether any Replica record, in any state, prevents forgetting this Asset.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: True after deleting the Asset record, False for an absent ID; remaining references can raise StoragePreconditionFailed.
         """
 
         with self._lock, self._metadata_transaction():

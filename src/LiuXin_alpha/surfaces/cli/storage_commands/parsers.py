@@ -1,4 +1,10 @@
-"""Storage CLI parsers ownership."""
+"""
+Compose the storage CLI family from local ingest and Core-backed administration parsers.
+
+The required storage action binds explicit handlers rather than executing commands
+during registration. Registration order is part of stable help/completion output;
+the public storage facade re-exports these builders for compatibility.
+"""
 
 from __future__ import annotations
 
@@ -37,7 +43,22 @@ from LiuXin_alpha.surfaces.cli.storage_commands.parser_stores import (
 def _build_storage_admin_parsers(
     commands: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    """Install command families in their stable help/discovery order."""
+    """
+    Install all eighteen administration families in stable help/discovery order.
+
+    Delegate to Store, file/source, and integrity/resource builders. This excludes
+    ingest, which the outer storage builder installs first.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _build_storage_admin_parsers(parser.add_subparsers())
+        >>> parser.parse_args(["stores"]).refresh
+        False
+
+
+    :param commands: Existing storage subparser collection receiving administration leaves/families.
+    :return: None; mutate the collection in order without creating a Core session.
+    """
     _add_backends_parser(commands)
     _add_add_store_parser(commands)
     _add_stores_parser(commands)
@@ -61,7 +82,24 @@ def _build_storage_admin_parsers(
 def build_storage_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    """Register the top-level ``storage`` command family."""
+    """
+    Register storage with required actions, local-ingest options, and administration families.
+
+    Install ingest first with raw-description help and its own option/handler set,
+    then append administration commands. The outer parser retains global selectors;
+    this function does not parse argv, apply profiles, or create any run artifacts.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> build_storage_parser(parser.add_subparsers())
+        >>> args = parser.parse_args(["storage", "ingest", "--source-root", "books", "--discover-only"])
+        >>> args.storage_command, args.handler is cmd_storage_ingest
+        ('ingest', True)
+
+
+    :param subparsers: Parent command collection receiving the storage root parser.
+    :return: None; register the complete storage grammar and handler defaults.
+    """
 
     parser = subparsers.add_parser(
         "storage",

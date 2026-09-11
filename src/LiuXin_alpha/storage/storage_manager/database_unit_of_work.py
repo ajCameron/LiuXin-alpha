@@ -1,5 +1,15 @@
 """
-Concrete storage persistence SPI over the portable database repository.
+Implement storage metadata repository ports and explicit unit-of-work coordination.
+
+Domain adapters assign opaque revisions and persist records through the portable
+DatabaseStorageMetadataRepository. They add selected revision comparisons and
+not-found conversion, while manager-level policy, reference, and physical-byte
+checks remain outside these ports. Most mutations require a caller transaction.
+
+The factory shares four repository adapters across fresh inactive units. Enter
+opens the underlying context; commit/rollback request its exit outcome rather
+than immediately completing the database transaction. Compatibility mappings
+retain the lower record operations for repository-neutral manager orchestration.
 """
 
 from __future__ import annotations
@@ -19,10 +29,16 @@ from LiuXin_alpha.storage.storage_manager.database_repository import (
 
 def _revision() -> str:
     """
-    Return an opaque database-repository revision token.
+    Generate a d-prefixed UUID4 hex revision token. It is opaque and not sortable as a time or
+    sequence; no database access, collision lookup, or persistence occurs here.
+
+    Example:
+        >>> token = _revision()
+        >>> token.startswith("d-") and len(token) == 34
+        True
 
 
-    :return:
+    :return: A new opaque revision string of the form d- followed by 32 hexadecimal characters.
     """
 
     return f"d-{uuid4().hex}"
@@ -30,12 +46,18 @@ def _revision() -> str:
 
 def _check_revision(current: str | None, expected: str | None) -> None:
     """
-    Enforce an optional optimistic-concurrency precondition.
+    Compare the current revision directly with a supplied expectation. None expectation bypasses
+    comparison, including when current is None; any unequal explicit expectation raises
+    StoragePreconditionFailed. This check itself supplies no lock or atomic database predicate.
+
+    Example:
+        >>> _check_revision("d-current", "d-current")
+        >>> _check_revision(None, None)
 
 
-    :param current:
-    :param expected:
-    :return:
+    :param current: Revision observed from the current record, possibly None.
+    :param expected: Optional expected opaque revision; None disables the comparison.
+    :return: None when no precondition is supplied or direct equality succeeds.
     """
 
     if expected is not None and current != expected:
@@ -47,16 +69,28 @@ def _check_revision(current: str | None, expected: str | None) -> None:
 
 class DatabaseDigitalAssetRepository(api.DigitalAssetRepositoryAPI):
     """
-    Adapt persistent Asset rows to the Digital Asset repository port.
+    Adapt Asset domain records to the shared database metadata repository.
+
+    The adapter retains one repository without owning a transaction, connection, cache, or physical
+    Store. Writes allocate or replace metadata through it; enclosing unit-of-work/macro contexts
+    govern durability. Manager policy/reference checks remain separate. These concrete methods
+    implement the structural persistence port without using its stub bodies.
+
+    Example:
+        >>> port = DatabaseDigitalAssetRepository(repository)  # doctest: +SKIP
     """
 
     def __init__(self, repository: DatabaseStorageMetadataRepository) -> None:
         """
-        Bind the port to one database metadata repository.
+        Retain the supplied metadata repository without validation, loading records, or opening a
+        transaction.
+
+        Example:
+            >>> port = DatabaseDigitalAssetRepository(repository)  # doctest: +SKIP
 
 
-        :param repository:
-        :return:
+        :param repository: Database metadata adapter whose current read/write/cache routing this port uses.
+        :return: None after retaining the repository.
         """
 
         self._repository = repository
@@ -66,11 +100,21 @@ class DatabaseDigitalAssetRepository(api.DigitalAssetRepositoryAPI):
         declaration: api.DigitalAssetDeclaration,
     ) -> api.DigitalAssetRecord:
         """
-        Allocate and persist one Digital Asset record.
+        Allocate a Asset identity, construct a record with a fresh revision, and persist it.
+
+        Copy size, digests, metadata, and both policy references from the declaration. No
+        duplicate-content search, hashing, or reference validation is added.
+
+        The digital_asset reservation is made before record construction and upsert. This method
+        opens no transaction and supplies no cleanup if a later step fails; callers must provide the
+        appropriate metadata unit of work.
+
+        Example:
+            >>> record = port.add(declaration)  # doctest: +SKIP
 
 
-        :param declaration:
-        :return:
+        :param declaration: Complete Asset declaration used to construct the assigned record.
+        :return: The newly assigned Asset record after the repository upsert returns.
         """
 
         identifier = api.DigitalAssetID(
@@ -90,11 +134,16 @@ class DatabaseDigitalAssetRepository(api.DigitalAssetRepositoryAPI):
 
     def get(self, digital_asset_id):
         """
-        Return one Asset or raise the domain-specific not-found error.
+        Load a Asset record and translate any KeyError from the lower lookup into
+        DigitalAssetNotFound with its cause. Other provider/decoder failures propagate. No byte
+        inspection, revision check, or additional reference validation is performed.
+
+        Example:
+            >>> record = port.get(identifier)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Manager-assigned Asset identity forwarded to the metadata lookup.
+        :return: The stored Asset record.
         """
 
         try:
@@ -112,13 +161,18 @@ class DatabaseDigitalAssetRepository(api.DigitalAssetRepositoryAPI):
         if_revision=None,
     ):
         """
-        Replace descriptive metadata under an optional revision guard.
+        Load the Asset, check any supplied revision, and replace the entire metadata object with a
+        fresh revision. Even equal metadata is written again. Content identity and policy IDs remain
+        retained; read/check/write is not an atomic predicate supplied by this port.
+
+        Example:
+            >>> updated = port.replace_metadata(identifier, metadata, if_revision=record.revision)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param metadata:
-        :param if_revision:
-        :return:
+        :param digital_asset_id: Existing Asset identity whose descriptive metadata is replaced.
+        :param metadata: Complete replacement metadata, including empty fields intended to clear previous values.
+        :param if_revision: Optional expected opaque revision; None disables the comparison.
+        :return: The updated Asset record after persistence.
         """
 
         current = self.get(digital_asset_id)
@@ -133,12 +187,18 @@ class DatabaseDigitalAssetRepository(api.DigitalAssetRepositoryAPI):
 
     def find_by_digest(self, digest, *, size_bytes=None):
         """
-        Find the first stable Asset match for digest and optional size.
+        Load the identifier-ordered Asset snapshot and return its first record containing the
+        supplied digest. A supplied size must compare equal; None skips size filtering. Matching
+        uses stored digest equality without hashing bytes or checking every algorithm in an incoming
+        identity.
+
+        Example:
+            >>> matched = port.find_by_digest(digest, size_bytes=4)  # doctest: +SKIP
 
 
-        :param digest:
-        :param size_bytes:
-        :return:
+        :param digest: Algorithm/value evidence sought by equality among each record's digests.
+        :param size_bytes: Optional exact stored size in bytes; None leaves size unrestricted.
+        :return: The first matching record, or None.
         """
 
         for record in self.iter_assets():
@@ -150,10 +210,15 @@ class DatabaseDigitalAssetRepository(api.DigitalAssetRepositoryAPI):
 
     def iter_assets(self):
         """
-        Iterate over a stable identifier-ordered Asset snapshot.
+        Load all Asset records immediately, sort their identifiers, and return an iterator over that
+        captured dictionary. Later repository mutations are not reloaded during iteration;
+        underlying loading/decoding failures occur at the call.
+
+        Example:
+            >>> records = tuple(port.iter_assets())  # doctest: +SKIP
 
 
-        :return:
+        :return: An iterator of the captured Asset records in ascending identifier order.
         """
 
         records = self._repository._load_assets()
@@ -161,12 +226,18 @@ class DatabaseDigitalAssetRepository(api.DigitalAssetRepositoryAPI):
 
     def remove(self, digital_asset_id, *, if_revision=None):
         """
-        Remove one Asset under an optional revision guard.
+        Load the Asset, compare an explicit revision, then delete through the repository. Successful
+        deletion returns True; unknown records raise DigitalAssetNotFound. The read/check/delete
+        sequence adds no transaction or atomic revision predicate, and no manager
+        reference/loss-policy traversal or physical deletion is performed.
+
+        Example:
+            >>> removed = port.remove(identifier, if_revision=record.revision)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param if_revision:
-        :return:
+        :param digital_asset_id: Existing Asset identity to remove.
+        :param if_revision: Optional expected opaque revision; None disables the comparison.
+        :return: True after the lower deletion and its invalidation return successfully.
         """
 
         current = self.get(digital_asset_id)
@@ -176,11 +247,16 @@ class DatabaseDigitalAssetRepository(api.DigitalAssetRepositoryAPI):
 
     def upsert_record(self, record: api.DigitalAssetRecord) -> None:
         """
-        Persist a complete record supplied by a compatibility mapping.
+        Forward a complete Asset record to the lower upsert path. Preserve its supplied identity and
+        revision without allocating replacements or comparing current state. Compatibility mappings
+        use this bypass; transaction and invalidation behavior remain with the repository.
+
+        Example:
+            >>> port.upsert_record(record)  # doctest: +SKIP
 
 
-        :param record:
-        :return:
+        :param record: Complete Asset value to insert or replace, including its retained revision.
+        :return: None after the lower upsert returns.
         """
 
         self._repository.upsert_asset(record)
@@ -188,27 +264,50 @@ class DatabaseDigitalAssetRepository(api.DigitalAssetRepositoryAPI):
 
 class DatabaseReplicaRepository(api.ReplicaRepositoryAPI):
     """
-    Adapt persistent Replica rows to the Replica repository port.
+    Adapt Replica domain records to the shared database metadata repository.
+
+    The adapter retains one repository without owning a transaction, connection, cache, or physical
+    Store. Writes allocate or replace metadata through it; enclosing unit-of-work/macro contexts
+    govern durability. Manager policy/reference checks remain separate. These concrete methods
+    implement the structural persistence port without using its stub bodies.
+
+    Example:
+        >>> port = DatabaseReplicaRepository(repository)  # doctest: +SKIP
     """
 
     def __init__(self, repository: DatabaseStorageMetadataRepository) -> None:
         """
-        Bind the port to one database metadata repository.
+        Retain the supplied metadata repository without validation, loading records, or opening a
+        transaction.
+
+        Example:
+            >>> port = DatabaseReplicaRepository(repository)  # doctest: +SKIP
 
 
-        :param repository:
-        :return:
+        :param repository: Database metadata adapter whose current read/write/cache routing this port uses.
+        :return: None after retaining the repository.
         """
 
         self._repository = repository
 
     def add(self, declaration):
         """
-        Allocate and persist one Replica record.
+        Allocate a Replica identity, construct a record with a fresh revision, and persist it.
+
+        Copy Asset identity, Location, mode, observation, and placement hints. The lower writer
+        resolves the Store row; this port adds no readable-object, placement, or unique live-claim
+        check.
+
+        The replica reservation is made before record construction and upsert. This method opens no
+        transaction and supplies no cleanup if a later step fails; callers must provide the
+        appropriate metadata unit of work.
+
+        Example:
+            >>> record = port.add(declaration)  # doctest: +SKIP
 
 
-        :param declaration:
-        :return:
+        :param declaration: Complete Replica declaration used to construct the assigned record.
+        :return: The newly assigned Replica record after the repository upsert returns.
         """
 
         identifier = api.ReplicaID(
@@ -228,11 +327,16 @@ class DatabaseReplicaRepository(api.ReplicaRepositoryAPI):
 
     def get(self, replica_id):
         """
-        Return one Replica or raise the domain-specific not-found error.
+        Load a Replica record and translate any KeyError from the lower lookup into ReplicaNotFound
+        with its cause. Other provider/decoder failures propagate. No byte inspection, revision
+        check, or additional reference validation is performed.
+
+        Example:
+            >>> record = port.get(identifier)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :return:
+        :param replica_id: Manager-assigned Replica identity forwarded to the metadata lookup.
+        :return: The stored Replica record.
         """
 
         try:
@@ -250,13 +354,18 @@ class DatabaseReplicaRepository(api.ReplicaRepositoryAPI):
         if_revision=None,
     ):
         """
-        Replace a Replica observation under an optional revision guard.
+        Load the Replica, check any explicit revision, then replace its complete observation with a
+        fresh revision. Even unchanged evidence causes an upsert. No physical inspection occurs, and
+        the claim identity, Location, mode, Asset, and hints remain retained.
+
+        Example:
+            >>> updated = port.update_observation(identifier, observation, if_revision=record.revision)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :param observation:
-        :param if_revision:
-        :return:
+        :param replica_id: Existing Replica identity whose observation is replaced.
+        :param observation: Complete supplied physical/lifecycle evidence replacing the old observation.
+        :param if_revision: Optional expected opaque revision; None disables the comparison.
+        :return: The updated Replica record after persistence.
         """
 
         current = self.get(replica_id)
@@ -277,13 +386,19 @@ class DatabaseReplicaRepository(api.ReplicaRepositoryAPI):
         mode=None,
     ):
         """
-        Iterate over a stable snapshot filtered by Asset, Store, and mode.
+        Load and sort the Replica snapshot at the call, then lazily apply all supplied filters while
+        iterating. Asset and Store IDs use equality; mode uses enum identity. None leaves a
+        dimension unrestricted. Tombstones and unhealthy claims remain eligible; no physical
+        availability check occurs.
+
+        Example:
+            >>> records = tuple(port.iter_replicas(store_ref=store_uuid))  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param store_ref:
-        :param mode:
-        :return:
+        :param digital_asset_id: Optional exact Asset identity on the claim.
+        :param store_ref: Optional exact Store UUID on the Location.
+        :param mode: Optional ReplicaMode matched by identity, or None for every mode.
+        :return: An iterator of matching captured records in identifier order.
         """
 
         records = self._repository._load_replicas()
@@ -307,13 +422,22 @@ class DatabaseReplicaRepository(api.ReplicaRepositoryAPI):
         if_revision=None,
     ):
         """
-        Tombstone or delete one Replica under an optional revision guard.
+        Load and revision-check a Replica, then tombstone or erase its metadata.
+
+        Tombstoning preserves the claim and old checked_at timestamp but replaces observation state
+        with DELETED, clears other evidence, and assigns a new revision. Even an existing tombstone
+        is rewritten. Erasure calls lower row deletion. Missing identity raises ReplicaNotFound.
+        Neither path deletes bytes or adds manager loss-policy checks, a transaction, or atomic
+        revision enforcement.
+
+        Example:
+            >>> removed = port.remove(identifier, retain_tombstone=True)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :param retain_tombstone:
-        :param if_revision:
-        :return:
+        :param replica_id: Existing Replica claim identity to tombstone or erase.
+        :param retain_tombstone: Truthy values select a new DELETED observation; false values select row erasure.
+        :param if_revision: Optional expected opaque revision; None disables the comparison.
+        :return: True after the selected persistence operation and its invalidation succeed.
         """
 
         current = self.get(replica_id)
@@ -335,11 +459,16 @@ class DatabaseReplicaRepository(api.ReplicaRepositoryAPI):
 
     def upsert_record(self, record: api.ReplicaRecord) -> None:
         """
-        Persist a complete record supplied by a compatibility mapping.
+        Forward a complete Replica record to the lower upsert path. Preserve its supplied identity
+        and revision without allocating replacements or comparing current state. Compatibility
+        mappings use this bypass; transaction and invalidation behavior remain with the repository.
+
+        Example:
+            >>> port.upsert_record(record)  # doctest: +SKIP
 
 
-        :param record:
-        :return:
+        :param record: Complete Replica value to insert or replace, including its retained revision.
+        :return: None after the lower upsert returns.
         """
 
         self._repository.upsert_replica(record)
@@ -347,27 +476,49 @@ class DatabaseReplicaRepository(api.ReplicaRepositoryAPI):
 
 class DatabaseCompositeRepository(api.CompositeDigitalAssetRepositoryAPI):
     """
-    Adapt persistent Composite rows to the Composite repository port.
+    Adapt Composite domain records to the shared database metadata repository.
+
+    The adapter retains one repository without owning a transaction, connection, cache, or physical
+    Store. Writes allocate or replace metadata through it; enclosing unit-of-work/macro contexts
+    govern durability. Manager policy/reference checks remain separate. These concrete methods
+    implement the structural persistence port without using its stub bodies.
+
+    Example:
+        >>> port = DatabaseCompositeRepository(repository)  # doctest: +SKIP
     """
 
     def __init__(self, repository: DatabaseStorageMetadataRepository) -> None:
         """
-        Bind the port to one database metadata repository.
+        Retain the supplied metadata repository without validation, loading records, or opening a
+        transaction.
+
+        Example:
+            >>> port = DatabaseCompositeRepository(repository)  # doctest: +SKIP
 
 
-        :param repository:
-        :return:
+        :param repository: Database metadata adapter whose current read/write/cache routing this port uses.
+        :return: None after retaining the repository.
         """
 
         self._repository = repository
 
     def add(self, declaration):
         """
-        Allocate and persist one Composite record.
+        Allocate a Composite identity, construct a record with a fresh revision, and persist it.
+
+        Copy membership, name, and attributes into the new record. The lower writer replaces
+        row/member links in its macro context; this port adds no member-existence or policy checks.
+
+        The composite reservation is made before record construction and upsert. This method opens
+        no transaction and supplies no cleanup if a later step fails; callers must provide the
+        appropriate metadata unit of work.
+
+        Example:
+            >>> record = port.add(declaration)  # doctest: +SKIP
 
 
-        :param declaration:
-        :return:
+        :param declaration: Complete Composite declaration used to construct the assigned record.
+        :return: The newly assigned Composite record after the repository upsert returns.
         """
 
         identifier = api.CompositeDigitalAssetID(
@@ -385,11 +536,16 @@ class DatabaseCompositeRepository(api.CompositeDigitalAssetRepositoryAPI):
 
     def get(self, composite_digital_asset_id):
         """
-        Return one Composite or raise the domain not-found error.
+        Load a Composite record and translate any KeyError from the lower lookup into
+        CompositeDigitalAssetNotFound with its cause. Other provider/decoder failures propagate. No
+        byte inspection, revision check, or additional reference validation is performed.
+
+        Example:
+            >>> record = port.get(identifier)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :return:
+        :param composite_digital_asset_id: Manager-assigned Composite identity forwarded to the metadata lookup.
+        :return: The stored Composite record.
         """
 
         try:
@@ -408,13 +564,19 @@ class DatabaseCompositeRepository(api.CompositeDigitalAssetRepositoryAPI):
         if_revision=None,
     ):
         """
-        Replace one Composite under an optional revision guard.
+        Load and revision-check the existing Composite, construct a complete replacement with the
+        requested ID and a fresh revision, then persist it. Membership, name, and attributes all
+        come from the supplied declaration. No member-reference/policy validation or atomic revision
+        predicate is added by this port.
+
+        Example:
+            >>> updated = port.replace(identifier, declaration, if_revision=record.revision)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :param declaration:
-        :param if_revision:
-        :return:
+        :param composite_digital_asset_id: Existing Composite identity retained by the replacement.
+        :param declaration: Complete replacement membership, name, and attributes.
+        :param if_revision: Optional expected opaque revision; None disables the comparison.
+        :return: The replacement Composite record after row/member persistence.
         """
 
         current = self.get(composite_digital_asset_id)
@@ -431,10 +593,15 @@ class DatabaseCompositeRepository(api.CompositeDigitalAssetRepositoryAPI):
 
     def iter_composites(self):
         """
-        Iterate over a stable identifier-ordered Composite snapshot.
+        Load all Composite records immediately, sort their identifiers, and return an iterator over
+        that captured dictionary. Later repository mutations are not reloaded during iteration;
+        underlying loading/decoding failures occur at the call.
+
+        Example:
+            >>> records = tuple(port.iter_composites())  # doctest: +SKIP
 
 
-        :return:
+        :return: An iterator of the captured Composite records in ascending identifier order.
         """
 
         records = self._repository._load_composites()
@@ -442,12 +609,18 @@ class DatabaseCompositeRepository(api.CompositeDigitalAssetRepositoryAPI):
 
     def remove(self, composite_digital_asset_id, *, if_revision=None):
         """
-        Remove one Composite under an optional revision guard.
+        Load the Composite, compare an explicit revision, then delete through the repository.
+        Successful deletion returns True; unknown records raise CompositeDigitalAssetNotFound. The
+        read/check/delete sequence adds no transaction or atomic revision predicate, and no manager
+        reference/loss-policy traversal or physical deletion is performed.
+
+        Example:
+            >>> removed = port.remove(identifier, if_revision=record.revision)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :param if_revision:
-        :return:
+        :param composite_digital_asset_id: Existing Composite identity to remove.
+        :param if_revision: Optional expected opaque revision; None disables the comparison.
+        :return: True after the lower deletion and its invalidation return successfully.
         """
 
         current = self.get(composite_digital_asset_id)
@@ -457,11 +630,16 @@ class DatabaseCompositeRepository(api.CompositeDigitalAssetRepositoryAPI):
 
     def upsert_record(self, record: api.CompositeDigitalAssetRecord) -> None:
         """
-        Persist a complete record supplied by a compatibility mapping.
+        Forward a complete Composite record to the lower upsert path. Preserve its supplied identity
+        and revision without allocating replacements or comparing current state. Compatibility
+        mappings use this bypass; transaction and invalidation behavior remain with the repository.
+
+        Example:
+            >>> port.upsert_record(record)  # doctest: +SKIP
 
 
-        :param record:
-        :return:
+        :param record: Complete Composite value to insert or replace, including its retained revision.
+        :return: None after the lower upsert returns.
         """
 
         self._repository.upsert_composite(record)
@@ -469,27 +647,49 @@ class DatabaseCompositeRepository(api.CompositeDigitalAssetRepositoryAPI):
 
 class DatabaseDerivationRepository(api.DigitalAssetDerivationRepositoryAPI):
     """
-    Adapt persistent provenance rows to the derivation repository port.
+    Adapt derivation domain records to the shared database metadata repository.
+
+    The adapter retains one repository without owning a transaction, connection, cache, or physical
+    Store. Writes allocate or replace metadata through it; enclosing unit-of-work/macro contexts
+    govern durability. Manager policy/reference checks remain separate. These concrete methods
+    implement the structural persistence port without using its stub bodies.
+
+    Example:
+        >>> port = DatabaseDerivationRepository(repository)  # doctest: +SKIP
     """
 
     def __init__(self, repository: DatabaseStorageMetadataRepository) -> None:
         """
-        Bind the port to one database metadata repository.
+        Retain the supplied metadata repository without validation, loading records, or opening a
+        transaction.
+
+        Example:
+            >>> port = DatabaseDerivationRepository(repository)  # doctest: +SKIP
 
 
-        :param repository:
-        :return:
+        :param repository: Database metadata adapter whose current read/write/cache routing this port uses.
+        :return: None after retaining the repository.
         """
 
         self._repository = repository
 
     def add(self, declaration):
         """
-        Allocate and persist one immutable derivation record.
+        Allocate a derivation identity, construct a record with a fresh revision, and persist it.
+
+        Retain the complete declaration without executing the recipe or validating source/result
+        references and graph feasibility.
+
+        The derivation reservation is made before record construction and upsert. This method opens
+        no transaction and supplies no cleanup if a later step fails; callers must provide the
+        appropriate metadata unit of work.
+
+        Example:
+            >>> record = port.add(declaration)  # doctest: +SKIP
 
 
-        :param declaration:
-        :return:
+        :param declaration: Complete derivation declaration used to construct the assigned record.
+        :return: The newly assigned derivation record after the repository upsert returns.
         """
 
         identifier = api.DigitalAssetDerivationID(
@@ -505,11 +705,16 @@ class DatabaseDerivationRepository(api.DigitalAssetDerivationRepositoryAPI):
 
     def get(self, digital_asset_derivation_id):
         """
-        Return one derivation or raise the domain not-found error.
+        Load a derivation record and translate any KeyError from the lower lookup into
+        DigitalAssetDerivationNotFound with its cause. Other provider/decoder failures propagate. No
+        byte inspection, revision check, or additional reference validation is performed.
+
+        Example:
+            >>> record = port.get(identifier)  # doctest: +SKIP
 
 
-        :param digital_asset_derivation_id:
-        :return:
+        :param digital_asset_derivation_id: Manager-assigned derivation identity forwarded to the metadata lookup.
+        :return: The stored derivation record.
         """
 
         try:
@@ -532,16 +737,25 @@ class DatabaseDerivationRepository(api.DigitalAssetDerivationRepositoryAPI):
         exact_only=False,
     ):
         """
-        Iterate over derivations matching all supplied provenance filters.
+        Capture identifier-ordered provenance records and lazily apply all supplied filters.
+
+        Direct source-Asset and source-Composite filters can match different entries in the same
+        declaration. No Composite expansion or recursive traversal occurs. Workflow ID/reference use
+        exact equality; exact_only tests the record's can_recreate_exactly predicate without
+        checking current bytes or executing a recipe. Loading failures occur at the call; filter
+        access occurs during iteration.
+
+        Example:
+            >>> records = tuple(port.iter_derivations(result_digital_asset_id=identifier))  # doctest: +SKIP
 
 
-        :param result_digital_asset_id:
-        :param source_digital_asset_id:
-        :param source_composite_digital_asset_id:
-        :param workflow_id:
-        :param workflow_reference:
-        :param exact_only:
-        :return:
+        :param result_digital_asset_id: Optional exact result Asset identity.
+        :param source_digital_asset_id: Optional direct source Asset identity required in the declaration.
+        :param source_composite_digital_asset_id: Optional direct source Composite identity required in the declaration.
+        :param workflow_id: Optional exact recorded workflow ID.
+        :param workflow_reference: Optional exact recorded workflow text, without stripping or normalization.
+        :param exact_only: Whether to require recorded exact recreation capability.
+        :return: An iterator of matching captured derivations in identifier order.
         """
 
         records = self._repository._load_derivations()
@@ -583,12 +797,18 @@ class DatabaseDerivationRepository(api.DigitalAssetDerivationRepositoryAPI):
 
     def remove(self, digital_asset_derivation_id, *, if_revision=None):
         """
-        Remove one derivation under an optional revision guard.
+        Load the derivation, compare an explicit revision, then delete through the repository.
+        Successful deletion returns True; unknown records raise DigitalAssetDerivationNotFound. The
+        read/check/delete sequence adds no transaction or atomic revision predicate, and no manager
+        reference/loss-policy traversal or physical deletion is performed.
+
+        Example:
+            >>> removed = port.remove(identifier, if_revision=record.revision)  # doctest: +SKIP
 
 
-        :param digital_asset_derivation_id:
-        :param if_revision:
-        :return:
+        :param digital_asset_derivation_id: Existing derivation identity to remove.
+        :param if_revision: Optional expected opaque revision; None disables the comparison.
+        :return: True after the lower deletion and its invalidation return successfully.
         """
 
         current = self.get(digital_asset_derivation_id)
@@ -598,11 +818,17 @@ class DatabaseDerivationRepository(api.DigitalAssetDerivationRepositoryAPI):
 
     def upsert_record(self, record: api.DigitalAssetDerivationRecord) -> None:
         """
-        Persist a complete record supplied by a compatibility mapping.
+        Forward a complete derivation record to the lower upsert path. Preserve its supplied
+        identity and revision without allocating replacements or comparing current state.
+        Compatibility mappings use this bypass; transaction and invalidation behavior remain with
+        the repository.
+
+        Example:
+            >>> port.upsert_record(record)  # doctest: +SKIP
 
 
-        :param record:
-        :return:
+        :param record: Complete derivation value to insert or replace, including its retained revision.
+        :return: None after the lower upsert returns.
         """
 
         self._repository.upsert_derivation(record)
@@ -610,22 +836,48 @@ class DatabaseDerivationRepository(api.DigitalAssetDerivationRepositoryAPI):
 
 class _RollbackRequested(Exception):
     """
-    Internal transaction marker used to request a clean rollback.
+    Carry an internal exception marker to the underlying transaction when normal context exit must
+    roll back. The unit-of-work wrapper constructs and passes this object to __exit__; it does not
+    raise the marker directly or expose it as a workflow failure.
+
+    Example:
+        >>> marker = _RollbackRequested()
+        >>> isinstance(marker, Exception)
+        True
     """
 
 
 class DatabaseStorageUnitOfWork(api.StorageUnitOfWorkAPI):
     """
-    Explicit commit/rollback boundary over portable database macros.
+    Request commit or rollback through an explicitly entered macro transaction.
+
+    begin creates this object inactive. Enter opens the transaction; commit and rollback only set
+    flags controlling exit. A normal exit without commit passes a rollback marker, and any body
+    exception takes precedence over commit intent. Repository properties return stable factory-owned
+    ports without checking entry.
+
+    Use a fresh unit per operation: leaving clears the entered flag but does not reset
+    commit/rollback intent or discard the transaction reference. Re-entry after exit is possible and
+    reuses those intent flags. No independent lock, connection, repository isolation, or physical
+    Store rollback is provided.
+
+    Example:
+        >>> with factory.begin() as unit:  # doctest: +SKIP
+        ...     record = unit.assets.add(declaration)
+        ...     unit.commit()
     """
 
     def __init__(self, factory: DatabaseStorageUnitOfWorkFactory) -> None:
         """
-        Create an inactive unit of work bound to ``factory``.
+        Retain the factory and initialize inactive transaction/intent state without opening a
+        transaction or validating the factory.
+
+        Example:
+            >>> unit = DatabaseStorageUnitOfWork(factory)  # doctest: +SKIP
 
 
-        :param factory:
-        :return:
+        :param factory: Owner of the metadata repository and stable domain repository ports.
+        :return: None after initializing transaction and request flags.
         """
 
         self._factory = factory
@@ -637,10 +889,15 @@ class DatabaseStorageUnitOfWork(api.StorageUnitOfWorkAPI):
     @property
     def assets(self):
         """
-        Return the stable Digital Asset repository port.
+        Return the factory's retained Asset repository port without checking whether this unit is
+        entered. All units from the factory share this object; property access does not start or
+        commit a transaction.
+
+        Example:
+            >>> port = unit.assets  # doctest: +SKIP
 
 
-        :return:
+        :return: The stable factory-owned Asset repository adapter.
         """
 
         return self._factory.assets
@@ -648,10 +905,15 @@ class DatabaseStorageUnitOfWork(api.StorageUnitOfWorkAPI):
     @property
     def replicas(self):
         """
-        Return the stable Replica repository port.
+        Return the factory's retained Replica repository port without checking whether this unit is
+        entered. All units from the factory share this object; property access does not start or
+        commit a transaction.
+
+        Example:
+            >>> port = unit.replicas  # doctest: +SKIP
 
 
-        :return:
+        :return: The stable factory-owned Replica repository adapter.
         """
 
         return self._factory.replicas
@@ -659,10 +921,15 @@ class DatabaseStorageUnitOfWork(api.StorageUnitOfWorkAPI):
     @property
     def composites(self):
         """
-        Return the stable Composite repository port.
+        Return the factory's retained Composite repository port without checking whether this unit
+        is entered. All units from the factory share this object; property access does not start or
+        commit a transaction.
+
+        Example:
+            >>> port = unit.composites  # doctest: +SKIP
 
 
-        :return:
+        :return: The stable factory-owned Composite repository adapter.
         """
 
         return self._factory.composites
@@ -670,20 +937,30 @@ class DatabaseStorageUnitOfWork(api.StorageUnitOfWorkAPI):
     @property
     def derivations(self):
         """
-        Return the stable derivation repository port.
+        Return the factory's retained derivation repository port without checking whether this unit
+        is entered. All units from the factory share this object; property access does not start or
+        commit a transaction.
+
+        Example:
+            >>> port = unit.derivations  # doctest: +SKIP
 
 
-        :return:
+        :return: The stable factory-owned derivation repository adapter.
         """
 
         return self._factory.derivations
 
     def commit(self) -> None:
         """
-        Mark the active transaction for commit on context exit.
+        Require an active unit without a prior rollback request, then mark commit intent. Repeated
+        requests are accepted. No database commit occurs until successful context exit; a later
+        rollback request or body exception still prevents that commit.
+
+        Example:
+            >>> unit.commit()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after setting commit intent; invalid lifecycle state raises RuntimeError.
         """
 
         if not self._entered:
@@ -694,10 +971,15 @@ class DatabaseStorageUnitOfWork(api.StorageUnitOfWorkAPI):
 
     def rollback(self) -> None:
         """
-        Mark the active transaction for rollback on context exit.
+        Require an active unit, mark rollback intent, and clear any earlier commit request. Repeated
+        rollback requests are accepted; the underlying transaction is not exited until context
+        cleanup.
+
+        Example:
+            >>> unit.rollback()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after recording rollback intent; an inactive unit raises RuntimeError.
         """
 
         if not self._entered:
@@ -707,10 +989,15 @@ class DatabaseStorageUnitOfWork(api.StorageUnitOfWorkAPI):
 
     def __enter__(self):
         """
-        Open the underlying portable database transaction.
+        Reject entry while already active, obtain and enter repository.transaction(), then set the
+        entered flag and return self. Entry failure leaves the transaction reference retained
+        without marking active. Prior commit/rollback flags are not reset on reuse after exit.
+
+        Example:
+            >>> active = unit.__enter__()  # doctest: +SKIP
 
 
-        :return:
+        :return: This same unit after its underlying transaction enters successfully.
         """
 
         if self._entered:
@@ -727,13 +1014,23 @@ class DatabaseStorageUnitOfWork(api.StorageUnitOfWorkAPI):
         traceback: TracebackType | None,
     ) -> None:
         """
-        Commit only when requested; otherwise roll the transaction back.
+        Forward the body outcome or requested transaction result, then clear the active flag.
+
+        Assert that a transaction reference exists. Body exceptions are passed through; otherwise a
+        commit request without rollback sends a normal exit, and all other cases send
+        _RollbackRequested. Ignore the provider's suppression return value and return None, so body
+        failures remain unsuppressed. Provider cleanup errors propagate, but the entered flag clears
+        in finally. Intent flags and the transaction reference remain retained; repeated exit is not
+        independently guarded.
+
+        Example:
+            >>> unit.__exit__(None, None, None)  # doctest: +SKIP
 
 
-        :param exc_type:
-        :param exc:
-        :param traceback:
-        :return:
+        :param exc_type: Body exception type, or None for normal exit.
+        :param exc: Body exception instance forwarded on the exceptional path.
+        :param traceback: Body traceback forwarded with that exception, or None.
+        :return: None after provider cleanup, without suppressing a body exception.
         """
 
         assert self._transaction is not None
@@ -755,16 +1052,26 @@ class DatabaseStorageUnitOfWork(api.StorageUnitOfWorkAPI):
 
 class DatabaseStorageUnitOfWorkFactory(api.StorageUnitOfWorkFactoryAPI):
     """
-    Factory and stable repository-port owner for one database binding.
+    Own one metadata repository and four stable domain adapters, supplying fresh inactive units of
+    work. Construction does not validate or enter the database. Units and compatibility mappings
+    share this binding; new objects do not imply separate connections or transaction isolation.
+
+    Example:
+        >>> factory = DatabaseStorageUnitOfWorkFactory(repository)  # doctest: +SKIP
     """
 
     def __init__(self, repository: DatabaseStorageMetadataRepository) -> None:
         """
-        Create stable repository ports over one metadata repository.
+        Retain the repository and create stable Asset, Replica, Composite, and derivation ports. The
+        ports perform no reads or writes during construction; no transaction or cache is created
+        here.
+
+        Example:
+            >>> factory = DatabaseStorageUnitOfWorkFactory(repository)  # doctest: +SKIP
 
 
-        :param repository:
-        :return:
+        :param repository: Shared lower metadata adapter used by every port and unit of work.
+        :return: None after constructing the four repository adapters.
         """
 
         self.repository = repository
@@ -775,20 +1082,31 @@ class DatabaseStorageUnitOfWorkFactory(api.StorageUnitOfWorkFactoryAPI):
 
     def begin(self) -> DatabaseStorageUnitOfWork:
         """
-        Return a fresh, inactive unit of work.
+        Return a new inactive unit bound to this factory. No portable transaction is obtained or
+        entered until the unit's context entry, and its repository properties resolve to the
+        factory's existing adapters.
+
+        Example:
+            >>> unit = factory.begin()  # doctest: +SKIP
 
 
-        :return:
+        :return: A fresh DatabaseStorageUnitOfWork with no active transaction or outcome request.
         """
 
         return DatabaseStorageUnitOfWork(self)
 
     def asset_mapping(self):
         """
-        Return the legacy mutable-mapping facade for Asset records.
+        Return a fresh Asset compatibility mapping over lower repository reads/deletes and the
+        domain port's complete-record upsert. Assignment checks record.digital_asset_id against the
+        key, but bypasses port add/remove revision handling. No state snapshot, transaction, or
+        extra reference check is created.
+
+        Example:
+            >>> mapping = factory.asset_mapping()  # doctest: +SKIP
 
 
-        :return:
+        :return: A new RepositoryRecordMapping bound to the existing Asset persistence adapters.
         """
 
         return RepositoryRecordMapping(
@@ -801,10 +1119,16 @@ class DatabaseStorageUnitOfWorkFactory(api.StorageUnitOfWorkFactoryAPI):
 
     def replica_mapping(self):
         """
-        Return the legacy mutable-mapping facade for Replica records.
+        Return a fresh Replica compatibility mapping over lower repository reads/deletes and the
+        domain port's complete-record upsert. Assignment checks record.replica_id against the key,
+        but bypasses port add/remove revision handling. No state snapshot, transaction, or extra
+        reference check is created.
+
+        Example:
+            >>> mapping = factory.replica_mapping()  # doctest: +SKIP
 
 
-        :return:
+        :return: A new RepositoryRecordMapping bound to the existing Replica persistence adapters.
         """
 
         return RepositoryRecordMapping(
@@ -817,10 +1141,16 @@ class DatabaseStorageUnitOfWorkFactory(api.StorageUnitOfWorkFactoryAPI):
 
     def composite_mapping(self):
         """
-        Return the legacy mutable-mapping facade for Composite records.
+        Return a fresh Composite compatibility mapping over lower repository reads/deletes and the
+        domain port's complete-record upsert. Assignment checks record.composite_digital_asset_id
+        against the key, but bypasses port add/remove revision handling. No state snapshot,
+        transaction, or extra reference check is created.
+
+        Example:
+            >>> mapping = factory.composite_mapping()  # doctest: +SKIP
 
 
-        :return:
+        :return: A new RepositoryRecordMapping bound to the existing Composite persistence adapters.
         """
 
         return RepositoryRecordMapping(
@@ -833,10 +1163,16 @@ class DatabaseStorageUnitOfWorkFactory(api.StorageUnitOfWorkFactoryAPI):
 
     def derivation_mapping(self):
         """
-        Return the legacy mutable-mapping facade for derivation records.
+        Return a fresh derivation compatibility mapping over lower repository reads/deletes and the
+        domain port's complete-record upsert. Assignment checks record.digital_asset_derivation_id
+        against the key, but bypasses port add/remove revision handling. No state snapshot,
+        transaction, or extra reference check is created.
+
+        Example:
+            >>> mapping = factory.derivation_mapping()  # doctest: +SKIP
 
 
-        :return:
+        :return: A new RepositoryRecordMapping bound to the existing derivation persistence adapters.
         """
 
         return RepositoryRecordMapping(

@@ -1,5 +1,10 @@
 """
-Documentation-quality contracts for the composed storage-manager surface.
+Guard basic documentation presence and field shape in the composed manager source.
+
+The scope is the manager API tree, implementation tree, and application-manager
+module. These AST-only checks do not import production modules or prove complete
+descriptive reST documentation; the whole-project audit and source review enforce
+the broader documentation target separately.
 """
 
 from __future__ import annotations
@@ -29,10 +34,18 @@ _PLACEHOLDER_FRAGMENTS = (
 
 def _source_paths() -> tuple[Path, ...]:
     """
-    Return the stable, de-duplicated source scope guarded by this test.
+    Collect explicit manager files and recursively discovered Python files from the guarded roots.
+
+    Paths are deduplicated and sorted lexically. Discovery uses filesystem rglob rather than Git
+    ownership, and explicitly listed files are retained without an existence check.
+
+    Example:
+        >>> paths = _source_paths()
+        >>> _STORAGE_ROOT / "store_manager.py" in paths
+        True
 
 
-    :return:
+    :return: Sorted tuple of Path values for the bounded manager documentation guard.
     """
 
     paths = set(_SOURCE_FILES)
@@ -43,11 +56,21 @@ def _source_paths() -> tuple[Path, ...]:
 
 def _documentable_nodes(path: Path) -> Iterator[ast.AST]:
     """
-    Yield every module, class, and callable definition in one source file.
+    Lazily parse one UTF-8 source file and yield modules, classes, and named function definitions.
+
+    ast.walk includes private, nested, and async definitions in its traversal order. Lambda
+    expressions and code embedded inside string fixtures are not yielded as definitions. File and
+    parse errors propagate on iteration; the module is not imported.
+
+    Example:
+        >>> nodes = _documentable_nodes(_SOURCE_FILES[0])
+        >>> isinstance(next(nodes), ast.Module)
+        True
+        >>> nodes.close()
 
 
-    :param path:
-    :return:
+    :param path: Python source file to read as UTF-8 and parse without execution.
+    :return: Generator over the parsed AST nodes selected by _DOCUMENTABLE_NODES.
     """
 
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -58,12 +81,19 @@ def _documentable_nodes(path: Path) -> Iterator[ast.AST]:
 
 def _location(path: Path, node: ast.AST) -> str:
     """
-    Return a concise repository-relative definition location.
+    Format a repository-relative path, source line, and node name for assertion diagnostics.
+
+    Nodes without a name or line use <module> and line 1. The path must lie below the repository
+    root for relative_to to succeed; no filesystem lookup is performed.
+
+    Example:
+        >>> _location(_SOURCE_FILES[0], ast.parse("pass")).endswith(":1:<module>")
+        True
 
 
-    :param path:
-    :param node:
-    :return:
+    :param path: Source path beneath _REPOSITORY_ROOT.
+    :param node: AST node whose optional lineno and name attributes identify the definition.
+    :return: Colon-separated repository path, line number, and definition name.
     """
 
     name = getattr(node, "name", "<module>")
@@ -73,10 +103,16 @@ def _location(path: Path, node: ast.AST) -> str:
 
 def test_storage_manager_definitions_have_docstrings() -> None:
     """
-    Keep every definition in the reviewed storage-manager scope documented.
+    Reject definitions with no leading literal docstring in the bounded manager source scope.
+
+    The test checks for None, so blank strings and incomplete prose can pass. It does not establish
+    descriptive quality, examples, field completeness, or the whole-project reviewed-file status.
+
+    Example:
+        >>> test_storage_manager_definitions_have_docstrings()  # doctest: +SKIP
 
 
-    :return:
+    :return: None after every discovered definition has a literal docstring; missing entries fail with source locations.
     """
 
     missing = [
@@ -93,10 +129,16 @@ def test_storage_manager_definitions_have_docstrings() -> None:
 
 def test_storage_manager_docstrings_have_no_known_placeholders() -> None:
     """
-    Reject generic prose that does not explain a definition's responsibility.
+    Reject either configured placeholder fragment in existing manager docstrings, ignoring case.
+
+    Missing docstrings are skipped by this test and handled by the presence check. This finite
+    substring guard does not detect all generic or inaccurate descriptions.
+
+    Example:
+        >>> test_storage_manager_docstrings_have_no_known_placeholders()  # doctest: +SKIP
 
 
-    :return:
+    :return: None when neither known fragment is found; offending definitions fail with source locations.
     """
 
     placeholders = []
@@ -116,15 +158,23 @@ def test_storage_manager_docstrings_have_no_known_placeholders() -> None:
 
 def test_public_storage_manager_function_docstrings_have_conventional_fields() -> None:
     """
-    Keep public parameter and return fields aligned with callable signatures.
+    Check parameter-name sets and presence of a return field on shallow nonprivate function
+    definitions.
 
-    Private implementation helpers still require meaningful docstrings, but
-    their type-annotated signatures are the parameter contract. Requiring
-    Sphinx fields there as well would duplicate implementation detail and work
-    against the module-size maintainability guardrail.
+    The selection skips names beginning with an underscore and definitions indented more than four
+    columns. Expected names include positional-only, ordinary, keyword-only, and variadic
+    parameters, while literal self/cls names are omitted. Missing docstrings are left to the
+    presence test.
+
+    Sets make this a name-coverage check rather than an order or uniqueness check. Empty field
+    descriptions and either return spelling pass. Private and deeper definitions remain subject to
+    the broader documentation goal even though this older bounded guard excludes their fields.
+
+    Example:
+        >>> test_public_storage_manager_function_docstrings_have_conventional_fields()  # doctest: +SKIP
 
 
-    :return:
+    :return: None when selected functions have the expected parameter-name set and a return field; failures list their source locations.
     """
 
     invalid_fields = []

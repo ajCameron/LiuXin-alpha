@@ -1,4 +1,9 @@
-"""Configured read-only SquashFS archive Store."""
+"""
+Adapt a raw SquashFS reader to configured Store locations and legacy path aliases.
+
+Configuration supplies Store identity and facade policy; constructor arguments
+independently configure the local image, external tool, and reader limits.
+"""
 
 from __future__ import annotations
 
@@ -31,7 +36,17 @@ from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 class SquashfsReadOnlyStorageBackend(
     DriverBackedStoreAPI[SquashfsObjectAddress]
 ):
-    """One immutable archive exposed through opaque internal paths."""
+    """
+    Expose one local SquashFS image through configured Store locations.
+
+    The raw driver owns inventory and spooled reads; this adapter supplies Store identity,
+    configuration, and legacy pathname lookup. A supplied configuration is retained even when its
+    recorded URL/options differ from the constructor arguments used by the driver.
+
+    Example:
+        >>> store = SquashfsReadOnlyStorageBackend("library.sqsh")  # doctest: +SKIP
+        >>> store.read_file("books/a.epub")  # doctest: +SKIP
+    """
 
     store_kind = "squashfs_readonly"
 
@@ -52,6 +67,33 @@ class SquashfsReadOnlyStorageBackend(
         max_path_bytes: int = DEFAULT_MAX_SQUASHFS_PATH_BYTES,
         configuration: StoreConfiguration | None = None,
     ) -> None:
+        """
+        Create the raw reader and retain or synthesize its Store configuration.
+
+        A supplied configuration selects the UUID and ignores the separate uuid/name arguments
+        without an agreement check. Runtime path/tool/limits always come from the constructor
+        arguments. Otherwise configuration records the resolved file URI, read-only policy, folders,
+        and options. Construction checks the local file and policy but does not index it.
+
+        Example:
+            >>> store = SquashfsReadOnlyStorageBackend("library.sqsh", name="Archive")  # doctest: +SKIP
+
+
+        :param url: Local image pathname, despite the legacy parameter name.
+        :param name: Optional nonempty display name when configuration is omitted.
+        :param uuid: UUID or UUID string when configuration is omitted; None generates an identity.
+        :param unsquashfs_exe: Executable name or path used for inventory and extraction.
+        :param timeout_s: Positive wait timeout in seconds; cleanup can exceed it.
+        :param max_inventory_entries: Positive ceiling on non-root inventory entries, including directories.
+        :param max_member_bytes: Positive uncompressed-member byte ceiling, also limited by the total budget.
+        :param max_total_uncompressed_bytes: Positive ceiling on summed declared regular-member sizes.
+        :param max_compression_ratio: Finite aggregate declared-size/image-size ratio ceiling, at least one.
+        :param max_header_bytes: Positive pseudo-header byte ceiling; reader chunks may temporarily exceed it.
+        :param max_depth: Positive maximum parsed member-key component count.
+        :param max_path_bytes: Positive maximum byte length of a complete UTF-8 surrogateescape member key.
+        :param configuration: Existing Store configuration to retain, or None to construct one.
+        :return: None after binding the reader and configuration.
+        """
         store_uuid = configuration.store_uuid if configuration is not None else (
             uuid4() if uuid is None else (
                 uuid if isinstance(uuid, UUID) else UUID(uuid)
@@ -97,34 +139,120 @@ class SquashfsReadOnlyStorageBackend(
 
     @property
     def configuration(self) -> StoreConfiguration:
+        """
+        Expose the retained Store configuration without reconciling it with runtime arguments.
+
+        Example:
+            >>> store.configuration.read_only  # doctest: +SKIP
+            True
+
+
+        :return: The same StoreConfiguration instance on each access.
+        """
         return self._configuration
 
     @property
     def _driver(self) -> SquashfsStorageDriver:
+        """
+        Supply the raw SquashFS reader to the inherited driver-backed Store operations.
+
+        Example:
+            >>> store._driver is store.driver  # doctest: +SKIP
+            True
+
+
+        :return: The retained SquashfsStorageDriver.
+        """
         return self.__driver
 
     @property
     def driver(self) -> SquashfsStorageDriver:
+        """
+        Expose the same raw reader used by the Store facade.
+
+        Example:
+            >>> store.driver.archive_path == store.archive_path  # doctest: +SKIP
+            True
+
+
+        :return: The retained driver, whose methods accept driver addresses rather than Store locations.
+        """
         return self.__driver
 
     @property
     def archive_path(self) -> pathlib.Path:
+        """
+        Expose the resolved image pathname held by the raw reader.
+
+        Example:
+            >>> store.archive_path.name  # doctest: +SKIP
+            'library.sqsh'
+
+
+        :return: Configured image Path without a new existence check.
+        """
         return self.__driver.archive_path
 
     @property
     def db_path(self) -> pathlib.Path:
+        """
+        Provide the legacy database-path alias for this archive image.
+
+        Example:
+            >>> store.db_path == store.archive_path  # doctest: +SKIP
+            True
+
+
+        :return: The same Path value as archive_path; it denotes the image.
+        """
         return self.archive_path
 
     @property
     def root_path(self) -> pathlib.Path:
+        """
+        Provide the legacy root-path alias for the archive image.
+
+        Example:
+            >>> store.root_path == store.archive_path  # doctest: +SKIP
+            True
+
+
+        :return: Image Path rather than a filesystem directory containing extracted members.
+        """
         return self.archive_path
 
     @staticmethod
     def url_to_name(url: str) -> str:
+        """
+        Derive a display name using the shared path-to-name sanitizer.
+
+        Example:
+            >>> SquashfsReadOnlyStorageBackend.url_to_name("library.sqsh") == safe_path_to_name("library.sqsh")
+            True
+
+
+        :param url: Path-like display text passed directly to safe_path_to_name.
+        :return: Sanitized display-name string; no archive is opened.
+        """
         return safe_path_to_name(url)
 
     def locate(self, identifier: str | Location) -> Location:
-        """Accept an internal key or legacy ``archive-path/internal`` form."""
+        """
+        Validate an existing Location or parse a member key after removing an exact legacy
+        image-path prefix.
+
+        Only the resolved archive pathname followed by a slash is stripped. Remaining text is
+        handled by the normal Store/driver location parser; ownership is required for an existing
+        Location.
+
+        Example:
+            >>> store.locate(str(store.archive_path) + "/books/a.epub").key  # doctest: +SKIP
+            'books/a.epub'
+
+
+        :param identifier: Store Location, internal key, or legacy resolved-image-path/internal-key text.
+        :return: Owned Location; no member existence check is implied.
+        """
 
         if isinstance(identifier, Location):
             return self.require_location(identifier)
@@ -135,6 +263,16 @@ class SquashfsReadOnlyStorageBackend(
         return super().locate(text)
 
     def self_test(self):
+        """
+        Run the ordinary Store probe through the compatibility self-test entry point.
+
+        Example:
+            >>> store.self_test().available  # doctest: +SKIP
+            True
+
+
+        :return: Effective StoreStatus from probe; this inventories metadata without reading every payload.
+        """
         return self.probe()
 
 

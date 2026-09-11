@@ -1,5 +1,12 @@
 """
-Bounded read-only 7z storage driver backed by optional py7zr support.
+Read validated 7z inventories and expose ranges from verified member spools.
+
+Optional py7zr support supplies metadata and extraction. Declared size, ratio,
+header, entry-count, path, and topology checks bound the accepted projection;
+their timing follows parser opening/listing rather than preceding allocation.
+Filesystem signatures provide archive-wide version evidence. Nonempty reads
+stage complete members, with optional CRC verification and caller-owned spools;
+solid blocks and nested archives require separate cumulative-work policies.
 """
 
 from __future__ import annotations
@@ -74,22 +81,32 @@ DEFAULT_MAX_SEVENZIP_PATH_BYTES = 65_535
 @dataclasses.dataclass(slots=True, frozen=True)
 class SevenZipObjectAddress(ArchiveObjectAddress):
     """
-    Canonical member path scoped to one 7z driver.
+    Represent a member key and driver UUID using the shared archive address record.
+
+    Construction adds no canonical-key validation. Use the driver parser for text validation;
+    typed-address checking verifies record type and ownership without reparsing the key.
 
     Example:
-        >>> SevenZipObjectAddress("books/novel.epub", UUID(int=1)).value
-        'books/novel.epub'
+        >>> SevenZipObjectAddress("books/雪.epub", UUID(int=1)).value
+        'books/雪.epub'
     """
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _SevenZipMember:
     """
-    Retain the original py7zr member name and optional CRC-32.
+    Retain the original parser name and optional declared CRC for later extraction.
+
+    The frozen record performs no name or checksum validation. Index construction normalizes CRC
+    values before storing them; extraction addresses the original name exactly.
 
     Example:
-        >>> _SevenZipMember("book.epub", 1).crc32
-        1
+        >>> _SevenZipMember("book.epub", None).crc32 is None
+        True
+
+
+    :ivar name: Original py7zr member name used as the extraction target.
+    :ivar crc32: Declared 32-bit CRC, or None when unavailable.
     """
 
     name: str
@@ -98,18 +115,28 @@ class _SevenZipMember:
 
 class _SingleMemberSpool:
     """
-    Implement py7zr's writer interface over one bounded temporary file.
+    Adapt a private temporary file to py7zr's member-writer interface.
+
+    Writes check current position plus offered bytes against the retained declared size; seeks are
+    unbounded and repeated overwrites do not consume a cumulative budget. The close hook
+    deliberately keeps the file alive. Call cleanup on failure, or transfer the exposed file to a
+    reader that will close it after successful extraction.
 
     Example:
         >>> spool = _SingleMemberSpool(4)
         >>> spool.write(b"book")
         4
+        >>> spool.close()
+        >>> spool.file.closed
+        False
         >>> spool.cleanup()
     """
 
     def __init__(self, expected_size: int) -> None:
         """
-        Allocate a private spool with one strict output-size ceiling.
+        Allocate a binary temporary file and retain the supplied output-size ceiling.
+
+        The expected size is not validated or coerced here. Allocation failures propagate.
 
         Example:
             >>> spool = _SingleMemberSpool(4)
@@ -118,8 +145,8 @@ class _SingleMemberSpool:
             >>> spool.cleanup()
 
 
-        :param expected_size:
-        :return:
+        :param expected_size: Declared member length in bytes, used by subsequent write checks.
+        :return: None after allocating an empty spool and clearing its cleanup marker.
         """
 
         self._expected_size = expected_size
@@ -129,33 +156,40 @@ class _SingleMemberSpool:
     @property
     def file(self) -> BinaryIO:
         """
-        Return the owned spool after extraction.
+        Expose the same owned binary stream without checking or changing its state.
 
         Example:
             >>> spool = _SingleMemberSpool(4)
-            >>> isinstance(spool.file, io.BufferedRandom)
+            >>> spool.file is spool.file
             True
             >>> spool.cleanup()
 
 
-        :return:
+        :return: Underlying temporary file; the reference remains accessible after cleanup.
         """
 
         return self._file
 
     def write(self, data: bytes | bytearray) -> int:
         """
-        Write without allowing decompressed output beyond the declared size.
+        Reject a write whose offered bytes would end beyond the expected member length.
+
+        The check uses current file position, so overwriting earlier bytes is allowed. Accepted
+        writes and their return counts are delegated to the temporary file.
 
         Example:
             >>> spool = _SingleMemberSpool(4)
             >>> spool.write(b"book")
             4
+            >>> spool.seek(0)
+            0
+            >>> spool.write(b"B")
+            1
             >>> spool.cleanup()
 
 
-        :param data:
-        :return:
+        :param data: Bytes offered at the current spool position.
+        :return: Underlying accepted-byte count; an offered write beyond the ceiling raises StorageIntegrityError.
         """
 
         position = self._file.tell()
@@ -167,42 +201,50 @@ class _SingleMemberSpool:
 
     def read(self, size: int | None = None) -> bytes:
         """
-        Read bytes through the writer-compatible interface.
+        Read from the current position using the temporary file's normal size semantics.
 
         Example:
             >>> spool = _SingleMemberSpool(4)
-            >>> spool.read(0)
-            b''
+            >>> spool.write(b"book")
+            4
+            >>> spool.seek(0)
+            0
+            >>> spool.read()
+            b'book'
             >>> spool.cleanup()
 
 
-        :param size:
-        :return:
+        :param size: Maximum bytes requested, or None/negative for all remaining bytes.
+        :return: Bytes read, including empty bytes at EOF; this method adds no allocation bound.
         """
 
         return self._file.read(-1 if size is None else size)
 
     def seek(self, offset: int, whence: int = 0) -> int:
         """
-        Reposition the private spool.
+        Delegate repositioning without imposing the member-size ceiling.
+
+        A later write checks its resulting end position; seeking alone can move beyond EOF.
 
         Example:
             >>> spool = _SingleMemberSpool(4)
-            >>> spool.seek(0)
+            >>> spool.seek(8)
+            8
+            >>> spool.size()
             0
             >>> spool.cleanup()
 
 
-        :param offset:
-        :param whence:
-        :return:
+        :param offset: Byte displacement interpreted by whence.
+        :param whence: Seek origin: start (0), current position (1), or end (2).
+        :return: New absolute byte position reported by the temporary file.
         """
 
         return self._file.seek(offset, whence)
 
     def flush(self) -> None:
         """
-        Flush decompressed bytes to the temporary file.
+        Flush the file buffer without synchronizing it to durable storage.
 
         Example:
             >>> spool = _SingleMemberSpool(4)
@@ -210,23 +252,32 @@ class _SingleMemberSpool:
             >>> spool.cleanup()
 
 
-        :return:
+        :return: None after file.flush succeeds; file errors propagate.
         """
 
         self._file.flush()
 
     def size(self) -> int:
         """
-        Return the current logical spool size without changing its position.
+        Measure the logical file length by seeking to EOF and back.
+
+        Successful calls restore the starting position. The restoration has no finally guard if an
+        intermediate file operation fails.
 
         Example:
             >>> spool = _SingleMemberSpool(4)
+            >>> spool.write(b"book")
+            4
+            >>> spool.seek(1)
+            1
             >>> spool.size()
-            0
+            4
+            >>> spool.file.tell()
+            1
             >>> spool.cleanup()
 
 
-        :return:
+        :return: Current logical spool length in bytes.
         """
 
         position = self._file.tell()
@@ -237,29 +288,37 @@ class _SingleMemberSpool:
 
     def close(self) -> None:
         """
-        Keep the spool alive when py7zr finishes the member.
+        Ignore the parser's close hook so validation and range reads can use the spool.
 
         Example:
             >>> spool = _SingleMemberSpool(4)
             >>> spool.close()
+            >>> spool.file.closed
+            False
             >>> spool.cleanup()
 
 
-        :return:
+        :return: None without closing the file or setting the cleanup marker.
         """
 
         return None
 
     def cleanup(self) -> None:
         """
-        Close the owned temporary file exactly once.
+        Attempt to close the temporary file at most once through this hook.
+
+        The marker is set before file.close; a failure propagates and later cleanup calls do not
+        retry. No other resource or reference is cleared.
 
         Example:
             >>> spool = _SingleMemberSpool(4)
             >>> spool.cleanup()
+            >>> spool.cleanup()
+            >>> spool.file.closed
+            True
 
 
-        :return:
+        :return: None after a successful first close or an already-marked cleanup.
         """
 
         if self._closed:
@@ -270,7 +329,10 @@ class _SingleMemberSpool:
 
 class _SingleMemberFactory:
     """
-    Refuse extraction of any 7z member except the requested object.
+    Allow one output writer for one exact parser member name.
+
+    Allocation is lazy. This restricts produced output, not the work needed to decompress preceding
+    data in a solid block. Cleanup retains the product reference.
 
     Example:
         >>> factory = _SingleMemberFactory("book.epub", 4)
@@ -281,15 +343,16 @@ class _SingleMemberFactory:
 
     def __init__(self, expected_name: str, expected_size: int) -> None:
         """
-        Bind one exact archive name and its decompression ceiling.
+        Retain the exact target name and expected size without allocating a spool.
 
         Example:
             >>> factory = _SingleMemberFactory("book.epub", 4)
+            >>> factory.cleanup()
 
 
-        :param expected_name:
-        :param expected_size:
-        :return:
+        :param expected_name: Original parser filename accepted by the create hook.
+        :param expected_size: Declared member byte count passed unchanged to the spool constructor.
+        :return: None after recording the target and an absent product.
         """
 
         self._expected_name = expected_name
@@ -299,17 +362,19 @@ class _SingleMemberFactory:
     @property
     def spool(self) -> _SingleMemberSpool:
         """
-        Return the single product or fail when nothing was extracted.
+        Return the created product or reject extraction that produced no writer.
+
+        A product remains accessible after cleanup, even though its file may be closed.
 
         Example:
             >>> factory = _SingleMemberFactory("book.epub", 4)
-            >>> _ = factory.create("book.epub")
-            >>> factory.spool.size()
-            0
+            >>> product = factory.create("book.epub")
+            >>> factory.spool is product
+            True
             >>> factory.cleanup()
 
 
-        :return:
+        :return: Retained spool; an absent product raises StorageIntegrityError.
         """
 
         if self._spool is None:
@@ -320,17 +385,20 @@ class _SingleMemberFactory:
 
     def create(self, filename: str) -> _SingleMemberSpool:
         """
-        Create the sole accepted writer for the exact indexed member name.
+        Allocate the sole spool only when the parser supplies the exact expected name.
+
+        Unexpected names and repeated creation raise StorageIntegrityError. A failed allocation
+        leaves the product absent; names are not canonicalized here.
 
         Example:
             >>> factory = _SingleMemberFactory("book.epub", 4)
-            >>> factory.create("book.epub").size()
-            0
+            >>> factory.create("book.epub").write(b"book")
+            4
             >>> factory.cleanup()
 
 
-        :param filename:
-        :return:
+        :param filename: Original member name requested by the parser.
+        :return: Newly allocated and retained member spool.
         """
 
         if filename != self._expected_name:
@@ -346,14 +414,17 @@ class _SingleMemberFactory:
 
     def cleanup(self) -> None:
         """
-        Close a product created before an extraction failure.
+        Delegate cleanup to an existing spool, retaining the product reference.
 
         Example:
             >>> factory = _SingleMemberFactory("book.epub", 4)
+            >>> _ = factory.create("book.epub")
             >>> factory.cleanup()
+            >>> factory.spool.file.closed
+            True
 
 
-        :return:
+        :return: None when no product exists or delegated cleanup succeeds; cleanup failures propagate.
         """
 
         if self._spool is not None:
@@ -362,10 +433,17 @@ class _SingleMemberFactory:
 
 class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
     """
-    Read and completely enumerate regular files in one 7z archive.
+    Expose a validated regular-file projection of one local 7z archive.
+
+    The optional py7zr parser is loaded when inventory or reads need it. Inventory is cached against
+    filesystem metadata; nonempty reads stage a complete member and verify its size and available
+    CRC before exposing a range. Declared limits do not constitute a cumulative decompression budget
+    across solid blocks or nested archives.
 
     Example:
         >>> driver = SevenZipStorageDriver(path, address_space_uuid=UUID(int=1))  # doctest: +SKIP
+        >>> driver.startup().available  # doctest: +SKIP
+        True
     """
 
     backend_label = "7z"
@@ -384,18 +462,27 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
         max_path_bytes: int = DEFAULT_MAX_SEVENZIP_PATH_BYTES,
     ) -> None:
         """
-        Configure bounded reads for one existing 7z archive.
+        Bind an existing regular file and configure lazy inventory and extraction limits.
+
+        The path is expanded and resolved before its regular-file check. Size/count/depth limits are
+        checked for positivity before integer conversion; the ratio must be finite and at least one.
+        The effective member limit is the smaller member/total limit. Construction neither imports
+        py7zr nor parses the archive, and status starts unavailable.
 
         Example:
-            >>> driver = SevenZipStorageDriver(path, address_space_uuid=UUID(int=1))  # doctest: +SKIP
+            >>> driver = SevenZipStorageDriver(path, address_space_uuid=UUID(int=1), max_header_bytes=1048576)  # doctest: +SKIP
 
 
-        :param archive_path:
-        :param address_space_uuid:
-        :param max_inventory_entries:
-        :param max_member_bytes:
-        :param max_depth:
-        :return:
+        :param archive_path: Existing local container path; a missing or non-regular target raises StorageNotFound.
+        :param address_space_uuid: Owner UUID attached to parsed member addresses.
+        :param max_inventory_entries: Positive maximum listed entries, including omitted directories; checked after list allocation.
+        :param max_member_bytes: Positive maximum declared regular-member length in bytes.
+        :param max_depth: Positive maximum number of canonical member-key components.
+        :param max_total_uncompressed_bytes: Positive maximum sum of declared regular-member bytes in this container.
+        :param max_compression_ratio: Finite ratio of expanded bytes to compressed member/container bytes, at least one.
+        :param max_header_bytes: Positive maximum declared header size in bytes, checked after opening the parser.
+        :param max_path_bytes: Positive maximum UTF-8/surrogateescape byte length of the entire canonical member key.
+        :return: None after binding policy, address ownership, cache synchronization, and initial status.
         """
 
         self._archive_path = pathlib.Path(archive_path).expanduser().resolve(strict=False)
@@ -449,13 +536,14 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
     @property
     def archive_path(self) -> pathlib.Path:
         """
-        Return the resolved local 7z path.
+        Return the local path resolved during construction without checking it again.
 
         Example:
-            >>> driver.archive_path  # doctest: +SKIP
+            >>> driver.archive_path.is_absolute()  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: Resolved Path naming the 7z container.
         """
 
         return self._archive_path
@@ -463,13 +551,15 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
     @property
     def object_address_checker(self):
         """
-        Return the checker enforcing 7z address type and Store scope.
+        Expose the checker requiring 7z address type and this driver's UUID.
+
+        Checking a typed record does not reparse its member path.
 
         Example:
-            >>> driver.object_address_checker  # doctest: +SKIP
+            >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
 
 
-        :return:
+        :return: Retained scoped checker for SevenZipObjectAddress values.
         """
 
         return self._checker
@@ -477,14 +567,16 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
     @property
     def root_uri(self) -> str:
         """
-        Return the archive's local file URI.
+        Render the resolved container path as a file URI.
+
+        This root label does not enable parsing external member URIs.
 
         Example:
             >>> driver.root_uri.startswith("file:")  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: File URI of the container path, without a member suffix.
         """
 
         return self._archive_path.as_uri()
@@ -492,14 +584,17 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Advertise complete, conditional, ranged 7z reads.
+        Describe read-only range, version, and complete hierarchical inventory support.
+
+        The fresh capability record advertises thread-safe concurrent reads and recommends two
+        parallel reads. Ranges describe the exposed stream, not partial decompression.
 
         Example:
-            >>> driver.capabilities.range_reads  # doctest: +SKIP
-            True
+            >>> driver.capabilities.concurrency.recommended_parallel_reads  # doctest: +SKIP
+            2
 
 
-        :return:
+        :return: New DriverCapabilities record with conditional/ranged reads and prefix enumeration enabled.
         """
 
         return DriverCapabilities(
@@ -518,14 +613,19 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
         """
-        Describe optional parser, spooling, and solid-archive costs.
+        Describe configured bounds, per-object staging, and 7z format limitations.
+
+        The effective member limit is exposed as max_object_bytes. The whole-key byte limit is also
+        exposed through max_component_bytes. Limitations describe optional parser requirements,
+        unsupported formats, solid-block amplification, and the caller's responsibility for
+        cumulative nested expansion. This property performs no archive validation.
 
         Example:
-            >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
-            <StoragePublicationModel.READ_ONLY: 'read_only'>
+            >>> driver.storage_characteristics.temporary_space  # doctest: +SKIP
+            <StorageTemporarySpaceRequirement.OBJECT_STAGE: 'object_stage'>
 
 
-        :return:
+        :return: New read-only StorageCharacteristics record reflecting retained policy.
         """
 
         return StorageCharacteristics(
@@ -573,28 +673,33 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
 
     def startup(self) -> DriverStatus:
         """
-        Validate the archive and return current operational status.
+        Run the current probe implementation and return its result.
 
         Example:
             >>> driver.startup().available  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Status returned by probe; inventory or dependency failures propagate.
         """
 
         return self.probe()
 
     def probe(self) -> DriverStatus:
         """
-        Re-index the 7z archive and report its solid-block cost.
+        Force inventory validation and cache an available, read-only status on success.
+
+        Reports projected object count, omitted metadata, solid-block cost, method names, and
+        retained expansion limits. It does not extract or checksum member payloads. A failed probe
+        raises without replacing the previous status snapshot.
 
         Example:
-            >>> driver.probe().object_count  # doctest: +SKIP
-            1
+            >>> status = driver.probe()  # doctest: +SKIP
+            >>> dict(status.details)["format"]  # doctest: +SKIP
+            '7z'
 
 
-        :return:
+        :return: New cached DriverStatus with a UTC check time and parser/inventory observations.
         """
 
         index = self._get_index(force=True)
@@ -631,27 +736,31 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
 
     def status(self) -> DriverStatus:
         """
-        Return the most recently observed 7z status.
+        Return the last successful probe result, or the initial unavailable snapshot.
+
+        No filesystem access, freshness check, or probe is performed.
 
         Example:
-            >>> driver.status().available  # doctest: +SKIP
-            True
+            >>> status = driver.status()  # doctest: +SKIP
 
 
-        :return:
+        :return: Cached DriverStatus, which may no longer describe the current container.
         """
 
         return self._last_status
 
     def close(self) -> None:
         """
-        Complete lifecycle cleanup; each read owns its resources.
+        Complete the lifecycle hook without clearing cached state or closing readers.
+
+        Successfully opened readers own their temporary member spools and must be closed by their
+        callers independently.
 
         Example:
             >>> driver.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None; this hook performs no cleanup work.
         """
 
         return None
@@ -661,15 +770,18 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
         identifier: DriverObjectAddressInput[SevenZipObjectAddress],
     ) -> SevenZipObjectAddress:
         """
-        Validate one canonical member path in this 7z address space.
+        Check typed ownership or validate relative 7z member text under depth and byte limits.
+
+        Canonical parsing uses UTF-8 surrogateescape for the entire key. Existing typed addresses
+        are checked without reparsing. No member existence or external URI decoding is performed.
 
         Example:
-            >>> str(driver.parse_object_address("books/novel.epub"))  # doctest: +SKIP
-            'books/novel.epub'
+            >>> str(driver.parse_object_address("books/雪.epub"))  # doctest: +SKIP
+            'books/雪.epub'
 
 
-        :param identifier:
-        :return:
+        :param identifier: Owned 7z address or relative member-key text.
+        :return: Owned SevenZipObjectAddress retaining validated key spelling.
         """
 
         if isinstance(identifier, DriverObjectAddress):
@@ -684,15 +796,18 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
 
     def join_object_address(self, *tokens: str) -> SevenZipObjectAddress:
         """
-        Join 7z path components without weakening canonical validation.
+        Join one or more stringified key fragments with slashes, then parse the result.
+
+        Fragments are not trimmed or normalized before validation; empty fragments can therefore
+        produce an invalid key.
 
         Example:
-            >>> str(driver.join_object_address("books", "novel.epub"))  # doctest: +SKIP
+            >>> driver.join_object_address("books", "novel.epub").value  # doctest: +SKIP
             'books/novel.epub'
 
 
-        :param tokens:
-        :return:
+        :param tokens: One or more member-key fragments, in path order.
+        :return: Owned 7z address; an empty argument list or invalid combined key raises StorageInvalidAddress.
         """
 
         if not tokens:
@@ -704,15 +819,14 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
         object_address: SevenZipObjectAddress,
     ) -> DriverObjectInfo[SevenZipObjectAddress]:
         """
-        Return indexed member size, timestamp, version, and hints.
+        Look up an owned member in a current index snapshot without reading its body.
 
         Example:
-            >>> driver.stat(address).size  # doctest: +SKIP
-            42
+            >>> info = driver.stat(driver.parse_object_address("book.epub"))  # doctest: +SKIP
 
 
-        :param object_address:
-        :return:
+        :param object_address: Owned SevenZipObjectAddress selecting a regular member.
+        :return: Indexed size/time, archive-wide version, and hints; a missing key raises StorageNotFound.
         """
 
         checked = self.check_object_address(object_address)
@@ -733,19 +847,24 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
         if_version: str | None = None,
     ) -> BinaryIO:
         """
-        Verify and open an exact range tied to the containing 7z version.
+        Verify and spool a complete member, then expose its requested byte range.
+
+        Ownership, nonnegative range, indexed existence, and optional archive version are checked
+        first. Zero-length/past-EOF reads return an empty stream without spooling. Other reads
+        compare archive signatures before and after materialization. A failure in the second
+        comparison or reader construction has no explicit staged-file cleanup guard here.
+        Successfully returned readers own their temporary spool.
 
         Example:
-            >>> with driver.open_read(address, offset=2, length=4) as source:  # doctest: +SKIP
-            ...     source.read()
-            b'book'
+            >>> with driver.open_read(address, offset=2, length=4, if_version=version) as source:  # doctest: +SKIP
+            ...     payload = source.read()
 
 
-        :param object_address:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param object_address: Owned regular-member address.
+        :param offset: Nonnegative offset within the verified member; offsets at/beyond indexed size return empty bytes.
+        :param length: Nonnegative maximum exposed bytes, clipped to the remainder, or None for all remaining bytes.
+        :param if_version: Required whole-archive version, or None to omit the initial version condition.
+        :return: Caller-owned buffered range reader or empty BytesIO; nonempty ranges incur complete-member materialization.
         """
 
         checked = self.check_object_address(object_address)
@@ -785,14 +904,17 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
         prefix: SevenZipObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[SevenZipObjectAddress]]:
         """
-        Yield the complete regular-file 7z inventory under an optional prefix.
+        Yield sorted regular-member observations from one index/signature snapshot.
+
+        A prefix includes its exact key and descendants separated by slash, rather than arbitrary
+        lexical matches. No member body is read or hashed during enumeration.
 
         Example:
-            >>> list(driver.iter_inventory())  # doctest: +SKIP
+            >>> keys = [str(item.object_address) for item in driver.iter_inventory()]  # doctest: +SKIP
 
 
-        :param prefix:
-        :return:
+        :param prefix: Owned 7z address restricting the exact key and its descendants, or None for the entire index.
+        :return: Iterator of size/time/version observations and hints for the selected regular members.
         """
 
         prefix_key = None if prefix is None else str(self.check_object_address(prefix))
@@ -818,16 +940,19 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
         signature: ArchiveSignature,
     ) -> DriverObjectInfo[SevenZipObjectAddress]:
         """
-        Project one indexed 7z member into driver metadata.
+        Project one indexed member into public driver information.
+
+        Filename and MIME hints derive from the key. The 7z format and member metadata are
+        observations; no body read or fresh filesystem check occurs.
 
         Example:
             >>> info = driver._info(address, entry, signature)  # doctest: +SKIP
 
 
-        :param address:
-        :param entry:
-        :param signature:
-        :return:
+        :param address: Member address to attach to the information record.
+        :param entry: Indexed size/time and metadata for that member.
+        :param signature: Whole-container metadata signature used to render the version.
+        :return: DriverObjectInfo containing the supplied address and indexed facts.
         """
 
         return DriverObjectInfo(
@@ -844,14 +969,18 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
 
     def _get_index(self, *, force: bool = False) -> dict[str, ArchiveEntry]:
         """
-        Return a current index, rebuilding it when the archive changes.
+        Return a shallow cached index copy, rebuilding when forced or filesystem metadata changes.
+
+        The instance lock covers cache access and parsing. Before/after signature differences reject
+        the new index. Index, inspection, solid status, methods, and signature are replaced only
+        after success. Metadata equality is not a content hash or a pinned descriptor.
 
         Example:
-            >>> driver._get_index()  # doctest: +SKIP
+            >>> index = driver._get_index(force=True)  # doctest: +SKIP
 
 
-        :param force:
-        :return:
+        :param force: Whether to rebuild even when current filesystem metadata matches the cached signature.
+        :return: New dictionary of regular-member keys to retained ArchiveEntry records.
         """
 
         with self._index_lock:
@@ -895,13 +1024,24 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
         self,
     ) -> tuple[dict[str, ArchiveEntry], ArchiveInspection, bool, tuple[str, ...]]:
         """
-        Parse and validate the bounded regular-file 7z projection.
+        Validate parser metadata and assemble a regular-file index without extracting payloads.
+
+        Password and header checks follow parser opening; the all-entry count follows list
+        allocation. Canonical names and topology are checked before directories are omitted. Other
+        entries must be regular, archivable, and within member/total size bounds. Per-member ratio
+        checking applies only when compressed-size evidence is present. Regular sizes must sum
+        exactly to the archive total, which is also bounded against the container's filesystem byte
+        length. CRC fields are declared metadata, not verified content.
+
+        Returns fresh state without updating the cache or enforcing a stable before/after signature.
+        Storage validation failures are preserved, OSErrors translated, and other Exceptions
+        classified through the imported parser's exception namespace.
 
         Example:
             >>> index, inspection, solid, methods = driver._build_index()  # doctest: +SKIP
 
 
-        :return:
+        :return: Tuple of member index, projection inspection, solid flag, and parser method-name strings.
         """
 
         py7zr = _require_py7zr(self._archive_path)
@@ -1083,7 +1223,23 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
         file_keys: set[str],
         implicit_directory_keys: set[str],
     ) -> None:
-        """Reject duplicate names and file/directory overwrite aliases."""
+        """
+        Reject duplicate names and file/ancestor aliases before updating topology state.
+
+        The caller supplies a canonical key. File keys cannot serve as parents or replace
+        directories required by previously seen descendants.
+
+        Example:
+            >>> driver._record_member_topology("books/a", is_directory=False, seen_keys={}, file_keys=set(), implicit_directory_keys=set())  # doctest: +SKIP
+
+
+        :param key: Canonical key without a directory trailing slash.
+        :param is_directory: Whether this entry is an explicit directory.
+        :param seen_keys: Mutable key-to-kind map for previously inspected entries.
+        :param file_keys: Mutable set of previously seen file keys.
+        :param implicit_directory_keys: Mutable set of ancestors required by prior members.
+        :return: None after recording the member and ancestors; conflicts raise StorageIntegrityError.
+        """
 
         kind = "directory" if is_directory else "file"
         previous_kind = seen_keys.get(key)
@@ -1121,15 +1277,26 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
 
     def _materialize_member(self, key: str, entry: ArchiveEntry) -> BinaryIO:
         """
-        Extract one member into a bounded private spool and verify its CRC.
+        Extract one exact original member name into a spool and verify size and optional CRC.
+
+        The native record must be _SevenZipMember. The factory accepts one output writer;
+        solid-block extraction may still decompress preceding data. After parser closure, the
+        logical spool length must match the index and a declared CRC triggers a full CRC-32 pass. No
+        CRC pass is added when that metadata is absent.
+
+        Successful return transfers the rewound file to the caller. StorageError, OSError, and other
+        Exception paths attempt factory cleanup; BaseException subclasses outside Exception are not
+        covered, and a cleanup failure can replace the original error. This helper does not compare
+        the archive filesystem signature.
 
         Example:
-            >>> staged = driver._materialize_member(key, entry)  # doctest: +SKIP
+            >>> with driver._materialize_member(key, entry) as staged:  # doctest: +SKIP
+            ...     payload = staged.read()
 
 
-        :param key:
-        :param entry:
-        :return:
+        :param key: Canonical member key used in failure diagnostics.
+        :param entry: Indexed declared size and native original-name/optional-CRC record.
+        :return: Caller-owned temporary binary file positioned at zero after size and available-CRC validation.
         """
 
         py7zr = _require_py7zr(self._archive_path)
@@ -1192,13 +1359,14 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
         self,
     ) -> tuple[dict[str, ArchiveEntry], ArchiveSignature, ArchiveInspection]:
         """
-        Capture an index, archive identity, and projection inspection together.
+        Obtain a current index copy and its matching cached signature and inspection under the index
+        lock.
 
         Example:
             >>> index, signature, inspection = driver._index_snapshot()  # doctest: +SKIP
 
 
-        :return:
+        :return: Tuple of shallow index copy, non-None archive signature, and retained inspection record.
         """
 
         with self._index_lock:
@@ -1213,15 +1381,19 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
         if_version: str | None,
     ) -> None:
         """
-        Reject an archive replacement before exposing staged member bytes.
+        Stat the archive and require the supplied filesystem signature to still match.
+
+        A mismatch is a precondition failure when if_version is present, otherwise unavailability.
+        The version text itself is not compared here, and matching stat fields do not prove
+        identical content.
 
         Example:
-            >>> driver._require_current_signature(signature, if_version=None)  # doctest: +SKIP
+            >>> driver._require_current_signature(signature, if_version=version)  # doctest: +SKIP
 
 
-        :param signature:
-        :param if_version:
-        :return:
+        :param signature: Expected archive filesystem identity/change tuple.
+        :param if_version: Optional condition whose presence selects mismatch classification.
+        :return: None for matching metadata; stat OSErrors are translated.
         """
 
         try:
@@ -1249,17 +1421,25 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
         key: str | None,
     ) -> BaseException:
         """
-        Classify py7zr failures without leaking dependency exceptions.
+        Return a storage exception classified using the supplied parser module.
+
+        Password/unsupported-method errors become unsupported operations. Parser structure, CRC,
+        decompression/bomb/archive errors and ValueError become integrity errors; other failures
+        become unavailability. The expected exception attributes are accessed directly, so an
+        incompatible module shape can itself raise. This method does not raise the returned
+        exception or close resources.
 
         Example:
-            >>> translated = driver._translate_py7zr_error(py7zr, error, operation="read", key=None)  # doctest: +SKIP
+            >>> translated = driver._translate_py7zr_error(py7zr, ValueError("bad header"), operation="index", key=None)  # doctest: +SKIP
+            >>> isinstance(translated, StorageIntegrityError)  # doctest: +SKIP
+            True
 
 
-        :param py7zr:
-        :param error:
-        :param operation:
-        :param key:
-        :return:
+        :param py7zr: Imported parser module exposing the expected exceptions namespace.
+        :param error: Caught failure to classify and describe.
+        :param operation: Failed operation label for diagnostics.
+        :param key: Member key for member-specific diagnostics, or None for the container.
+        :return: New StorageUnsupportedOperation, StorageIntegrityError, or StorageUnavailable instance.
         """
 
         exceptions = py7zr.exceptions
@@ -1293,17 +1473,18 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
 
     def _failure(self, operation: str, key: str | None, reason: str) -> str:
         """
-        Build one safe 7z operation failure message.
+        Format a backend operation failure with the container or container/member target.
+
+        The shared formatter supplies its selective sensitive-text filtering.
 
         Example:
-            >>> "7z" in driver._failure("read", "book", "bad")  # doctest: +SKIP
-            True
+            >>> message = driver._failure("read", "book.epub", "member is missing")  # doctest: +SKIP
 
 
-        :param operation:
-        :param key:
-        :param reason:
-        :return:
+        :param operation: Action that failed.
+        :param key: Member key for an archive::member target, or None for the archive alone.
+        :param reason: Human-readable cause passed to the shared formatter.
+        :return: Formatted diagnostic text.
         """
 
         target = self._archive_path if key is None else f"{self._archive_path}::{key}"
@@ -1317,14 +1498,17 @@ class SevenZipStorageDriver(StorageDriverAPI[SevenZipObjectAddress]):
 
 def _require_py7zr(target: pathlib.Path) -> ModuleType:
     """
-    Import the optional safe 7z parser or raise an actionable Store error.
+    Import py7zr lazily or translate ImportError into an installation hint.
+
+    The target is diagnostic context only; no path or module-interface validation occurs. Import
+    failures other than ImportError propagate unchanged.
 
     Example:
         >>> module = _require_py7zr(pathlib.Path("books.7z"))  # doctest: +SKIP
 
 
-    :param target:
-    :return:
+    :param target: Container path included in the dependency-error message.
+    :return: Imported module; ImportError raises StorageUnsupportedOperation with the archives-extra hint.
     """
 
     try:
@@ -1345,15 +1529,21 @@ def _require_py7zr(target: pathlib.Path) -> ModuleType:
 
 def _sevenzip_datetime(value: object) -> datetime | None:
     """
-    Normalize py7zr timestamps to aware UTC datetimes.
+    Convert datetime metadata to aware UTC, returning None for other value types.
+
+    Naive values are interpreted as UTC without shifting their clock fields; aware values are
+    converted with astimezone. Conversion errors are not suppressed.
 
     Example:
-        >>> _sevenzip_datetime(datetime(2020, 1, 2)).tzinfo
-        datetime.timezone.utc
+        >>> from datetime import timedelta
+        >>> _sevenzip_datetime(datetime(2020, 1, 2, 2, tzinfo=timezone(timedelta(hours=2)))).isoformat()
+        '2020-01-02T00:00:00+00:00'
+        >>> _sevenzip_datetime(None) is None
+        True
 
 
-    :param value:
-    :return:
+    :param value: Parser timestamp candidate, normally a datetime or absent metadata.
+    :return: Aware UTC datetime, or None when the input is not a datetime.
     """
 
     if not isinstance(value, datetime):

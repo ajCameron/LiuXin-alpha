@@ -1,4 +1,11 @@
-"""Canonical JSON-safe values for the transport-neutral Core API."""
+"""
+Convert supported Core results to the JSON-compatible value shapes shared by local and RPC calls.
+
+Bytes, dates/times, and decimals use tagged dictionaries; paths and UUIDs become
+text. This module encodes values, not JSON text, and provides no inverse decoder.
+Its tags are ordinary mapping keys rather than a reserved namespace enforced on
+caller-supplied dictionaries.
+"""
 
 from __future__ import annotations
 
@@ -16,16 +23,50 @@ from typing import Any
 
 
 class CoreWireError(TypeError):
-    """Raised when a stable Core endpoint returns a non-transport value."""
+    """
+    Reject an unsupported result value or a detected ambiguity during Core wire conversion.
+
+    Conversion messages normally include the logical result path. This exception
+    does not imply rollback of the endpoint operation that produced the value.
+
+    Example:
+        >>> isinstance(CoreWireError("unsupported result"), TypeError)
+        True
+    """
 
 
 def to_wire(value: Any, *, _path: str = "$") -> Any:
-    """Convert a value to the canonical JSON-safe Core wire representation.
+    """
+    Recursively encode supported values and reject unsupported leaves and nonfinite floats.
 
     Stable Core handlers call this before returning, including for local calls.
     That keeps in-process and RPC results identical instead of allowing local
-    callers to accidentally depend on database rows, cache records, or other
-    process-owned objects.
+    callers to accidentally depend on returned database rows or cache records.
+    Primitive subclasses pass through; other enums encode their values. Bytes
+    use base64, temporal objects use ISO text, and decimals retain their string
+    spelling without a separate finiteness check. Dataclasses use ``asdict``;
+    mapping-valued ``row_dict`` attributes are then preferred over mapping access.
+
+    Mapping keys are stringified and checked for collisions. The later duck-typed
+    ``keys``/``__getitem__`` fallback builds a dictionary first, so its colliding
+    keys can already have collapsed. Sets are sorted by ``repr``, not a guarantee
+    of cross-process order for custom objects. Sequences become lists; arbitrary
+    iterators and bytearrays are not accepted as sequences. There is no cycle or
+    depth guard, and some attribute/dataclass errors propagate without wrapping.
+
+    Example:
+        >>> to_wire({"payload": b"hi", "values": (1, 2)})
+        {'payload': {'$type': 'bytes', 'base64': 'aGk='}, 'values': [1, 2]}
+        >>> to_wire({"score": float("nan")})
+        Traceback (most recent call last):
+        ...
+        LiuXin_alpha.core.wire.CoreWireError: Core result at $.score contains a non-finite float.
+
+
+    :param value: Result tree whose supported leaves and containers are converted recursively.
+    :param _path: Diagnostic location of the current value; recursive calls extend this label.
+    :return: JSON-compatible scalar, list, or dictionary representation of supported input.
+    :raises CoreWireError: For nonfinite floats, detected mapping collisions, unsupported values, or failed row-like materialization.
     """
 
     if value is None or isinstance(value, (bool, int, str)):
@@ -33,9 +74,7 @@ def to_wire(value: Any, *, _path: str = "$") -> Any:
     if isinstance(value, float):
         if not math.isfinite(value):
             raise CoreWireError(
-                "Core result at {} contains a non-finite float.".format(
-                    _path
-                )
+                "Core result at {} contains a non-finite float.".format(_path)
             )
         return value
     if isinstance(value, enum.Enum):
@@ -102,10 +141,7 @@ def to_wire(value: Any, *, _path: str = "$") -> Any:
             if not isinstance(raw_keys, Iterable):
                 raise TypeError("keys() did not return an iterable")
             return to_wire(
-                {
-                    str(key): get_item(key)
-                    for key in raw_keys
-                },
+                {str(key): get_item(key) for key in raw_keys},
                 _path=_path,
             )
         except Exception as exc:

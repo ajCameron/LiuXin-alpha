@@ -1,4 +1,11 @@
-"""Owned endpoint-provider families for :mod:`LiuXin_alpha.core.program_api`."""
+"""
+Install the named whole-program Core endpoint families in a fixed provider order.
+
+Providers describe routes and bind handlers from the supplied facade; execution
+belongs to program_services. Every query family is installed before any command
+family. Registration is incremental, without rollback if a later provider fails.
+Importing this package loads providers but does not register them on a runtime.
+"""
 
 from __future__ import annotations
 
@@ -62,7 +69,21 @@ _COMMAND_PROVIDERS = (
 def install_program_endpoints(
     api: ProgramEndpointHandlers, runtime: ProgramEndpointRegistrar
 ) -> None:
-    """Install every provider while preserving query-before-command ordering."""
+    """
+    Register all query families, then all command families, using the supplied handler facade.
+
+    Within each phase, order is system/jobs, database/schema, catalog/search,
+    storage, content workflows, then backup/maintenance. Errors propagate and
+    leave earlier registrations intact; duplicate-name policy belongs to runtime.
+
+    Example:
+        >>> install_program_endpoints(api, runtime)  # doctest: +SKIP
+
+
+    :param api: Facade supplying the named program handler callables used by providers.
+    :param runtime: Registrar receiving handler bindings and transport-facing descriptions.
+    :return: None after every provider has returned; no handler operation is executed here.
+    """
 
     for provider in _QUERY_PROVIDERS:
         provider(api, runtime)

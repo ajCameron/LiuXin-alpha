@@ -1,4 +1,10 @@
-"""Structural contracts for the composed storage-manager implementation."""
+"""
+Check manager component ownership, ordering, size limits, and ingest codec identity.
+
+Imported-class introspection exercises the concrete composition and missing-helper
+failures. The codec case uses an in-memory request round trip; physical-line guards
+include documentation and remain separate from runtime complexity checks.
+"""
 
 from __future__ import annotations
 
@@ -64,6 +70,19 @@ COMPONENTS = (
 
 
 def test_api_and_implementation_components_have_the_same_order() -> None:
+    """
+    Check the exact API base order and the relative implementation order in the transient manager
+    MRO.
+
+    The manager must also be concrete. This uses imported class introspection rather than
+    constructing a manager or exercising runtime storage behavior.
+
+    Example:
+        >>> test_api_and_implementation_components_have_the_same_order()  # doctest: +SKIP
+
+
+    :return: None after API ordering, implementation ordering, and concreteness assertions pass.
+    """
     assert api.StorageManagerAPI.__bases__ == (
         api.StorageConvenienceAPI,
         *(contract for _implementation, contract in COMPONENTS),
@@ -77,6 +96,20 @@ def test_api_and_implementation_components_have_the_same_order() -> None:
 
 
 def test_each_component_owns_its_abstract_contract_methods() -> None:
+    """
+    Require each implementation component to define every abstract method name from its paired
+    contract directly.
+
+    Checking __dict__ distinguishes direct ownership from inherited availability. The test does not
+    compare signatures, validate method bodies, or require ownership of concrete interface
+    conveniences.
+
+    Example:
+        >>> test_each_component_owns_its_abstract_contract_methods()  # doctest: +SKIP
+
+
+    :return: None when every paired component directly owns the required names; failures identify missing methods.
+    """
     for implementation, contract in COMPONENTS:
         missing = contract.__abstractmethods__.difference(implementation.__dict__)
         assert not missing, (
@@ -85,6 +118,19 @@ def test_each_component_owns_its_abstract_contract_methods() -> None:
 
 
 def test_manager_module_stays_a_small_composition_root() -> None:
+    """
+    Enforce physical-line ceilings for the manager owner and each adjacent top-level mixin file.
+
+    The manager file may contain at most 120 lines and each mixin Python file at most 900.
+    splitlines counts documentation, comments, and blank lines as well as code. This bounded size
+    check does not measure executable complexity or nested directories.
+
+    Example:
+        >>> test_manager_module_stays_a_small_composition_root()  # doctest: +SKIP
+
+
+    :return: None when the manager and all directly contained mixin files fit the unchanged ceilings.
+    """
     manager_path = Path(inspect.getfile(TransientStorageManager))
     assert len(manager_path.read_text(encoding="utf-8").splitlines()) <= 120
 
@@ -107,6 +153,22 @@ def test_manager_module_stays_a_small_composition_root() -> None:
 def test_missing_helper_components_cannot_construct_a_manager(
     omitted: type, required_hook: str
 ) -> None:
+    """
+    Remove one required helper base from the orchestrator composition and confirm the replacement
+    remains abstract.
+
+    The expected hook must appear among unresolved abstract methods, and instantiation must raise
+    TypeError. The test creates a temporary class without constructing a working manager or touching
+    storage.
+
+    Example:
+        >>> test_missing_helper_components_cannot_construct_a_manager(_StorageManagerSupportMixin, "_metadata_transaction")  # doctest: +SKIP
+
+
+    :param omitted: Support component removed from the orchestrator's direct bases for this parameterized case.
+    :param required_hook: Hook expected to become abstract when that support component is absent.
+    :return: None after the hook remains abstract and incomplete construction is rejected.
+    """
     composition = TransientStorageManager.__bases__[0]
     incomplete = type(
         "IncompleteStorageManager",
@@ -119,6 +181,20 @@ def test_missing_helper_components_cannot_construct_a_manager(
 
 
 def test_persisted_ingest_types_keep_their_historical_wire_names() -> None:
+    """
+    Check historical module identities for all listed ingest types and codec round-trip one adoption
+    request.
+
+    The encoded dataclass tag must still name the legacy manager module, and decoding through the
+    explicit type registry must reproduce the request. This exercises in-memory serialization and
+    type registration without saving a journal or opening a database.
+
+    Example:
+        >>> test_persisted_ingest_types_keep_their_historical_wire_names()  # doctest: +SKIP
+
+
+    :return: None after type module names, the adoption-request tag, and decoded equality match expectations.
+    """
     expected_module = "LiuXin_alpha.storage.storage_manager.manager"
     persisted_types = (
         _StreamIngestRequest,

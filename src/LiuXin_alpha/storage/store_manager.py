@@ -1,5 +1,14 @@
 """
-Application-facing manager built on the second-generation storage API.
+Bind application storage orchestration to catalogue metadata and configured backends.
+
+The application manager extends the repository-neutral composition with optional
+database views, unit-of-work transactions, ingest journaling/recovery, and Store
+row reconciliation. Durable metadata ownership is established at construction;
+later configuration-source changes do not rebind that repository automatically.
+
+Store construction, physical bytes, configuration writes, facade installation,
+and cleanup retain separate failure boundaries. Compatibility exports preserve
+the StoreManager alias and public bootstrap result types at this import location.
 """
 
 from __future__ import annotations
@@ -44,29 +53,23 @@ from LiuXin_alpha.storage.store_spec_utils import store_configuration_from_row
 
 class StorageManager(_StorageManagerOrchestrator):
     """
-    Application manager with a default Store factory and DB bootstrap.
+    Compose configured Store facades with optional database-owned metadata and ingest recovery.
+    Without a supported catalogue, ordinary manager state remains transient. A database resembling a
+    storage catalogue must provide the required schema/macros; an incomplete catalogue is rejected
+    instead of silently falling back to memory. Durable binding installs repository views,
+    unit-of-work adapters, and a journal, optionally sharing the application's cache rather than
+    copying catalogue records.
 
-    When ``db`` exposes the current storage schema, manager-owned assets,
-    replicas, composites, derivations, policies, Item links, and ingest
-    operation IDs are durable by default. Reads remain repository-backed and
-    can share LiuXin's application cache; the manager does not materialize a
-    second private catalogue. Without ``db`` the manager is deliberately
-    transient and intended only for tests or one-shot tools.
+    Construction attaches explicitly supplied Stores but does not automatically load every Store
+    row. Database bootstrap or from_database performs that step. Store construction, byte
+    publication, metadata writes, facade replacement, and cleanup have separate failure boundaries.
+    The borrowed database is not owned by the manager; inherited lifecycle methods own attached
+    facade shutdown. StoreManager remains an alias for this same class.
 
-    Store configurations loaded from the database retain stable UUID identity
-    and all byte routing uses opaque ``Location`` values.
-
-    Database-backed example:
-        >>> from LiuXin_alpha.storage.stores import FilesystemStore
-        >>> store = FilesystemStore(  # doctest: +SKIP
-        ...     "/tmp/liuxin-example", name="primary",
-        ... )
-        >>> with StorageManager(  # doctest: +SKIP
-        ...     db=database, stores=[store],
-        ... ) as manager:
-        ...     asset = manager.store_bytes(b"book")
-        ...     manager.read_asset(asset)
-        b'book'
+    Example:
+        >>> manager = StorageManager()
+        >>> manager.metadata_is_durable, tuple(manager.iter_stores())
+        (False, ())
     """
 
     def __init__(
@@ -87,29 +90,37 @@ class StorageManager(_StorageManagerOrchestrator):
         **kwargs,
     ) -> None:
         """
-        Build an application manager and bind optional durable services.
+        Initialize transient orchestration, bind supported durable metadata, then attach supplied
+        Stores. Materialize store_registrations and append each StoreAPI from stores with its own
+        configuration. Build a fresh runtime context: non-None client/provider arguments override
+        supplied context fields, while falsey resolvers fall back to this manager. A truthy custom
+        factory wins; the default lambda reads the manager's current backend_context when it
+        constructs a Store.
 
-        ``stores`` accepts ready-to-use Store instances, while
-        ``store_registrations`` preserves an explicitly supplied manager
-        configuration.  When ``db`` exposes the storage catalogue, all
-        manager-owned metadata uses repository-backed mappings and transaction
-        hooks; ``cache`` may be the shared cache for that same database.
-        Backend clients and key providers are folded into one construction
-        context used when durable Store rows are loaded.
+        Initialize the base with no registrations/default Store. If the database resembles a storage
+        catalogue and exposes migration capability, run additive migrations; caught migration
+        exceptions become StorageManagementError. Bind supported metadata or reject an incomplete
+        catalogue. Then attach registrations in order and finally set the requested default. Earlier
+        migrations, rows, bindings, or attachments can survive a later exception; no
+        constructor-wide transaction or compensating cleanup is added. A database without storage
+        catalogue support leaves metadata transient and does not use the supplied cache.
+
+        Example:
+            >>> manager = StorageManager(stores=(), startup_on_add=False)
 
 
-        :param stores:
-        :param store_registrations:
-        :param store_factory:
-        :param backend_context:
-        :param s3_client:
-        :param encryption_key_provider:
-        :param db:
-        :param cache:
-        :param startup_on_add:
-        :param default_store_ref:
-        :param kwargs:
-        :return:
+        :param stores: Iterable of ready StoreAPI facades, each paired with its own configuration after explicit registrations.
+        :param store_registrations: Iterable of explicit (configuration, Store) pairs, eagerly copied before initialization.
+        :param store_factory: Optional truthy configuration-to-Store callable; falsey input selects the canonical registry with runtime context.
+        :param backend_context: Optional runtime context whose client/provider fields are defaults and whose truthy resolvers are retained.
+        :param s3_client: Non-None override for the S3 client in the new context; None preserves the supplied context value.
+        :param encryption_key_provider: Non-None override for the encryption provider; None preserves the supplied context value.
+        :param db: Borrowed database used for capability/migration checks and, when supported, durable metadata.
+        :param cache: Optional shared cache used only when binding a supported metadata repository.
+        :param startup_on_add: Bool-converted default for explicit Store attachment and load_from_database calls without a startup override.
+        :param default_store_ref: Optional Store UUID selected after supplied registrations attach; absence leaves inherited default selection.
+        :param kwargs: Additional orchestrator initialization arguments; conflicting explicit base keywords or unsupported names raise.
+        :return: None after initialization; errors may follow durable writes or partial manager state.
         """
 
         registrations = list(store_registrations)
@@ -194,10 +205,15 @@ class StorageManager(_StorageManagerOrchestrator):
     @property
     def metadata_is_durable(self) -> bool:
         """
-        Return whether manager metadata is database-backed.
+        Report whether a metadata repository reference is installed. This is a binding indicator,
+        not a database health probe or proof that every pending operation has committed.
+
+        Example:
+            >>> StorageManager().metadata_is_durable
+            False
 
 
-        :return:
+        :return: True when _metadata_repository is non-None, otherwise False.
         """
 
         return self._metadata_repository is not None
@@ -205,10 +221,15 @@ class StorageManager(_StorageManagerOrchestrator):
     @property
     def metadata_cache(self) -> Any | None:
         """
-        Return the shared LiuXin cache serving metadata reads, if any.
+        Return the bound repository's current cache reference, or None for transient metadata.
+        Access does not populate, refresh, close, or transfer ownership of the cache.
+
+        Example:
+            >>> StorageManager().metadata_cache is None
+            True
 
 
-        :return:
+        :return: The shared cache object retained by the repository, or None.
         """
 
         repository = self._metadata_repository
@@ -216,12 +237,22 @@ class StorageManager(_StorageManagerOrchestrator):
 
     def _bind_database_metadata(self, db: Any, *, cache: Any | None = None) -> None:
         """
-        Replace transient maps with database repository views.
+        Replace transient metadata maps with repository-backed adapters after migrating envelopes.
+        Construct the repository with the five private ingest request/result types, migrate its
+        stored envelopes, and replace the report's upgraded-row count. Install the repository,
+        unit-of-work factory, Asset/Replica/Composite/Derivation mappings, policy/Item/operation
+        views, then initialize Replica generation from the current mapping length. Existing
+        transient records are not copied into these new views. Migration can write before binding;
+        later errors can leave only part of the new binding installed. No enclosing transaction or
+        lock is added.
+
+        Example:
+            >>> manager._bind_database_metadata(database, cache=cache)  # doctest: +SKIP
 
 
-        :param db:
-        :param cache:
-        :return:
+        :param db: Database already determined suitable for durable manager metadata.
+        :param cache: Optional shared cache passed to the newly constructed repository.
+        :return: None after installing all repository views; migration, decoding, or adapter failures propagate.
         """
 
         repository = DatabaseStorageMetadataRepository(
@@ -255,15 +286,17 @@ class StorageManager(_StorageManagerOrchestrator):
 
     def bind_metadata_cache(self, cache: Any | None) -> None:
         """
-        Use Core's shared cache for subsequent repository reads.
+        Select the repository cache for subsequent metadata reads without changing persistence
+        ownership. None switches the repository to direct database reads. A transient manager
+        accepts None as a no-op and rejects any non-None cache; binding does not close the old or
+        new cache.
 
-        Passing ``None`` returns to direct, database-authoritative reads. This
-        changes only acceleration and consistency mechanics; persistence is
-        always owned by the database repository.
+        Example:
+            >>> StorageManager().bind_metadata_cache(None)
 
 
-        :param cache:
-        :return:
+        :param cache: Borrowed shared cache, or None to use direct database reads.
+        :return: None after delegated cache binding; transient non-None input raises StorageManagementError and repository errors propagate.
         """
 
         repository = self._metadata_repository
@@ -280,11 +313,25 @@ class StorageManager(_StorageManagerOrchestrator):
         configuration: api.StoreConfiguration,
     ) -> str:
         """
-        Materialize a container Asset and expose its local driver path.
+        Materialize an Asset-backed container and extract its local file-URI path. Require backing
+        metadata. A missing preferred Replica clears the preference; one belonging to another Asset
+        or sourced from this Store raises a precondition error. Materialize with
+        active/archive/unmanaged/backup/cache/transient source modes, the optional materialization
+        Store, and verify=False. NoReadableReplica retries once without an existing preference;
+        other errors propagate.
+
+        Resolve the resulting Store and require a file URI with empty or literal localhost
+        authority. Percent-decode path bytes using os.fsdecode, ignoring query/fragment and adding
+        no path containment or existence check. Materialization can have copied bytes before URI
+        validation fails, and no cleanup is added. The self-source check applies to the explicit
+        preferred Replica, not every possible resolution returned by the materializer.
+
+        Example:
+            >>> path = manager._resolve_backing_path(configuration)  # doctest: +SKIP
 
 
-        :param configuration:
-        :return:
+        :param configuration: Store intent with an Asset backing reference and optional preferred Replica/materialization Store.
+        :return: Decoded local filesystem path; missing/inconsistent backing raises StoragePreconditionFailed and nonlocal URI results raise StoreUnsupportedOperation.
         """
 
         backing = configuration.backing
@@ -354,10 +401,19 @@ class StorageManager(_StorageManagerOrchestrator):
     @contextmanager
     def _metadata_transaction(self):
         """
-        Wrap one metadata mutation in the durable unit of work when bound.
+        Enter the durable unit of work when bound, otherwise the transient metadata context. Yield
+        None to the caller. A normal durable body exit requests commit before leaving the
+        unit-of-work context; exceptions skip that request and are handled by the provider's
+        exit/rollback semantics. This wrapper acquires no manager lock and does not include physical
+        Store writes in a database transaction. The inherited transient context supplies no
+        rollback.
+
+        Example:
+            >>> with StorageManager()._metadata_transaction() as value:
+            ...     assert value is None
 
 
-        :return:
+        :return: A context manager yielding None; body, commit, and provider-exit errors propagate.
         """
 
         factory = self._metadata_unit_of_work_factory
@@ -372,10 +428,15 @@ class StorageManager(_StorageManagerOrchestrator):
     @property
     def metadata_unit_of_work_factory(self):
         """
-        Return the implementation-facing durable metadata UoW factory.
+        Return the installed durable metadata factory without starting a transaction. A transient
+        manager raises rather than fabricating persistence; the returned implementation adapter
+        retains its existing repository.
+
+        Example:
+            >>> factory = manager.metadata_unit_of_work_factory  # doctest: +SKIP
 
 
-        :return:
+        :return: The installed DatabaseStorageUnitOfWorkFactory, or StorageManagementError when unbound.
         """
 
         factory = self._metadata_unit_of_work_factory
@@ -388,11 +449,16 @@ class StorageManager(_StorageManagerOrchestrator):
     @override
     def _allocate_metadata_id_locked(self, kind) -> int:
         """
-        Allocate an ID from the database or transient manager as appropriate.
+        Delegate record-ID allocation to the durable repository when installed, otherwise to the
+        transient counter implementation. The caller owns the appropriate manager lock; this method
+        adds no lock or record contents and delegates reservation/transaction semantics.
+
+        Example:
+            >>> identity = manager._allocate_metadata_id_locked("asset")  # doctest: +SKIP
 
 
-        :param kind:
-        :return:
+        :param kind: Record-family key understood by the selected repository or transient allocator.
+        :return: Allocated integer identity; unsupported kinds and allocation failures propagate.
         """
 
         repository = self._metadata_repository
@@ -403,10 +469,15 @@ class StorageManager(_StorageManagerOrchestrator):
     @override
     def _new_revision_locked(self) -> str:
         """
-        Return a durable opaque revision or the transient sequence token.
+        Return a d-prefixed UUID4 hex token when metadata is durable, otherwise advance the
+        inherited m-prefixed process counter. Durable tokens are opaque, not chronological or
+        themselves persisted; callers retain responsibility for locking and storing revisions.
+
+        Example:
+            >>> revision = manager._new_revision_locked()  # doctest: +SKIP
 
 
-        :return:
+        :return: A fresh revision string using the durable UUID or transient counter scheme.
         """
 
         if self._metadata_repository is None:
@@ -423,14 +494,23 @@ class StorageManager(_StorageManagerOrchestrator):
         replace_existing: bool = False,
     ) -> api.StoreConfiguration:
         """
-        Attach a Store and ensure DB-backed managers have its FK identity.
+        Ensure a durable Store row exists before delegating facade attachment. A bound repository
+        may insert configuration before the base checks UUID agreement, policy references,
+        duplicates, and optional startup. Existing durable rows are reused without updating their
+        configuration. The base then installs facade/configuration/default references and closes a
+        replaced facade; that close can fail after installation. No rollback or candidate cleanup is
+        added across the row/attachment steps, and startup availability is not checked by this
+        attachment path.
+
+        Example:
+            >>> configured = manager.attach_store(configuration, store, startup=False)  # doctest: +SKIP
 
 
-        :param configuration:
-        :param store:
-        :param startup:
-        :param replace_existing:
-        :return:
+        :param configuration: Configuration used for durable row identity and base attachment validation.
+        :param store: Already constructed facade whose Store UUID must agree with configuration.
+        :param startup: Whether base attachment should call Store.startup before installation.
+        :param replace_existing: Whether base attachment may replace an already configured UUID.
+        :return: Configuration returned by base attachment; failures can follow row insertion or live replacement.
         """
 
         if self._metadata_repository is not None:
@@ -449,12 +529,26 @@ class StorageManager(_StorageManagerOrchestrator):
         configuration: api.StoreConfiguration,
     ) -> api.StoreConfiguration:
         """
-        Prepare a replacement, commit its configuration, then swap it live.
+        Build/start a replacement, persist its configuration, then install it live. For durable
+        metadata, require UUID agreement and valid policy references, construct the candidate, call
+        startup regardless of startup_on_add, and update the repository row. The returned startup
+        availability flag is ignored. A BaseException during startup/update triggers candidate
+        close, suppressing ordinary close exceptions before reraising. Factory failures occur
+        outside that cleanup.
+
+        After persistence, base attachment swaps the candidate with startup disabled and closes the
+        old facade. Errors in that final phase are outside the cleanup guard and do not undo the row
+        write or an already installed replacement. Transient managers delegate to the inherited
+        update path. Neither path adds one transaction spanning backend effects, persistence, and
+        facade replacement.
+
+        Example:
+            >>> updated = manager.update_store(store_ref, configuration)  # doctest: +SKIP
 
 
-        :param store_ref:
-        :param configuration:
-        :return:
+        :param store_ref: UUID that the replacement configuration must retain.
+        :param configuration: Complete replacement configuration; durable row projection includes null fields.
+        :return: The attached replacement configuration; validation, construction, persistence, or old-facade close failures propagate.
         """
 
         repository = self._metadata_repository
@@ -490,12 +584,21 @@ class StorageManager(_StorageManagerOrchestrator):
         forget_configuration: bool = False,
     ) -> bool:
         """
-        Unload a Store and durably delete it only when explicitly forgotten.
+        Detach a Store, optionally deleting durable configuration when explicitly forgotten.
+        Transient metadata or forget_configuration=False uses base removal directly. Durable
+        forgetting checks non-DELETED Replica claims under the lock, deletes the repository row,
+        then invokes base forgetting/removal and returns True. The claim check, database deletion,
+        and final base check are not one atomic operation. A later failure can follow durable
+        deletion or facade detachment. Byte contents are never deleted here; backend close follows
+        base lifecycle rules.
+
+        Example:
+            >>> removed = manager.remove_store(store_ref, forget_configuration=True)  # doctest: +SKIP
 
 
-        :param store_ref:
-        :param forget_configuration:
-        :return:
+        :param store_ref: Store UUID selecting facade/configuration and any durable row.
+        :param forget_configuration: Whether to remove configuration as well as unload the facade; non-DELETED Replica claims prohibit forgetting.
+        :return: True after durable forgetting, otherwise the base known-identity boolean; missing/duplicate durable rows and dependency/close failures raise.
         """
 
         repository = self._metadata_repository
@@ -520,12 +623,17 @@ class StorageManager(_StorageManagerOrchestrator):
     @override
     def _journal_ingest_started(self, operation_id, request) -> None:
         """
-        Persist the initial request when a durable journal is available.
+        Forward the ingest UUID and request to the repository's initial journal writer when bound.
+        Transient execution is a no-op; no request copying, local validation, or transaction wrapper
+        is added.
+
+        Example:
+            >>> manager._journal_ingest_started(operation_id, request)  # doctest: +SKIP
 
 
-        :param operation_id:
-        :param request:
-        :return:
+        :param operation_id: Logical ingest UUID forwarded as the journal identity.
+        :param request: Private ingest request retained/encoded by the repository.
+        :return: None after delegated journal writing or a transient no-op; repository errors propagate.
         """
 
         if self._metadata_repository is not None:
@@ -543,16 +651,21 @@ class StorageManager(_StorageManagerOrchestrator):
         placement_hints,
     ) -> None:
         """
-        Persist planned publication details required for crash recovery.
+        Forward the planned Asset, destination, mode, and hints to the durable publication journal
+        when bound. The caller supplies recovery intent before physical publication; this adapter
+        neither publishes bytes nor verifies the supplied facts. Transient execution is a no-op.
+
+        Example:
+            >>> manager._journal_ingest_publication_pending(operation_id, asset_record=asset, asset_created=True, location=location, replica_mode=mode, placement_hints=hints)  # doctest: +SKIP
 
 
-        :param operation_id:
-        :param asset_record:
-        :param asset_created:
-        :param location:
-        :param replica_mode:
-        :param placement_hints:
-        :return:
+        :param operation_id: Logical ingest UUID selecting the journal entry.
+        :param asset_record: Registered Asset facts to encode for later recovery lookup.
+        :param asset_created: Whether the original ingest created that Asset, forwarded to journal metadata.
+        :param location: Planned physical publication Location.
+        :param replica_mode: Intended Replica mode retained for recovery.
+        :param placement_hints: Optional placement hints forwarded without copying or validation.
+        :return: None after delegated journal writing or a transient no-op; repository errors propagate.
         """
 
         if self._metadata_repository is not None:
@@ -568,11 +681,16 @@ class StorageManager(_StorageManagerOrchestrator):
     @override
     def _journal_ingest_published(self, operation_id) -> None:
         """
-        Persist that Store publication completed before metadata commit.
+        Record the caller's completed-publication state through the bound repository, or do nothing
+        for transient metadata. This records a phase transition without inspecting bytes or
+        committing the final ingest result.
+
+        Example:
+            >>> manager._journal_ingest_published(operation_id)  # doctest: +SKIP
 
 
-        :param operation_id:
-        :return:
+        :param operation_id: Logical ingest UUID whose publication phase is being recorded.
+        :return: None after delegated journal writing or a transient no-op; repository errors propagate.
         """
 
         if self._metadata_repository is not None:
@@ -581,12 +699,17 @@ class StorageManager(_StorageManagerOrchestrator):
     @override
     def _journal_ingest_failed(self, operation_id, error) -> None:
         """
-        Persist an ingest failure when durable journalling is available.
+        Forward the original failure to the bound repository's journal writer. Transient execution
+        is a no-op; this method does not clean up published bytes, undo metadata, or catch a second
+        failure while journaling.
+
+        Example:
+            >>> manager._journal_ingest_failed(operation_id, error)  # doctest: +SKIP
 
 
-        :param operation_id:
-        :param error:
-        :return:
+        :param operation_id: Logical ingest UUID whose failure is recorded.
+        :param error: Failure object passed unchanged to repository.journal_failed.
+        :return: None after delegated recording or a transient no-op; repository errors propagate.
         """
 
         if self._metadata_repository is not None:
@@ -595,10 +718,16 @@ class StorageManager(_StorageManagerOrchestrator):
     @override
     def _ingest_journal_statuses(self):
         """
-        Return durable journal summaries or the transient empty snapshot.
+        Return repository journal summaries when bound, otherwise the inherited empty transient
+        snapshot. This does not recover operations, verify bytes, or redact the repository's
+        reported scalar error fields.
+
+        Example:
+            >>> StorageManager()._ingest_journal_statuses()
+            ()
 
 
-        :return:
+        :return: The selected durable status collection or transient empty tuple; repository enumeration/decoding errors propagate.
         """
 
         repository = self._metadata_repository
@@ -611,16 +740,38 @@ class StorageManager(_StorageManagerOrchestrator):
         operation_id: UUID | None = None,
     ) -> tuple[str, ...]:
         """
-        Finish journalled publications left between Store and DB commits.
+        Reconcile journalled publications against current bytes and complete their metadata results.
+        Transient managers clear ingest_recovery_issues and return empty. Durable calls load all
+        pending entries before filtering an optional UUID. A missing explicit UUID returns one
+        issue; an explicit failed entry can be retried here, while a committed entry outside the
+        pending set does no work. Invalid request types and started entries are marked failed with
+        an issue. Missing Asset/Location recovery fields are marked failed without adding an issue
+        string.
 
-        Recovery verifies the published bytes before creating a Replica claim.
-        Temporarily unavailable Stores leave their operations pending for a
-        later reload; missing or corrupt publications are marked failed and
-        may be retried with the same operation UUID.
+        For usable entries, load the current Asset record, stat the Location, hash its bytes using
+        registered algorithms, and require size/digest agreement. There is no shared version
+        snapshot between stat and read. Reuse the first non-DELETED Replica at that Location if it
+        belongs to the same Asset, without refreshing its stored observation/state; a conflicting
+        Asset claim fails. Otherwise add a VERIFIED Replica, using ACTIVE if the saved mode is not a
+        ReplicaMode. Optionally link the request's Item with its truthy role or primary_payload,
+        then store the completed operation/result. The result reports verified=True for freshly
+        checked bytes even when a reused Replica retains older state.
+
+        Store availability/configuration/timeout errors add remains-pending issues; not-found,
+        integrity, and precondition errors mark failed and add failure issues. Other caught
+        Exceptions add deferred issues without a journal state change. Initial enumeration,
+        request/metadata rejection writes, and failures inside error handlers can propagate.
+        Replica, Item-link, and journal writes have no encompassing transaction here; late failure
+        can retain earlier effects. Replace ingest_recovery_issues on normal completion, including
+        with an empty tuple; it is not a complete summary of every failed journal entry.
+
+        Example:
+            >>> StorageManager().recover_pending_ingests()
+            ()
 
 
-        :param operation_id:
-        :return:
+        :param operation_id: Optional exact ingest UUID to select, including a failed entry; None processes the repository's pending set.
+        :return: The new tuple of reported recovery issues; empty does not prove that no entry was marked failed.
         """
 
         repository = self._metadata_repository
@@ -789,11 +940,27 @@ class StorageManager(_StorageManagerOrchestrator):
         operation_id: UUID,
     ) -> api.DigitalAssetIngestResult:
         """
-        Retry one journalled ingest without pretending lost streams exist.
+        Return a completed result, recover a known publication, or replay a durable source request.
+        Transient managers use the inherited retry policy. Durable calls first return a stored
+        completed result without inspecting source bytes. Require a journal entry otherwise.
+        Publishing/published state or any saved Location forces recovery first; if that does not
+        produce a result, raise a precondition error using refreshed nonempty journal error text or
+        the original error. This branch does not fall through to source replay.
+
+        Without publication metadata, replay an adoption request with its saved options, or re-stat
+        a Store-object source and require its recorded version when non-None before forwarding the
+        current FileInfo and saved options to ingest_store_object. Neither the stat/read sequence
+        nor a missing version pins unchanged bytes. Lost stream requests and other request types
+        raise with instructions to use the original caller, operation UUID, and source bytes.
+        Recovery/replay effects and errors follow the delegated workflows without a retry-wide
+        transaction.
+
+        Example:
+            >>> result = manager.retry_ingest_operation(operation_id)  # doctest: +SKIP
 
 
-        :param operation_id:
-        :return:
+        :param operation_id: Logical ingest UUID used unchanged for completed lookup, journal recovery, or replay.
+        :return: The existing, recovered, or replayed DigitalAssetIngestResult; absent/unrecoverable/nonreplayable state raises StoragePreconditionFailed.
         """
 
         repository = self._metadata_repository
@@ -878,26 +1045,24 @@ class StorageManager(_StorageManagerOrchestrator):
         **kwargs: Any,
     ) -> api.StoreConfiguration:
         """
-        Add configured backend details or attach an existing Store object.
-
-        ``add_store(name, kind, root, ...)`` is the ordinary configuration
-        form defined by ``StorageManagerAPI``. Passing a ``StoreAPI`` retains
-        the object-oriented attachment form; ``configuration`` may override
-        the object's own configuration in that form.
+        Dispatch between configured-backend creation and attachment of an existing StoreAPI. If
+        store_or_name is None, require exactly one name/store keyword and consume it. A StoreAPI
+        accepts only configuration and startup, then uses add_store_instance. A string name rejects
+        configuration and delegates positional/keyword backend details to the inherited convenience
+        method. A non-None startup becomes start, rejecting a simultaneous start keyword; None
+        leaves inherited start defaults intact. Thus startup_on_add controls object attachment, not
+        the configuration form's omitted start setting. Other input types raise before construction.
 
         Example:
-            >>> configured = manager.add_store(  # doctest: +SKIP
-            ...     "primary", "filesystem", "/srv/liuxin",
-            ... )
-            >>> attached = manager.add_store(store)  # doctest: +SKIP
+            >>> configured = manager.add_store("books", "filesystem", "/srv/books", start=False)  # doctest: +SKIP
 
 
-        :param store_or_name:
-        :param configuration:
-        :param startup:
-        :param args:
-        :param kwargs:
-        :return:
+        :param store_or_name: StoreAPI instance or Store-name string; None selects exactly one name/store keyword alias.
+        :param args: Positional backend details for the name form, normally kind and root; forbidden for object attachment.
+        :param configuration: Optional configuration override for a Store object only.
+        :param startup: Optional startup override; object attachment uses startup_on_add when None, while the name form keeps inherited start behavior.
+        :param kwargs: Named backend options for the name form, or the name/store alias when the first argument is omitted.
+        :return: Configuration returned by attachment or inherited Store creation; dispatch/validation failures can precede or follow delegated effects.
         """
 
         if store_or_name is None:
@@ -943,13 +1108,18 @@ class StorageManager(_StorageManagerOrchestrator):
         startup: bool | None = None,
     ) -> api.StoreConfiguration:
         """
-        Attach one already-constructed configured Store facade.
+        Attach the supplied Store using a truthy configuration override or its own configuration.
+        Use startup_on_add only when startup is None; otherwise forward the override unchanged.
+        Attachment does not request replacement of an existing identity.
+
+        Example:
+            >>> configured = manager.add_store_instance(store, startup=False)  # doctest: +SKIP
 
 
-        :param store:
-        :param configuration:
-        :param startup:
-        :return:
+        :param store: Already constructed Store facade to attach.
+        :param configuration: Optional truthy configuration override; otherwise store.configuration is used.
+        :param startup: Optional startup flag; None uses the manager's startup_on_add setting.
+        :return: Configuration returned by attach_store, with its durable-row and partial-effect behavior.
         """
 
         return self.attach_store(
@@ -963,11 +1133,16 @@ class StorageManager(_StorageManagerOrchestrator):
         store_id: int,
     ) -> api.StoreConfiguration:
         """
-        Decode one durable Store row without constructing its backend.
+        Require a bound database and stores table, fetch an int-converted row ID, and translate it
+        with that ID as fallback. This neither constructs the backend nor persists a derived UUID,
+        and it reads self.db rather than rebinding any metadata repository.
+
+        Example:
+            >>> configured = manager.get_store_configuration_from_db(7)  # doctest: +SKIP
 
 
-        :param store_id:
-        :return:
+        :param store_id: Int-convertible database Store row identity; positivity is not checked here.
+        :return: Decoded StoreConfiguration; no database raises RuntimeError, absent table/row raises KeyError, and conversion/translation errors propagate.
         """
 
         if self.db is None:
@@ -991,32 +1166,43 @@ class StorageManager(_StorageManagerOrchestrator):
         startup: bool | None = None,
     ) -> api.StorageBootstrapReport:
         """
-        Reconcile live Store facades with durable database rows.
+        Reconcile attached Store facades against a materialized snapshot of database rows. Choose db
+        or self.db and assign self.db before table inspection. This changes the configuration source
+        only: existing metadata repository/cache/unit-of-work bindings are not migrated or rebound.
+        A missing stores table optionally unloads all configurations and returns an empty report
+        without ingest recovery.
 
-        ``clear_existing=True`` treats the database as authoritative: Stores
-        removed from the table, or explicitly marked offline/retired, are
-        unloaded after all usable rows have been considered. A configuration
-        needed by an existing Replica claim is retained without a live facade.
+        Read all rows, order dependencies, then translate each row and attempt UUID backfill before
+        excluding offline/retired rows. A valid declared online UUID remains active even if changed
+        configuration cannot decode, preserving its previous facade. Invalid declared identity may
+        instead make the old Store absent from an authoritative pass. With clear_existing=False,
+        already-live UUIDs skip replacement after translation/backfill; unavailable configurations
+        can still be constructed and attached.
 
-        Replacements are prepared and optionally started before the old Store
-        is swapped out. If construction or startup fails, an existing facade
-        for that UUID remains available and the failure is returned in the
-        bootstrap report.
+        Construct each candidate and optionally start it. Unavailable status closes and skips the
+        candidate unless include_offline is true. Otherwise attach with startup disabled and
+        replacement enabled for existing configuration. Ordinary row exceptions become report
+        issues; an uncompleted candidate is closed with ordinary cleanup errors suppressed.
+        Attachment may already have installed it before old-facade close fails, so error cleanup can
+        close a newly installed facade without restoring the old one. A close error on the
+        unavailable branch is reported as failure and can trigger another close attempt.
 
-        With ``clear_existing=False``, existing live Stores are left alone and
-        only newly discovered or currently unavailable configurations load.
+        An authoritative pass unloads previously configured UUIDs absent from the active set,
+        retaining identities with non-DELETED Replica claims. Finally recover pending ingests;
+        recovery issue strings stay on ingest_recovery_issues and are not merged into this bootstrap
+        report. Initial enumeration/ordering, per-row identity extraction before the try block,
+        final unloading, and recovery can raise outside row reporting. No transaction/version
+        snapshot spans rows, metadata writes, backend effects, or registry updates.
 
         Example:
-            >>> report = manager.load_from_database(  # doctest: +SKIP
-            ...     startup=False,
-            ... )
+            >>> report = manager.load_from_database(startup=False)  # doctest: +SKIP
 
 
-        :param db:
-        :param include_offline:
-        :param clear_existing:
-        :param startup:
-        :return:
+        :param db: Optional configuration-source database; None uses self.db, and supplying one does not rebind durable metadata ownership.
+        :param include_offline: Whether to include explicitly offline/retired rows and candidates whose startup status is unavailable.
+        :param clear_existing: Whether to replace live facades and unload old identities absent from the active database set.
+        :param startup: Candidate startup policy; None uses startup_on_add, while false skips availability probing.
+        :return: StorageBootstrapReport counting original rows, loaded/skipped/failed cases, and row issues; errors outside per-row handling can follow partial reconciliation.
         """
 
         database = self.db if db is None else db
@@ -1165,15 +1351,17 @@ class StorageManager(_StorageManagerOrchestrator):
         replace_existing: bool = True,
     ) -> api.StorageBootstrapReport:
         """
-        Reload database rows when bound, otherwise in-memory configuration.
+        Reload in-memory configuration through the base when self.db is None; otherwise reconcile
+        that database with startup forced True. In the database path, replace_existing maps to
+        authoritative clear_existing, regardless of startup_on_add.
 
         Example:
-            >>> report = manager.reload_stores()  # doctest: +SKIP
+            >>> report = manager.reload_stores(replace_existing=False)  # doctest: +SKIP
 
 
-        :param include_offline:
-        :param replace_existing:
-        :return:
+        :param include_offline: Whether the selected reload path should allow offline/unavailable Stores.
+        :param replace_existing: Whether to replace existing live facades; in the database path it also enables removal of inactive/absent identities.
+        :return: The selected reload/bootstrap report; delegated partial effects and errors are preserved.
         """
 
         if self.db is None:
@@ -1193,14 +1381,19 @@ class StorageManager(_StorageManagerOrchestrator):
         store_refs: tuple[api.StoreUUID, ...],
     ) -> None:
         """
-        Unload inactive rows while retaining referenced Store identities.
+        Remove process-local facades for the requested UUIDs in ascending integer order. For each
+        Store, inspect current Replica records and retain its configuration when any non-DELETED
+        claim remains. Call base removal directly, bypassing the durable deletion override because
+        reconciliation must not delete database rows. Claim inspection and removal are separate
+        operations with no enclosing lock or transaction; failure can follow earlier removals and
+        stops the loop.
 
         Example:
-            >>> manager._unload_database_stores(())
+            >>> StorageManager()._unload_database_stores(())
 
 
-        :param store_refs:
-        :return:
+        :param store_refs: Tuple of UUIDs to unload; duplicates are processed again rather than deduplicated.
+        :return: None after all requested removals; record/UUID/close errors propagate after possible partial cleanup.
         """
 
         for store_ref in sorted(store_refs, key=lambda value: value.int):
@@ -1222,12 +1415,17 @@ class StorageManager(_StorageManagerOrchestrator):
     @classmethod
     def from_database(cls, db: Any, **kwargs):
         """
-        Construct a manager, load durable Stores, and return both report values.
+        Construct cls with the borrowed database and forwarded initializer options, then load Store
+        rows using the new manager's defaults. Return the manager and bootstrap report without
+        imposing strict report success or closing a manager whose later load raises.
+
+        Example:
+            >>> manager, report = StorageManager.from_database(database, startup_on_add=False)  # doctest: +SKIP
 
 
-        :param db:
-        :param kwargs:
-        :return:
+        :param db: Borrowed database used for constructor binding and subsequent Store-row loading.
+        :param kwargs: Additional cls initialization keywords; load options are not separately forwarded here.
+        :return: A (manager, StorageBootstrapReport) pair; construction/load errors may follow state changes without factory cleanup.
         """
 
         manager = cls(db=db, **kwargs)
@@ -1242,12 +1440,18 @@ StorageBootstrapReport = api.StorageBootstrapReport
 
 def _row_value(row: Any, key: str):
     """
-    Read a field from mapping-like or attribute-based database rows.
+    Attempt row subscription, falling back to an attribute after any Exception. Missing fallback
+    attributes yield None; attribute/property errors can still propagate. Unlike the configuration
+    codec's row accessor, this does not precheck allowed_columns or call mapping.get.
+
+    Example:
+        >>> _row_value({"store_id": 7}, "store_id")
+        7
 
 
-    :param row:
-    :param key:
-    :return:
+    :param row: Mapping-like or attribute-based row object.
+    :param key: Requested column/attribute name.
+    :return: The subscribed/fallback value or None, without copying or conversion.
     """
 
     try:
@@ -1258,12 +1462,18 @@ def _row_value(row: Any, key: str):
 
 def _row_int(row: Any, key: str) -> int | None:
     """
-    Return a row field as an integer, treating invalid values as absent.
+    Read a row value and int-convert it, treating None/empty text and caught TypeError/ValueError as
+    absent. Booleans and truncatable floats are accepted; OverflowError and other unhandled
+    read/conversion failures propagate.
+
+    Example:
+        >>> _row_int({"store_id": "7"}, "store_id")
+        7
 
 
-    :param row:
-    :param key:
-    :return:
+    :param row: Row object read through _row_value.
+    :param key: Column/attribute containing an optional integer.
+    :return: Converted integer or None for handled absence/conversion failures.
     """
 
     try:
@@ -1283,14 +1493,21 @@ def _persist_derived_store_uuid(
     store_ref: api.StoreUUID,
 ) -> None:
     """
-    Backfill stable identity when bootstrapping a legacy Store row.
+    Backfill a missing/blank UUID through an available database update macro. Return without writing
+    when row ID is None, row UUID text is nonblank, an explicit allowed_columns collection excludes
+    store_uuid, or the update macro is noncallable. Otherwise write str(store_ref) by store_id using
+    the macro. Nonblank malformed UUIDs are not repaired, and the supplied row object is not updated
+    directly. No concurrent-value guard or local transaction is added.
+
+    Example:
+        >>> _persist_derived_store_uuid(database, row=row, store_id=7, store_ref=store_ref)  # doctest: +SKIP
 
 
-    :param database:
-    :param row:
-    :param store_id:
-    :param store_ref:
-    :return:
+    :param database: Configuration-source database whose macros.update_row is used if callable.
+    :param row: Legacy row inspected for existing UUID text and optional allowed columns.
+    :param store_id: Optional row ID forwarded to the update macro without conversion here.
+    :param store_ref: Derived UUID stringified for persistence when backfill is permitted.
+    :return: None after a skipped or completed backfill; inspection and macro failures propagate.
     """
 
     if store_id is None or _row_text(row, "store_uuid") is not None:
@@ -1312,12 +1529,17 @@ def _persist_derived_store_uuid(
 
 def _row_text(row: Any, key: str) -> str | None:
     """
-    Return a stripped non-empty row field or ``None``.
+    Read a row field, stringify and strip it, and treat None or resulting blank text as absent.
+    False and zero retain nonblank spellings; read/string conversion errors propagate.
+
+    Example:
+        >>> _row_text({"name": " books "}, "name")
+        'books'
 
 
-    :param row:
-    :param key:
-    :return:
+    :param row: Row read through _row_value.
+    :param key: Column/attribute whose optional text is requested.
+    :return: Stripped nonempty text or None.
     """
 
     value = _row_value(row, key)
@@ -1329,12 +1551,18 @@ def _row_text(row: Any, key: str) -> str | None:
 
 def _row_uuid(row: Any, key: str) -> UUID | None:
     """
-    Return a valid UUID row field or ``None`` for absent/invalid data.
+    Return a UUID object unchanged or parse nonempty row text, treating ValueError as an
+    invalid/absent UUID. This does not strip text first; whitespace-only values become None through
+    parse failure. Other read/string-conversion errors can propagate.
+
+    Example:
+        >>> _row_uuid({"id": "not-a-uuid"}, "id") is None
+        True
 
 
-    :param row:
-    :param key:
-    :return:
+    :param row: Row read through _row_value.
+    :param key: Column/attribute carrying the UUID.
+    :return: Existing/parsed UUID or None for absent or ValueError-invalid text.
     """
 
     value = _row_value(row, key)
@@ -1350,11 +1578,17 @@ def _row_uuid(row: Any, key: str) -> UUID | None:
 
 def _row_kind(row: Any) -> str:
     """
-    Normalise the backend-kind spelling stored in a database row.
+    Read stripped backend-kind text, default to empty, lowercase it and replace hyphens with
+    underscores. This local normalization performs no registry lookup and retains other punctuation
+    or embedded whitespace.
+
+    Example:
+        >>> _row_kind({"store_kind": " Encrypted-Store "})
+        'encrypted_store'
 
 
-    :param row:
-    :return:
+    :param row: Row providing an optional store_kind field.
+    :return: Normalized kind text, possibly empty.
     """
 
     return (_row_text(row, "store_kind") or "").lower().replace("-", "_")
@@ -1362,11 +1596,17 @@ def _row_kind(row: Any) -> str:
 
 def _is_encrypted_row(row: Any) -> bool:
     """
-    Return whether registry aliases resolve the row to an encrypted Store.
+    Resolve the row's normalized kind through the default backend registry and compare it with
+    encrypted. Empty/unknown kinds return False for ValueError or StoreUnsupportedOperation; other
+    row/registry failures propagate.
+
+    Example:
+        >>> _is_encrypted_row({"store_kind": "aes-gcm"})
+        True
 
 
-    :param row:
-    :return:
+    :param row: Row whose store_kind controls secondary bootstrap ordering.
+    :return: True for a recognized encrypted alias, otherwise False for the handled lookup cases.
     """
 
     kind = _row_kind(row)
@@ -1381,12 +1621,21 @@ def _configuration_dependencies(
     configuration: api.StoreConfiguration,
 ) -> frozenset[api.StoreUUID]:
     """
-    Return Store identities that should be live before this Store.
+    Collect declared Store dependencies for bootstrap ordering without constructing backends.
+    Include a backing materialization Store and the preferred Replica's Store only when that Replica
+    exists and belongs to the backing Asset. Missing Replicas are ignored; other lookup failures
+    propagate. For encrypted kinds, read the inner UUID option or derive text from URI
+    authority/path, without requiring an encrypted URI scheme here. Malformed UUID ValueError is
+    ignored. Remove the configuration's own UUID. This discovers neither alternative source Replicas
+    nor every dependency a custom backend/resolver might require.
+
+    Example:
+        >>> dependencies = _configuration_dependencies(manager, configuration)  # doctest: +SKIP
 
 
-    :param manager:
-    :param configuration:
-    :return:
+    :param manager: Manager used only for a preferred Replica lookup when specified.
+    :param configuration: Configured backing/wrapper intent whose Store references are inspected.
+    :return: A frozenset of discovered non-self Store UUIDs; unresolved external dependencies can remain in it.
     """
 
     dependencies: set[api.StoreUUID] = set()
@@ -1432,12 +1681,26 @@ def _order_store_rows(
     rows: tuple[Any, ...],
 ) -> tuple[Any, ...]:
     """
-    Topologically order wrapper and Asset-backed Store rows.
+    Order row references by discoverable in-snapshot dependencies with deterministic fallback.
+    Translate each row, retaining failed translations as None for later reporting. Repeatedly select
+    rows whose dependencies do not intersect remaining translated UUIDs; malformed rows are
+    immediately eligible, and external dependencies do not block. Sort each ready group by unbacked
+    before backed, nonencrypted before encrypted, then parsed row ID or zero, preserving input order
+    for ties.
+
+    If no row is ready, sort and emit all remaining rows rather than rejecting or repairing a cycle.
+    Self dependencies are already removed. Duplicate rows/UUIDs are not deduplicated, and dependency
+    discovery can repeat across rounds. Translation errors alone are caught; later dependency/sort
+    errors propagate. Returned rows are original references without writes or backend construction.
+
+    Example:
+        >>> _order_store_rows(None, ())
+        ()
 
 
-    :param manager:
-    :param rows:
-    :return:
+    :param manager: Manager used for optional preferred-Replica dependency lookups.
+    :param rows: Snapshot tuple of database row objects to translate and order.
+    :return: A tuple containing the original row objects in bootstrap order; cycle fallback does not prove a valid dependency graph.
     """
 
     translated: list[tuple[Any, api.StoreConfiguration | None]] = []

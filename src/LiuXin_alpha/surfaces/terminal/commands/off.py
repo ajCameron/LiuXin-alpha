@@ -1,4 +1,11 @@
-"""`off` command group for detaching metadata from existing rows."""
+"""
+Detach existing metadata relations from selected rows without creating missing source records.
+
+Default bulk recovery replays recorded relations after a per-target error; it is
+not a transaction and does not restore exact link IDs/priorities. Best-effort mode
+keeps successful removals and reports per-target failures. Source lookup failures
+occur outside that handler and can leave earlier changes in place.
+"""
 
 from __future__ import annotations
 
@@ -21,10 +28,37 @@ def _unlink_one_value(
     source_row,
     kind_label: str,
 ) -> list[dict[str, object]]:
+    """
+    Snapshot a source/target pair's existing links and request semantic removal through Core.
+
+    Each snapshot retains row fields plus table and endpoint metadata; a discoverable
+    non-null relation type is also recorded. The unlink request itself does not
+    select a type. Output happens after unlinking, so an output failure can prevent
+    the caller from receiving snapshots for a removal that already occurred.
+
+    Example:
+        >>> snapshots = _unlink_one_value(  # doctest: +SKIP
+        ...     browser, target_table="works", target_row=work, target_id=1,
+        ...     source_table="tags", source_row=tag, kind_label="tag"
+        ... )
+
+
+    :param browser: Host supplying schema/relation reads, Core unlink dispatch, and output.
+    :param target_table: Target table used in schema lookup, command payload, and messages.
+    :param target_row: Existing target row whose ``row_id`` supplies the relation endpoint.
+    :param target_id: Target ID used in messages, independent of the row object's identifier.
+    :param source_table: Metadata source table used for schema and endpoint identification.
+    :param source_row: Existing metadata row with mapping access and a ``row_id`` attribute.
+    :param kind_label: Human-readable metadata kind included in output and schema errors.
+    :return: Snapshot dictionaries after unlinking, or an empty list when no relation was found.
+    :raises ValueError: If no link table exists for the endpoint pair.
+    """
     source_id_column = browser.db.driver_wrapper.get_id_column(source_table)
     source_id = source_row[source_id_column]
 
-    link_table = browser.db.driver_wrapper.get_link_table_name(source_table, target_table)
+    link_table = browser.db.driver_wrapper.get_link_table_name(
+        source_table, target_table
+    )
     if not link_table:
         raise ValueError(
             "No link table exists between {} and {} for `{}`.".format(
@@ -34,7 +68,9 @@ def _unlink_one_value(
             )
         )
 
-    existing_links = browser.db.get_interlink_row(primary_row=source_row, secondary_row=target_row, onelink=False)
+    existing_links = browser.db.get_interlink_row(
+        primary_row=source_row, secondary_row=target_row, onelink=False
+    )
     if not existing_links:
         browser.emit(
             "{} not linked: {}={} -> {}:{}".format(
@@ -94,7 +130,28 @@ def _unlink_one_value(
     return deleted_snapshots
 
 
-def _restore_deleted_link_snapshots(browser, snapshots: list[dict[str, object]]) -> list[str]:
+def _restore_deleted_link_snapshots(
+    browser, snapshots: list[dict[str, object]]
+) -> list[str]:
+    """
+    Replay removed relations in reverse order, preferring semantic endpoint/type restoration.
+
+    Semantic replay lets the backend assign new priorities and does not restore
+    arbitrary snapshot fields or original IDs. Legacy snapshots without relation
+    metadata use row creation after dropping the old identity. Core write failures
+    are collected; legacy ID-column discovery occurs outside its write handler
+    and can still abort recovery. Original snapshot mappings are not modified.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> _restore_deleted_link_snapshots(Mock(), [])
+        []
+
+
+    :param browser: Host supplying Core relation/row creation and legacy ID-column lookup.
+    :param snapshots: Link-row snapshots, optionally carrying ``_relation`` and ``_table`` metadata.
+    :return: Collected restore-error messages, not proof of exact restoration of prior database state.
+    """
     errors: list[str] = []
     for snapshot in reversed(snapshots):
         row_dict = dict(snapshot)
@@ -136,7 +193,17 @@ def _restore_deleted_link_snapshots(browser, snapshots: list[dict[str, object]])
 
 
 class _OffBaseCommand(TerminalCommandAPI):
-    """Common execution logic for `off <kind> ...` subcommands."""
+    """
+    Share source lookup, selected-target unlinking, and compensating recovery for detachment commands.
+
+    Subclasses select a singular metadata kind. Missing source values produce
+    messages without creation; best-effort mode applies only to per-target unlink
+    failures, not to source-resolution or initial target errors.
+
+    Example:
+        >>> OffTagCommand().group, OffTagCommand().kind
+        ('off', 'tag')
+    """
 
     group = "off"
     expose_direct = False
@@ -144,7 +211,28 @@ class _OffBaseCommand(TerminalCommandAPI):
     usage = ""
 
     def execute(self, browser, args: list[str]) -> bool:
-        target_table, target_rows, consumed = _parse_target_rows(browser, args, usage=self.usage)
+        """
+        Resolve all targets, look up metadata values without creation, and remove matching relations.
+
+        Tag values are split/deduplicated; other kinds join tokens into one value.
+        Per-target failures either continue with diagnostics or trigger attempted
+        replay of snapshots returned by earlier successful calls. The current
+        failing call may already have effects not represented by those snapshots.
+        Source-resolution failures bypass replay, and restore-error messages do
+        not make the subsequent ``restored`` count a verified recovery claim.
+
+        Example:
+            >>> OffTagCommand().execute(browser, ["works:1-3", "--best-effort", "history"])  # doctest: +SKIP
+
+
+        :param browser: Host supplying reads, Core relation mutations, and terminal output.
+        :param args: Target selector, optional leading best-effort switches, and metadata value tokens.
+        :return: ``True`` after completion, including missing sources or reported best-effort errors.
+        :raises ValueError: For invalid targets/values or default-mode per-target unlink failure.
+        """
+        target_table, target_rows, consumed = _parse_target_rows(
+            browser, args, usage=self.usage
+        )
         best_effort, value_tokens = _parse_on_options_and_value_tokens(args[consumed:])
 
         if self.kind == "tag":
@@ -161,7 +249,11 @@ class _OffBaseCommand(TerminalCommandAPI):
         for value in values:
             resolved = _resolve_source_row(browser, self.kind, value, create=False)
             if resolved is None:
-                browser.emit("{} not found: {!r} (nothing to unlink)".format(self.kind.capitalize(), value))
+                browser.emit(
+                    "{} not found: {!r} (nothing to unlink)".format(
+                        self.kind.capitalize(), value
+                    )
+                )
                 continue
             source_table, source_row, kind_label = resolved
             for target_id, target_row in target_rows:
@@ -178,14 +270,24 @@ class _OffBaseCommand(TerminalCommandAPI):
                         )
                     )
                 except Exception as exc:
-                    op_desc = "{}={!r} -> {}:{}".format(self.kind, value, target_table, target_id)
+                    op_desc = "{}={!r} -> {}:{}".format(
+                        self.kind, value, target_table, target_id
+                    )
                     if best_effort:
-                        browser.emit("ERROR (best-effort): {} ({})".format(op_desc, exc))
+                        browser.emit(
+                            "ERROR (best-effort): {} ({})".format(op_desc, exc)
+                        )
                         errors.append("{} ({})".format(op_desc, exc))
                         continue
-                    rollback_errors = _restore_deleted_link_snapshots(browser, deleted_snapshots)
+                    rollback_errors = _restore_deleted_link_snapshots(
+                        browser, deleted_snapshots
+                    )
                     if rollback_errors:
-                        browser.emit("Rollback encountered {} issue(s):".format(len(rollback_errors)))
+                        browser.emit(
+                            "Rollback encountered {} issue(s):".format(
+                                len(rollback_errors)
+                            )
+                        )
                         for rollback_error in rollback_errors:
                             browser.emit("  - {}".format(rollback_error))
                     raise ValueError(
@@ -201,17 +303,36 @@ class _OffBaseCommand(TerminalCommandAPI):
 
 
 class OffNoteCommand(_OffBaseCommand):
-    """Detach note rows from one or more target rows."""
+    """
+    Detach the first exact note-text match from selected targets while retaining the note itself.
+
+    Remaining value tokens form one space-joined note; absence is reported without creation.
+
+    Example:
+        >>> OffNoteCommand().kind
+        'note'
+    """
 
     name = "note"
     aliases = ("notes",)
-    summary = "Detach note(s): off note <table> <id|selector> [--best-effort] <note text>"
+    summary = (
+        "Detach note(s): off note <table> <id|selector> [--best-effort] <note text>"
+    )
     usage = "off note <table> <id|id,id|start-end> [--best-effort] <note text>"
     kind = "note"
 
 
 class OffTagCommand(_OffBaseCommand):
-    """Detach tags/labels from one or more target rows."""
+    """
+    Detach normalized tag values from selected targets through the preferred tag-like table.
+
+    Values accept comma-separated pieces and retain first spellings after normalized
+    deduplication. Source tag/label records are not deleted by this command.
+
+    Example:
+        >>> OffTagCommand().aliases
+        ('tags', 'label', 'labels')
+    """
 
     name = "tag"
     aliases = ("tags", "label", "labels")
@@ -221,7 +342,15 @@ class OffTagCommand(_OffBaseCommand):
 
 
 class OffGenreCommand(_OffBaseCommand):
-    """Detach genre rows from one or more target rows."""
+    """
+    Detach one resolved genre value from selected targets without deleting the genre record.
+
+    Resolution uses the available genre hash/sort/text column and does not create on a miss.
+
+    Example:
+        >>> OffGenreCommand().kind
+        'genre'
+    """
 
     name = "genre"
     aliases = ("genres",)
@@ -231,17 +360,35 @@ class OffGenreCommand(_OffBaseCommand):
 
 
 class OffSubjectCommand(_OffBaseCommand):
-    """Detach subject rows from one or more target rows."""
+    """
+    Detach one resolved subject value from selected targets, retaining the source subject.
+
+    Remaining text tokens form a single subject rather than a list of subjects.
+
+    Example:
+        >>> OffSubjectCommand().kind
+        'subject'
+    """
 
     name = "subject"
     aliases = ("subjects",)
-    summary = "Detach subject: off subject <table> <id|selector> [--best-effort] <subject>"
+    summary = (
+        "Detach subject: off subject <table> <id|selector> [--best-effort] <subject>"
+    )
     usage = "off subject <table> <id|id,id|start-end> [--best-effort] <subject>"
     kind = "subject"
 
 
 class OffLanguageCommand(_OffBaseCommand):
-    """Detach languages from one or more target rows."""
+    """
+    Detach an existing language resolved from a name or code, without modifying language records.
+
+    An unresolved language is reported as nothing to unlink rather than created.
+
+    Example:
+        >>> OffLanguageCommand().aliases
+        ('languages', 'lang')
+    """
 
     name = "language"
     aliases = ("languages", "lang")
@@ -251,7 +398,16 @@ class OffLanguageCommand(_OffBaseCommand):
 
 
 class OffSeriesCommand(_OffBaseCommand):
-    """Detach series rows from one or more target rows."""
+    """
+    Detach one standardized series value from selected targets while retaining its source record.
+
+    All matching pair relations returned by the unlink helper are removed; this
+    command has no series-index or relation-type filter.
+
+    Example:
+        >>> OffSeriesCommand().kind
+        'series'
+    """
 
     name = "series"
     aliases = ()

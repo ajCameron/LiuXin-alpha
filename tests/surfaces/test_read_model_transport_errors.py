@@ -1,4 +1,10 @@
-"""Real direct and HTTP Core failures must survive the surface read model."""
+"""
+Verify that real direct and loopback-HTTP Core failures survive shared surface projection.
+
+Temporary runtimes use deterministic handlers or failing cache doubles rather
+than a database. Every started daemon/runtime is stopped in finally. These tests
+require local socket permission; they do not contact an external service.
+"""
 
 from types import SimpleNamespace
 
@@ -17,6 +23,19 @@ from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication
 
 
 def test_read_model_preserves_direct_and_rpc_error_codes_and_details() -> None:
+    """
+    Preserve structured failure codes/details across table, count, lookup, search, and relationship reads on both transports.
+
+    A deliberately absent row remains None, distinguishing normal missing data
+    from the same handlers' explicit CoreError failures. The HTTP client uses an
+    ephemeral loopback daemon and all runtime resources are cleaned up in finally.
+
+    Example:
+        >>> test_read_model_preserves_direct_and_rpc_error_codes_and_details()  # doctest: +SKIP
+
+
+    :return: None after direct/RPC error translation and missing-row assertions.
+    """
     runtime = CoreRuntime(library=SimpleNamespace(database=SimpleNamespace()))
     schema = {
         "tables": [
@@ -39,6 +58,18 @@ def test_read_model_preserves_direct_and_rpc_error_codes_and_details() -> None:
     runtime.register_query_handler("schema.tables", lambda _runtime, _query: schema)
 
     def fail_read(_runtime, query):
+        """
+        Return an absent-record receipt only for row 404, otherwise raise an operation-labelled CoreError.
+
+        Example:
+            >>> receipt = fail_read(runtime, query)  # doctest: +SKIP
+
+
+        :param _runtime: Dispatcher-supplied runtime, unused by this deterministic handler.
+        :param query: Read request whose name and row_id select the missing-record exception to failure.
+        :return: Mapping with record None only for rows.get at ID 404.
+        :raises CoreError: For every other request, with test_read_failed and operation details.
+        """
         if query.name == "rows.get" and query.payload["row_id"] == 404:
             return {"record": None}
         raise CoreError(
@@ -89,9 +120,34 @@ def test_read_model_preserves_direct_and_rpc_error_codes_and_details() -> None:
 def test_only_known_cache_capability_failures_receive_the_unavailable_code(
     failure, code
 ) -> None:
+    """
+    Restrict read_query_unavailable translation to known table/query capability errors on direct and HTTP clients.
+
+    Unknown fields and arbitrary runtime failures remain handler_error. Both
+    clients make exactly one cache query, proving these failures do not trigger
+    alternate-shape retries or silent database fallback in the tested path.
+
+    Example:
+        >>> test_only_known_cache_capability_failures_receive_the_unavailable_code(UnknownCacheTableError, "read_query_unavailable")  # doctest: +SKIP
+
+
+    :param failure: Parametrized cache exception class raised by the query double.
+    :param code: Exact expected public error code for that exception class.
+    :return: None after both transport receipts, details, and combined call count are verified.
+    """
     queries = []
 
     def query_cache(query):
+        """
+        Record a cache request and raise the enclosing test's selected capability or handler error.
+
+        Example:
+            >>> query_cache(cache_query)  # doctest: +SKIP
+
+
+        :param query: Original cache query appended to the shared per-test call log.
+        :return: No normal receipt; the selected failure is always raised.
+        """
         queries.append(query)
         raise failure("unsupported_view")
 

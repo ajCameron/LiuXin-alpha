@@ -1,10 +1,126 @@
 # Working Memory Index
 
-Updated: 2026-09-08
+Updated: 2026-09-11
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [project-docstrings-2026-09-08.md](project-docstrings-2026-09-08.md)
+  Active whole-project descriptive reST documentation pass on
+  `codex/project-docstrings`. Includes private/nested functions, inherited code,
+  tests, scripts, examples, and tracked data-submodule Python. Records the full
+  baseline, migration safety repairs, 606 reviewed Python modules, the separate
+  native-C documentation pass, legacy startup limitations, and remaining work.
+  All 57 Core and 69 terminal source modules, plus the shared surface/Core adapter,
+  host protocols, presentation/acquisition primitives, system profiles, category
+  helpers, disk thumbnails, image backend, complete shared read model, and shared
+  catalogue/acquisition/OPDS backends are reviewed, as is the standalone OPDS
+  application package and launcher with catalogue/OPDS/help/asset-fixture tests.
+  The Calibre-style and generic read-only web packages, launchers, and all main
+  integration-test helpers are also reviewed, as are the read-only JSON API
+  package/launcher/tests and shared direct/RPC surface acceptance harness.
+  The read/write web package, launcher, and main regression helpers are now
+  reviewed too, with synchronous-write and partial-failure contracts made explicit.
+  CLI entry points, parser contracts, completion, and shared output/job helpers
+  are reviewed, together with dependency and operational-family test fixtures.
+  SquashFS CLI owners/provenance types and regression fixtures, plus Core daemon
+  and managed-job commands, are now reviewed as well.
+  Serving/capability, catalogue, workflow, and diagnostic CLI owners are also
+  documented throughout, including local restore and redaction failure boundaries.
+  Configuration, initialization, ingest history/resume, and standalone storage audit
+  are now documented too, together with full initialization/storage-audit tests.
+  Metadata catalogue/file/online and PostgreSQL diagnostic/SQL/export owners are
+  now reviewed with both complete regression modules, including their nested fakes.
+  The storage compatibility facade, all 23 storage command owners, and the full
+  storage-ingest regression module are now reviewed too. All 47 CLI source modules
+  are documented, including ingest, parser builders, and the Store wizard.
+  The ingest application lifecycle and complete operator-hardening suite are
+  now source-reviewed and documented as well.
+  The ingest package exports, report/checkpoint models, Store copy/adopt helpers,
+  and legacy discovery/import adapters are now documented too, with complete
+  Store-ingest and legacy-adding regression helpers. Remote-HTML discovery sources,
+  registration wrappers/pipeline, and seven complete adjacent regression modules
+  are now reviewed too. All 15 ingest source modules are documented. All nine
+  storage-side native/wget adapter modules and all three storage ingest modules
+  are now reviewed too, with complete SquashFS/mixed-format regression docs.
+  All four storage reconciliation modules, their legacy Library export, and five
+  additional registration/publication regression modules are now reviewed too.
+  All eight raw driver API modules and all five shared storage utilities are now
+  reviewed too. All eight configured Store API modules are now complete, including
+  file primitives, convenience methods, and the driver-backed adapter. Configuration
+  and driver-error regressions are documented alongside the four earlier API suites.
+  All six concrete Store modules are now reviewed too, including the encryption
+  wrapper and private sessions/readers, with complete encryption and nested
+  backed-Store regressions. Driver exports, shared error/validation helpers, and
+  filesystem/SQLite drivers are now reviewed too, alongside the four-module SQLite
+  compatibility package and full filesystem/SQLite regressions. The complete HTTP
+  driver and its regression helpers are now reviewed too, with the HTTP Store
+  inventory callback documentation corrected. The S3 driver and its complete memory
+  client, publication/ingest, and response-pathology regressions are now documented
+  too. The FTP driver, all three compatibility Store modules, and their complete
+  regression module are now documented and verified too. The complete rclone driver,
+  seven read-only/writable adapter modules, and both backend regression modules are
+  now documented and verified as well. Shared archive mechanics, the full ZIP
+  driver, configured ZIP/TAR/RAR/7z adapters and six plugin initializers, and the
+  complete local-archive regression module are now reviewed and verified too.
+  Raw TAR and RAR drivers, the build-once RAR plugin and initializer, and its
+  complete regression module are now reviewed and verified too. The raw 7z driver
+  and its complete regression module are also documented and verified. The complete
+  raw ISO reader, three read-only adapter modules, and full regression module are
+  now documented and verified too. The complete ISO writer, three writable adapter
+  modules, and full regression module/package initializer are also documented and
+  verified. The complete raw SquashFS driver, seven read-only/build plugin modules,
+  all three adjacent regression modules, and manifest launcher are also documented
+  and verified. All seventeen raw-driver modules are complete. The twenty remaining
+  local backend-plugin modules and all six adjacent regression modules are now
+  documented too, completing the full 65-module backend-plugin source tree. Common
+  storage API models, characteristics, shared/legacy errors, Location values,
+  placement hints, and package exports are now reviewed too, with both full hint
+  and bound-Location regression modules. Manager routing, bound Location handles
+  and factories, private protocols, and manager errors are now reviewed too, with
+  the complete storage-manager API regression module and all nested helpers.
+  Store/operational models, API contracts, both implementation mixins, and the
+  complete registration/bootstrap regression module are now reviewed too.
+  Asset identity/metadata, nominal IDs, compatibility exports, Replica/result
+  models, catalogue/lifecycle API contracts, both implementation mixins, and the
+  older manager-documentation tests are now complete too. Composite/resolution
+  models, the Composite/Item-link/retrieval contracts and implementation mixins,
+  and complete composition/StoreContainer SQLite regression modules are now
+  reviewed too. Policy models/API, CRUD/assignment and shared policy support
+  mixins, and the complete policy API regression module are now reviewed too.
+  Derivation values/private validators, resolver/registry API and graph
+  conveniences, and the full provenance/replay implementation are now reviewed too.
+  Reconciliation/ingest APIs and implementations with nested callbacks, plus
+  the public model initializer, are now reviewed too. All 11 manager-model modules
+  are complete. Private requests/state, all internal protocols, and the complete
+  shared support mixin are now reviewed too. Remaining routing/composition exports,
+  public facade context methods, and all six persistence protocols are now complete
+  too. Both database persistence adapters are now complete, finishing all 22
+  storage_manager implementation modules. The full public convenience mixin and
+  its private helpers are complete too, finishing all 29 storage_manager_api
+  modules. All twelve generic/backup/sealed-artifact workflow API modules are now
+  reviewed too, finishing all 65 storage API source modules. Concrete inventory
+  planning, SquashFS execution, sealed-image provenance, both package initializers,
+  and their three regression modules are now complete too. Backup persistence,
+  artifact registration, the prototype pipeline, and their full regression modules
+  are now reviewed too, finishing all six backup source and five backup test modules.
+  Configuration translation, factory/container adapters, legacy location/types and
+  file status, and schema migration modules are now complete too, together with the
+  full backend-registry test module. The full backend registry and all builders,
+  shared Unicode fixtures/contracts, and four-backend matrix are now reviewed too.
+  The application-facing manager, complete MiniDB helper, and complete database
+  reload regression module are now reviewed too. All 206 storage source modules
+  are complete. The full Location test tree, workflow API2 doubles/contracts,
+  manager example regressions, and live backend/PostgreSQL contracts are now
+  reviewed too, completing all 85 storage test/helper modules. All 11 storage
+  examples, six catalog example/helper modules, and their shared JSON/import helper
+  are now documented too. Ten conversion/Library/metadata/utility examples remain.
+  The exact reviewed set is in
+  [project-docstrings-reviewed-files.txt](project-docstrings-reviewed-files.txt).
+  Latest verification
+  and the known docstring-sensitive ownership-test conflicts are recorded in
+  [project-docstrings-storage-catalog-examples-2026-09-11.md](project-docstrings-storage-catalog-examples-2026-09-11.md).
 
 - [maintainability-closeout-2026-09-07.md](maintainability-closeout-2026-09-07.md)
   Final bounded close-out: one general CI owner, failure-aware merge summary,

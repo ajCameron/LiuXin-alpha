@@ -1,4 +1,10 @@
-"""Terminal-oriented user surfaces for LiuXin."""
+"""
+Expose terminal command/plugin packages and lazily resolve historical application exports.
+
+Leaf imports do not load the browser application or curses adapter. Browser,
+wizard, parser, and runner names remain discoverable through the public export
+list and are resolved through the compatibility facade when requested.
+"""
 
 from __future__ import annotations
 
@@ -32,7 +38,22 @@ if TYPE_CHECKING:
 
 
 def __getattr__(name: str) -> object:
-    """Resolve historical exports without loading the application for leaf imports."""
+    """
+    Resolve an otherwise missing public attribute through the historical text-browser facade.
+
+    Normal attribute lookup calls this only after checking existing globals, so
+    eagerly imported command/plugin packages need no facade resolution. Values are
+    returned without caching another binding in this module.
+
+    Example:
+        >>> __getattr__("build_parser").__module__
+        'LiuXin_alpha.surfaces.terminal.app'
+
+
+    :param name: Missing module attribute requested by the caller.
+    :return: Facade attribute for an advertised public name.
+    :raises AttributeError: If the name is unadvertised or absent from the delegated facade.
+    """
     if name in __all__:
         from . import text_browser
 
@@ -41,7 +62,16 @@ def __getattr__(name: str) -> object:
 
 
 def __dir__() -> list[str]:
-    """Keep lazy public exports discoverable to shells and introspection tools."""
+    """
+    List existing globals and advertised lazy exports without resolving those exports.
+
+    Example:
+        >>> "TextDatabaseBrowser" in __dir__()
+        True
+
+
+    :return: Sorted unique attribute-name list for module introspection.
+    """
     return sorted(set(globals()) | set(__all__))
 
 

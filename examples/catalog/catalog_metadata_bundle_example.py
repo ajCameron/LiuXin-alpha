@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Attach related metadata and retrieve a coherent catalog bundle."""
+"""
+Attach an Agent, identifier, and note and render an Item-rooted metadata bundle.
+
+Seed a WEMI chain for a demonstration edition, attach related metadata to its Work,
+and retrieve both the bundle and display projections from the Item. Print linked
+IDs and preferred title information through the shared diagnostic JSON renderer.
+Database ownership and retention belong to the common example context.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +22,18 @@ from LiuXin_alpha.catalog.api import IdentifierCandidate, MetadataCandidate
 
 
 def parse_args() -> argparse.Namespace:
-    """Return command-line arguments for the bundle example."""
+    """
+    Parse process arguments for the metadata bundle demonstration. The shared --database option
+    yields a Path when supplied and None otherwise. Directory expansion, refusal of an existing
+    retained path, temporary allocation, and template handling occur only when open_catalog_example
+    is entered.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Namespace with the optional database path; help or invalid syntax raises SystemExit.
+    """
 
     parser = argparse.ArgumentParser(
         description="Catalog Agents, identifiers, notes, bundles, and projections"
@@ -25,7 +43,21 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    """Attach related records and render an Item-rooted WEMI bundle."""
+    """
+    Build a WEMI chain and report related Work metadata through Item-rooted retrieval. Create a
+    Work, match or create an English Expression, EPUB-labelled Manifestation, and Item carrying a
+    demonstration location. Match/create Virginia Woolf as an Agent and link her to the Work as
+    author with priority one. Add a UUID identifier link at priority zero and a Work note, then
+    retrieve the Item bundle, display title, Item summary, and preferred Work title. Report bundle
+    Agent IDs and the returned identifier-link/note IDs before context cleanup. The location is
+    metadata; no ebook contents are opened or verified.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero after reporting and context cleanup; uncaught parsing, catalogue, rendering, or cleanup failures propagate.
+    """
 
     args = parse_args()
     with open_catalog_example(args.database) as session:

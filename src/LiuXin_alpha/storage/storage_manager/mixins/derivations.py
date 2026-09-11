@@ -1,5 +1,9 @@
 """
-Digital Asset provenance graphs and recreation planning.
+Register provenance, build directed graph inventories, and propose exact Asset recreation.
+
+The mixin composes manager state and policy-support mechanics without executing
+recipes. Graph queries retain stable first-encounter ordering; registration and
+forgetting mutate metadata through the supplied transaction boundary.
 """
 
 from __future__ import annotations
@@ -14,7 +18,17 @@ from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerSt
 
 class _DerivationGraphTraversal:
     """
-    Mutable breadth-first traversal state for one provenance graph.
+    Accumulate ordered provenance nodes and records across independent breadth-first walks.
+
+    Each walk starts at the same root with its own visited set. Inventories, deduplication sets, and
+    the truncation flag persist across walks, allowing ancestor results to precede descendants.
+    Input indexes are retained references and must stay coherent while traversing.
+
+    Example:
+        >>> traversal = _DerivationGraphTraversal(  # doctest: +SKIP
+        ...     root_id, max_depth=2, sources_by_derivation=sources,
+        ...     by_result=results, by_source=inputs,
+        ... )
     """
 
     def __init__(
@@ -36,15 +50,24 @@ class _DerivationGraphTraversal:
         ],
     ) -> None:
         """
-        Initialise stable, de-duplicated state shared by graph walks.
+        Retain the traversal indexes and initialize inventories with the root Asset only.
+
+        No identity, depth, direction, or index-consistency checks occur. The three mappings are not
+        copied, while mutable result lists and deduplication sets are newly allocated.
+
+        Example:
+            >>> traversal = _DerivationGraphTraversal(  # doctest: +SKIP
+            ...     root_id, max_depth=None, sources_by_derivation=sources,
+            ...     by_result=results, by_source=inputs,
+            ... )
 
 
-        :param digital_asset_id:
-        :param max_depth:
-        :param sources_by_derivation:
-        :param by_result:
-        :param by_source:
-        :return:
+        :param digital_asset_id: Initial atomic root placed first in the node inventory; not validated by this helper.
+        :param max_depth: Optional depth cutoff retained for comparison during each walk.
+        :param sources_by_derivation: Retained mapping from derivation ID to ordered expanded atomic source IDs.
+        :param by_result: Retained adjacency mapping from result Asset ID to ordered provenance records.
+        :param by_source: Retained adjacency mapping from source Asset ID to ordered provenance records.
+        :return: None after initializing mutable traversal state.
         """
 
         self.digital_asset_id = digital_asset_id
@@ -65,11 +88,25 @@ class _DerivationGraphTraversal:
         direction: api.DigitalAssetDerivationGraphDirection,
     ) -> None:
         """
-        Walk in one direction while retaining every encountered branch.
+        Traverse one direction from the root and append first-encounter evidence to shared
+        inventories.
+
+        Queue order and supplied adjacency order determine breadth-first discovery. Only the
+        ANCESTORS enum singleton selects result-to-source edges; callers must supply a concrete
+        direction, as other values take the descendant branch. Each call creates a fresh queue and
+        visited set while retaining earlier inventories.
+
+        Any adjacency at or beyond the depth cutoff marks truncation, including previously recorded
+        edges. Remembered descendant records retain all their provenance sources even though only
+        their result IDs are added to the atomic inventory. Inconsistent source indexes can raise
+        after partial state accumulation.
+
+        Example:
+            >>> traversal.walk(api.DigitalAssetDerivationGraphDirection.ANCESTORS)  # doctest: +SKIP
 
 
-        :param direction:
-        :return:
+        :param direction: Single ancestor or descendant direction; this helper does not expand BOTH or coerce strings.
+        :return: None after mutating node/record inventories and possibly setting truncated.
         """
 
         queue: deque[tuple[api.DigitalAssetID, int]] = deque(
@@ -111,11 +148,18 @@ class _DerivationGraphTraversal:
         record: api.DigitalAssetDerivationRecord,
     ) -> None:
         """
-        Append one derivation and its Composite sources at most once.
+        Append a previously unseen derivation and its first-encounter Composite source IDs.
+
+        Deduplication uses the derivation ID, not record equality. Repeated IDs return before
+        inspecting sources. This method does not expand Composite membership or add atomic
+        source/result IDs; it retains the record reference.
+
+        Example:
+            >>> traversal._remember_record(record)  # doctest: +SKIP
 
 
-        :param record:
-        :return:
+        :param record: Provenance record whose ID and directly referenced Composites should be remembered.
+        :return: None after extending inventories, or immediately when the derivation ID was already seen.
         """
 
         derivation_id = record.digital_asset_derivation_id
@@ -132,12 +176,15 @@ class _DerivationGraphTraversal:
 
 class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
     """
-    Record immutable provenance and reason over derivation graphs.
+    Implement provenance registration, filtered snapshots, graph traversal, and replay proposals.
 
-    A derivation links atomic or Composite sources to one result Asset and may
-    carry an exact, replayable recipe.  This component validates references and
-    cycles, traverses provenance in stable breadth-first order, and plans
-    recreation; it records recipes but does not execute converters.
+    References, identity evidence, and cycles are checked without executing recipes or proving
+    current readability. Registration validates before its metadata transaction; graph queries
+    combine a record snapshot with later source expansion. Broader state/persistence and recursive
+    policy mechanics come from the composed manager.
+
+    Example:
+        >>> graph = manager.get_derivation_graph(asset_id, direction="ancestors")  # doctest: +SKIP
     """
 
     @override
@@ -146,11 +193,25 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
         declaration: api.DigitalAssetDerivationDeclaration,
     ) -> api.DigitalAssetDerivationRecord:
         """
-        Validate and record immutable provenance for a derived Asset.
+        Validate provenance and allocate a fresh metadata record for an existing result Asset.
+
+        Read the result first, resolve atomic/Composite sources, and require complete recipes to pin
+        every expanded provenance member. Recipe input sizes must match, with at least one matching
+        digest algorithm and no disagreement on any overlap. Managed artefact digests receive the
+        same overlap check. Exact recipes additionally require the result size and every stated
+        output digest to match; extra registered digests are allowed.
+
+        Cycle checks include recipe inputs and managed artefact Assets. These lookups/checks precede
+        the lock and metadata transaction and are not revalidated inside it. Registration allocates
+        an ID and revision without declaration deduplication, physical reads, URI probing, or recipe
+        execution. Persistence/failure rollback follows the supplied metadata adapter.
+
+        Example:
+            >>> record = manager.record_digital_asset_derivation(declaration)  # doctest: +SKIP
 
 
-        :param declaration:
-        :return:
+        :param declaration: Retained result/source assertion and optional recipe, validated against current manager records.
+        :return: Freshly stored derivation record; missing references, identity mismatch, cycles, and adapter failures propagate.
         """
 
         result = self.get_digital_asset_record(declaration.result_digital_asset_id)
@@ -235,11 +296,17 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
         digital_asset_derivation_id: api.DigitalAssetDerivationID,
     ) -> api.DigitalAssetDerivationRecord:
         """
-        Return one registered derivation record.
+        Read the retained derivation mapping under the manager lock.
+
+        A missing key becomes DigitalAssetDerivationNotFound chained from KeyError. The record is
+        not copied or checked for current source availability.
+
+        Example:
+            >>> record = manager.get_digital_asset_derivation_record(derivation_id)  # doctest: +SKIP
 
 
-        :param digital_asset_derivation_id:
-        :return:
+        :param digital_asset_derivation_id: Key identifying the registered provenance assertion.
+        :return: Stored record reference; DigitalAssetDerivationNotFound when the key is absent.
         """
 
         with self._lock:
@@ -263,16 +330,26 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
         exact_only: bool = False,
     ) -> Iterator[api.DigitalAssetDerivationRecord]:
         """
-        Iterate over an ID-ordered, provenance-filtered snapshot.
+        Validate workflow filters and capture matching records under the lock in sorted mapping-key
+        order.
+
+        All filters are conjunctive. Atomic and Composite source IDs match only direct declaration
+        references, independently; neither Composite members nor recipe-only inputs are expanded.
+        Asset IDs are not resolved, and exact_only tests the stored recipe claim rather than current
+        recoverability. The tuple captures record references at call time, without holding the lock
+        during subsequent iteration.
+
+        Example:
+            >>> records = tuple(manager.iter_digital_asset_derivation_records(exact_only=True))  # doctest: +SKIP
 
 
-        :param result_digital_asset_id:
-        :param source_digital_asset_id:
-        :param source_composite_digital_asset_id:
-        :param workflow_id:
-        :param workflow_reference:
-        :param exact_only:
-        :return:
+        :param result_digital_asset_id: Optional result identity matched directly; None leaves this dimension unrestricted.
+        :param source_digital_asset_id: Optional direct atomic provenance source; Composite members and recipe-only inputs are not expanded for this filter.
+        :param source_composite_digital_asset_id: Optional directly referenced Composite identity, matched independently of the atomic-source filter.
+        :param workflow_id: Optional positive workflow ID; None includes all workflow IDs.
+        :param workflow_reference: Optional nonblank workflow label compared exactly, without stripping retained text.
+        :param exact_only: Whether to retain only records whose recipes claim complete EXACT enum reproducibility.
+        :return: Iterator over the eager tuple snapshot, possibly empty; invalid workflow filters raise before capture.
         """
 
         if workflow_id is not None and workflow_id <= 0:
@@ -329,16 +406,32 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
         exact_only: bool = False,
     ) -> api.DigitalAssetDerivationGraph:
         """
-        Return a stable breadth-first provenance graph around one Asset.
+        Index filtered provenance and combine stable breadth-first walks rooted at one registered
+        Asset.
+
+        Root lookup precedes the nonnegative-depth check, direction coercion, and workflow-filter
+        validation. Every matching record is indexed before walking; Composite expansion errors can
+        therefore arise from records outside the requested neighbourhood. Recipe inputs and all
+        current Composite members participate, while managed executor/dependency Assets are
+        excluded.
+
+        BOTH walks ancestors first and descendants second, each starting at the root with a fresh
+        visited set. Shared inventories deduplicate first encounters; co-inputs in descendant
+        records need not appear in the atomic inventory. Adjacency at the depth cutoff sets
+        truncated even when already encountered elsewhere. No lock spans record capture, member
+        expansion, and traversal.
+
+        Example:
+            >>> graph = manager.get_derivation_graph(asset_id, direction="both", max_depth=2)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param direction:
-        :param max_depth:
-        :param workflow_id:
-        :param workflow_reference:
-        :param exact_only:
-        :return:
+        :param digital_asset_id: Registered atomic root, resolved before direction/depth/filter validation.
+        :param direction: Ancestors, descendants, or both, accepted as an enum or its exact string value.
+        :param max_depth: Optional nonnegative edge-depth limit; zero retains the root only and None imposes no limit.
+        :param workflow_id: Optional positive workflow ID; None includes all workflow IDs.
+        :param workflow_reference: Optional nonblank workflow label compared exactly, without stripping retained text.
+        :param exact_only: Whether to retain only records whose recipes claim complete EXACT enum reproducibility.
+        :return: New graph value with ordered node/record tuples; lookup, filter, direction, and expansion failures propagate.
         """
 
         self.get_digital_asset_record(digital_asset_id)
@@ -401,11 +494,19 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
         dict[api.DigitalAssetID, list[api.DigitalAssetDerivationRecord]],
     ]:
         """
-        Index records by result and expanded atomic source for traversal.
+        Build result/source adjacency indexes from supplied records and expanded atomic inputs.
+
+        Source IDs are deduplicated and sorted after adding current Composite members and recipe
+        inputs, excluding managed executables/dependencies. Adjacency lists retain the input record
+        order. Every record is expanded, including disconnected ones; failures propagate and no
+        whole-graph snapshot lock is acquired here.
+
+        Example:
+            >>> sources, results, inputs = manager._index_derivation_graph(records)  # doctest: +SKIP
 
 
-        :param records:
-        :return:
+        :param records: Ordered provenance snapshot; normal callers provide unique derivation IDs.
+        :return: Three new dictionaries: sources per derivation, records per result, and records per atomic source.
         """
 
         sources_by_derivation = {
@@ -442,11 +543,25 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
         digital_asset_id: api.DigitalAssetID,
     ) -> api.DigitalAssetRecreationPlan:
         """
-        Select a shortest viable, topologically ordered exact replay route.
+        Validate the requested Asset and project a recursively selected branch into a public replay
+        plan.
+
+        A fresh memo and empty visiting set scope the recursive search to this call. Readable roots
+        need no replay; other branches compare viable proposals by step count and derivation ID.
+        Prerequisites precede consumers, without claiming a globally optimized shared-work schedule
+        or reserving bytes/tools.
+
+        The projection sorts availability IDs and deduplicates alternatives and warnings in
+        first-occurrence order, removing the selected derivation from alternatives. Ordinary
+        unavailability returns diagnostic evidence; lookup and unexpected helper failures remain
+        visible.
+
+        Example:
+            >>> plan = manager.plan_digital_asset_recreation(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic result whose current readability or exact replay route is requested.
+        :return: New recreation plan retaining branch steps, selected/alternative recipes, availability IDs, and warnings.
         """
 
         self.get_digital_asset_record(digital_asset_id)
@@ -482,12 +597,20 @@ class DigitalAssetDerivationRegistryMixin(_StorageManagerState):
         if_revision: str | None = None,
     ) -> bool:
         """
-        Forget one provenance assertion under revision control.
+        Delete one provenance mapping entry under the lock and metadata transaction.
+
+        An absent ID returns False before revision validation. Existing entries require any supplied
+        revision to match, then are deleted without checking recreation-policy dependence or
+        cascading to Asset bytes, other derivations, or workflow records. Adapter transaction
+        behavior governs failure persistence.
+
+        Example:
+            >>> removed = manager.forget_digital_asset_derivation(derivation_id, if_revision=revision)  # doctest: +SKIP
 
 
-        :param digital_asset_derivation_id:
-        :param if_revision:
-        :return:
+        :param digital_asset_derivation_id: Provenance identity to remove from the registry.
+        :param if_revision: Optional expected revision; None disables this precondition for an existing record.
+        :return: True after deletion, False for absence; stale revisions raise StoragePreconditionFailed.
         """
 
         with self._lock, self._metadata_transaction():

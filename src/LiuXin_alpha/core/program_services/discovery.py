@@ -1,4 +1,11 @@
-"""Core-owned discovery operations and wire translation."""
+"""
+Describe the declared Core operation families and expose completed-job results and byte-oriented log slices.
+
+Capability discovery measures registered names against a fixed manifest, not
+driver/plugin/network readiness. Job result and log access delegate scheduling
+and path ownership to the job manager; they do not establish a new authorization
+boundary or a consistent snapshot of a running job's output.
+"""
 
 from __future__ import annotations
 
@@ -208,6 +215,23 @@ def capabilities_list(
     runtime: CoreRuntime,
     query: CoreQuery,
 ) -> dict[str, Any]:
+    """
+    Compare declared program-family names with the runtime's registered command/query union.
+
+    Family registered and legacy available flags mean no declared names are missing,
+    not that dependencies work. Per-operation availability is a static conditional/
+    available label even when registered=False; implementation and call_modes are
+    also declarations, not probes. Extra runtime names are not added to the manifest.
+    complete_program_boundary means only that every declared name was found.
+
+    Example:
+        >>> capabilities = capabilities_list(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime providing target-free API descriptions and api_version.
+    :param query: Ignored query envelope; no dependency checks or family filters are requested.
+    :return: API version, declared families/operations, registration completeness, and static dependency notes.
+    """
     del query
     described = runtime.describe_api(include_targets=False)
     names = {
@@ -261,6 +285,23 @@ def capabilities_list(
 
 
 def jobs_result(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
+    """
+    Obtain a job execution result using the manager's timeout semantics without re-raising ordinary job failure.
+
+    timeout_s is None when absent/None, otherwise float-converted without adapter
+    range or finite checks. raise_on_failure=False lets the execution report carry
+    failure information. KeyError becomes an unknown-job dispatch error; timeout,
+    manager, and projection failures otherwise propagate.
+
+    Example:
+        >>> result = jobs_result(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime whose job manager resolves the execution result.
+    :param query: Query with required job_id text and optional timeout_s.
+    :return: Stripped job_id and plain-projected execution value, including failure reports.
+    :raises CoreDispatchError: If job_id is invalid or manager.result raises KeyError.
+    """
     payload = _payload(query)
     job_id = _required_text(payload, "job_id")
     timeout_raw = payload.get("timeout_s")
@@ -280,6 +321,25 @@ def jobs_result(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
 
 
 def jobs_log_read(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
+    """
+    Read a byte-bounded slice from the job's trusted log path and decode it with UTF-8 replacement errors.
+
+    Offset is a nonnegative byte position, not a character count. max_bytes defaults
+    to 64 KiB, must be positive, and is capped at 1 MiB; explicit None bounds reach
+    assertions. A one-byte lookahead determines eof at read time, not job completion.
+    Slicing through a multibyte character can introduce replacement characters.
+    Missing log_path yields available=False; a present unreadable path raises.
+    The adapter does not confine the manager-provided path to a log directory.
+
+    Example:
+        >>> page = jobs_log_read(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Runtime whose job manager supplies the job and its optional log_path.
+    :param query: Query with job_id, optional offset=0, and max_bytes=65536.
+    :return: Decoded text, requested/current next byte offsets, read-time eof, and path-availability flag.
+    :raises CoreDispatchError: For invalid request bounds/ID or KeyError from job lookup.
+    """
     payload = _payload(query)
     job_id = _required_text(payload, "job_id")
     offset = _optional_int(payload, "offset", default=0, minimum=0)

@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Example: start ``StorageManager`` with one filesystem Store and use it."""
+"""
+Publish one text payload and read it through three StorageManager lookup forms.
+
+A filesystem Store owns bytes and a sibling <store-root-name>-catalog.sqlite
+catalogue owns Asset/Replica metadata. Use the application manager with a database,
+then compare record-, ID-, and Digest-based reads against the original UTF-8 bytes.
+The JSON report includes durable IDs and a short preview; created files remain.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +32,17 @@ from LiuXin_alpha.storage.stores import FilesystemStore
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse a required managed root, a Store name defaulting to manual_demo_store, and payload text
+    defaulting to manual storage manager demo. Path expansion, root creation, and text encoding
+    happen in main.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Parsed argparse namespace; help and invalid arguments raise SystemExit.
+    """
     parser = argparse.ArgumentParser(
         description="Start StorageManager and perform a local round-trip",
     )
@@ -35,6 +53,23 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """
+    Create the local demo Store/catalogue, publish text, and print its three-form readback.
+    Expand/resolve and create the root, construct its named Store, and open the sibling catalogue
+    with create=True, backup=False, and automatic manager initialization disabled. Redirect
+    schema-construction stdout to stderr. Within database/manager contexts, store the UTF-8 payload
+    with fixed descriptive metadata, select its SHA-256 and first Replica, and read by Asset record,
+    ID, and Digest. The all_read_forms_match flag compares all results with the original bytes; the
+    preview is limited to 160 decoded characters. Close Stores before the catalogue, then print
+    JSON. Use a suitable scratch root: published bytes/catalogue remain, with no rollback or removal
+    after later failures.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero after printing the report; parsing, storage, and cleanup errors propagate.
+    """
     args = parse_args()
     store_root = Path(args.store_root).expanduser().resolve()
     store_root.mkdir(parents=True, exist_ok=True)

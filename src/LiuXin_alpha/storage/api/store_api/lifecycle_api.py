@@ -1,5 +1,13 @@
 """
-Configured-store lifecycle and dynamic status facade.
+Define configured-Store startup, probing, cached status, and resource release.
+
+Concrete wrappers combine endpoint state with Store configuration. These abstract
+operations do not persist registry state or implement a universal probe policy.
+The available/writable properties return the corresponding status fields and
+leave status failures visible.
+
+Example:
+    >>> status = store.status(refresh=True)  # doctest: +SKIP
 """
 
 from __future__ import annotations
@@ -13,9 +21,8 @@ class StoreLifecycleAPI(abc.ABC):
     """
     Start, probe, inspect, and close one configured store.
 
-    Lifecycle belongs to the configured store wrapper.  Backend connection
-    details remain below this boundary and durable registry persistence remains
-    in the storage manager.
+    Lifecycle belongs to the configured store wrapper.  Backend connection details remain below this
+    boundary and durable registry persistence remains in the storage manager.
 
     Example:
         >>> def check_writable(store: StoreLifecycleAPI) -> bool:
@@ -31,7 +38,7 @@ class StoreLifecycleAPI(abc.ABC):
             >>> status = store.startup()  # doctest: +SKIP
 
 
-        :return:
+        :return: Resulting StoreStatus after the implementation attempts startup; callers must inspect its state.
         """
         ...
 
@@ -44,7 +51,7 @@ class StoreLifecycleAPI(abc.ABC):
             >>> status = store.probe()  # doctest: +SKIP
 
 
-        :return:
+        :return: Fresh operational status after checking this configured endpoint.
         """
         ...
 
@@ -57,8 +64,8 @@ class StoreLifecycleAPI(abc.ABC):
             >>> status = store.status(refresh=True)  # doctest: +SKIP
 
 
-        :param refresh:
-        :return:
+        :param refresh: Whether to request a fresh probe instead of returning cached status.
+        :return: Current StoreStatus under the implementation's cached/refresh policy.
         """
         ...
 
@@ -67,11 +74,13 @@ class StoreLifecycleAPI(abc.ABC):
         """
         Return current availability without concealing status failures.
 
+        This property adds no probe call or fallback value of its own.
+
         Example:
             >>> available = store.available  # doctest: +SKIP
 
 
-        :return:
+        :return: The available field returned by status() with its default refresh policy.
         """
         return self.status().available
 
@@ -80,11 +89,14 @@ class StoreLifecycleAPI(abc.ABC):
         """
         Return whether current store status permits writes.
 
+        Concrete status production owns the combination of endpoint state and configured read-only
+        policy.
+
         Example:
             >>> writable = store.writable  # doctest: +SKIP
 
 
-        :return:
+        :return: The writable field returned by status(), without an additional availability or capability test here.
         """
         return self.status().writable
 
@@ -99,7 +111,7 @@ class StoreLifecycleAPI(abc.ABC):
             >>> store.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after implementation-owned cleanup; concrete cleanup failures may propagate.
         """
         ...
 

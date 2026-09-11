@@ -1,4 +1,10 @@
-"""Collect database creation choices and apply them through a Core session."""
+"""
+Collect interactive database-creation choices separately from applying them through Core.
+
+The wizard inspects paths and asks for approval without creating directories or
+databases itself. The application step creates parents and opens/closes a creation
+session; backend validation, replacement, and backup behavior belong to Core.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +27,19 @@ from LiuXin_alpha.surfaces.terminal.presentation import (
 
 @dataclass
 class DatabaseCreationWizardConfig:
-    """Configuration collected from the interactive database creation wizard."""
+    """
+    Hold a database target/backend and the approved backup/storage-bootstrap options.
+
+    ``database_path`` is a filesystem target, ``db_type`` selects the backend,
+    and ``backup_existing`` requests backup during recreation. Storage options
+    request manager integration, strict bootstrap errors, and store startup checks
+    on addition. This mutable record does not validate those values or create state.
+
+    Example:
+        >>> config = DatabaseCreationWizardConfig(Path("library.sqlite"), "SQLite", True, False, False, False)
+        >>> (config.db_type, config.backup_existing)
+        ('SQLite', True)
+    """
 
     database_path: Path
     db_type: str
@@ -38,7 +56,27 @@ def run_database_creation_wizard(
     input_stream: TextIO = sys.stdin,
     output_stream: TextIO = sys.stdout,
 ) -> DatabaseCreationWizardConfig | None:
-    """Interactively collect configuration for creating a new database."""
+    """
+    Prompt for a target/backend and creation policies, returning approved choices or cancellation.
+
+    Expand home-directory syntax and inspect whether the target/parent exists.
+    Missing-parent approval is collected but not executed here. Existing targets
+    require recreation approval before offering backup. Storage choices and a printed
+    summary precede final confirmation. Backend names and path suitability are not
+    validated; EOF uses each prompt's default, including final approval by default.
+
+    Example:
+        >>> config = run_database_creation_wizard(  # doctest: +SKIP
+        ...     default_database_path="library.sqlite"
+        ... )
+
+
+    :param default_database_path: Initial filesystem target displayed after home expansion.
+    :param default_db_type: Initial backend name retained when its response is blank.
+    :param input_stream: Text stream supplying wizard responses; default is bound at definition time.
+    :param output_stream: Text stream receiving flushed prompts, summary, and cancellation messages.
+    :return: Collected configuration, or ``None`` when parent creation, recreation, or final approval is declined.
+    """
     output_stream.write("Database creation wizard\n")
     output_stream.write("------------------------\n")
     output_stream.flush()
@@ -153,7 +191,20 @@ def run_database_creation_wizard(
 
 
 def create_database_from_wizard(config: DatabaseCreationWizardConfig) -> Path:
-    """Create a database using wizard-provided configuration."""
+    """
+    Create parent directories and open/close a Core database-creation session with the collected options.
+
+    The target is home-expanded but not resolved to an absolute path. Backup and
+    storage options are converted to booleans and forwarded to Core. Filesystem,
+    creation, bootstrap, or close errors propagate; created parents are not rolled back.
+
+    Example:
+        >>> created_path = create_database_from_wizard(config)  # doctest: +SKIP
+
+
+    :param config: Target, backend, and backup/storage policies approved by the caller.
+    :return: Expanded database path after the creation session closes normally.
+    """
     db_path = config.database_path.expanduser()
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with SurfaceCoreSession.open(

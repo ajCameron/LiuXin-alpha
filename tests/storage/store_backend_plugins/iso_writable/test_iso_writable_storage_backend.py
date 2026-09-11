@@ -1,4 +1,11 @@
-"""Atomic writable ISO driver, Store, interoperability, and Unicode coverage."""
+"""
+Exercise ISO write publication, normalization, interoperability, and Unicode paths.
+
+Real image writes cover staging, modes, size/topology limits, reopening, and
+concurrent commits. Injected builder failures and descriptor edits isolate named
+failure/policy boundaries. External file recognition and POSIX byte-name checks
+have availability/platform markers; they do not claim universal format conformance.
+"""
 
 from __future__ import annotations
 
@@ -42,6 +49,20 @@ from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
 
 
 def test_writable_iso_creates_valid_empty_image_and_reports_capabilities(tmp_path) -> None:
+    """
+    Create and parse a real empty image, then check normalized volume ID, registry aliases, and
+    advertised write limits.
+
+    The capability/characteristic assertions describe supported policy rather than exercising every
+    operation.
+
+    Example:
+        >>> test_writable_iso_creates_valid_empty_image_and_reports_capabilities(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = tmp_path / "library.iso"
     store = IsoWritableStorageBackend(
         str(image),
@@ -87,6 +108,17 @@ def test_writable_iso_creates_valid_empty_image_and_reports_capabilities(tmp_pat
 
 
 def test_registry_preserves_configured_read_only_policy_for_writable_iso(tmp_path) -> None:
+    """
+    Build the writable backend under read-only configuration and verify facade policy, startup
+    status, reads, and write rejection.
+
+    Example:
+        >>> test_registry_preserves_configured_read_only_policy_for_writable_iso(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = build_joliet_iso(
         tmp_path / "policy.iso",
         {"book.epub": b"book"},
@@ -120,6 +152,20 @@ def test_registry_preserves_configured_read_only_policy_for_writable_iso(tmp_pat
 
 
 def test_registry_restores_durable_lossy_rebuild_policy(tmp_path) -> None:
+    """
+    Restore create/lossy options through the registry and check retained configuration and probe
+    details.
+
+    The empty image has no actual loss feature, so this checks option restoration rather than
+    destructive normalization.
+
+    Example:
+        >>> test_registry_restores_durable_lossy_rebuild_policy(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = tmp_path / "configured.iso"
     configuration = api.StoreConfiguration(
         store_uuid=UUID(int=3),
@@ -139,6 +185,17 @@ def test_registry_restores_durable_lossy_rebuild_policy(tmp_path) -> None:
 
 
 def test_writable_iso_commit_reads_ranges_and_survives_reopen(tmp_path) -> None:
+    """
+    Publish empty, multiblock, literal-suffix, and ordinary members; verify ranges and reopen
+    through both Store adapters.
+
+    Example:
+        >>> test_writable_iso_commit_reads_ranges_and_survives_reopen(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = tmp_path / "library.iso"
     store = IsoWritableStorageBackend(str(image))
 
@@ -168,6 +225,16 @@ def test_writable_iso_commit_reads_ranges_and_survives_reopen(tmp_path) -> None:
 
 
 def test_writable_iso_supports_generic_copy_move_and_empty_snapshot(tmp_path) -> None:
+    """
+    Exercise Store copy/move/delete calls and reopen the resulting valid empty image.
+
+    Example:
+        >>> test_writable_iso_supports_generic_copy_move_and_empty_snapshot(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = tmp_path / "library.iso"
     store = IsoWritableStorageBackend(str(image))
     source = store.store_bytes(b"book", location="source/book.epub")
@@ -185,6 +252,17 @@ def test_writable_iso_supports_generic_copy_move_and_empty_snapshot(tmp_path) ->
 
 
 def test_writable_iso_enforces_create_replace_upsert_and_delete(tmp_path) -> None:
+    """
+    Exercise collision modes, conditional delete using image versions, and missing-member delete
+    policy.
+
+    Example:
+        >>> test_writable_iso_enforces_create_replace_upsert_and_delete(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     store = IsoWritableStorageBackend(str(tmp_path / "library.iso"))
     original = store.store_bytes(b"one", location="book.txt")
 
@@ -220,6 +298,18 @@ def test_writable_iso_enforces_create_replace_upsert_and_delete(tmp_path) -> Non
 
 
 def test_writable_iso_abort_and_integrity_failure_leave_image_unchanged(tmp_path) -> None:
+    """
+    Compare real image bytes before and after implicit context abort and an expected-digest failure.
+
+    These failures precede publication and do not establish rollback for later failures.
+
+    Example:
+        >>> test_writable_iso_abort_and_integrity_failure_leave_image_unchanged(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = tmp_path / "library.iso"
     store = IsoWritableStorageBackend(str(image), deterministic=True)
     store.store_bytes(b"stable", location="stable.bin")
@@ -242,6 +332,17 @@ def test_writable_iso_abort_and_integrity_failure_leave_image_unchanged(tmp_path
 
 
 def test_writable_iso_enforces_streamed_member_limit_before_publication(tmp_path) -> None:
+    """
+    Reject an offered payload above the four-byte ceiling and preserve the original image and absent
+    key.
+
+    Example:
+        >>> test_writable_iso_enforces_streamed_member_limit_before_publication(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = tmp_path / "bounded-member.iso"
     store = IsoWritableStorageBackend(
         str(image),
@@ -259,6 +360,17 @@ def test_writable_iso_enforces_streamed_member_limit_before_publication(tmp_path
 
 
 def test_writable_iso_preflights_total_logical_size_and_persists_policy(tmp_path) -> None:
+    """
+    Reject aggregate member-byte excess before publication and check persisted size/ratio/path
+    options.
+
+    Example:
+        >>> test_writable_iso_preflights_total_logical_size_and_persists_policy(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = tmp_path / "bounded-total.iso"
     store = IsoWritableStorageBackend(
         str(image),
@@ -288,12 +400,37 @@ def test_failed_iso_rebuild_preserves_published_image(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Inject a builder that writes a partial candidate then raises, preserving the published image and
+    removing staging artifacts.
+
+    Example:
+        >>> test_failed_iso_rebuild_preserves_published_image(tmp_path, monkeypatch)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :param monkeypatch: Pytest fixture restoring injected builder behavior after the test.
+    :return: None after the stated regression assertions pass.
+    """
     image = tmp_path / "library.iso"
     store = IsoWritableStorageBackend(str(image), deterministic=True)
     store.store_bytes(b"stable", location="stable.bin")
     original = image.read_bytes()
 
     def fail_build(self, destination, sources):
+        """
+        Write partial candidate bytes and raise the synthetic builder failure without consuming
+        sources.
+
+        Example:
+            >>> fail_build(writer, candidate, sources)  # doctest: +SKIP
+
+
+        :param self: Injected writer receiver, intentionally discarded.
+        :param destination: Candidate path receiving the PARTIAL marker.
+        :param sources: Ignored member-source mapping.
+        :return: Never returns normally: raises RuntimeError after writing the candidate marker.
+        """
         del self, sources
         destination.write_bytes(b"PARTIAL")
         raise RuntimeError("synthetic ISO builder failure")
@@ -312,12 +449,39 @@ def test_writable_iso_does_not_overwrite_an_external_image_change(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Inject an external replacement after candidate construction and require the prepublication
+    signature check to reject.
+
+    This tests that specific ordering, not the smaller race between final stat and os.replace.
+
+    Example:
+        >>> test_writable_iso_does_not_overwrite_an_external_image_change(tmp_path, monkeypatch)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :param monkeypatch: Pytest fixture restoring injected builder behavior after the test.
+    :return: None after the stated regression assertions pass.
+    """
     image = tmp_path / "library.iso"
     store = IsoWritableStorageBackend(str(image), deterministic=True)
     store.store_bytes(b"stable", location="stable.bin")
     original_build = _IsoImageWriter.build
 
     def race_build(self, destination, sources):
+        """
+        Build a valid candidate using the captured implementation, then overwrite the published
+        image before validation continues.
+
+        Example:
+            >>> race_build(writer, candidate, sources)  # doctest: +SKIP
+
+
+        :param self: Writer instance passed to the captured build implementation.
+        :param destination: Unpublished candidate destination.
+        :param sources: Member-source mapping forwarded to the original builder.
+        :return: None after candidate construction and the injected external image write.
+        """
         original_build(self, destination, sources)
         image.write_bytes(b"EXTERNAL-REPLACEMENT")
 
@@ -331,6 +495,16 @@ def test_writable_iso_does_not_overwrite_an_external_image_change(
 
 
 def test_writable_iso_can_require_an_existing_image(tmp_path) -> None:
+    """
+    Reject a missing image with create_image=False and leave the destination absent.
+
+    Example:
+        >>> test_writable_iso_can_require_an_existing_image(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     missing = tmp_path / "missing.iso"
 
     with pytest.raises(api.StorageNotFound, match="does not exist"):
@@ -340,6 +514,16 @@ def test_writable_iso_can_require_an_existing_image(tmp_path) -> None:
 
 
 def test_writable_iso_rejects_file_directory_collisions_without_publication(tmp_path) -> None:
+    """
+    Reject a child path descending through an existing file and preserve original image bytes.
+
+    Example:
+        >>> test_writable_iso_rejects_file_directory_collisions_without_publication(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = tmp_path / "library.iso"
     store = IsoWritableStorageBackend(str(image), deterministic=True)
     store.store_bytes(b"file", location="collision")
@@ -354,6 +538,16 @@ def test_writable_iso_rejects_file_directory_collisions_without_publication(tmp_
 
 
 def test_writable_iso_inventory_limit_fails_before_rebuild(tmp_path) -> None:
+    """
+    Reject a second regular source under a one-entry cap and preserve the first member/image.
+
+    Example:
+        >>> test_writable_iso_inventory_limit_fails_before_rebuild(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = tmp_path / "limited.iso"
     store = IsoWritableStorageBackend(str(image), max_inventory_entries=1)
     store.store_bytes(b"one", location="one.bin")
@@ -367,6 +561,17 @@ def test_writable_iso_inventory_limit_fails_before_rebuild(tmp_path) -> None:
 
 
 def test_writable_iso_imports_existing_joliet_image_before_mutation(tmp_path) -> None:
+    """
+    Retain existing Joliet file keys/bytes while adding Unicode content and normalize the published
+    namespace to Rock Ridge.
+
+    Example:
+        >>> test_writable_iso_imports_existing_joliet_image_before_mutation(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = build_joliet_iso(
         tmp_path / "existing.iso",
         {
@@ -387,6 +592,19 @@ def test_writable_iso_imports_existing_joliet_image_before_mutation(tmp_path) ->
 def test_writable_iso_blocks_detected_lossy_rebuild_without_explicit_approval(
     tmp_path,
 ) -> None:
+    """
+    Patch an NM signature to SL and require inspection warnings plus blocked mutation without image
+    changes.
+
+    The fixture supplies synthetic link evidence rather than a full external symlink authoring path.
+
+    Example:
+        >>> test_writable_iso_blocks_detected_lossy_rebuild_without_explicit_approval(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = build_rock_ridge_iso(
         tmp_path / "foreign.iso",
         {b"legacy-link": b"link target"},
@@ -416,6 +634,17 @@ def test_writable_iso_blocks_detected_lossy_rebuild_without_explicit_approval(
 def test_writable_iso_allows_explicit_lossy_normalization_and_advertises_it(
     tmp_path,
 ) -> None:
+    """
+    Allow normalization of synthetic SL evidence, report the loss policy, and publish only the new
+    regular member.
+
+    Example:
+        >>> test_writable_iso_allows_explicit_lossy_normalization_and_advertises_it(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = build_rock_ridge_iso(
         tmp_path / "foreign.iso",
         {b"legacy-link": b"link target"},
@@ -444,6 +673,18 @@ def test_writable_iso_allows_explicit_lossy_normalization_and_advertises_it(
 def test_writable_iso_detects_boot_and_udf_bridge_features_before_rebuild(
     tmp_path,
 ) -> None:
+    """
+    Inject boot and UDF recognition descriptors and require loss warnings and blocked mutation.
+
+    Recognition markers do not assert a fully valid bootable or UDF filesystem.
+
+    Example:
+        >>> test_writable_iso_detects_boot_and_udf_bridge_features_before_rebuild(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = build_iso9660_iso(
         tmp_path / "hybrid.iso",
         {"BOOK.BIN": b"book"},
@@ -475,6 +716,20 @@ def test_writable_iso_detects_boot_and_udf_bridge_features_before_rebuild(
 
 
 def test_writable_iso_emits_an_independently_readable_joliet_namespace(tmp_path) -> None:
+    """
+    Disable Rock Ridge recognition in a copied output and read its Unicode name through the
+    remaining Joliet namespace.
+
+    Uses the project reader with alternate selection, not an independent external ISO
+    implementation.
+
+    Example:
+        >>> test_writable_iso_emits_an_independently_readable_joliet_namespace(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     image = tmp_path / "joliet.iso"
     key = "書庫/東京-Café-👩‍💻.epub"
     store = IsoWritableStorageBackend(str(image), include_joliet=True)
@@ -493,6 +748,17 @@ def test_writable_iso_emits_an_independently_readable_joliet_namespace(tmp_path)
 
 
 def test_writable_iso_applies_generic_unicode_torture_contract(tmp_path) -> None:
+    """
+    Seed real image members through Store writes and exercise shared Unicode
+    addressing/inventory/read/range/hint checks, then reopen all keys.
+
+    Example:
+        >>> test_writable_iso_applies_generic_unicode_torture_contract(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     store = IsoWritableStorageBackend(
         str(tmp_path / "unicode.iso"),
         deterministic=True,
@@ -515,6 +781,19 @@ def test_writable_iso_applies_generic_unicode_torture_contract(tmp_path) -> None
 
 @pytest.mark.skipif(os.name != "posix", reason="surrogateescape is a POSIX byte-name contract")
 def test_writable_iso_round_trips_surrogateescaped_name_bytes(tmp_path) -> None:
+    """
+    Preserve undecodable POSIX filename bytes through writing, readonly reopening, and payload
+    access.
+
+    The platform marker skips this encoding contract outside POSIX.
+
+    Example:
+        >>> test_writable_iso_round_trips_surrogateescaped_name_bytes(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     store = IsoWritableStorageBackend(str(tmp_path / "legacy.iso"))
     key = "legacy/" + POSIX_BAD_BYTES_FILENAME
 
@@ -527,6 +806,17 @@ def test_writable_iso_round_trips_surrogateescaped_name_bytes(tmp_path) -> None:
 
 
 def test_writable_iso_uses_susp_continuation_for_long_rock_ridge_names(tmp_path) -> None:
+    """
+    Round-trip a 254-byte name requiring continuation data and reject a component exceeding 255
+    encoded bytes.
+
+    Example:
+        >>> test_writable_iso_uses_susp_continuation_for_long_rock_ridge_names(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     store = IsoWritableStorageBackend(str(tmp_path / "long-name.iso"))
     key = "x" * 250 + ".bin"
 
@@ -539,9 +829,30 @@ def test_writable_iso_uses_susp_continuation_for_long_rock_ridge_names(tmp_path)
 
 
 def test_writable_iso_serializes_concurrent_commits_without_losing_members(tmp_path) -> None:
+    """
+    Publish eight members through one Store with four worker threads and verify every final key and
+    payload.
+
+    Example:
+        >>> test_writable_iso_serializes_concurrent_commits_without_losing_members(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     store = IsoWritableStorageBackend(str(tmp_path / "concurrent.iso"))
 
     def publish(index: int) -> None:
+        """
+        Write one index-derived member through the enclosing shared Store.
+
+        Example:
+            >>> publish(3)  # doctest: +SKIP
+
+
+        :param index: Integer used in both the destination key and payload text.
+        :return: None after the Store commit completes; failures propagate to executor iteration.
+        """
         store.store_bytes(
             f"payload-{index}".encode(),
             location=f"objects/{index}.bin",
@@ -558,6 +869,18 @@ def test_writable_iso_serializes_concurrent_commits_without_losing_members(tmp_p
 
 
 def test_writable_iso_deterministic_mode_reproduces_identical_image(tmp_path) -> None:
+    """
+    Perform the same writes on two deterministic Stores and compare their complete image bytes.
+
+    This establishes repeatability for the same operation sequence and policy.
+
+    Example:
+        >>> test_writable_iso_deterministic_mode_reproduces_identical_image(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     first = IsoWritableStorageBackend(
         str(tmp_path / "first.iso"),
         deterministic=True,
@@ -576,6 +899,17 @@ def test_writable_iso_deterministic_mode_reproduces_identical_image(tmp_path) ->
 
 
 def test_writable_iso_rejects_native_metadata_and_oversized_declared_member(tmp_path) -> None:
+    """
+    Reject nonempty native metadata and a declared 2**32-byte member before allocating a write
+    session.
+
+    Example:
+        >>> test_writable_iso_rejects_native_metadata_and_oversized_declared_member(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     driver = WritableIsoStorageDriver(
         tmp_path / "limits.iso",
         address_space_uuid=UUID(int=1),
@@ -590,6 +924,19 @@ def test_writable_iso_rejects_native_metadata_and_oversized_declared_member(tmp_
 
 @pytest.mark.skipif(shutil.which("file") is None, reason="file utility is unavailable")
 def test_writable_iso_is_recognized_by_independent_file_utility(tmp_path) -> None:
+    """
+    Run the optional external file utility and require it to recognize the image format and BOOKS
+    volume ID.
+
+    This is format recognition, not external payload extraction or full conformance validation.
+
+    Example:
+        >>> test_writable_iso_is_recognized_by_independent_file_utility(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real candidate, published, and fixture images.
+    :return: None after the stated regression assertions pass.
+    """
     store = IsoWritableStorageBackend(
         str(tmp_path / "interoperable.iso"),
         volume_id="BOOKS",
@@ -607,6 +954,16 @@ def test_writable_iso_is_recognized_by_independent_file_utility(tmp_path) -> Non
 
 
 def test_driver_package_exports_writable_iso_driver() -> None:
+    """
+    Require the public driver export to be the actual writable implementation and an ISO-reader
+    subclass.
+
+    Example:
+        >>> test_driver_package_exports_writable_iso_driver()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.storage.drivers import WritableIsoStorageDriver as exported
 
     assert exported is WritableIsoStorageDriver

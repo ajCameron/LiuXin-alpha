@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Match Works, Agents, identifiers, and scoped WEMI candidates."""
+"""
+Demonstrate exact, candidate, policy, identifier, and parent-scoped catalogue matching.
+
+Seed Works, an Agent, tag, identifiers, and an Item, then print compact decisions
+and match-or-create reuse observations. A deliberately duplicated Work title shows
+ambiguity handling; a near tag name compares default matching with policy opt-in.
+The shared context controls database retention and optional template seeding.
+"""
 
 from __future__ import annotations
 
@@ -20,7 +27,18 @@ from LiuXin_alpha.catalog.api import (
 
 
 def parse_args() -> argparse.Namespace:
-    """Return command-line arguments for the matching example."""
+    """
+    Parse process arguments for the deterministic matching demonstration. The shared --database
+    option yields a Path when supplied and None otherwise. Directory expansion, refusal of an
+    existing retained path, temporary allocation, and template handling occur only when
+    open_catalog_example is entered.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Namespace with the optional database path; help or invalid syntax raises SystemExit.
+    """
 
     parser = argparse.ArgumentParser(description="Catalog deterministic matching example")
     add_database_argument(parser)
@@ -28,7 +46,21 @@ def parse_args() -> argparse.Namespace:
 
 
 def compact_match(result: MatchResult | None) -> dict[str, object] | None:
-    """Return the explanatory fields from one match result."""
+    """
+    Project one match result into the explanatory fields printed by this example. Return None
+    unchanged. Otherwise retain entity ID, decision, confidence, reason, matched fields,
+    alternatives, and is_match; build an evidence list containing each item's field, kind, score,
+    and decisive flag. Values are copied by reference except for the new outer containers. No
+    additional scoring, filtering, or JSON sanitization occurs here.
+
+    Example:
+        >>> compact_match(None) is None
+        True
+
+
+    :param result: Optional MatchResult whose decision and evidence should be displayed.
+    :return: None or a new dictionary of selected result fields and projected evidence entries.
+    """
 
     if result is None:
         return None
@@ -53,7 +85,25 @@ def compact_match(result: MatchResult | None) -> dict[str, object] | None:
 
 
 def main() -> int:
-    """Run exact, candidate, scoped, and match-or-create examples."""
+    """
+    Seed matching cases and print decisions, evidence, and reuse observations. Create a Work and
+    parent-scoped Expression, repeat Expression creation, and match/create an Agent and UUID
+    identifier linked to the Work. Compare exact/candidate/non-match lookups, identifier-backed Work
+    matching, and exact/near tag results with policy opt-in. Add a separate Item-scoped identifier
+    and repeat match-or-create for another Work.
+
+    Create two Works with the same deliberate title, record the ambiguous match, and catch
+    CatalogAmbiguousMatchError from match-or-create. If no such error occurs, report not_blocked
+    rather than failing the command. Render selected matching evidence and known IDs inside the
+    shared catalogue context. Reuse/ambiguity observations do not determine the exit status;
+    unrelated errors propagate.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero after reporting and context cleanup; uncaught parsing, catalogue, rendering, or cleanup failures propagate.
+    """
 
     args = parse_args()
     with open_catalog_example(args.database) as session:

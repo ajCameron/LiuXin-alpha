@@ -1,4 +1,14 @@
-"""Storage CLI administration ownership."""
+"""
+Translate Store, asset, replica, source, and file administration into Core requests.
+
+Most commands use shared request/publication helpers and return zero after JSON
+output regardless of receipt flags. Evacuation apply checks ok; asset/replica
+verification checks healthy. File download emits bytes instead of a JSON report.
+Local file/control reads precede the relevant requests, but report destinations
+are not preflighted before mutation. Later output failures do not roll back Core
+changes. Store selectors have deliberately different payload keys/coercion across
+operations; preserve each operation's contract rather than normalizing globally.
+"""
 
 from __future__ import annotations
 
@@ -25,22 +35,65 @@ from LiuXin_alpha.surfaces.cli.storage_commands.core_access import (
 
 
 def cmd_storage_stores_list(args: argparse.Namespace) -> int:
+    """
+    List configured Stores, forwarding the refresh selector unchanged.
+
+    Example:
+        >>> cmd_storage_stores_list(parsed_stores_args)  # doctest: +SKIP
+
+
+    :param args: Core/output controls and refresh flag passed to storage.stores.list.
+    :return: Zero after publishing the query receipt without checking its status flags.
+    """
     return _storage_query(args, "storage.stores.list", {"refresh": args.refresh})
 
 
 def cmd_storage_store_show(args: argparse.Namespace) -> int:
+    """
+    Fetch one Store using a stripped numeric-ID-or-name selector.
+
+    Example:
+        >>> cmd_storage_store_show(parsed_store_show_args)  # doctest: +SKIP
+
+
+    :param args: Core/output controls and store selector converted by _store_reference.
+    :return: Zero after publishing storage.store.get, without requiring a found record.
+    """
     return _storage_query(
         args, "storage.store.get", {"store": _store_reference(args.store)}
     )
 
 
 def cmd_storage_store_save(args: argparse.Namespace) -> int:
+    """
+    Load a CLI-host Store object and submit it to Core persistence without a local schema.
+
+    The bounded JSON object is loaded before opening Core. This raw save path does
+    not apply typed Store-add capability checks or its refresh/probe sequence.
+
+    Example:
+        >>> cmd_storage_store_save(parsed_store_save_args)  # doctest: +SKIP
+
+
+    :param args: store_file path plus connection and receipt-publication options.
+    :return: Zero after publishing storage.store.save, independent of nested success flags.
+    """
     return _storage_command(
         args, "storage.store.save", {"store": load_json_object(args.store_file)}
     )
 
 
 def cmd_storage_backends_list(args: argparse.Namespace) -> int:
+    """
+    Request backend descriptors with optional internal-provider visibility.
+
+    Example:
+        >>> cmd_storage_backends_list(parsed_backends_args)  # doctest: +SKIP
+
+
+    :param args: Connection/output selectors and truth-tested include_internal option.
+    :return: Zero after publishing storage.backends.list without probing providers here.
+    """
     return _storage_query(
         args,
         "storage.backends.list",
@@ -49,6 +102,21 @@ def cmd_storage_backends_list(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_store_update(args: argparse.Namespace) -> int:
+    """
+    Build a partial Store update, preserving unspecified values and explicit clearing.
+
+    Non-None scalar options are copied unchanged. Clear flags override supplied
+    failure-domain/region values; read_only is boolean-coerced, and truthy tag
+    lists are copied without deduplication. An empty changes dictionary is allowed.
+
+    Example:
+        >>> cmd_storage_store_update(parsed_store_update_args)  # doctest: +SKIP
+
+
+    :param args: Store selector, scalar/policy fields, clear/read-only/tag controls,
+        and shared connection/output settings.
+    :return: Zero after publishing storage.store.update; Core validates update semantics.
+    """
     changes: dict[str, Any] = {}
     for argument, field in (
         (args.name, "name"),
@@ -81,12 +149,36 @@ def cmd_storage_store_update(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_store_probe(args: argparse.Namespace) -> int:
+    """
+    Ask Core to probe one Store and publish the probe receipt without interpreting health.
+
+    Example:
+        >>> cmd_storage_store_probe(parsed_store_probe_args)  # doctest: +SKIP
+
+
+    :param args: Numeric-ID-or-name Store selector plus connection/output controls.
+    :return: Zero after publication, even when the receipt reports unavailable status.
+    """
     return _storage_command(
         args, "storage.store.probe", {"store": _store_reference(args.store)}
     )
 
 
 def cmd_storage_store_delete(args: argparse.Namespace) -> int:
+    """
+    Require --yes before asking Core to remove a Store with the selected database policy.
+
+    This handler delegates deletion semantics; it does not independently delete
+    local bytes or add rollback for later receipt-publication failure.
+
+    Example:
+        >>> cmd_storage_store_delete(parsed_store_delete_args)  # doctest: +SKIP
+
+
+    :param args: store, yes, delete_from_database, and shared Core/output settings.
+    :return: Zero after publishing storage.store.delete without inspecting its receipt flags.
+    :raises ValueError: The explicit confirmation flag is falsey.
+    """
     if not args.yes:
         raise ValueError("Store removal requires --yes.")
     return _storage_command(
@@ -100,6 +192,22 @@ def cmd_storage_store_delete(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_store_evacuate(args: argparse.Namespace) -> int:
+    """
+    Preview Store evacuation unless confirmed, then apply with action/byte budgets.
+
+    Both selectors use numeric-ID-or-name conversion. Preview forwards max_assets;
+    apply additionally truncates binary GiB to bytes and forwards keep_source_bytes.
+    No local positivity/range checks or saved-plan equality checks are performed.
+
+    Example:
+        >>> cmd_storage_store_evacuate(parsed_evacuation_args)  # doctest: +SKIP
+
+
+    :param args: Source/optional destination, asset/action/transfer limits, yes,
+        source-retention policy, and shared Core/output controls.
+    :return: Zero after preview publication; after apply, zero for truthy receipt.ok,
+        otherwise one. Output is published before the apply status is interpreted.
+    """
     payload: dict[str, Any] = {
         "store": _store_reference(args.store),
         "max_assets": int(args.max_assets),
@@ -124,16 +232,49 @@ def cmd_storage_store_evacuate(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_default_show(args: argparse.Namespace) -> int:
+    """
+    Publish Core's current default-Store selection without requiring one to exist.
+
+    Example:
+        >>> cmd_storage_default_show(parsed_default_show_args)  # doctest: +SKIP
+
+
+    :param args: Core connection selectors and JSON publication options.
+    :return: Zero after publishing storage.default.get with an empty request payload.
+    """
     return _storage_query(args, "storage.default.get", {})
 
 
 def cmd_storage_default_set(args: argparse.Namespace) -> int:
+    """
+    Request default-Store selection by numeric ID or name, leaving eligibility to Core.
+
+    Example:
+        >>> cmd_storage_default_set(parsed_default_set_args)  # doctest: +SKIP
+
+
+    :param args: store selector plus Core connection and JSON output settings.
+    :return: Zero after publishing storage.default.set without a local health check.
+    """
     return _storage_command(
         args, "storage.default.set", {"store": _store_reference(args.store)}
     )
 
 
 def cmd_storage_refresh(args: argparse.Namespace) -> int:
+    """
+    Refresh storage-manager composition using the selected startup/offline/strict policy.
+
+    keep_existing is inverted into clear_existing; all four policy values use
+    truthiness. A returned failure count does not change this handler's exit code.
+
+    Example:
+        >>> cmd_storage_refresh(parsed_refresh_args)  # doctest: +SKIP
+
+
+    :param args: startup_on_add, include_offline, keep_existing, strict, and Core/output controls.
+    :return: Zero after publishing storage.refresh without interpreting configuration failures.
+    """
     return _storage_command(
         args,
         "storage.refresh",
@@ -147,6 +288,16 @@ def cmd_storage_refresh(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_files_list(args: argparse.Namespace) -> int:
+    """
+    Request a page of storage files with integer-converted pagination values.
+
+    Example:
+        >>> cmd_storage_files_list(parsed_files_list_args)  # doctest: +SKIP
+
+
+    :param args: limit/offset plus shared Core/output settings; ranges are not checked here.
+    :return: Zero after publishing storage.files.list, including empty pages.
+    """
     return _storage_query(
         args,
         "storage.files.list",
@@ -155,6 +306,17 @@ def cmd_storage_files_list(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_file_locate(args: argparse.Namespace) -> int:
+    """
+    Locate an asset, optionally restricting lookup to an unchanged Store UUID selector.
+
+    Example:
+        >>> cmd_storage_file_locate(parsed_file_locate_args)  # doctest: +SKIP
+
+
+    :param args: Integer-convertible asset_id, optional truthy store sent as store_uuid,
+        and shared connection/output controls.
+    :return: Zero after publishing storage.file.locate without requiring a usable location.
+    """
     payload: dict[str, Any] = {"asset_id": int(args.asset_id)}
     if args.store:
         payload["store_uuid"] = args.store
@@ -162,6 +324,22 @@ def cmd_storage_file_locate(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_file_get(args: argparse.Namespace) -> int:
+    """
+    Read asset bytes through Core and publish them on the CLI host or stdout.
+
+    Query and session cleanup precede strict wire decoding and destination checks;
+    there is no local download-size cap or metadata verification. For a filesystem
+    destination print an ASCII-escaped size/location summary on stderr after the
+    bytes are published. Summary failure does not retract the output file.
+
+    Example:
+        >>> cmd_storage_file_get(parsed_file_get_args)  # doctest: +SKIP
+
+
+    :param args: asset_id, optional store_uuid selector via store, file_output,
+        replace_file_output, and connection options; JSON-output controls are unused.
+    :return: Zero after byte publication and any stderr summary, without a receipt health check.
+    """
     payload: dict[str, Any] = {"asset_id": int(args.asset_id)}
     if args.store:
         payload["store_uuid"] = args.store
@@ -190,6 +368,22 @@ def cmd_storage_file_get(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_file_put(args: argparse.Namespace) -> int:
+    """
+    Read a size-bounded CLI-host file and submit its base64 contents for managed storage.
+
+    Read the file and optional metadata object before opening Core. original_name
+    falls back to the expanded path's basename; other falsey optional fields are
+    omitted. The request contains bytes, not a server-side path, and does not check
+    whether the input changed during reading.
+
+    Example:
+        >>> cmd_storage_file_put(parsed_file_put_args)  # doctest: +SKIP
+
+
+    :param args: input/max_transfer_mib, naming/media/metadata controls, optional store
+        forwarded as store_uuid, and shared connection/output settings.
+    :return: Zero after publishing storage.file.put; receipt publication may fail after storage.
+    """
     content = _bounded_file_bytes(args.input, args.max_transfer_mib)
     source = Path(args.input).expanduser()
     payload: dict[str, Any] = {
@@ -208,6 +402,19 @@ def cmd_storage_file_put(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_file_copy(args: argparse.Namespace) -> int:
+    """
+    Request a managed asset copy with optional destination and JSON metadata overrides.
+
+    Load metadata before opening Core. Unlike file put/locate, this request uses
+    the key store and does not locally convert its value to a numeric reference.
+
+    Example:
+        >>> cmd_storage_file_copy(parsed_file_copy_args)  # doctest: +SKIP
+
+
+    :param args: asset_id, optional truthy store/metadata_file, and Core/output settings.
+    :return: Zero after publishing storage.file.copy without interpreting success flags.
+    """
     payload: dict[str, Any] = {"asset_id": int(args.asset_id)}
     if args.store:
         payload["store"] = args.store
@@ -217,6 +424,17 @@ def cmd_storage_file_copy(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_file_delete(args: argparse.Namespace) -> int:
+    """
+    Require explicit confirmation before requesting deletion of one replica.
+
+    Example:
+        >>> cmd_storage_file_delete(parsed_file_delete_args)  # doctest: +SKIP
+
+
+    :param args: replica_id, yes confirmation, and shared connection/output controls.
+    :return: Zero after publishing storage.file.delete; later output failure cannot undo deletion.
+    :raises ValueError: The yes flag is falsey, before Core is opened.
+    """
     if not args.yes:
         raise ValueError("Replica deletion requires --yes.")
     return _storage_command(
@@ -225,6 +443,16 @@ def cmd_storage_file_delete(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_location_stat(args: argparse.Namespace) -> int:
+    """
+    Inspect a storage location through Core using its unchanged Store UUID and key.
+
+    Example:
+        >>> cmd_storage_location_stat(parsed_location_stat_args)  # doctest: +SKIP
+
+
+    :param args: store_uuid/key plus Core/output controls; path semantics belong to Core.
+    :return: Zero after publishing storage.location.stat without requiring existence.
+    """
     return _storage_query(
         args,
         "storage.location.stat",
@@ -233,10 +461,33 @@ def cmd_storage_location_stat(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_sources_list(args: argparse.Namespace) -> int:
+    """
+    Publish Core's supported source-registration kinds without registering a source.
+
+    Example:
+        >>> cmd_storage_sources_list(parsed_sources_list_args)  # doctest: +SKIP
+
+
+    :param args: Connection selectors and JSON output options.
+    :return: Zero after the storage.sources.supported query receipt is published.
+    """
     return _storage_query(args, "storage.sources.supported", {})
 
 
 def cmd_storage_source_register(args: argparse.Namespace) -> int:
+    """
+    Register a source using its unchanged kind and a CLI-host JSON options object.
+
+    This generic path does not apply typed source-add normalization or defaults.
+    Options are loaded before opening Core and validated by the Core operation.
+
+    Example:
+        >>> cmd_storage_source_register(parsed_source_register_args)  # doctest: +SKIP
+
+
+    :param args: kind/options_file plus connection and JSON publication settings.
+    :return: Zero after publishing storage.source.register, irrespective of receipt flags.
+    """
     return _storage_command(
         args,
         "storage.source.register",
@@ -245,6 +496,25 @@ def cmd_storage_source_register(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_source_add(args: argparse.Namespace) -> int:
+    """
+    Build typed local/HTTP/archive source options, then apply JSON overrides last.
+
+    Lowercase kind and replace hyphens without stripping surrounding whitespace.
+    Support unmanaged_disk, rclone_http, wget_html, native_html, and squashfs_open.
+    Disk options include hash/symlink/link/refresh policies; HTTP kinds add optional
+    float timing/rate controls plus link/refresh policies. SquashFS receives neither
+    group. The optional JSON object can override even the endpoint and typed defaults;
+    no local secret filtering, positive-range validation, or source probing is added.
+
+    Example:
+        >>> cmd_storage_source_add(parsed_source_add_args)  # doctest: +SKIP
+
+
+    :param args: kind/location, optional source name/extensions/label, backend policy
+        flags, options_file overrides, and connection/output controls.
+    :return: Zero after publishing storage.source.register with normalized kind and merged options.
+    :raises ValueError: The normalized kind is outside the supported typed setup set.
+    """
     kind = str(args.kind).lower().replace("-", "_")
     endpoint_fields = {
         "unmanaged_disk": "disk_path",
@@ -292,10 +562,30 @@ def cmd_storage_source_add(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_asset_show(args: argparse.Namespace) -> int:
+    """
+    Publish one asset's storage record by integer-converted ID.
+
+    Example:
+        >>> cmd_storage_asset_show(parsed_asset_show_args)  # doctest: +SKIP
+
+
+    :param args: asset_id and shared Core connection/JSON publication controls.
+    :return: Zero after storage.asset.get publication without requiring a found asset.
+    """
     return _storage_query(args, "storage.asset.get", {"asset_id": int(args.asset_id)})
 
 
 def cmd_storage_replica_verify(args: argparse.Namespace) -> int:
+    """
+    Verify one replica through Core and map the reported healthy flag to exit status.
+
+    Example:
+        >>> cmd_storage_replica_verify(parsed_replica_verify_args)  # doctest: +SKIP
+
+
+    :param args: replica_id, no_digests inverted into calculate_digests, and Core/output settings.
+    :return: Zero for truthy receipt.healthy, otherwise one, after publishing the full receipt.
+    """
     with open_cli_core(args, enable_storage_manager=True) as core:
         result = core.command(
             "storage.replica.verify",
@@ -309,6 +599,19 @@ def cmd_storage_replica_verify(args: argparse.Namespace) -> int:
 
 
 def cmd_storage_asset_verify(args: argparse.Namespace) -> int:
+    """
+    Verify an asset using optional replica IDs and/or the all-replicas selector.
+
+    Preserve repeated IDs and forward both selectors if supplied; this handler
+    does not enforce exclusivity or validate positive ID ranges.
+
+    Example:
+        >>> cmd_storage_asset_verify(parsed_asset_verify_args)  # doctest: +SKIP
+
+
+    :param args: asset_id, optional repeated replica_id, all_replicas, and Core/output options.
+    :return: Zero for truthy receipt.healthy, otherwise one, after receipt publication.
+    """
     payload: dict[str, Any] = {"asset_id": int(args.asset_id)}
     if args.replica_id:
         payload["replica_ids"] = [int(value) for value in args.replica_id]

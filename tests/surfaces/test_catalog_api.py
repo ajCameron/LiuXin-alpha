@@ -1,3 +1,12 @@
+"""
+Exercise the shared Calibre catalogue projection against a temporary database.
+
+Fixtures build explicit Work/Expression/Manifestation/Item links and legacy
+asset rows. Ebook and image payloads are opaque test bytes, not valid media to
+parse. These tests cover backend queries and Core-mediated image reads without
+starting an HTTP server; helpers mutate the supplied database in place.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,11 +20,35 @@ from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _build_backend(db: Database) -> tuple[ReadOnlyWebApplication, CalibreCatalogBackend]:
+    """
+    Compose a read-only host and a separate catalogue backend over its Core model.
+
+    The supplied database remains owned by the caller. Construction may initialize
+    the host's database-compatibility Core session; no socket is opened.
+
+    Example:
+        >>> app, backend = _build_backend(db)  # doctest: +SKIP
+
+
+    :param db: Open fixture database containing the rows to expose.
+    :return: Host titled Catalog Test and a backend borrowing its read/image owners.
+    """
     app = ReadOnlyWebApplication(db, config=ReadOnlyWebConfig(title="Catalog Test"))
     return app, CalibreCatalogBackend(app)
 
 
 def _insert_work_row(db: Database, *, title: str) -> int:
+    """
+    Insert a work with identical display, canonical, and sort titles.
+
+    Example:
+        >>> work_id = _insert_work_row(db, title="Alpha Book")  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving the new works row.
+    :param title: Text stored unchanged in all three title fields.
+    :return: Integer ID assigned to the inserted work; no relationships are added.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -29,6 +62,20 @@ def _insert_work_row(db: Database, *, title: str) -> int:
 
 
 def _insert_store_row(db: Database, *, name: str, root_uri: str) -> int:
+    """
+    Register fixture metadata for a filesystem store using the file protocol.
+
+    No directory is created or probed by this helper.
+
+    Example:
+        >>> store_id = _insert_store_row(db, name="Shelf", root_uri=str(tmp_path))  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving the stores row.
+    :param name: Display name for the store.
+    :param root_uri: Filesystem root recorded verbatim for later asset resolution.
+    :return: Integer ID of the inserted store.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -43,6 +90,17 @@ def _insert_store_row(db: Database, *, name: str, root_uri: str) -> int:
 
 
 def _insert_agent_row(db: Database, *, name: str) -> int:
+    """
+    Insert a person agent with matching canonical and sort names.
+
+    Example:
+        >>> agent_id = _insert_agent_row(db, name="Alice Author")  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving the agents row.
+    :param name: Name stored without additional normalization.
+    :return: Integer agent ID; linking the person to a work is the caller's job.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -56,6 +114,17 @@ def _insert_agent_row(db: Database, *, name: str) -> int:
 
 
 def _insert_label_row(db: Database, *, text: str) -> int:
+    """
+    Insert a legacy label and its standardized tag-search spelling.
+
+    Example:
+        >>> label_id = _insert_label_row(db, text="Adventure")  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving the labels row.
+    :param text: Display label, also passed through make_tag_search_term for lookup.
+    :return: Integer label ID, without a work link or duplicate lookup.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -68,6 +137,17 @@ def _insert_label_row(db: Database, *, text: str) -> int:
 
 
 def _insert_series_row(db: Database, *, name: str) -> int:
+    """
+    Insert a series with its display/sort name and standardized lookup text.
+
+    Example:
+        >>> series_id = _insert_series_row(db, name="Library Shelf")  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving the series row.
+    :param name: Unchanged display/sort text and input to make_tag_search_term.
+    :return: Integer series ID; no work membership is created.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -81,6 +161,17 @@ def _insert_series_row(db: Database, *, name: str) -> int:
 
 
 def _insert_expression_row(db: Database, *, title_override: str) -> int:
+    """
+    Insert an unlinked expression carrying a title override.
+
+    Example:
+        >>> expression_id = _insert_expression_row(db, title_override="Alpha")  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving the expressions row.
+    :param title_override: Expression-specific title text stored verbatim.
+    :return: Integer expression ID, ready for explicit fixture relationships.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={"expression_title_override": title_override},
@@ -90,6 +181,17 @@ def _insert_expression_row(db: Database, *, title_override: str) -> int:
 
 
 def _insert_manifestation_row(db: Database, *, format_detail: str) -> int:
+    """
+    Insert an ebook manifestation with the requested format declaration.
+
+    Example:
+        >>> manifestation_id = _insert_manifestation_row(db, format_detail="EPUB")  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving the manifestations row.
+    :param format_detail: Format label; this helper does not inspect ebook bytes.
+    :return: Integer manifestation ID, without expression or item links.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -102,6 +204,21 @@ def _insert_manifestation_row(db: Database, *, format_detail: str) -> int:
 
 
 def _insert_item_row(db: Database, *, manifestation_id: int, source_path: str, source_name: str) -> int:
+    """
+    Insert a fixture ebook item referencing an existing manifestation.
+
+    Source fields are recorded metadata rather than a request to open the file.
+
+    Example:
+        >>> item_id = _insert_item_row(db, manifestation_id=1, source_path="book.epub", source_name="book.epub")  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving the items row.
+    :param manifestation_id: Manifestation foreign key, converted to int.
+    :param source_path: Source pathname recorded unchanged.
+    :param source_name: Source filename recorded unchanged.
+    :return: Integer item ID; a files row still needs to be added separately.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -117,6 +234,23 @@ def _insert_item_row(db: Database, *, manifestation_id: int, source_path: str, s
 
 
 def _insert_file_row_for_item(db: Database, *, store_id: int, item_id: int, file_path: Path) -> int:
+    """
+    Record a primary ebook asset using an existing file's names and byte size.
+
+    Ensure the fixture asset schema first, then stat the path. The storage key is
+    the basename, so the caller must align the chosen store root with that file.
+    Content is neither copied nor parsed; schema/stat/insert failures propagate.
+
+    Example:
+        >>> file_id = _insert_file_row_for_item(db, store_id=1, item_id=2, file_path=book_path)  # doctest: +SKIP
+
+
+    :param db: Open database whose SQLite-compatible asset tables may be added.
+    :param store_id: Store foreign key converted to int.
+    :param item_id: Item foreign key converted to int.
+    :param file_path: Existing file supplying original path, basename, suffix, and size.
+    :return: Integer ID of the inserted legacy files row.
+    """
     ensure_surface_asset_tables(db)
     row = Row.from_idless_row_dict(
         db,
@@ -140,6 +274,22 @@ def _insert_file_row_for_item(db: Database, *, store_id: int, item_id: int, file
 
 
 def _insert_image_row_for_item(db: Database, *, store_id: int, item_id: int, file_path: Path) -> int:
+    """
+    Record a fixture cover asset declared as PNG without validating its content.
+
+    Ensure both file/image fixture tables and stat the path before insertion.
+    The lowercase suffix supplies the extension even if it disagrees with PNG.
+
+    Example:
+        >>> image_id = _insert_image_row_for_item(db, store_id=1, item_id=2, file_path=image_path)  # doctest: +SKIP
+
+
+    :param db: Open database whose SQLite-compatible asset tables may be added.
+    :param store_id: Store foreign key converted to int; its root must match the basename key.
+    :param item_id: Item foreign key converted to int.
+    :param file_path: Existing file supplying path, filename, suffix, and size metadata.
+    :return: Integer ID of the inserted images row; bytes remain at their original path.
+    """
     ensure_surface_asset_tables(db, include_images=True)
     row = Row.from_idless_row_dict(
         db,
@@ -164,6 +314,20 @@ def _insert_image_row_for_item(db: Database, *, store_id: int, item_id: int, fil
 
 
 def test_catalog_backend_category_summary_and_tag_browser(driver_spec, tmp_path: Path) -> None:
+    """
+    Verify linked category counts, work selection, and the three tag-browser roots.
+
+    Two works and one linked person/legacy label/series exercise both all-books
+    ordering and singleton facet membership through the shared backend.
+
+    Example:
+        >>> test_catalog_backend_category_summary_and_tag_browser(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Pytest database-driver specification used to create the catalogue.
+    :param tmp_path: Isolated pytest directory for the new catalogue database.
+    :return: None after all category and navigation assertions pass.
+    """
     db_path = tmp_path / "catalog_summary.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -213,6 +377,20 @@ def test_catalog_backend_category_summary_and_tag_browser(driver_spec, tmp_path:
 
 
 def test_catalog_backend_work_metadata_and_search_payload(driver_spec, tmp_path: Path) -> None:
+    """
+    Verify compatibility metadata, tokens, search receipts, and linked EPUB discovery.
+
+    Build one complete WEMI path plus author/label/series links. The file contains
+    opaque bytes; assertions cover metadata and URLs, not EPUB parsing or HTTP.
+
+    Example:
+        >>> test_catalog_backend_work_metadata_and_search_payload(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Pytest driver specification for the fresh fixture catalogue.
+    :param tmp_path: Isolated directory receiving the database and fake ebook.
+    :return: None after the augmented metadata and search projections match the fixture.
+    """
     db_path = tmp_path / "catalog_metadata.sqlite"
     book_path = tmp_path / "alpha-book.epub"
     book_path.write_bytes(b"epub payload")
@@ -283,6 +461,20 @@ def test_catalog_backend_work_metadata_and_search_payload(driver_spec, tmp_path:
 
 
 def test_catalog_backend_discovers_files_and_images_and_resolves_targets(driver_spec, tmp_path: Path) -> None:
+    """
+    Verify WEMI asset discovery, Core image bytes, metadata aliases, and fallback SVG.
+
+    The image fixture is only a short PNG-like prefix. A local image yields no
+    redirect target but does yield a Core byte reader; no raster decoder is used.
+
+    Example:
+        >>> test_catalog_backend_discovers_files_and_images_and_resolves_targets(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Pytest database-driver specification for the asset catalogue.
+    :param tmp_path: Isolated directory for the database, ebook bytes, and cover bytes.
+    :return: None after discovery, byte equality, alias, and title-bearing SVG checks pass.
+    """
     db_path = tmp_path / "catalog_assets.sqlite"
     book_path = tmp_path / "asset-book.epub"
     image_path = tmp_path / "cover.png"

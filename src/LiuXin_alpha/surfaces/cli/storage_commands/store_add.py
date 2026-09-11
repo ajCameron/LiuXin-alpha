@@ -1,4 +1,10 @@
-"""Storage CLI store add ownership."""
+"""
+Register a typed Store, refresh composition, and optionally probe/select its default.
+
+These are sequential Core operations, not one transaction. Saving can survive a
+later refresh/probe/default/output failure. Only probe Exceptions are converted
+to a structured failed observation here; their messages are not locally redacted.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +20,24 @@ from LiuXin_alpha.surfaces.cli.storage_commands.store_options import (
 
 
 def _refresh_failure_count(value: object) -> int:
+    """
+    Coerce an optional refresh receipt's failure count, treating unsupported shapes as zero.
+
+    Prefer report when present and failed_configurations when present; even invalid
+    present values prevent fallback to their alternatives. Convert via int(str(raw
+    or 0)), so ordinary integer strings work while True or fractional text falls
+    back to zero. Negative counts are preserved, not clamped.
+
+    Example:
+        >>> _refresh_failure_count({"report": {"failed_stores": "2"}})
+        2
+        >>> _refresh_failure_count({"failed_configurations": "invalid", "failed_stores": 4})
+        0
+
+
+    :param value: Direct or report-wrapped mapping-shaped refresh receipt, or any other value.
+    :return: Converted count, otherwise zero for unsupported shape or TypeError/ValueError.
+    """
     if not isinstance(value, Mapping):
         return 0
     report = value.get("report", value)
@@ -27,6 +51,29 @@ def _refresh_failure_count(value: object) -> int:
 
 
 def cmd_storage_store_add(args: argparse.Namespace) -> int:
+    """
+    Save a descriptor-backed Store, refresh it, and optionally probe and select it as default.
+
+    Request noninternal providers, retaining only mappings from a list response,
+    then build/save the Store and always refresh with startup/clear-existing true.
+    With check enabled, probe online Stores only; ordinary probe exceptions become
+    raw error receipts, and availability is taken from status.available. Offline
+    Stores skip the probe and leave probe_ok true.
+
+    Default selection requires the default flag and either no check or a successful
+    probe; refresh failure counts do not prevent this selection. Overall ok requires
+    zero coerced refresh failures and probe_ok, but failed saved/default receipt
+    flags are not independently interpreted. Publish after Core cleanup. Earlier
+    effects are not rolled back, including when the final report cannot be written.
+
+    Example:
+        >>> cmd_storage_store_add(parsed_store_add_args)  # doctest: +SKIP
+
+
+    :param args: Backend kind, typed Store declaration choices, check/default,
+        include_offline/strict refresh policy, and connection/output controls.
+    :return: Zero when ok or check is disabled; one only for a failed checked outcome.
+    """
     check = bool(getattr(args, "check", False))
     with open_cli_core(args, enable_storage_manager=True) as core:
         provider_result = core.query(

@@ -1,3 +1,14 @@
+"""
+Exercise S3 driver, configured Store, and ingest contracts against a memory client.
+
+Tests combine real local staging and filesystem destinations with synthetic object
+responses and in-memory manager records. Coverage includes publication, metadata,
+Unicode keys, ranges/versions, bounded pagination, failed ingest, and selected body
+cleanup pathologies. The fake client deliberately simplifies service checks, version
+history, checksum handling, and multipart validation; these tests make no live-service
+interoperability claim.
+"""
+
 from __future__ import annotations
 
 import base64
@@ -27,7 +38,27 @@ from tests.storage.contracts.unicode_paths import exercise_unicode_path_case
 
 
 class _FakeS3Error(RuntimeError):
+    """
+    Expose a RuntimeError plus the boto-style code/status mapping used by driver error translation.
+
+    Example:
+        >>> error = _FakeS3Error("NoSuchKey", 404)
+        >>> error.response["ResponseMetadata"]["HTTPStatusCode"]
+        404
+    """
     def __init__(self, code: str, status: int) -> None:
+        """
+        Retain the error code as exception text and construct a minimal response metadata mapping.
+
+        Example:
+            >>> str(_FakeS3Error("NoSuchKey", 404))
+            'NoSuchKey'
+
+
+        :param code: Simulated service error code, also used as the RuntimeError message.
+        :param status: Simulated HTTP status stored in ResponseMetadata.HTTPStatusCode.
+        :return: None after setting exception text and the response mapping.
+        """
         super().__init__(code)
         self.response = {
             "Error": {"Code": code},
@@ -36,7 +67,34 @@ class _FakeS3Error(RuntimeError):
 
 
 class _FakeS3Client:
+    """
+    Model selected S3 requests with mutable object and multipart-upload dictionaries.
+
+    Keys share one namespace; only head_bucket checks the bucket argument. Version IDs derive from
+    payload MD5 and do not model version history. Supplied single-put checksum text is trusted,
+    while multipart records omit checksum metadata. Listing uses sorted keys and decimal offset
+    cursors. The fake performs no network I/O, permission enforcement, or service-wide
+    interoperability validation.
+
+    Example:
+        >>> client = _FakeS3Client()
+        >>> client.head_bucket(Bucket="library")
+        {}
+        >>> client.objects
+        {}
+    """
     def __init__(self) -> None:
+        """
+        Initialize empty object/upload registries, multipart counters, and an open-state marker.
+
+        Example:
+            >>> client = _FakeS3Client()
+            >>> client.multipart_completed, client.multipart_aborted, client.closed
+            (0, 0, False)
+
+
+        :return: None after initializing mutable fake-client state.
+        """
         self.objects: dict[str, dict[str, Any]] = {}
         self.uploads: dict[str, dict[str, Any]] = {}
         self.multipart_completed = 0
@@ -44,16 +102,61 @@ class _FakeS3Client:
         self.closed = False
 
     def head_bucket(self, **kwargs):
+        """
+        Assert the expected test bucket and report success without examining stored keys or
+        permissions.
+
+        Example:
+            >>> _FakeS3Client().head_bucket(Bucket="library")
+            {}
+
+
+        :param kwargs: Client-compatible arguments; Bucket must equal library and other fields are ignored.
+        :return: Empty response mapping after the bucket assertion passes.
+        """
         assert kwargs["Bucket"] == "library"
         return {}
 
     def head_object(self, **kwargs):
+        """
+        Return synthetic metadata for an existing key, raising the fake 404 for an absent record.
+
+        Example:
+            >>> client = _FakeS3Client()
+            >>> _ = client.put_object(Key="book.epub", Body=b"book")
+            >>> client.head_object(Key="book.epub")["ContentLength"]
+            4
+
+
+        :param kwargs: Request fields containing Key; Bucket, checksum mode, and other fields are not validated.
+        :return: New HeadObject-style mapping derived from the stored record, with shared native metadata.
+        """
         record = self.objects.get(kwargs["Key"])
         if record is None:
             raise _FakeS3Error("NoSuchKey", 404)
         return self._head(record)
 
     def get_object(self, **kwargs):
+        """
+        Return a new byte stream with version and optional range evidence from a stored record.
+
+        Missing keys raise NoSuchKey. VersionId and quote-stripped IfMatch must match the current
+        record when supplied. Range handling slices the body and derives ContentRange for the tested
+        request forms, without emulating every HTTP range error. Returned version fields still
+        describe the complete stored payload.
+
+        Example:
+            >>> client = _FakeS3Client()
+            >>> _ = client.put_object(Key="book", Body=b"012345")
+            >>> response = client.get_object(Key="book", Range="bytes=2-3")
+            >>> with response["Body"] as body:
+            ...     body.read(), response["ContentRange"]
+            (b'23', 'bytes 2-3/6')
+
+
+        :param kwargs: Key and optional VersionId, IfMatch, and single byte Range; other backend fields are ignored.
+        :return: Mapping with caller-owned BytesIO Body, actual sliced ContentLength, ETag/VersionId, and optional ContentRange.
+        """
         record = self.objects.get(kwargs["Key"])
         if record is None:
             raise _FakeS3Error("NoSuchKey", 404)
@@ -83,6 +186,25 @@ class _FakeS3Client:
         return result
 
     def put_object(self, **kwargs):
+        """
+        Read supplied bytes, enforce the tested create-only condition, and replace the object
+        record.
+
+        IfNoneMatch="*" rejects an existing key. A body exposing read is read to its end; otherwise
+        bytes conversion is used. Declared length and supplied checksum are not validated against
+        the payload. An absent/falsey checksum is computed as SHA-256, and native metadata is copied
+        into the new record.
+
+        Example:
+            >>> client = _FakeS3Client()
+            >>> _ = client.put_object(Key="book", Body=b"book", IfNoneMatch="*")
+            >>> client.objects["book"]["payload"]
+            b'book'
+
+
+        :param kwargs: Key, Body, and optional IfNoneMatch/ChecksumSHA256/Metadata fields; unrelated service options are ignored.
+        :return: Mapping containing the new record ETag after mutating objects; collision raises the fake precondition error.
+        """
         key = kwargs["Key"]
         if kwargs.get("IfNoneMatch") == "*" and key in self.objects:
             raise _FakeS3Error("PreconditionFailed", 412)
@@ -99,10 +221,40 @@ class _FakeS3Client:
         return {"ETag": self.objects[key]["etag"]}
 
     def delete_object(self, **kwargs):
+        """
+        Remove the selected key if present, silently accepting an already missing object.
+
+        Example:
+            >>> _FakeS3Client().delete_object(Key="missing")
+            {}
+
+
+        :param kwargs: Request mapping containing Key; no version condition or bucket isolation is implemented.
+        :return: Empty response mapping after the object-registry mutation.
+        """
         self.objects.pop(kwargs["Key"], None)
         return {}
 
     def list_objects_v2(self, **kwargs):
+        """
+        Return a sorted lexical-prefix page with a decimal offset continuation token.
+
+        MaxKeys defaults to two. Contents derives sizes, modification times, and ETags from current
+        records; VersionId is omitted. Each call sees current dictionary state, so cursors do not
+        represent stable snapshots.
+
+        Example:
+            >>> client = _FakeS3Client()
+            >>> _ = client.put_object(Key="a", Body=b"a")
+            >>> _ = client.put_object(Key="b", Body=b"b")
+            >>> page = client.list_objects_v2(MaxKeys=1)
+            >>> page["Contents"][0]["Key"], page["NextContinuationToken"]
+            ('a', '1')
+
+
+        :param kwargs: Optional Prefix, decimal ContinuationToken, and integer-convertible MaxKeys; Bucket is ignored.
+        :return: Page mapping with Contents, truncation flag, and decimal next offset or None.
+        """
         keys = sorted(
             key
             for key in self.objects
@@ -129,6 +281,18 @@ class _FakeS3Client:
         }
 
     def create_multipart_upload(self, **kwargs):
+        """
+        Allocate an upload entry containing its destination key, copied metadata, and empty part
+        mapping.
+
+        Example:
+            >>> _FakeS3Client().create_multipart_upload(Key="large.bin")
+            {'UploadId': 'upload-1'}
+
+
+        :param kwargs: Key and optional Metadata for the pending upload; other request options are ignored.
+        :return: UploadId mapping; IDs derive from the number of active uploads and may be reused after cleanup.
+        """
         upload_id = f"upload-{len(self.uploads) + 1}"
         self.uploads[upload_id] = {
             "key": kwargs["Key"],
@@ -138,12 +302,36 @@ class _FakeS3Client:
         return {"UploadId": upload_id}
 
     def upload_part(self, **kwargs):
+        """
+        Store or replace one numbered part and return its payload-derived MD5 token.
+
+        Example:
+            >>> uploaded = client.upload_part(UploadId=upload_id, PartNumber=1, Body=b"part")  # doctest: +SKIP
+
+
+        :param kwargs: UploadId, PartNumber, and bytes-like Body used to update the pending upload; no part-size limits are enforced.
+        :return: Mapping containing the part MD5 hex ETag; this token is not a production integrity guarantee.
+        """
         upload = self.uploads[kwargs["UploadId"]]
         payload = kwargs["Body"]
         upload["parts"][kwargs["PartNumber"]] = bytes(payload)
         return {"ETag": hashlib.md5(payload).hexdigest()}  # noqa: S324 - S3 part token
 
     def complete_multipart_upload(self, **kwargs):
+        """
+        Join all stored parts in numeric order and publish a record after any create-only check.
+
+        The supplied MultipartUpload manifest and part ETags are not inspected. Success removes the
+        pending upload and increments multipart_completed. The resulting record has no checksum
+        field value, unlike the single-put default.
+
+        Example:
+            >>> result = client.complete_multipart_upload(UploadId=upload_id)  # doctest: +SKIP
+
+
+        :param kwargs: UploadId selecting pending state and optional IfNoneMatch="*" collision policy; other fields are ignored.
+        :return: Published record ETag mapping; a create-only collision leaves the pending upload intact and raises.
+        """
         upload = self.uploads[kwargs["UploadId"]]
         key = upload["key"]
         if kwargs.get("IfNoneMatch") == "*" and key in self.objects:
@@ -161,15 +349,60 @@ class _FakeS3Client:
         return {"ETag": self.objects[key]["etag"]}
 
     def abort_multipart_upload(self, **kwargs):
+        """
+        Remove a pending upload if present and increment the abort-call counter regardless.
+
+        Example:
+            >>> client = _FakeS3Client()
+            >>> client.abort_multipart_upload(UploadId="missing")
+            {}
+            >>> client.multipart_aborted
+            1
+
+
+        :param kwargs: UploadId to remove; other request fields are ignored.
+        :return: Empty response mapping after updating the upload registry and counter.
+        """
         self.uploads.pop(kwargs["UploadId"], None)
         self.multipart_aborted += 1
         return {}
 
     def close(self):
+        """
+        Set the observable closed marker without clearing state or disabling subsequent fake
+        requests.
+
+        Example:
+            >>> client = _FakeS3Client()
+            >>> client.close()
+            >>> client.closed
+            True
+
+
+        :return: None after setting closed to True.
+        """
         self.closed = True
 
     @staticmethod
     def _record(payload: bytes, *, metadata=None, checksum=None):
+        """
+        Build a stored-payload record with copied metadata, supplied checksum, and current UTC time.
+
+        The ETag is payload MD5 and the version ID is derived from that same token. Rewriting
+        identical bytes therefore reuses the version token; the fake does not model a versioned
+        object history. Checksum text is retained without validation.
+
+        Example:
+            >>> record = _FakeS3Client._record(b"book", metadata={"source": "test"})
+            >>> record["metadata"], record["checksum"]
+            ({'source': 'test'}, None)
+
+
+        :param payload: Complete stored object bytes used to derive the ETag and simulated version.
+        :param metadata: Optional mapping copied into a new native-metadata dictionary.
+        :param checksum: Optional checksum text retained verbatim; this helper does not compute a missing value.
+        :return: New mutable record containing payload, metadata, checksum, ETag, derived version, and current modification time.
+        """
         etag = hashlib.md5(payload).hexdigest()  # noqa: S324 - opaque test ETag
         return {
             "payload": payload,
@@ -182,6 +415,17 @@ class _FakeS3Client:
 
     @staticmethod
     def _head(record):
+        """
+        Project one stored record into synthetic HeadObject fields with a fixed EPUB content type.
+
+        Example:
+            >>> _FakeS3Client._head(_FakeS3Client._record(b"book"))["ContentLength"]
+            4
+
+
+        :param record: Fake stored-object record with payload, modified time, ETag, version, metadata, and checksum keys.
+        :return: New metadata mapping sharing the record native-metadata dictionary and including ChecksumSHA256 only when non-None.
+        """
         result = {
             "ContentLength": len(record["payload"]),
             "LastModified": record["modified"],
@@ -197,6 +441,23 @@ class _FakeS3Client:
 
 @pytest.fixture
 def s3_store(tmp_path: Path):
+    """
+    Provide a configured S3 Store and its injected memory client using pytest-local staging.
+
+    The root is library/liuxin, the multipart threshold is 1024 bytes, and parts use the minimum
+    five-MiB size. The fixture returns directly without a teardown callback; pytest owns the
+    temporary directory. The Store retains the injected shared client without taking responsibility
+    for closing it.
+
+    Example:
+        >>> store, client = s3_store  # doctest: +SKIP
+        >>> store.configuration.store_root_uri  # doctest: +SKIP
+        's3://library/liuxin'
+
+
+    :param tmp_path: Pytest temporary directory containing the Store local staging subdirectory.
+    :return: Tuple of configured S3Store and mutable _FakeS3Client for assertions and response injection.
+    """
     client = _FakeS3Client()
     store = S3Store(
         "s3://library/liuxin",
@@ -211,6 +472,21 @@ def s3_store(tmp_path: Path):
 
 
 def test_s3_small_object_roundtrip_range_metadata_and_delete(s3_store) -> None:
+    """
+    Exercise small-object Store publication, range/version reads, metadata translation, and
+    deletion.
+
+    Assertions inspect real local staging plus the memory client's records, including placement
+    metadata encoding, checksum exposure, create collision, replacement, and missing-delete policy.
+    The client does not establish live service behavior.
+
+    Example:
+        >>> test_s3_small_object_roundtrip_range_metadata_and_delete(s3_store)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :return: None after the stated regression assertions pass.
+    """
     store, client = s3_store
     payload = b"0123456789"
     stored = store.store_bytes(
@@ -270,6 +546,20 @@ def test_store_ingest_publishes_to_s3_with_discovered_metadata(
     s3_store,
     tmp_path: Path,
 ) -> None:
+    """
+    Ingest one real filesystem object into the simulated S3 destination through the memory manager.
+
+    Verify readable asset bytes and the destination native metadata for discovered filename/media
+    type; manager state is in-memory rather than durable catalogue state.
+
+    Example:
+        >>> test_store_ingest_publishes_to_s3_with_discovered_metadata(s3_store, tmp_path)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :param tmp_path: Pytest temporary directory containing the real source filesystem Store.
+    :return: None after the stated regression assertions pass.
+    """
     destination, client = s3_store
     source = FilesystemStore(tmp_path / "source")
     source.store_bytes(b"s3 ingest", location="incoming/book.epub")
@@ -292,6 +582,18 @@ def test_store_ingest_reads_rich_s3_stat_hints(
     s3_store,
     tmp_path: Path,
 ) -> None:
+    """
+    Carry the simulated S3 title and source metadata into an ingested asset and verify its
+    filesystem bytes.
+
+    Example:
+        >>> test_store_ingest_reads_rich_s3_stat_hints(s3_store, tmp_path)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :param tmp_path: Pytest temporary directory containing the real destination filesystem Store.
+    :return: None after the stated regression assertions pass.
+    """
     source, _client = s3_store
     source.store_bytes(
         b"s3 source",
@@ -319,6 +621,18 @@ def test_truncated_s3_ingest_publishes_no_manager_state(
     s3_store,
     tmp_path: Path,
 ) -> None:
+    """
+    Reject a short body against declared size, close it, and leave this destination and memory
+    manager empty.
+
+    Example:
+        >>> test_truncated_s3_ingest_publishes_no_manager_state(s3_store, tmp_path)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :param tmp_path: Pytest temporary directory containing the real destination filesystem Store.
+    :return: None after the stated regression assertions pass.
+    """
     source, client = s3_store
     payload = b"authoritative S3 source"
     source.store_bytes(payload, location="incoming/book.epub")
@@ -347,6 +661,17 @@ def test_truncated_s3_ingest_publishes_no_manager_state(
 
 
 def test_s3_complete_paginated_inventory_prefix_and_uri_roundtrip(s3_store) -> None:
+    """
+    Verify lexical-prefix Store enumeration, exact URI round trips, and two-page traversal with a
+    decimal fake cursor.
+
+    Example:
+        >>> test_s3_complete_paginated_inventory_prefix_and_uri_roundtrip(s3_store)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :return: None after the stated regression assertions pass.
+    """
     store, _client = s3_store
     for key in ("alpha/one", "alpha/two", "beta/three"):
         store.store_bytes(key.encode(), location=key)
@@ -375,6 +700,20 @@ def test_s3_ingest_reports_a_resumable_inventory_checkpoint(
     s3_store,
     tmp_path: Path,
 ) -> None:
+    """
+    Stop after two ingested files and resume the remaining file from the recorded cursor.
+
+    The three-object fake inventory stays unchanged between calls; this verifies checkpoint plumbing
+    without claiming a snapshot under concurrent mutation.
+
+    Example:
+        >>> test_s3_ingest_reports_a_resumable_inventory_checkpoint(s3_store, tmp_path)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :param tmp_path: Pytest temporary directory containing the real destination filesystem Store.
+    :return: None after the stated regression assertions pass.
+    """
     source, _client = s3_store
     destination = FilesystemStore(tmp_path / "checkpoint-destination")
     for key in ("one.epub", "two.epub", "three.epub"):
@@ -405,6 +744,20 @@ def test_s3_ingest_reports_a_resumable_inventory_checkpoint(
 
 
 def test_s3_multipart_commit_and_abort_cleanup(tmp_path: Path) -> None:
+    """
+    Complete a two-part object and verify its bytes and empty pending-upload registry.
+
+    The low threshold forces multipart upload and the payload exceeds one minimum part by seventeen
+    bytes. Despite the historical test name, assertions exercise successful completion; no failed
+    upload or abort call is injected.
+
+    Example:
+        >>> test_s3_multipart_commit_and_abort_cleanup(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory containing the multipart Store staging subdirectory.
+    :return: None after the stated regression assertions pass.
+    """
     client = _FakeS3Client()
     store = S3Store(
         "s3://library",
@@ -427,6 +780,17 @@ def test_s3_multipart_commit_and_abort_cleanup(tmp_path: Path) -> None:
 def test_s3_failed_expectations_and_abandoned_sessions_publish_nothing(
     s3_store,
 ) -> None:
+    """
+    Leave the fake object registry empty after an uncommitted context and an expected-digest
+    mismatch.
+
+    Example:
+        >>> test_s3_failed_expectations_and_abandoned_sessions_publish_nothing(s3_store)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :return: None after the stated regression assertions pass.
+    """
     store, client = s3_store
     location = store.locate("never-visible.bin")
     with store.begin_write(location) as session:
@@ -443,6 +807,17 @@ def test_s3_failed_expectations_and_abandoned_sessions_publish_nothing(
 
 
 def test_s3_store_does_not_close_an_injected_shared_client(s3_store) -> None:
+    """
+    Verify configured Store closure preserves the injected client because it is shared rather than
+    owned.
+
+    Example:
+        >>> test_s3_store_does_not_close_an_injected_shared_client(s3_store)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :return: None after the stated regression assertions pass.
+    """
     store, client = s3_store
 
     store.close()
@@ -452,6 +827,18 @@ def test_s3_store_does_not_close_an_injected_shared_client(s3_store) -> None:
 
 @pytest.mark.parametrize("key", ["", "/absolute", "a//b", "a/../b", "a\\b"])
 def test_s3_rejects_noncanonical_keys(s3_store, key: str) -> None:
+    """
+    Reject the selected empty, absolute, repeated-separator, traversal, and backslash keys through
+    Store locate.
+
+    Example:
+        >>> test_s3_rejects_noncanonical_keys(s3_store, key)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :param key: Parameterized invalid Store key expected to raise StorageInvalidAddress.
+    :return: None after the stated regression assertions pass.
+    """
     store, _client = s3_store
     with pytest.raises(api.StorageInvalidAddress):
         store.locate(key)
@@ -466,6 +853,20 @@ def test_s3_reads_tortured_unicode_keys_without_normalizing_them(
     s3_store,
     case: StoragePathCase,
 ) -> None:
+    """
+    Exercise the shared Unicode-path harness through the S3 Store and fake object registry.
+
+    Preserve exact native key spelling and verify the encoded external URI for the selected corpus
+    case, including bytes read back through the normal Store seam.
+
+    Example:
+        >>> test_s3_reads_tortured_unicode_keys_without_normalizing_them(s3_store, case)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :param case: Shared Unicode path case providing native/encoded keys, payload, and corpus identity.
+    :return: None after the stated regression assertions pass.
+    """
     store, client = s3_store
 
     result = exercise_unicode_path_case(
@@ -484,6 +885,18 @@ def _pathological_s3_driver(
     client: _FakeS3Client,
     **kwargs,
 ) -> S3StorageDriver:
+    """
+    Construct an unstarted raw driver over the supplied fake client with isolated address ownership.
+
+    Example:
+        >>> driver = _pathological_s3_driver(tmp_path, client, max_inventory_pages=2)  # doctest: +SKIP
+
+
+    :param tmp_path: Existing pytest temporary directory used directly for local staging.
+    :param client: Mutable fake client, often patched to return malformed response evidence.
+    :param kwargs: Additional driver constructor options, normally smaller inventory bounds for deterministic failure cases.
+    :return: S3StorageDriver for library/liuxin with a fresh UUID and close_client=False.
+    """
     return S3StorageDriver(
         "library",
         prefix="liuxin",
@@ -503,6 +916,20 @@ def test_s3_rejects_unpaired_surrogates_before_calling_the_client(
     tmp_path: Path,
     key: str,
 ) -> None:
+    """
+    Reject the selected malformed Unicode keys during local address parsing.
+
+    The assertion checks the typed error and message; the fake client is not an independent
+    request-count recorder.
+
+    Example:
+        >>> test_s3_rejects_unpaired_surrogates_before_calling_the_client(tmp_path, key)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :param key: Parameterized relative key containing an unpaired high or low surrogate.
+    :return: None after the stated regression assertions pass.
+    """
     client = _FakeS3Client()
     driver = _pathological_s3_driver(tmp_path, client)
 
@@ -525,10 +952,31 @@ def test_s3_rejects_dishonest_partial_responses_and_closes_the_body(
     tmp_path: Path,
     response_fields: dict[str, Any],
 ) -> None:
+    """
+    Reject and close selected range responses incompatible with two bytes requested from offset two.
+
+    Example:
+        >>> test_s3_rejects_dishonest_partial_responses_and_closes_the_body(tmp_path, response_fields)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :param response_fields: Parameterized missing, malformed, or contradictory ContentLength/ContentRange evidence.
+    :return: None after the stated regression assertions pass.
+    """
     client = _FakeS3Client()
     body = io.BytesIO(b"23")
 
     def _get_object(**kwargs):
+        """
+        Return the retained BytesIO body with the enclosing parameterized range evidence.
+
+        Example:
+            >>> response = client.get_object(Key="liuxin/book.epub")  # doctest: +SKIP
+
+
+        :param kwargs: Client-compatible request arguments ignored so the prepared response controls the failure.
+        :return: New mapping containing the retained body and enclosing response fields.
+        """
         del kwargs
         return {"Body": body, **response_fields}
 
@@ -548,6 +996,16 @@ def test_s3_rejects_dishonest_partial_responses_and_closes_the_body(
 def test_s3_detects_a_truncated_declared_body_while_streaming(
     tmp_path: Path,
 ) -> None:
+    """
+    Detect early EOF during body consumption and verify closure on reader-context exit.
+
+    Example:
+        >>> test_s3_detects_a_truncated_declared_body_while_streaming(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :return: None after the stated regression assertions pass.
+    """
     client = _FakeS3Client()
     body = io.BytesIO(b"short")
     client.get_object = lambda **kwargs: {  # type: ignore[method-assign]
@@ -577,6 +1035,18 @@ def test_s3_rejects_missing_or_changed_conditional_version_evidence(
     expected_version: str,
     response_version: dict[str, str],
 ) -> None:
+    """
+    Reject and close responses missing or changing the requested VersionId or ETag evidence.
+
+    Example:
+        >>> test_s3_rejects_missing_or_changed_conditional_version_evidence(tmp_path, expected_version, response_version)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :param expected_version: Requested tagged ETag or VersionId condition.
+    :param response_version: Parameterized absent or conflicting version fields returned with an otherwise valid body.
+    :return: None after the stated regression assertions pass.
+    """
     client = _FakeS3Client()
     body = io.BytesIO(b"book")
     client.get_object = lambda **kwargs: {  # type: ignore[method-assign]
@@ -598,6 +1068,16 @@ def test_s3_rejects_missing_or_changed_conditional_version_evidence(
 def test_s3_inventory_rejects_cursor_cycles_instead_of_looping_forever(
     tmp_path: Path,
 ) -> None:
+    """
+    Stop raw-driver inventory when empty pages alternate between two repeated continuation tokens.
+
+    Example:
+        >>> test_s3_inventory_rejects_cursor_cycles_instead_of_looping_forever(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :return: None after the stated regression assertions pass.
+    """
     client = _FakeS3Client()
     client.list_objects_v2 = lambda **kwargs: {  # type: ignore[method-assign]
         "Contents": [],
@@ -617,6 +1097,18 @@ def test_store_ingest_rejects_multi_page_cursor_cycles_without_publication(
     s3_store,
     tmp_path: Path,
 ) -> None:
+    """
+    Reject a two-token empty-page cycle during ingest and verify no destination or memory-manager
+    publication.
+
+    Example:
+        >>> test_store_ingest_rejects_multi_page_cursor_cycles_without_publication(s3_store, tmp_path)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :param tmp_path: Pytest temporary directory containing the real destination filesystem Store.
+    :return: None after the stated regression assertions pass.
+    """
     source, client = s3_store
     client.list_objects_v2 = lambda **kwargs: {  # type: ignore[method-assign]
         "Contents": [],
@@ -645,12 +1137,36 @@ def test_store_ingest_stops_endless_unique_cursors_without_publication(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Enforce the ingest-layer two-page bound on an empty feed returning fresh cursors, before
+    destination publication.
+
+    Example:
+        >>> test_store_ingest_stops_endless_unique_cursors_without_publication(s3_store, tmp_path, monkeypatch)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :param tmp_path: Pytest temporary directory containing the real destination filesystem Store.
+    :param monkeypatch: Pytest fixture restoring temporary ingest page/entry/cursor limit overrides after the test.
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.ingest import stores as ingest_stores_module
 
     source, client = s3_store
     calls = 0
 
     def _endless_pages(**kwargs):
+        """
+        Count one list request and return an empty truncated page with a fresh monotonically
+        numbered cursor.
+
+        Example:
+            >>> page = client.list_objects_v2(Bucket="library")  # doctest: +SKIP
+
+
+        :param kwargs: Client-compatible list request arguments ignored by the intentionally nonterminating feed.
+        :return: Empty Contents page whose next cursor incorporates the incremented enclosing call count.
+        """
         nonlocal calls
         del kwargs
         calls += 1
@@ -686,6 +1202,19 @@ def test_store_ingest_stops_oversized_inventory_before_publication(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Reject a three-entry page under a two-entry ingest bound and leave this destination and manager
+    empty.
+
+    Example:
+        >>> test_store_ingest_stops_oversized_inventory_before_publication(s3_store, tmp_path, monkeypatch)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :param tmp_path: Pytest temporary directory containing the real destination filesystem Store.
+    :param monkeypatch: Pytest fixture restoring temporary ingest page/entry/cursor limit overrides after the test.
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.ingest import stores as ingest_stores_module
 
     source, client = s3_store
@@ -720,6 +1249,19 @@ def test_store_ingest_rejects_oversized_plugin_cursor_without_publication(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Reject a nine-character returned cursor under the ingest-layer eight-character bound before
+    publication.
+
+    Example:
+        >>> test_store_ingest_rejects_oversized_plugin_cursor_without_publication(s3_store, tmp_path, monkeypatch)  # doctest: +SKIP
+
+
+    :param s3_store: Fixture tuple containing the configured library/liuxin S3 Store and its mutable memory client.
+    :param tmp_path: Pytest temporary directory containing the real destination filesystem Store.
+    :param monkeypatch: Pytest fixture restoring temporary ingest page/entry/cursor limit overrides after the test.
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.ingest import stores as ingest_stores_module
 
     source, client = s3_store
@@ -751,9 +1293,32 @@ def test_s3_inventory_rejects_malformed_unicode_from_the_service(
     tmp_path: Path,
     remote_value: str,
 ) -> None:
+    """
+    Translate a returned surrogate-bearing key or continuation token into an unavailable inventory
+    failure.
+
+    Example:
+        >>> test_s3_inventory_rejects_malformed_unicode_from_the_service(tmp_path, remote_value)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :param remote_value: Parameterized malformed Unicode object key or cursor emitted by the fake list response.
+    :return: None after the stated regression assertions pass.
+    """
     client = _FakeS3Client()
 
     def _list_objects(**kwargs):
+        """
+        Inject the enclosing malformed value as an object key or continuation token according to its
+        prefix.
+
+        Example:
+            >>> page = client.list_objects_v2(Bucket="library")  # doctest: +SKIP
+
+
+        :param kwargs: Client-compatible request fields ignored by the prepared malformed-response fixture.
+        :return: Finished one-entry page for a liuxin-prefixed value, otherwise an empty truncated page with that value as cursor.
+        """
         del kwargs
         if remote_value.startswith("liuxin/"):
             return {
@@ -774,11 +1339,51 @@ def test_s3_inventory_rejects_malformed_unicode_from_the_service(
 
 
 def test_s3_open_read_closes_an_unreadable_response_body(tmp_path: Path) -> None:
+    """
+    Close a Body object lacking read before reporting the unreadable-response failure.
+
+    Example:
+        >>> test_s3_open_read_closes_an_unreadable_response_body(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :return: None after the stated regression assertions pass.
+    """
     class _UnreadableBody:
+        """
+        Expose observable close state while deliberately omitting any read method.
+
+        Example:
+            >>> body = _UnreadableBody()  # doctest: +SKIP
+            >>> hasattr(body, "read")  # doctest: +SKIP
+            False
+        """
         def __init__(self) -> None:
+            """
+            Initialize the unreadable response body with its closed marker unset.
+
+            Example:
+                >>> body = _UnreadableBody()  # doctest: +SKIP
+                >>> body.closed  # doctest: +SKIP
+                False
+
+
+            :return: None after setting closed to False.
+            """
             self.closed = False
 
         def close(self) -> None:
+            """
+            Mark the unreadable body closed so the surrounding test can assert driver cleanup.
+
+            Example:
+                >>> body.close()  # doctest: +SKIP
+                >>> body.closed  # doctest: +SKIP
+                True
+
+
+            :return: None after setting closed to True.
+            """
             self.closed = True
 
     client = _FakeS3Client()
@@ -808,8 +1413,38 @@ def test_s3_translates_midstream_body_failures(
     error_type: type[Exception],
     message: str,
 ) -> None:
+    """
+    Translate the injected timeout or connection-reset failure during body reading with its expected
+    context.
+
+    Example:
+        >>> test_s3_translates_midstream_body_failures(tmp_path, failure, error_type, message)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :param failure: Exception instance raised by every fake body read.
+    :param error_type: Expected storage exception class wrapping the selected body failure.
+    :param message: Regular-expression fragment required in the translated diagnostic.
+    :return: None after the stated regression assertions pass.
+    """
     class _FailingBody(io.BytesIO):
+        """
+        Keep BytesIO closure behavior but raise the enclosing transport failure on every read.
+
+        Example:
+            >>> body = _FailingBody()  # doctest: +SKIP
+        """
         def read(self, size: int = -1) -> bytes:
+            """
+            Raise the selected transport exception without consuming inherited stream bytes.
+
+            Example:
+                >>> body.read(4)  # doctest: +SKIP
+
+
+            :param size: Requested byte count discarded so all reads raise the same enclosing failure.
+            :return: Never returns; raises the enclosing failure instance.
+            """
             del size
             raise failure
 
@@ -827,10 +1462,41 @@ def test_s3_translates_midstream_body_failures(
 
 
 def test_s3_rejects_nonbyte_or_overlong_body_chunks(tmp_path: Path) -> None:
+    """
+    Reject string results and size-plus-one byte chunks from a body while consuming a
+    declared-length response.
+
+    Example:
+        >>> test_s3_rejects_nonbyte_or_overlong_body_chunks(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :return: None after the stated regression assertions pass.
+    """
     class _BadBody(io.BytesIO):
+        """
+        Return deliberately invalid read results according to the test-assigned value attribute.
+
+        Example:
+            >>> body.value = "overlong"  # doctest: +SKIP
+            >>> body.read(4)  # doctest: +SKIP
+            b'xxxxx'
+        """
         value: object
 
         def read(self, size: int = -1):
+            """
+            Return size-plus-one bytes for the overlong marker, otherwise return value verbatim.
+
+            Example:
+                >>> body.value = "text"  # doctest: +SKIP
+                >>> body.read(4)  # doctest: +SKIP
+                'text'
+
+
+            :param size: Requested byte count used to fabricate an oversized chunk in the overlong case.
+            :return: Deliberately oversized bytes or a non-byte test value, without advancing inherited stream state.
+            """
             if self.value == "overlong":
                 return b"x" * (size + 1)
             return self.value
@@ -852,6 +1518,16 @@ def test_s3_rejects_nonbyte_or_overlong_body_chunks(tmp_path: Path) -> None:
 def test_s3_open_ended_range_must_reach_declared_object_boundary(
     tmp_path: Path,
 ) -> None:
+    """
+    Reject and close an open-ended response stopping before the total size claimed by ContentRange.
+
+    Example:
+        >>> test_s3_open_ended_range_must_reach_declared_object_boundary(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :return: None after the stated regression assertions pass.
+    """
     client = _FakeS3Client()
     body = io.BytesIO(b"23")
     client.get_object = lambda **kwargs: {  # type: ignore[method-assign]
@@ -885,6 +1561,17 @@ def test_s3_inventory_rejects_duplicate_out_of_scope_or_malformed_entries(
     tmp_path: Path,
     contents: list[object],
 ) -> None:
+    """
+    Reject a duplicated key, an entry outside the configured root, or a non-mapping Contents item.
+
+    Example:
+        >>> test_s3_inventory_rejects_duplicate_out_of_scope_or_malformed_entries(tmp_path, contents)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :param contents: Parameterized invalid Contents list returned in an otherwise finished page.
+    :return: None after the stated regression assertions pass.
+    """
     client = _FakeS3Client()
     client.list_objects_v2 = lambda **kwargs: {  # type: ignore[method-assign]
         "Contents": contents,
@@ -908,6 +1595,18 @@ def test_s3_rejects_malformed_external_uri_encoding(
     tmp_path: Path,
     uri: str,
 ) -> None:
+    """
+    Reject malformed percent syntax, invalid UTF-8 escapes, and raw unpaired surrogates in external
+    S3 URIs.
+
+    Example:
+        >>> test_s3_rejects_malformed_external_uri_encoding(tmp_path, uri)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :param uri: Parameterized malformed absolute S3 URI supplied to object_address_from_uri.
+    :return: None after the stated regression assertions pass.
+    """
     driver = _pathological_s3_driver(tmp_path, _FakeS3Client())
 
     with pytest.raises(api.StorageInvalidAddress):
@@ -917,10 +1616,31 @@ def test_s3_rejects_malformed_external_uri_encoding(
 def test_s3_inventory_stops_endless_unique_continuation_tokens(
     tmp_path: Path,
 ) -> None:
+    """
+    Enforce the raw-driver two-page bound on fresh cursors and verify exactly two backend calls.
+
+    Example:
+        >>> test_s3_inventory_stops_endless_unique_continuation_tokens(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :return: None after the stated regression assertions pass.
+    """
     client = _FakeS3Client()
     calls = 0
 
     def _endless_pages(**kwargs):
+        """
+        Count one list request and return an empty truncated page with a fresh monotonically
+        numbered cursor.
+
+        Example:
+            >>> page = client.list_objects_v2(Bucket="library")  # doctest: +SKIP
+
+
+        :param kwargs: Client-compatible list request arguments ignored by the intentionally nonterminating feed.
+        :return: Empty Contents page whose next cursor incorporates the incremented enclosing call count.
+        """
         nonlocal calls
         del kwargs
         calls += 1
@@ -945,6 +1665,17 @@ def test_s3_inventory_stops_endless_unique_continuation_tokens(
 def test_s3_inventory_rejects_oversized_remote_continuation_tokens(
     tmp_path: Path,
 ) -> None:
+    """
+    Reject a nine-character backend continuation token under the driver eight-character cursor
+    bound.
+
+    Example:
+        >>> test_s3_inventory_rejects_oversized_remote_continuation_tokens(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :return: None after the stated regression assertions pass.
+    """
     client = _FakeS3Client()
     client.list_objects_v2 = lambda **kwargs: {  # type: ignore[method-assign]
         "Contents": [],
@@ -962,6 +1693,16 @@ def test_s3_inventory_rejects_oversized_remote_continuation_tokens(
 
 
 def test_s3_inventory_rejects_oversized_or_nonobject_pages(tmp_path: Path) -> None:
+    """
+    Reject both a three-item response over the per-page bound and a non-mapping list response.
+
+    Example:
+        >>> test_s3_inventory_rejects_oversized_or_nonobject_pages(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :return: None after the stated regression assertions pass.
+    """
     client = _FakeS3Client()
     client.list_objects_v2 = lambda **kwargs: {  # type: ignore[method-assign]
         "Contents": [
@@ -986,8 +1727,37 @@ def test_s3_inventory_rejects_oversized_or_nonobject_pages(tmp_path: Path) -> No
 def test_s3_hostile_body_close_cannot_mask_success_or_primary_failure(
     tmp_path: Path,
 ) -> None:
+    """
+    Suppress ordinary close-call RuntimeError on both readable and unreadable bodies.
+
+    Assertions preserve successful bytes or the primary unreadable-body failure and confirm the
+    closed marker. Close-attribute lookup errors and BaseException subclasses are not part of these
+    cases.
+
+    Example:
+        >>> test_s3_hostile_body_close_cannot_mask_success_or_primary_failure(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :return: None after the stated regression assertions pass.
+    """
     class _CloseBombBody(io.BytesIO):
+        """
+        Close an otherwise readable BytesIO body before raising an ordinary cleanup exception.
+
+        Example:
+            >>> body = _CloseBombBody(b"book")  # doctest: +SKIP
+        """
         def close(self) -> None:
+            """
+            Set inherited closed state, then raise the fixed RuntimeError from the close call.
+
+            Example:
+                >>> body.close()  # doctest: +SKIP
+
+
+            :return: Never returns normally; raises RuntimeError after superclass closure.
+            """
             super().close()
             raise RuntimeError("attacker-controlled close failure")
 
@@ -1003,9 +1773,26 @@ def test_s3_hostile_body_close_cannot_mask_success_or_primary_failure(
     assert readable.closed
 
     class _UnreadableCloseBomb:
+        """
+        Omit read while exposing a close method that records closure and then raises.
+
+        Example:
+            >>> body = _UnreadableCloseBomb()  # doctest: +SKIP
+            >>> hasattr(body, "read")  # doctest: +SKIP
+            False
+        """
         closed = False
 
         def close(self) -> None:
+            """
+            Set an instance closed marker and raise the ordinary cleanup failure.
+
+            Example:
+                >>> body.close()  # doctest: +SKIP
+
+
+            :return: Never returns normally; raises RuntimeError after marking the body closed.
+            """
             self.closed = True
             raise RuntimeError("attacker-controlled close failure")
 
@@ -1020,6 +1807,17 @@ def test_s3_hostile_body_close_cannot_mask_success_or_primary_failure(
 
 
 def test_s3_rejects_nonobject_stat_and_read_responses(tmp_path: Path) -> None:
+    """
+    Report contextual unavailable failures when head_object or get_object returns a non-mapping
+    value.
+
+    Example:
+        >>> test_s3_rejects_nonobject_stat_and_read_responses(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for this driver local staging area.
+    :return: None after the stated regression assertions pass.
+    """
     client = _FakeS3Client()
     driver = _pathological_s3_driver(tmp_path, client)
     client.head_object = lambda **kwargs: "attacker text"  # type: ignore[method-assign]

@@ -1,4 +1,9 @@
-"""Compatibility re-export for unmanaged on-disk location objects."""
+"""
+Re-export OnDiskUnmanagedStoreLocation through the shorter legacy module path.
+
+The value remains the common Location class; no separate path parser or
+filesystem representation is introduced.
+"""
 
 from __future__ import annotations
 

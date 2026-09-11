@@ -1,5 +1,18 @@
 """
-Configured-Store bridge over a reusable ``StorageDriverAPI``.
+Translate a reusable raw driver into one configured Store's routed API.
+
+Public Locations carry the configured Store UUID; private driver addresses must
+round-trip canonically and use that same address-space identity. The bridge
+combines declared mechanics with selected protocol checks and configured
+read-only policy, while delegating backend health and byte operations.
+
+Write-session adapters track accepted bytes, translate metadata, and preserve
+cleanup boundaries. Validation after a commit/native transfer can report failure
+after publication. Inventory methods deliberately differ in whether they stat
+unknown-size objects or preserve incomplete discovery observations.
+
+Example:
+    >>> info = store.stat(store.locate("incoming/book.epub"))  # doctest: +SKIP
 """
 
 from __future__ import annotations
@@ -73,8 +86,12 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
     """
     Translate a raw-driver write session into a routed Store session.
 
+    This adapter counts reported acceptance but adds no finished-session state machine. Commit/abort
+    reuse and staging cleanup remain responsibilities of the raw session. Result validation occurs
+    after raw commit and cannot undo its publication.
+
     Example:
-        >>> adapter = _DriverWriteSessionAdapter(store, session)  # doctest: +SKIP
+        >>> adapter = _DriverWriteSessionAdapter(store, session, expected_address)  # doctest: +SKIP
     """
 
     def __init__(
@@ -87,13 +104,13 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
         Bind a driver session to its configured Store identity.
 
         Example:
-            >>> adapter = _DriverWriteSessionAdapter(store, session)  # doctest: +SKIP
+            >>> adapter = _DriverWriteSessionAdapter(store, session, expected_address)  # doctest: +SKIP
 
 
-        :param store:
-        :param session:
-        :param expected_address:
-        :return:
+        :param store: Configured adapter used to validate and route committed metadata.
+        :param session: Already-created raw driver session whose lifetime this adapter forwards.
+        :param expected_address: Requested canonical driver destination against which committed metadata is checked.
+        :return: None after retaining collaborators and initializing the accepted-byte total to zero.
         """
         self._store: DriverBackedStoreAPI[DriverObjectAddressT] = store
         self._session: DriverWriteSessionAPI[DriverObjectAddressT] = session
@@ -104,12 +121,16 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
         """
         Forward staged bytes to the raw driver session.
 
+        Reject negative counts or counts larger than the supplied payload; the raw write has already
+        run when validation fails. Zero acceptance is retained, unlike the higher-level put loops
+        that reject lack of progress. No independent integer-type check is added.
+
         Example:
             >>> accepted = adapter.write(b"payload")  # doctest: +SKIP
 
 
-        :param data:
-        :return:
+        :param data: Bytes forwarded unchanged to the underlying staging session.
+        :return: Driver-reported count after range validation and accumulation; zero is allowed here.
         """
         accepted = self._session.write(data)
         if accepted < 0 or accepted > len(data):
@@ -123,11 +144,16 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
         """
         Commit and translate driver-local metadata into Store metadata.
 
+        Validate the returned destination and raw metadata after the underlying commit. If size is
+        unknown, fill it from the accumulated accepted count; a known size is retained without
+        comparing it with that count here. Conversion errors can follow successful publication, and
+        there is no rollback in the adapter.
+
         Example:
             >>> info = adapter.commit()  # doctest: +SKIP
 
 
-        :return:
+        :return: Routed FileInfo after raw commit, destination validation, and known-size conversion.
         """
         info = self._store._driver.require_object_info(
             self._expected_address,
@@ -141,11 +167,13 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
         """
         Abort the underlying session idempotently.
 
+        Idempotence is delegated to the driver; this wrapper adds no local committed/aborted guard.
+
         Example:
             >>> adapter.abort()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after delegated abort; the adapter does not reset its byte counter.
         """
         self._session.abort()
 
@@ -157,7 +185,7 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
             >>> entered = adapter.__enter__()  # doctest: +SKIP
 
 
-        :return:
+        :return: This adapter after entering the raw session; the raw enter return value is discarded.
         """
         _ = self._session.__enter__()
         return self
@@ -171,14 +199,17 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
         """
         Forward context exit so abandoned staged state is aborted.
 
+        Forward all exception arguments but discard the raw return value, leaving a body exception
+        unsuppressed. A cleanup exception can still mask it.
+
         Example:
             >>> adapter.__exit__(None, None, None)  # doctest: +SKIP
 
 
-        :param exc_type:
-        :param exc:
-        :param traceback:
-        :return:
+        :param exc_type: Body exception class, or None, forwarded unchanged.
+        :param exc: Body exception instance, or None, forwarded unchanged.
+        :param traceback: Body exception traceback, or None, forwarded unchanged.
+        :return: None after raw exit returns; a truthy raw return value is not forwarded.
         """
         self._session.__exit__(exc_type, exc, traceback)
 
@@ -187,10 +218,13 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
     """
     Configured ``StoreAPI`` privately backed by a reusable raw driver.
 
-    The adapter translates global ``Location`` values to private object
-    addresses, constrains driver mechanics with Store configuration, and keeps
-    Store UUID routing out of drivers that are reused for importing or other
-    non-Store tasks.
+    The adapter translates global ``Location`` values to private object addresses, constrains driver
+    mechanics with Store configuration, and keeps Store UUID routing out of drivers that are reused
+    for importing or other non-Store tasks.
+
+    This configured adapter requires canonical driver addresses to carry the same UUID as store_ref;
+    it does not remap a foreign driver address space. Backend availability, transactions, and byte
+    guarantees remain delegated, while configuration gates mutation.
 
     Example:
         >>> class ConcreteStore(DriverBackedStoreAPI):  # doctest: +SKIP
@@ -208,7 +242,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             >>> driver = store._driver  # doctest: +SKIP
 
 
-        :return:
+        :return: Raw driver owned by the concrete Store; its routed addresses must use the configured Store UUID.
         """
         ...
 
@@ -217,11 +251,17 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Translate driver mechanics into configured Store capabilities.
 
+        Native copy/move/digest and paged enumeration require both raw flags and matching protocols.
+        Other flags are projected without those additional protocol checks here, and placement_hints
+        remains false by default. Read-only configuration clears create, replace, delete, and
+        conditional_delete; native flags and other mechanics remain visible even though mutation
+        methods reject the policy.
+
         Example:
             >>> capabilities = store.capabilities  # doctest: +SKIP
 
 
-        :return:
+        :return: New StoreCapabilities projection with selected protocol checks and configured read-only restrictions.
         """
         raw = self._driver.capabilities
         native_copy = raw.native_copy and isinstance(
@@ -277,16 +317,22 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
 
     @property
     def characteristics(self) -> StorageCharacteristics:
-        """Expose structured driver constraints without leaking the driver.
+        """
+        Expose structured driver constraints without leaking the driver.
 
-        Drivers that do not implement the optional characteristics protocol
-        produce an explicitly unknown profile rather than an optimistic one.
+        Drivers that do not implement the optional characteristics protocol produce an explicitly
+        unknown profile rather than an optimistic one.
+
+        Read-only configuration changes publication_model and recommended_write_usage. STORE_COPY
+        temporary space becomes NONE, while OBJECT_STAGE remains because reads may still spool. The
+        projection performs no backend probe.
 
         Example:
             >>> store.characteristics.publication_model  # doctest: +SKIP
             <StoragePublicationModel.PER_OBJECT: 'per_object'>
 
-        :return: Configured backend constraints and workload characteristics.
+
+        :return: Driver constraint profile or explicit unknown defaults, adjusted for configured read-only policy.
         """
 
         characteristics = (
@@ -311,17 +357,24 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
 
     @property
     def ingest_capabilities(self) -> IngestSourceCapabilities:
-        """Describe advanced source behavior derived from driver mechanics.
+        """
+        Describe advanced source behavior derived from driver mechanics.
 
-        Concrete Stores override this profile only for qualities that cannot
-        be inferred from the ordinary driver contract, such as whether reads
-        are disk-spooled or which authoritative digest algorithms may appear.
+        Concrete Stores override this profile only for qualities that cannot be inferred from the
+        ordinary driver contract, such as whether reads are disk-spooled or which authoritative
+        digest algorithms may appear.
+
+        Advertise version-pinned reads only with raw conditional_read, stable-range resume only with
+        both range_reads and conditional_read, and cursor resume from raw paged_enumeration. This
+        projection does not check the paging protocol. Delivery defaults to streaming, metadata
+        availability to none, and authoritative digest algorithms to an empty tuple.
 
         Example:
             >>> store.ingest_capabilities.object_delivery  # doctest: +SKIP
             <IngestObjectDelivery.STREAMING: 'streaming'>
 
-        :return: Advanced source-ingest capability profile.
+
+        :return: Conservative source profile inferred from raw conditional/range/page capabilities, without trusted digest algorithms.
         """
 
         raw = self._driver.capabilities
@@ -352,14 +405,23 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         *,
         inspect: bool = True,
     ) -> PreparedIngestObject:
-        """Bind one candidate to its richest safe driver-backed observations.
+        """
+        Bind one candidate to its richest safe driver-backed observations.
+
+        Check Store ownership first. An inventory stat failure falls back to the original entry only
+        for StoreUnsupportedOperation; other errors propagate. Existing FileInfo is not refreshed
+        even when inspect is true. Immutable profiles stay immutable; version-pinned profiles need a
+        non-None selected version or degrade to unguarded. Include a digest only when
+        stat_digest_authoritative is advertised and its algorithm appears in the ingest profile.
+        Provenance rendering is a separate call and its failures remain visible.
 
         Example:
             >>> prepared = store.prepare_ingest(entry)  # doctest: +SKIP
 
-        :param info: Candidate owned by this configured Store.
-        :param inspect: Whether to refresh it through authoritative ``stat``.
-        :return: Immutable per-object ingest preparation.
+
+        :param info: Owned FileInfo or inventory observation; only inventory entries are optionally refreshed.
+        :param inspect: Whether to try stat for an inventory entry; an existing FileInfo is retained.
+        :return: Prepared observations with available consistency, advertised authoritative digest, and optional external provenance.
         """
 
         self.require_location(info.location)
@@ -405,15 +467,22 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         *,
         offset: int = 0,
     ) -> BinaryIO:
-        """Open a prepared object and enforce its per-object read guarantee.
+        """
+        Open a prepared object and enforce its per-object read guarantee.
+
+        Validate profile claims before offset checks, translating only validation ValueError to
+        StoreIntegrityError. A negative offset raises StoreInvalidLocation; unsupported nonzero
+        resume raises StoreUnsupportedOperation. Immutable preparations open without an explicit
+        version token. This method adds no size/digest verification while reading.
 
         Example:
             >>> with store.open_prepared_ingest(prepared) as source:  # doctest: +SKIP
             ...     payload = source.read()
 
-        :param prepared: Preparation previously returned by this Store.
-        :param offset: Optional stable resume offset.
-        :return: Context-managed binary object stream.
+
+        :param prepared: Owned preparation whose declared claims must fit the current ingest profile.
+        :param offset: Nonnegative byte offset; nonzero resumption requires stable-range support and guarded or immutable content.
+        :return: Caller-owned binary stream opened with a version condition only for VERSION_PINNED preparation.
         """
 
         location = self.require_location(prepared.info.location)
@@ -446,13 +515,17 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Resolve a driver-owned external URI into a routed Location.
 
+        Check the raw parsing flag before calling the parser; the returned address then passes the
+        configured canonical/scope checks.
+
         Example:
             >>> location = store.location_from_uri(  # doctest: +SKIP
             ...     "s3://library/books/book.epub",
             ... )
 
-        :param uri:
-        :return:
+
+        :param uri: External object URI interpreted and ownership-checked by the driver parser.
+        :return: Routed Location after canonical/address-space validation; unsupported parsing raises StoreUnsupportedOperation.
         """
 
         if not self._driver.capabilities.external_uri_parsing:
@@ -465,11 +538,16 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Render a credential-free external URI through the owned driver.
 
+        Ownership and canonical key validation run before inspecting the rendering flag. The raw
+        renderer owns credential-free URI formatting; this wrapper performs no separate
+        sanitization.
+
         Example:
             >>> uri = store.location_uri(location)  # doctest: +SKIP
 
-        :param location:
-        :return:
+
+        :param location: Location whose Store UUID and parsed driver address must belong to this configured Store.
+        :return: Driver-rendered credential-free URI, or None when rendering is unadvertised or unavailable.
         """
 
         address = self._object_address(location)
@@ -481,14 +559,19 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         self,
         placement_hints: StoragePlacementHints | None,
     ) -> tuple[tuple[str, str], ...]:
-        """Project Store hints into backend-native metadata when supported.
+        """
+        Project Store hints into backend-native metadata when supported.
+
+        This default ignores its input. Concrete rich Store implementations must override both their
+        placement-hint policy and any desired native metadata projection.
 
         Example:
             >>> store._native_write_metadata(None)  # doctest: +SKIP
             ()
 
-        :param placement_hints: Optional advisory library placement metadata.
-        :return: Driver-native string pairs, empty for ordinary Stores.
+
+        :param placement_hints: Optional Store placement advice supplied to the extension hook.
+        :return: Empty tuple in this default; rich Store overrides may produce driver-native text pairs.
         """
 
         _ = placement_hints
@@ -498,11 +581,13 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Start the owned driver and return translated Store status.
 
+        A returned unavailable status is translated rather than converted into an exception here.
+
         Example:
             >>> status = store.startup()  # doctest: +SKIP
 
 
-        :return:
+        :return: Translated result of driver.startup(), with configured read-only policy applied.
         """
         return self._effective_status(self._driver.startup())
 
@@ -514,7 +599,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             >>> status = store.probe()  # doctest: +SKIP
 
 
-        :return:
+        :return: Translated fresh driver probe result; probe failures propagate.
         """
         return self._effective_status(self._driver.probe())
 
@@ -526,8 +611,8 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             >>> status = store.status(refresh=True)  # doctest: +SKIP
 
 
-        :param refresh:
-        :return:
+        :param refresh: Whether to call the Store probe instead of reading driver.status().
+        :return: Translated StoreStatus without an additional registry write or cache layer.
         """
         return self.probe() if refresh else self._effective_status(
             self._driver.status()
@@ -541,7 +626,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             >>> store.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after driver.close(); concrete cleanup failures propagate.
         """
         self._driver.close()
 
@@ -549,12 +634,15 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Build a Location when the driver exposes hierarchy semantics.
 
+        Both the hierarchy capability and runtime protocol are required. Joining does not stat or
+        allocate an object.
+
         Example:
             >>> location = store.location("authors", "book.epub")  # doctest: +SKIP
 
 
-        :param tokens:
-        :return:
+        :param tokens: Key components forwarded unchanged to a supported driver hierarchy joiner.
+        :return: Location for the joined canonical address, scoped to this Store.
         """
         driver = self._driver
         if (
@@ -573,12 +661,16 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Parse a persisted address or validate an existing Location.
 
+        An existing Location receives only the inherited UUID ownership check here; its key is
+        parsed later when an operation calls _object_address. String parsing does not require
+        hierarchy support and performs no existence check.
+
         Example:
             >>> location = store.locate("authors/book.epub")  # doctest: +SKIP
 
 
-        :param identifier:
-        :return:
+        :param identifier: Existing Location checked for Store ownership, or serialized address passed to the driver parser.
+        :return: Owned Location unchanged or a new Location for the parsed canonical driver address.
         """
         if isinstance(identifier, Location):
             return self.require_location(identifier)
@@ -595,15 +687,19 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Allocate a Store Location through an optional driver allocator.
 
+        Require allocation capability plus its protocol, forward size/digest/name hints, and
+        canonicalize the result. This method ignores placement_hints and does not call
+        _require_writable, so target selection alone is not blocked by configured read-only policy.
+
         Example:
             >>> location = store.allocate_location(name_hint="book.epub")  # doctest: +SKIP
 
 
-        :param expected_size:
-        :param expected_digest:
-        :param name_hint:
-        :param placement_hints:
-        :return:
+        :param expected_size: Optional expected logical byte count forwarded to the driver.
+        :param expected_digest: Optional expected content digest forwarded to the driver.
+        :param name_hint: Optional name supplied to the driver allocator.
+        :param placement_hints: Advisory Store metadata ignored by this default allocator bridge.
+        :return: Location for the allocated canonical address; allocation alone does not publish bytes.
         """
         driver = self._driver
         if (
@@ -629,12 +725,16 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Describe one routed object through the owned driver.
 
+        require_object_info checks that the result addresses the requested canonical object and
+        obeys the raw metadata contract before conversion. No fallback byte scan is added for
+        unknown size.
+
         Example:
             >>> info = store.stat(location)  # doctest: +SKIP
 
 
-        :param location:
-        :return:
+        :param location: Location whose Store UUID and parsed driver address must belong to this configured Store.
+        :return: Validated and routed driver metadata with a known size; unknown size raises StoreUnsupportedOperation.
         """
         address = self._object_address(location)
         return self._file_info(
@@ -652,15 +752,19 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Open a routed binary stream through the owned driver.
 
+        The bridge validates routing but delegates range and version enforcement. A None version
+        omits the optional keyword for compatible legacy readers; the stream is not wrapped or read
+        here.
+
         Example:
             >>> source = store.open_read(location, length=20)  # doctest: +SKIP
 
 
-        :param location:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param location: Location whose Store UUID and parsed driver address must belong to this configured Store.
+        :param offset: Starting byte offset passed to the raw reader.
+        :param length: Optional byte count; None delegates reading the remaining object.
+        :param if_version: Optional raw-driver version condition; None omits the keyword.
+        :return: Unwrapped raw-driver read stream owned and closed by the caller.
         """
         address = self._object_address(location)
         if if_version is None:
@@ -686,20 +790,25 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Begin an optional driver write and adapt its commit metadata.
 
-        The returned Store session is a context manager. It deliberately wraps
-        the driver session so internal addresses cannot escape and committed
-        ``DriverObjectInfo`` becomes routed ``FileInfo``.
+        The returned Store session is a context manager. It deliberately wraps the driver session so
+        internal addresses cannot escape and committed ``DriverObjectInfo`` becomes routed
+        ``FileInfo``.
+
+        Reject configured read-only policy first, then check the requested create/replace/upsert
+        mode and write protocol before resolving the Location. The native metadata hook runs before
+        driver.begin_write. Backend status and expected-byte validation remain with the concrete
+        driver/session.
 
         Example:
             >>> session = store.begin_write(location, expected_size=4)  # doctest: +SKIP
 
 
-        :param location:
-        :param mode:
-        :param expected_size:
-        :param expected_digest:
-        :param placement_hints:
-        :return:
+        :param location: Location whose Store UUID and parsed driver address must belong to this configured Store.
+        :param mode: Destination collision policy; CREATE_ONLY by default, with support checked against raw driver capabilities.
+        :param expected_size: Optional expected logical byte count forwarded to the driver.
+        :param expected_digest: Optional expected content digest forwarded to the driver.
+        :param placement_hints: Optional advice projected by _native_write_metadata before starting the raw session.
+        :return: Store write-session adapter for the requested raw destination.
         """
         self._require_writable()
         driver = self._driver
@@ -737,14 +846,19 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Use a driver-native copy when advertised, otherwise stream safely.
 
+        Check configured write policy and raw collision-mode support before selecting acceleration.
+        A false native flag uses StoreFileAPI.copy; a true flag without its protocol raises. Native
+        result validation and required-size conversion happen after the copy, so failure need not
+        mean the destination stayed absent.
+
         Example:
             >>> info = store.copy(source, destination)  # doctest: +SKIP
 
 
-        :param source:
-        :param destination:
-        :param mode:
-        :return:
+        :param source: Owned Location of the complete source object.
+        :param destination: Owned Location of the target object.
+        :param mode: Destination collision policy; CREATE_ONLY by default, with support checked against raw driver capabilities.
+        :return: Routed complete destination metadata from native copy or the Store streaming fallback.
         """
         self._require_writable()
         driver = self._driver
@@ -779,14 +893,19 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Use a safe driver-native move when advertised, else Store fallback.
 
+        Check configured policy and raw collision mode first. The native branch validates source
+        stat metadata and forwards its version, including None, as if_source_version; it does not
+        require public conditional-delete support. A false native flag uses StoreFileAPI.move, whose
+        copy call can still choose native copy. Native result checks occur after relocation.
+
         Example:
             >>> info = store.move(source, destination)  # doctest: +SKIP
 
 
-        :param source:
-        :param destination:
-        :param mode:
-        :return:
+        :param source: Owned Location of the complete source object.
+        :param destination: Owned Location of the target object.
+        :param mode: Destination collision policy; CREATE_ONLY by default, with support checked against raw driver capabilities.
+        :return: Routed destination metadata after native move or the Store copy/conditional-delete fallback.
         """
         self._require_writable()
         driver = self._driver
@@ -826,14 +945,18 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Use a driver-native digest when advertised, otherwise stream.
 
+        An advertised native digest without its protocol raises; a false flag delegates to the
+        streaming default. The native path does not validate chunk_size or independently check the
+        returned algorithm/value. Native failures propagate without retrying via streaming.
+
         Example:
             >>> digest = store.compute_digest(location, "sha256")  # doctest: +SKIP
 
 
-        :param location:
-        :param algorithm:
-        :param chunk_size:
-        :return:
+        :param location: Location whose Store UUID and parsed driver address must belong to this configured Store.
+        :param algorithm: Requested algorithm passed unchanged to native hashing or the Store streaming default.
+        :param chunk_size: Read size used and validated only by the streaming fallback; ignored by native hashing.
+        :return: Native Digest result unchanged, or a digest computed by the generic Store implementation.
         """
         driver = self._driver
         if not driver.capabilities.native_digest:
@@ -864,20 +987,23 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Delete through the optional driver deletion protocol.
 
-        ``if_version`` is an optimistic-concurrency precondition: deletion is
-        permitted only if the object still has the opaque version previously
-        observed by ``stat``. Unsupported conditional deletion raises
-        ``StoreUnsupportedOperation``; a supported but stale token raises
+        ``if_version`` is an optimistic-concurrency precondition: deletion is permitted only if the
+        object still has the opaque version previously observed by ``stat``. Unsupported conditional
+        deletion raises ``StoreUnsupportedOperation``; a supported but stale token raises
         ``StorePreconditionFailed`` from the driver.
+
+        Check configured policy, delete capability/protocol, and optional conditional-delete support
+        before parsing the Location. The driver owns actual version comparison and idempotent
+        absence handling.
 
         Example:
             >>> store.delete(location, if_version="v3")  # doctest: +SKIP
 
 
-        :param location:
-        :param missing_ok:
-        :param if_version:
-        :return:
+        :param location: Location whose Store UUID and parsed driver address must belong to this configured Store.
+        :param missing_ok: Whether the raw deleter may accept genuine absence.
+        :param if_version: Optional source version; requires raw conditional_delete support.
+        :return: None after delegated deletion, with configured policy and typed failures preserved.
         """
         self._require_writable()
         driver = self._driver
@@ -908,12 +1034,17 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Translate optional rich driver inventory into Locations.
 
+        All checks run when iteration starts. Require enumeration support/protocol, validate any
+        prefix, and keep a growing set of seen canonical addresses. A duplicate or later backend
+        error propagates after any earlier yields. Only addresses are consumed; rich metadata is not
+        validated here.
+
         Example:
             >>> locations = list(store.iter_locations())  # doctest: +SKIP
 
 
-        :param prefix:
-        :return:
+        :param prefix: Optional owned prefix requiring raw-driver prefix enumeration support.
+        :return: Lazy iterator of routed, canonical, unique driver inventory addresses.
         """
         driver = self._driver
         if (
@@ -951,13 +1082,20 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         *,
         prefix: Location | None = None,
     ) -> Iterator[FileInfo]:
-        """Expose rich inventory metadata without re-statting known entries.
+        """
+        Expose rich inventory metadata without re-statting known entries.
+
+        Use the same lazy capability/prefix checks and duplicate tracking as iter_locations.
+        Known-size entries retain inventory timestamp/digest/version/hints without stat or
+        require_object_info. Unknown-size entries are statted and must then have a known size.
+        Neither path creates a cross-object snapshot.
 
         Example:
             >>> infos = tuple(store.iter_file_infos())  # doctest: +SKIP
 
-        :param prefix: Optional owned Location restricting enumeration.
-        :return: Authoritative or inventory-derived file information.
+
+        :param prefix: Optional owned prefix requiring raw-driver prefix enumeration support.
+        :return: Lazy FileInfo sequence using known-size inventory directly and stat for unknown-size entries.
         """
 
         driver = self._driver
@@ -1008,13 +1146,20 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         *,
         prefix: Location | None = None,
     ) -> Iterator[StoreInventoryEntry]:
-        """Expose inventory entries without requiring a known object size.
+        """
+        Expose inventory entries without requiring a known object size.
+
+        Validate enumeration support, prefix, and canonical unique addresses lazily. Preserve
+        unknown sizes without stat; repeated or failing entries can raise after earlier yields.
+        Inventory digest observations are forwarded without the separate stat-digest capability
+        check.
 
         Example:
             >>> entries = tuple(store.iter_inventory_entries())  # doctest: +SKIP
 
-        :param prefix: Optional owned Location restricting enumeration.
-        :return: Driver inventory translated into routed Store entries.
+
+        :param prefix: Optional owned prefix requiring raw-driver prefix enumeration support.
+        :return: Lazy routed inventory sequence preserving optional sizes and discovery hints.
         """
 
         driver = self._driver
@@ -1058,16 +1203,23 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         limit: int | None = None,
         snapshot_token: str | None = None,
     ) -> StoreInventoryPage:
-        """Return a resumable page of routed inventory entries.
+        """
+        Return a resumable page of routed inventory entries.
+
+        Check paging capability/protocol and optional prefix support, then delegate
+        cursor/limit/snapshot policy. Translate entries eagerly and preserve tokens.
+        StoreInventoryPage performs within-page validation; the adapter keeps no cross-page
+        duplicate set or snapshot state.
 
         Example:
             >>> page = store.inventory_page(limit=100)  # doctest: +SKIP
 
-        :param prefix: Optional owned Location restricting enumeration.
-        :param cursor: Opaque continuation token from the preceding page.
-        :param limit: Optional maximum number of entries to return.
-        :param snapshot_token: Optional backend snapshot token to continue.
-        :return: One page plus continuation and snapshot tokens.
+
+        :param prefix: Optional owned prefix requiring raw-driver prefix enumeration support.
+        :param cursor: Optional opaque continuation token forwarded unchanged.
+        :param limit: Optional requested maximum entries, with validation delegated to the driver.
+        :param snapshot_token: Optional snapshot token forwarded unchanged.
+        :return: Materialized StoreInventoryPage with translated entries and the raw continuation tokens.
         """
 
         driver = self._driver
@@ -1104,12 +1256,15 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Translate a routed Location into a checked private address.
 
+        Location ownership is checked before key parsing. Canonicality is then enforced through the
+        driver and address_space_uuid must equal store_ref.
+
         Example:
             >>> address = store._object_address(location)  # doctest: +SKIP
 
 
-        :param location:
-        :return:
+        :param location: Location whose Store UUID and parsed driver address must belong to this configured Store.
+        :return: Canonical raw address parsed from the owned Location key and checked against the configured UUID.
         """
         owned = self.require_location(location)
         return self._require_object_address_space(
@@ -1120,12 +1275,15 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Pair a checked driver address with this Store's UUID.
 
+        Canonical serialization and Store binding are checked before constructing a new public
+        Location; existence is not inspected.
+
         Example:
             >>> location = store._location(address)  # doctest: +SKIP
 
 
-        :param object_address:
-        :return:
+        :param object_address: Driver address requiring canonical form and the configured Store UUID.
+        :return: New Location pairing store_ref with the checked address serialization.
         """
         checked = self._require_object_address_space(object_address)
         return Location(self.store_ref, str(checked))
@@ -1141,8 +1299,8 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             >>> checked = store._require_object_address_space(address)  # doctest: +SKIP
 
 
-        :param object_address:
-        :return:
+        :param object_address: Raw address to validate through the driver before checking its Store binding.
+        :return: Canonical checked address unchanged; a different Store UUID raises StoreInvalidLocation.
         """
         checked = self._driver.require_canonical_object_address(
             object_address
@@ -1161,12 +1319,16 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Translate driver-local metadata into routed Store metadata.
 
+        Unknown size raises before address conversion. This helper checks routing through _location
+        but does not independently enforce the raw stat-digest policy; callers requiring that check
+        invoke require_object_info first.
+
         Example:
             >>> routed = store._file_info(driver_info)  # doctest: +SKIP
 
 
-        :param info:
-        :return:
+        :param info: Driver metadata whose size must be known and address must route to this Store.
+        :return: New FileInfo preserving size, timestamp, digest, version, and translated hints.
         """
         if info.size is None:
             raise StoreUnsupportedOperation(
@@ -1185,13 +1347,18 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         self,
         entry: DriverInventoryEntry[DriverObjectAddressT],
     ) -> StoreInventoryEntry:
-        """Translate one possibly size-less driver inventory entry.
+        """
+        Translate one possibly size-less driver inventory entry.
+
+        No stat, byte read, or authoritative-digest check occurs here. _location enforces canonical
+        routing before constructing the public record.
 
         Example:
             >>> routed = store._inventory_entry(driver_entry)  # doctest: +SKIP
 
-        :param entry: Canonical raw-driver inventory metadata.
-        :return: Routed Store inventory metadata.
+
+        :param entry: Raw inventory observation, possibly without a known byte size.
+        :return: New StoreInventoryEntry preserving observation fields and routing the address.
         """
 
         return StoreInventoryEntry(
@@ -1210,8 +1377,9 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         Example:
             >>> routed = store._file_hints(driver_hints)  # doctest: +SKIP
 
-        :param hints:
-        :return:
+
+        :param hints: Raw suggested filename, media type, and native metadata pairs.
+        :return: New FileHints carrying the same field values through its constructor validation.
         """
 
         return FileHints(
@@ -1224,12 +1392,15 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Translate driver status and apply configured read-only state.
 
+        Availability is not recomputed from writability, and diagnostic message/warnings/details are
+        not redacted by this projection.
+
         Example:
             >>> status = store._effective_status(driver_status)  # doctest: +SKIP
 
 
-        :param status:
-        :return:
+        :param status: Raw driver availability, capacity, diagnostic, and timestamp observations.
+        :return: StoreStatus with raw fields preserved except writability is masked by configured read-only policy.
         """
         return StoreStatus(
             available=status.available,
@@ -1247,11 +1418,14 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Raise when configured Store policy forbids mutation.
 
+        This checks only configured policy, not dynamic driver availability, capacity, or individual
+        operation capabilities.
+
         Example:
             >>> store._require_writable()  # doctest: +SKIP
 
 
-        :return:
+        :return: None when configuration permits mutation; otherwise raises StoreReadOnly.
         """
         if self.configuration.read_only:
             raise StoreReadOnly(
@@ -1266,13 +1440,16 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         Require driver publication support for one collision mode.
 
+        The enum-keyed lookup performs no normalization and checks no optional protocol, live
+        health, or Location. It is a static helper, so both driver and mode are explicit arguments.
+
         Example:
             >>> store._require_write_mode(driver, WriteMode.CREATE_ONLY)  # doctest: +SKIP
 
 
-        :param driver:
-        :param mode:
-        :return:
+        :param driver: Raw driver whose create/replace flags determine permitted publication modes.
+        :param mode: Required collision mode; UPSERT requires both create and replace.
+        :return: None when supported; otherwise raises StoreUnsupportedOperation.
         """
         supported = {
             WriteMode.CREATE_ONLY: driver.capabilities.create,

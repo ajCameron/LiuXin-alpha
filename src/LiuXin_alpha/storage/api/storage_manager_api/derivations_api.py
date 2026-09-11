@@ -1,5 +1,9 @@
 """
-Asset derivation and reproducibility facade.
+Define provenance, graph traversal, replay planning, and external artefact resolution contracts.
+
+The registry separates recorded identity/recipe evidence from current availability
+and execution. Its concrete graph conveniences expose ordered records from an eager
+graph result; providers own persistence and external content-verification behavior.
 """
 
 import abc
@@ -23,7 +27,11 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 @runtime_checkable
 class ReproductionRecipeArtifactResolverAPI(Protocol):
     """
-    Verify that an externally referenced pinned artefact is retrievable.
+    Describe a provider that can check retrieval of externally pinned artefact bytes.
+
+    Implementations own retrieval and digest-verification semantics. Runtime protocol checks only
+    establish the structural method surface, not that a provider verifies content or obeys its
+    return annotation.
 
     Example:
         >>> isinstance(resolver, ReproductionRecipeArtifactResolverAPI)  # doctest: +SKIP
@@ -35,32 +43,34 @@ class ReproductionRecipeArtifactResolverAPI(Protocol):
         reference: ReproductionRecipeArtifactReference,
     ) -> bool:
         """
-        Return whether bytes matching ``reference.digest`` are retrievable.
+        Report whether bytes matching the pinned digest can currently be retrieved.
+
+        This protocol supplies no retrieval implementation. The manager uses a configured resolver
+        for external hints when a managed route is unavailable; its policy/recreation helpers treat
+        ordinary provider exceptions as unavailable while allowing BaseException to propagate.
 
         Example:
             >>> resolver.is_available(reference)  # doctest: +SKIP
             True
 
 
-        :param reference:
-        :return:
+        :param reference: Pinned artefact identity and retrieval hints the provider must assess.
+        :return: True for retrievable matching bytes, False when the provider cannot establish availability.
         """
         ...
 
 
 class DigitalAssetDerivationRegistryAPI(abc.ABC):
     """
-    Record and query provenance without changing Asset byte identity.
+    Define provenance registration, filtered traversal, and exact-recreation planning for atomic
+    Assets.
 
-    A derived result is an ordinary atomic Digital Asset. This facade
-    records how it was produced and whether it can be recreated exactly.
-    Recipes are immutable provenance evidence and replay plans; executing a
-    converter belongs to a separate workflow runner.
+    Derivations retain how an existing result was produced; recipes are evidence for proposed
+    replay. This API does not run converters. Ancestor/descendant conveniences eagerly obtain a
+    graph from the concrete implementation and then expose its ordered records.
 
     Example:
-        >>> record = manager.record_digital_asset_derivation(  # doctest: +SKIP
-        ...     declaration,
-        ... )
+        >>> record = manager.record_digital_asset_derivation(declaration)  # doctest: +SKIP
     """
 
     @abc.abstractmethod
@@ -69,20 +79,21 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         declaration: DigitalAssetDerivationDeclaration,
     ) -> DigitalAssetDerivationRecord:
         """
-        Persist provenance after validating all referenced Assets.
+        Register a provenance assertion after validating source references, pinned identities, and
+        cycles.
 
-        For an exact recipe, the expected output size and digests must match
-        the registered result Asset. Implementations must reject derivation
-        cycles and must not infer replayability from a transformation name.
+        A complete recipe must pin every expanded provenance source. Input identities must agree
+        with registered sizes and comparable digests; managed artefacts must match their pinned
+        digest. Complete exact output evidence must match the result. Validation does not establish
+        current readability or execute the recipe. The composed manager allocates a fresh record
+        even for an equivalent declaration.
 
         Example:
-            >>> record = manager.record_digital_asset_derivation(  # doctest: +SKIP
-            ...     declaration,
-            ... )
+            >>> record = manager.record_digital_asset_derivation(declaration)  # doctest: +SKIP
 
 
-        :param declaration:
-        :return:
+        :param declaration: Provenance for an existing result, with ordered atomic/Composite sources and an optional recipe.
+        :return: New registered derivation record; missing references, inconsistent identities, or cycles raise their domain errors.
         """
         ...
 
@@ -92,16 +103,14 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         digital_asset_derivation_id: DigitalAssetDerivationID,
     ) -> DigitalAssetDerivationRecord:
         """
-        Return one derivation or raise ``DigitalAssetDerivationNotFound``.
+        Look up one registered provenance record without probing its bytes or replay route.
 
         Example:
-            >>> record = manager.get_digital_asset_derivation_record(  # doctest: +SKIP
-            ...     DigitalAssetDerivationID(11),
-            ... )
+            >>> record = manager.get_digital_asset_derivation_record(DigitalAssetDerivationID(11))  # doctest: +SKIP
 
 
-        :param digital_asset_derivation_id:
-        :return:
+        :param digital_asset_derivation_id: Registered derivation identity, distinct from its result Asset ID.
+        :return: Retained provenance record; DigitalAssetDerivationNotFound when absent and other repository errors propagate.
         """
         ...
 
@@ -117,24 +126,27 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         exact_only: bool = False,
     ) -> Iterator[DigitalAssetDerivationRecord]:
         """
-        Iterate over derivations matching provenance or replay filters.
+        Return an ID-ordered snapshot matching all supplied provenance and workflow filters.
 
-        ``exact_only`` returns only complete recipes that claim byte-identical
-        recreation. Other repository and connection failures remain visible.
+        Atomic-source filtering examines direct provenance references; it does not expand Composite
+        members or recipe inputs. The atomic and Composite filters can both be supplied and must
+        each match. Exactness is a recipe claim, independent of current readability. The composed
+        manager validates workflow filters and captures records when this method is called, before
+        iteration.
 
         Example:
-            >>> records = list(manager.iter_digital_asset_derivation_records(  # doctest: +SKIP
+            >>> records = tuple(manager.iter_digital_asset_derivation_records(  # doctest: +SKIP
             ...     result_digital_asset_id=DigitalAssetID(8), exact_only=True,
             ... ))
 
 
-        :param result_digital_asset_id:
-        :param source_digital_asset_id:
-        :param source_composite_digital_asset_id:
-        :param workflow_id: Restrict results to one workflow execution.
-        :param workflow_reference: Restrict results to one namespaced workflow.
-        :param exact_only:
-        :return:
+        :param result_digital_asset_id: Optional result identity matched directly; None leaves this dimension unrestricted.
+        :param source_digital_asset_id: Optional direct atomic provenance source; Composite members and recipe-only inputs are not expanded for this filter.
+        :param source_composite_digital_asset_id: Optional directly referenced Composite identity, matched independently of the atomic-source filter.
+        :param workflow_id: Optional positive workflow ID; None includes all workflow IDs.
+        :param workflow_reference: Optional nonblank workflow label compared exactly, without stripping retained text.
+        :param exact_only: Whether to retain only records whose recipes claim complete EXACT enum reproducibility.
+        :return: Iterator over the captured matching records, possibly empty; invalid workflow filters and repository failures raise.
         """
         ...
 
@@ -148,23 +160,22 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         exact_only: bool = False,
     ) -> Iterator[DigitalAssetDerivationRecord]:
         """
-        Iterate from a result toward every direct and transitive derivation.
+        Obtain an ancestor graph eagerly and iterate its nearest-first provenance records.
 
-        Records are returned nearest-first. Alternative recipes are retained;
-        this is a provenance traversal, not a recreation-route selection.
+        All matching alternatives remain, rather than selecting a recreation route. Graph/filter
+        errors occur during this call. Returning only records discards the graph node inventory and
+        truncation indicator; use get_derivation_graph when that evidence is needed.
 
         Example:
-            >>> chain = list(manager.iter_derivation_ancestors(  # doctest: +SKIP
-            ...     DigitalAssetID(9),
-            ... ))
+            >>> chain = tuple(manager.iter_derivation_ancestors(DigitalAssetID(9)))  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param max_depth: Maximum number of derivation edges from the root.
-        :param workflow_id: Restrict traversal to one workflow execution.
-        :param workflow_reference: Restrict traversal to one namespaced workflow.
-        :param exact_only: Follow only complete exact recipes.
-        :return:
+        :param digital_asset_id: Registered atomic root, resolved before direction/depth/filter validation.
+        :param max_depth: Optional nonnegative edge-depth limit; zero retains the root only and None imposes no limit.
+        :param workflow_id: Optional positive workflow ID; None includes all workflow IDs.
+        :param workflow_reference: Optional nonblank workflow label compared exactly, without stripping retained text.
+        :param exact_only: Whether to retain only records whose recipes claim complete EXACT enum reproducibility.
+        :return: Iterator over the already materialized ancestor graph records, preserving their order.
         """
 
         graph = self.get_derivation_graph(
@@ -187,22 +198,23 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         exact_only: bool = False,
     ) -> Iterator[DigitalAssetDerivationRecord]:
         """
-        Iterate from an input toward every direct and transitive result.
+        Obtain a descendant graph eagerly and iterate its nearest-first provenance records.
 
-        Records are returned nearest-first and include branches.
+        Branches are retained. Errors propagate from graph construction before an iterator is
+        returned; the convenience does not expose the graph truncation flag or node inventory.
 
         Example:
-            >>> outputs = list(manager.iter_derivation_descendants(  # doctest: +SKIP
+            >>> outputs = tuple(manager.iter_derivation_descendants(  # doctest: +SKIP
             ...     DigitalAssetID(7), max_depth=2,
             ... ))
 
 
-        :param digital_asset_id:
-        :param max_depth: Maximum number of derivation edges from the root.
-        :param workflow_id: Restrict traversal to one workflow execution.
-        :param workflow_reference: Restrict traversal to one namespaced workflow.
-        :param exact_only: Follow only complete exact recipes.
-        :return:
+        :param digital_asset_id: Registered atomic root, resolved before direction/depth/filter validation.
+        :param max_depth: Optional nonnegative edge-depth limit; zero retains the root only and None imposes no limit.
+        :param workflow_id: Optional positive workflow ID; None includes all workflow IDs.
+        :param workflow_reference: Optional nonblank workflow label compared exactly, without stripping retained text.
+        :param exact_only: Whether to retain only records whose recipes claim complete EXACT enum reproducibility.
+        :return: Iterator over the already materialized descendant graph records, preserving their order.
         """
 
         graph = self.get_derivation_graph(
@@ -229,25 +241,31 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         exact_only: bool = False,
     ) -> DigitalAssetDerivationGraph:
         """
-        Return a bounded provenance graph rooted at one atomic Asset.
+        Build a bounded provenance inventory using breadth-first walks from one Asset.
 
-        The graph contains all matching alternatives rather than choosing one
-        route. Recipe inputs participate in traversal; managed executables and
-        dependencies do not become provenance ancestors.
+        Recipe inputs and current Composite members participate as atomic sources; managed
+        executables/dependencies do not. Alternatives remain visible. BOTH combines an ancestor walk
+        followed by a separate descendant walk from the root, rather than exploring every undirected
+        connection. Records can retain co-inputs absent from the traversed atomic node inventory.
+
+        Workflow/exactness filters apply before traversal. In the composed manager every matching
+        record is indexed first, so an unrelated matching record with a broken Composite reference
+        can still fail this call. A depth limit marks truncation when adjacency exists at the
+        cutoff, even if some adjacent records were already seen.
 
         Example:
             >>> graph = manager.get_derivation_graph(  # doctest: +SKIP
-            ...     DigitalAssetID(9), direction="ancestors",
+            ...     DigitalAssetID(9), direction="ancestors", max_depth=2,
             ... )
 
 
-        :param digital_asset_id:
-        :param direction:
-        :param max_depth:
-        :param workflow_id:
-        :param workflow_reference:
-        :param exact_only:
-        :return:
+        :param digital_asset_id: Registered atomic root, resolved before direction/depth/filter validation.
+        :param direction: Ancestors, descendants, or both, accepted as an enum or its exact string value.
+        :param max_depth: Optional nonnegative edge-depth limit; zero retains the root only and None imposes no limit.
+        :param workflow_id: Optional positive workflow ID; None includes all workflow IDs.
+        :param workflow_reference: Optional nonblank workflow label compared exactly, without stripping retained text.
+        :param exact_only: Whether to retain only records whose recipes claim complete EXACT enum reproducibility.
+        :return: Graph with stable first-encounter node/record order and a truncation flag; validation or reference failures propagate.
         """
         ...
 
@@ -257,23 +275,22 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         digital_asset_id: DigitalAssetID,
     ) -> DigitalAssetRecreationPlan:
         """
-        Select the shortest currently viable exact replay chain.
+        Select an exact-replay proposal from currently readable bytes and recursively viable
+        recipes.
 
-        Returned steps are topologically ordered. A readable requested Asset
-        yields an already-available plan with no steps. Alternative viable
-        derivations remain visible on the plan; unavailable inputs and tools
-        are reported without mutating storage.
+        A readable root yields no steps. Otherwise the composed manager compares viable branch
+        proposals by step count and then derivation ID, retaining alternatives and diagnostics.
+        Prerequisite recipes precede consumers. This is a recursive selection, not a global cost
+        optimizer or reservation; current source/tool availability can change before execution.
 
         Example:
-            >>> plan = manager.plan_digital_asset_recreation(  # doctest: +SKIP
-            ...     DigitalAssetID(9),
-            ... )
+            >>> plan = manager.plan_digital_asset_recreation(DigitalAssetID(9))  # doctest: +SKIP
             >>> plan.can_recreate_exactly  # doctest: +SKIP
             True
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic result whose availability or exact recreation route should be assessed.
+        :return: Plan containing selected steps, availability evidence, alternatives, and warnings; an unavailable plan is a valid result.
         """
         ...
 
@@ -285,11 +302,12 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         if_revision: str | None = None,
     ) -> bool:
         """
-        Forget an erroneous provenance assertion without deleting Assets.
+        Remove a provenance assertion while retaining its result and source Assets.
 
-        Derivation records are immutable; correction means replacing an
-        erroneous assertion through an explicitly coordinated remove and new
-        record, never mutating historical recipe fields in place.
+        An optional revision guards an existing record. The composed manager returns False for
+        absence before checking that token; it does not revalidate policies that relied on the
+        removed recipe. Correction requires a separately coordinated removal and new registration,
+        without an atomic replacement guarantee from this API.
 
         Example:
             >>> forgotten = manager.forget_digital_asset_derivation(  # doctest: +SKIP
@@ -297,9 +315,9 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
             ... )
 
 
-        :param digital_asset_derivation_id:
-        :param if_revision:
-        :return:
+        :param digital_asset_derivation_id: Provenance identity to remove.
+        :param if_revision: Optional expected revision; None omits the optimistic-lock precondition.
+        :return: True when a record is removed, False when absent; a stale supplied revision raises StoragePreconditionFailed.
         """
         ...
 

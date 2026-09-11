@@ -1,5 +1,9 @@
 """
-Configured-store, bootstrap, and reconciliation value objects.
+Represent configured Store endpoints and bootstrap/reconciliation observations.
+
+These passive values apply selected local validation and factory normalization.
+They do not construct Stores, persist configuration, establish inventory truth,
+or perform recovery; manager implementations own those operations.
 """
 
 from __future__ import annotations
@@ -31,10 +35,9 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
 
 class TopologyRelation(StrEnum):
     """
-    Whether two configured Stores share a declared topology identity.
-
-    ``UNKNOWN`` is distinct from ``DIFFERENT``: absence of host or device
-    metadata must not be treated as evidence of physical separation.
+    Classify equality of declared Store host or device identities. UNKNOWN represents missing
+    topology evidence and must not be interpreted as physical separation. Values describe
+    configuration comparisons rather than a hardware probe.
 
     Example:
         >>> TopologyRelation.SAME.value
@@ -49,12 +52,10 @@ class TopologyRelation(StrEnum):
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreBackingReference:
     """
-    Durably identify the Digital Asset whose bytes back a Store view.
-
-    The Asset is authoritative. ``preferred_replica_id`` is only a routing
-    hint and may be replaced by another readable Replica of the same Asset.
-    A materialization Store is required when the selected Replica cannot be
-    exposed to a local-file container driver directly.
+    Identify the catalogue Asset whose container bytes back a read-only Store view. The preferred
+    Replica is a replaceable routing hint; a materialization Store can supply local bytes for a
+    driver that cannot read the selected representation directly. Construction validates selected
+    identifier/reference shapes without resolving any Asset or opening bytes.
 
     Example:
         >>> backing = StoreBackingReference(
@@ -62,6 +63,11 @@ class StoreBackingReference:
         ... )
         >>> int(backing.digital_asset_id)
         7
+
+
+    :ivar digital_asset_id: Backing Asset identity; positive int conversion is checked but the original value is retained.
+    :ivar preferred_replica_id: Optional preferred Replica identity, validated by the same positive-conversion rule.
+    :ivar materialization_store_ref: Optional UUID of the Store used for local materialization; no availability/capability check occurs here.
     """
 
     digital_asset_id: DigitalAssetID
@@ -70,7 +76,10 @@ class StoreBackingReference:
 
     def __post_init__(self) -> None:
         """
-        Reject invalid catalogue identifiers and Store references.
+        Reject boolean or nonpositive int-convertible Asset/Replica IDs and non-UUID materialization
+        references. Positive numeric strings and truncatable floats can pass without being assigned
+        converted integer values. Conversion/attribute errors propagate; repository existence is not
+        checked.
 
         Example:
             >>> StoreBackingReference(DigitalAssetID(0))
@@ -79,7 +88,7 @@ class StoreBackingReference:
             ValueError: digital_asset_id must be a positive integer.
 
 
-        :return:
+        :return: None after these validation checks; invalid IDs raise through validation/conversion and an invalid Store reference raises TypeError.
         """
 
         raw_digital_asset_id: object = self.digital_asset_id
@@ -105,12 +114,15 @@ class StoreBackingReference:
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreConfiguration:
     """
-    Portable durable configuration for one store endpoint.
+    Retain portable configuration for one Store endpoint. Manager first-placement logic can capture
+    Store default policy IDs on a new Asset; these values are not dynamically inherited by every
+    Asset later copied here. Construction neither registers a Store nor enforces backend
+    capabilities.
 
-    Store default policy identifiers are placement-time defaults. A manager
-    captures them on a newly declared Digital Asset whose first Replica is
-    placed in this Store; they are not dynamically inherited by every Asset
-    that later acquires a Replica here.
+    Direct construction validates selected identities, required text, backing consistency, and
+    option shapes. It does not recursively freeze fields or generally coerce modes, tags, policy
+    IDs, optional strings, or boolean values. Convenience factories perform their own additional
+    normalization.
 
     Example:
         >>> configuration = StoreConfiguration(
@@ -120,6 +132,27 @@ class StoreConfiguration:
         ... )
         >>> configuration.supports_folders
         True
+
+
+    :ivar store_uuid: Durable configured Store UUID used for routing.
+    :ivar store_name: Required nonblank display name, retained without stripping.
+    :ivar store_kind: Required nonblank backend-kind text; direct construction does not normalize or validate registry membership.
+    :ivar store_root_uri: Required nonblank root/endpoint text, without URI parsing at direct construction.
+    :ivar store_url: Optional operator-facing URL, retained without validation.
+    :ivar store_access_protocol: Optional access-protocol label or override.
+    :ivar store_failure_domain: Optional fault-isolation label for placement policy.
+    :ivar store_region: Optional geographic or administrative placement region.
+    :ivar store_host_uuid: Optional declared host UUID; no host discovery is performed.
+    :ivar store_device_uuid: Optional declared physical-device UUID; no device discovery is performed.
+    :ivar store_tags: Placement labels retained as supplied by direct construction.
+    :ivar store_default_replication_policy_id: Optional policy identity captured by manager first-placement behavior, not resolved here.
+    :ivar store_default_backup_policy_id: Optional backup policy identity for first placement, not resolved here.
+    :ivar supported_replica_modes: Permitted mode declarations; direct construction does not coerce their container or members.
+    :ivar operational_role: Optional operator-facing role such as archive.
+    :ivar read_only: Requested read-only policy; truthiness is required for backed configurations, but no runtime Store is changed here.
+    :ivar supports_folders: Declared folder semantics, retained without boolean validation.
+    :ivar backend_options: Ordered unique-name scalar or string-tuple options; supplied values remain shared.
+    :ivar backing: Optional validated StoreBackingReference requiring a read-only view and preventing direct self-materialization.
     """
 
     store_uuid: StoreUUID
@@ -177,10 +210,13 @@ class StoreConfiguration:
         backing: StoreBackingReference | None = None,
     ) -> Self:
         """
-        Build portable configuration without spelling out model fields.
+        Build configuration through cls after normalizing endpoint text and collection arguments.
+        PathLike roots expand the user directory, resolve without requiring existence, and become
+        file URIs. Other roots are stringified and stripped. Tags/options retain iteration order;
+        modes are converted to enums and deduplicated. None UUID generates a random uuid4.
 
-        Path-like roots are rendered as absolute ``file:`` URIs. String roots
-        are preserved for remote and backend-native endpoint syntax.
+        No backend registry lookup, Store creation, persistence, or capacity probe occurs. Iterable,
+        path-resolution, enum-conversion, and constructor errors propagate.
 
         Example:
             >>> configuration = StoreConfiguration.for_backend(
@@ -191,26 +227,26 @@ class StoreConfiguration:
             's3'
 
 
-        :param name:
-        :param kind:
-        :param root:
-        :param store_uuid:
-        :param url:
-        :param protocol:
-        :param failure_domain:
-        :param region:
-        :param host:
-        :param device:
-        :param tags:
-        :param replication_policy:
-        :param backup_policy:
-        :param modes:
-        :param operational_role:
-        :param read_only:
-        :param folders:
-        :param options:
-        :param backing:
-        :return:
+        :param name: Required nonblank display name retained in store_name.
+        :param kind: Backend-kind text retained in store_kind.
+        :param root: PathLike root resolved to a file URI, or endpoint text stringified and stripped.
+        :param store_uuid: Optional routing UUID; None generates uuid4.
+        :param url: Optional operator-facing URL.
+        :param protocol: Optional access-protocol declaration.
+        :param failure_domain: Optional placement fault-isolation label.
+        :param region: Optional geographic or administrative region.
+        :param host: Optional declared host UUID.
+        :param device: Optional declared device UUID.
+        :param tags: Iterable collected into a tuple without sorting or deduplication.
+        :param replication_policy: Optional default replication-policy identity retained without repository lookup.
+        :param backup_policy: Optional default backup-policy identity retained without repository lookup.
+        :param modes: Iterable converted to ReplicaMode members and collected into a frozenset.
+        :param operational_role: Optional operator-facing Store role.
+        :param read_only: Requested read-only flag forwarded to configuration validation.
+        :param folders: Declared folder-semantics flag.
+        :param options: Mapping or pair iterable shallowly collected into an ordered tuple before option validation.
+        :param backing: Optional backing Asset reference, validated by the constructed configuration.
+        :return: New configuration of cls with normalized factory inputs.
         """
 
         option_pairs = _option_pairs(options)
@@ -261,12 +297,11 @@ class StoreConfiguration:
         ) = (),
     ) -> Self:
         """
-        Build a read-only Store view over one container Asset.
-
-        Manager convenience APIs supply a content-derived stable UUID when
-        none is requested. This lower-level value constructor otherwise uses
-        the same generated-UUID convention as ``for_backend``. Physical
-        Replica selection remains replaceable.
+        Create a read-only backed configuration with an asset://digital-asset/ID root.
+        StoreBackingReference validation occurs first, then this factory calls cls.for_backend with
+        read_only=True. Default modes/role describe an archive view. No Asset/Replica lookup, local
+        materialization, or stable content-derived UUID occurs here; None UUID follows for_backend's
+        random convention.
 
         Example:
             >>> configuration = StoreConfiguration.for_backed_backend(
@@ -277,21 +312,21 @@ class StoreConfiguration:
             'asset://digital-asset/7'
 
 
-        :param name:
-        :param kind:
-        :param digital_asset_id:
-        :param preferred_replica_id:
-        :param materialization_store_ref:
-        :param store_uuid:
-        :param protocol:
-        :param failure_domain:
-        :param region:
-        :param tags:
-        :param modes:
-        :param operational_role:
-        :param folders:
-        :param options:
-        :return:
+        :param name: Required nonblank display name retained in store_name.
+        :param kind: Backend-kind text retained in store_kind.
+        :param digital_asset_id: Backing Asset identifier checked by StoreBackingReference and rendered into the asset URI.
+        :param preferred_replica_id: Optional preferred Replica identifier retained as a routing hint.
+        :param materialization_store_ref: Optional UUID for local materialization of the backing bytes.
+        :param store_uuid: Optional routing UUID; None generates uuid4.
+        :param protocol: Optional access-protocol declaration.
+        :param failure_domain: Optional placement fault-isolation label.
+        :param region: Optional geographic or administrative region.
+        :param tags: Iterable collected into a tuple without sorting or deduplication.
+        :param modes: Iterable converted to ReplicaMode members and collected into a frozenset.
+        :param operational_role: Optional operator-facing Store role.
+        :param folders: Declared folder-semantics flag.
+        :param options: Mapping or pair iterable shallowly collected into an ordered tuple before option validation.
+        :return: New read-only backed configuration, without constructing its runtime Store.
         """
 
         backing = StoreBackingReference(
@@ -342,11 +377,10 @@ class StoreConfiguration:
         ) = (),
     ) -> Self:
         """
-        Build configuration for a local transactional filesystem Store.
-
-        Plain paths and ``Path`` objects become absolute ``file:`` URIs;
-        existing local file URIs remain valid. Non-file URI schemes are
-        rejected early with a configuration-focused error.
+        Build configuration with kind filesystem, protocol file, and folders enabled. Local paths
+        are expanded/resolved without requiring existence; a parsed non-file scheme rejects.
+        Existing file URI text is retained after stripping without checking authority, host, or path
+        usability. No root directory or Store is created.
 
         Example:
             >>> configuration = StoreConfiguration.filesystem(
@@ -356,21 +390,21 @@ class StoreConfiguration:
             'filesystem'
 
 
-        :param name:
-        :param root:
-        :param store_uuid:
-        :param failure_domain:
-        :param region:
-        :param host:
-        :param device:
-        :param tags:
-        :param replication_policy:
-        :param backup_policy:
-        :param modes:
-        :param operational_role:
-        :param read_only:
-        :param options:
-        :return:
+        :param name: Required nonblank display name retained in store_name.
+        :param root: PathLike/local path resolved to a file URI, or stripped file URI accepted by the helper.
+        :param store_uuid: Optional routing UUID; None generates uuid4.
+        :param failure_domain: Optional placement fault-isolation label.
+        :param region: Optional geographic or administrative region.
+        :param host: Optional declared host UUID.
+        :param device: Optional declared device UUID.
+        :param tags: Iterable collected into a tuple without sorting or deduplication.
+        :param replication_policy: Optional default replication-policy identity retained without repository lookup.
+        :param backup_policy: Optional default backup-policy identity retained without repository lookup.
+        :param modes: Iterable converted to ReplicaMode members and collected into a frozenset.
+        :param operational_role: Optional operator-facing Store role.
+        :param read_only: Requested read-only flag forwarded to configuration validation.
+        :param options: Mapping or pair iterable shallowly collected into an ordered tuple before option validation.
+        :return: New filesystem configuration produced through cls.for_backend.
         """
 
         return cls.for_backend(
@@ -395,7 +429,15 @@ class StoreConfiguration:
 
     def __post_init__(self) -> None:
         """
-        Require a UUID plus textual names, kinds, and root URIs.
+        Validate Store/host/device UUIDs, backed-view restrictions, nonblank required text, and
+        option key/value shapes. Backing requires the expected reference type, truthy read_only, and
+        a materialization UUID different from this Store. Required text is tested with strip but
+        retained unchanged.
+
+        Option names must be nonblank strings unique by exact spelling. Values permit None,
+        str/int/float/bool, or tuples of strings; nonfinite floats are not rejected, so accepted
+        shapes do not guarantee strict JSON serialization. Other collections, policy IDs, optional
+        strings, and booleans are not generally validated or coerced.
 
         Example:
             >>> StoreConfiguration(
@@ -406,7 +448,7 @@ class StoreConfiguration:
             ValueError: store_name must not be empty.
 
 
-        :return:
+        :return: None when these checks pass; validation and delegated string/iteration operations may raise.
         """
 
         if not isinstance(self.store_uuid, UUID):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -455,15 +497,17 @@ class StoreConfiguration:
 
 def _endpoint_text(root: str | os.PathLike[str]) -> str:
     """
-    Render a path-like root while preserving endpoint strings.
+    Render PathLike values as expanded, resolved file URIs; stringify and strip other inputs.
+    Resolution uses strict=False but can still inspect filesystem path components and raise.
+    Endpoint strings are not otherwise parsed or required to use a recognized scheme.
 
     Example:
         >>> _endpoint_text("s3://books/archive")
         's3://books/archive'
 
 
-    :param root:
-    :return:
+    :param root: PathLike root or value expected to provide endpoint text.
+    :return: Absolute file URI for PathLike input, otherwise nonempty stripped text.
     """
 
     if isinstance(root, os.PathLike):
@@ -476,15 +520,17 @@ def _endpoint_text(root: str | os.PathLike[str]) -> str:
 
 def _filesystem_root_uri(root: str | os.PathLike[str]) -> str:
     """
-    Render one local filesystem root as a portable file URI.
+    Resolve PathLike/plain-path roots to file URIs and retain stripped file URI strings. Parsed
+    schemes other than file reject, including drive-like strings interpreted as schemes on this
+    host. A file URI is not checked for local authority, nonempty path, or existence.
 
     Example:
         >>> _filesystem_root_uri("/srv/liuxin").startswith("file:")
         True
 
 
-    :param root:
-    :return:
+    :param root: Local path, PathLike value, or file URI to normalize.
+    :return: Resolved local file URI or supplied stripped file URI; unsupported schemes and empty text raise ValueError.
     """
 
     if isinstance(root, os.PathLike):
@@ -506,15 +552,17 @@ def _option_pairs(
     options: Mapping[str, object] | Iterable[tuple[str, object]],
 ) -> tuple[tuple[str, object], ...]:
     """
-    Freeze mapping or pair input for immutable configuration storage.
+    Shallowly collect mapping items or an iterable of pairs into a tuple. Pair validation, duplicate
+    detection, and allowed-value checks belong to StoreConfiguration construction. Inner objects are
+    neither copied nor frozen, and iteration failures propagate.
 
     Example:
         >>> _option_pairs({"region": "local"})
         (('region', 'local'),)
 
 
-    :param options:
-    :return:
+    :param options: Mapping or iterable expected to yield option-name/value pairs.
+    :return: Tuple preserving supplied item order and references.
     """
 
     if isinstance(options, Mapping):
@@ -526,7 +574,9 @@ def _option_pairs(
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageBootstrapIssue:
     """
-    One configured store that could not be loaded during bootstrap.
+    Retain attribution and an explanation for a skipped or failed configuration load. The record
+    performs no validation and can describe a skipped offline Store as well as a failed
+    construction.
 
     Example:
         >>> issue = StorageBootstrapIssue(
@@ -534,6 +584,11 @@ class StorageBootstrapIssue:
         ... )
         >>> issue.reason
         'offline'
+
+
+    :ivar store_ref: Optional configured Store UUID supplied by the producer.
+    :ivar store_name: Optional display name supplied by the producer.
+    :ivar reason: Producer explanation, retained without nonempty/type checks.
     """
 
     store_ref: StoreUUID | None
@@ -544,7 +599,10 @@ class StorageBootstrapIssue:
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageBootstrapReport:
     """
-    Summary of rebuilding the runtime store registry from configuration.
+    Summarize attempted Store-registry reconstruction using supplied counters and issues. Counter
+    checks reject negativity and handled totals above discovered; they do not require every
+    configuration to be handled or each issue to match a counter. ok describes only the absence of
+    counted failures.
 
     Example:
         >>> report = StorageBootstrapReport(
@@ -552,6 +610,13 @@ class StorageBootstrapReport:
         ... )
         >>> report.ok
         True
+
+
+    :ivar discovered_configurations: Number of configurations discovered by the producer.
+    :ivar loaded_stores: Number counted as loaded; this does not independently establish availability.
+    :ivar skipped_configurations: Number intentionally skipped, including existing or offline cases.
+    :ivar failed_configurations: Number counted as failed by the producer.
+    :ivar issues: Ordered explanations retained without count or type validation.
     """
 
     discovered_configurations: int = 0
@@ -562,7 +627,9 @@ class StorageBootstrapReport:
 
     def __post_init__(self) -> None:
         """
-        Reject negative or impossible configuration counts.
+        Reject negative counters and a loaded-plus-skipped-plus-failed sum exceeding discovered.
+        Integer/finiteness checks, exact total equality, and issue-count consistency are not
+        enforced.
 
         Example:
             >>> StorageBootstrapReport(discovered_configurations=-1)
@@ -571,7 +638,7 @@ class StorageBootstrapReport:
             ValueError: bootstrap counts must not be negative.
 
 
-        :return:
+        :return: None after count comparisons pass; inconsistent counts raise ValueError.
         """
 
         counts = (
@@ -595,16 +662,15 @@ class StorageBootstrapReport:
     @property
     def ok(self) -> bool:
         """
-        Return whether every Store configuration loaded without failure.
+        Test only whether failed_configurations equals zero. Skips, unhandled discovered
+        configurations, and populated issues do not make this property false.
 
         Example:
-            >>> StorageBootstrapReport(
-            ...     discovered_configurations=2, loaded_stores=2,
-            ... ).ok
+            >>> StorageBootstrapReport(discovered_configurations=2, skipped_configurations=1).ok
             True
 
 
-        :return:
+        :return: True when no failures were counted, otherwise False.
         """
 
         return self.failed_configurations == 0
@@ -613,10 +679,9 @@ class StorageBootstrapReport:
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreStatusObservation:
     """
-    One configured Store UUID paired with its dynamic status snapshot.
-
-    A bare ``StoreStatus`` is sufficient after a caller addresses one Store.
-    Enumeration needs this wrapper so the result remains attributable.
+    Pair a configured Store identity with a supplied dynamic status value. The wrapper preserves
+    attribution during enumeration; it validates the UUID but neither probes a Store nor
+    validates/copies the status object.
 
     Example:
         >>> observation = StoreStatusObservation(
@@ -624,6 +689,10 @@ class StoreStatusObservation:
         ... )
         >>> observation.store_ref
         UUID('00000000-0000-0000-0000-000000000001')
+
+
+    :ivar store_ref: Configured Store UUID identifying the observation.
+    :ivar status: Supplied StoreStatus, retained by reference without validation.
     """
 
     store_ref: StoreUUID
@@ -631,7 +700,8 @@ class StoreStatusObservation:
 
     def __post_init__(self) -> None:
         """
-        Require a UUID rather than a name or database identifier.
+        Require store_ref to be a UUID instance without checking status shape or current Store
+        registration.
 
         Example:
             >>> StoreStatusObservation(
@@ -642,7 +712,7 @@ class StoreStatusObservation:
             TypeError: store_ref must be a UUID.
 
 
-        :return:
+        :return: None for a UUID reference; other reference types raise TypeError.
         """
 
         if not isinstance(self.store_ref, UUID):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -652,10 +722,10 @@ class StoreStatusObservation:
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreReconciliationPlan:
     """
-    Non-mutating comparison between Replica claims and Store inventory.
-
-    ``plan_id`` and ``repository_revision`` let an implementation reject a
-    stale plan before applying repository state changes.
+    Retain a comparison of Replica claims and observed Store inventory for later application.
+    UUID/count checks do not establish snapshot freshness, ownership of every member, complete
+    verification, or consistency among classification lists. The applying manager owns revision
+    checks and mutations.
 
     Example:
         >>> plan = StoreReconciliationPlan(
@@ -664,6 +734,22 @@ class StoreReconciliationPlan:
         ... )
         >>> plan.conclusive
         True
+
+
+    :ivar plan_id: UUID identifying this plan value.
+    :ivar store_ref: UUID of the configured Store being compared.
+    :ivar verify_digests: Producer flag describing requested digest comparison, not proof it occurred.
+    :ivar enumeration: Enumeration claim retained without enum coercion.
+    :ivar expected_replicas: Declared count of expected catalogue Replicas.
+    :ivar observed_locations: Declared count of observed Store addresses.
+    :ivar matched_replicas: Declared matched count, bounded by both totals.
+    :ivar missing_replica_ids: Replica identities classified missing by the producer.
+    :ivar unexpected_locations: Observed addresses without expected claims.
+    :ivar corrupt_replica_ids: Replica identities classified corrupt.
+    :ivar unavailable_replica_ids: Replica identities whose state could not be conclusively checked.
+    :ivar repository_revision: Optional opaque revision used by the applying implementation.
+    :ivar warnings: Producer warning strings, retained without validation.
+    :ivar errors: Producer errors that make conclusive false.
     """
 
     plan_id: UUID
@@ -683,7 +769,9 @@ class StoreReconciliationPlan:
 
     def __post_init__(self) -> None:
         """
-        Validate plan identity, counts, and matched-inventory bounds.
+        Require UUID plan/Store identities, nonnegative counts, and matched count no greater than
+        either total. Counts are compared without integer/finiteness validation; enum values, lists,
+        revisions, and their mutual consistency are not checked.
 
         Example:
             >>> StoreReconciliationPlan(
@@ -696,7 +784,7 @@ class StoreReconciliationPlan:
             ValueError: matched_replicas exceeds a reconciliation total.
 
 
-        :return:
+        :return: None after the identity/count checks; invalid identities raise TypeError and rejected counts raise ValueError.
         """
 
         if not isinstance(self.plan_id, UUID):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -721,14 +809,16 @@ class StoreReconciliationPlan:
     @property
     def conclusive(self) -> bool:
         """
-        Return whether inventory was complete and checks had no errors.
+        Require identity with the COMPLETE enumeration enum plus no unavailable Replica IDs and no
+        errors. Missing/corrupt/unexpected evidence, warnings, and verify_digests do not affect this
+        predicate.
 
         Example:
             >>> plan.conclusive  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: True only for the stated completeness and error conditions.
         """
 
         return (
@@ -741,7 +831,9 @@ class StoreReconciliationPlan:
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreReconciliationReport:
     """
-    Outcome of applying or previewing one reconciliation plan.
+    Retain a preview or application result together with its original plan. Construction only
+    forbids claimed updated IDs when applied is false. It does not independently verify mutations,
+    plan freshness, or attribution; clean can be true for a preview.
 
     Example:
         >>> report = StoreReconciliationReport(
@@ -755,6 +847,13 @@ class StoreReconciliationReport:
         ... )
         >>> report.clean
         True
+
+
+    :ivar plan: Original comparison plan retained by reference.
+    :ivar applied: Producer flag indicating whether application was performed.
+    :ivar updated_replica_ids: Identities reported updated; must be empty for a false applied flag.
+    :ivar warnings: Additional producer warnings, not considered by clean.
+    :ivar errors: Additional errors that make clean false.
     """
 
     plan: StoreReconciliationPlan
@@ -765,7 +864,8 @@ class StoreReconciliationReport:
 
     def __post_init__(self) -> None:
         """
-        Prevent a preview report from claiming applied mutations.
+        Reject nonempty updated_replica_ids when applied is false. Other result types,
+        relationships, and claims are retained without validation.
 
         Example:
             >>> StoreReconciliationReport(
@@ -774,7 +874,7 @@ class StoreReconciliationReport:
             ... )  # doctest: +SKIP
 
 
-        :return:
+        :return: None when the preview/update rule holds; conflicting claims raise ValueError.
         """
 
         if not self.applied and self.updated_replica_ids:
@@ -785,14 +885,15 @@ class StoreReconciliationReport:
     @property
     def clean(self) -> bool:
         """
-        Return whether reconciliation found no missing or corrupt objects.
+        Require a conclusive plan with no missing, unexpected, or corrupt classifications and no
+        report errors. applied, updated IDs, and plan/report warnings do not affect this result.
 
         Example:
             >>> report.clean  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: True when the compared evidence meets the stated cleanliness conditions, including for a preview.
         """
 
         return self.plan.conclusive and not (

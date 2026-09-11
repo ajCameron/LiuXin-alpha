@@ -1,8 +1,12 @@
-"""Compatibility facade for the whole-program Core operation families.
+"""
+Expose stable program-operation entry points and install their endpoint-provider families into Core.
 
 Stateless handlers are implemented by their named service owner. Explicit
 aliases preserve class and instance entry points without routing through a
-dynamic registry or making the facade responsible for workflow state.
+dynamic registry or making the facade responsible for workflow state. Static
+aliases retain their service functions' documentation. The few instance wrappers
+delegate directly, without substituting facade helper overrides for service-owned
+resolution or adding validation, result copying, error handling, or reconciliation.
 """
 
 from __future__ import annotations
@@ -38,10 +42,34 @@ if TYPE_CHECKING:
 
 
 class CoreProgramAPI:
-    """Install the complete program API and retain its named entry points."""
+    """
+    Present stateless program handlers through class/instance aliases and a small compatibility-wrapper surface.
+
+    Installation adds the six program endpoint families to the supplied runtime;
+    it does not create a database, storage manager, or job manager. Services own
+    workflow state and lifecycle. Other Core API installers still supply the base
+    application, schema, storage-graph, and browse endpoints.
+
+    Example:
+        >>> from LiuXin_alpha.core.program_services import database
+        >>> CoreProgramAPI.database_info is database.database_info
+        True
+    """
 
     def install(self, runtime: CoreRuntime) -> None:
-        """Install the owned endpoint-provider families on ``runtime``."""
+        """
+        Register the six program endpoint families using this instance as their handler provider.
+
+        Families install sequentially; lookup/registration errors propagate without
+        facade rollback. Installation registers handlers but does not execute them.
+
+        Example:
+            >>> CoreProgramAPI().install(runtime)  # doctest: +SKIP
+
+
+        :param runtime: Runtime receiving program query/command bindings and their introspection metadata.
+        :return: None after all provider installations return successfully.
+        """
         install_program_endpoints(self, runtime)
 
     capabilities_list = staticmethod(discovery.capabilities_list)
@@ -70,19 +98,75 @@ class CoreProgramAPI:
     def preferences_list(
         self, runtime: CoreRuntime, query: CoreQuery
     ) -> dict[str, Any]:
+        """
+        Delegate preference snapshotting, preserving the selected store's key and iteration behavior.
+
+        Mapping keys are retained; items-only fallback keys are stringified. The
+        service owns scope resolution and propagates iteration errors.
+
+        Example:
+            >>> api.preferences_list(runtime, query)  # doctest: +SKIP
+
+
+        :param runtime: Runtime supplying application/library preference stores through its services.
+        :param query: Query with optional scope, defaulting to library when missing or falsey.
+        :return: Service-produced scope token and shallow values dictionary, without additional copying.
+        """
         return preferences.preferences_list(runtime, query)
 
     def preferences_get(self, runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
+        """
+        Delegate preference lookup with the caller's default and the service's separate membership estimate.
+
+        Membership failure falls back to value/default identity; it does not turn
+        getter errors into missing keys. The facade does not reinterpret exists.
+
+        Example:
+            >>> api.preferences_get(runtime, query)  # doctest: +SKIP
+
+
+        :param runtime: Runtime providing the selected preference store.
+        :param query: Query with key, optional scope, and optional default value.
+        :return: Unmodified service receipt containing normalized scope/key, exists estimate, and value/default.
+        """
         return preferences.preferences_get(runtime, query)
 
     def preferences_set(
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> dict[str, Any]:
+        """
+        Delegate a preference write without adding readback or interpreting the store setter's return value.
+
+        The service prefers a callable set method to item assignment; its updated
+        flag means the write returned, not that persistence or a changed value was verified.
+
+        Example:
+            >>> api.preferences_set(runtime, command)  # doctest: +SKIP
+
+
+        :param runtime: Runtime supplying the writable preference store selected by the service.
+        :param command: Command with key, required value (which may be None), and optional scope.
+        :return: Unmodified service receipt with scope, normalized key, supplied value, and updated flag.
+        """
         return preferences.preferences_set(runtime, command)
 
     def preferences_delete(
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> dict[str, Any]:
+        """
+        Delegate preference deletion, retaining the service's membership-before-delete error boundary.
+
+        Failed membership checks mean no deletion; actual item-deletion failures
+        propagate. There is no facade fallback to a different store or delete method.
+
+        Example:
+            >>> api.preferences_delete(runtime, command)  # doctest: +SKIP
+
+
+        :param runtime: Runtime providing the selected preference store.
+        :param command: Command with a text-normalized key and optional scope defaulting to library.
+        :return: Service-produced scope/key and deleted flag, based on successful membership and deletion.
+        """
         return preferences.preferences_delete(runtime, command)
 
     catalog_fields_list = staticmethod(catalog.catalog_fields_list)
@@ -103,6 +187,20 @@ class CoreProgramAPI:
     def storage_store_get(
         self, runtime: CoreRuntime, query: CoreQuery
     ) -> dict[str, Any]:
+        """
+        Delegate Store description with durable fallback only when live lookup raises CoreDispatchError.
+
+        Errors from an already-resolved live Store's configuration/status remain
+        visible. Fallback metadata describes an unloaded Store, not a physical probe.
+
+        Example:
+            >>> api.storage_store_get(runtime, query)  # doctest: +SKIP
+
+
+        :param runtime: Runtime supplying service-owned live and durable Store resolution.
+        :param query: Query with the required Store selector.
+        :return: Unmodified service description containing configuration/status, identity labels, and loaded flag.
+        """
         return stores.storage_store_get(runtime, query)
 
     storage_store_update = staticmethod(stores.storage_store_update)
@@ -114,16 +212,58 @@ class CoreProgramAPI:
     def storage_store_probe(
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> dict[str, Any]:
+        """
+        Delegate probing of a live Store followed by a separate status read.
+
+        The service may perform backend I/O or update observations; the later
+        status read can fail after the probe has completed. No facade retry is added.
+
+        Example:
+            >>> api.storage_store_probe(runtime, command)  # doctest: +SKIP
+
+
+        :param runtime: Runtime supplying live Store resolution through the service owner.
+        :param command: Command with a required nonempty Store reference.
+        :return: Service receipt with original selector, projected probe result, and later live status.
+        """
         return stores.storage_store_probe(runtime, command)
 
     def storage_store_delete(
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> dict[str, Any]:
+        """
+        Delegate Store unregistration and optional configuration/canonical-row removal without adding a transaction.
+
+        Database row deletion follows a truthy manager removal result only when
+        requested. Later failure can follow unregistration; this is not a byte-deletion API.
+
+        Example:
+            >>> api.storage_store_delete(runtime, command)  # doctest: +SKIP
+
+
+        :param runtime: Runtime providing Store resolution, manager removal, and canonical-row deletion capabilities.
+        :param command: Command with required store and optional truth-tested delete_from_database=False.
+        :return: Unmodified service receipt with selector, raw unregistration result, and requested-and-removed deletion flag.
+        """
         return stores.storage_store_delete(runtime, command)
 
     def storage_default_set(
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> dict[str, Any]:
+        """
+        Delegate live Store resolution and default selection, preserving the later configuration-read failure boundary.
+
+        Eligibility and persistence belong to the manager. The selected flag
+        records a returned setter call, not independent default-selection readback.
+
+        Example:
+            >>> api.storage_default_set(runtime, command)  # doctest: +SKIP
+
+
+        :param runtime: Runtime supplying live Store lookup and manager default selection.
+        :param command: Command with a required nonempty Store reference.
+        :return: Service receipt with selected=True, Store reference, and the subsequently read configuration name.
+        """
         return stores.storage_default_set(runtime, command)
 
     storage_file_copy = staticmethod(stores.storage_file_copy)
@@ -202,7 +342,20 @@ class CoreProgramAPI:
 
 
 def install_program_api(runtime: CoreRuntime) -> CoreProgramAPI:
-    """Install whole-program handlers into ``runtime`` and return the adapter."""
+    """
+    Create a stateless program facade, install its endpoint families, and return it after successful registration.
+
+    Registration failures propagate; the partially updated runtime is not rolled
+    back and no facade is returned to the caller on that path. Other Core owners
+    and runtime resources must be composed separately.
+
+    Example:
+        >>> api = install_program_api(runtime)  # doctest: +SKIP
+
+
+    :param runtime: Existing Core runtime receiving the program-family query and command registrations.
+    :return: Newly created CoreProgramAPI whose installation completed successfully.
+    """
 
     api = CoreProgramAPI()
     api.install(runtime)

@@ -1,7 +1,11 @@
-"""Build, display, and confirm a Store-add plan before calling Core.
+"""
+Collect and confirm a Store declaration before delegating its save/refresh/probe sequence.
 
-Interactive choices use Core-advertised backend capabilities. A complete
-automation argument triple bypasses prompts and shares the same add command.
+Interactive choices use a previously queried Core backend catalogue. A complete
+automation argument triple bypasses prompts and shares the same add command,
+normally with probing enabled. Confirmation is not a transaction: after acceptance
+the command queries current descriptors again, and later failures do not undo saves.
+Displayed plan text is not a complete dump or a comprehensive secret sanitizer.
 """
 
 from __future__ import annotations
@@ -30,6 +34,24 @@ from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 
 def _default_store_name(root: str, kind: str) -> str:
+    """
+    Derive a short lowercase suggested name from a root's final path or address component.
+
+    Strip outer whitespace/trailing separators, then prefer URL path tail, netloc,
+    colon prefix, or host Path basename/kind. Run the candidate through the portable
+    name helper with an 80-character ceiling and no hash, then trim edge punctuation.
+    The final fallback is kind unchanged; uniqueness and final filename safety are
+    not guaranteed, especially after trimming or fallback.
+
+    Example:
+        >>> _default_store_name("s3://bucket/My Books/", "s3")
+        'my_books'
+
+
+    :param root: Proposed Core-host path or backend address used only for name suggestion.
+    :param kind: Backend token used when no nonempty rendered candidate remains.
+    :return: Suggested display name without probing a path or checking existing Stores.
+    """
     text = str(root).strip().rstrip("/\\")
     parsed = urlparse(text)
     candidate = ""
@@ -54,6 +76,23 @@ def _wizard_backend(
     providers: list[Mapping[str, Any]],
     selected_kind: str | None,
 ) -> Mapping[str, Any]:
+    """
+    Prompt for one advertised backend using exact kind strings and return its original mapping.
+
+    Prefer selected_kind or filesystem as the blank-input default when present;
+    otherwise use the first provider. This wizard selector does not normalize
+    kinds or use descriptor aliases like the later typed-add matcher does.
+
+    Example:
+        >>> descriptor = _wizard_backend(providers, "filesystem")  # doctest: +SKIP
+
+
+    :param providers: Ordered selectable backend mappings; labels are display-only.
+    :param selected_kind: Optional exact kind token used to choose the initial menu default.
+    :return: First original provider whose stringified kind matches the selected value.
+    :raises ValueError: Core supplies no selectable providers.
+    :raises _StorageAddCancelled: Menu prompting receives EOF or an interrupt.
+    """
     if not providers:
         raise ValueError("Core did not advertise any selectable storage backends.")
     default_kind = selected_kind or "filesystem"
@@ -75,6 +114,34 @@ def _wizard_backend(
 
 @dataclasses.dataclass(frozen=True)
 class _StorageAddWizardPlan:
+    """
+    Retain prompted Store declaration choices pending display and final confirmation.
+
+    Frozen fields prevent reassignment, not mutation of the referenced descriptor
+    mapping. The record itself validates nothing and does not bind later execution
+    to the same backend catalogue or guarantee live backend readiness.
+
+    Example:
+        >>> plan = _StorageAddWizardPlan({}, "filesystem", "/books", "Books", "live", False, True, None, None, (), (), False, True)
+        >>> plan.name, plan.check
+        ('Books', True)
+
+
+    :ivar descriptor: Original advertised backend mapping used for defaults and display.
+    :ivar kind: Selected backend kind token.
+    :ivar root: Store path/address interpreted later on the Core host.
+    :ivar name: Proposed operator-visible Store name.
+    :ivar role: Selected live/backup/archive/source/cache role.
+    :ivar read_only: Requested read-only access state.
+    :ivar online: Declared online state, not a measured reachability result.
+    :ivar failure_domain: Optional failure-domain declaration.
+    :ivar region: Optional placement-region declaration.
+    :ivar tags: Ordered prompted tags, not yet deduplicated by row construction.
+    :ivar option_values: Additional NAME=VALUE options retained for later policy construction.
+    :ivar make_default: Whether to request default selection after saving.
+    :ivar check: Whether the subsequent add command should probe the online Store.
+    """
+
     descriptor: Mapping[str, Any]
     kind: str
     root: str
@@ -94,6 +161,21 @@ def _wizard_access(
     args: argparse.Namespace,
     descriptor: Mapping[str, Any],
 ) -> tuple[bool, bool]:
+    """
+    Select effective read-only and declared online state using backend and CLI defaults.
+
+    Intrinsic read-only skips the access question and prints guidance. Writable
+    backends prompt with the explicit read_only value or False. Online status is
+    always prompted, defaulting to the inverse of the offline option.
+
+    Example:
+        >>> read_only, online = _wizard_access(args, descriptor)  # doctest: +SKIP
+
+
+    :param args: Optional read_only and offline choices used as prompt defaults.
+    :param descriptor: Advertised read_only_default used to force intrinsic read-only access.
+    :return: Requested (read_only, online) booleans, without probing the backend.
+    """
     if bool(descriptor.get("read_only_default", False)):
         read_only = True
         print("This backend is intrinsically read-only.")
@@ -116,6 +198,24 @@ def _wizard_advanced_configuration(
     args: argparse.Namespace,
     descriptor: Mapping[str, Any],
 ) -> tuple[str | None, str | None, tuple[str, ...], tuple[str, ...]]:
+    """
+    Preserve or prompt advanced domain/region/tags and additional backend assignments.
+
+    Declining preserves supplied values; accepting uses visible text defaults, so
+    blank input does not clear an existing nonempty default despite prompt wording.
+    Tags split on commas, strip, and retain duplicates. New backend options are
+    parsed for supported shape/secret-like keys only when a policy_section exists;
+    preexisting options and positional backend_options are not validated here.
+
+    Example:
+        >>> advanced = _wizard_advanced_configuration(args, descriptor)  # doctest: +SKIP
+
+
+    :param args: Optional failure_domain, region, tag, and option values to retain or extend.
+    :param descriptor: Backend policy_section determining whether extra assignments are prompted.
+    :return: Failure domain, region, tags tuple, and option-values tuple in that order.
+    :raises ValueError: A newly entered backend assignment fails parsing or key restrictions.
+    """
     failure_domain = getattr(args, "failure_domain", None)
     region = getattr(args, "region", None)
     tags: list[str] = list(getattr(args, "tag", ()) or ())
@@ -166,6 +266,24 @@ def _wizard_post_save_actions(
     read_only: bool,
     role: str,
 ) -> tuple[bool, bool]:
+    """
+    Offer default selection only for online writable live Stores, and probing for any online Store.
+
+    An unspecified check option defaults the probe prompt to True. Offline Stores
+    return both choices false without either question; non-live/read-only online
+    Stores still receive the probe question but cannot opt into default selection here.
+
+    Example:
+        >>> _wizard_post_save_actions(argparse.Namespace(), online=False, read_only=False, role="live")
+        (False, False)
+
+
+    :param args: Optional default/check flags used as eligible prompt defaults.
+    :param online: Declared online state controlling both post-save offers.
+    :param read_only: Access choice disqualifying default selection when true.
+    :param role: Exact live role required to offer default selection.
+    :return: (make_default, check) booleans; no action is executed here.
+    """
     make_default = False
     if online and not read_only and role == "live":
         make_default = _storage_prompt_yes_no(
@@ -186,6 +304,24 @@ def _storage_add_wizard_plan(
     args: argparse.Namespace,
     providers_payload: Mapping[str, Any],
 ) -> _StorageAddWizardPlan:
+    """
+    Filter the backend catalogue and collect a complete interactive Store plan.
+
+    Accept only list-valued backends containing mappings whose user_selectable
+    value is truthy or omitted. Prompt backend, Core-host root, name, role, access,
+    advanced options, and post-save choices in order. Selected declaration text is
+    not checked for root existence, uniqueness, or full policy validity at this stage.
+
+    Example:
+        >>> plan = _storage_add_wizard_plan(args, backend_catalogue)  # doctest: +SKIP
+
+
+    :param args: Optional prefilled choices and defaults; not mutated while building the plan.
+    :param providers_payload: Mapping containing the previously queried backends list.
+    :return: Frozen plan retaining the selected descriptor reference and prompted values.
+    :raises ValueError: No selectable backend exists or an entered option is invalid.
+    :raises _StorageAddCancelled: Any delegated prompt is cancelled.
+    """
     raw_providers = providers_payload.get("backends", [])
     providers = (
         [
@@ -250,6 +386,20 @@ def _storage_add_wizard_plan(
 
 
 def _print_storage_add_wizard_plan(plan: _StorageAddWizardPlan) -> None:
+    """
+    Print the main Store choices and mapping-shaped advertised limitations before confirmation.
+
+    Domain/region/tags/backend assignments are not shown. Root, name, and descriptor
+    text are printed verbatim; the credentials guidance is not proof that every
+    selected value is secret-free or that later persistence will succeed.
+
+    Example:
+        >>> _print_storage_add_wizard_plan(plan)  # doctest: +SKIP
+
+
+    :param plan: Pending declaration whose display subset is rendered to stdout.
+    :return: None after printing; no Core call, redaction pass, or persistence is performed.
+    """
     descriptor = plan.descriptor
     print("\nStore configuration plan")
     print(f"  name: {plan.name}")
@@ -281,6 +431,21 @@ def _apply_storage_add_wizard_plan(
     args: argparse.Namespace,
     plan: _StorageAddWizardPlan,
 ) -> None:
+    """
+    Copy confirmed plan choices into the existing add-command namespace.
+
+    Convert online to offline and tuple tags/options to fresh lists. Other settings
+    such as positional backend_options, policy_file, UUID, protocol, and connection/
+    output selectors remain untouched; descriptor itself is not passed as an execution lock.
+
+    Example:
+        >>> _apply_storage_add_wizard_plan(args, plan)  # doctest: +SKIP
+
+
+    :param args: Mutable namespace used by the subsequent typed Store-add command.
+    :param plan: Confirmed choices copied into corresponding scalar and list fields.
+    :return: None; update args in place without executing a storage operation.
+    """
     args.name = plan.name
     args.kind = plan.kind
     args.root = plan.root
@@ -299,6 +464,22 @@ def _run_storage_add_wizard(
     args: argparse.Namespace,
     providers_payload: Mapping[str, Any],
 ) -> int:
+    """
+    Build/display a plan, require final confirmation, and delegate typed Store addition.
+
+    Do not mutate args until confirmation succeeds. The delegated command opens
+    its own session and re-queries backend descriptors; confirmation is not a saved
+    execution snapshot or transaction covering subsequent persistence.
+
+    Example:
+        >>> status = _run_storage_add_wizard(args, backend_catalogue)  # doctest: +SKIP
+
+
+    :param args: Parsed namespace receiving confirmed plan values before execution.
+    :param providers_payload: Previously queried catalogue used only to build/display the plan.
+    :return: Exit code from cmd_storage_store_add after confirmation.
+    :raises _StorageAddCancelled: The operator declines saving or cancels a delegated prompt.
+    """
     plan = _storage_add_wizard_plan(args, providers_payload)
     _print_storage_add_wizard_plan(plan)
     if not _storage_prompt_yes_no("Save this Store?", default=False):
@@ -308,6 +489,25 @@ def _run_storage_add_wizard(
 
 
 def cmd_storage_add(args: argparse.Namespace) -> int:
+    """
+    Choose automation or an interactive Store wizard, then delegate the common add workflow.
+
+    A name/kind/root triple counts as complete unless a value is None or ''; whitespace
+    still counts here. Complete noninteractive requests default check=None to True.
+    Otherwise require terminal stdin, query backend descriptors in a storage-enabled
+    session, close it, and prompt. Interactive confirmation later opens a fresh session
+    through typed addition. Catch wizard cancellation as status one; other errors
+    propagate, and this boundary supplies no rollback for completed effects.
+
+    Example:
+        >>> status = cmd_storage_add(parsed_storage_add_args)  # doctest: +SKIP
+
+
+    :param args: Parsed add namespace including optional triple, interactive/check flags,
+        declaration defaults, and shared connection/output controls; may be mutated.
+    :return: Common add-command status, or one after a caught wizard cancellation.
+    :raises ValueError: Wizard mode lacks a terminal or Core returns a nonmapping catalogue.
+    """
     complete = all(
         getattr(args, name, None) not in (None, "") for name in ("name", "kind", "root")
     )

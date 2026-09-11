@@ -1,7 +1,11 @@
-"""Metadata inspection, rewritten-file receipts, and online job submission.
+"""
+Inspect metadata, rewrite file/byte metadata, and submit online identification or cover jobs through Core.
 
 Item hydration and caller-supplied metadata normalization share one writer
-input boundary. File and in-memory writes retain the same error reporting.
+input boundary. Path writes modify the existing file directly, while byte input
+returns a rewritten in-memory value. Writer-reported errors may follow partial
+changes; no adapter transaction, path confinement, byte-size cap, or compensating
+restore is provided. Online start operations return job receipts, not fetched results.
 """
 
 from __future__ import annotations
@@ -31,6 +35,20 @@ def metadata_file_formats(
     runtime: CoreRuntime,
     query: CoreQuery,
 ) -> dict[str, Any]:
+    """
+    List registered readable metadata types and the subset with an enabled metadata writer.
+
+    Writable discovery is limited to the readable list, retains its sorted order,
+    and does not inspect a sample file or execute a write.
+
+    Example:
+        >>> formats = metadata_file_formats(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Unused runtime; discovery uses process-wide metadata/customization registries.
+    :param query: Ignored query envelope; no file-type filter is consumed.
+    :return: Sorted readable types and writer-enabled writable subset.
+    """
     del runtime, query
     from LiuXin_alpha.customize.ui import can_set_metadata
     from LiuXin_alpha.metadata.file_sources import known_metadata_file_types
@@ -48,6 +66,23 @@ def metadata_file_inspect(
     runtime: CoreRuntime,
     query: CoreQuery,
 ) -> dict[str, Any]:
+    """
+    Read metadata from exactly one nonblank path or strict-base64 input and project it for Core.
+
+    Path/base64 text is stripped. Byte input requires a nonblank lowercased file_type;
+    path input may rely on reader detection and optionally force that type. The
+    response's file_type is the supplied hint or path suffix, not a separate report
+    of the reader's detected format. No path confinement or byte-size cap is added.
+
+    Example:
+        >>> metadata = metadata_file_inspect(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Unused runtime; metadata is read through the file-source registry.
+    :param query: Query containing exactly one of path/base64 and optional file_type, required for bytes.
+    :return: Type hint/suffix and plain-projected metadata; reader/projection failures propagate.
+    :raises CoreDispatchError: For ambiguous/missing input, invalid base64, or byte input without a type.
+    """
     del runtime
     payload = _payload(query)
     path = str(payload.get("path") or "").strip()
@@ -79,6 +114,23 @@ def metadata_online_sources(
     runtime: CoreRuntime,
     query: CoreQuery,
 ) -> dict[str, Any]:
+    """
+    Describe identify/cover plugin names, first-seen versions, merged capabilities, and configuration checks.
+
+    Immediate registry-call errors suppress that capability's list; later iteration
+    and attribute errors propagate. Entries merge by stringified name, retain the
+    first version, and sort names/capabilities. A missing configuration callable
+    leaves the existing flag, initially True; each callable result replaces it,
+    with ordinary call failures setting False. No identify or cover search is run.
+
+    Example:
+        >>> sources = metadata_online_sources(runtime, query)  # doctest: +SKIP
+
+
+    :param runtime: Unused runtime; discovery consults the global plugin registry.
+    :param query: Ignored query envelope; no credentials or plugin filter is consumed.
+    :return: sources list with merged name/version/capabilities/configured descriptions, not availability guarantees.
+    """
     del runtime, query
     from LiuXin_alpha.customize.ui import metadata_plugins
 
@@ -119,7 +171,25 @@ def metadata_online_sources(
 
 
 def _metadata_for_write(runtime: CoreRuntime, payload: Mapping[str, Any]) -> Any:
-    """Hydrate an Item or normalize caller-supplied metadata for the writer."""
+    """
+    Prefer a non-None Item ID for hydration, otherwise normalize supplied metadata into a Calibre-compatible value.
+
+    Mapping keys wemi/liuxin select LiuXinWEMIMetadata conversion. Other mappings
+    use title plus authors/author, defaulting falsey title and empty author lists to
+    Unknown. Author strings remain single unstripped entries; other Sequences are
+    stringified elementwise, including bytes. The authors key wins and both aliases
+    are removed. Remaining fields are assigned without an adapter allowlist; Mapping
+    identifiers use set_identifiers when available. Errors propagate before writing.
+
+    Example:
+        >>> metadata = _metadata_for_write(runtime, {"item_id": 7})  # doctest: +SKIP
+
+
+    :param runtime: Runtime whose selected read source is used only for Item hydration.
+    :param payload: Request with non-None item_id or a metadata Mapping; supplied metadata is ignored for Item hydration.
+    :return: Hydrated/converted metadata or a new calibreMetadata object populated from a shallow Mapping copy.
+    :raises CoreDispatchError: If Item ID validation fails, metadata is absent/non-Mapping, or authors is not str/Sequence.
+    """
     if payload.get("item_id") is not None:
         from LiuXin_alpha.metadata.containers import (
             LiuXinWEMIMetadataHydrator,
@@ -170,6 +240,28 @@ def metadata_file_write(
     runtime: CoreRuntime,
     command: CoreCommand,
 ) -> dict[str, Any]:
+    """
+    Rewrite metadata in an existing path or decoded byte stream using an enabled format writer.
+
+    Exactly one nonblank path/base64 is required. Type is supplied lowercased text
+    or a path suffix; writer capability is checked before metadata hydration and
+    base64 decoding. Path writes use r+b with no temporary replacement or rollback,
+    then read file size; byte writes return the complete rewritten buffer.
+
+    Reported writer traces are checked after the write and size observation, so
+    failure can follow partial file modification. Unreported writer/I/O errors
+    propagate directly. updated=True means the writer returned without reported
+    traces, not that metadata was compared before/after or independently validated.
+
+    Example:
+        >>> receipt = metadata_file_write(runtime, command)  # doctest: +SKIP
+
+
+    :param runtime: Runtime supplying optional Item metadata hydration; arbitrary supplied paths are not confined here.
+    :param command: Command with path or base64, optional/inferred file_type, and item_id or metadata for the writer.
+    :return: Type, path-or-None, rewritten bytes for byte input or content=None for path input, byte size, and updated=True.
+    :raises CoreDispatchError: For input/type/base64/metadata validation, unavailable writers, or collected writer failures.
+    """
     payload = _payload(command)
     path = str(payload.get("path") or "").strip()
     encoded = str(payload.get("base64") or "").strip()
@@ -198,6 +290,18 @@ def metadata_file_write(
     errors: list[str] = []
 
     def report_error(_metadata: Any, _file_type: str, trace: str) -> None:
+        """
+        Accumulate a stringified writer error trace without interrupting the current rewrite.
+
+        Example:
+            >>> report_error(metadata, "epub", "writer failed")  # doctest: +SKIP
+
+
+        :param _metadata: Ignored metadata object supplied by the writer callback protocol.
+        :param _file_type: Ignored writer format label; the enclosing request supplies the error receipt's type.
+        :param trace: Diagnostic value stringified into the enclosing errors list.
+        :return: None after recording the trace; the enclosing handler raises after writing/size observation.
+        """
         errors.append(str(trace))
 
     if path:
@@ -243,6 +347,24 @@ def metadata_identify_start(
     runtime: CoreRuntime,
     command: CoreCommand,
 ) -> dict[str, Any]:
+    """
+    Submit online metadata identification using at least one title, author, or identifier hint.
+
+    Authors and allowed_plugins use stripped, ordered text-list normalization;
+    empty lists pass None. Identifier keys/values are stringified without semantic
+    validation, potentially collapsing key collisions. Title is checked stripped
+    but forwarded unstripped. timeout_s defaults to 30 and uses float without range
+    validation; it is a worker lookup option separate from shared job_timeout_s.
+
+    Example:
+        >>> receipt = metadata_identify_start(runtime, command)  # doctest: +SKIP
+
+
+    :param runtime: Runtime whose job manager accepts run_metadata_identify_job.
+    :param command: Command with title/authors/identifiers hints, optional allowed_plugins and timeout_s, plus shared job fields.
+    :return: Submission receipt with metadata identify as fallback label; no search results are fetched here.
+    :raises CoreDispatchError: For invalid Mapping/list hints or an entirely empty search request.
+    """
     payload = _payload(command)
     identifiers = payload.get("identifiers", {})
     if not isinstance(identifiers, Mapping):
@@ -271,6 +393,24 @@ def metadata_covers_start(
     runtime: CoreRuntime,
     command: CoreCommand,
 ) -> dict[str, Any]:
+    """
+    Submit online cover lookup with normalized author/identifier hints and a worker timeout.
+
+    At least one nonblank title, normalized author, or identifier entry is required.
+    Title is forwarded unstripped; identifiers stringify keys/values and authors
+    use ordered text-list normalization. timeout_s defaults to 30 without adapter
+    range validation and is distinct from job_timeout_s. Unlike identification,
+    this adapter does not forward an allowed_plugins option.
+
+    Example:
+        >>> receipt = metadata_covers_start(runtime, command)  # doctest: +SKIP
+
+
+    :param runtime: Runtime whose job manager accepts run_metadata_cover_job.
+    :param command: Command with title/authors/identifiers, optional timeout_s, and shared job submission fields.
+    :return: Job submission receipt with metadata covers as fallback label, not cover bytes or a success result.
+    :raises CoreDispatchError: For invalid Mapping/list hints or no usable search hint.
+    """
     payload = _payload(command)
     identifiers = payload.get("identifiers", {})
     if not isinstance(identifiers, Mapping):

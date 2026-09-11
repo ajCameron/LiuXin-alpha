@@ -1,13 +1,12 @@
 """
-Durable opaque Location values used throughout the storage stack.
+Re-export the common opaque Location value and StoreUUID alias.
 
-``Location`` is the persistable address.  Operational facades such as the
-manager's ``BoundLocation`` consume it without changing its value semantics.
+These are the same objects defined in storage.api.models. Location identifies
+a Store-owned key without providing filesystem operations; the manager's
+BoundLocation supplies a separate operational facade.
 
 Example:
-    >>> from uuid import UUID
-    >>> location = Location(UUID(int=1), "objects/42")
-    >>> location.key
+    >>> Location(StoreUUID(int=1), "objects/42").key
     'objects/42'
 """
 

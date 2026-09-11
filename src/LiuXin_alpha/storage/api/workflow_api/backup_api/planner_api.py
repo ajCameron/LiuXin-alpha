@@ -1,5 +1,8 @@
 """
-Store-inventory to backup-pack planning facade.
+Separate inventory-based backup planning from archive execution.
+
+Plans carry intended sources and output Locations. Inventory reads and digest computation
+may be needed, but this interface does not publish artifacts or reserve destinations.
 """
 
 from __future__ import annotations
@@ -15,10 +18,11 @@ from LiuXin_alpha.storage.api.workflow_api.backup_api.models import BackupPackPl
 
 class BackupPlannerAPI(abc.ABC):
     """
-    Plan size-bounded backup artifacts without executing them.
+    Partition Store inventory into declarations without building or publishing artifacts.
 
-    The planner may inspect catalogue and replica state through a manager or
-    repository, but returned plans are immutable workflow intent.
+    Planning may inspect metadata and read source bytes to obtain digests. Returned plans describe
+    intended packs; they neither reserve destination names nor guarantee capacity, immutable source
+    versions, or sealed output sizes. Repository persistence and execution are separate operations.
 
     Example:
         >>> plans = planner.plan_store_backup(  # doctest: +SKIP
@@ -40,7 +44,19 @@ class BackupPlannerAPI(abc.ABC):
         allowed_extensions: Iterable[str] | None = None,
     ) -> tuple[BackupPackPlan, ...]:
         """
-        Partition one store's inventory into durable artifact plans.
+        Plan ordered artifact groups from a source Store's inventory.
+
+        The StoreBackupPlanner implementation sorts normalized member paths and groups their
+        uncompressed sizes, flushing a nonempty pack before the next source would exceed a size or
+        count target. An oversized source receives its own pack. Missing inventory digests are
+        computed, and available non-deleted Replica identities are carried into declarations without
+        adopting uncatalogued sources. Inventory and metadata reads are not a single pinned
+        snapshot.
+
+        That implementation filters the final filename suffix case-insensitively, stripping
+        surrounding whitespace and leading dots from allowed extensions. None accepts all entries;
+        an empty supplied collection accepts none. Output names are proposed without creating bytes
+        or testing collisions.
 
         Example:
             >>> plans = planner.plan_store_backup(  # doctest: +SKIP
@@ -50,14 +66,14 @@ class BackupPlannerAPI(abc.ABC):
             ... )
 
 
-        :param source_store_ref:
-        :param destination_store_ref:
-        :param target_artifact_size_bytes:
-        :param workflow_name_prefix:
-        :param output_key_prefix:
-        :param max_sources_per_artifact:
-        :param allowed_extensions:
-        :return:
+        :param source_store_ref: UUID of the configured Store whose full inventory supplies members.
+        :param destination_store_ref: UUID of the configured Store used to construct output Locations.
+        :param target_artifact_size_bytes: Positive target for summed source bytes per pack; not a hard limit on an individual source or sealed output.
+        :param workflow_name_prefix: Optional pack-name prefix; StoreBackupPlanner uses the source Store name or UUID fallback when falsey.
+        :param output_key_prefix: Destination key prefix, default backup-packs; an empty string places proposed names at the Store root.
+        :param max_sources_per_artifact: Optional positive upper target for member count per pack.
+        :param allowed_extensions: Optional iterable of suffix spellings; None disables filtering and a supplied empty iterable selects no members.
+        :return: Tuple of BackupPackPlan values in pack order, or an empty tuple when no inventory entries qualify.
         """
         ...
 

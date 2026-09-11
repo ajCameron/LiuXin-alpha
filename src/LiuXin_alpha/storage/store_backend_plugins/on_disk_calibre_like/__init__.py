@@ -1,4 +1,9 @@
-"""On-disk calibre-like store plugin."""
+"""
+Expose the Calibre-like placement Store and its common Location alias.
+
+Construction, filesystem publication, and optional database updates remain with
+the backend class; importing this package performs no Store creation.
+"""
 
 from __future__ import annotations
 

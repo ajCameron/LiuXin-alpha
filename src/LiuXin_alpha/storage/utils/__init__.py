@@ -1,16 +1,14 @@
-"""Reusable storage operations kept outside the contract definitions.
+"""
+Expose Store, raw-driver, and workflow utilities through lazy attribute imports.
 
-The submodules are grouped by the layer they operate on:
+The explicit export map identifies each owner module and attribute. A first lazy
+lookup imports that owner and caches its attribute in this module's globals;
+subsequent normal attribute access uses the cached object. Narrow API utility
+imports therefore need not eagerly load all Store and driver contracts.
 
-``store``
-    Convenience operations over configured ``StoreAPI`` objects.
-``driver``
-    Policy-free transfer and materialisation operations over raw drivers.
-``workflow``
-    Helpers shared by storage workflow models and implementations.
-
-Imports are resolved lazily so API models can depend on a narrow utility
-module without importing every Store and driver contract in return.
+Example:
+    >>> "materialize_object" in __dir__()
+    True
 """
 
 from __future__ import annotations
@@ -70,12 +68,20 @@ __all__ = list(_LAZY_EXPORTS)
 
 
 def __getattr__(name: str) -> Any:
-    """Load one utility only when it is requested.
+    """
+    Load one utility only when it is requested.
+
+    Unknown-map KeyError becomes a chained AttributeError. Owner import or attribute failures
+    propagate before caching; concurrent access is not guarded by an additional lock.
 
     Example:
         >>> normalize = __getattr__("normalize_archive_path")
         >>> normalize("/books//novel.epub")
         'books/novel.epub'
+
+
+    :param name: Exact public export name requested from the lazy map.
+    :return: Imported owner attribute, cached in module globals; unknown names raise AttributeError.
     """
     try:
         module_name, attribute_name = _LAZY_EXPORTS[name]
@@ -89,10 +95,16 @@ def __getattr__(name: str) -> Any:
 
 
 def __dir__() -> list[str]:
-    """Return eager and lazy utility names for interactive discovery.
+    """
+    Return eager and lazy utility names for interactive discovery.
+
+    The result includes internal global names as well as public exports.
 
     Example:
         >>> "materialize_object" in __dir__()
         True
+
+
+    :return: Sorted unique list of current global names and advertised lazy exports, without importing them.
     """
     return sorted({*globals(), *__all__})

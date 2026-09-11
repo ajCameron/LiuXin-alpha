@@ -1,5 +1,13 @@
 """
-Optional capability-gated accelerators for reusable storage drivers.
+Specify optional native copy, move, and digest operations within one driver.
+
+These runtime-checkable protocols describe required accelerator semantics;
+implementations and matching capability flags provide actual support. Protocol
+membership alone does not verify complete publication, source-version protection,
+or digest correctness. Cross-driver orchestration belongs to transfer helpers.
+
+Example:
+    >>> info = driver.native_copy(source, destination)  # doctest: +SKIP
 """
 
 from __future__ import annotations
@@ -40,18 +48,17 @@ class NativeCopyStorageDriverAPI(Protocol[DriverObjectAddressT]):
         """
         Copy internally using explicit collision behaviour.
 
-        The returned address must equal ``destination``. Success makes the
-        complete destination readable. Failure must not expose a partial object
-        that appears successfully published.
+        The returned address must equal ``destination``. Success makes the complete destination
+        readable. Failure must not expose a partial object that appears successfully published.
 
         Example:
             >>> info = driver.native_copy(source, destination)  # doctest: +SKIP
 
 
-        :param source:
-        :param destination:
-        :param mode:
-        :return:
+        :param source: Owned concrete address whose complete bytes are copied.
+        :param destination: Owned canonical target address that the result must identify.
+        :param mode: Explicit destination collision policy; CREATE_ONLY by default.
+        :return: Destination DriverObjectInfo after complete publication; failures must not expose a successful-looking partial object.
         """
         ...
 
@@ -76,21 +83,20 @@ class NativeMoveStorageDriverAPI(Protocol[DriverObjectAddressT]):
         """
         Move internally using explicit collision and race protection.
 
-        ``if_source_version`` protects the exact source previously observed by
-        ``stat`` when supplied. Success returns metadata whose address equals
-        ``destination``, makes that complete destination readable, and removes
-        the intended source. Failure must leave at least one complete copy and
-        must not expose a successful-looking partial destination.
+        ``if_source_version`` protects the exact source previously observed by ``stat`` when
+        supplied. Success returns metadata whose address equals ``destination``, makes that complete
+        destination readable, and removes the intended source. Failure must leave at least one
+        complete copy and must not expose a successful-looking partial destination.
 
         Example:
             >>> info = driver.native_move(source, destination)  # doctest: +SKIP
 
 
-        :param source:
-        :param destination:
-        :param mode:
-        :param if_source_version:
-        :return:
+        :param source: Owned source address to remove only under the stated complete-copy guarantee.
+        :param destination: Owned canonical publication target identified by the returned metadata.
+        :param mode: Explicit destination collision policy; CREATE_ONLY by default.
+        :param if_source_version: Optional opaque stat token protecting the exact source version being moved.
+        :return: Destination metadata after complete publication and removal of the intended source; failure must preserve a complete copy.
         """
         ...
 
@@ -116,9 +122,9 @@ class NativeDigestStorageDriverAPI(Protocol[_DriverObjectAddressContraT]):
             >>> digest = driver.native_compute_digest(address, "sha256")  # doctest: +SKIP
 
 
-        :param object_address:
-        :param algorithm:
-        :return:
+        :param object_address: Owned address whose content is digested.
+        :param algorithm: Requested digest algorithm name, defaulting to sha256.
+        :return: Authoritative content Digest under the native implementation contract, without a generic client-side read.
         """
         ...
 

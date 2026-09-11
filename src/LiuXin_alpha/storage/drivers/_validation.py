@@ -1,5 +1,10 @@
 """
-Validation shared by remote storage-driver address spaces.
+Provide narrow cleanup and text-validation helpers for remote storage adapters.
+
+Unicode checking rejects strings that cannot be encoded as strict UTF-8. Percent
+checking validates escape syntax without decoding or interpreting the address.
+Cleanup suppresses ordinary exceptions from a callable close method, while
+attribute lookup and BaseException subclasses remain outside that suppression.
 """
 
 from __future__ import annotations
@@ -14,7 +19,11 @@ _HEXADECIMAL = frozenset(string.hexdigits)
 
 def best_effort_close(value: object) -> None:
     """
-    Close an untrusted remote adapter without masking the real outcome.
+    Call an available close method and suppress ordinary exceptions from that call.
+
+    A missing or noncallable attribute does nothing. Attribute lookup itself occurs outside the try
+    block, and BaseException subclasses are not suppressed. The caller must not infer that a
+    resource closed successfully from this return.
 
     Example:
         >>> class Adapter:
@@ -23,8 +32,8 @@ def best_effort_close(value: object) -> None:
         >>> best_effort_close(Adapter())
 
 
-    :param value:
-    :return:
+    :param value: Adapter-like object whose optional close attribute is inspected and called.
+    :return: None after a skipped, successful, or ordinarily failing close call.
     """
 
     close = getattr(value, "close", None)
@@ -37,15 +46,18 @@ def best_effort_close(value: object) -> None:
 
 def reject_malformed_unicode(value: str, *, label: str) -> None:
     """
-    Reject lone surrogates which cannot cross Unicode remote protocols.
+    Require a string to encode as strict UTF-8, translating unpaired surrogates.
+
+    UnicodeEncodeError becomes StorageInvalidAddress with label context. This does not normalize
+    text, reject control characters, or validate protocol/key syntax.
 
     Example:
         >>> reject_malformed_unicode("Café", label="object key")
 
 
-    :param value:
-    :param label:
-    :return:
+    :param value: Text to encode for validation only; the encoded bytes are discarded.
+    :param label: Human-readable field description used in the malformed-Unicode error.
+    :return: None for encodable text; StorageInvalidAddress chained from a Unicode encoding failure otherwise.
     """
 
     try:
@@ -58,15 +70,19 @@ def reject_malformed_unicode(value: str, *, label: str) -> None:
 
 def reject_malformed_percent_escapes(value: str, *, label: str) -> None:
     """
-    Require every percent sign in a URL component to encode two hex digits.
+    Require two hexadecimal digits after every percent sign without decoding the text.
+
+    Uppercase and lowercase hex digits are accepted. A trailing percent sign, incomplete pair, or
+    nonhex pair raises StorageInvalidAddress. Valid escape syntax does not establish decoded Unicode
+    validity or address safety.
 
     Example:
         >>> reject_malformed_percent_escapes("books/Caf%C3%A9.epub", label="URL path")
 
 
-    :param value:
-    :param label:
-    :return:
+    :param value: URL-component text to scan; literal percent signs must also be escaped.
+    :param label: Field description included in the malformed-escape error message.
+    :return: None after every percent escape passes the syntax check.
     """
 
     position = 0

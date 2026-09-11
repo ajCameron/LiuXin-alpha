@@ -1,4 +1,11 @@
-"""Storage CLI ingest preflight ownership."""
+"""
+Observe ingest path access, available space, and format-specific reader availability.
+
+Checks do not open/validate a catalogue schema, extract a container, reserve space,
+or compare free bytes with the requested budget. Module specifications and executable
+discovery are availability hints, not proof a dependency can process a given file.
+The caller combines error-severity checks with discovery health; warnings remain advisory.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +25,29 @@ def _preflight_checks(
     source_root: Path,
     recognized_formats: tuple[tuple[str, int], ...],
 ) -> list[dict[str, object]]:
+    """
+    Build ordered access/capacity/dependency observations after source-format discovery.
+
+    Repeated recognized-format names collapse through dict conversion. Check source
+    read/traverse access, existing-database read/write or parent create access, and
+    optional cache-parent write/traverse access. Space is reported, not thresholded.
+    Missing cache with nested traversal enabled is a warning. Recognized SquashFS/7z
+    require unsquashfs/py7zr; extended RAR and ISO-UDF dependencies are warnings.
+
+    Paths and access may be observed more than once, so fields can differ under
+    concurrent change. Disk-usage/import/executable lookup errors propagate. No
+    directory, catalogue, or cache is created by this function.
+
+    Example:
+        >>> checks = _preflight_checks(args, source, (("squashfs", 1),))  # doctest: +SKIP
+
+
+    :param args: Required database, optional materialization_root, nested-traversal flag,
+        and configured SquashFS/RAR executable selectors.
+    :param source_root: Prepared source directory used for read/traverse observations.
+    :param recognized_formats: Ordered format/count pairs; truthy counts activate dependency checks.
+    :return: Ordered check dictionaries with name, ok, severity, message, and supporting details.
+    """
     formats = dict(recognized_formats)
     checks: list[dict[str, object]] = []
 
@@ -29,6 +59,24 @@ def _preflight_checks(
         severity: str = "error",
         **details: object,
     ) -> None:
+        """
+        Append one preflight observation with boolean status and supporting detail fields.
+
+        Base-field names are formal parameters, so Python argument binding handles
+        duplicate inputs before this body. Extra detail values are retained without
+        JSON-serializability checks or recursive copying.
+
+        Example:
+            >>> add("source_readable", True, "Readable", path="books")  # doctest: +SKIP
+
+
+        :param name: Check identifier stored before detail expansion.
+        :param ok: Value converted to bool for the base observation.
+        :param message: Human-readable diagnostic explanation.
+        :param severity: Base severity, defaulting to error rather than warning.
+        :param details: Additional fields merged last into the appended dictionary.
+        :return: None; mutate the enclosing ordered checks list.
+        """
         checks.append(
             {
                 "name": name,

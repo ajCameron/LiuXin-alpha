@@ -1,4 +1,11 @@
-"""LiuXin-native read-only web surface package."""
+"""
+Expose the generic read-only WSGI host, configuration, and shared CLI helpers.
+
+Other web surfaces reuse these metadata-selection and composition entrypoints.
+Importing the package loads definitions without starting Core or binding a
+listener. Read-only browsing does not imply authentication or sanitization of
+HTML/SVG file previews; deployment controls remain the caller's responsibility.
+"""
 
 from __future__ import annotations
 

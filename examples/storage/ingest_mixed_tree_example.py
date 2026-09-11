@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Compatibility wrapper for LiuXin's packaged mixed-ingest CLI."""
+"""
+Forward the historical mixed-tree example entrypoint to the packaged ingest CLI.
+
+Make the checkout importable, then delegate process arguments, reporting, and exit
+policy to LiuXin_alpha.surfaces.cli.storage.ingest_main. This wrapper defines no
+separate parser or ingest implementation; its --help describes the packaged command.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +27,17 @@ from LiuXin_alpha.surfaces.cli.storage import ingest_main
 
 
 def main() -> int:
+    """
+    Run the packaged mixed-ingest command using the current process arguments. Forward its return
+    value unchanged. Parser exits, lifecycle logging, discovery-only behavior, execution, and
+    exception policy belong to ingest_main.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: The packaged ingest_main exit status; exceptions not handled there propagate.
+    """
     return ingest_main()
 
 

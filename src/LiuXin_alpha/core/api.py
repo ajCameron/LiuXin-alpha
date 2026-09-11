@@ -1,4 +1,11 @@
-"""Core runtime API contract."""
+"""
+Define the structural Core client protocol and an abstract base with named-call convenience methods.
+
+Both direct runtimes and HTTP clients expose these envelopes, identity queries,
+introspection, events, and shutdown operations. Concrete implementations own
+execution and transport errors. The base convenience methods unwrap ``result``
+without inspecting ``ok``; they do not independently enforce wire safety.
+"""
 
 from __future__ import annotations
 
@@ -13,98 +20,84 @@ from LiuXin_alpha.core.queries import CoreQuery, CoreQueryResult
 
 @runtime_checkable
 class CoreClientAPI(Protocol):
-    """One client contract implemented by direct and RPC Core access."""
+    """
+    Describe the shared direct/RPC client surface without requiring inheritance from the abstract base.
+
+    Runtime protocol checks inspect member presence, not complete signatures or
+    behavioral guarantees. Identity properties may perform remote I/O. Event
+    delivery timing and shutdown resource ownership depend on the implementation.
+
+    Example:
+        >>> from LiuXin_alpha.core.factory import core_client
+        >>> client: CoreClientAPI = core_client(endpoint="http://127.0.0.1:8080")
+        >>> callable(client.command)
+        True
+    """
 
     @property
-    def core_uuid(self) -> str: ...
-
-    @property
-    def core_version(self) -> str: ...
-
-    @property
-    def api_version(self) -> str: ...
-
-    def execute_command(self, command: CoreCommand) -> CoreCommandResult: ...
-
-    def execute_query(self, query: CoreQuery) -> CoreQueryResult: ...
-
-    def command(
-        self,
-        name: str,
-        payload: Mapping[str, Any] | None = None,
-        *,
-        command_id: str | None = None,
-        correlation_id: str | None = None,
-    ) -> Any: ...
-
-    def query(
-        self,
-        name: str,
-        payload: Mapping[str, Any] | None = None,
-        *,
-        query_id: str | None = None,
-        correlation_id: str | None = None,
-    ) -> Any: ...
-
-    def health(self) -> Mapping[str, Any]: ...
-
-    def describe_api(
-        self,
-        *,
-        include_targets: bool = True,
-        target: str | None = None,
-    ) -> Mapping[str, Any]: ...
-
-    def subscribe(
-        self,
-        callback: Callable[[CoreEvent], None],
-    ) -> Callable[[], None]: ...
-
-    def shutdown(self) -> int: ...
-
-
-class CoreAPI(abc.ABC):
-    """Contract shared by the in-process runtime and transport clients."""
-
-    @property
-    @abc.abstractmethod
     def core_uuid(self) -> str:
-        """Unique identifier of the running core instance."""
+        """
+        Expose the runtime instance identity, which a remote client may fetch and cache.
+
+        Example:
+            >>> identity = client.core_uuid  # doctest: +SKIP
+
+
+        :return: Advertised Core instance identifier as text.
+        """
+        ...
 
     @property
-    @abc.abstractmethod
     def core_version(self) -> str:
-        """Version string advertised by the running core instance."""
+        """
+        Expose the advertised runtime implementation version without imposing version-order semantics.
+
+        Example:
+            >>> version = client.core_version  # doctest: +SKIP
+
+
+        :return: Runtime version label, potentially obtained through remote health lookup.
+        """
+        ...
 
     @property
-    @abc.abstractmethod
     def api_version(self) -> str:
-        """Version of the stable command/query contract."""
+        """
+        Expose the advertised version of the named command/query contract.
 
-    @abc.abstractmethod
+        Example:
+            >>> version = client.api_version  # doctest: +SKIP
+
+
+        :return: API version text; reading it does not negotiate or validate compatibility.
+        """
+        ...
+
     def execute_command(self, command: CoreCommand) -> CoreCommandResult:
-        """Execute a write-path command envelope."""
+        """
+        Submit a write-path envelope using the client's concrete dispatch and failure policy.
 
-    @abc.abstractmethod
+        Example:
+            >>> response = client.execute_command(CoreCommand("jobs.cancel", {"job_id": "job-1"}))  # doctest: +SKIP
+
+
+        :param command: Named command, payload, request identity, and optional correlation token.
+        :return: Command response envelope; implementations may raise dispatch/transport/handler failures instead.
+        """
+        ...
+
     def execute_query(self, query: CoreQuery) -> CoreQueryResult:
-        """Execute a read-path query envelope."""
+        """
+        Submit a read-path envelope using the client's concrete dispatch and failure policy.
 
-    @abc.abstractmethod
-    def describe_api(
-        self,
-        *,
-        include_targets: bool = True,
-        target: str | None = None,
-    ) -> dict[str, Any]:
-        """Return an inspectable description of the core API surface."""
+        Example:
+            >>> response = client.execute_query(CoreQuery("health"))  # doctest: +SKIP
 
-    @abc.abstractmethod
-    def subscribe(self, callback: Callable[[CoreEvent], None]) -> Callable[[], None]:
-        """Register an event subscriber and return an unsubscribe function."""
 
-    @abc.abstractmethod
-    def shutdown(self) -> int:
-        """Perform runtime shutdown and return process-style exit code."""
+        :param query: Named query, payload, request identity, and optional correlation token.
+        :return: Query response envelope, with operational failures governed by the implementation.
+        """
+        ...
 
     def command(
         self,
@@ -114,7 +107,269 @@ class CoreAPI(abc.ABC):
         command_id: str | None = None,
         correlation_id: str | None = None,
     ) -> Any:
-        """Execute a named command and return its transport-safe result."""
+        """
+        Execute a named command and expose its handler result without requiring an explicit envelope.
+
+        Example:
+            >>> result = client.command("jobs.cancel", {"job_id": "job-1"})  # doctest: +SKIP
+
+
+        :param name: Registered command route.
+        :param payload: Optional command arguments; omission represents an empty payload.
+        :param command_id: Optional request ID override, otherwise generated by the client/envelope.
+        :param correlation_id: Optional caller token linking this request with related work.
+        :return: Handler result; concrete clients own failure propagation and transport conversion.
+        """
+        ...
+
+    def query(
+        self,
+        name: str,
+        payload: Mapping[str, Any] | None = None,
+        *,
+        query_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> Any:
+        """
+        Execute a named query and expose its handler result without requiring an explicit envelope.
+
+        Example:
+            >>> result = client.query("jobs.list")  # doctest: +SKIP
+
+
+        :param name: Registered query route.
+        :param payload: Optional query arguments; omission represents an empty payload.
+        :param query_id: Optional request ID override, otherwise generated by the client/envelope.
+        :param correlation_id: Optional caller token linking this query with related requests.
+        :return: Handler result, subject to the concrete client's dispatch and transport policy.
+        """
+        ...
+
+    def health(self) -> Mapping[str, Any]:
+        """
+        Request the named health result, including the runtime's advertised identity and status fields.
+
+        Example:
+            >>> status = client.health()  # doctest: +SKIP
+
+
+        :return: Health mapping; this call may perform I/O and is not a passive connectivity guarantee.
+        """
+        ...
+
+    def describe_api(
+        self,
+        *,
+        include_targets: bool = True,
+        target: str | None = None,
+    ) -> Mapping[str, Any]:
+        """
+        Describe named handlers and optionally the dynamic methods on hosted targets.
+
+        Example:
+            >>> description = client.describe_api(include_targets=False)  # doctest: +SKIP
+
+
+        :param include_targets: Whether to include dynamic target/method descriptions alongside named handlers.
+        :param target: Optional target selector or alias for implementations supporting target filtering.
+        :return: Introspection mapping describing the advertised Core surface, not an authorization grant.
+        """
+        ...
+
+    def subscribe(
+        self,
+        callback: Callable[[CoreEvent], None],
+    ) -> Callable[[], None]:
+        """
+        Subscribe a callback to Core events and return a callable that stops the subscription.
+
+        This protocol does not promise replay, lossless delivery, callback thread,
+        or that unsubscription waits for every in-flight callback.
+
+        Example:
+            >>> unsubscribe = client.subscribe(print)  # doctest: +SKIP
+
+
+        :param callback: Callable receiving a CoreEvent for each delivered event.
+        :return: Zero-argument unsubscribe callback with implementation-specific completion timing.
+        """
+        ...
+
+    def shutdown(self) -> int:
+        """
+        Request runtime shutdown rather than merely discard a client object.
+
+        Remote clients can send this operation to the hosted runtime. Resource
+        ownership and waiting for jobs are implementation-specific.
+
+        Example:
+            >>> exit_code = client.shutdown()  # doctest: +SKIP
+
+
+        :return: Process-style integer exit status reported by the implementation.
+        """
+        ...
+
+
+class CoreAPI(abc.ABC):
+    """
+    Require envelope execution/lifecycle primitives and supply named-command, named-query, and health adapters.
+
+    Subclasses implement identity, dispatch, descriptions, subscription, and
+    shutdown. The concrete adapters below copy top-level payloads and unwrap
+    responses but do not check the response success flag or encode returned values.
+
+    Example:
+        >>> import inspect
+        >>> inspect.isabstract(CoreAPI)
+        True
+    """
+
+    @property
+    @abc.abstractmethod
+    def core_uuid(self) -> str:
+        """
+        Obtain the concrete client's advertised runtime instance identifier.
+
+        Example:
+            >>> identity = client.core_uuid  # doctest: +SKIP
+
+
+        :return: Instance identity text; concrete remote clients may perform I/O to obtain it.
+        """
+
+    @property
+    @abc.abstractmethod
+    def core_version(self) -> str:
+        """
+        Obtain the runtime implementation version advertised by the concrete client.
+
+        Example:
+            >>> version = client.core_version  # doctest: +SKIP
+
+
+        :return: Runtime version label without a base-class format or ordering constraint.
+        """
+
+    @property
+    @abc.abstractmethod
+    def api_version(self) -> str:
+        """
+        Obtain the advertised command/query API version from the concrete client.
+
+        Example:
+            >>> version = client.api_version  # doctest: +SKIP
+
+
+        :return: API version text; compatibility negotiation is outside this property contract.
+        """
+
+    @abc.abstractmethod
+    def execute_command(self, command: CoreCommand) -> CoreCommandResult:
+        """
+        Dispatch a command envelope through the implementation's handler and failure boundaries.
+
+        Example:
+            >>> response = client.execute_command(CoreCommand("jobs.cancel", {"job_id": "job-1"}))  # doctest: +SKIP
+
+
+        :param command: Request envelope containing command routing, arguments, and identity.
+        :return: Command response envelope; implementations can raise operational errors before returning.
+        """
+
+    @abc.abstractmethod
+    def execute_query(self, query: CoreQuery) -> CoreQueryResult:
+        """
+        Dispatch a query envelope through the implementation's handler and failure boundaries.
+
+        Example:
+            >>> response = client.execute_query(CoreQuery("health"))  # doctest: +SKIP
+
+
+        :param query: Request envelope containing query routing, arguments, and identity.
+        :return: Query response envelope according to the implementation's result/error policy.
+        """
+
+    @abc.abstractmethod
+    def describe_api(
+        self,
+        *,
+        include_targets: bool = True,
+        target: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Describe named handlers and optional hosted-target methods through the concrete client.
+
+        Example:
+            >>> description = client.describe_api(include_targets=True, target="database")  # doctest: +SKIP
+
+
+        :param include_targets: Whether dynamic target descriptions should accompany named endpoint metadata.
+        :param target: Optional hosted-target filter; selection/alias validation belongs to the implementation.
+        :return: API description dictionary with identity and advertised endpoint/target metadata.
+        """
+
+    @abc.abstractmethod
+    def subscribe(self, callback: Callable[[CoreEvent], None]) -> Callable[[], None]:
+        """
+        Register an event callback using the implementation's local delivery or remote polling mechanism.
+
+        The base class supplies no replay, delivery-thread, or unsubscribe-waiting
+        guarantee; callers must follow the concrete client's lifetime rules.
+
+        Example:
+            >>> unsubscribe = client.subscribe(print)  # doctest: +SKIP
+
+
+        :param callback: Callable receiving delivered CoreEvent records.
+        :return: Zero-argument function for ending this subscription.
+        """
+
+    @abc.abstractmethod
+    def shutdown(self) -> int:
+        """
+        Shut down the represented runtime according to its service-ownership policy.
+
+        This operation can affect a remote runtime; it is not merely a client
+        disconnect and does not promise that every submitted job has finished.
+
+        Example:
+            >>> exit_code = client.shutdown()  # doctest: +SKIP
+
+
+        :return: Process-style exit code supplied by the shutdown implementation.
+        """
+
+    def command(
+        self,
+        name: str,
+        payload: Mapping[str, Any] | None = None,
+        *,
+        command_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> Any:
+        """
+        Build a command envelope, call ``execute_command``, and return its result field unchanged.
+
+        The command name and supplied request ID are stringified. Payload copying
+        is shallow and correlation is passed through. This adapter does not inspect
+        ``ok`` or ``error`` and supplies no additional wire conversion; failures
+        raised by envelope execution propagate.
+
+        Example:
+            >>> from unittest.mock import Mock
+            >>> host = Mock()
+            >>> host.execute_command.return_value = CoreCommandResult(True, "request-1", result={"cancelled": True})
+            >>> CoreAPI.command(host, "jobs.cancel", {"job_id": "job-1"}, command_id="request-1")
+            {'cancelled': True}
+
+
+        :param name: Command route converted to text without stripping or validating it here.
+        :param payload: Optional arguments copied into a new dictionary; nested values remain shared.
+        :param command_id: Optional request identity converted to text; ``None`` uses the envelope's generated UUID.
+        :param correlation_id: Optional caller correlation token passed unchanged into the envelope.
+        :return: Response's result field, even if a custom executor returns an unsuccessful envelope.
+        """
 
         kwargs: dict[str, Any] = {
             "name": str(name),
@@ -133,7 +388,27 @@ class CoreAPI(abc.ABC):
         query_id: str | None = None,
         correlation_id: str | None = None,
     ) -> Any:
-        """Execute a named query and return its transport-safe result."""
+        """
+        Build a query envelope, call ``execute_query``, and return its result field unchanged.
+
+        No success-flag check or transport conversion is added here. A concrete
+        executor that returns a failed envelope instead of raising still has its
+        result unwrapped, as illustrated below.
+
+        Example:
+            >>> from unittest.mock import Mock
+            >>> host = Mock()
+            >>> host.execute_query.return_value = CoreQueryResult(False, "request-1", result="partial", error="failed")
+            >>> CoreAPI.query(host, "lookup", query_id="request-1")
+            'partial'
+
+
+        :param name: Query route converted to text without local routing validation.
+        :param payload: Optional arguments shallow-copied into a new dictionary.
+        :param query_id: Optional request identity stringified; ``None`` uses the envelope's generated UUID.
+        :param correlation_id: Optional correlation token forwarded without coercion.
+        :return: Executor response's result field without interpreting its success/error fields.
+        """
 
         kwargs: dict[str, Any] = {
             "name": str(name),
@@ -145,7 +420,20 @@ class CoreAPI(abc.ABC):
         return self.execute_query(CoreQuery(**kwargs)).result
 
     def health(self) -> Mapping[str, Any]:
-        """Return the named Core health result."""
+        """
+        Invoke the named ``health`` query and require a mapping result without copying it.
+
+        Example:
+            >>> from unittest.mock import Mock
+            >>> host = Mock()
+            >>> host.query.return_value = {"core_uuid": "core-1"}
+            >>> CoreAPI.health(host)
+            {'core_uuid': 'core-1'}
+
+
+        :return: Mapping returned by the health query, not a normalized copy or schema-validated record.
+        :raises TypeError: If the named query returns a nonmapping result.
+        """
 
         result = self.query("health")
         if not isinstance(result, Mapping):

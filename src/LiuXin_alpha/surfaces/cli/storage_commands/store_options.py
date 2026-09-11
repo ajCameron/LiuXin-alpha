@@ -1,4 +1,11 @@
-"""Storage CLI store options ownership."""
+"""
+Build typed Store declarations and merge backend policy using advertised capabilities.
+
+Descriptor matching accepts normalized kinds and list-valued aliases. Durable
+policy rejects selected secret-like field names, not arbitrary secret values;
+this is not comprehensive credential detection. Store construction does not probe
+the backend, validate every URI/role, or persist anything by itself.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +32,24 @@ def _descriptor_for_kind(
     kind: str,
     providers: list[Mapping[str, Any]],
 ) -> Mapping[str, Any]:
+    """
+    Return the first backend descriptor matching a normalized kind or list-valued alias.
+
+    Strip, lowercase, and replace hyphens with underscores on both sides. Aliases
+    in tuples or other non-list containers are ignored; matching returns the
+    original descriptor rather than a copy, and duplicate matches favor the first.
+
+    Example:
+        >>> descriptor = {"kind": "local_disk", "aliases": ["disk"]}
+        >>> _descriptor_for_kind(" LOCAL-DISK ", [descriptor]) is descriptor
+        True
+
+
+    :param kind: User-supplied backend token normalized for comparison.
+    :param providers: Ordered advertised mappings supplying kind and optional aliases.
+    :return: First matching mapping by identity.
+    :raises ValueError: No advertised kind or accepted alias matches the token.
+    """
     normalized = str(kind).strip().lower().replace("-", "_")
     for descriptor in providers:
         aliases = descriptor.get("aliases", ())
@@ -43,6 +68,22 @@ def _descriptor_for_kind(
 
 
 def _default_store_role(descriptor: Mapping[str, Any]) -> str:
+    """
+    Infer archive/source/live role from location type and default read-only policy.
+
+    Exact location_type='file' takes precedence over read_only_default. This is
+    a UI/declaration default, not a runtime capability probe.
+
+    Example:
+        >>> _default_store_role({"location_type": "file", "read_only_default": True})
+        'archive'
+        >>> _default_store_role({"read_only_default": True})
+        'source'
+
+
+    :param descriptor: Advertised backend fields used without broader validation.
+    :return: 'archive' for file locations, otherwise 'source' if read-only, else 'live'.
+    """
     if descriptor.get("location_type") == "file":
         return "archive"
     if bool(descriptor.get("read_only_default", False)):
@@ -51,6 +92,28 @@ def _default_store_role(descriptor: Mapping[str, Any]) -> str:
 
 
 def _parse_backend_option(raw: str) -> tuple[str, object]:
+    """
+    Parse one NAME=VALUE option into a safe-named JSON scalar/string-list or text value.
+
+    Split at the first equals sign and strip key/value text. Reject env and listed
+    secret-like substrings in keys case-insensitively, but preserve the key's case.
+    Valid JSON must be scalar or a string-only list; unparseable JSON stays text.
+    Empty strings and encoder-supported nonfinite numbers remain possible, and
+    secret-looking values under an accepted key are not inspected.
+
+    Example:
+        >>> _parse_backend_option('region_name = eu-west-2')
+        ('region_name', 'eu-west-2')
+        >>> _parse_backend_option('enabled=true')
+        ('enabled', True)
+        >>> _parse_backend_option('names=["a", "b"]')
+        ('names', ['a', 'b'])
+
+
+    :param raw: Assignment text, stringified before first-equals splitting.
+    :return: Stripped key and parsed scalar/string-list or stripped fallback text.
+    :raises ValueError: Missing/empty key, secret-like key, or unsupported decoded value shape.
+    """
     key, separator, raw_value = str(raw).partition("=")
     key = key.strip()
     if not separator or not key:
@@ -82,6 +145,22 @@ def _parse_backend_option(raw: str) -> tuple[str, object]:
 
 
 def _reject_sensitive_policy(value: object, *, path: str = "policy") -> None:
+    """
+    Recursively reject known secret-like mapping keys within mappings and lists.
+
+    Stringify keys only for checking/diagnostics; no input is rewritten. Values,
+    tuples, and other container types are not inspected, and there is no cycle
+    detection or depth cap. This naming heuristic is not comprehensive sanitization.
+
+    Example:
+        >>> _reject_sensitive_policy({"s3": {"region_name": "eu-west-2"}})
+
+
+    :param value: Policy value traversed only when it is a Mapping or list.
+    :param path: Dotted/indexed diagnostic prefix identifying a rejected field's parent.
+    :return: None when no visited key matches env or a sensitive-name marker.
+    :raises ValueError: A visited mapping key looks credential-bearing.
+    """
     if isinstance(value, Mapping):
         for raw_key, item in value.items():
             key = str(raw_key)
@@ -106,6 +185,26 @@ def _backend_policy(
     args: argparse.Namespace,
     descriptor: Mapping[str, Any],
 ) -> dict[str, object]:
+    """
+    Merge a bounded policy file with backend-specific assignments, rejecting sensitive keys.
+
+    Validate file policy first, even if assignments would overwrite a rejected
+    field. Apply backend_options then option entries in order, with later keys
+    winning. Assignments require a non-None policy_section and a mapping-valued
+    existing section. Only when assignments exist, stamp backend and that section;
+    a file-only policy is returned without descriptor alignment or schema checks.
+
+    Example:
+        >>> args = argparse.Namespace(option=["region_name=eu-west-2"])
+        >>> _backend_policy(args, {"kind": "s3", "policy_section": "s3"})
+        {'backend': 's3', 's3': {'region_name': 'eu-west-2'}}
+
+
+    :param args: Optional policy_file and backend_options/option assignment sequences.
+    :param descriptor: Backend kind and optional policy_section for assignment placement.
+    :return: New outer policy dictionary with loaded nested values and a copied edited section.
+    :raises ValueError: Policy loading/key checks, assignment parsing, or section validation fails.
+    """
     policy: dict[str, object] = {}
     policy_file = getattr(args, "policy_file", None)
     if policy_file:
@@ -140,6 +239,32 @@ def _store_add_payload(
     args: argparse.Namespace,
     descriptor: Mapping[str, Any],
 ) -> dict[str, Any]:
+    """
+    Build a Store row declaration from CLI choices and one advertised backend descriptor.
+
+    Require mapping-shaped capabilities and nonempty stripped name/root. Respect
+    read_only_default, rejecting attempts to make intrinsic read-only backends
+    writable; default selection also rejects offline/read-only Stores. Default role
+    follows the descriptor, not the effective requested read-only flag. Capability
+    booleans become integers, with random-write/delete additionally disabled for
+    read-only selection. Preserve optional identifiers/domain/region, sort/deduplicate
+    tags, and serialize nonempty backend policy as ASCII-escaped sorted JSON.
+
+    No root existence/URI, UUID, custom role, or live capability check is performed;
+    the result is a declaration, not proof that the backend is available.
+
+    Example:
+        >>> store = _store_add_payload(argparse.Namespace(root=" /books ", name=" Books "), {"kind": "local", "capabilities": {"random_write": True}})
+        >>> store["store_name"], store["store_root_uri"], store["store_supports_random_write"]
+        ('Books', '/books', 1)
+
+
+    :param args: Required root/name and optional access, role, status, protocol, tags,
+        identity/domain/region, default-selection, and policy controls.
+    :param descriptor: Advertised kind, defaults, protocol, capabilities, and policy section.
+    :return: New database-field-keyed Store dictionary, without persistence or backend probing.
+    :raises ValueError: Capability shape, name/root, access/default policy, or backend options fail.
+    """
     descriptor_kind = str(descriptor.get("kind") or "")
     capabilities = descriptor.get("capabilities", {})
     if not isinstance(capabilities, Mapping):

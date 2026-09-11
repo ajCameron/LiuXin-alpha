@@ -1,4 +1,12 @@
-"""Core health, contract inspection, and guarded daemon serving."""
+"""
+Expose Core health/contracts and a guarded, locally owned HTTP daemon through the CLI.
+
+Inspection commands borrow a composed client and publish JSON after session exit.
+Daemon serving requires a local owned runtime and refuses non-loopback binding
+unless explicitly acknowledged; that override adds neither authentication nor
+TLS. Readiness output, signals, and shutdown belong to the serve handler, whose
+cleanup guarantees begin after daemon construction.
+"""
 
 from __future__ import annotations
 
@@ -25,12 +33,37 @@ from LiuXin_alpha.surfaces.core import open_surface_core_from_args
 
 
 def _open(args: argparse.Namespace):
+    """
+    Lazily obtain the common client context with storage composition enabled.
+
+    Example:
+        >>> with _open(args) as core:  # doctest: +SKIP
+        ...     result = core.query('health', {})
+
+
+    :param args: Core inspection namespace containing source/profile/transport selectors.
+    :return: Common CLI context manager yielding the selected Core client.
+    """
     from LiuXin_alpha.surfaces.cli.common import open_cli_core
 
     return open_cli_core(args, enable_storage_manager=True)
 
 
 def cmd_core_health(args: argparse.Namespace) -> int:
+    """
+    Query Core health, publish the response, and project its optional ok flag.
+
+    Exit the client context before output. A missing ok key defaults to success;
+    other values use Python truthiness. A malformed response can fail after JSON
+    is already emitted because status projection follows publication.
+
+    Example:
+        >>> status = cmd_core_health(args)  # doctest: +SKIP
+
+
+    :param args: Connection and JSON-output options for the health command.
+    :return: Zero for truthy or absent ok, otherwise one.
+    """
     with _open(args) as core:
         result = core.query("health", {})
     emit_json(result, args)
@@ -38,6 +71,18 @@ def cmd_core_health(args: argparse.Namespace) -> int:
 
 
 def cmd_core_capabilities(args: argparse.Namespace) -> int:
+    """
+    Query named operation-family availability and emit the unmodified response.
+
+    No response-specific success flag is interpreted; query/output errors propagate.
+
+    Example:
+        >>> status = cmd_core_capabilities(args)  # doctest: +SKIP
+
+
+    :param args: Connection and JSON-output options for capability inspection.
+    :return: Zero after session exit and successful response publication.
+    """
     with _open(args) as core:
         result = core.query("capabilities.list", {})
     emit_json(result, args)
@@ -45,6 +90,19 @@ def cmd_core_capabilities(args: argparse.Namespace) -> int:
 
 
 def cmd_core_api(args: argparse.Namespace) -> int:
+    """
+    Request the machine-readable API contract with optional target selection.
+
+    Always forward the truthiness of include_targets; include target only when
+    truthy, without stripping or validating its name. Emit after session cleanup.
+
+    Example:
+        >>> status = cmd_core_api(args)  # doctest: +SKIP
+
+
+    :param args: Connection/output namespace plus include_targets and optional target.
+    :return: Zero after the api.describe response is successfully published.
+    """
     payload: dict[str, Any] = {"include_targets": bool(args.include_targets)}
     if args.target:
         payload["target"] = args.target
@@ -55,6 +113,20 @@ def cmd_core_api(args: argparse.Namespace) -> int:
 
 
 def _is_loopback_bind(host: str) -> bool:
+    """
+    Recognize localhost or an IP literal classified as loopback without DNS lookup.
+
+    Strip and lowercase only for validation; the serving caller still forwards
+    its original host string to the daemon. Other hostnames are not resolved.
+
+    Example:
+        >>> [_is_loopback_bind(host) for host in [' localhost ', '127.0.0.2', '::1', '0.0.0.0', 'example.invalid']]
+        [True, True, True, False, False]
+
+
+    :param host: Bind-host value stringified for hostname/IP classification.
+    :return: True for localhost or a parsed loopback address, otherwise False.
+    """
     token = str(host).strip().lower()
     if token == "localhost":
         return True
@@ -65,6 +137,35 @@ def _is_loopback_bind(host: str) -> bool:
 
 
 def cmd_core_serve(args: argparse.Namespace) -> int:
+    """
+    Serve an owned local Core runtime until a stop signal or optional wait expires.
+
+    Reject unacknowledged non-loopback binds and nonpositive request-size limits
+    before composition. Redirect factory stdout to stderr, enable storage, and
+    select maintenance from the flag. A borrowed/remote session is closed then
+    rejected. MiB converts to integer bytes; no separate finite-number validation
+    occurs. Daemon construction happens before the cleanup try block, so a
+    construction failure is not covered by its session cleanup.
+
+    After starting, emit readiness JSON and optionally a separately published
+    ready file before installing signal handlers. Output failure can occur while
+    the daemon is already running. SIGINT/SIGTERM handlers are installed only on
+    the main thread and merely set the stop event. No stop_after means repeated
+    half-second waits; otherwise wait once for a nonnegative duration or a signal.
+
+    Finally restore recorded signal handlers, stop the daemon, and close the
+    session in sequence. An earlier cleanup exception can prevent later cleanup
+    and mask the body error. The remote-bind override never adds auth or TLS.
+
+    Example:
+        >>> status = cmd_core_serve(args)  # doctest: +SKIP
+
+
+    :param args: Parsed serve connection, bind/namespace, size, readiness/output, signal-wait, and maintenance options.
+    :return: Zero after normal stop waiting and successful cleanup; failures propagate.
+    :raises ValueError: A non-loopback bind lacks acknowledgement or the size limit is nonpositive.
+    :raises RuntimeError: The composed session lacks a locally owned runtime.
+    """
     if not _is_loopback_bind(args.host) and not args.allow_unsafe_remote_bind:
         raise ValueError(
             "Refusing a non-loopback Core bind: this transport has no TLS or "
@@ -96,6 +197,20 @@ def cmd_core_serve(args: argparse.Namespace) -> int:
     previous: dict[int, Any] = {}
 
     def request_stop(_number: int, _frame: FrameType | None) -> None:
+        """
+        Notify the serving loop that shutdown was requested by a handled signal.
+
+        Do not stop the daemon inside the signal callback; the outer finally
+        block performs ordered cleanup after the wait returns.
+
+        Example:
+            >>> request_stop(signal.SIGTERM, None)  # doctest: +SKIP
+
+
+        :param _number: Delivered signal number, deliberately unused.
+        :param _frame: Interrupted execution frame, deliberately unused.
+        :return: None after setting the enclosing stop event.
+        """
         stopped.set()
 
     try:
@@ -138,6 +253,19 @@ def cmd_core_serve(args: argparse.Namespace) -> int:
 
 
 def _connection_json(parser: argparse.ArgumentParser) -> None:
+    """
+    Add common Core selectors and JSON destination controls to an inspection parser.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _connection_json(parser)
+        >>> parser.parse_args(['--database', 'library.sqlite']).output
+        '-'
+
+
+    :param parser: Inspection-command parser to mutate without opening a session.
+    :return: None after registering both shared argument groups.
+    """
     add_connection_arguments(parser)
     add_json_output(parser)
 
@@ -146,11 +274,23 @@ def build_core_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     """
-    Build the `core` command-line parser.
+    Register Core health, capabilities, API inspection, and guarded serving commands.
+
+    Inspection leaves use common connection/JSON options. Serve requires an
+    explicit local --database, exposes no remote-endpoint selector, and declares
+    bind/namespace, request-size, maintenance, readiness, and stop-wait controls.
+    Runtime ownership and unsafe-bind checks occur in the handler, not here.
+
+    Example:
+        >>> root = argparse.ArgumentParser()
+        >>> build_core_parser(root.add_subparsers())
+        >>> args = root.parse_args(['core', 'serve', '--database', 'library.sqlite'])
+        >>> (args.host, args.port, args.max_request_mib)
+        ('127.0.0.1', 8765, 1024.0)
 
 
-    :param subparsers:
-    :return:
+    :param subparsers: Parent argparse collection receiving the required core command family.
+    :return: None; add four leaf parsers and bind their command handlers.
     """
     parser = subparsers.add_parser(
         "core", help="Inspect Core health/contracts or serve a guarded local daemon."

@@ -1,5 +1,11 @@
 """
-Transactional local-filesystem storage driver.
+Implement scoped local-file storage with private staging and explicit publication.
+
+Filesystem keys are parsed as exact POSIX-relative text. Operations check current
+resolved containment, then perform path-based I/O; this is not a race-free sandbox.
+Writes verify accepted-byte expectations before linking or replacing a destination,
+but later cleanup/sync/stat failures can follow publication. Read versions derive
+from stat fields, and inventory is a traversal rather than an immutable snapshot.
 """
 
 from __future__ import annotations
@@ -55,7 +61,11 @@ from LiuXin_alpha.storage.drivers._errors import (
 @dataclasses.dataclass(slots=True, frozen=True)
 class FilesystemObjectAddress(DriverObjectAddress):
     """
-    Canonical POSIX-style relative path within one filesystem root.
+    Carry a relative filesystem key and the UUID of its driver address space.
+
+    Inherited construction checks identity, nonempty value, and NULs. Canonical POSIX-relative
+    syntax belongs to the driver's text parser; constructing this value directly does not run that
+    parser or inspect filesystem containment.
 
     Example:
         >>> FilesystemObjectAddress("books/novel.epub", UUID(int=1)).value
@@ -65,25 +75,31 @@ class FilesystemObjectAddress(DriverObjectAddress):
 
 class _LimitedReader(io.RawIOBase):
     """
-    Own a file handle while exposing at most a selected byte range.
+    Own a binary source while limiting how many bytes can be returned from its current position.
+
+    The caller positions the source before wrapping it. This raw reader is used inside
+    BufferedReader and closes its source when closed; it does not provide seek support or take an
+    immutable snapshot of file contents.
 
     Example:
         >>> source = io.BufferedReader(io.BytesIO(b"abcdef"))
-        >>> io.BufferedReader(_LimitedReader(source, 3)).read()
+        >>> with io.BufferedReader(_LimitedReader(source, 3)) as selected:
+        ...     selected.read()
         b'abc'
     """
 
     def __init__(self, source: io.BufferedReader, remaining: int) -> None:
         """
-        Bind an owned source and maximum remaining byte count.
+        Retain an owned source handle and the remaining range budget without seeking or validation.
 
         Example:
             >>> reader = _LimitedReader(io.BufferedReader(io.BytesIO(b"abc")), 2)
+            >>> reader.close()
 
 
-        :param source:
-        :param remaining:
-        :return:
+        :param source: Binary buffered reader positioned at the first selected byte; ownership passes to this wrapper.
+        :param remaining: Maximum bytes still permitted; nonpositive values immediately behave as EOF.
+        :return: None after retaining the handle and range budget.
         """
 
         self._source = source
@@ -91,31 +107,38 @@ class _LimitedReader(io.RawIOBase):
 
     def readable(self) -> bool:
         """
-        Report that this wrapper implements raw binary reads.
+        Advertise raw binary reading regardless of remaining bytes or closed state.
 
         Example:
-            >>> _LimitedReader(io.BufferedReader(io.BytesIO()), 0).readable()
+            >>> reader = _LimitedReader(io.BufferedReader(io.BytesIO()), 0)
+            >>> reader.readable()
             True
+            >>> reader.close()
 
 
-        :return:
+        :return: True; this method does not test the source handle.
         """
 
         return True
 
     def readinto(self, buffer: bytearray | memoryview) -> int:
         """
-        Fill a buffer without exceeding the selected range length.
+        Copy source bytes into a buffer without exceeding the remaining range budget.
+
+        A falsey source read marks the wrapper exhausted. In particular, passing a zero-length
+        buffer while bytes remain performs read(0) and consumes the logical remaining budget as EOF.
+        Source errors propagate without storage translation.
 
         Example:
             >>> reader = _LimitedReader(io.BufferedReader(io.BytesIO(b"abc")), 2)
             >>> target = bytearray(4)
             >>> reader.readinto(target)
             2
+            >>> reader.close()
 
 
-        :param buffer:
-        :return:
+        :param buffer: Writable bytearray or memoryview receiving at most the remaining selected bytes.
+        :return: Copied byte count, or zero after exhaustion or a falsey source read.
         """
 
         if self._remaining <= 0:
@@ -132,14 +155,16 @@ class _LimitedReader(io.RawIOBase):
 
     def close(self) -> None:
         """
-        Close both the wrapper and its owned source handle.
+        Close the owned source and always attempt RawIOBase closure, propagating close failures.
 
         Example:
-            >>> reader = _LimitedReader(io.BufferedReader(io.BytesIO()), 0)
-            >>> reader.close()
+            >>> source = io.BufferedReader(io.BytesIO())
+            >>> _LimitedReader(source, 0).close()
+            >>> source.closed
+            True
 
 
-        :return:
+        :return: None after the close operations succeed.
         """
 
         try:
@@ -150,12 +175,17 @@ class _LimitedReader(io.RawIOBase):
 
 class _FilesystemWriteSession:
     """
-    Private temporary-file write published only by explicit commit.
+    Stage one object under .liuxin-staging and publish only on explicit commit.
+
+    Accepted writes update optional integrity expectations. Commit flushes/fsyncs staging, checks
+    expectations, then links or replaces the destination. Publication and subsequent staging unlink,
+    directory sync, or stat are separate operations: a raised error can follow visible destination
+    bytes. Aborting removes only the staging name, never rolls back a published destination.
 
     Example:
-        >>> session = driver.begin_write(address)  # doctest: +SKIP
-        >>> session.write(b"book")  # doctest: +SKIP
-        4
+        >>> with driver.begin_write(address, expected_size=4) as session:  # doctest: +SKIP
+        ...     session.write(b"book")
+        ...     info = session.commit()
     """
 
     def __init__(
@@ -168,18 +198,23 @@ class _FilesystemWriteSession:
         expected_digest: Digest | None,
     ) -> None:
         """
-        Create one private staging file with integrity expectations.
+        Create an expectation hasher and a private temporary file under the driver root.
+
+        The staging directory is created with requested mode 0700; existing permissions are not
+        changed. Unsupported hashlib algorithms raise directly. This initializer assumes
+        driver/ownership/mode validation by its caller and has no general cleanup guard around
+        temporary-file setup.
 
         Example:
-            >>> _FilesystemWriteSession(driver, address, mode=WriteMode.CREATE_ONLY, expected_size=4, expected_digest=None)  # doctest: +SKIP
+            >>> session = _FilesystemWriteSession(driver, address, mode=WriteMode.CREATE_ONLY, expected_size=4, expected_digest=None)  # doctest: +SKIP
 
 
-        :param driver:
-        :param address:
-        :param mode:
-        :param expected_size:
-        :param expected_digest:
-        :return:
+        :param driver: Filesystem driver whose root contains the staging directory and destination.
+        :param address: Scoped destination address already accepted by the driver checker.
+        :param mode: WriteMode member selecting publication behavior; not coerced here.
+        :param expected_size: Optional accepted object-byte count required at commit.
+        :param expected_digest: Optional digest whose algorithm is hashed over accepted writes.
+        :return: None after opening the unfinished session staging stream.
         """
 
         self._driver = driver
@@ -207,15 +242,19 @@ class _FilesystemWriteSession:
 
     def write(self, data: bytes) -> int:
         """
-        Append bytes to the private staging file.
+        Append bytes to staging and update count/hash for the accepted prefix.
+
+        Reject finished sessions and non-bytes input. Translate OSError with stage-write context;
+        other failures propagate. A None write result means the full input was accepted. Expected
+        size is checked at commit, not enforced as a write-time cap.
 
         Example:
             >>> session.write(b"book")  # doctest: +SKIP
             4
 
 
-        :param data:
-        :return:
+        :param data: Bytes to append; accounting covers only the prefix the stream accepts.
+        :return: Accepted byte count; callers handling partial writes must supply the remainder.
         """
 
         if self._finished:
@@ -241,14 +280,23 @@ class _FilesystemWriteSession:
 
     def commit(self) -> DriverObjectInfo[FilesystemObjectAddress]:
         """
-        Validate, durably publish, and stat the completed object.
+        Flush/fsync staging, validate accepted bytes, publish, sync the parent, and stat the result.
+
+        Size and digest checks use write-time accounting, not a reread of the staged file. Create
+        missing parent directories before publication. Parent-directory syncing is skipped on
+        platforms without O_DIRECTORY. Errors attempt staging abort; OS failures receive commit
+        context, while other exceptions propagate.
+
+        Publication is not rolled back if later unlink, directory sync, or stat fails. A successful
+        result comes from a separate stat after publication and can reflect subsequent external
+        changes rather than a pinned publication snapshot.
 
         Example:
             >>> session.commit().size  # doctest: +SKIP
             4
 
 
-        :return:
+        :return: DriverObjectInfo from the published destination stat, without an independently returned digest.
         """
 
         if self._finished:
@@ -279,13 +327,13 @@ class _FilesystemWriteSession:
 
     def _validate_expectations(self) -> None:
         """
-        Require the staged size and digest to match supplied expectations.
+        Compare accepted-write size and optional digest with caller requirements.
 
         Example:
             >>> session._validate_expectations()  # doctest: +SKIP
 
 
-        :return:
+        :return: None for matching expectations; StorageIntegrityError for size or digest disagreement.
         """
 
         if self._expected_size is not None and self._size != self._expected_size:
@@ -302,14 +350,19 @@ class _FilesystemWriteSession:
 
     def _publish(self, destination: Path) -> None:
         """
-        Publish by link or replacement according to the requested write mode.
+        Publish staging by hard link for CREATE_ONLY or os.replace for other modes.
+
+        REPLACE checks existence first, but that check is separate from replacement and can race
+        with another mutation. CREATE_ONLY relies on link creation to reject an occupied name, then
+        unlinks staging. Other mode values take the replacement path; callers must supply a valid
+        WriteMode member. No directory sync occurs here.
 
         Example:
             >>> session._publish(destination)  # doctest: +SKIP
 
 
-        :param destination:
-        :return:
+        :param destination: Filesystem path whose parent has already been prepared by commit.
+        :return: None after publication and applicable staging unlink; failures can follow successful linking.
         """
 
         exists = destination.exists()
@@ -334,14 +387,17 @@ class _FilesystemWriteSession:
     @staticmethod
     def _fsync_directory(directory: Path) -> None:
         """
-        Flush a directory entry where the host exposes that facility.
+        Open and fsync a directory when O_DIRECTORY is available, then close its descriptor.
+
+        Without O_DIRECTORY this is a no-op. Open, fsync, and close failures propagate; the final
+        close is attempted even if fsync fails.
 
         Example:
             >>> _FilesystemWriteSession._fsync_directory(path)  # doctest: +SKIP
 
 
-        :param directory:
-        :return:
+        :param directory: Destination parent directory whose entry updates should be flushed.
+        :return: None after directory sync/close, or immediately on an unsupported platform.
         """
 
         if not hasattr(os, "O_DIRECTORY"):
@@ -354,13 +410,17 @@ class _FilesystemWriteSession:
 
     def abort(self) -> None:
         """
-        Close and remove the private staging file.
+        Attempt to close and unlink staging, suppressing OSError from both operations.
+
+        Normal cleanup marks the session finished even if unlink raises OSError. Other exception
+        types are not universally suppressed, and failed cleanup can leave a staging file. Published
+        destination bytes are never removed here.
 
         Example:
             >>> session.abort()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after best-effort staging cleanup and the finished-state update.
         """
 
         try:
@@ -377,14 +437,14 @@ class _FilesystemWriteSession:
 
     def __enter__(self) -> _FilesystemWriteSession:
         """
-        Return the active session for context-managed staging.
+        Return the unfinished session for explicit commit or automatic context abort.
 
         Example:
             >>> with driver.begin_write(address) as session:  # doctest: +SKIP
-            ...     session.write(b"book")
+            ...     session.write(b"temporary")
 
 
-        :return:
+        :return: This session, or StorageError when it has already finished.
         """
 
         if self._finished:
@@ -398,16 +458,17 @@ class _FilesystemWriteSession:
         traceback: TracebackType | None,
     ) -> None:
         """
-        Abort automatically unless the context body committed explicitly.
+        Abort an uncommitted session on either normal or exceptional context exit.
 
         Example:
-            >>> session.__exit__(None, None, None)  # doctest: +SKIP
+            >>> with driver.begin_write(address) as session:  # doctest: +SKIP
+            ...     session.write(b"abandoned")
 
 
-        :param exc_type:
-        :param exc:
-        :param traceback:
-        :return:
+        :param exc_type: Body exception type or None; accepted but not inspected.
+        :param exc: Body exception instance or None; accepted but not inspected.
+        :param traceback: Body traceback or None; accepted but not inspected.
+        :return: None, leaving body exceptions unsuppressed.
         """
 
         if not self._committed:
@@ -416,7 +477,17 @@ class _FilesystemWriteSession:
 
 class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
     """
-    Secure, transactional driver for one local directory tree.
+    Store regular files under one resolved directory using scoped keys and staged publication.
+
+    Text keys use exact canonical POSIX-relative spelling. _path checks current resolved containment
+    but returns the original path for later I/O; it does not hold directory descriptors or prevent
+    symlink changes between checking and use. Inventory omits symlinks and directories named
+    .liuxin-staging, while direct addressing is not an access-control boundary for staging names.
+
+    Startup can create the root, but ordinary operations do not require the started flag. Closing
+    only clears that flag and does not drain streams or write sessions. Read-only policy masks
+    mutations; publication, version, and concurrency flags describe the implemented mechanics rather
+    than a health observation.
 
     Example:
         >>> driver = FilesystemStorageDriver("/srv/books", address_space_uuid=UUID(int=1))  # doctest: +SKIP
@@ -432,18 +503,18 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         allocation_prefix: str = "objects",
     ) -> None:
         """
-        Configure the rooted address space and publication policy.
+        Resolve the local root, validate the allocation prefix, and configure an unstarted driver.
 
         Example:
-            >>> FilesystemStorageDriver("/srv/books", address_space_uuid=UUID(int=1))  # doctest: +SKIP
+            >>> driver = FilesystemStorageDriver("/srv/books", address_space_uuid=UUID(int=1), create_root=False)  # doctest: +SKIP
 
 
-        :param root:
-        :param address_space_uuid:
-        :param read_only:
-        :param create_root:
-        :param allocation_prefix:
-        :return:
+        :param root: Filesystem path expanded and resolved with strict=False; not created here.
+        :param address_space_uuid: UUID required on every address accepted by this driver.
+        :param read_only: Policy rejecting writes, allocation, deletion, and native moves.
+        :param create_root: Whether startup may create a missing root; not a guard on every later operation.
+        :param allocation_prefix: Nonempty canonical relative prefix for generated object addresses.
+        :return: None after retaining path/policy and the scoped address checker.
         """
 
         self._root = Path(root).expanduser().resolve(strict=False)
@@ -459,14 +530,15 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
     @property
     def root_path(self) -> Path:
         """
-        Return the resolved local root path.
+        Return the expanded, resolved root retained at construction without checking its current
+        state.
 
         Example:
-            >>> driver.root_path  # doctest: +SKIP
-            PosixPath('/srv/books')
+            >>> driver.root_path.is_absolute()  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: Absolute Path selecting the local directory root.
         """
 
         return self._root
@@ -476,14 +548,14 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         self,
     ) -> ScopedDriverObjectAddressChecker[FilesystemObjectAddress]:
         """
-        Return the checker that scopes paths to this root.
+        Return the checker for filesystem address subtype and configured UUID ownership.
 
         Example:
             >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
             UUID('00000000-0000-0000-0000-000000000001')
 
 
-        :return:
+        :return: Retained scoped checker; it does not parse key spelling or inspect filesystem containment.
         """
 
         return self._checker
@@ -491,14 +563,14 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
     @property
     def root_uri(self) -> str:
         """
-        Return the credential-free file URI for the root.
+        Render the resolved root path as a file URI using platform filesystem encoding.
 
         Example:
             >>> driver.root_uri  # doctest: +SKIP
             'file:///srv/books'
 
 
-        :return:
+        :return: File URI for the root, without probing existence or permissions.
         """
 
         return self._root.as_uri()
@@ -506,14 +578,19 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Describe local range, inventory, and transactional mutation support.
+        Describe range/version reads, complete inventory, digesting, and configured mutations.
+
+        Writable drivers advertise atomic publication, native copy/move, and allocation; read-only
+        drivers mask those flags. Atomic conditional deletion is unsupported.
+        URI/hierarchical/prefix operations, capacity, and declared concurrency support remain
+        visible. No access check or filesystem snapshot is taken here.
 
         Example:
-            >>> driver.capabilities.atomic_publish  # doctest: +SKIP
-            True
+            >>> driver.capabilities.conditional_delete  # doctest: +SKIP
+            False
 
 
-        :return:
+        :return: New DriverCapabilities derived from configured read-only policy and implemented operations.
         """
 
         mutable = not self._read_only
@@ -545,13 +622,18 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
 
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
-        """Describe local per-object staging or configured read-only access.
+        """
+        Describe per-object staging for writable roots or read-only access without write staging.
+
+        Writable drivers declare preservation of unmodelled entries and no container rewrite. These
+        declarations do not calculate filesystem-specific size limits or available temporary space.
 
         Example:
             >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
             <StoragePublicationModel.PER_OBJECT: 'per_object'>
 
-        :return: Configured filesystem characteristics.
+
+        :return: Configured publication/staging characteristics, without live capacity checks.
         """
 
         if self._read_only:
@@ -570,14 +652,18 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
 
     def startup(self) -> DriverStatus:
         """
-        Validate or create the configured root and report its status.
+        Check/create the root, mark startup, and collect a fresh status observation.
+
+        A missing read-only or create_root=False root returns an unavailable status. Existing
+        nondirectories raise StorageInvalidAddress; OS setup errors are translated. The started flag
+        is set before status, which can still report a later capacity or inventory failure.
 
         Example:
             >>> driver.startup().available  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Current DriverStatus, or an unavailable missing-root result without successful startup.
         """
 
         try:
@@ -616,43 +702,54 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
 
     def probe(self) -> DriverStatus:
         """
-        Perform an access check before reporting dynamic root status.
+        Collect status after attempting to obtain the first root directory entry.
+
+        This access check is followed by the normal capacity lookup and full inventory count. Probe
+        does not create the root or test a write transaction.
 
         Example:
-            >>> driver.probe().available  # doctest: +SKIP
-            True
+            >>> status = driver.probe()  # doctest: +SKIP
 
 
-        :return:
+        :return: Fresh status including any caught access, inventory, or capacity failure.
         """
 
         return self._status(check_access=True)
 
     def status(self) -> DriverStatus:
         """
-        Report current capacity and object count without a directory read probe.
+        Inspect root availability, volume capacity, and a complete inventory count.
+
+        There is no cached result. The separate first-entry probe is omitted, but inventory
+        traversal still reads directories and can be expensive or fail.
 
         Example:
             >>> driver.status().object_count  # doctest: +SKIP
             1
 
 
-        :return:
+        :return: Fresh DriverStatus using policy and os.access for its writability flag.
         """
 
         return self._status(check_access=False)
 
     def _status(self, *, check_access: bool) -> DriverStatus:
         """
-        Build one status observation with an optional access check.
+        Collect one observation, turning selected filesystem/inventory failures into unavailable
+        status.
+
+        Check directory existence, optionally read its first entry, then obtain disk usage and count
+        inventory objects. Return current UTC time. Writability uses configured policy and os.access
+        rather than an attempted write; counts and capacity come from separate observations and are
+        not a consistent snapshot.
 
         Example:
             >>> driver._status(check_access=True).available  # doctest: +SKIP
             True
 
 
-        :param check_access:
-        :return:
+        :param check_access: Whether to attempt a first-entry directory read before normal status collection.
+        :return: Available status with capacity/counts, or an unavailable result with failure context.
         """
 
         try:
@@ -715,13 +812,16 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
 
     def close(self) -> None:
         """
-        Mark the lifecycle closed; the driver owns no persistent handles.
+        Clear the lifecycle flag without closing caller-owned streams or sessions.
+
+        The driver holds no persistent file handle, and its ordinary operations do not consult this
+        flag to prevent subsequent use.
 
         Example:
             >>> driver.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after setting _started to False.
         """
 
         self._started = False
@@ -731,15 +831,18 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         identifier: DriverObjectAddressInput[FilesystemObjectAddress],
     ) -> FilesystemObjectAddress:
         """
-        Validate a persisted canonical POSIX-relative address.
+        Parse canonical text into this address space or check ownership of an existing address.
+
+        Existing DriverObjectAddress values take the subtype/UUID checker only; their key text is
+        not reparsed. Neither path checks existence or resolved containment.
 
         Example:
             >>> str(driver.parse_object_address("books/novel.epub"))  # doctest: +SKIP
             'books/novel.epub'
 
 
-        :param identifier:
-        :return:
+        :param identifier: Canonical relative key text or a filesystem address with this driver UUID.
+        :return: FilesystemObjectAddress, newly constructed for text or retained after the ownership check.
         """
 
         if isinstance(identifier, DriverObjectAddress):
@@ -752,15 +855,15 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
 
     def join_object_address(self, *tokens: str) -> FilesystemObjectAddress:
         """
-        Join hierarchical tokens and validate the resulting persisted address.
+        Join one or more string tokens with slashes and pass the result through the text parser.
 
         Example:
             >>> str(driver.join_object_address("books", "novel.epub"))  # doctest: +SKIP
             'books/novel.epub'
 
 
-        :param tokens:
-        :return:
+        :param tokens: Path fragments; empty/absolute/noncanonical resulting components are rejected by parsing.
+        :return: Scoped canonical address; no tokens raises StorageInvalidAddress.
         """
 
         if not tokens:
@@ -769,15 +872,20 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
 
     def object_address_from_uri(self, uri: str) -> FilesystemObjectAddress:
         """
-        Convert an in-root local file URI into a checked relative address.
+        Decode and resolve a local file URI, then require it to lie beneath the driver root.
+
+        Permit only file scheme with empty or localhost authority. Decode percent bytes through the
+        filesystem codec, preserving POSIX surrogateescape names. Query and fragment components are
+        ignored. Resolve symlinks before deriving the relative key; the root itself is rejected by
+        canonical object-key parsing.
 
         Example:
             >>> str(driver.object_address_from_uri("file:///srv/books/a.epub"))  # doctest: +SKIP
             'a.epub'
 
 
-        :param uri:
-        :return:
+        :param uri: Local file URI identifying a descendant object path, whether or not it currently exists.
+        :return: Scoped relative address or StorageInvalidAddress for a foreign/nonlocal/invalid object path.
         """
 
         parsed = urlparse(uri)
@@ -797,15 +905,15 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
 
     def object_uri(self, object_address: FilesystemObjectAddress) -> str:
         """
-        Render a checked object address as a local file URI.
+        Render a scoped object path as a file URI after the current containment check.
 
         Example:
             >>> driver.object_uri(address)  # doctest: +SKIP
             'file:///srv/books/a.epub'
 
 
-        :param object_address:
-        :return:
+        :param object_address: Filesystem address expected to have this driver UUID.
+        :return: URI of the original candidate path; no file is opened and existence is not required.
         """
 
         return self._path(object_address).as_uri()
@@ -815,15 +923,19 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         object_address: FilesystemObjectAddress,
     ) -> DriverObjectInfo[FilesystemObjectAddress]:
         """
-        Stat one regular file and return its version and placement hints.
+        Stat an owned path and require a regular file before building metadata.
+
+        Initial stat OS errors are translated; is_file is a subsequent check rather than part of the
+        same observation. Return size/time/version and filename-based MIME hints without hashing
+        bytes. In-root symlinks can be followed here even though inventory omits them.
 
         Example:
             >>> driver.stat(address).size  # doctest: +SKIP
             4
 
 
-        :param object_address:
-        :return:
+        :param object_address: Scoped filesystem address whose current resolved path must remain within the root.
+        :return: DriverObjectInfo with a stat-derived version, UTC modification time, and no digest.
         """
 
         checked = self.check_object_address(object_address)
@@ -866,7 +978,15 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         if_version: str | None = None,
     ) -> io.BufferedIOBase:
         """
-        Open an owned stream for one checked file version and byte range.
+        Open an owned binary stream and optionally verify its current fstat token before reading.
+
+        Negative ranges raise StorageInvalidAddress. Initial open errors are translated. An explicit
+        version is checked against the opened handle; mismatch closes it before raising
+        StoragePreconditionFailed. This single check does not prevent later in-place content
+        changes. Seek/fstat errors have no separate cleanup guard.
+
+        Unlimited reads return the positioned file; limited reads wrap it in an owning buffered
+        range reader. The caller must close the returned stream.
 
         Example:
             >>> with driver.open_read(address, length=4) as source:  # doctest: +SKIP
@@ -874,11 +994,11 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
             b'book'
 
 
-        :param object_address:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param object_address: Owned object address selecting the file to open.
+        :param offset: Nonnegative byte offset passed to seek; offsets past EOF are allowed.
+        :param length: Maximum bytes to expose, or None for the remainder of the file.
+        :param if_version: Optional stat-field token checked once on the opened descriptor.
+        :return: Caller-owned binary stream positioned at offset, optionally limited to length bytes.
         """
 
         if offset < 0 or (length is not None and length < 0):
@@ -916,18 +1036,23 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         metadata: tuple[tuple[str, str], ...] = (),
     ) -> _FilesystemWriteSession:
         """
-        Begin a private staged create or replacement.
+        Check mutation policy, metadata support, size, and ownership before creating staging.
+
+        Nonempty native metadata is unsupported and negative expected size is invalid. Pass mode
+        unchanged to the session, requiring a WriteMode member from the caller. Staging can create
+        the root even without startup; create_root only governs the startup method. OS setup errors
+        are translated, while hash/setup errors otherwise propagate.
 
         Example:
             >>> session = driver.begin_write(address, expected_size=4)  # doctest: +SKIP
 
 
-        :param object_address:
-        :param mode:
-        :param expected_size:
-        :param expected_digest:
-        :param metadata:
-        :return:
+        :param object_address: Scoped destination address checked for subtype/UUID before staging.
+        :param mode: WriteMode member controlling commit-time collision policy; not normalized here.
+        :param expected_size: Nonnegative accepted byte count required at commit, or None for no size expectation.
+        :param expected_digest: Optional digest computed over accepted writes and checked at commit.
+        :param metadata: Native metadata tuple; only an empty tuple is supported.
+        :return: New unfinished filesystem write session for explicit commit or abort.
         """
 
         if self._read_only:
@@ -970,16 +1095,20 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         if_version: str | None = None,
     ) -> None:
         """
-        Delete one file when mutation is enabled.
+        Unlink an owned in-root path, enforcing read-only policy and optional missing tolerance.
+
+        Any non-None version condition raises StorageUnsupportedOperation because deletion has no
+        atomic version check. Other OS failures receive delete context; no directory fsync or
+        empty-parent cleanup is performed here.
 
         Example:
             >>> driver.delete(address, missing_ok=True)  # doctest: +SKIP
 
 
-        :param object_address:
-        :param missing_ok:
-        :param if_version:
-        :return:
+        :param object_address: Scoped address whose candidate path should be unlinked.
+        :param missing_ok: Whether FileNotFoundError is accepted as successful absence.
+        :param if_version: Must be None; conditional deletion is unsupported.
+        :return: None after unlink or an allowed missing-object result.
         """
 
         if self._read_only:
@@ -1020,15 +1149,20 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         prefix: FilesystemObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[FilesystemObjectAddress]]:
         """
-        Yield regular files beneath the root, excluding private staging data.
+        Walk regular files in sorted directory order, omitting symlinks and staging directories.
+
+        Prune every directory named .liuxin-staging and do not follow directory symlinks. Prefix
+        filtering is lexical startswith, so "books" also matches "bookshelf". An
+        unavailable/non-directory root yields no entries. Traversal/stat OS errors are translated;
+        yielded entries are individual observations, not a snapshot.
 
         Example:
             >>> [str(item.object_address) for item in driver.iter_inventory()]  # doctest: +SKIP
             ['books/novel.epub']
 
 
-        :param prefix:
-        :return:
+        :param prefix: Optional scoped address used as a literal relative-key prefix.
+        :return: Iterator of sized/versioned entries with filename and MIME hints but no content digest.
         """
 
         prefix_value = ""
@@ -1083,17 +1217,21 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         name_hint: str | None = None,
     ) -> FilesystemObjectAddress:
         """
-        Allocate a digest layout or a random key beneath the configured prefix.
+        Suggest a digest-based or random address under the configured allocation prefix.
+
+        Digest layout includes algorithm, first two digest characters, and full digest. Otherwise
+        prepend a random UUID to a reduced name hint. Size is ignored and no capacity, collision,
+        reservation, or filesystem creation check is performed.
 
         Example:
             >>> str(driver.allocate_object_address(name_hint="novel.epub")).startswith("objects/")  # doctest: +SKIP
             True
 
 
-        :param expected_size:
-        :param expected_digest:
-        :param name_hint:
-        :return:
+        :param expected_size: Accepted allocation hint but unused by this driver.
+        :param expected_digest: Optional digest selecting deterministic algorithm/prefix/value layout.
+        :param name_hint: Optional filename suggestion used only for random-key allocation.
+        :return: New scoped address; read-only configuration rejects allocation.
         """
 
         _ = expected_size
@@ -1125,16 +1263,16 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         algorithm: str = "sha256",
     ) -> Digest:
         """
-        Stream a file through the requested digest algorithm.
+        Hash the current file stream in one-MiB reads without a version condition.
 
         Example:
             >>> driver.native_compute_digest(address).algorithm  # doctest: +SKIP
             'sha256'
 
 
-        :param object_address:
-        :param algorithm:
-        :return:
+        :param object_address: Scoped address of the file whose observed bytes should be hashed.
+        :param algorithm: hashlib algorithm name; unsupported names become StorageUnsupportedOperation.
+        :return: Digest of the bytes read; concurrent in-place mutation is not prevented.
         """
 
         try:
@@ -1156,17 +1294,21 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         mode: WriteMode = WriteMode.CREATE_ONLY,
     ) -> DriverObjectInfo[FilesystemObjectAddress]:
         """
-        Copy within the root through the transactional write path.
+        Copy through ordinary reads and staged writes using the initially observed source size.
+
+        Source stat and open are separate and the read is not version-pinned. Each one-MiB input
+        chunk is written once; write return values are not retried here. Commit checks accepted size
+        and performs the normal publication sequence.
 
         Example:
             >>> driver.native_copy(source, destination).object_address == destination  # doctest: +SKIP
             True
 
 
-        :param source:
-        :param destination:
-        :param mode:
-        :return:
+        :param source: Owned source address to stat and read.
+        :param destination: Owned destination address to stage and publish.
+        :param mode: WriteMode member passed through to destination publication.
+        :return: Destination DriverObjectInfo from commit; source mutation can invalidate the size expectation.
         """
 
         source_info = self.stat(source)
@@ -1189,18 +1331,23 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         if_source_version: str | None = None,
     ) -> DriverObjectInfo[FilesystemObjectAddress]:
         """
-        Move within the root while enforcing collision and source-version rules.
+        Move an owned path by link/unlink or replacement after selected precondition checks.
+
+        Source version and destination existence are observed before mutation, not atomically with
+        it. CREATE_ONLY uses a hard link then source unlink; a failed unlink can leave both names.
+        Other modes use os.replace, with REPLACE requiring an earlier existence check. No directory
+        sync occurs. Final stat can fail after mutation and does not undo it.
 
         Example:
             >>> driver.native_move(source, destination).object_address == destination  # doctest: +SKIP
             True
 
 
-        :param source:
-        :param destination:
-        :param mode:
-        :param if_source_version:
-        :return:
+        :param source: Owned path to stat and move; regular-file validation occurs only in the final destination stat.
+        :param destination: Owned destination path; missing parents are created before mutation.
+        :param mode: WriteMode member selecting collision handling, without string coercion here.
+        :param if_source_version: Optional stat token compared before mutation, not an atomic compare-and-move.
+        :return: Destination metadata after mutation; failures can follow a completed or partial two-name move.
         """
 
         if self._read_only:
@@ -1263,15 +1410,20 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
 
     def _path(self, object_address: FilesystemObjectAddress) -> Path:
         """
-        Map a checked address to a path that remains beneath the root.
+        Join an owned key to the root and check its current resolved containment.
+
+        The checker validates subtype/UUID rather than reparsing canonical text. Resolve the
+        candidate to reject current symlink escapes, then return the original candidate. Subsequent
+        I/O can race with path changes; no descriptor-based containment is held across the
+        operation.
 
         Example:
             >>> driver._path(address)  # doctest: +SKIP
             PosixPath('/srv/books/a.epub')
 
 
-        :param object_address:
-        :return:
+        :param object_address: Scoped filesystem address to join through PurePosixPath components.
+        :return: Unresolved candidate Path after its resolved form passes the root containment check.
         """
 
         checked = self.check_object_address(object_address)
@@ -1286,15 +1438,20 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
     @staticmethod
     def _normalize_relative(value: str) -> str:
         """
-        Require one exact canonical POSIX-relative persisted value.
+        Require exact canonical POSIX-relative key text without normalizing user spelling.
+
+        Reject non-string input, empty keys, NULs, backslashes, absolute paths, empty, dot, or
+        dot-dot components, and text changed by PurePosixPath rendering. Whitespace, control
+        characters other than NUL, Unicode spelling, and surrogateescaped filesystem names are
+        otherwise retained; this does not inspect filesystem state.
 
         Example:
             >>> FilesystemStorageDriver._normalize_relative("books/a.epub")
             'books/a.epub'
 
 
-        :param value:
-        :return:
+        :param value: Persisted relative key text to validate exactly.
+        :return: Unchanged canonical key text; invalid type raises TypeError and invalid syntax StorageInvalidAddress.
         """
 
         if not isinstance(value, str):
@@ -1322,15 +1479,19 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
     @staticmethod
     def _safe_name(value: str | None) -> str:
         """
-        Reduce a human name hint to one harmless filename component.
+        Reduce a name hint to a basename suitable for inclusion after a random allocation prefix.
+
+        Use the host Path basename, strip outer whitespace, replace characters other than Unicode
+        alphanumerics, dash, underscore, and dot with underscores, then strip outer
+        dots/underscores. This is not full platform-reserved-name validation.
 
         Example:
             >>> FilesystemStorageDriver._safe_name("A book?.epub")
             'A_book_.epub'
 
 
-        :param value:
-        :return:
+        :param value: Optional human filename hint; None or an empty reduced result uses "object".
+        :return: Reduced filename component without a uniqueness or existence guarantee.
         """
 
         if value is None:
@@ -1347,15 +1508,15 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
     @staticmethod
     def _version(result: os.stat_result) -> str:
         """
-        Derive an observation token from stable stat fields.
+        Combine device, inode, size, and nanosecond modification time into an observation token.
 
         Example:
             >>> FilesystemStorageDriver._version(result).count(":")  # doctest: +SKIP
             3
 
 
-        :param result:
-        :return:
+        :param result: os.stat or os.fstat observation supplying the four token fields.
+        :return: Colon-separated stat-field token; it is not a content hash or monotonic generation number.
         """
 
         return f"{result.st_dev}:{result.st_ino}:{result.st_size}:{result.st_mtime_ns}"

@@ -1,3 +1,14 @@
+"""
+Exercise SquashFS designation/publication with real catalogues, source bytes, and tools.
+
+The successful case builds and reads an archive and checks legacy plus modern
+Asset/Replica persistence. Other cases cover designation collisions and pre-build
+snapshot drift. Every test retains its existing mksquashfs/unsquashfs PATH gate.
+
+Example:
+    >>> test_squashfs_db_workflow_publishes_and_duplicates_verified_files(driver_spec, tmp_path)  # doctest: +SKIP
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -24,11 +35,32 @@ from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _require_squashfs_tools() -> None:
+    """
+    Skip the enclosing test unless both SquashFS executable names resolve on PATH.
+
+    This checks discovery only; later real build/read operations establish usability.
+
+    Example:
+        >>> _require_squashfs_tools()  # doctest: +SKIP
+
+
+    :return: None when both tools are found; otherwise raise pytest skip.
+    """
     if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
         pytest.skip("squashfs-tools not available in environment")
 
 
 def _sha256(path: Path) -> str:
+    """
+    Read an entire fixture file into memory and calculate its SHA-256 hex digest.
+
+    Example:
+        >>> digest = _sha256(path)  # doctest: +SKIP
+
+
+    :param path: Real local fixture Path.
+    :return: Lowercase digest; read failures propagate.
+    """
     h = hashlib.sha256()
     h.update(path.read_bytes())
     return h.hexdigest()
@@ -44,6 +76,25 @@ def _insert_store_row(
     is_read_only: int = 0,
     online_status: str = "online",
 ) -> int:
+    """
+    Insert the test Store declaration with caller-selected kind/capability labels.
+
+    Do not start or probe a backend here; the publication/bootstrap workflow performs later
+    integration.
+
+    Example:
+        >>> store_id = _insert_store_row(db, name="Source", kind="on_disk_existing_managed_drive", root_uri=str(root))  # doctest: +SKIP
+
+
+    :param db: Real Database receiving a legacy stores row.
+    :param name: Human-readable fixture Store name.
+    :param kind: Backend kind label persisted unchanged.
+    :param root_uri: Local source or archive-root text.
+    :param access_protocol: Protocol label, defaulting to file.
+    :param is_read_only: Read-only flag int-converted for insertion.
+    :param online_status: Persisted availability label, not a probe result.
+    :return: Inserted integer store_id.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -67,6 +118,23 @@ def _insert_file_row(
     path: Path,
     hash_override: str | None = None,
 ) -> int:
+    """
+    Ensure fixture tables and insert metadata for a real source file.
+
+    Use a truthy hash_override verbatim or calculate actual SHA-256; stat supplies size. Metadata
+    labels do not validate EPUB/MOBI content.
+
+    Example:
+        >>> file_id = _insert_file_row(db, store_id=1, rel_key="book.epub", path=path)  # doctest: +SKIP
+
+
+    :param db: Real Database receiving the legacy file row.
+    :param store_id: Source Store row identity.
+    :param rel_key: Storage key retained unchanged.
+    :param path: Real source Path used for name/stat/hash.
+    :param hash_override: Truthy digest fixture override, otherwise hash the bytes.
+    :return: Inserted integer file_id.
+    """
     ensure_surface_asset_tables(db, include_file_store_links=True)
     row = Row.from_idless_row_dict(
         db,
@@ -87,6 +155,22 @@ def _insert_file_row(
 
 
 def test_squashfs_db_workflow_publishes_and_duplicates_verified_files(driver_spec, tmp_path: Path) -> None:
+    """
+    Build and read a real SquashFS archive while persisting verified duplicates and shared
+    Asset/Replica identities.
+
+    Use a new catalogue and installed tools. Assert Store/link history, build metadata, SHA-256
+    parity, readable bytes, two Assets/four Replicas, and no repacked derivations when that table
+    exists. Request deterministic build flags without claiming cross-environment reproducibility.
+
+    Example:
+        >>> test_squashfs_db_workflow_publishes_and_duplicates_verified_files(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the catalogue database adapter.
+    :param tmp_path: Pytest temporary directory for real local source bytes and any explicitly created catalogue/archive.
+    :return: None after the stated regression assertions pass.
+    """
     _require_squashfs_tools()
 
     db_path = tmp_path / "squashfs_workflow.sqlite"
@@ -227,6 +311,21 @@ def test_squashfs_db_workflow_publishes_and_duplicates_verified_files(driver_spe
 
 
 def test_squashfs_db_workflow_skips_duplicate_on_hash_mismatch(driver_spec, tmp_path: Path) -> None:
+    """
+    Detect source size drift after designation and return a failed report before archive-member
+    verification.
+
+    Despite the historical test name, the assertions concern pre-build snapshot errors:
+    hash_mismatches stays empty, no duplicate rows appear, and Store scratch becomes failed.
+
+    Example:
+        >>> test_squashfs_db_workflow_skips_duplicate_on_hash_mismatch(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the catalogue database adapter.
+    :param tmp_path: Pytest temporary directory for real local source bytes and any explicitly created catalogue/archive.
+    :return: None after the stated regression assertions pass.
+    """
     _require_squashfs_tools()
 
     db_path = tmp_path / "squashfs_hash_mismatch.sqlite"
@@ -287,6 +386,20 @@ def test_squashfs_db_workflow_skips_duplicate_on_hash_mismatch(driver_spec, tmp_
 
 
 def test_designations_fail_noisily_on_duplicate_archive_target(driver_spec, tmp_path: Path) -> None:
+    """
+    Reject two source files assigned the same member target in one designation request.
+
+    Use real catalogue rows and source bytes; the assertion checks the collision error, not rollback
+    of any earlier designation write. The existing tool-availability gate also applies.
+
+    Example:
+        >>> test_designations_fail_noisily_on_duplicate_archive_target(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the catalogue database adapter.
+    :param tmp_path: Pytest temporary directory for real local source bytes and any explicitly created catalogue/archive.
+    :return: None after the stated regression assertions pass.
+    """
     _require_squashfs_tools()
 
     db_path = tmp_path / "squashfs_designate_conflict.sqlite"
@@ -328,6 +441,22 @@ def test_designations_fail_noisily_on_duplicate_archive_target(driver_spec, tmp_
 
 
 def test_publish_strict_raises_and_rolls_back_on_snapshot_drift(driver_spec, tmp_path: Path) -> None:
+    """
+    Raise on pre-build source drift in strict mode while persisting failed Store state and no
+    archive duplicates.
+
+    The assertion boundary occurs before the publication transaction; despite the historical name it
+    does not inject a failure into transaction commit/rollback. The existing tool gate remains in
+    effect.
+
+    Example:
+        >>> test_publish_strict_raises_and_rolls_back_on_snapshot_drift(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the catalogue database adapter.
+    :param tmp_path: Pytest temporary directory for real local source bytes and any explicitly created catalogue/archive.
+    :return: None after the stated regression assertions pass.
+    """
     _require_squashfs_tools()
 
     db_path = tmp_path / "squashfs_strict_snapshot.sqlite"

@@ -1,4 +1,13 @@
-"""Integration coverage for database-backed Store loading and reload."""
+"""
+Exercise database-owned storage metadata, Store bootstrap/reload, and recovery.
+
+Integration cases create local catalogues and real filesystem-derived or SQLite
+Stores through the selected database adapter. Reopen cases construct new objects
+within one process; the two-manager case interleaves calls rather than executing
+them concurrently. Synthetic envelopes test metadata compatibility independently
+of payload hashing. Nested doubles isolate cache calls, failure injection, and
+strict/bootstrap option handling without claiming full database implementations.
+"""
 
 from __future__ import annotations
 
@@ -39,6 +48,24 @@ def _insert_filesystem_store(
     read_only: bool = False,
     online_status: str = "online",
 ) -> int:
+    """
+    Insert a real Store row through Row.from_idless_row_dict and require its allocated identity. The
+    root is resolved to an absolute file URI without creating directories or constructing a Store.
+    Alternate kinds are allowed for backend and failure tests while access_protocol remains file.
+
+    Example:
+        >>> row_id = _insert_filesystem_store(database, store_ref=uuid4(), name="books", root=tmp_path / "books")  # doctest: +SKIP
+
+
+    :param db: Provisioned catalogue receiving the Store row.
+    :param store_ref: Store UUID serialized to text, or None to exercise legacy identity backfill.
+    :param name: Store name written verbatim.
+    :param root: Local path resolved and encoded as the stored root URI.
+    :param kind: Backend kind written verbatim; defaults to filesystem.
+    :param read_only: Flag converted with int for the stored read-only field.
+    :param online_status: Stored lifecycle text, including offline/retired cases used by reload tests.
+    :return: Integer allocated Store row ID; missing identity fails an assertion and insertion/path errors propagate.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -57,6 +84,18 @@ def _insert_filesystem_store(
 
 
 def _configuration_refs(database: Database) -> set[UUID]:
+    """
+    Require a storage manager and collect the UUIDs of all configurations it currently retains,
+    including unloaded identities with Replica claims. The set ignores enumeration order and does
+    not probe availability.
+
+    Example:
+        >>> configured_refs = _configuration_refs(database)  # doctest: +SKIP
+
+
+    :param database: Database whose storage manager supplies configuration records.
+    :return: Set of retained Store UUIDs; an absent manager fails the assertion.
+    """
     assert database.storage is not None
     return {
         configuration.store_uuid
@@ -65,6 +104,17 @@ def _configuration_refs(database: Database) -> set[UUID]:
 
 
 def _live_refs(database: Database) -> set[UUID]:
+    """
+    Require a storage manager and collect the Store UUIDs of its currently attached facades.
+    Attachment is observed without probing backend health or comparing durable rows.
+
+    Example:
+        >>> attached_refs = _live_refs(database)  # doctest: +SKIP
+
+
+    :param database: Database whose storage manager enumerates attached facades.
+    :return: Set of attached Store UUIDs; an absent manager fails the assertion.
+    """
     assert database.storage is not None
     return {store.store_ref for store in database.storage.iter_stores()}
 
@@ -73,6 +123,20 @@ def test_database_metadata_unit_of_work_ports_commit_and_rollback(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Check repository protocol exposure and explicit transaction outcomes on a real catalogue. Open a
+    manager with its filesystem row, assert all four unit-of-work ports, and verify rollback without
+    commit, persistence after commit, and an explicit metadata rollback. The declared digest is
+    synthetic metadata; this case does not publish or verify corresponding Store bytes.
+
+    Example:
+        >>> test_database_metadata_unit_of_work_ports_commit_and_rollback(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.storage import api
 
     database_path = tmp_path / "storage-unit-of-work.sqlite"
@@ -164,6 +228,22 @@ def test_database_startup_loads_rows_and_reload_tracks_database_changes(
     tmp_path: Path,
     assert_integrity,
 ) -> None:
+    """
+    Exercise additive and authoritative Store reloads against real database row changes. Confirm
+    additive loading retains an existing facade/configuration, then authoritative refresh adopts
+    changed rows and remains repeatable. Include and exclude offline rows, delete an unclaimed
+    default Store row, and check unloading, configuration membership, fallback default selection,
+    and integrity.
+
+    Example:
+        >>> test_database_startup_loads_rows_and_reload_tracks_database_changes(driver_spec, tmp_path, assert_integrity)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :param assert_integrity: Fixture callable checking database integrity at the asserted checkpoints.
+    :return: None after the stated regression assertions pass.
+    """
     database_path = tmp_path / "database.sqlite"
     primary_ref = uuid4()
     archive_ref = uuid4()
@@ -289,7 +369,24 @@ def test_database_bound_manager_metadata_and_operation_ids_survive_restart(
     tmp_path: Path,
     assert_integrity,
 ) -> None:
-    """Repository views survive a full manager restart without private state."""
+    """
+    Verify durable metadata, ingest identity, and interrupted publication after catalogue reopen.
+    Store actual bytes, attach the shared cache, register policies, Composite/ derivation metadata
+    and Item links, and force one operation to stop at the final result writer. Check pending
+    recovery guidance and a separate lost stream failure. Reopen Database/manager objects in the
+    same process and verify bytes, all retained records, recovered publication, missing-UUID
+    reporting, and idempotent use of the original operation UUID. The injected RuntimeError and
+    object reopen do not simulate an operating-system crash.
+
+    Example:
+        >>> test_database_bound_manager_metadata_and_operation_ids_survive_restart(driver_spec, tmp_path, assert_integrity)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :param assert_integrity: Fixture callable checking database integrity at the asserted checkpoints.
+    :return: None after the stated regression assertions pass.
+    """
 
     from LiuXin_alpha.storage.api import (
         BackupPolicy,
@@ -441,6 +538,18 @@ def test_database_bound_manager_metadata_and_operation_ids_survive_restart(
         original_commit = operation_cache._upsert
 
         def _interrupt_metadata_commit(_operation) -> None:
+            """
+            Always raise at the mapping upsert seam to interrupt final ingest-result persistence
+            after publication. The supplied operation is ignored and never forwarded to the original
+            writer.
+
+            Example:
+                >>> _interrupt_metadata_commit(operation)  # doctest: +SKIP
+
+
+            :param _operation: Ignored completed operation that would otherwise be persisted.
+            :return: Does not return; raises the injected RuntimeError on every call.
+            """
             raise RuntimeError("simulated process stop before operation commit")
 
         operation_cache._upsert = _interrupt_metadata_commit
@@ -539,6 +648,22 @@ def test_database_manager_shares_liuxin_cache_without_private_record_copies(
     assert_integrity,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Verify targeted cache refresh for an actual durable ingest and direct reads after unbinding.
+    Wrap both cache reload entry points, assert Asset/Replica views are not private dictionaries,
+    and check a cache hit plus the Asset row-ID refresh without a full-table reload. Unbind before
+    closing the cache, confirm the record remains readable, and check database integrity.
+
+    Example:
+        >>> test_database_manager_shares_liuxin_cache_without_private_record_copies(driver_spec, tmp_path, assert_integrity, monkeypatch)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :param assert_integrity: Fixture callable checking database integrity at the asserted checkpoints.
+    :param monkeypatch: Pytest fixture restoring the intercepted cache reload methods after the test.
+    :return: None after the stated regression assertions pass.
+    """
     database_path = tmp_path / "shared-cache.sqlite"
     store_ref = uuid4()
     root = tmp_path / "shared-cache-store"
@@ -574,10 +699,36 @@ def test_database_manager_shares_liuxin_cache_without_private_record_copies(
         original_reload_ids = cache.storage.reload_ids
 
         def tracked_full_reload(table, db=None) -> None:
+            """
+            Append the table spelling to the captured full-reload log, then call the original cache
+            method. Logging precedes delegation and remains if that method raises.
+
+            Example:
+                >>> tracked_full_reload("digital_assets", db=database)  # doctest: +SKIP
+
+
+            :param table: Table forwarded unchanged; str(table) is retained in the call log.
+            :param db: Optional database override forwarded to the original reload method.
+            :return: None after delegation; original reload failures propagate.
+            """
             full_reloads.append(str(table))
             original_reload_main_table(table, db=db)
 
         def tracked_id_reload(table, ids, db=None) -> None:
+            """
+            Consume IDs into a sorted tuple of integers, log that normalized request, then forward
+            it to the original cache refresh method. Duplicate IDs remain; conversion failure
+            precedes logging and delegation.
+
+            Example:
+                >>> tracked_id_reload("digital_assets", [3, 1], db=database)  # doctest: +SKIP
+
+
+            :param table: Table forwarded unchanged and stringified for the log.
+            :param ids: Iterable of int-convertible row IDs, eagerly consumed and sorted.
+            :param db: Optional database override forwarded to the original refresh method.
+            :return: None after delegation; conversion and refresh errors propagate.
+            """
             normalized = tuple(sorted(int(row_id) for row_id in ids))
             id_reloads.append((str(table), normalized))
             original_reload_ids(table, normalized, db=db)
@@ -614,6 +765,21 @@ def test_database_bootstrap_constructs_and_uses_local_backend_matrix(
     tmp_path: Path,
     assert_integrity,
 ) -> None:
+    """
+    Load six local backend configurations and verify their real byte access. Bootstrap filesystem,
+    managed, unmanaged, flat, Calibre-like, and SQLite Stores from catalogue rows. Read the
+    preseeded unmanaged payload and write/ read through the other five destinations; assert
+    row/facade counts and database integrity. No remote backend or live service is exercised.
+
+    Example:
+        >>> test_database_bootstrap_constructs_and_uses_local_backend_matrix(driver_spec, tmp_path, assert_integrity)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :param assert_integrity: Fixture callable checking database integrity at the asserted checkpoints.
+    :return: None after the stated regression assertions pass.
+    """
     database_path = tmp_path / "backend-matrix.sqlite"
     store_specs = (
         ("filesystem", tmp_path / "filesystem", False),
@@ -685,7 +851,22 @@ def test_concurrently_open_managers_use_database_generated_record_ids(
     tmp_path: Path,
     assert_integrity,
 ) -> None:
-    """Managers opened from the same snapshot cannot overwrite each other's IDs."""
+    """
+    Check distinct durable identities and revision visibility through two open managers. Interleave
+    calls on two connections to one catalogue, create policy/Asset/ Replica/Composite/derivation
+    records, and reject a stale policy revision after the other manager updates it. Assert distinct
+    IDs, combined record visibility, and integrity on both connections. Calls run sequentially in
+    one thread; this case does not exercise simultaneous transaction races.
+
+    Example:
+        >>> test_concurrently_open_managers_use_database_generated_record_ids(driver_spec, tmp_path, assert_integrity)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :param assert_integrity: Fixture callable checking database integrity at the asserted checkpoints.
+    :return: None after the stated regression assertions pass.
+    """
 
     from LiuXin_alpha.storage.api import (
         BackupPolicy,
@@ -843,6 +1024,21 @@ def test_pre_journal_storage_catalogue_is_migrated_during_bootstrap(
     tmp_path: Path,
     assert_integrity,
 ) -> None:
+    """
+    Reopen a catalogue missing the migration ledger and ingest journal and verify bootstrap repair.
+    Drop those two tables during setup, then check their recreation, the exact two newly applied
+    migration IDs, all three recorded migration IDs including envelope-v1 adoption, and database
+    integrity.
+
+    Example:
+        >>> test_pre_journal_storage_catalogue_is_migrated_during_bootstrap(driver_spec, tmp_path, assert_integrity)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :param assert_integrity: Fixture callable checking database integrity at the asserted checkpoints.
+    :return: None after the stated regression assertions pass.
+    """
     database_path = tmp_path / "pre-journal.sqlite"
     with Database(
         metadata={"database_path": str(database_path)},
@@ -888,6 +1084,21 @@ def test_version_zero_storage_envelope_is_upgraded_in_place(
     tmp_path: Path,
     assert_integrity,
 ) -> None:
+    """
+    Rewrite one Asset envelope to the legacy version-zero shape and verify upgrade on reopen.
+    Preserve the original payload under record, then require one upgraded row, equality of the
+    reconstructed Asset, stored version one, and integrity. The synthetic digest only exercises
+    metadata serialization, not byte hashing.
+
+    Example:
+        >>> test_version_zero_storage_envelope_is_upgraded_in_place(driver_spec, tmp_path, assert_integrity)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :param assert_integrity: Fixture callable checking database integrity at the asserted checkpoints.
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.storage.api import Digest, DigitalAssetDeclaration
 
     database_path = tmp_path / "old-envelope.sqlite"
@@ -947,6 +1158,20 @@ def test_newer_storage_envelope_is_refused_without_rewriting(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Set one stored Asset envelope to version 99 and verify explicit manager construction refuses it.
+    Reopen with automatic manager loading disabled, assert the future-version error, then inspect
+    the same row to confirm version 99 remains. Synthetic Asset metadata is sufficient; no Store
+    payload is used.
+
+    Example:
+        >>> test_newer_storage_envelope_is_refused_without_rewriting(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.storage.api import Digest, DigitalAssetDeclaration
 
     database_path = tmp_path / "future-envelope.sqlite"
@@ -1002,6 +1227,21 @@ def test_store_update_and_explicit_forget_are_durable(
     tmp_path: Path,
     assert_integrity,
 ) -> None:
+    """
+    Persist replacement Store configuration and explicit forgetting across catalogue reopens. Update
+    name, root, region, and tags and inspect their scalar/JSON row values. Reopen to compare the
+    complete configuration, forget the unclaimed Store, require row deletion, and reopen again to
+    verify configuration lookup fails.
+
+    Example:
+        >>> test_store_update_and_explicit_forget_are_durable(driver_spec, tmp_path, assert_integrity)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :param assert_integrity: Fixture callable checking database integrity at the asserted checkpoints.
+    :return: None after the stated regression assertions pass.
+    """
     database_path = tmp_path / "store-administration.sqlite"
     store_ref = uuid4()
     with Database(
@@ -1078,6 +1318,20 @@ def test_compound_policy_update_rolls_back_intermediate_repository_write(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Inject failure at the second policy upsert and verify the earlier write is rolled back. Use a
+    real catalogue and valid revision precondition, replace the mapping's upsert callback
+    temporarily, and restore it in finally. The original policy record must remain unchanged after
+    the compound operation raises.
+
+    Example:
+        >>> test_compound_policy_update_rolls_back_intermediate_repository_write(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.storage.api import ReplicationPolicy
 
     database_path = tmp_path / "compound-policy.sqlite"
@@ -1098,6 +1352,18 @@ def test_compound_policy_update_rolls_back_intermediate_repository_write(
         calls = 0
 
         def fail_final_write(record):
+            """
+            Increment the captured call counter and fail exactly the second upsert before
+            delegation. Other calls forward the record to the original writer; the counter is not
+            rolled back with the database transaction.
+
+            Example:
+                >>> fail_final_write(policy_record)  # doctest: +SKIP
+
+
+            :param record: Policy record forwarded except on the injected second-call failure.
+            :return: None after a forwarded upsert; the second call raises RuntimeError and original writer errors propagate.
+            """
             nonlocal calls
             calls += 1
             if calls == 2:
@@ -1128,6 +1394,21 @@ def test_database_bootstrap_orders_encrypted_store_after_its_inner_store(
     tmp_path: Path,
     assert_integrity,
 ) -> None:
+    """
+    Verify encrypted bootstrap dependency order despite the wrapper's lower database row ID. Insert
+    the wrapper first, provide a real runtime key provider, and bootstrap both Stores. Write/read
+    the encrypted payload, check the prefixed inner object exists and does not contain plaintext,
+    then validate integrity.
+
+    Example:
+        >>> test_database_bootstrap_orders_encrypted_store_after_its_inner_store(driver_spec, tmp_path, assert_integrity)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :param assert_integrity: Fixture callable checking database integrity at the asserted checkpoints.
+    :return: None after the stated regression assertions pass.
+    """
     database_path = tmp_path / "encrypted-dependency.sqlite"
     encrypted_ref = uuid4()
     inner_ref = uuid4()
@@ -1207,6 +1488,22 @@ def test_database_reload_preserves_last_known_good_store_and_recovers(
     tmp_path: Path,
     assert_integrity,
 ) -> None:
+    """
+    Exercise legacy UUID backfill, replacement failures, and repaired Store rows on real storage.
+    Confirm malformed root, unavailable read-only root, and unknown backend retain the earlier
+    facade while reporting their failures/skips. A repaired row replaces it and creates the writable
+    root. An invalid UUID instead unloads the unclaimed old identity; repair restores it. Reopen the
+    catalogue to verify the backfilled identity and repaired configuration remain durable.
+
+    Example:
+        >>> test_database_reload_preserves_last_known_good_store_and_recovers(driver_spec, tmp_path, assert_integrity)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :param assert_integrity: Fixture callable checking database integrity at the asserted checkpoints.
+    :return: None after the stated regression assertions pass.
+    """
     database_path = tmp_path / "failure-recovery.sqlite"
     healthy_root = tmp_path / "healthy"
 
@@ -1331,6 +1628,22 @@ def test_database_reload_retains_claimed_store_identity_until_row_recovers(
     tmp_path: Path,
     assert_integrity,
 ) -> None:
+    """
+    Preserve Replica evidence while offline/retired Store facades are unloaded. Publish actual
+    bytes, change row status, and require retained configuration alongside
+    StoreUnavailable/NoReadableReplica errors. Include offline rows to restore reads, verify the
+    database rejects deletion of a claimed Store, then retire and restore it again without losing
+    the payload or identity.
+
+    Example:
+        >>> test_database_reload_retains_claimed_store_identity_until_row_recovers(driver_spec, tmp_path, assert_integrity)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :param assert_integrity: Fixture callable checking database integrity at the asserted checkpoints.
+    :return: None after the stated regression assertions pass.
+    """
     database_path = tmp_path / "replica-recovery.sqlite"
     store_ref = uuid4()
     store_root = tmp_path / "claimed-store"
@@ -1420,6 +1733,20 @@ def test_database_constructor_honours_strict_row_failure_policy(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Open a catalogue containing an unsupported backend under both bootstrap failure policies.
+    Non-strict construction retains a structured failure identifying the row; strict construction
+    raises StorageManagementError containing its name and unsupported-factory reason. The invalid
+    row is real database state.
+
+    Example:
+        >>> test_database_constructor_honours_strict_row_failure_policy(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Fixture selecting the database adapter used for the temporary catalogue.
+    :param tmp_path: Pytest temporary directory containing the catalogue and any real local Store bytes.
+    :return: None after the stated regression assertions pass.
+    """
     database_path = tmp_path / "strict-bootstrap.sqlite"
     bad_ref = uuid4()
 
@@ -1463,13 +1790,43 @@ def test_database_constructor_honours_strict_row_failure_policy(
 
 
 def test_non_strict_database_bootstrap_returns_a_structured_failure() -> None:
+    """
+    Check conversion of an injected catalogue-enumeration failure into a bootstrap report. A minimal
+    database double raises from get_tables. Non-strict bootstrap records one discovered/failed
+    configuration and the original reason on the host; strict bootstrap propagates RuntimeError. No
+    database or Store is opened.
+
+    Example:
+        >>> test_non_strict_database_bootstrap_returns_a_structured_failure()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     class _BrokenDatabase:
+        """
+        Provide the minimal bootstrap host whose schema enumeration always fails. Storage/report
+        begin as class defaults and metadata is an empty class-level dictionary; this class is
+        recreated per test invocation.
+
+        Example:
+            >>> database = _BrokenDatabase()  # doctest: +SKIP
+        """
         storage = None
         storage_bootstrap_report = None
         metadata: dict[str, object] = {}
 
         @staticmethod
         def get_tables() -> list[str]:
+            """
+            Raise the fixed catalogue-unavailable error without accessing any schema or external
+            resource.
+
+            Example:
+                >>> _BrokenDatabase.get_tables()  # doctest: +SKIP
+
+
+            :return: Does not return; always raises RuntimeError with the injected reason.
+            """
             raise RuntimeError("database catalogue unavailable")
 
     database = _BrokenDatabase()
@@ -1490,14 +1847,47 @@ def test_non_strict_database_bootstrap_returns_a_structured_failure() -> None:
 
 
 def test_strict_database_bootstrap_rejects_reported_row_failures() -> None:
+    """
+    Check strict policy when an existing storage double returns a partly failed report. Non-strict
+    bootstrap returns/stores the report. Strict bootstrap raises with failed/total counts and issue
+    detail after storing the report too. The double models reporting only; no Store construction or
+    row loading occurs.
+
+    Example:
+        >>> test_strict_database_bootstrap_rejects_reported_row_failures()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     failed_ref = uuid4()
 
     class _ReportingStorage:
+        """
+        Model an already attached manager that always reports one failed Store out of two
+        configurations. Bootstrap may assign db/startup attributes, but loading ignores its
+        arguments and performs no backend work.
+
+        Example:
+            >>> storage = _ReportingStorage()  # doctest: +SKIP
+        """
         db = None
         startup_on_add = False
 
         @staticmethod
         def load_from_database(*args, **kwargs) -> StorageBootstrapReport:
+            """
+            Return a fresh report containing one loaded Store and one captured-UUID failure. All
+            arguments are discarded, so this isolates the caller's strict-report policy from
+            database loading behavior.
+
+            Example:
+                >>> report = _ReportingStorage.load_from_database(database)  # doctest: +SKIP
+
+
+            :param args: Ignored positional arguments accepted for bootstrap call compatibility.
+            :param kwargs: Ignored keyword options accepted for bootstrap call compatibility.
+            :return: StorageBootstrapReport with two discovered configurations and the fixed bad-archive issue.
+            """
             del args, kwargs
             return StorageBootstrapReport(
                 discovered_configurations=2,
@@ -1513,6 +1903,13 @@ def test_strict_database_bootstrap_rejects_reported_row_failures() -> None:
             )
 
     class _Database:
+        """
+        Host the reporting storage double and a bootstrap-report slot. The storage instance is a
+        class attribute shared within this local class, which is recreated for each test invocation.
+
+        Example:
+            >>> database = _Database()  # doctest: +SKIP
+        """
         storage = _ReportingStorage()
         storage_bootstrap_report = None
 
@@ -1531,7 +1928,27 @@ def test_strict_database_bootstrap_rejects_reported_row_failures() -> None:
 
 
 def test_database_refresh_applies_requested_startup_policy() -> None:
+    """
+    Verify bootstrap updates an existing manager's startup default and forwards the explicit flag.
+    The recording double captures the load_from_database startup argument and returns a minimal
+    successful report. Assertions cover flag propagation, not actual backend startup or
+    availability.
+
+    Example:
+        >>> test_database_refresh_applies_requested_startup_policy()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     class _TrackingStorage:
+        """
+        Record startup flags forwarded by bootstrap while exposing its expected mutable manager
+        attributes. The class-level list is shared by this local class's instances and starts fresh
+        when the enclosing test recreates the class.
+
+        Example:
+            >>> storage = _TrackingStorage()  # doctest: +SKIP
+        """
         db = None
         startup_on_add = False
         startup_arguments: list[bool | None] = []
@@ -1544,10 +1961,31 @@ def test_database_refresh_applies_requested_startup_policy() -> None:
             clear_existing: bool,
             startup: bool | None,
         ):
+            """
+            Append only the startup argument to the captured list and create an object with ok=True.
+            No rows, configurations, availability checks, or other report fields are modeled.
+
+            Example:
+                >>> report = storage.load_from_database(database, include_offline=False, clear_existing=True, startup=True)  # doctest: +SKIP
+
+
+            :param db: Ignored database argument accepted for bootstrap compatibility.
+            :param include_offline: Ignored offline-selection flag.
+            :param clear_existing: Ignored replacement-policy flag.
+            :param startup: Flag appended unchanged to startup_arguments.
+            :return: A new minimal Report instance whose class attribute ok is True.
+            """
             self.startup_arguments.append(startup)
             return type("Report", (), {"ok": True})()
 
     class _Database:
+        """
+        Host the startup-tracking manager double and report slot. Its storage instance is a class
+        attribute; recreating the local class per test supplies a fresh host/manager setup.
+
+        Example:
+            >>> database = _Database()  # doctest: +SKIP
+        """
         storage = _TrackingStorage()
         storage_bootstrap_report = None
 

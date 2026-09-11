@@ -1,3 +1,12 @@
+"""
+Exercise SquashFS adoption with real local archives, SQLite metadata, and manager reload.
+
+The module requires both mksquashfs and unsquashfs; its ordinary tests skip when
+either is absent. The byte-name case also requires POSIX. Database contexts stay
+open across manager replacement, so these checks do not establish process-crash
+recovery, fsync guarantees, or behavior of another database driver.
+"""
+
 from __future__ import annotations
 
 import os
@@ -26,6 +35,20 @@ pytestmark = pytest.mark.skipif(
 
 
 def _build_image(source: Path, image: Path) -> None:
+    """
+    Run the real mksquashfs executable to build a single-processor test image.
+
+    Capture both diagnostic streams and raise on failure. The subprocess has no explicit timeout and
+    successful completion is not independently verified here.
+
+    Example:
+        >>> _build_image(source, image)  # doctest: +SKIP
+
+
+    :param source: Existing directory tree packed into the image.
+    :param image: Target image path used with -noappend.
+    :return: None after checked process completion.
+    """
     subprocess.run(
         [
             "mksquashfs",
@@ -43,6 +66,20 @@ def _build_image(source: Path, image: Path) -> None:
 
 
 def _open_database(path: Path) -> Database:
+    """
+    Create/open the temporary SQLite test catalogue with backup and automatic manager setup
+    disabled.
+
+    The caller owns the returned Database context and explicitly creates the manager under test.
+
+    Example:
+        >>> with _open_database(path) as database:  # doctest: +SKIP
+        ...     tables = database.get_tables()
+
+
+    :param path: Temporary SQLite catalogue path passed in database metadata.
+    :return: Open Database configured for explicit StorageManager construction.
+    """
     return Database(
         metadata={"database_path": str(path)},
         db_type="SQLite",
@@ -55,6 +92,21 @@ def _open_database(path: Path) -> Database:
 def test_ingest_catalogues_archive_and_members_without_copying_and_is_repeatable(
     tmp_path: Path,
 ) -> None:
+    """
+    Build a real image and check adoption, backing identity, reads, repeat counters, limits, and
+    manager reload.
+
+    The reloaded manager uses the same open SQLite Database; this is not a process restart or
+    power-loss test. Assertions inspect records and archive reads rather than instrument every
+    possible byte copy.
+
+    Example:
+        >>> test_ingest_catalogues_archive_and_members_without_copying_and_is_repeatable(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary directory for real source bytes, SquashFS images, and SQLite catalogue.
+    :return: None after the stated regression assertions pass.
+    """
     drive = tmp_path / "messy-drive"
     source = tmp_path / "image-source"
     (source / "nested").mkdir(parents=True)
@@ -185,6 +237,20 @@ def test_ingest_catalogues_archive_and_members_without_copying_and_is_repeatable
 def test_ingest_recognizes_magic_and_continues_after_a_broken_candidate(
     tmp_path: Path,
 ) -> None:
+    """
+    Discover a real image by magic, continue past a corrupt suffix candidate, and inspect
+    cleanup/counters.
+
+    Store counts show the failed candidate declaration is removed in this exercised path; no cleanup
+    failure is injected.
+
+    Example:
+        >>> test_ingest_recognizes_magic_and_continues_after_a_broken_candidate(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary directory for real source bytes, SquashFS images, and SQLite catalogue.
+    :return: None after the stated regression assertions pass.
+    """
     drive = tmp_path / "drive"
     source = tmp_path / "source"
     drive.mkdir()
@@ -222,6 +288,20 @@ def test_ingest_recognizes_magic_and_continues_after_a_broken_candidate(
 def test_ingest_and_database_restart_preserve_undecodable_archive_and_member_paths(
     tmp_path: Path,
 ) -> None:
+    """
+    Preserve POSIX byte names through real SquashFS adoption, SQLite metadata, manager reload, and
+    repeat ingestion.
+
+    The manager is recreated while its Database context stays open. The test is skipped outside
+    POSIX and does not simulate a separate process restart.
+
+    Example:
+        >>> test_ingest_and_database_restart_preserve_undecodable_archive_and_member_paths(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary directory for real source bytes, SquashFS images, and SQLite catalogue.
+    :return: None after the stated regression assertions pass.
+    """
     drive = tmp_path / "drive"
     source = tmp_path / "source"
     drive.mkdir()

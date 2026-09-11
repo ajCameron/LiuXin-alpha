@@ -1,5 +1,9 @@
 """
-Store observation reconciliation planning and application.
+Compare Store inventory with Replica claims and apply selected observation changes.
+
+Planning inspects separately captured inventory and catalogue state. Applying a plan
+uses a global Replica-generation token and mutates observations through the supplied
+metadata transaction, without repairing bytes or reconciling unexpected locations.
 """
 
 from __future__ import annotations
@@ -15,12 +19,16 @@ from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerSt
 
 class StorageReconciliationMixin(_StorageManagerState):
     """
-    Reconcile claimed Replicas with a Store's observed inventory.
+    Implement inventory classifications and explicit Replica-observation updates.
 
-    Planning is read-only and accounts for each Store's enumeration and digest
-    guarantees.  Applying a plan changes only guarded Replica observations;
-    revision and Store-generation checks prevent a stale plan from overwriting
-    newer metadata or a reloaded Store instance.
+    Planning leaves manager observations unchanged while calling Store enumeration/stat/read
+    operations. Application checks a global Replica generation and record ownership, without a
+    separate Store-generation token or full planning snapshot. Transaction hooks determine whether
+    an application failure rolls back earlier updates.
+
+    Example:
+        >>> plan = manager.plan_reconciliation(store_ref)  # doctest: +SKIP
+        >>> report = manager.apply_reconciliation(plan)  # doctest: +SKIP
     """
 
     @override
@@ -31,12 +39,28 @@ class StorageReconciliationMixin(_StorageManagerState):
         verify_digests: bool = False,
     ) -> api.StoreReconciliationPlan:
         """
-        Compare Replica claims with Store inventory without mutation.
+        Capture nondeleted claims, enumerate when supported, and classify each expected Replica.
+
+        With COMPLETE enum enumeration, a location absent from the inventory is missing without stat
+        or digest inspection. Other claims are inspected individually for existence, size, and
+        optional digests. A StorageError during enumeration retains any partial inventory, records
+        an error, and switches to individual checks. Unexpected exceptions and Asset lookup failures
+        propagate.
+
+        Inspected present/corrupt locations augment the inventory; originally enumerated locations
+        are not removed after a later missing result. Only unavailable inspection diagnostics join
+        plan errors. Unexpected locations are sorted by key, and matched claims are counted
+        independently of unique locations. Plan count validation can reject inconsistent totals. The
+        global Replica generation is captured after these reads, without a lock spanning the
+        comparison.
+
+        Example:
+            >>> plan = manager.plan_reconciliation(store_ref, verify_digests=True)  # doctest: +SKIP
 
 
-        :param store_ref:
-        :param verify_digests:
-        :return:
+        :param store_ref: Store resolved before capturing its nondeleted Replica claims and inventory.
+        :param verify_digests: Request digest comparison during individual inspection; authoritative SHA-256 stat evidence may avoid reading bytes.
+        :return: New plan with a UUID, counts, classifications, late-captured Replica revision, and diagnostics; manager records are not updated.
         """
 
         store = self.get_store(store_ref)
@@ -120,11 +144,26 @@ class StorageReconciliationMixin(_StorageManagerState):
         plan: api.StoreReconciliationPlan,
     ) -> api.StoreReconciliationReport:
         """
-        Apply one current plan to Replica observations only.
+        Check the global Replica generation and replace the plan's adverse observations in order.
+
+        Under the lock and metadata transaction, process missing IDs, then corrupt IDs, then
+        unavailable IDs. Each record must exist and belong to plan.store_ref. Replacements receive a
+        fresh revision/timestamp and a generic failure reason, discarding prior observation
+        evidence. Duplicate or overlapping IDs are processed repeatedly, with later classifications
+        winning.
+
+        Any updates advance the generation once after the loops. A later failure can follow earlier
+        writes; transient transaction hooks do not roll those back. The method does not check plan
+        identity, completeness, Store availability/generation, or fresh bytes. Matched claims and
+        unexpected objects receive no action, and an empty current plan reports applied without
+        advancing the generation.
+
+        Example:
+            >>> report = manager.apply_reconciliation(plan)  # doctest: +SKIP
 
 
-        :param plan:
-        :return:
+        :param plan: Caller-supplied classifications whose revision must equal the current global Replica-generation string.
+        :return: Applied report with processed IDs in order, including duplicates; stale tokens, wrong Stores, missing Replicas, or adapter failures raise.
         """
 
         with self._lock, self._metadata_transaction():

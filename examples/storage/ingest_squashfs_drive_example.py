@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Catalogue existing SquashFS images and members without copying them."""
+"""
+Catalogue existing SquashFS images and members without copying their source bytes.
+
+Create or open a durable catalogue, restore configured Stores when reopening it,
+and run SquashfsDriveIngestWorkflow against the requested drive. Optional verification
+reads adopted image/member bytes. Progress and bootstrap warnings go to stderr;
+print a diagnostic JSON report after closing the manager and database.
+"""
 
 from __future__ import annotations
 
@@ -29,6 +36,18 @@ from LiuXin_alpha.storage.store_manager import StorageManager
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse required drive/catalogue paths and SquashFS ingest controls. Recursion is enabled unless
+    --no-recursive is supplied. Optional integer archive/member caps are forwarded without local
+    range checks. --verify enables both image and member verification; --strict disables
+    continuation after an archive/member error.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Parsed argparse namespace; help and invalid arguments raise SystemExit.
+    """
     parser = argparse.ArgumentParser(
         description=(
             "Discover SquashFS images beneath an existing drive, register the "
@@ -59,6 +78,22 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """
+    Adopt a SquashFS drive into a database-backed manager and print its report. Expand/resolve both
+    paths without requiring existence and choose catalogue creation from its current existence.
+    Redirect schema-construction stdout to stderr. On reopening, load configured Stores with startup
+    enabled and print bootstrap issues without aborting solely because bootstrap.ok is false.
+    Forward recursion, caps, verification, strictness, and progress reporting to the workflow. Close
+    manager then database on context exit; construction before context entry has no enclosing
+    cleanup here. Persist completed catalogue writes even if a later stage fails; do not delete or
+    roll back adopted sources.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero for report.ok, otherwise one; parser, construction, strict workflow, and cleanup failures propagate.
+    """
     args = parse_args()
     drive_root = Path(args.drive_root).expanduser().resolve(strict=False)
     database_path = Path(args.database).expanduser().resolve(strict=False)
@@ -74,6 +109,21 @@ def main() -> int:
         )
 
     def progress(event: str, details: Mapping[str, object]) -> None:
+        """
+        Print and flush archive-start or archive-complete details to stderr. The start message uses
+        archive number/count/path; completion uses discovered members, created member Replicas, and
+        issue count. Ignore other event names without reading their details. Required keys for a
+        recognized event are indexed directly, so malformed events raise KeyError rather than
+        producing a partial progress report.
+
+        Example:
+            >>> progress("archive_complete", {"members_discovered": 2, "member_replicas_created": 2, "issue_count": 0})  # doctest: +SKIP
+
+
+        :param event: Workflow event name; only archive_started and archive_complete produce output.
+        :param details: Event-specific mapping containing the directly indexed progress fields.
+        :return: None after writing a recognized event or ignoring an unrelated event.
+        """
         if event == "archive_started":
             print(
                 "[{}/{}] {}".format(

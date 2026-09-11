@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Run the OPDS read-only surface using the repo-local virtualenv."""
+"""
+Launch standalone OPDS through this checkout's existing .venv interpreter.
+
+The wrapper requires an explicit database or Core endpoint, prepends the checkout's
+src directory to a copied PYTHONPATH, and runs the package entrypoint as a child
+process from the repository root. It does not create a virtualenv or install
+dependencies. Printed command text is diagnostic; execution uses an argument list
+without a shell. Importing this module does not launch the server.
+"""
 
 from __future__ import annotations
 
@@ -11,16 +19,66 @@ from pathlib import Path
 
 
 def venv_python_path(venv_dir: Path) -> Path:
+    """
+    Construct the current platform's interpreter path inside a virtualenv directory.
+
+    This selects Scripts/python.exe on Windows and bin/python elsewhere without
+    checking that the path exists or is executable.
+
+    Example:
+        >>> venv_python_path(Path("env")).name in ("python", "python.exe")
+        True
+
+
+    :param venv_dir: Relative or absolute virtualenv root retained without resolution.
+    :return: Platform-specific interpreter Path beneath the supplied directory.
+    """
     if os.name == "nt":
         return venv_dir / "Scripts" / "python.exe"
     return venv_dir / "bin" / "python"
 
 
 def shell_join(parts: list[str]) -> str:
+    """
+    Format argument tokens as POSIX shell-quoted diagnostic text.
+
+    This display is not passed to subprocess and is not Windows cmd.exe syntax.
+
+    Example:
+        >>> print(shell_join(["python", "two words"]))
+        python 'two words'
+
+
+    :param parts: Argument strings in execution order.
+    :return: Space-joined tokens escaped by shlex.join.
+    """
     return shlex.join(parts)
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Validate launcher options and synchronously run the repo-local OPDS entrypoint.
+
+    Require exactly one of database or core-endpoint, without profile selection.
+    Check only that the expected virtualenv interpreter path exists. Forward
+    nondefault cache options, optional download disabling, and endpoint timeout
+    only for remote mode; the application owns numeric limit clamping and policy.
+    The current compatibility acquisition path does not enforce download disabling.
+
+    Resolve relative database paths in the child's repository-root cwd, not the
+    caller's cwd. Copy the process environment and prepend src to its stripped
+    PYTHONPATH; leave os.environ unchanged. Print the root and complete command,
+    then wait without a timeout while the child inherits standard streams.
+    Spawn errors and interrupts propagate rather than becoming exit codes here.
+
+    Example:
+        >>> main(["--database", "catalog.sqlite", "--port", "8082"])  # doctest: +SKIP
+
+
+    :param argv: Explicit option tokens, or None to use process command-line arguments.
+    :return: Child return code unchanged, including nonzero or POSIX signal termination values.
+    :raises SystemExit: For help, invalid options, or a missing virtualenv interpreter.
+    """
     parser = argparse.ArgumentParser(
         description="Run the LiuXin OPDS read-only surface from the repo-local virtualenv.",
         formatter_class=argparse.RawDescriptionHelpFormatter,

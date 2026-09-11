@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-Example: register an existing disk tree as an unmanaged store via Library.
+Register an existing disk tree through the Library facade's unmanaged-disk helper.
+
+Open the selected database and scan the source in place, with optional hashing,
+directory-symlink following, Store links, and storage-manager refresh. Print the
+registration report and Store names visible to this Library instance. Registration
+does not itself mean the source bytes were copied into managed storage.
 """
 
 from __future__ import annotations
@@ -21,6 +26,18 @@ from LiuXin_alpha.library import Library
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse required catalogue/disk paths and Library registration options. Default to SQLite with no
+    Store-name override. --create-db opts into creation; hashing, Store links, and storage refresh
+    are enabled unless their --no-* flags are given. Directory-symlink following is opt-in. These
+    flags are passed to Library/the registrar.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Parsed argparse namespace; help and invalid arguments raise SystemExit.
+    """
     parser = argparse.ArgumentParser(description="Register an unmanaged disk into the DB files table")
     parser.add_argument("--database", required=True, help="Path to LiuXin database file")
     parser.add_argument("--disk-root", required=True, help="Disk root to scan")
@@ -39,6 +56,21 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """
+    Open a Library, register the disk in place, and print report plus loaded Store names. Expand the
+    database path without resolving it and expand/resolve the disk root. Disable database backup and
+    automatic Store startup on addition; forward catalogue creation and registration flags
+    explicitly. Read Store names after registration, including its optional manager refresh. Print
+    through the shared diagnostic sanitizer inside the Library context, then close the Library.
+    Completed registration writes remain; this function supplies no transaction or source-copy
+    operation around the helper.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero when report.errors is empty, otherwise two; parser, Library, registration, and cleanup exceptions propagate.
+    """
     args = parse_args()
     db_path = Path(args.database).expanduser()
     disk_root = Path(args.disk_root).expanduser().resolve()

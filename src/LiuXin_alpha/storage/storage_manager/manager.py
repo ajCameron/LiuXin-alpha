@@ -1,10 +1,14 @@
 """
-Composed repository-neutral storage-manager implementation.
+Compose the repository-neutral storage manager and expose its transient variant.
 
-Each implementation mixin mirrors one component of ``StorageManagerAPI``.
-Shared state and cross-cutting mechanics remain private implementation details;
-the composed class is the stable integration seam used by transient and
-database-backed managers.
+The orchestrator combines responsibility-specific implementations over shared
+state and support hooks. Its public transient class keeps manager metadata in
+memory while attached Stores still perform real byte operations. Durable
+application managers reuse the composition with persistence-specific hooks.
+
+Five private request/result aliases retain their historical import locations
+for existing adapters and serialized journal envelopes. InMemoryStorageManager
+is the same class object as TransientStorageManager, not another implementation.
 """
 
 from __future__ import annotations
@@ -57,23 +61,39 @@ class _StorageManagerOrchestrator(
     _StorageManagerPolicySupportMixin,
 ):
     """
-    Compose the repository-neutral storage workflow implementation.
+    Assemble Store, Asset, Replica, policy, and operational implementations.
 
-    Mixin order mirrors the public ``StorageManagerAPI`` component order so
-    readers can move between contract and implementation predictably.  The
-    class adds no behaviour of its own: transient and database-backed managers
-    supply state and persistence boundaries through the shared support hooks.
+    This class adds no methods of its own. Its base order determines Python dispatch and follows the
+    manager API's responsibility order; shared support and policy helpers supply the remaining
+    mechanics. State creation and Store attachment come from the shared initializer. Durable
+    subclasses can replace persistence hooks without changing these public workflows.
+
+    Example:
+        >>> issubclass(TransientStorageManager, _StorageManagerOrchestrator)
+        True
     """
 
 
 class TransientStorageManager(_StorageManagerOrchestrator):
     """
-    Disposable manager state for focused tests and one-shot work.
+    Manage disposable catalogue state while performing real Store operations.
 
-    Store publication is real, but manager-owned records disappear with the
-    process. Applications should use the database-backed ``StorageManager``;
-    this implementation is not a cache and does not participate in LiuXin's
-    cache lifecycle.
+    Each instance owns fresh in-memory records, revisions, and ingest retry state. None is durable
+    across a new manager or process, and the transient metadata transaction and journal hooks
+    provide no rollback or recovery. Attached Stores can still publish or delete persistent bytes.
+    Initialization can start Stores, and leaving the manager context closes attached facades;
+    closing does not erase the retained in-memory registries.
+
+    Use the application database-backed StorageManager for durable catalogue ownership. This class
+    is not a storage cache and does not join the cache lifecycle. InMemoryStorageManager remains an
+    identity alias for older callers.
+
+    Example:
+        >>> with TransientStorageManager() as manager:
+        ...     tuple(manager.iter_stores())
+        ()
+        >>> InMemoryStorageManager is TransientStorageManager
+        True
     """
 
 

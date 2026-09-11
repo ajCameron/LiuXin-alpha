@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Use the filesystem storage driver directly with an atomic write session."""
+"""
+Publish and read an object directly through the filesystem storage driver.
+
+Use a fresh address-space UUID and an UPSERT write session with expected UTF-8 byte
+length and SHA-256. Commit before reading and enumerating the root. Print stored
+address/URI, bytes decoded as text, inventory, and the declared atomic-publish flag.
+This raw-driver example does not create an Asset/Replica catalogue.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +32,17 @@ from LiuXin_alpha.storage.drivers import FilesystemStorageDriver
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse a required Store root, an object key defaulting to incoming/example.bin, and payload text
+    defaulting to filesystem driver example. Leave path/address validation and UTF-8 encoding to
+    main and the driver.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Parsed argparse namespace; help and invalid arguments raise SystemExit.
+    """
     parser = argparse.ArgumentParser(
         description=(
             "Write, commit, inspect, and read an object through the raw "
@@ -46,6 +64,21 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """
+    Start a filesystem driver, commit the requested UTF-8 payload, and report a readback. Resolve
+    the root and compute expected byte size/SHA-256 before starting. An unavailable startup status
+    raises RuntimeError. Parse the key and use UPSERT, so an existing target may be replaced. Close
+    the write session around commit, read the returned object, and materialize the complete file
+    inventory. Report the expected digest and capability flag; the example does not race a reader
+    against publication or independently assert readback equality. Always close a successfully
+    constructed driver; committed bytes remain.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero after printing the report; parsing, storage, and cleanup errors propagate.
+    """
     args = parse_args()
     root = Path(args.store_root).expanduser().resolve()
     payload = args.payload.encode("utf-8")

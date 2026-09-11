@@ -62,6 +62,7 @@ jobs:
           .venv/bin/python -m pytest -q \
             tests/surfaces/test_core_boundary_enforcement.py \
             tests/scripts/test_public_documentation_boundaries.py \
+            tests/scripts/test_docstring_migration.py \
             tests/scripts/test_developer_documentation_links.py \
             tests/scripts/test_ci_workflow_contracts.py \
             tests/scripts/test_run_type_checks.py \

@@ -1,4 +1,13 @@
-"""Public convenience construction for durable Store configuration."""
+"""
+Check public Store-configuration factories without opening configured backends.
+
+Tests compare UUIDs, normalized local paths, remote endpoint text, placement
+fields, and backend option records. Temporary paths provide local URI values;
+these assertions do not demonstrate root creation, connectivity, or byte storage.
+
+Example:
+    >>> test_generic_configuration_factory_preserves_remote_endpoints()
+"""
 
 from __future__ import annotations
 
@@ -13,6 +22,19 @@ from LiuXin_alpha.storage import api
 def test_filesystem_configuration_accepts_paths_and_preserves_rich_fields(
     tmp_path: Path,
 ) -> None:
+    """
+    Verify filesystem configuration preserves explicit UUIDs, failure-domain and region values,
+    Unicode path identity, host/device references, replica modes, tags, and backend options.
+
+    The test constructs configuration values; it does not create or probe the configured Store root.
+
+    Example:
+        >>> test_filesystem_configuration_accepts_paths_and_preserves_rich_fields(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary base directory used to construct local path and file-URI values.
+    :return: None after the stated regression assertions pass.
+    """
     store_ref = uuid4()
     host_ref = uuid4()
     device_ref = uuid4()
@@ -53,6 +75,17 @@ def test_filesystem_configuration_accepts_paths_and_preserves_rich_fields(
 def test_filesystem_configuration_normalizes_plain_paths_and_checks_schemes(
     tmp_path: Path,
 ) -> None:
+    """
+    Verify path text and its file URI produce the same normalized root, independent constructions
+    receive different UUIDs, and an HTTPS root is rejected for filesystem configuration.
+
+    Example:
+        >>> test_filesystem_configuration_normalizes_plain_paths_and_checks_schemes(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary base directory used to construct local path and file-URI values.
+    :return: None after the stated regression assertions pass.
+    """
     root = tmp_path / "plain path"
     from_plain_text = api.StoreConfiguration.filesystem("plain", str(root))
     from_file_uri = api.StoreConfiguration.filesystem(
@@ -68,6 +101,16 @@ def test_filesystem_configuration_normalizes_plain_paths_and_checks_schemes(
 
 
 def test_generic_configuration_factory_preserves_remote_endpoints() -> None:
+    """
+    Verify generic S3 configuration retains its endpoint, protocol, read-only/folder flags, and
+    ordered backend options without connecting to a remote service.
+
+    Example:
+        >>> test_generic_configuration_factory_preserves_remote_endpoints()
+
+
+    :return: None after the stated regression assertions pass.
+    """
     configuration = api.StoreConfiguration.for_backend(
         "archive",
         "s3",

@@ -1,7 +1,13 @@
 """
-Independent optional protocols for mutable or enumerable drivers.
+Declare independent enumeration, staged-write, deletion, and addressing protocols.
 
-This optionality can include things such as writeability - as not all stores are writeable.
+Runtime-checkable protocol membership establishes method/property shape, not
+correct behavior or capability support. Callers also consult DriverCapabilities;
+implementations must meet the documented publication, version, metadata, and
+inventory guarantees. Raw driver metadata remains separate from Store/Asset policy.
+
+Example:
+    >>> session = driver.begin_write(address, expected_size=4)  # doctest: +SKIP
 """
 
 from __future__ import annotations
@@ -35,7 +41,8 @@ _DriverObjectAddressCoT = TypeVar(
 
 @runtime_checkable
 class StorageDriverCharacteristicsAPI(Protocol):
-    """Optional raw-driver contract for structured storage constraints.
+    """
+    Optional raw-driver contract for structured storage constraints.
 
     Example:
         >>> isinstance(driver, StorageDriverCharacteristicsAPI)  # doctest: +SKIP
@@ -44,11 +51,17 @@ class StorageDriverCharacteristicsAPI(Protocol):
 
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
-        """Return characteristics inherent to this configured driver.
+        """
+        Return characteristics inherent to this configured driver.
+
+        This property is a declaration; the protocol supplies no probing or derived values.
 
         Example:
             >>> driver.storage_characteristics.max_object_bytes  # doctest: +SKIP
             4294967295
+
+
+        :return: Structured inherent backend limits/costs for this configured endpoint, rather than manager placement policy.
         """
 
         ...
@@ -59,13 +72,14 @@ class DriverWriteSessionAPI(Protocol[DriverObjectAddressT]):
     """
     One staged write whose final address changes only at commit.
 
-    This normalizes staged publication across very different backends.
-    ``commit`` checks expected size and digest before publication and returns
-    metadata for exactly the address passed to ``begin_write``. A session is
-    single-use: after successful commit or abort, further writes and commits
-    raise ``StorageError``. ``abort`` remains safe after either outcome and may
-    be repeated. Failed or abandoned sessions must not leave a
-    successful-looking partial object.
+    This normalizes staged publication across very different backends. ``commit`` checks expected
+    size and digest before publication and returns metadata for exactly the address passed to
+    ``begin_write``. A session is single-use: after successful commit or abort, further writes and
+    commits raise ``StorageError``. ``abort`` remains safe after either outcome and may be repeated.
+    Failed or abandoned sessions must not leave a successful-looking partial object.
+
+    These methods declare a required lifecycle; the Protocol bodies provide no staging, validation,
+    or cleanup implementation.
 
     Example:
         >>> with session:  # doctest: +SKIP
@@ -81,8 +95,8 @@ class DriverWriteSessionAPI(Protocol[DriverObjectAddressT]):
             >>> accepted = session.write(b"payload")  # doctest: +SKIP
 
 
-        :param data:
-        :return:
+        :param data: Bytes appended to private staged state before successful commit or abort.
+        :return: Number of bytes accepted, possibly less than supplied; finished sessions must raise StorageError.
         """
         ...
 
@@ -94,7 +108,7 @@ class DriverWriteSessionAPI(Protocol[DriverObjectAddressT]):
             >>> info = session.commit()  # doctest: +SKIP
 
 
-        :return:
+        :return: Metadata for exactly the requested destination after verifying expectations and publishing the complete object.
         """
         ...
 
@@ -107,7 +121,7 @@ class DriverWriteSessionAPI(Protocol[DriverObjectAddressT]):
             >>> session.abort()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after discarding unpublished staging; repeated calls and calls after successful commit must be safe.
         """
         ...
 
@@ -119,7 +133,7 @@ class DriverWriteSessionAPI(Protocol[DriverObjectAddressT]):
             >>> entered = session.__enter__()  # doctest: +SKIP
 
 
-        :return:
+        :return: This staged-write session under its managed lifetime.
         """
         ...
 
@@ -136,10 +150,10 @@ class DriverWriteSessionAPI(Protocol[DriverObjectAddressT]):
             >>> session.__exit__(None, None, None)  # doctest: +SKIP
 
 
-        :param exc_type:
-        :param exc:
-        :param traceback:
-        :return:
+        :param exc_type: Exception class leaving the body, or None on normal exit.
+        :param exc: Exception instance leaving the body, or None.
+        :param traceback: Associated traceback, or None.
+        :return: None after required cleanup, without suppressing the context-body exception.
         """
         ...
 
@@ -161,22 +175,20 @@ class EnumerableStorageDriverAPI(Protocol[DriverObjectAddressT]):
         """
         Enumerate inventory entries with declared complete/partial semantics.
 
-        Listing errors must surface. Drivers must not turn an incomplete or
-        failed inventory into an apparently complete empty iterator. When
-        ``prefix`` is not ``None``, the driver must either advertise
-        ``capabilities.prefix_enumeration`` and honour it, or raise
-        ``StorageUnsupportedOperation``. Every yielded entry represents one
-        concrete object and contains a checked address owned by this driver.
-        Addresses must be unique within one iteration. The iterator need not
-        be a point-in-time snapshot unless a concrete driver documents that
-        stronger guarantee; concurrent changes may otherwise appear or vanish.
+        Listing errors must surface. Drivers must not turn an incomplete or failed inventory into an
+        apparently complete empty iterator. When ``prefix`` is not ``None``, the driver must either
+        advertise ``capabilities.prefix_enumeration`` and honour it, or raise
+        ``StorageUnsupportedOperation``. Every yielded entry represents one concrete object and
+        contains a checked address owned by this driver. Addresses must be unique within one
+        iteration. The iterator need not be a point-in-time snapshot unless a concrete driver
+        documents that stronger guarantee; concurrent changes may otherwise appear or vanish.
 
         Example:
             >>> entries = driver.iter_inventory(prefix=prefix)  # doctest: +SKIP
 
 
-        :param prefix:
-        :return:
+        :param prefix: Optional owned address prefix requiring prefix_enumeration support.
+        :return: Iterator of unique owned concrete entries under the declared completeness contract; listing failures propagate.
         """
         ...
 
@@ -186,9 +198,8 @@ class PagedEnumerableStorageDriverAPI(Protocol[DriverObjectAddressT]):
     """
     Optional resumable inventory protocol for large backend collections.
 
-    Cursors are opaque and valid only for the same configured driver and
-    prefix. Backends that can bind pages to a stable snapshot return a
-    ``snapshot_token`` and require it on subsequent calls.
+    Cursors are opaque and valid only for the same configured driver and prefix. Backends that can
+    bind pages to a stable snapshot return a ``snapshot_token`` and require it on subsequent calls.
 
     Example:
         >>> page = driver.inventory_page(limit=500)  # doctest: +SKIP
@@ -205,9 +216,8 @@ class PagedEnumerableStorageDriverAPI(Protocol[DriverObjectAddressT]):
         """
         Return one bounded page and the cursor needed to continue it.
 
-        Passing a stale or foreign cursor/snapshot raises
-        ``StoragePreconditionFailed`` or ``StorageInvalidAddress``; it must
-        never silently restart from the beginning.
+        Passing a stale or foreign cursor/snapshot raises ``StoragePreconditionFailed`` or
+        ``StorageInvalidAddress``; it must never silently restart from the beginning.
 
         Example:
             >>> next_page = driver.inventory_page(  # doctest: +SKIP
@@ -216,11 +226,11 @@ class PagedEnumerableStorageDriverAPI(Protocol[DriverObjectAddressT]):
             ... )
 
 
-        :param prefix:
-        :param cursor:
-        :param limit:
-        :param snapshot_token:
-        :return:
+        :param prefix: Optional owned prefix retained consistently across the scan.
+        :param cursor: Opaque continuation from the preceding page, or None to begin.
+        :param limit: Optional requested positive entry bound, interpreted under the backend paging policy.
+        :param snapshot_token: Optional snapshot identity returned by the backend and required for its continuation contract.
+        :return: Bounded inventory page with an opaque next_cursor, or None in that field when finished.
         """
 
         ...
@@ -247,11 +257,11 @@ class WritableStorageDriverAPI(Protocol[DriverObjectAddressT]):
         """
         Begin a private staged write at an explicit address.
 
-        ``metadata`` contains backend-native string pairs only; bibliographic
-        records, replica policy, and manager state do not belong here. Non-empty
-        metadata requires ``capabilities.write_metadata`` and must be preserved
-        by the committed object's ``DriverObjectHints`` or rejected with
-        ``StorageUnsupportedOperation``; it must never be silently ignored.
+        ``metadata`` contains backend-native string pairs only; bibliographic records, replica
+        policy, and manager state do not belong here. Non-empty metadata requires
+        ``capabilities.write_metadata`` and must be preserved by the committed object's
+        ``DriverObjectHints`` or rejected with ``StorageUnsupportedOperation``; it must never be
+        silently ignored.
 
         Example:
             >>> session = driver.begin_write(  # doctest: +SKIP
@@ -259,12 +269,12 @@ class WritableStorageDriverAPI(Protocol[DriverObjectAddressT]):
             ... )
 
 
-        :param object_address:
-        :param mode:
-        :param expected_size:
-        :param expected_digest:
-        :param metadata:
-        :return:
+        :param object_address: Owned canonical address at which the complete object will be published.
+        :param mode: Explicit destination collision policy; CREATE_ONLY by default.
+        :param expected_size: Optional expected logical byte length to check before publication.
+        :param expected_digest: Optional expected content digest to check before publication.
+        :param metadata: Native string pairs requiring write_metadata support when nonempty; no bibliographic policy belongs here.
+        :return: Single-use staged-write session whose commit verifies supplied expectations and returns destination metadata.
         """
         ...
 
@@ -288,21 +298,19 @@ class DeletableStorageDriverAPI(Protocol[_DriverObjectAddressContraT]):
         """
         Delete one object, optionally checking its opaque version token.
 
-        ``missing_ok`` suppresses only genuine absence. Passing
-        ``if_version`` requires ``capabilities.conditional_delete`` and
-        deletes only the exact version previously returned by ``stat``.
-        Unsupported conditional deletion raises
-        ``StorageUnsupportedOperation``; a stale token raises
-        ``StoragePreconditionFailed``. Other backend failures remain visible.
+        ``missing_ok`` suppresses only genuine absence. Passing ``if_version`` requires
+        ``capabilities.conditional_delete`` and deletes only the exact version previously returned
+        by ``stat``. Unsupported conditional deletion raises ``StorageUnsupportedOperation``; a
+        stale token raises ``StoragePreconditionFailed``. Other backend failures remain visible.
 
         Example:
             >>> driver.delete(address, if_version="v3")  # doctest: +SKIP
 
 
-        :param object_address:
-        :param missing_ok:
-        :param if_version:
-        :return:
+        :param object_address: Owned address of the object to remove.
+        :param missing_ok: Whether genuine absence alone counts as successful deletion.
+        :param if_version: Optional opaque stat token requiring conditional_delete and exact-version enforcement.
+        :return: None after deletion or permitted absence; unsupported/stale conditions and other failures remain typed errors.
         """
         ...
 
@@ -328,16 +336,20 @@ class ObjectAddressAllocatorStorageDriverAPI(
         """
         Return a checked address suitable for a subsequent staged write.
 
+        The contract chooses a target; callers must still perform a staged write with explicit
+        collision and integrity expectations. Reservation or name-exclusivity guarantees require
+        backend-specific documentation.
+
         Example:
             >>> address = driver.allocate_object_address(  # doctest: +SKIP
             ...     expected_digest=digest,
             ... )
 
 
-        :param expected_size:
-        :param expected_digest:
-        :param name_hint:
-        :return:
+        :param expected_size: Optional expected logical byte length to check before publication.
+        :param expected_digest: Optional expected content digest to check before publication.
+        :param name_hint: Optional backend naming hint, not a caller-built path or required exact name.
+        :return: Checked canonical address suitable for a subsequent staged write; allocation alone does not publish bytes.
         """
         ...
 
@@ -347,8 +359,8 @@ class HierarchicalStorageDriverAPI(Protocol[_DriverObjectAddressCoT]):
     """
     Optional construction of addresses from filesystem-like tokens.
 
-    Object-address strings remain opaque to generic code. Only drivers
-    advertising this protocol may expose path or prefix joining semantics.
+    Object-address strings remain opaque to generic code. Only drivers advertising this protocol may
+    expose path or prefix joining semantics.
 
     Example:
         >>> address = driver.join_object_address("authors", "book.epub")  # doctest: +SKIP
@@ -362,8 +374,8 @@ class HierarchicalStorageDriverAPI(Protocol[_DriverObjectAddressCoT]):
             >>> address = driver.join_object_address("a", "b")  # doctest: +SKIP
 
 
-        :param tokens:
-        :return:
+        :param tokens: Ordered hierarchy components interpreted and validated by the concrete backend.
+        :return: Canonical checked address in this driver address space, without generic path parsing by callers.
         """
         ...
 

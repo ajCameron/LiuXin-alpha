@@ -1,4 +1,12 @@
-"""Executable coverage for the public StorageManager examples."""
+"""
+Run selected public examples as subprocesses and check their outputs/artifacts.
+
+Storage cases use real temporary filesystem/SQLite data, optional local SquashFS
+tools, and one loopback HTTP server. Other category examples receive syntax/help
+checks only. JSON flags report child behavior; tests inspect additional files,
+download bytes, and event logs where explicitly asserted. No external service or
+complete example-source documentation coverage is implied by this test module.
+"""
 
 from __future__ import annotations
 
@@ -23,6 +31,20 @@ EXAMPLES = REPO_ROOT / "examples"
 
 
 def _run_example(script_name: str, *arguments: str) -> dict[str, object]:
+    """
+    Run a trusted example path with the current Python interpreter from the repository root and
+    decode its stdout as JSON. Capture stdout/stderr in text mode and require a zero exit code.
+    There is no timeout or runtime check that decoded JSON is actually a dictionary; cast only
+    supplies a static annotation.
+
+    Example:
+        >>> result = _run_example("storage/sqlite_driver_example.py", "--database", str(tmp_path / "objects.sqlite"))  # doctest: +SKIP
+
+
+    :param script_name: Trusted example script path relative to EXAMPLES.
+    :param arguments: Additional command-line strings passed as separate subprocess arguments.
+    :return: Parsed stdout JSON, annotated as a dictionary; process/exit/JSON errors propagate.
+    """
     completed = subprocess.run(
         [sys.executable, str(EXAMPLES / script_name), *arguments],
         cwd=REPO_ROOT,
@@ -34,6 +56,18 @@ def _run_example(script_name: str, *arguments: str) -> dict[str, object]:
 
 
 def test_manual_storage_manager_roundtrip_example(tmp_path: Path) -> None:
+    """
+    Run the manual manager example in a subprocess with temporary storage. Check reported Store
+    name, first Asset/Replica IDs, durable metadata, preview and matching read forms, then require
+    at least one real file under the Store root.
+
+    Example:
+        >>> test_manual_storage_manager_roundtrip_example(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for actual example databases, Store bytes, archives, outputs, and logs.
+    :return: None after the stated example/report assertions pass.
+    """
     store_root = tmp_path / "manual-store"
 
     result = _run_example(
@@ -54,6 +88,18 @@ def test_manual_storage_manager_roundtrip_example(tmp_path: Path) -> None:
 
 
 def test_storage_manager_workflows_example(tmp_path: Path) -> None:
+    """
+    Run the workflow example against a temporary work directory. Check reported Store names,
+    durable/verified ingest, read and placement flags, Replica IDs, Item role, ZIP/export member
+    lists, and the existence of both exported files.
+
+    Example:
+        >>> test_storage_manager_workflows_example(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for actual example databases, Store bytes, archives, outputs, and logs.
+    :return: None after the stated example/report assertions pass.
+    """
     result = _run_example(
         "storage/storage_manager_workflows_example.py",
         "--work-dir",
@@ -80,6 +126,18 @@ def test_storage_manager_workflows_example(tmp_path: Path) -> None:
 
 
 def test_filesystem_driver_example(tmp_path: Path) -> None:
+    """
+    Run the filesystem driver example with an explicit key and payload. Check its reported driver,
+    key, readback, singleton inventory, and atomic_publish capability; this case does not race
+    publication.
+
+    Example:
+        >>> test_filesystem_driver_example(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for actual example databases, Store bytes, archives, outputs, and logs.
+    :return: None after the stated example/report assertions pass.
+    """
     result = _run_example(
         "storage/filesystem_driver_example.py",
         "--store-root",
@@ -98,6 +156,17 @@ def test_filesystem_driver_example(tmp_path: Path) -> None:
 
 
 def test_sqlite_driver_example(tmp_path: Path) -> None:
+    """
+    Run the SQLite driver example against a temporary object database. Check its reported driver,
+    key, payload readback, singleton inventory, and atomic_publish capability.
+
+    Example:
+        >>> test_sqlite_driver_example(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for actual example databases, Store bytes, archives, outputs, and logs.
+    :return: None after the stated example/report assertions pass.
+    """
     result = _run_example(
         "storage/sqlite_driver_example.py",
         "--database",
@@ -116,6 +185,18 @@ def test_sqlite_driver_example(tmp_path: Path) -> None:
 
 
 def test_assimilate_existing_disk_example(tmp_path: Path) -> None:
+    """
+    Seed Unicode/nested ebook paths plus a text file, then run assimilation with epub/mobi extension
+    filters. Check copy/read-only mode, scan/skip/ingest counts, exact source keys, and the child's
+    retrievable flags for both accepted files.
+
+    Example:
+        >>> test_assimilate_existing_disk_example(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for actual example databases, Store bytes, archives, outputs, and logs.
+    :return: None after the stated example/report assertions pass.
+    """
     source_root = tmp_path / "existing-disk"
     (source_root / "nested").mkdir(parents=True)
     (source_root / "El Niño — final.epub").write_bytes(b"epub bytes")
@@ -149,6 +230,18 @@ def test_assimilate_existing_disk_example(tmp_path: Path) -> None:
 
 
 def test_ingest_squashfs_drive_example(tmp_path: Path) -> None:
+    """
+    Build a real single-member SquashFS image with mksquashfs, then run the drive-ingest example
+    into a temporary catalogue. Require durable metadata and exact archive/member/Asset/Replica
+    counts. Skip when either mksquashfs or unsquashfs is unavailable.
+
+    Example:
+        >>> test_ingest_squashfs_drive_example(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for actual example databases, Store bytes, archives, outputs, and logs.
+    :return: None after the stated example/report assertions pass.
+    """
     if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
         pytest.skip("squashfs-tools not available in environment")
     source = tmp_path / "source"
@@ -188,6 +281,18 @@ def test_ingest_squashfs_drive_example(tmp_path: Path) -> None:
 
 
 def test_ingest_mixed_tree_example_discovery_and_real_run(tmp_path: Path) -> None:
+    """
+    Seed a ZIP member and loose ebook, run discovery-only and then actual mixed ingest in separate
+    subprocesses, and inspect both JSON reports and event logs. Check counts, run-ID consistency,
+    log-file existence, and lifecycle/checkpoint events for the real run.
+
+    Example:
+        >>> test_ingest_mixed_tree_example_discovery_and_real_run(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for actual example databases, Store bytes, archives, outputs, and logs.
+    :return: None after the stated example/report assertions pass.
+    """
     source = tmp_path / "mixed"
     source.mkdir()
     with zipfile.ZipFile(source / "pack.zip", "w") as archive:
@@ -259,6 +364,18 @@ def test_ingest_mixed_tree_example_discovery_and_real_run(tmp_path: Path) -> Non
 def test_ingest_mixed_tree_example_fatal_failure_is_durably_logged(
     tmp_path: Path,
 ) -> None:
+    """
+    Run discovery against a missing source root and require exit code two with structured
+    CLIUsageError output. Verify the report file exists, locate the event log from stderr, and
+    require its single configuration-error event and retained traceback.
+
+    Example:
+        >>> test_ingest_mixed_tree_example_fatal_failure_is_durably_logged(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for actual example databases, Store bytes, archives, outputs, and logs.
+    :return: None after the stated example/report assertions pass.
+    """
     completed = subprocess.run(
         [
             sys.executable,
@@ -297,11 +414,42 @@ def test_ingest_mixed_tree_example_fatal_failure_is_durably_logged(
 
 
 class _QuietRequestHandler(SimpleHTTPRequestHandler):
+    """
+    Serve the standard local HTTP test files while discarding request log messages. Inherited
+    request handling remains unchanged; the enclosing test owns server and thread cleanup.
+
+    Example:
+        >>> handler = partial(_QuietRequestHandler, directory=str(remote_root))  # doctest: +SKIP
+    """
     def log_message(self, format: str, *args: object) -> None:
+        """
+        Discard the HTTP server's format string and arguments without rendering or emitting a
+        request log. Request processing itself is inherited and unaffected.
+
+        Example:
+            >>> handler.log_message("request %s", "example")  # doctest: +SKIP
+
+
+        :param format: Ignored log-message format string supplied by the HTTP handler.
+        :param args: Ignored values that would otherwise be interpolated into the log.
+        :return: None; no message is emitted.
+        """
         del format, args
 
 
 def test_http_remote_read_example_against_local_server(tmp_path: Path) -> None:
+    """
+    Serve known bytes from a loopback HTTP server and run the HTTP example in a subprocess with an
+    expected SHA-256. Always request server shutdown/close and a bounded thread join, then compare
+    reported metadata/digest and actual downloaded bytes. No external HTTP service is used.
+
+    Example:
+        >>> test_http_remote_read_example_against_local_server(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for actual example databases, Store bytes, archives, outputs, and logs.
+    :return: None after the stated example/report assertions pass.
+    """
     remote_root = tmp_path / "remote"
     (remote_root / "books").mkdir(parents=True)
     payload = b"bytes served by a remote HTTP store"
@@ -367,6 +515,17 @@ EXAMPLE_SCRIPTS = (
 
 
 def test_example_inventory_is_categorized_and_syntax_valid() -> None:
+    """
+    Require no root-level *_example.py files and compile every explicitly listed category example
+    without executing it. This checks the fixed inventory's existence/syntax, not exhaustive
+    discovery or successful imports/workflows.
+
+    Example:
+        >>> test_example_inventory_is_categorized_and_syntax_valid()  # doctest: +SKIP
+
+
+    :return: None after the stated example/report assertions pass.
+    """
     assert not tuple(EXAMPLES.glob("*_example.py"))
     for script_name in EXAMPLE_SCRIPTS:
         source = (EXAMPLES / script_name).read_text(encoding="utf-8")
@@ -385,6 +544,18 @@ def test_example_inventory_is_categorized_and_syntax_valid() -> None:
     ),
 )
 def test_reorganized_category_example_exposes_help(script_name: str) -> None:
+    """
+    Invoke --help for each selected category example in a subprocess and require exit zero plus
+    usage text. Argument-help execution does not establish that the example's operational workflow
+    succeeds.
+
+    Example:
+        >>> test_reorganized_category_example_exposes_help(script_name)  # doctest: +SKIP
+
+
+    :param script_name: Parameterized trusted category-example path whose --help output is checked.
+    :return: None after the stated example/report assertions pass.
+    """
     completed = subprocess.run(
         [sys.executable, str(EXAMPLES / script_name), "--help"],
         cwd=REPO_ROOT,

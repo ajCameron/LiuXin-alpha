@@ -1,3 +1,10 @@
+"""
+Exercise wget registration, policy restoration, and write timing on temporary catalogues.
+
+The subprocess runner is injected throughout; listing text and callbacks drive
+real file/Store metadata writes. No wget process or remote ebook fetch is required.
+"""
+
 from __future__ import annotations
 
 import json
@@ -18,14 +25,50 @@ from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _ok_wget_result(*, args: list[str], stdout: str = "", stderr: str = "") -> WgetResult:
+    """
+    Build a successful wget result with copied arguments and caller-supplied diagnostic streams.
+
+    Example:
+        >>> _ok_wget_result(args=['--spider']).returncode
+        0
+
+
+    :param args: Invocation tokens copied into the result.
+    :param stdout: Synthetic standard output, empty by default.
+    :param stderr: Synthetic standard error, empty by default.
+    :return: Exit-zero WgetResult without executing a process.
+    """
     return WgetResult(args=list(args), returncode=0, stdout=stdout, stderr=stderr)
 
 
 def test_register_wget_html_store_files_inserts_rows_and_tracks_policy(db, monkeypatch) -> None:
+    """
+    Register the ebook from a two-URL fake listing and inspect its key, policy, wait argument, and
+    optional link.
+
+    Example:
+        >>> test_register_wget_html_store_files_inserts_rows_and_tracks_policy(db, monkeypatch)  # doctest: +SKIP
+
+
+    :param db: Provisioned test catalogue receiving real Store/file/link writes.
+    :param monkeypatch: Pytest fixture restoring injected fetch/process/preference seams after the test.
+    :return: None after the stated regression assertions pass.
+    """
     ensure_surface_asset_tables(db)
     captured_args: list[list[str]] = []
 
     def _fake_run_wget(args, **kwargs):
+        """
+        Record generated arguments and return ebook/image diagnostics without streamed callbacks.
+
+        Example:
+            >>> result = _fake_run_wget(command, line_callback=callback)  # doctest: +SKIP
+
+
+        :param args: Invocation tokens copied to the fake result and any enclosing capture list.
+        :param kwargs: Runner options; only explicitly described callback fields are used.
+        :return: Successful fake result carrying the selected diagnostic text.
+        """
         captured_args.append(list(args))
         listing = "\n".join(
             [
@@ -79,8 +122,32 @@ def test_register_wget_html_store_files_inserts_rows_and_tracks_policy(db, monke
 
 
 def test_register_wget_html_store_files_is_idempotent(db, monkeypatch) -> None:
+    """
+    Register the same fake listing twice and assert the second report counts one unchanged file.
+
+    This checks sequential report behavior; no concurrent crawl or crash is injected.
+
+    Example:
+        >>> test_register_wget_html_store_files_is_idempotent(db, monkeypatch)  # doctest: +SKIP
+
+
+    :param db: Provisioned test catalogue receiving real Store/file/link writes.
+    :param monkeypatch: Pytest fixture restoring injected fetch/process/preference seams after the test.
+    :return: None after the stated regression assertions pass.
+    """
     ensure_surface_asset_tables(db)
     def _fake_run_wget(args, **kwargs):
+        """
+        Return the same single ebook diagnostic for each sequential registration.
+
+        Example:
+            >>> result = _fake_run_wget(command, line_callback=callback)  # doctest: +SKIP
+
+
+        :param args: Invocation tokens copied to the fake result and any enclosing capture list.
+        :param kwargs: Runner options; only explicitly described callback fields are used.
+        :return: Successful fake result carrying the selected diagnostic text.
+        """
         listing = "https://example.com/books/one.epub\n"
         return _ok_wget_result(args=list(args), stdout=listing)
 
@@ -106,8 +173,33 @@ def test_register_wget_html_store_files_is_idempotent(db, monkeypatch) -> None:
 
 
 def test_wget_rate_limit_is_restored_when_storage_manager_bootstraps(db, monkeypatch) -> None:
+    """
+    Reconstruct the registered Store and check persisted rate, observation, and output limits on its
+    options.
+
+    The assertions inspect configuration, not elapsed request spacing.
+
+    Example:
+        >>> test_wget_rate_limit_is_restored_when_storage_manager_bootstraps(db, monkeypatch)  # doctest: +SKIP
+
+
+    :param db: Provisioned test catalogue receiving real Store/file/link writes.
+    :param monkeypatch: Pytest fixture restoring injected fetch/process/preference seams after the test.
+    :return: None after the stated regression assertions pass.
+    """
     ensure_surface_asset_tables(db)
     def _fake_run_wget(args, **kwargs):
+        """
+        Return a single ebook diagnostic for registration and any subsequent bootstrap discovery.
+
+        Example:
+            >>> result = _fake_run_wget(command, line_callback=callback)  # doctest: +SKIP
+
+
+        :param args: Invocation tokens copied to the fake result and any enclosing capture list.
+        :param kwargs: Runner options; only explicitly described callback fields are used.
+        :return: Successful fake result carrying the selected diagnostic text.
+        """
         listing = "https://example.com/books/one.epub\n"
         return _ok_wget_result(args=list(args), stdout=listing)
 
@@ -133,6 +225,19 @@ def test_wget_rate_limit_is_restored_when_storage_manager_bootstraps(db, monkeyp
 
 
 def test_register_wget_html_with_database_path_helper(provision_test_database, driver_spec, monkeypatch) -> None:
+    """
+    Seed and reopen a temporary catalogue through the path helper and assert registration of one
+    fake URL.
+
+    Example:
+        >>> test_register_wget_html_with_database_path_helper(provision_test_database, driver_spec, monkeypatch)  # doctest: +SKIP
+
+
+    :param provision_test_database: Fixture callable cloning the named test catalogue into temporary storage.
+    :param driver_spec: Fixture selecting the database adapter for the provisioned catalogue.
+    :param monkeypatch: Pytest fixture restoring injected fetch/process/preference seams after the test.
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.databases.database import Database
 
     provisioned = provision_test_database("test_db_13")
@@ -145,6 +250,17 @@ def test_register_wget_html_with_database_path_helper(provision_test_database, d
         ensure_surface_asset_tables(seeded)
 
     def _fake_run_wget(args, **kwargs):
+        """
+        Return a single ebook diagnostic while the path helper owns the database context.
+
+        Example:
+            >>> result = _fake_run_wget(command, line_callback=callback)  # doctest: +SKIP
+
+
+        :param args: Invocation tokens copied to the fake result and any enclosing capture list.
+        :param kwargs: Runner options; only explicitly described callback fields are used.
+        :return: Successful fake result carrying the selected diagnostic text.
+        """
         listing = "https://example.com/books/one.epub\n"
         return _ok_wget_result(args=list(args), stdout=listing)
 
@@ -161,10 +277,32 @@ def test_register_wget_html_with_database_path_helper(provision_test_database, d
 
 
 def test_register_wget_html_store_files_incremental_writes_during_crawl(db, monkeypatch) -> None:
+    """
+    Observe file counts of one then two inside the injected runner callbacks before it returns.
+
+    Example:
+        >>> test_register_wget_html_store_files_incremental_writes_during_crawl(db, monkeypatch)  # doctest: +SKIP
+
+
+    :param db: Provisioned test catalogue receiving real Store/file/link writes.
+    :param monkeypatch: Pytest fixture restoring injected fetch/process/preference seams after the test.
+    :return: None after the stated regression assertions pass.
+    """
     ensure_surface_asset_tables(db)
     counts_during_run: list[int] = []
 
     def _fake_run_wget(args, **kwargs):
+        """
+        Emit two ebook lines synchronously and record the real file count after each callback.
+
+        Example:
+            >>> result = _fake_run_wget(command, line_callback=callback)  # doctest: +SKIP
+
+
+        :param args: Invocation tokens copied to the fake result and any enclosing capture list.
+        :param kwargs: Runner options; only explicitly described callback fields are used.
+        :return: Successful fake result carrying the selected diagnostic text.
+        """
         callback = kwargs.get("line_callback")
         assert callable(callback)
         callback("https://example.com/books/one.epub")
@@ -189,10 +327,32 @@ def test_register_wget_html_store_files_incremental_writes_during_crawl(db, monk
 
 
 def test_register_wget_html_store_files_non_incremental_defers_writes(db, monkeypatch) -> None:
+    """
+    Observe no file writes during callback delivery, then two inserts after fake discovery returns.
+
+    Example:
+        >>> test_register_wget_html_store_files_non_incremental_defers_writes(db, monkeypatch)  # doctest: +SKIP
+
+
+    :param db: Provisioned test catalogue receiving real Store/file/link writes.
+    :param monkeypatch: Pytest fixture restoring injected fetch/process/preference seams after the test.
+    :return: None after the stated regression assertions pass.
+    """
     ensure_surface_asset_tables(db)
     counts_during_run: list[int] = []
 
     def _fake_run_wget(args, **kwargs):
+        """
+        Emit two ebook lines and record file counts while deferred registration has not yet run.
+
+        Example:
+            >>> result = _fake_run_wget(command, line_callback=callback)  # doctest: +SKIP
+
+
+        :param args: Invocation tokens copied to the fake result and any enclosing capture list.
+        :param kwargs: Runner options; only explicitly described callback fields are used.
+        :return: Successful fake result carrying the selected diagnostic text.
+        """
         callback = kwargs.get("line_callback")
         assert callable(callback)
         callback("https://example.com/books/one.epub")
@@ -217,8 +377,32 @@ def test_register_wget_html_store_files_non_incremental_defers_writes(db, monkey
 
 
 def test_register_wget_html_store_files_tracks_crawler_observation_counts(db, monkeypatch) -> None:
+    """
+    Distinguish accepted HTML/ebook registration from rejected and duplicate crawl observations.
+
+    Book-like counts include rejected HTML and therefore differ from inserted-file counts.
+
+    Example:
+        >>> test_register_wget_html_store_files_tracks_crawler_observation_counts(db, monkeypatch)  # doctest: +SKIP
+
+
+    :param db: Provisioned test catalogue receiving real Store/file/link writes.
+    :param monkeypatch: Pytest fixture restoring injected fetch/process/preference seams after the test.
+    :return: None after the stated regression assertions pass.
+    """
     ensure_surface_asset_tables(db)
     def _fake_run_wget(args, **kwargs):
+        """
+        Emit extensionless, ebook, HTML, foreign-host, and repeated ebook diagnostics in order.
+
+        Example:
+            >>> result = _fake_run_wget(command, line_callback=callback)  # doctest: +SKIP
+
+
+        :param args: Invocation tokens copied to the fake result and any enclosing capture list.
+        :param kwargs: Runner options; only explicitly described callback fields are used.
+        :return: Successful fake result carrying the selected diagnostic text.
+        """
         callback = kwargs.get("line_callback")
         assert callable(callback)
         callback("https://example.com/books/index")
@@ -264,6 +448,17 @@ def test_wget_html_invalid_roots_create_no_database_rows(
     db,
     invalid_root: str,
 ) -> None:
+    """
+    Assert selected invalid roots raise before changing the total Store-row count.
+
+    Example:
+        >>> test_wget_html_invalid_roots_create_no_database_rows(db, invalid_root)  # doctest: +SKIP
+
+
+    :param db: Provisioned test catalogue receiving real Store/file/link writes.
+    :param invalid_root: Parametrized malformed, control-bearing, surrogate, or credential-bearing root.
+    :return: None after the stated regression assertions pass.
+    """
     ensure_surface_asset_tables(db)
     before = len(db.get_all_rows("stores", iterator_return=False) or ())
 
@@ -278,12 +473,34 @@ def test_wget_db_ingest_canonicalizes_unicode_and_filters_malformed_output(
     db,
     monkeypatch,
 ) -> None:
+    """
+    Persist one normalized Unicode URL from fake diagnostics while rejecting malformed tokens.
+
+    Example:
+        >>> test_wget_db_ingest_canonicalizes_unicode_and_filters_malformed_output(db, monkeypatch)  # doctest: +SKIP
+
+
+    :param db: Provisioned test catalogue receiving real Store/file/link writes.
+    :param monkeypatch: Pytest fixture restoring injected fetch/process/preference seams after the test.
+    :return: None after the stated regression assertions pass.
+    """
     ensure_surface_asset_tables(db)
     normalized_root = (
         "https://xn--bcher-kva.example/%E6%96%87%E5%BA%93/"
     )
 
     def _fake_run_wget(args, **kwargs):
+        """
+        Return one valid Unicode URL and three malformed candidates under the normalized root.
+
+        Example:
+            >>> result = _fake_run_wget(command, line_callback=callback)  # doctest: +SKIP
+
+
+        :param args: Invocation tokens copied to the fake result and any enclosing capture list.
+        :param kwargs: Runner options; only explicitly described callback fields are used.
+        :return: Successful fake result carrying the selected diagnostic text.
+        """
         return _ok_wget_result(
             args=list(args),
             stdout="\n".join(
