@@ -42,7 +42,7 @@ from LiuXin_alpha.storage.api import (
 from LiuXin_alpha.storage.store_backend_plugins.squashfs_build import (
     SquashfsBuildStorageBackend,
 )
-from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
+from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly.squashfs_readonly_storage_backend import (
     SquashfsReadOnlyStorageBackend,
 )
 

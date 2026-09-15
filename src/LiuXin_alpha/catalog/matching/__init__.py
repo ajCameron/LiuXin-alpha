@@ -1,4 +1,16 @@
-"""Matching implementations for the catalog layer."""
+"""
+Compose specialized and exact-default matchers for Catalog identity queries.
+
+CatalogMatching directly constructs Work, Agent, and curated Identifier matchers,
+then obtains observed-identifier and value-entity matchers from repositories.
+Repository factories retain their already-bound policy; constructing this group
+alone does not rebind them. The normal Catalog facade binds a common policy first.
+Matching returns decisions without creating entities; repository mutation owners
+decide how a match, miss, ambiguity, or conflict affects a requested write.
+
+Example:
+    >>> result = catalog.matching.for_entity("tag").exact("Gothic")  # doctest: +SKIP
+"""
 
 from __future__ import annotations
 
@@ -16,7 +28,40 @@ from .work_matcher import WorkMatcher
 
 @dataclass(slots=True)
 class CatalogMatching:
-    """Grouped matchers exposed by `Catalog.matching`."""
+    """
+    Group identity matchers over a borrowed database and repository collection.
+
+    Dataclass construction fills the matcher attributes through __post_init__. Work and Agent
+    matchers receive this group's policy; curated identifiers use their specialized rules, and
+    repository factories supply the other matchers with each repository's configured policy. This
+    group performs no policy/type validation or rebinding. Its slotted fields remain mutable, so
+    later assignment of policy does not update existing matchers automatically.
+
+    Example:
+        >>> matching = catalog.matching  # doctest: +SKIP
+        >>> matching.for_entity("synopsis") is matching.synopses  # doctest: +SKIP
+        True
+
+
+    :ivar db: Borrowed database passed to the directly constructed specialized matchers.
+    :ivar repositories: Bound repository group used directly and through its matcher factories.
+    :ivar policy: Policy forwarded to newly built Work/Agent matchers; does not overwrite repository policies.
+    :ivar works: Specialized Work matcher using descriptive, Agent, and identifier evidence.
+    :ivar agents: Specialized Agent matcher using names, aliases, types, and identifier evidence.
+    :ivar identifiers: Matcher for normalized curated identifier storage rows.
+    :ivar item_identifiers: Matcher for observed identifiers with optional Item scope.
+    :ivar tags: Exact-default Tag matcher.
+    :ivar labels: Exact-default Label matcher.
+    :ivar genres: Exact-default Genre matcher with optional parent scope.
+    :ivar subjects: Exact-default Subject matcher with optional parent scope.
+    :ivar series: Exact-default Series matcher with optional parent scope.
+    :ivar languages: Matcher for seeded Language names and code variants.
+    :ivar ratings: Exact Rating matcher, with scale/source constraints when supplied.
+    :ivar comments: Exact Comment matcher; matching does not permit global creation/reuse.
+    :ivar synopses: Exact Synopsis matcher.
+    :ivar notes: Exact Note matcher.
+    :ivar annotations: Exact Annotation matcher requiring Item scope; candidate matching also requires identity fields.
+    """
 
     db: DatabaseHandle
     repositories: Any
@@ -38,6 +83,23 @@ class CatalogMatching:
     annotations: ExactEntityMatcher = field(init=False)
 
     def __post_init__(self) -> None:
+        """
+        Construct and assign matcher members in the declared composition order.
+
+        Build Work, Agent, and Identifier matchers directly, then request the remaining twelve
+        matchers from their repositories. Assignments are immediate: a later factory failure leaves
+        earlier attributes set. The dataclass constructor calls this once; manual calls replace
+        current matcher attributes without rollback or database-lifetime management.
+
+        Example:
+            >>> matching = CatalogMatching(db, catalog.repositories, catalog.matching.policy)  # doctest: +SKIP
+            >>> matching.works.policy is matching.policy  # doctest: +SKIP
+            True
+
+
+        :return: None after all fifteen matcher members have been assigned.
+        :raises Exception: Missing repository attributes or matcher construction failures propagate with earlier assignments retained.
+        """
         self.works = WorkMatcher(self.db, self.repositories, self.policy)
         self.agents = AgentMatcher(self.db, self.repositories, self.policy)
         self.identifiers = IdentifierMatcher(self.db, self.repositories)
@@ -55,11 +117,24 @@ class CatalogMatching:
         self.annotations = self.repositories.annotations.matcher()
 
     def for_entity(self, entity_name: str) -> ExactEntityMatcher:
-        """Return an exact-default matcher by singular or plural entity name.
+        """
+        Resolve a supported exact-entity matcher by singular or plural public name.
 
-        :param entity_name: Entity or table name such as ``tag`` or ``tags``.
-        :return: Configured exact-default entity matcher.
-        :raises KeyError: If no exact-default matcher exists for the name.
+        The concrete group strips whitespace, case-folds, and changes hyphens to underscores before
+        consulting its explicit aliases. Supported families are Tag, Label, Genre, Subject, Series,
+        Language, Rating, Comment, Synopsis, Note, and Annotation. Work, Agent, and identifier
+        matchers have dedicated attributes and are not returned by this lookup. The existing group
+        member is returned without constructing a matcher or querying rows.
+
+        Example:
+            >>> catalog.matching.for_entity(" TAG ") is catalog.matching.tags  # doctest: +SKIP
+            True
+
+
+        :param entity_name: Supported singular or plural entity name, accepting the concrete group's case/whitespace normalization.
+        :return: The configured exact-default matcher currently stored in the group.
+        :raises TypeError: If entity_name is not a string in the concrete implementation.
+        :raises KeyError: If the normalized name has no exact-default matcher.
         """
 
         if not isinstance(entity_name, str):

@@ -1,11 +1,6 @@
 
 """
-Ensure that there's an entry with certain properties on the database.
-
-The aim here is you pass the specs of an object into this factory and it ensures that the databases has something
-with those properties.
-It doesn't matter if the way this happens is for the row to be created or retreived.
-These details are hidden from the caller.
+Resolve legacy metadata values with entity-specific matching and creation policies.
 """
 
 from __future__ import annotations
@@ -47,14 +42,28 @@ if TYPE_CHECKING:
 
 class Ensure:
     """
-    Class for the methods which ensure that a resource exists on the database, creating it as needed.
+    Group compatibility lookup/create helpers with a borrowed database.
+
+    Construction creates an Add helper, which Catalog composition later replaces
+    with its shared, peer-wired Add. Methods differ in duplicate handling,
+    normalization and queue behavior; these operations have no common transaction
+    or uniform guarantee of reuse without insertion.
+
+    Example:
+        Use creator_blind for a first-match Row, or creator with a queue to inspect
+        its legacy candidate sequence and possible creation.
     """
 
     def __init__(self, database: "DatabaseAPI") -> None:
         """
-        Constructor.
+        Retain the database and construct a local Add helper.
 
-        :param database:
+        Example:
+            Catalog composition replaces this local Add with its shared Add instance.
+
+
+        :param database: Borrowed database handle; no query or capability validation.
+        :return: None; sets db and a fresh Add whose peer attributes remain unset.
         """
         self.db = database
         self.add = Add(self.db)
@@ -62,12 +71,20 @@ class Ensure:
     # Todo: Add author collision checking with user verification
     def creator(self, creator_name: str, match_queue: Queue.Queue["RowAPI"]):
         """
-        Takes a creator name - returns the row corresponding to that creator - making it if required.
+        Queue exact and phonetic Creator candidates, creating if no exact IDs were recorded.
 
-        Currently, puts all matching creators in the match_queue for returning.
-        :param creator_name: The name of a creator
-        :param match_queue: A place to put the matches - the creators it might be
-        :return None: Everything goes on the queue.
+        Exact candidates are deduplicated by row_id. Phonetic candidates are checked
+        against exact IDs but never added to that set, so duplicates can recur.
+        Creation is based on the exact-ID set, not whether the queue has matches.
+
+        Example:
+            Phonetic-only matches can be queued and still followed by a newly created Creator.
+
+
+        :param creator_name: Single name, standardized after rejecting any ampersand.
+        :param match_queue: Queue receiving Rows; put may block according to queue capacity.
+        :return: None; results are delivered through the queue.
+        :raises InputIntegrityError: The input contains an ampersand.
         """
         creator_name = deepcopy(creator_name)
         found_creators = set()
@@ -108,12 +125,18 @@ class Ensure:
             seminal_work: Optional[str] = None,
             standardize: bool = True) -> "RowAPI":
         """
-        Ensure a creator row without having to deal with the queue.
+        Select the first exact or phonetic Creator match, otherwise create one.
 
-        :param creator_name:
-        :param seminal_work: If provided, and the creator has to be created, will set the seminal work to be this
-        :param standardize:
-        :return:
+        No ambiguity resolution or transaction protects lookup/create.
+
+        Example:
+            An existing phonetic match wins without comparing the seminal-work hint.
+
+
+        :param creator_name: Creator name to search.
+        :param seminal_work: Seminal-work hint used only when creating.
+        :param standardize: Standardize the name before both lookup forms.
+        :return: First candidate in database order or newly created person Agent.
         """
         # Working through the various types of creator row, looking for a good match
         if standardize:
@@ -133,11 +156,20 @@ class Ensure:
 
     def genre(self, genre_string: str, standardize: bool = True) -> "RowAPI":
         """
-        Ensure that the given genre exists - genres must be unique - so always returns a single row.
+        Resolve a Genre, attempting duplicate maintenance before creating.
 
-        :param genre_string: Try and ensure a genre with that name
-        :param standardize: If True, then try and standardize the name before searching for it in the genres table.
-        :return:
+        After maintenance, search again and fail if multiple rows remain. If no
+        match remains, create a Row with only the genre column populated.
+
+        Example:
+            Multiple matches invoke fix_duplicates even when the caller disabled standardization.
+
+
+        :param genre_string: Genre input; None is rejected, other values are converted to text.
+        :param standardize: Apply standardize_genre before lookup.
+        :return: Unique matching Genre Row or newly inserted Genre Row.
+        :raises InputIntegrityError: Genre input is None.
+        :raises DatabaseIntegrityError: Duplicate maintenance leaves multiple matches.
         """
         if genre_string is None:
             err_str = "Library.ensure_genre called with None"
@@ -182,12 +214,22 @@ class Ensure:
 
     def identifier(self, identifier: str, identifier_type: str, error: bool = True) -> "RowAPI":
         """
-        Create an entry in the identifiers table.
+        Normalize a scheme, validate its value and attempt Identifier insertion.
 
-        :param identifier:
-        :param identifier_type:
-        :param error:
-        :return:
+        There is no pre-insertion reuse lookup. Recovery searches identifier text
+        without a scheme filter; zero/multiple matches raise DatabaseIntegrityError.
+        No encompassing transaction is opened.
+
+        Example:
+            error=False still validates the scheme and value before attempting insertion.
+
+
+        :param identifier: Identifier text; ISBN/ISSN/DOI checkers may normalize it.
+        :param identifier_type: Scheme standardized with standardize_id_name.
+        :param error: True propagates sync errors; false attempts recovery after DatabaseIntegrityError.
+        :return: Inserted Row, or the sole value-only recovery match.
+        :raises InputIntegrityError: Scheme or validated identifier value is invalid.
+        :raises DatabaseIntegrityError: Insertion fails under strict policy or recovery is not unique.
         """
         old_id_type = deepcopy(identifier_type)
         identifier_type = standardize_id_name(identifier_type)
@@ -287,14 +329,21 @@ class Ensure:
     # Todo: Re-write and implement - cba right now
     def language(self, language_string: str, lang_code: bool = False) -> "RowAPI":
         """
-        Ensures that a given language is in the language database.
+        Resolve a language by normalized then original name/code, or insert it.
 
-        :param language_string:
-        :param lang_code: If True, then assumes that the given language_string is actually a language code string.
-                          Language will be created with that code and returned if it doesn't exist.
-                          If False, searches on the name of the language - the "language" column in the table
-                          If "either" will search both code and name for a match and return one if found
-        :return:
+        Insertion writes the standardized input to both language and language_code;
+        it does not independently derive a human name and canonical code.
+
+        Example:
+            With either mode, name lookups precede code lookups; multiple matches in
+            any attempted lookup fail immediately.
+
+
+        :param language_string: Language input; None rejected and other values converted to text.
+        :param lang_code: Exactly True for code, False for name, or "either" for name then code.
+        :return: First unique match or inserted language Row.
+        :raises InputIntegrityError: Input is None or the mode is unsupported.
+        :raises DatabaseIntegrityError: Any attempted lookup finds multiple rows.
         """
         if language_string is None:
             err_str = "Library.ensure_language called with None"
@@ -455,11 +504,21 @@ class Ensure:
 
     def publisher(self, publisher: str, standardize: bool = True) -> "RowAPI":
         """
-        Ensures that a given publisher is in the publishers table of the database.
+        Reuse an exact Publisher value or create an organisation Agent.
 
-        :param publisher:
-        :param standardize:
-        :return:
+        The current multiple-match error-reporting branch references an undefined
+        publisher_string name and can raise NameError before its intended integrity
+        error. This compatibility defect is retained.
+
+        Example:
+            No exact match delegates to add.publisher with the selected spelling.
+
+
+        :param publisher: Publisher input; None is rejected.
+        :param standardize: Apply standardize_publisher before lookup.
+        :return: Sole matching Publisher Row or newly created organisation Agent.
+        :raises InputIntegrityError: Publisher is None.
+        :raises NameError: Multiple matches reach the malformed error-reporting branch.
         """
         if publisher is None:
             err_str = "Library.ensure_publisher called with None"
@@ -488,12 +547,16 @@ class Ensure:
 
     def rating(self, rating: Union[int, float]) -> "RowAPI":
         """
-        Ensure a rating - ratings are on a scale of 0-10 (integers).
+        Look up the prepopulated Rating Row at int(value)+1.
 
-        These will be displayed down to 0-5 - which gives an available resolution of half a star.
-        :param rating: On a scale of 0-10 - if the rating is between 0-5 double it and pass the doubled value into this
-                       method - it will return the row appropriate to that rating
-        :return:
+        No range validation or repair of missing Rating rows occurs.
+
+        Example:
+            A rating of 3.9 looks up row ID 4.
+
+
+        :param rating: Numeric/coercible value; int() truncation and conversion errors apply.
+        :return: Database lookup result, possibly None; no row is inserted.
         """
         rating = int(rating)
         rating_id = rating + 1
@@ -516,19 +579,23 @@ class Ensure:
         use_phash: bool = True,
     ) -> "RowAPI":
         """
-        Takes a set of creators and a series name - checks for a matching series linked to any subset of those creators.
+        Find Series candidates, optionally queueing them before creation.
 
-        If none exists, then it has to be created.
-        :param creator_rows:
-        :param series_name:
-        :param series_queue: A queue object which potentially matching series are placed on.
-        :param confidence: How confident is the process about the given data? If the creators rows are auto-generated
-                           (i.e. from metadata) then the process isn't very confident about the series to be generated
-                           and it probably shouldn't be linked to a bunch of other stuff, which might cause additional
-                           confusion later.
-        :param stand: Should the series string be standardized before writing
-        :param use_phash: Use series phash when searching for a series
-        :return:
+        Queued candidates are not deduplicated. Without a queue, the first exact or
+        phonetic match wins. Creation is not transactionally coupled to lookup;
+        queue insertion may block and failures can follow earlier queued results.
+
+        Example:
+            With a queue, existing candidates do not prevent a subsequent creation attempt.
+
+
+        :param creator_rows: Optional Creator Rows whose creator columns seed phonetic hashes.
+        :param series_name: Name converted to text; exact lookup uses this pre-standardized spelling.
+        :param series_queue: Optional queue; when supplied, found candidates are queued without early return.
+        :param confidence: When creating with Creator Rows, attach only the first if this flag is true.
+        :param stand: Standardize the name for hashes and creation, not the initial exact lookup.
+        :param use_phash: Search Creator-specific hashes and then the name-only hash.
+        :return: First matching Row without a queue, otherwise a newly created Row also queued.
         """
         if creator_rows is None:
             creator_rows = []
@@ -592,11 +659,21 @@ class Ensure:
 
     def series_blind(self, creator_rows, series_name, stand=True, use_phash=True):
         """
-        Doesn't dump the results to a queue - just
-        :param creator_rows:
-        :param series_name:
-        :param stand: Attempt to use
-        :return:
+        Run queued Series resolution and return its first queued candidate.
+
+        On DatabaseIntegrityError, search the original exact name and take index zero.
+        An empty recovery result raises IndexError; an unexpectedly empty queue raises
+        queue.Empty. Other failures propagate.
+
+        Example:
+            An existing queued match may be returned after series() has also inserted a new row.
+
+
+        :param creator_rows: Optional Creator Rows passed to series.
+        :param series_name: Series name passed unchanged.
+        :param stand: Standardization preference passed to series.
+        :param use_phash: Phonetic lookup preference passed to series.
+        :return: First queued Row, or first exact-name recovery Row after DatabaseIntegrityError.
         """
         series_queue = Queue.Queue(0)
         try:
@@ -616,11 +693,15 @@ class Ensure:
     # Subjects still exists under WEMI. This is fine.
     def subject(self, subject: str, standardize: bool = True) -> "RowAPI":
         """
-        Ensures that a subject row exists - returns the row for it.
+        Reuse the first exact Subject string or create one without a parent.
 
-        :param subject:
-        :param standardize:
-        :return:
+        Example:
+            standardize=False and standardize=True currently follow the same lookup path.
+
+
+        :param subject: Value converted with six_unicode.
+        :param standardize: Retained compatibility argument; currently ignored.
+        :return: First matching Row or newly inserted Subject Row.
         """
         subject = six_unicode(subject)
         subject_rows = self.db.search(table="subjects", column="subject", search_term=subject)
@@ -630,10 +711,19 @@ class Ensure:
 
     def tag(self, tag_text: str) -> "RowAPI":
         """
-        Ensure that the tag exists in the database - return the corresponding row, creating it if required.
+        Resolve by search hash, then exact text, otherwise insert a Tag.
 
-        :param tag_text:
-        :return:
+        TypeError from hash generation becomes InputIntegrityError. Multiple
+        matches at either lookup raise; no lookup/create transaction is opened.
+
+        Example:
+            A unique phonetic/search-hash match wins before exact text is checked.
+
+
+        :param tag_text: Text preserved for insertion; make_tag_search_term derives the matching hash.
+        :return: Unique hash/text match or newly created Tag Row.
+        :raises InputIntegrityError: Hash generation rejects the input type.
+        :raises DatabaseIntegrityError: A hash or exact-text lookup has multiple matches.
         """
         # Makes a tag search term - searches the database for that tag search term - if it exists returns the
         # appropriate row - if not, makes the row and then returns it.

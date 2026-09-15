@@ -33,7 +33,7 @@ from LiuXin_alpha.storage.api import (
     StoreStatus,
 )
 from LiuXin_alpha.storage.drivers.squashfs import SquashfsStorageDriver
-from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
+from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly.squashfs_readonly_storage_backend import (
     SquashfsReadOnlyStorageBackend,
 )
 from tests.fixtures.storage_unicode import (

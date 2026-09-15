@@ -1,8 +1,9 @@
-"""Public schema-backed cache surface.
+"""
+Expose canonical schema-backed storage types through their public module.
 
-This is the import-facing module for the default storage-cache backend. Callers
-that want the concrete schema-backed cache types should import from here instead
-of reaching into ``cache_plugins.schema_backed``.
+The storage cache, main/link tables and relation-field classes are aliases of
+the implementation classes in cache_plugins.schema_backed. Importing this
+module constructs no cache instance and loads no database snapshot.
 """
 
 from LiuXin_alpha.caches.cache_plugins.schema_backed import (

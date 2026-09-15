@@ -1,4 +1,6 @@
-"""Generic writer for many-to-many cache-backed relationships."""
+"""
+Coordinate legacy many-to-many cache updates and specialized Catalog link writes.
+"""
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
@@ -18,9 +20,30 @@ from LiuXin_alpha.utils.text.icu import safe_lower, strcmp
 
 
 class ManyToManyWriter(BaseWriter):
-    """Coordinate database and cache changes for legacy many-to-many fields."""
+    """
+    Resolve legacy relation values, update caches, and dispatch link persistence.
+
+    Public set_books bypasses BaseWriter scalar adaptation and returns the hook result dictionary. Hook selection depends on field name; several cleanup hooks are retained but not invoked by generic_many_many.
+
+    Example:
+        For a configured relation field, ``ManyToManyWriter(field).set_books(updates, db)`` returns a dictionary containing dirtied IDs and cache maps.
+    """
 
     def __init__(self, field):
+        """
+        Bind unadapted many-to-many updates and field-specific persistence helpers.
+
+        Select publisher, author, language and series persistence by name; language/series get dedicated value matchers. Both table.priority and table.typed must be the literal booleans True or False. All four supported combinations use generic_many_many.
+
+        Example:
+            A field named "publisher" binds ``do_publisher_many_many_db_update``; an ordinary field binds the inherited generic link updater.
+
+
+        :param field: Legacy field supplying metadata and the relation cache/update hooks.
+        :return: None; initializes adapter state and binds lookup, persistence and cleanup hooks.
+        :raises NotImplementedError: Either table capability flag is not a literal boolean.
+        """
+
         super(ManyToManyWriter, self).__init__(field)
         self.set_books_func = self.generic_many_many
         self.set_books = self.no_adapter_set_books
@@ -69,13 +92,22 @@ class ManyToManyWriter(BaseWriter):
 
     def generic_many_many(self, book_id_val_map, db, field, allow_case_change, *args):
         """
-        Update entries for a table which has a priority many to many link to books. E.G. publishers.
-        :param book_id_val_map:
-        :param db:
-        :param field:
-        :param allow_case_change:
-        :param args:
-        :return:
+        Resolve values, update the relation cache, then persist the resulting link changes.
+
+        Build a normalized reverse value map and repair case duplicates, then run optional field preflight and mandatory table precheck. Tag set updates clear existing tag links before value resolution. Deduplicate most fields, resolve/create values, rerun preflight for series/authors/publishers, and apply case changes. Convert values to IDs, discard updates equal to field.ids_for_book, precheck again, and call internal_update_cache before db_update_links. Cleanup of unused items is currently inactive. There is no whole-operation rollback, and cache changes or newly created values can precede persistence failures. The language updater requires an is_authors argument that this generic call does not supply; that legacy hook cannot complete through this call as written.
+
+        Example:
+            With a compatible tags field, ``writer.generic_many_many({7: ["fiction"]}, db, field, True)`` resolves the tag, updates the cache and writes links, returning a result dictionary.
+
+
+        :param book_id_val_map: Book-to-update mapping accepted by the legacy field preflight and conversion hooks.
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param field: Legacy field supplying metadata and the relation cache/update hooks.
+        :param allow_case_change: Whether matched values may cause case changes.
+        :param args: Extra compatibility arguments, logged and otherwise ignored.
+        :return: Dictionary with dirtied, cache_update_needed=False, id_map and book_col_map entries.
+        :raises InvalidUpdate: Initial field preflight raises NotImplementedError, or the comparison lookup raises NotInCache.
+        :raises NotImplementedError: A conversion helper encounters an unsupported payload shape.
         """
         if args:
             info_str = "Unexpected arguments passed to many_many"
@@ -240,14 +272,37 @@ class ManyToManyWriter(BaseWriter):
 
     def _do_vals_to_ids(self, book_id_val_map, val_map):
         """
-        Take a book_id_val_map turn it into a book_id_item_id map by replacing all the vals with their corresponding
-        item ids
-        :param book_id_val_map:
-        :param val_map:
-        :return:
+        Build fresh nested update containers by replacing values with their IDs.
+
+        Integer elements, including booleans, pass through unchanged. Dictionaries recurse using their own keys, so typed updates retain type keys. Scalar outer strings/integers are unsupported; unresolved elements raise KeyError.
+
+        Example:
+            >>> writer = object.__new__(ManyToManyWriter)
+            >>> writer._do_vals_to_ids({7: ["tag", 9], 8: {"role": None}}, {"tag": 4})
+            {7: [4, 9], 8: {'role': None}}
+
+
+        :param book_id_val_map: Mapping whose values are None, lists/tuples, sets or nested dictionaries.
+        :param val_map: Mapping from non-integer values to resolved IDs.
+        :return: New dictionary; sequences become lists, sets remain sets and None is preserved.
+        :raises KeyError: A non-integer element is absent from val_map.
+        :raises NotImplementedError: An update value has an unsupported container shape.
         """
 
         def _val_to_id(_id, val_map):
+            """
+            Preserve an integer element or look up its resolved ID.
+
+            Example:
+                Inside the surrounding conversion, integer 9 remains 9, while "tag" resolves to 4 when ``val_map == {"tag": 4}``.
+
+
+            :param _id: One sequence/set element to translate.
+            :param val_map: Mapping from non-integer elements to resolved IDs.
+            :return: The original integer, or val_map[_id].
+            :raises KeyError: A non-integer element has no resolved entry.
+            """
+
             if isinstance(_id, int):
                 return _id
             else:
@@ -269,10 +324,21 @@ class ManyToManyWriter(BaseWriter):
 
     def _do_duplicate_elimination(self, book_id_val_map, kmap):
         """
-        Eliminate any duplicates using the provided hash function - recursing if the dictionary structure is nested
-        :param book_id_val_map:
-        :param kmap:
-        :return:
+        Deduplicate sequences recursively while preserving None and set objects.
+
+        The first occurrence of each normalized sequence key wins. Sets are passed through without applying kmap, so case-equivalent set entries are not merged.
+
+        Example:
+            >>> writer = object.__new__(ManyToManyWriter)
+            >>> writer._do_duplicate_elimination({7: ["Tag", "tag", "Other"]}, str.lower)
+            {7: ('Tag', 'Other')}
+
+
+        :param book_id_val_map: Mapping with None, set, list/tuple or nested dictionary values.
+        :param kmap: Callable producing a hashable comparison key for each sequence element.
+        :return: New nested dictionary; sequence results are tuples and original set objects are shared.
+        :raises NotImplementedError: A mapping value has an unsupported shape.
+        :raises TypeError: A normalized sequence key is unhashable.
         """
         dupe_free_dict = dict()
         for key, vals in iteritems(book_id_val_map):
@@ -301,6 +367,29 @@ class ManyToManyWriter(BaseWriter):
         val_map,
         is_authors=False,
     ):
+
+        """
+        Populate shared resolution maps for non-integer values in nested updates.
+
+        None is skipped; strings are matched whole, list/tuple/set elements are matched unless integers, and dictionaries recurse. Matcher return values are discarded. Scalar integers at the mapping-value level are unsupported, even though integer sequence members are accepted. Resolution may create persistent rows before a later value fails.
+
+        Example:
+            For ``{7: ["new tag", 4]}``, the bound matcher receives "new tag"; integer 4 needs no lookup.
+
+
+        :param book_id_val_map: Mapping of strings, sequences, sets, None or nested dictionaries.
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param m: Field metadata forwarded to the bound matcher.
+        :param table: Legacy relation table supplying cached value/link maps and schema attributes.
+        :param kmap: Value normalizer forwarded to the matcher.
+        :param rid_map: Mutable normalized-value-to-ID lookup forwarded to the matcher.
+        :param allow_case_change: Case-change permission forwarded to the matcher.
+        :param case_changes: Mutable case-change output mapping.
+        :param val_map: Mutable raw-value-to-ID output mapping.
+        :param is_authors: Author-specific lookup flag forwarded to each matcher call.
+        :return: None; any described database/cache mutations happen in place.
+        :raises NotImplementedError: A top-level or nested mapping value has an unsupported shape.
+        """
 
         db_id_matcher = self.db_id_matcher
 
@@ -371,14 +460,24 @@ class ManyToManyWriter(BaseWriter):
         link_type=None,
     ):
         """
-        Do an update to the publisher table.
-        :param db: The database to preform the update on
-        :param table:
-        :param field: The field to do the update on
-        :param is_custom_series:
-        :param updated: The dictionary to preform the update with - keyed with the id of the book and valued with
-        :param deleted:
-        :return:
+        Replace Work publisher credits and return the first publisher projection.
+
+        None updates become empty. For each update, replace role "pbl" credits, then require the first Agent and read its canonical name. Deletions run afterward and can override an updated Work. An empty list clears credits but then raises IndexError when selecting the primary ID. Storage and projection reads are sequential without a batch rollback.
+
+        Example:
+            ``do_publisher_many_many_db_update(db, updated={7: [4, 5]}, table=table)`` retains both publisher credits and returns publisher 4 as the display projection.
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Compatibility argument not used by this helper.
+        :param field: Compatibility argument not used by this helper.
+        :param is_custom_series: Compatibility argument not used by this helper.
+        :param updated: Work-to-publisher-ID mapping; lists are expanded, other values become one element.
+        :param deleted: Work IDs whose publisher-role credits are cleared; None means no deletions.
+        :param is_authors: Compatibility argument not used by this helper.
+        :param link_type: Compatibility argument not used by this helper.
+        :return: Pair (book_col_map, id_map) containing primary publisher IDs/names and None for deleted Works.
+        :raises IndexError: An updated publisher list is empty, after its storage replacement.
         """
         deleted = deleted if deleted is not None else {}
         updated = updated if updated is not None else {}
@@ -430,13 +529,23 @@ class ManyToManyWriter(BaseWriter):
         link_type=None,
     ):
         """
-        Do update in the authors table.
-        :param db:
-        :param table:
-        :param updated:
-        :param deleted: Not currently used
-        :param is_authors:
-        :return:
+        Replace author-role Agent credits for each Work, then clear deleted Works.
+
+        Each update is converted to a tuple and passed to Catalog at level "work", role "aut". Deletions run afterward. No cache maps are returned or updated by this helper; earlier Work replacements survive a later failure.
+
+        Example:
+            ``authors_many_many_db_update(db, table, updated={7: [4, 5]}, deleted={8})`` replaces Work 7 authors and clears Work 8 author credits.
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Compatibility argument not used by this helper.
+        :param field: Compatibility argument not used by this helper.
+        :param is_custom_series: Compatibility argument not used by this helper.
+        :param updated: Work IDs mapped to iterable Agent IDs; None means no updates.
+        :param deleted: Work IDs whose author-role credits are cleared; None means none.
+        :param is_authors: Compatibility argument not used by this helper.
+        :param link_type: Compatibility argument not used by this helper.
+        :return: None; any described database/cache mutations happen in place.
         """
         deleted = deleted if deleted is not None else {}
         updated = updated if updated is not None else {}
@@ -472,12 +581,24 @@ class ManyToManyWriter(BaseWriter):
         link_type=None,
     ):
         """
-        Preform an update of the languages linked to a book.
-        :param db:
-        :param table:
-        :param updated:
-        :param is_authors:
-        :return:
+        Write the first supplied language as primary and clear requested primary links.
+
+        Require each first language ID through Catalog and delegate a primary Work-language write. Other supplied IDs are ignored. The required is_authors parameter has no default even though it is unused; generic_many_many currently omits it, so callers of this hook must supply it explicitly.
+
+        Example:
+            ``language_many_many_db_update(db, table, {7: [4, 5]}, False)`` validates and writes language 4 only.
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Compatibility argument not used by this helper.
+        :param updated: Work IDs mapped to nonempty indexable language-ID collections.
+        :param is_authors: Compatibility argument not used by this helper.
+        :param field: Compatibility argument not used by this helper.
+        :param is_custom_series: Compatibility argument not used by this helper.
+        :param deleted: Work IDs whose primary language is cleared; None means none.
+        :param link_type: Compatibility argument not used by this helper.
+        :return: None; any described database/cache mutations happen in place.
+        :raises IndexError: An updated language sequence is empty.
         """
         catalog = Catalog(db)
         writer = catalog.create_writer("works", "language")
@@ -503,14 +624,23 @@ class ManyToManyWriter(BaseWriter):
         link_type=None,
     ):
         """
-        Do an update on a series table.
-        :param db:
-        :param table:
-        :param field:
-        :param is_custom_series:
-        :param updated:
-        :param deleted:
-        :return:
+        Replace Work-series links while copying the current primary index to each new link.
+
+        Find the first extra link column ending in "_index". When both that column and the current primary series index exist, include that index in every replacement LinkValue for the Work. Only lists expand; other values form a single element. Deletions override updates for the same Work, and all replacements are sent in one writer.write call if nonempty.
+
+        Example:
+            With primary index 2.0, ``do_series_many_many_db_update(db, updated={7: [4, 5]})`` attaches that index to both new links when the schema exposes an index column.
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Compatibility argument not used by this helper.
+        :param field: Compatibility argument not used by this helper.
+        :param is_custom_series: Compatibility argument not used by this helper.
+        :param is_authors: Compatibility argument not used by this helper.
+        :param updated: Required mapping of Work IDs to a series ID or list of IDs; the None default is not handled.
+        :param deleted: Work IDs whose series links are cleared; None means none.
+        :param link_type: Compatibility argument not used by this helper.
+        :return: (None, None); this helper returns no replacement cache maps.
         """
         catalog = Catalog(db)
         writer = catalog.create_writer("works", "series")
@@ -545,12 +675,22 @@ class ManyToManyWriter(BaseWriter):
     @staticmethod
     def generic_many_many_db_update(db, table, updated, deleted, is_authors, field=None, is_custom_series=False):
         """
-        Preform update on a multiply linked table. Currently can only deal with authors.
-        :param db:
-        :param table:
-        :param updated:
-        :param is_authors:
-        :return:
+        Clear deleted and updated owner links, then insert flattened unprioritized pairs.
+
+        Call break_generic_link for deleted IDs first, flatten updated values into (book_id, value) pairs, then clear updated IDs and call make_generic_link_no_priority with the table column arguments in their existing order. No value resolution, cache update or transaction is supplied here. This compatibility helper is distinct from the inherited default db_update_links hook.
+
+        Example:
+            For ``updated={7: [4, 5]}``, the insertion payload contains (7, 4) and (7, 5) after existing links for Work 7 are cleared.
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Legacy table exposing link-table and endpoint-column names.
+        :param updated: Book IDs mapped to iterable target values.
+        :param deleted: Book IDs whose links are cleared.
+        :param is_authors: Compatibility argument not used by this helper.
+        :param field: Compatibility argument not used by this helper.
+        :param is_custom_series: Compatibility argument not used by this helper.
+        :return: None; any described database/cache mutations happen in place.
         """
         db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, tuple(k for k in deleted))
 
@@ -568,34 +708,51 @@ class ManyToManyWriter(BaseWriter):
     @staticmethod
     def language_many_many_db_clean_links(db, table, deleted):
         """
-        Remove primary language links from the table.
-        :param db:
-        :param table:
-        :param deleted:
-        :return:
+        Delegate removal of primary language links for the supplied book IDs.
+
+        Example:
+            ``language_many_many_db_clean_links(db, table, {7, 8})`` passes IDs 7 and 8 to break_lang_title_primary_link.
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Compatibility argument not used by this helper.
+        :param deleted: Iterable of book IDs forwarded as a generator.
+        :return: None; any described database/cache mutations happen in place.
         """
         db.metadata_sql.break_lang_title_primary_link((k for k in deleted))
 
     @staticmethod
     def generic_many_many_db_clean_links(db, table, deleted):
         """
-        Remove now unused links from the link table.
-        :param db:
-        :param table:
-        :param deleted:
-        :return:
+        Delegate generic link cleanup using the table owner-ID column.
+
+        Example:
+            ``generic_many_many_db_clean_links(db, table, {7})`` calls generic_clean_update for owner 7.
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Table providing link_table and link_table_bt_id_column.
+        :param deleted: Iterable of owner IDs forwarded as a generator.
+        :return: None; any described database/cache mutations happen in place.
         """
         db.macros.generic_clean_update(table.link_table, table.link_table_bt_id_column, (k for k in deleted))
 
     def generic_many_many_db_remove_links(self, db, table, field, remove, is_authors):
         """
-        Used for removing all links to the target table. Used when the entries are being removed.
-        :param db:
-        :param table:
-        :param field:
-        :param remove:
-        :param is_authors:
-        :return:
+        Delegate target-ID cleanup or the creator-wide unused-item cleanup hook.
+
+        The non-author branch passes table.lx_table_name directly to break_generic_link; it does not derive a link-table name. The author branch ignores remove. generic_many_many retains this hook but its removal call is currently commented out.
+
+        Example:
+            With is_authors=True, ``writer.generic_many_many_db_remove_links(db, table, field, ids, True)`` invokes creator_clear_unused regardless of ids.
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Table providing lx_table_name and table_id_col for non-author cleanup.
+        :param field: Field forwarded only to the creator cleanup helper.
+        :param remove: Iterable of target IDs, wrapped as singleton tuples for non-author cleanup.
+        :param is_authors: Whether to call the creator cleanup helper instead of using remove.
+        :return: None; any described database/cache mutations happen in place.
         """
         if not is_authors:
             db.metadata_sql.break_generic_link(
@@ -609,11 +766,16 @@ class ManyToManyWriter(BaseWriter):
     @staticmethod
     def do_creators_many_many_clear_unused(db, table, field):
         """
-        Clear the unused entries from the creators table.
-        :param db:
-        :param table:
-        :param field:
-        :return:
+        Invoke the database creator cleanup operation.
+
+        Example:
+            ``do_creators_many_many_clear_unused(db, table, field)`` delegates to db.metadata_sql.creator_clear_unused().
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Compatibility argument not used by this helper.
+        :param field: Compatibility argument not used by this helper.
+        :return: None; any described database/cache mutations happen in place.
         """
         db.metadata_sql.creator_clear_unused()
 
@@ -631,18 +793,29 @@ class ManyToManyWriter(BaseWriter):
         is_authors=False,
     ):
         """
-        Attempts to match the given val to a valid entry in the languages table.
-        :param val:
-        :param db:
-        :param m:
-        :param table:
-        :param kmap:
-        :param rid_map:
-        :param allow_case_change:
-        :param case_changes:
-        :param val_map:
-        :param is_authors:
-        :return:
+        Use a cached raw value or resolve an exact Catalog language match.
+
+        Store the resolved ID under the original value in val_map. The reverse map, table caches and case-change map are not updated; kmap is unused.
+
+        Example:
+            >>> values = {}
+            >>> ManyToManyWriter.get_language_id("eng", None, None, None, None, {"eng": 4}, False, {}, values)
+            >>> values
+            {'eng': 4}
+
+
+        :param val: Value to resolve.
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param m: Compatibility argument not used by this helper.
+        :param table: Compatibility argument not used by this helper.
+        :param kmap: Compatibility argument not used by this helper.
+        :param rid_map: Existing raw-value-to-ID lookup; this helper does not normalize its keys.
+        :param allow_case_change: Compatibility argument not used by this helper.
+        :param case_changes: Compatibility argument not used by this helper.
+        :param val_map: Mutable value-to-ID output map.
+        :param is_authors: Compatibility argument not used by this helper.
+        :return: None; any described database/cache mutations happen in place.
+        :raises InvalidUpdate: Catalog exact lookup has no matched entity ID.
         """
         if val not in rid_map.keys():
             language_match = Catalog(db).languages.exact(val)
@@ -666,18 +839,28 @@ class ManyToManyWriter(BaseWriter):
         is_authors=False,
     ):
         """
-        Attempts to match the given val to a valid entry in the languages table.
-        :param val:
-        :param db:
-        :param m:
-        :param table:
-        :param kmap:
-        :param rid_map:
-        :param allow_case_change:
-        :param case_changes:
-        :param val_map:
-        :param is_authors:
-        :return:
+        Use a cached raw series name or match/create a Catalog series identity.
+
+        On a cache miss pass MetadataCandidate({"name": val}) to Catalog.series.match_or_create and store its result in val_map. No reverse-map or table-cache update is performed here; kmap and case-change flags are unused.
+
+        Example:
+            >>> values = {}
+            >>> ManyToManyWriter.get_series_id("Cycle", None, None, None, None, {"Cycle": 4}, False, {}, values)
+            >>> values
+            {'Cycle': 4}
+
+
+        :param val: Value to resolve.
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param m: Compatibility argument not used by this helper.
+        :param table: Compatibility argument not used by this helper.
+        :param kmap: Compatibility argument not used by this helper.
+        :param rid_map: Existing raw-value-to-ID lookup; this helper does not normalize its keys.
+        :param allow_case_change: Compatibility argument not used by this helper.
+        :param case_changes: Compatibility argument not used by this helper.
+        :param val_map: Mutable value-to-ID output map.
+        :param is_authors: Compatibility argument not used by this helper.
+        :return: None; any described database/cache mutations happen in place.
         """
         if val not in rid_map.keys():
             val_map[val] = Catalog(db).series.match_or_create(
@@ -690,35 +873,53 @@ class ManyToManyWriter(BaseWriter):
     @staticmethod
     def do_publisher_many_one_clear_unused(db, table, field):
         """
-        Clear the unused entries from the publisher's table.
-        :param db:
-        :param table:
-        :param field:
-        :return:
+        Invoke the database publisher cleanup operation.
+
+        Selected as a publisher cleanup hook, but generic_many_many currently does not call it.
+
+        Example:
+            ``do_publisher_many_one_clear_unused(db, table, field)`` delegates to publisher_clear_unused().
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Compatibility argument not used by this helper.
+        :param field: Compatibility argument not used by this helper.
+        :return: None; any described database/cache mutations happen in place.
         """
         db.metadata_sql.publisher_clear_unused()
 
     @staticmethod
     def dummy_many_one_clear_unused(db, table, field):
         """
-        Remove unused elements from the ratings table.
-        Currently not used - as that table should be preserved.
-        :param db:
-        :param table:
-        :param field:
-        :return:
+        Leave all entries unchanged when unused-item cleanup is disabled.
+
+        Example:
+            >>> ManyToManyWriter.dummy_many_one_clear_unused(None, None, None) is None
+            True
+
+
+        :param db: Compatibility argument not used by this helper.
+        :param table: Compatibility argument not used by this helper.
+        :param field: Compatibility argument not used by this helper.
+        :return: None; no collaborators are accessed.
         """
         pass
 
     @staticmethod
     def series_many_many_db_remove_links(db, table, field, remove, is_authors):
         """
-        At the moment a dummy - as it's assumed series will actually be managed elesewhere.
-        :param db:
-        :param table:
-        :param field:
-        :param remove:
-        :param is_authors:
-        :return:
+        Leave series links unchanged through the retained no-op removal hook.
+
+        Example:
+            >>> ManyToManyWriter.series_many_many_db_remove_links(None, None, None, {4}, False) is None
+            True
+
+
+        :param db: Compatibility argument not used by this helper.
+        :param table: Compatibility argument not used by this helper.
+        :param field: Compatibility argument not used by this helper.
+        :param remove: Compatibility argument not used by this helper.
+        :param is_authors: Compatibility argument not used by this helper.
+        :return: None; this hook performs no cleanup.
         """
         return

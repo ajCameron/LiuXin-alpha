@@ -25,7 +25,7 @@ from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.storage.api import FileInfo, Location
 from LiuXin_alpha.storage.reconcile import squashfs_db_sync as sync
-from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
+from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly.squashfs_manifest_builder import (
     SquashfsBuildReport,
 )
 from tests.storage._mini_db import build_mini_db

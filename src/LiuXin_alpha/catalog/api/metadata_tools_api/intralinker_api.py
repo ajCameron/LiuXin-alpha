@@ -1,4 +1,6 @@
-"""Intralinker API contracts for catalog metadata tools."""
+"""
+Define named compatibility contracts for same-family row relationships.
+"""
 
 from __future__ import annotations
 
@@ -9,19 +11,15 @@ from LiuXin_alpha.databases.api import DatabaseAPI, RowAPI
 
 @runtime_checkable
 class IntralinkerAPI(Protocol):
-    """Relate two rows from the same metadata family.
+    """
+    Wrap database intralink_rows without additional family or type validation.
 
-    ``link_type`` records the semantic relationship supported by the relevant
-    intralink table. The named methods make expected row families explicit;
-    :meth:`generic` delegates discovery to the database.
+    All named methods and generic perform the same delegation. Database policy
+    determines supported tables, link types, reuse and transaction behavior.
 
-    Example::
-
-        catalog.intralink.title_title(
-            original_title,
-            translated_title,
-            link_type="translation_of",
-        )
+    Example:
+        Use a named method to express expected row families; the database still
+        validates whether that relationship is supported.
     """
 
     db: DatabaseAPI
@@ -32,7 +30,22 @@ class IntralinkerAPI(Protocol):
         secondary: RowAPI,
         link_type: str | None = None,
     ) -> RowAPI:
-        """Relate two Creator/Agent rows and return the link row."""
+        """
+        Delegate an intralink between two Creator/Agent rows.
+
+        No priority argument or local schema check is added. Backend failures
+        propagate and this wrapper opens no transaction.
+
+        Example:
+            The supplied primary and secondary order is retained; this helper does
+            not retry with reversed endpoints.
+
+
+        :param primary: Primary endpoint Row passed unchanged.
+        :param secondary: Secondary endpoint Row passed unchanged.
+        :param link_type: Relationship type passed unchanged; None uses database policy.
+        :return: Link result returned by database.intralink_rows.
+        """
         ...
 
     def cover_cover(
@@ -41,7 +54,22 @@ class IntralinkerAPI(Protocol):
         secondary: RowAPI,
         link_type: str | None = None,
     ) -> RowAPI:
-        """Relate two Cover rows and return the link row."""
+        """
+        Delegate an intralink between two Cover rows.
+
+        No priority argument or local schema check is added. Backend failures
+        propagate and this wrapper opens no transaction.
+
+        Example:
+            The supplied primary and secondary order is retained; this helper does
+            not retry with reversed endpoints.
+
+
+        :param primary: Primary endpoint Row passed unchanged.
+        :param secondary: Secondary endpoint Row passed unchanged.
+        :param link_type: Relationship type passed unchanged; None uses database policy.
+        :return: Link result returned by database.intralink_rows.
+        """
         ...
 
     def file_file(
@@ -50,7 +78,22 @@ class IntralinkerAPI(Protocol):
         secondary: RowAPI,
         link_type: str | None = None,
     ) -> RowAPI:
-        """Relate two File rows and return the link row."""
+        """
+        Delegate an intralink between two File rows.
+
+        No priority argument or local schema check is added. Backend failures
+        propagate and this wrapper opens no transaction.
+
+        Example:
+            The supplied primary and secondary order is retained; this helper does
+            not retry with reversed endpoints.
+
+
+        :param primary: Primary endpoint Row passed unchanged.
+        :param secondary: Secondary endpoint Row passed unchanged.
+        :param link_type: Relationship type passed unchanged; None uses database policy.
+        :return: Link result returned by database.intralink_rows.
+        """
         ...
 
     def folder_store_folder_store(
@@ -59,7 +102,22 @@ class IntralinkerAPI(Protocol):
         secondary: RowAPI,
         link_type: str | None = None,
     ) -> RowAPI:
-        """Relate two folder/store rows and return the link row."""
+        """
+        Delegate an intralink between two folder/store rows.
+
+        No priority argument or local schema check is added. Backend failures
+        propagate and this wrapper opens no transaction.
+
+        Example:
+            The supplied primary and secondary order is retained; this helper does
+            not retry with reversed endpoints.
+
+
+        :param primary: Primary endpoint Row passed unchanged.
+        :param secondary: Secondary endpoint Row passed unchanged.
+        :param link_type: Relationship type passed unchanged; None uses database policy.
+        :return: Link result returned by database.intralink_rows.
+        """
         ...
 
     def identifier_identifier(
@@ -68,7 +126,22 @@ class IntralinkerAPI(Protocol):
         secondary: RowAPI,
         link_type: str | None = None,
     ) -> RowAPI:
-        """Relate two Identifier rows and return the link row."""
+        """
+        Delegate an intralink between two Identifier rows.
+
+        No priority argument or local schema check is added. Backend failures
+        propagate and this wrapper opens no transaction.
+
+        Example:
+            The supplied primary and secondary order is retained; this helper does
+            not retry with reversed endpoints.
+
+
+        :param primary: Primary endpoint Row passed unchanged.
+        :param secondary: Secondary endpoint Row passed unchanged.
+        :param link_type: Relationship type passed unchanged; None uses database policy.
+        :return: Link result returned by database.intralink_rows.
+        """
         ...
 
     def tag_tag(
@@ -77,7 +150,22 @@ class IntralinkerAPI(Protocol):
         secondary: RowAPI,
         link_type: str | None = None,
     ) -> RowAPI:
-        """Relate two Tag rows and return the link row."""
+        """
+        Delegate an intralink between two Tag rows.
+
+        No priority argument or local schema check is added. Backend failures
+        propagate and this wrapper opens no transaction.
+
+        Example:
+            The supplied primary and secondary order is retained; this helper does
+            not retry with reversed endpoints.
+
+
+        :param primary: Primary endpoint Row passed unchanged.
+        :param secondary: Secondary endpoint Row passed unchanged.
+        :param link_type: Relationship type passed unchanged; None uses database policy.
+        :return: Link result returned by database.intralink_rows.
+        """
         ...
 
     def title_title(
@@ -86,7 +174,22 @@ class IntralinkerAPI(Protocol):
         secondary: RowAPI,
         link_type: str | None = None,
     ) -> RowAPI:
-        """Relate two Title rows and return the link row."""
+        """
+        Delegate an intralink between two Title rows.
+
+        No priority argument or local schema check is added. Backend failures
+        propagate and this wrapper opens no transaction.
+
+        Example:
+            The supplied primary and secondary order is retained; this helper does
+            not retry with reversed endpoints.
+
+
+        :param primary: Primary endpoint Row passed unchanged.
+        :param secondary: Secondary endpoint Row passed unchanged.
+        :param link_type: Relationship type passed unchanged; None uses database policy.
+        :return: Link result returned by database.intralink_rows.
+        """
         ...
 
     def publisher_publisher(
@@ -95,7 +198,22 @@ class IntralinkerAPI(Protocol):
         secondary: RowAPI,
         link_type: str | None = None,
     ) -> RowAPI:
-        """Relate two publisher/organisation rows and return the link row."""
+        """
+        Delegate an intralink between two publisher/organisation rows.
+
+        No priority argument or local schema check is added. Backend failures
+        propagate and this wrapper opens no transaction.
+
+        Example:
+            The supplied primary and secondary order is retained; this helper does
+            not retry with reversed endpoints.
+
+
+        :param primary: Primary endpoint Row passed unchanged.
+        :param secondary: Secondary endpoint Row passed unchanged.
+        :param link_type: Relationship type passed unchanged; None uses database policy.
+        :return: Link result returned by database.intralink_rows.
+        """
         ...
 
     def generic(
@@ -104,7 +222,22 @@ class IntralinkerAPI(Protocol):
         secondary: RowAPI,
         link_type: str | None = None,
     ) -> RowAPI:
-        """Discover and upsert an intralink for two compatible same-family rows."""
+        """
+        Delegate an intralink between two compatible same-family rows.
+
+        No priority argument or local schema check is added. Backend failures
+        propagate and this wrapper opens no transaction.
+
+        Example:
+            The supplied primary and secondary order is retained; this helper does
+            not retry with reversed endpoints.
+
+
+        :param primary: Primary endpoint Row passed unchanged.
+        :param secondary: Secondary endpoint Row passed unchanged.
+        :param link_type: Relationship type passed unchanged; None uses database policy.
+        :return: Link result returned by database.intralink_rows.
+        """
         ...
 
 

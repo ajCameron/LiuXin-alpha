@@ -1,7 +1,7 @@
 """
-Custom types which are used in the db.
+Define legacy database aliases, metadata vocabularies and SQLite capability protocols.
 
-May be superseded by a global typing module in utils later.
+IDs and names are ordinary int/str aliases, and TypedDict records remain ordinary dictionaries at runtime. Identifier and relator enums feed curated attachment-policy collections; observed Item identifiers allow every listed scheme. The SQLite protocols describe broad or narrow host interfaces without constructing connections or checking optional build/version capabilities. Attribute documentation strings and vocabulary constants are retained separately from declaration docs.
 """
 
 
@@ -77,7 +77,14 @@ AgentID = int
 
 class CreatorDataDict(TypedDict):
     """
-    Creator data - data about creators.
+    Describe a legacy creator mapping with required name, sort and link strings.
+
+    The three keys are required by static typing. Construction produces an ordinary mutable dict and performs no runtime key or value validation.
+
+    Example:
+        >>> creator = CreatorDataDict(name="Example", sort="Example", link="")
+        >>> creator["name"]
+        'Example'
     """
 
     name: str
@@ -101,7 +108,14 @@ MetadataDisplayDict = dict[Any, Any]
 
 class MetadataDict(TypedDict):
     """
-    Creator data - data about creators.
+    Describe legacy field metadata with required table and datatype entries.
+
+    table may be None for virtual fields. Optional keys describe physical/link columns, multiplicity, labels/search terms, display/category flags and composite behavior. These annotations do not fill defaults or validate dictionary contents.
+
+    Example:
+        >>> metadata: MetadataDict = {"table": None, "datatype": "composite"}
+        >>> sorted(metadata)
+        ['datatype', 'table']
     """
 
     table: Optional[str]
@@ -131,7 +145,13 @@ DataTypes = Literal["json", "text"]
 # Todo: How do we properly do type hints - a protocol?
 class DataTypesEnum(Enum):
     """
-    Valid enums for the database.
+    Name the narrow JSON/text payload categories used by this type module.
+
+    This ordinary Enum has string values but its members are not StrEnum values. It does not enumerate every datatype accepted by the wider legacy field system.
+
+    Example:
+        >>> DataTypesEnum.JSON.value
+        'json'
     """
 
     JSON: str = "json"
@@ -143,7 +163,13 @@ TableTypes = Literal[0, 1, 2, 3]
 
 class TableTypesEnum(Enum):
     """
-    Valid and recognized table types.
+    Name the four legacy relation-cardinality flags and their integer values.
+
+    ONE_ONE, MANY_ONE, MANY_MANY and ONE_MANY map to 0, 1, 2 and 3. Module-level constants expose those integer values directly; Enum members themselves remain ordinary Enum objects.
+
+    Example:
+        >>> (TableTypesEnum.MANY_MANY.value, MANY_MANY)
+        (2, 2)
     """
 
     ONE_ONE: int = 0
@@ -169,7 +195,15 @@ IdentifierEntityTypeStr = Literal["work", "expression", "manifestation", "item",
 
 # Todo: We need to type this.
 class IdentifierEntityType(StrEnum):
-    """Supported curated-identifier attachment targets in the FRBR graph."""
+    """
+    Name the five curated identifier attachment targets as string-compatible members.
+
+    The targets are Work, Expression, Manifestation, Item and Agent. The enum identifies a target category; scheme eligibility is stored in the separate per-target collections.
+
+    Example:
+        >>> IdentifierEntityType.WORK == "work"
+        True
+    """
 
     WORK = "work"
     EXPRESSION = "expression"
@@ -206,7 +240,17 @@ IdentifierSchemeStr = Literal[
 
 
 class IdentifierScheme(StrEnum):
-    """Canonical identifier scheme names for the FRBR identifier tables."""
+    """
+    Name the project identifier schemes while preserving legacy spelling variants.
+
+    Members are string-compatible labels. ISBN spellings with and without underscores remain separate members; this enum neither canonicalizes scheme names nor validates identifier values. Curated and observed eligibility is defined by separate collections.
+
+    Example:
+        >>> IdentifierScheme.ISBN_10 == IdentifierScheme.ISBN10
+        False
+        >>> IdentifierScheme.DOI == "doi"
+        True
+    """
 
     ISBN_10 = "isbn_10"
     ISBN_13 = "isbn_13"
@@ -366,7 +410,15 @@ MarcRelatorRoleStr = Literal[
 
 
 class MarcRelatorRole(StrEnum):
-    """Small curated MARC relator code set for agent links."""
+    """
+    Name the curated relator codes used for Agent credits.
+
+    This is the project subset of MARC relator labels, with string-compatible members such as AUTHOR="aut" and PUBLISHER="pbl". WEMI eligibility comes from the separate role collections; the enum itself does not validate a link.
+
+    Example:
+        >>> MarcRelatorRole.AUTHOR == "aut"
+        True
+    """
 
     ABRIDGER = "abr"
     ACTOR = "act"
@@ -488,13 +540,12 @@ BackupProgressCallback = Callable[[int, int, int], None]
 
 class SQLiteConnectionProtocol(Protocol):
     """
-    Structural protocol for objects compatible with ``sqlite3.Connection``.
+    Describe a broad standard-library-style SQLite connection interface.
 
-    This is intended for wrappers, adapters, mixins, and test doubles that expose
-    the practical public API of Python's standard-library SQLite connection.
+    This is a structural typing declaration, not an operational implementation or runtime capability check. The declaration includes exception classes, transaction/factory/state attributes and connection methods. Some advertised methods or keyword options depend on the host Python/SQLite build. This protocol is not runtime_checkable, and conformance must not be inferred merely from an object being a SQLite connection. Prefer a narrow Supports protocol when only part of the interface is consumed.
 
-    It is deliberately structural: an object does not need to inherit from
-    ``sqlite3.Connection`` as long as it provides the same attributes and methods.
+    Example:
+        An adapter may annotate a dependency as ``SQLiteConnectionProtocol`` when it needs both connection state and the declared optional APIs; ordinary SQL-only code can use ``SupportsExecute``.
     """
 
     # Exception classes exposed on Connection instances.
@@ -534,10 +585,20 @@ class SQLiteConnectionProtocol(Protocol):
 
     def __enter__(self) -> Self:
         """
-        Enter the connection context manager.
+        Enter a SQLite-style transaction context and return the connection.
 
-        Returns the connection object itself. The context manager commits on
-        successful exit and rolls back if an exception is raised.
+        Entering does not by itself start a transaction or arrange connection closure. Exit behavior depends on the transaction mode.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> with connection as entered:
+            ...     same = entered is connection
+            >>> same
+            True
+            >>> connection.close()
+
+
+        :return: The same connection object, typed as Self.
         """
         ...
 
@@ -548,50 +609,99 @@ class SQLiteConnectionProtocol(Protocol):
         tb: TracebackType | None,
     ) -> bool | None:
         """
-        Exit the connection context manager.
+        Finish a SQLite-style transaction context while allowing failures to propagate.
 
-        Commits if no exception occurred; rolls back if an exception occurred.
-        Returning false-ish allows any exception to propagate.
+        Active transactions are committed after successful bodies and rolled back after failures, subject to autocommit mode. Context exit leaves the connection open.
+
+        Example:
+            Use ``with connection:`` around related writes and close the connection separately after the block; a raised body exception requests rollback.
+
+
+        :param exc_type: Exception class from the context body, or None.
+        :param exc: Exception instance from the context body, or None.
+        :param tb: Associated traceback, or None.
+        :return: False or None for standard SQLite behavior, so a body exception is not suppressed.
         """
         ...
 
     def close(self) -> None:
         """
-        Close the database connection.
+        Release the SQLite connection and make it unavailable for further operations.
 
-        Further operations on the connection should fail after this is called.
+        Closing is separate from transaction commit; callers should complete the intended transaction explicitly before closing. The protocol does not implement resource cleanup.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> connection.close()
+
+
+        :return: None after the concrete connection close operation.
         """
         ...
 
     def commit(self) -> None:
         """
-        Commit the current transaction.
+        Request commit of the connection current transaction.
 
-        Has no effect if there is no open transaction.
+        Behavior follows the connection transaction-control mode; in particular, committing an idle legacy connection is harmless. This declaration adds no transaction boundary of its own.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> connection.commit()
+            >>> connection.close()
+
+
+        :return: None after the host commit operation.
         """
         ...
 
     def rollback(self) -> None:
         """
-        Roll back the current transaction.
+        Request rollback of the connection current transaction.
 
-        Has no effect if there is no open transaction.
+        Behavior follows the connection transaction-control mode. Callers should not treat this declaration as a savepoint or nested-transaction implementation.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> connection.rollback()
+            >>> connection.close()
+
+
+        :return: None after the host rollback operation.
         """
         ...
 
     def interrupt(self) -> None:
         """
-        Interrupt any currently executing SQLite operation on this connection.
+        Request interruption of currently running SQL on this connection.
 
-        This is usually called from another thread to abort a long-running query.
+        A controlling thread can use the concrete method to cancel a long operation; the executing query reports the resulting database error. This does not close the connection.
+
+        Example:
+            A cancellation handler holding the active connection can call ``connection.interrupt()`` while another thread runs a long query.
+
+
+        :return: None after the interruption request.
         """
         ...
 
     def cursor(self, factory: type[sqlite3.Cursor] | None = None) -> sqlite3.Cursor:
         """
-        Create and return a new cursor object.
+        Create a cursor through the host connection cursor factory.
 
-        A custom cursor factory may be supplied to override the default cursor type.
+        The declaration allows a None default, but concrete factories can require omission rather than an explicit None argument. Runtime constructor errors belong to the host.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> cursor = connection.cursor()
+            >>> cursor.connection is connection
+            True
+            >>> cursor.close()
+            >>> connection.close()
+
+
+        :param factory: Optional cursor subclass/factory; omit this argument for the standard cursor.
+        :return: New SQLite cursor associated with the connection.
         """
         ...
 
@@ -602,10 +712,20 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> sqlite3.Cursor:
         """
-        Execute a single SQL statement and return a cursor for its results.
+        Execute one parameterized SQL statement using a connection-level shortcut.
 
-        This is a convenience shortcut equivalent to creating a cursor and calling
-        ``cursor.execute(...)``.
+        The connection creates/uses a cursor for the operation. This declaration does not add commit, result fetching or parameter interpolation.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> connection.execute("SELECT ?", (7,)).fetchone()
+            (7,)
+            >>> connection.close()
+
+
+        :param sql: One SQL statement, passed positionally.
+        :param parameters: Positional values or named-parameter mapping, passed separately from SQL text.
+        :return: Cursor containing the statement result state.
         """
         ...
 
@@ -616,9 +736,17 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> sqlite3.Cursor:
         """
-        Execute one SQL statement repeatedly using multiple parameter sets.
+        Execute one SQL statement repeatedly with an iterable of parameter collections.
 
-        Typically used for bulk inserts or updates.
+        This is a connection shortcut for repeated cursor execution. Transaction completion remains the responsibility of the configured host/caller.
+
+        Example:
+            With a prepared table, ``connection.executemany("INSERT INTO choices(value) VALUES (?)", [("A",), ("B",)])`` binds each value separately.
+
+
+        :param sql: Repeated SQL statement, passed positionally.
+        :param parameters: Iterable supplying one positional sequence or named mapping per execution.
+        :return: Cursor for the batch operation; the protocol does not promise a fetched result collection.
         """
         ...
 
@@ -628,10 +756,16 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> sqlite3.Cursor:
         """
-        Execute a script containing one or more SQL statements.
+        Execute SQL script text containing one or more statements.
 
-        The script is passed to SQLite as a batch rather than as a single prepared
-        statement.
+        Transaction handling is host/mode dependent; this declaration does not make a script atomic or add an enclosing transaction. Supply transaction statements explicitly when the script requires them.
+
+        Example:
+            For an isolated connection, ``connection.executescript("CREATE TABLE choices(value TEXT); INSERT INTO choices VALUES ('A');")`` runs both statements.
+
+
+        :param sql_script: Complete script text; this method has no separate parameter-binding argument.
+        :return: Cursor returned by the concrete script execution.
         """
         ...
 
@@ -645,10 +779,23 @@ class SQLiteConnectionProtocol(Protocol):
         deterministic: bool = False,
     ) -> None:
         """
-        Register or remove a scalar SQL function.
+        Register or remove a scalar SQL function on the connection.
 
-        Passing ``None`` as ``func`` removes the function. ``narg`` is the number
-        of arguments accepted by the SQL function; ``-1`` means variable arity.
+        Callback invocation and SQL errors are handled by the concrete connection; the protocol only describes registration.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> connection.create_function("twice", 1, lambda value: value * 2)
+            >>> connection.execute("SELECT twice(?)", (4,)).fetchone()
+            (8,)
+            >>> connection.close()
+
+
+        :param name: SQL function name.
+        :param narg: Argument count, or -1 for variable arity.
+        :param func: Python callable returning a SQLite-compatible value, or None to remove it.
+        :param deterministic: Whether the function is declared deterministic for SQLite optimization.
+        :return: None after host registration.
         """
         ...
 
@@ -660,10 +807,16 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> None:
         """
-        Register or remove an aggregate SQL function.
+        Register or remove a SQL aggregate implemented by a Python class.
 
-        The aggregate class should provide SQLite-compatible ``step`` and
-        ``finalize`` methods. Passing ``None`` removes the aggregate.
+        Example:
+            Given ``Total`` with ``step(value)`` and ``finalize()``, ``connection.create_aggregate("total_values", 1, Total)`` exposes the aggregate to SQL.
+
+
+        :param name: SQL aggregate name.
+        :param n_arg: SQL argument count, or -1 for variable arity.
+        :param aggregate_class: Class implementing step and finalize, or None to remove registration.
+        :return: None after host registration.
         """
         ...
 
@@ -675,10 +828,18 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> None:
         """
-        Register or remove an aggregate window SQL function.
+        Register or remove a window aggregate on a capable connection.
 
-        The class should provide SQLite-compatible window aggregate methods such
-        as ``step``, ``value``, ``inverse``, and ``finalize``.
+        Window-function support depends on the underlying SQLite API; declaring this protocol does not supply missing support.
+
+        Example:
+            Given a compatible ``RollingTotal`` class, ``connection.create_window_function("rolling_total", 1, RollingTotal)`` installs the window aggregate.
+
+
+        :param name: SQL window-function name.
+        :param num_params: SQL argument count.
+        :param aggregate_class: Class supplying step, value, inverse and finalize, or None to remove it.
+        :return: None after host registration.
         """
         ...
 
@@ -689,10 +850,15 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> None:
         """
-        Register or remove a custom SQLite collation.
+        Register or remove a named SQLite text collation.
 
-        The callback compares two strings and returns a negative integer, zero,
-        or a positive integer, following normal comparison semantics.
+        Example:
+            With a comparator named ``compare_names``, ``connection.create_collation("name_order", compare_names)`` makes that ordering available to SQL COLLATE clauses.
+
+
+        :param name: SQL collation name.
+        :param callback: Two-string comparator returning negative/zero/positive, or None to remove it.
+        :return: None after host registration.
         """
         ...
 
@@ -702,10 +868,14 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> None:
         """
-        Set or clear the SQLite authorizer callback.
+        Install or clear the SQLite operation-authorization callback.
 
-        The callback is invoked by SQLite when SQL statements attempt operations
-        that can be allowed, denied, or ignored.
+        Example:
+            ``connection.set_authorizer(None)`` clears an existing authorizer on a connection supporting this hook.
+
+
+        :param authorizer_callback: Callback taking action code, two optional arguments, database name and trigger/view name; return an SQLite authorization result, or pass None to clear it.
+        :return: None after host callback configuration.
         """
         ...
 
@@ -716,10 +886,17 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> None:
         """
-        Set or clear the progress handler callback.
+        Install or clear the callback for periodic SQLite execution progress.
 
-        SQLite calls the handler roughly every ``n`` virtual-machine instructions.
-        Returning a non-zero value aborts the current query.
+        The handler controls query continuation; this declaration does not schedule Python-side timers or background work.
+
+        Example:
+            ``connection.set_progress_handler(lambda: int(cancelled), 1000)`` lets a surrounding cancellation flag stop a long query.
+
+
+        :param progress_handler: Zero-argument callback returning zero to continue or nonzero to abort; None clears it.
+        :param n: Approximate virtual-machine instruction interval between callbacks.
+        :return: None after host callback configuration.
         """
         ...
 
@@ -729,9 +906,16 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> None:
         """
-        Set or clear a callback invoked for each SQL statement executed.
+        Install or clear a callback observing SQL statements executed by SQLite.
 
-        Useful for logging, debugging, and lightweight query tracing.
+        Trace callbacks are observational hooks; their return value does not replace a query result.
+
+        Example:
+            ``connection.set_trace_callback(statements.append)`` collects executed statement text in a supplied list.
+
+
+        :param trace_callback: Callback receiving SQL text, or None to clear tracing.
+        :return: None after host callback configuration.
         """
         ...
 
@@ -745,10 +929,20 @@ class SQLiteConnectionProtocol(Protocol):
         sleep: float = 0.25,
     ) -> None:
         """
-        Back up this database into another SQLite connection.
+        Copy a selected source database into another SQLite connection.
 
-        ``pages`` controls how many pages are copied per step. ``name`` selects
-        the source database, usually ``"main"``.
+        The source is the connection on which backup is called. This protocol does not create or close either connection.
+
+        Example:
+            With a committed source and open destination, ``source.backup(destination, pages=64)`` copies the selected database.
+
+
+        :param target: Destination connection receiving the backup.
+        :param pages: Page count per step; a nonpositive value requests all remaining pages.
+        :param progress: Optional callback receiving status, remaining pages and total pages.
+        :param name: Source database name, normally main.
+        :param sleep: Delay in seconds between retry attempts.
+        :return: None after the concrete backup completes.
         """
         ...
 
@@ -758,10 +952,16 @@ class SQLiteConnectionProtocol(Protocol):
         filter: str | None = None,
     ) -> Iterator[str]:
         """
-        Return an iterator over SQL text that can recreate the database.
+        Yield SQL text that can recreate the selected database contents.
 
-        The optional filter restricts dumped objects by name on Python versions
-        that support it.
+        The filter keyword requires Python 3.13 or a compatible wrapper.
+
+        Example:
+            ``list(connection.iterdump())`` obtains SQL text without writing a dump file; use filter only when the host supports it.
+
+
+        :param filter: Optional SQL LIKE pattern restricting object names; None selects all objects.
+        :return: Iterator of SQL statement strings.
         """
         ...
 
@@ -772,9 +972,16 @@ class SQLiteConnectionProtocol(Protocol):
         name: str = "main",
     ) -> bytes:
         """
-        Serialize a database into a bytes object.
+        Return a byte representation of a selected SQLite database.
 
-        ``name`` selects the database to serialize, usually ``"main"``.
+        This capability depends on SQLite serialization support.
+
+        Example:
+            For a populated supporting connection, ``payload = connection.serialize(name="main")`` obtains a database image.
+
+
+        :param name: Database name to serialize, normally main.
+        :return: Serialized database bytes from the concrete host.
         """
         ...
 
@@ -786,9 +993,17 @@ class SQLiteConnectionProtocol(Protocol):
         name: str = "main",
     ) -> None:
         """
-        Replace a database with the contents of a serialized SQLite database.
+        Load a serialized database image into a named connection database.
 
-        ``name`` selects the database to replace, usually ``"main"``.
+        Standard SQLite deserialization reopens the selected database in memory.
+
+        Example:
+            Given a database image from serialize, ``connection.deserialize(payload, name="main")`` loads it into the selected connection database.
+
+
+        :param data: SQLite database image bytes.
+        :param name: Database name replaced by the loaded image.
+        :return: None after host deserialization.
         """
         ...
 
@@ -803,10 +1018,20 @@ class SQLiteConnectionProtocol(Protocol):
         name: str = "main",
     ) -> sqlite3.Blob:
         """
-        Open a BLOB column for incremental I/O.
+        Open one stored BLOB for incremental reading or writing.
 
-        ``table``, ``column``, and ``row`` identify the BLOB value. Set
-        ``readonly`` to prevent writes.
+        The requested row/value must support incremental BLOB access in the host. Opening a handle does not create the table or value.
+
+        Example:
+            For an existing BLOB row, ``with connection.blobopen("payloads", "data", 7, readonly=True) as blob:`` provides a scoped handle for ``blob.read()``.
+
+
+        :param table: Table containing the BLOB.
+        :param column: BLOB column name.
+        :param row: Integer row identifier selecting the value.
+        :param readonly: Whether the returned handle permits only reads.
+        :param name: Database name containing the table.
+        :return: SQLite Blob handle; the caller manages its lifetime separately from the connection.
         """
         ...
 
@@ -816,10 +1041,16 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> None:
         """
-        Enable or disable loading SQLite extensions.
+        Enable or disable extension loading on a capable connection.
 
-        Extension loading is disabled by default in many environments for
-        security reasons.
+        Extension-loading support is optional in SQLite builds. This declaration does not enable it automatically.
+
+        Example:
+            After an explicitly managed extension load, ``connection.enable_load_extension(False)`` turns further loading off on a supporting host.
+
+
+        :param enable: True to enable loading, False to disable it.
+        :return: None after host configuration.
         """
         ...
 
@@ -831,10 +1062,17 @@ class SQLiteConnectionProtocol(Protocol):
         entrypoint: str | None = None,
     ) -> None:
         """
-        Load a SQLite extension library.
+        Load a SQLite extension library through the connection.
 
-        ``entrypoint`` may be supplied on Python versions that support explicit
-        extension entry points.
+        Loading must be enabled and supported by the host; this protocol neither locates libraries nor manages their deployment.
+
+        Example:
+            With a configured library path and loading enabled, ``connection.load_extension(extension_path)`` requests its registration.
+
+
+        :param name: Extension library name/path passed positionally.
+        :param entrypoint: Optional explicit initialization entry point; None lets the host choose.
+        :return: None after the concrete extension load succeeds.
         """
         ...
 
@@ -844,9 +1082,17 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> int:
         """
-        Return the current SQLite runtime limit for a limit category.
+        Read one SQLite runtime limit category from the connection.
 
-        Categories are SQLite limit constants such as ``sqlite3.SQLITE_LIMIT_SQL_LENGTH``.
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> connection.getlimit(sqlite3.SQLITE_LIMIT_SQL_LENGTH) > 0
+            True
+            >>> connection.close()
+
+
+        :param category: SQLite limit-category integer constant.
+        :return: Current limit value reported by the host.
         """
         ...
 
@@ -857,9 +1103,21 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> int:
         """
-        Set a SQLite runtime limit and return the previous value.
+        Set one SQLite runtime limit and return its previous value.
 
-        SQLite silently truncates values above its hard upper bound.
+        Values above the underlying hard maximum are capped by SQLite.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> previous = connection.getlimit(sqlite3.SQLITE_LIMIT_SQL_LENGTH)
+            >>> connection.setlimit(sqlite3.SQLITE_LIMIT_SQL_LENGTH, -1) == previous
+            True
+            >>> connection.close()
+
+
+        :param category: SQLite limit-category integer constant.
+        :param limit: Requested limit; negative values leave the limit unchanged.
+        :return: Previous limit value, even when the requested value is capped or leaves it unchanged.
         """
         ...
 
@@ -869,9 +1127,16 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> bool:
         """
-        Return the current boolean state of a SQLite database configuration option.
+        Read the boolean state of a SQLite database configuration option.
 
-        Available only on Python versions that expose ``Connection.getconfig``.
+        Availability of this method and individual option constants depends on the runtime/build.
+
+        Example:
+            On a host exposing the option, ``connection.getconfig(sqlite3.SQLITE_DBCONFIG_ENABLE_FKEY)`` reports foreign-key enforcement state.
+
+
+        :param op: Supported SQLITE_DBCONFIG option integer.
+        :return: Boolean option state returned by the host.
         """
         ...
 
@@ -882,9 +1147,17 @@ class SQLiteConnectionProtocol(Protocol):
         /,
     ) -> None:
         """
-        Set a SQLite database configuration option.
+        Set a SQLite database configuration option on a supporting connection.
 
-        Available only on Python versions that expose ``Connection.setconfig``.
+        The protocol does not add support for options omitted by a particular runtime/build.
+
+        Example:
+            On a compatible host, ``connection.setconfig(sqlite3.SQLITE_DBCONFIG_ENABLE_FKEY, True)`` enables the option.
+
+
+        :param op: Supported SQLITE_DBCONFIG option integer.
+        :param enable: Whether to enable the option; defaults to True.
+        :return: None after the host applies the option.
         """
         ...
 
@@ -893,15 +1166,45 @@ class SQLiteConnectionProtocol(Protocol):
 # ---------------------------------------------------------------------------
 
 class SupportsCursor(Protocol):
-    """Provides cursor creation."""
+    """
+    Require only cursor creation.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A helper accepting ``connection: SupportsCursor`` can obtain a cursor with ``connection.cursor()``.
+    """
 
     def cursor(self, factory: type[sqlite3.Cursor] | None = None) -> sqlite3.Cursor:
-        """Create and return a new SQLite cursor."""
+        """
+        Create a cursor through the host connection cursor factory.
+
+        The declaration allows a None default, but concrete factories can require omission rather than an explicit None argument. Runtime constructor errors belong to the host.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> cursor = connection.cursor()
+            >>> cursor.connection is connection
+            True
+            >>> cursor.close()
+            >>> connection.close()
+
+
+        :param factory: Optional cursor subclass/factory; omit this argument for the standard cursor.
+        :return: New SQLite cursor associated with the connection.
+        """
         ...
 
 
 class SupportsExecute(Protocol):
-    """Provides single-statement SQL execution."""
+    """
+    Require the connection shortcut for one SQL statement.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A query helper can accept ``connection: SupportsExecute`` and call ``connection.execute("SELECT ?", (7,))``.
+    """
 
     def execute(
         self,
@@ -909,12 +1212,34 @@ class SupportsExecute(Protocol):
         parameters: SQLiteParams = (),
         /,
     ) -> sqlite3.Cursor:
-        """Execute a single SQL statement and return a cursor."""
+        """
+        Execute one parameterized SQL statement using a connection-level shortcut.
+
+        The connection creates/uses a cursor for the operation. This declaration does not add commit, result fetching or parameter interpolation.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> connection.execute("SELECT ?", (7,)).fetchone()
+            (7,)
+            >>> connection.close()
+
+
+        :param sql: One SQL statement, passed positionally.
+        :param parameters: Positional values or named-parameter mapping, passed separately from SQL text.
+        :return: Cursor containing the statement result state.
+        """
         ...
 
 
 class SupportsExecutemany(Protocol):
-    """Provides repeated execution of one SQL statement."""
+    """
+    Require the connection shortcut for repeated parameterized execution.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A bulk writer can accept ``connection: SupportsExecutemany`` and invoke ``executemany`` with its prepared statement and parameter iterable.
+    """
 
     def executemany(
         self,
@@ -922,19 +1247,49 @@ class SupportsExecutemany(Protocol):
         parameters: SQLiteManyParams,
         /,
     ) -> sqlite3.Cursor:
-        """Execute one SQL statement against multiple parameter sets."""
+        """
+        Execute one SQL statement repeatedly with an iterable of parameter collections.
+
+        This is a connection shortcut for repeated cursor execution. Transaction completion remains the responsibility of the configured host/caller.
+
+        Example:
+            With a prepared table, ``connection.executemany("INSERT INTO choices(value) VALUES (?)", [("A",), ("B",)])`` binds each value separately.
+
+
+        :param sql: Repeated SQL statement, passed positionally.
+        :param parameters: Iterable supplying one positional sequence or named mapping per execution.
+        :return: Cursor for the batch operation; the protocol does not promise a fetched result collection.
+        """
         ...
 
 
 class SupportsExecutescript(Protocol):
-    """Provides SQL script execution."""
+    """
+    Require connection-level SQL script execution.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A schema loader needing only scripts can annotate its connection as ``SupportsExecutescript``.
+    """
 
     def executescript(
         self,
         sql_script: str,
         /,
     ) -> sqlite3.Cursor:
-        """Execute a script containing one or more SQL statements."""
+        """
+        Execute SQL script text containing one or more statements.
+
+        Transaction handling is host/mode dependent; this declaration does not make a script atomic or add an enclosing transaction. Supply transaction statements explicitly when the script requires them.
+
+        Example:
+            For an isolated connection, ``connection.executescript("CREATE TABLE choices(value TEXT); INSERT INTO choices VALUES ('A');")`` runs both statements.
+
+
+        :param sql_script: Complete script text; this method has no separate parameter-binding argument.
+        :return: Cursor returned by the concrete script execution.
+        """
         ...
 
 
@@ -944,41 +1299,129 @@ class SupportsSQLExecution(
     SupportsExecutescript,
     Protocol,
 ):
-    """Provides the common connection-level SQL execution shortcuts."""
+    """
+    Combine single, repeated and script SQL execution capabilities.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A SQL utility supporting all three shortcuts can accept ``connection: SupportsSQLExecution`` without requiring backup or BLOB methods.
+    """
 
 
 class SupportsTransactions(Protocol):
-    """Provides explicit transaction control."""
+    """
+    Require commit, rollback and an in_transaction flag.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A transaction helper can inspect ``connection.in_transaction`` before deciding whether to call ``connection.rollback()``.
+    """
 
     in_transaction: bool
     """Whether a transaction is currently active."""
 
     def commit(self) -> None:
-        """Commit the current transaction."""
+        """
+        Request commit of the connection current transaction.
+
+        Behavior follows the connection transaction-control mode; in particular, committing an idle legacy connection is harmless. This declaration adds no transaction boundary of its own.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> connection.commit()
+            >>> connection.close()
+
+
+        :return: None after the host commit operation.
+        """
         ...
 
     def rollback(self) -> None:
-        """Roll back the current transaction."""
+        """
+        Request rollback of the connection current transaction.
+
+        Behavior follows the connection transaction-control mode. Callers should not treat this declaration as a savepoint or nested-transaction implementation.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> connection.rollback()
+            >>> connection.close()
+
+
+        :return: None after the host rollback operation.
+        """
         ...
 
 
 class SupportsConnectionLifecycle(Protocol):
-    """Provides basic connection lifecycle operations."""
+    """
+    Require connection closure and query interruption.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A connection owner can accept ``connection: SupportsConnectionLifecycle`` and close it when its work is complete.
+    """
 
     def close(self) -> None:
-        """Close the connection."""
+        """
+        Release the SQLite connection and make it unavailable for further operations.
+
+        Closing is separate from transaction commit; callers should complete the intended transaction explicitly before closing. The protocol does not implement resource cleanup.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> connection.close()
+
+
+        :return: None after the concrete connection close operation.
+        """
         ...
 
     def interrupt(self) -> None:
-        """Interrupt any currently executing operation on the connection."""
+        """
+        Request interruption of currently running SQL on this connection.
+
+        A controlling thread can use the concrete method to cancel a long operation; the executing query reports the resulting database error. This does not close the connection.
+
+        Example:
+            A cancellation handler holding the active connection can call ``connection.interrupt()`` while another thread runs a long query.
+
+
+        :return: None after the interruption request.
+        """
         ...
 
 
 class SupportsConnectionContext(Protocol):
-    """Provides sqlite3-style connection context manager behaviour."""
+    """
+    Require a SQLite-style transaction context-manager interface.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A helper using ``with connection:`` can require ``SupportsConnectionContext`` while its caller retains responsibility for connection closure.
+    """
 
     def __enter__(self) -> Self:
-        """Enter the connection context manager and return the connection."""
+        """
+        Enter a SQLite-style transaction context and return the connection.
+
+        Entering does not by itself start a transaction or arrange connection closure. Exit behavior depends on the transaction mode.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> with connection as entered:
+            ...     same = entered is connection
+            >>> same
+            True
+            >>> connection.close()
+
+
+        :return: The same connection object, typed as Self.
+        """
         ...
 
     def __exit__(
@@ -987,26 +1430,60 @@ class SupportsConnectionContext(Protocol):
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> bool | None:
-        """Exit the connection context manager."""
+        """
+        Finish a SQLite-style transaction context while allowing failures to propagate.
+
+        Active transactions are committed after successful bodies and rolled back after failures, subject to autocommit mode. Context exit leaves the connection open.
+
+        Example:
+            Use ``with connection:`` around related writes and close the connection separately after the block; a raised body exception requests rollback.
+
+
+        :param exc_type: Exception class from the context body, or None.
+        :param exc: Exception instance from the context body, or None.
+        :param tb: Associated traceback, or None.
+        :return: False or None for standard SQLite behavior, so a body exception is not suppressed.
+        """
         ...
 
 
 class SupportsRowFactory(Protocol):
-    """Provides row factory configuration."""
+    """
+    Require configurable conversion of cursor result rows.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A host typed as ``SupportsRowFactory`` can accept ``connection.row_factory = sqlite3.Row`` for subsequently created cursors.
+    """
 
     row_factory: RowFactory | None
     """Callable used to transform rows returned by cursors."""
 
 
 class SupportsTextFactory(Protocol):
-    """Provides text factory configuration."""
+    """
+    Require configurable conversion of SQLite TEXT bytes.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A host typed as ``SupportsTextFactory`` can use ``connection.text_factory = bytes`` when its caller needs raw text bytes.
+    """
 
     text_factory: TextFactory
     """Callable used to convert SQLite TEXT values."""
 
 
 class SupportsSQLiteState(Protocol):
-    """Provides common read-only SQLite connection state."""
+    """
+    Expose total_changes and in_transaction state for observation.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support. The intended use is observation; ordinary annotated Protocol attributes do not enforce read-only access at runtime.
+
+    Example:
+        A status helper can read ``connection.total_changes`` from a ``SupportsSQLiteState`` dependency.
+    """
 
     total_changes: int
     """Total number of changed rows since the connection was opened."""
@@ -1016,7 +1493,14 @@ class SupportsSQLiteState(Protocol):
 
 
 class SupportsFunctionRegistration(Protocol):
-    """Provides registration of custom SQL functions."""
+    """
+    Combine scalar, aggregate, window-function and collation registration.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A connection setup helper requiring these registrations can declare ``connection: SupportsFunctionRegistration``.
+    """
 
     def create_function(
         self,
@@ -1027,7 +1511,25 @@ class SupportsFunctionRegistration(Protocol):
         *,
         deterministic: bool = False,
     ) -> None:
-        """Register or remove a scalar SQL function."""
+        """
+        Register or remove a scalar SQL function on the connection.
+
+        Callback invocation and SQL errors are handled by the concrete connection; the protocol only describes registration.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> connection.create_function("twice", 1, lambda value: value * 2)
+            >>> connection.execute("SELECT twice(?)", (4,)).fetchone()
+            (8,)
+            >>> connection.close()
+
+
+        :param name: SQL function name.
+        :param narg: Argument count, or -1 for variable arity.
+        :param func: Python callable returning a SQLite-compatible value, or None to remove it.
+        :param deterministic: Whether the function is declared deterministic for SQLite optimization.
+        :return: None after host registration.
+        """
         ...
 
     def create_aggregate(
@@ -1037,7 +1539,18 @@ class SupportsFunctionRegistration(Protocol):
         aggregate_class: type[Any] | None,
         /,
     ) -> None:
-        """Register or remove an aggregate SQL function."""
+        """
+        Register or remove a SQL aggregate implemented by a Python class.
+
+        Example:
+            Given ``Total`` with ``step(value)`` and ``finalize()``, ``connection.create_aggregate("total_values", 1, Total)`` exposes the aggregate to SQL.
+
+
+        :param name: SQL aggregate name.
+        :param n_arg: SQL argument count, or -1 for variable arity.
+        :param aggregate_class: Class implementing step and finalize, or None to remove registration.
+        :return: None after host registration.
+        """
         ...
 
     def create_window_function(
@@ -1047,7 +1560,20 @@ class SupportsFunctionRegistration(Protocol):
         aggregate_class: type[Any] | None,
         /,
     ) -> None:
-        """Register or remove an aggregate window SQL function."""
+        """
+        Register or remove a window aggregate on a capable connection.
+
+        Window-function support depends on the underlying SQLite API; declaring this protocol does not supply missing support.
+
+        Example:
+            Given a compatible ``RollingTotal`` class, ``connection.create_window_function("rolling_total", 1, RollingTotal)`` installs the window aggregate.
+
+
+        :param name: SQL window-function name.
+        :param num_params: SQL argument count.
+        :param aggregate_class: Class supplying step, value, inverse and finalize, or None to remove it.
+        :return: None after host registration.
+        """
         ...
 
     def create_collation(
@@ -1056,19 +1582,45 @@ class SupportsFunctionRegistration(Protocol):
         callback: Callable[[str, str], int] | None,
         /,
     ) -> None:
-        """Register or remove a custom SQLite collation."""
+        """
+        Register or remove a named SQLite text collation.
+
+        Example:
+            With a comparator named ``compare_names``, ``connection.create_collation("name_order", compare_names)`` makes that ordering available to SQL COLLATE clauses.
+
+
+        :param name: SQL collation name.
+        :param callback: Two-string comparator returning negative/zero/positive, or None to remove it.
+        :return: None after host registration.
+        """
         ...
 
 
 class SupportsSQLiteHooks(Protocol):
-    """Provides SQLite callback hook registration."""
+    """
+    Combine authorizer, progress and SQL trace callback registration.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        An instrumented query runner can require ``SupportsSQLiteHooks`` before installing its progress and trace callbacks.
+    """
 
     def set_authorizer(
         self,
         authorizer_callback: AuthorizerCallback | None,
         /,
     ) -> None:
-        """Set or clear the SQLite authorizer callback."""
+        """
+        Install or clear the SQLite operation-authorization callback.
+
+        Example:
+            ``connection.set_authorizer(None)`` clears an existing authorizer on a connection supporting this hook.
+
+
+        :param authorizer_callback: Callback taking action code, two optional arguments, database name and trigger/view name; return an SQLite authorization result, or pass None to clear it.
+        :return: None after host callback configuration.
+        """
         ...
 
     def set_progress_handler(
@@ -1077,7 +1629,19 @@ class SupportsSQLiteHooks(Protocol):
         n: int,
         /,
     ) -> None:
-        """Set or clear the SQLite progress handler."""
+        """
+        Install or clear the callback for periodic SQLite execution progress.
+
+        The handler controls query continuation; this declaration does not schedule Python-side timers or background work.
+
+        Example:
+            ``connection.set_progress_handler(lambda: int(cancelled), 1000)`` lets a surrounding cancellation flag stop a long query.
+
+
+        :param progress_handler: Zero-argument callback returning zero to continue or nonzero to abort; None clears it.
+        :param n: Approximate virtual-machine instruction interval between callbacks.
+        :return: None after host callback configuration.
+        """
         ...
 
     def set_trace_callback(
@@ -1085,12 +1649,30 @@ class SupportsSQLiteHooks(Protocol):
         trace_callback: TraceCallback | None,
         /,
     ) -> None:
-        """Set or clear the SQLite trace callback."""
+        """
+        Install or clear a callback observing SQL statements executed by SQLite.
+
+        Trace callbacks are observational hooks; their return value does not replace a query result.
+
+        Example:
+            ``connection.set_trace_callback(statements.append)`` collects executed statement text in a supplied list.
+
+
+        :param trace_callback: Callback receiving SQL text, or None to clear tracing.
+        :return: None after host callback configuration.
+        """
         ...
 
 
 class SupportsBackup(Protocol):
-    """Provides SQLite online backup support."""
+    """
+    Require copying a database into another SQLite connection.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A backup helper can accept ``source: SupportsBackup`` and call ``source.backup(destination)``.
+    """
 
     def backup(
         self,
@@ -1101,24 +1683,64 @@ class SupportsBackup(Protocol):
         name: str = "main",
         sleep: float = 0.25,
     ) -> None:
-        """Back up this database into another SQLite connection."""
+        """
+        Copy a selected source database into another SQLite connection.
+
+        The source is the connection on which backup is called. This protocol does not create or close either connection.
+
+        Example:
+            With a committed source and open destination, ``source.backup(destination, pages=64)`` copies the selected database.
+
+
+        :param target: Destination connection receiving the backup.
+        :param pages: Page count per step; a nonpositive value requests all remaining pages.
+        :param progress: Optional callback receiving status, remaining pages and total pages.
+        :param name: Source database name, normally main.
+        :param sleep: Delay in seconds between retry attempts.
+        :return: None after the concrete backup completes.
+        """
         ...
 
 
 class SupportsIterdump(Protocol):
-    """Provides SQL dump generation."""
+    """
+    Require SQL dump generation with the declared optional filter.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A dump helper may accept ``connection: SupportsIterdump`` and iterate ``connection.iterdump()``; filtered dumping additionally needs host support.
+    """
 
     def iterdump(
         self,
         *,
         filter: str | None = None,
     ) -> Iterator[str]:
-        """Yield SQL statements that can recreate the database."""
+        """
+        Yield SQL text that can recreate the selected database contents.
+
+        The filter keyword requires Python 3.13 or a compatible wrapper.
+
+        Example:
+            ``list(connection.iterdump())`` obtains SQL text without writing a dump file; use filter only when the host supports it.
+
+
+        :param filter: Optional SQL LIKE pattern restricting object names; None selects all objects.
+        :return: Iterator of SQL statement strings.
+        """
         ...
 
 
 class SupportsSerialization(Protocol):
-    """Provides SQLite database serialization and deserialization."""
+    """
+    Require database byte-image serialization and loading.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A supporting connection typed as ``SupportsSerialization`` can expose a database image through ``connection.serialize()``.
+    """
 
     def serialize(
         self,
@@ -1126,7 +1748,18 @@ class SupportsSerialization(Protocol):
         *,
         name: str = "main",
     ) -> bytes:
-        """Serialize a database to bytes."""
+        """
+        Return a byte representation of a selected SQLite database.
+
+        This capability depends on SQLite serialization support.
+
+        Example:
+            For a populated supporting connection, ``payload = connection.serialize(name="main")`` obtains a database image.
+
+
+        :param name: Database name to serialize, normally main.
+        :return: Serialized database bytes from the concrete host.
+        """
         ...
 
     def deserialize(
@@ -1136,12 +1769,31 @@ class SupportsSerialization(Protocol):
         *,
         name: str = "main",
     ) -> None:
-        """Replace a database with serialized SQLite database bytes."""
+        """
+        Load a serialized database image into a named connection database.
+
+        Standard SQLite deserialization reopens the selected database in memory.
+
+        Example:
+            Given a database image from serialize, ``connection.deserialize(payload, name="main")`` loads it into the selected connection database.
+
+
+        :param data: SQLite database image bytes.
+        :param name: Database name replaced by the loaded image.
+        :return: None after host deserialization.
+        """
         ...
 
 
 class SupportsBlobOpen(Protocol):
-    """Provides incremental BLOB I/O."""
+    """
+    Require incremental access to an existing BLOB value.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A BLOB reader can accept ``connection: SupportsBlobOpen`` and request a read-only handle for its selected row.
+    """
 
     def blobopen(
         self,
@@ -1153,19 +1805,52 @@ class SupportsBlobOpen(Protocol):
         readonly: bool = False,
         name: str = "main",
     ) -> sqlite3.Blob:
-        """Open a BLOB column for incremental reading or writing."""
+        """
+        Open one stored BLOB for incremental reading or writing.
+
+        The requested row/value must support incremental BLOB access in the host. Opening a handle does not create the table or value.
+
+        Example:
+            For an existing BLOB row, ``with connection.blobopen("payloads", "data", 7, readonly=True) as blob:`` provides a scoped handle for ``blob.read()``.
+
+
+        :param table: Table containing the BLOB.
+        :param column: BLOB column name.
+        :param row: Integer row identifier selecting the value.
+        :param readonly: Whether the returned handle permits only reads.
+        :param name: Database name containing the table.
+        :return: SQLite Blob handle; the caller manages its lifetime separately from the connection.
+        """
         ...
 
 
 class SupportsExtensionLoading(Protocol):
-    """Provides SQLite extension loading controls."""
+    """
+    Require extension-loading controls and explicit library loading.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        Extension setup code can declare ``connection: SupportsExtensionLoading`` when it manages loading on a supporting host.
+    """
 
     def enable_load_extension(
         self,
         enable: bool,
         /,
     ) -> None:
-        """Enable or disable SQLite extension loading."""
+        """
+        Enable or disable extension loading on a capable connection.
+
+        Extension-loading support is optional in SQLite builds. This declaration does not enable it automatically.
+
+        Example:
+            After an explicitly managed extension load, ``connection.enable_load_extension(False)`` turns further loading off on a supporting host.
+
+
+        :param enable: True to enable loading, False to disable it.
+        :return: None after host configuration.
+        """
         ...
 
     def load_extension(
@@ -1175,19 +1860,50 @@ class SupportsExtensionLoading(Protocol):
         *,
         entrypoint: str | None = None,
     ) -> None:
-        """Load a SQLite extension library."""
+        """
+        Load a SQLite extension library through the connection.
+
+        Loading must be enabled and supported by the host; this protocol neither locates libraries nor manages their deployment.
+
+        Example:
+            With a configured library path and loading enabled, ``connection.load_extension(extension_path)`` requests its registration.
+
+
+        :param name: Extension library name/path passed positionally.
+        :param entrypoint: Optional explicit initialization entry point; None lets the host choose.
+        :return: None after the concrete extension load succeeds.
+        """
         ...
 
 
 class SupportsSQLiteLimits(Protocol):
-    """Provides SQLite runtime limit access."""
+    """
+    Require querying and changing SQLite runtime limits.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A connection policy helper can accept ``SupportsSQLiteLimits`` to inspect SQLITE_LIMIT_SQL_LENGTH.
+    """
 
     def getlimit(
         self,
         category: int,
         /,
     ) -> int:
-        """Return the current SQLite runtime limit for a category."""
+        """
+        Read one SQLite runtime limit category from the connection.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> connection.getlimit(sqlite3.SQLITE_LIMIT_SQL_LENGTH) > 0
+            True
+            >>> connection.close()
+
+
+        :param category: SQLite limit-category integer constant.
+        :return: Current limit value reported by the host.
+        """
         ...
 
     def setlimit(
@@ -1196,19 +1912,53 @@ class SupportsSQLiteLimits(Protocol):
         limit: int,
         /,
     ) -> int:
-        """Set a SQLite runtime limit and return the previous value."""
+        """
+        Set one SQLite runtime limit and return its previous value.
+
+        Values above the underlying hard maximum are capped by SQLite.
+
+        Example:
+            >>> connection = sqlite3.connect(":memory:")
+            >>> previous = connection.getlimit(sqlite3.SQLITE_LIMIT_SQL_LENGTH)
+            >>> connection.setlimit(sqlite3.SQLITE_LIMIT_SQL_LENGTH, -1) == previous
+            True
+            >>> connection.close()
+
+
+        :param category: SQLite limit-category integer constant.
+        :param limit: Requested limit; negative values leave the limit unchanged.
+        :return: Previous limit value, even when the requested value is capped or leaves it unchanged.
+        """
         ...
 
 
 class SupportsSQLiteConfig(Protocol):
-    """Provides SQLite database configuration access."""
+    """
+    Require boolean SQLite database-configuration access.
+
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support.
+
+    Example:
+        A setup helper can accept ``connection: SupportsSQLiteConfig`` when its host exposes the required DBCONFIG operations.
+    """
 
     def getconfig(
         self,
         op: int,
         /,
     ) -> bool:
-        """Return the state of a SQLite database configuration option."""
+        """
+        Read the boolean state of a SQLite database configuration option.
+
+        Availability of this method and individual option constants depends on the runtime/build.
+
+        Example:
+            On a host exposing the option, ``connection.getconfig(sqlite3.SQLITE_DBCONFIG_ENABLE_FKEY)`` reports foreign-key enforcement state.
+
+
+        :param op: Supported SQLITE_DBCONFIG option integer.
+        :return: Boolean option state returned by the host.
+        """
         ...
 
     def setconfig(
@@ -1217,7 +1967,19 @@ class SupportsSQLiteConfig(Protocol):
         enable: bool = True,
         /,
     ) -> None:
-        """Set a SQLite database configuration option."""
+        """
+        Set a SQLite database configuration option on a supporting connection.
+
+        The protocol does not add support for options omitted by a particular runtime/build.
+
+        Example:
+            On a compatible host, ``connection.setconfig(sqlite3.SQLITE_DBCONFIG_ENABLE_FKEY, True)`` enables the option.
+
+
+        :param op: Supported SQLITE_DBCONFIG option integer.
+        :param enable: Whether to enable the option; defaults to True.
+        :return: None after the host applies the option.
+        """
         ...
 
 
@@ -1233,10 +1995,12 @@ class SupportsSQLiteCore(
     Protocol,
 ):
     """
-    Provides the core sqlite3.Connection surface most wrappers actually need.
+    Combine cursor, SQL, transaction, lifecycle, context, factory and state capabilities.
 
-    This deliberately excludes backup, extension loading, custom SQL functions,
-    serialization, BLOB I/O, hooks, limits, and low-level config.
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support. Its bases omit custom-function registration, callback hooks, backup/dump, serialization, BLOB access, extension loading, limits and configuration.
+
+    Example:
+        A wrapper using the common SQLite surface can annotate its connection as ``SupportsSQLiteCore`` and leave optional specialized capabilities to separate dependencies.
     """
 
 
@@ -1254,8 +2018,10 @@ class SupportsFullSQLiteConnection(
     Protocol,
 ):
     """
-    Provides the broad sqlite3.Connection-like surface.
+    Combine the core interface with all declared optional SQLite capabilities.
 
-    Prefer narrower protocols for mixins unless the code genuinely needs the
-    whole beast.
+    This is a structural typing declaration, not an operational implementation or runtime capability check. These Protocol classes are not runtime_checkable; annotations alone do not establish host support. Unlike SQLiteConnectionProtocol, this composition does not declare exception-class attributes, isolation_level or autocommit.
+
+    Example:
+        A wrapper requiring backup, callbacks and BLOB access together can declare ``connection: SupportsFullSQLiteConnection`` after selecting a compatible host.
     """

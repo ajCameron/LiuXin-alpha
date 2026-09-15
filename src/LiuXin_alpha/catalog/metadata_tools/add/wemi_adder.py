@@ -1,4 +1,6 @@
-"""WEMI entity creation workflows for legacy metadata tools."""
+"""
+Insert individual WEMI Rows for the legacy Add composition.
+"""
 
 
 import datetime
@@ -14,10 +16,31 @@ from LiuXin_alpha.utils.language_tools import best_effort_language_id
 
 class WEMIAdderMixin:
     """
-    Add methods for the basic WEMI classes.
+    Provide unlinked entity insertion and shared date/flag coercion.
+
+    The host supplies db. Add also uses these coercion methods for Agent and
+    legacy-title workflows because this mixin precedes their helper definitions.
+
+    Example:
+        Create an Expression and link it to a Work separately through repository
+        or coordinated mutation operations.
     """
     @staticmethod
     def _coerce_epoch_ms(value: Optional[Union[int, float, datetime.date, datetime.datetime, str]]) -> Optional[int]:
+        """
+        Preserve integer epoch values and best-effort convert other date inputs.
+
+        Conversion Exceptions are suppressed; this helper does not impose a timezone
+        policy beyond to_epoch_ms.
+
+        Example:
+            An integer, including bool, is returned unchanged; other supported inputs call to_epoch_ms.
+
+
+        :param value: Integer, float, date/datetime, string, or None.
+        :return: Integer milliseconds, or None for unsupported/failed conversions.
+        """
+
         if value is None:
             return None
         if isinstance(value, int):
@@ -31,6 +54,20 @@ class WEMIAdderMixin:
 
     @staticmethod
     def _coerce_iso_date(value: Optional[Union[datetime.date, datetime.datetime, str]]) -> Optional[str]:
+        """
+        Convert date objects to ISO days while preserving other string forms.
+
+        No whitespace stripping or validation is applied to strings.
+
+        Example:
+            >>> WEMIAdderMixin._coerce_iso_date(" 2026-01-02 ")
+            ' 2026-01-02 '
+
+
+        :param value: Date/datetime, stringifiable value, or None.
+        :return: ISO day, str(value), or None.
+        """
+
         if value is None:
             return None
         if isinstance(value, datetime.datetime):
@@ -41,6 +78,20 @@ class WEMIAdderMixin:
 
     @staticmethod
     def _serialize_expression_flags(value: Optional[Iterable[str]]) -> Optional[str]:
+        """
+        Strip, deduplicate and comma-join flag tokens in first-occurrence order.
+
+        Nonstring tokens are stringified; case variants remain distinct.
+
+        Example:
+            >>> WEMIAdderMixin._serialize_expression_flags("draft, draft, revised")
+            'draft,revised'
+
+
+        :param value: Comma-separated string, token iterable, or None.
+        :return: Joined flags, or None when no nonblank tokens remain.
+        """
+
         if value is None:
             return None
         if isinstance(value, str):
@@ -79,25 +130,33 @@ class WEMIAdderMixin:
         work_created_timestamp: Optional[Union[int, float, datetime.datetime, str]] = None,
     ) -> RowAPI:
         """
-        Add methods for the Work entry of the WEMI tables.
+        Insert an unlinked Work from schema-prefixed metadata.
 
-        :param work_title:
-        :param work_canonical_title:
-        :param work_sort_title:
-        :param work_creator_sort:
-        :param work_type:
-        :param work_medium:
-        :param work_flags:
-        :param work_original_language:
-        :param work_original_date:
-        :param work_original_copyright_date:
-        :param work_wikipedia_link:
-        :param work_is_fiction:
-        :param work_audience:
-        :param work_completion_status:
-        :param work_discovery_note:
-        :param work_created_timestamp:
-        :return:
+        No relationship graph or transaction is created here. Database validation
+        remains authoritative; optional None values are retained in the payload.
+
+        Example:
+            ``catalog.add.work(work_title="Frankenstein")`` creates only a Work.
+
+
+        :param work_title: Preferred title, passed to storage without local blank validation.
+        :param work_canonical_title: Canonical title; None uses work_title.
+        :param work_sort_title: Sort title; None calls title_sort(work_title).
+        :param work_creator_sort: Creator-sort text stored unchanged.
+        :param work_type: Work type stored unchanged.
+        :param work_medium: Medium stored unchanged.
+        :param work_flags: Flags stored unchanged.
+        :param work_original_language: Language name/code/ID resolved with best_effort_language_id, or None.
+        :param work_original_date: Original date passed through the active epoch-ms coercion helper.
+        :param work_original_year: Original year stored unchanged, not inferred from the date.
+        :param work_original_copyright_date: Copyright value passed through the active ISO-date coercion helper.
+        :param work_wikipedia_link: Wikipedia link stored unchanged.
+        :param work_is_fiction: Fiction flag stored without bool coercion.
+        :param work_audience: Audience stored unchanged.
+        :param work_completion_status: Completion status stored unchanged.
+        :param work_discovery_note: Discovery note stored unchanged.
+        :param work_created_timestamp: Creation time; a successful conversion also sets modification time.
+        :return: Created database Row; synchronization and schema errors propagate.
         """
         # Normalize/create
 
@@ -175,23 +234,30 @@ class WEMIAdderMixin:
         expression_origin_note: Optional[str] = None,
     ) -> RowAPI:
         """
-        Add methods for the Expression table.
+        Insert an unlinked Expression with language and normalized flags.
 
-        :param expression_type:
-        :param expression_label:
-        :param expression_year:
-        :param expression_is_preferred:
-        :param expression_language:
-        :param expression_mode:
-        :param expression_title_override:
-        :param expression_subtitle:
-        :param expression_wordcount:
-        :param expression_fiction_length_category:
-        :param expression_cut_type:
-        :param expression_nominal_duration_seconds:
-        :param expression_status:
-        :param expression_origin_note:
-        :return:
+        Example:
+            Flags ``"draft, draft, revised"`` become ``"draft,revised"``; no Work link is added.
+
+
+        :param expression_subtitle: Subtitle stored unchanged.
+        :param expression_title_override: Title override stored unchanged.
+        :param expression_type: Expression type stored unchanged.
+        :param expression_label: Expression label stored unchanged.
+        :param expression_year: Year stored unchanged.
+        :param expression_is_preferred: Preferred flag stored without coercion.
+        :param expression_original_date: Original date passed through active epoch-ms coercion.
+        :param expression_original_copyright_date: Copyright value passed through active ISO-date coercion.
+        :param expression_flags: Comma-separated string or iterable; strip, omit blanks and deduplicate in order.
+        :param expression_language: Language name/code/ID resolved with best_effort_language_id, or None.
+        :param expression_mode: Mode stored unchanged.
+        :param expression_wordcount: Word count stored unchanged.
+        :param expression_fiction_length_category: Fiction-length category stored unchanged.
+        :param expression_cut_type: Cut type stored unchanged.
+        :param expression_nominal_duration_seconds: Duration in seconds stored unchanged.
+        :param expression_status: Status stored unchanged.
+        :param expression_origin_note: Origin note stored unchanged.
+        :return: Created database Row; synchronization and schema errors propagate.
         """
         # -Titles (generally formed from Work title; override only when truly different)
         new_row_dict = {"expression_subtitle": expression_subtitle}
@@ -255,23 +321,25 @@ class WEMIAdderMixin:
         manifestation_note: Optional[str] = None,
     ) -> RowAPI:
         """
-        Add methods for the Manifestation table.
+        Insert an unlinked Manifestation describing an edition or carrier.
 
-        :param manifestation_subtitle:
-        :param manifestation_carrier_type:
-        :param manifestation_format_detail: Specific format or product label,
-            such as ``EPUB``, ``PDF``, ``A-format paperback``, or ``4K UHD BD``.
-            Use ``manifestation_carrier_type`` for the broader carrier family.
-        :param manifestation_edition_statement:
-        :param manifestation_pub_year:
-        :param manifestation_pub_date:
-        :param manifestation_flags:
-        :param manifestation_page_count:
-        :param manifestation_runtime_minutes:
-        :param manifestation_region_code:
-        :param manifestation_status:
-        :param manifestation_note:
-        :return:
+        Example:
+            Creating a Manifestation does not select or link an Expression.
+
+
+        :param manifestation_subtitle: Subtitle stored unchanged.
+        :param manifestation_carrier_type: Carrier type stored unchanged.
+        :param manifestation_format_detail: Format detail stored unchanged.
+        :param manifestation_edition_statement: Edition statement stored unchanged.
+        :param manifestation_pub_year: Publication year stored unchanged.
+        :param manifestation_pub_date: Publication date passed through active ISO-date coercion.
+        :param manifestation_flags: Flags stored unchanged.
+        :param manifestation_page_count: Page count stored unchanged.
+        :param manifestation_runtime_minutes: Runtime in minutes stored unchanged.
+        :param manifestation_region_code: Region code stored unchanged.
+        :param manifestation_status: Status stored unchanged.
+        :param manifestation_note: Note stored unchanged.
+        :return: Created database Row; synchronization and schema errors propagate.
         """
         # - Title details
         new_manifestation_row = {"manifestation_subtitle": manifestation_subtitle}
@@ -325,20 +393,28 @@ class WEMIAdderMixin:
         item_condition: Optional[str] = None,
     ) -> RowAPI:
         """
-        Add methods for the Item table.
+        Insert an Item with optional Manifestation assignment and source metadata.
 
-        :param item_id:
-        :param item_manifestation_id:
-        :param item_type:
-        :param item_location:
-        :param item_inventory_code:
-        :param item_source:
-        :param item_source_detail:
-        :param item_acquired_date:
-        :param item_acquired_price_minor:
-        :param item_lifecycle_status:
-        :param item_condition:
-        :return:
+        Example:
+            A source path records provenance; this helper does not copy or inspect a file.
+
+
+        :param item_manifestation_id: Manifestation ID passed unchanged; no local lookup or conversion.
+        :param item_flags: Flags stored unchanged.
+        :param item_type: Item type stored unchanged.
+        :param item_location: Location stored unchanged.
+        :param item_inventory_code: Inventory code stored unchanged.
+        :param item_original_date: Original date passed through active epoch-ms coercion.
+        :param item_original_copyright_date: Copyright value passed through active ISO-date coercion.
+        :param item_source: Source label stored unchanged.
+        :param item_source_detail: Source detail stored unchanged.
+        :param item_source_path: Source path stored unchanged; no filesystem access.
+        :param item_source_name: Source name stored unchanged.
+        :param item_acquired_date: Acquisition date passed through active ISO-date coercion.
+        :param item_acquired_price_minor: Price in minor units stored unchanged; no currency conversion.
+        :param item_lifecycle_status: Lifecycle status stored unchanged.
+        :param item_condition: Condition stored unchanged.
+        :return: Created database Row; synchronization and schema errors propagate.
         """
         item_new_row_dict = {"item_manifestation_id": item_manifestation_id}
 

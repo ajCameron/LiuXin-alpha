@@ -1,4 +1,6 @@
-"""Generic immediate WEMI hierarchy traversal."""
+"""
+Route immediate WEMI adjacency reads to semantic repositories.
+"""
 
 from __future__ import annotations
 
@@ -8,9 +10,26 @@ from ..api.common import EntityId, WemiAdjacency, WemiLevel
 
 
 class HierarchyRetriever:
-    """Route generic parent/child requests to semantic WEMI repositories."""
+    """
+    Expose generic parent and child traversal over repository relationships.
+
+    Example:
+        Use ``catalog.retrieval.hierarchy.children(level="work", entity_id=work_id)``
+        when the caller knows a level rather than a repository method.
+    """
 
     def __init__(self, repositories: Any) -> None:
+        """
+        Retain the supplied repositories without querying or validating them.
+
+        Example:
+            Construct the service once when composing a Catalog; later calls use the same group.
+
+
+        :param repositories: Repository group used by later reads.
+        :return: None; stores the borrowed reference.
+        """
+
         self.repositories = repositories
 
     def children(
@@ -19,7 +38,18 @@ class HierarchyRetriever:
         level: WemiLevel,
         entity_id: EntityId,
     ) -> WemiAdjacency:
-        """Return all immediate children of one WEMI entity."""
+        """
+        Read immediate children and label their WEMI level.
+
+        Example:
+            Children of a Work are Expressions; grandchildren are not included.
+
+
+        :param level: Work, Expression, or Manifestation; Item and unknown levels are rejected.
+        :param entity_id: Existing parent ID, checked by the delegated repository.
+        :return: Adjacency with children in repository order; entities may be empty.
+        :raises ValueError: The requested level has no supported child level.
+        """
 
         if level == "work":
             related_level: WemiLevel = "expression"
@@ -46,7 +76,18 @@ class HierarchyRetriever:
         level: WemiLevel,
         entity_id: EntityId,
     ) -> WemiAdjacency:
-        """Return all immediate parents of one WEMI entity."""
+        """
+        Read immediate parents and label their WEMI level.
+
+        Example:
+            Parents of a Manifestation are its linked Expressions, with relationship metadata retained.
+
+
+        :param level: Expression, Manifestation, or Item; Work and unknown levels are rejected.
+        :param entity_id: Existing child ID, checked by the delegated repository.
+        :return: Adjacency in repository order; an Item has zero or one Manifestation.
+        :raises ValueError: The requested level has no supported parent level.
+        """
 
         if level == "expression":
             related_level: WemiLevel = "work"

@@ -36,7 +36,7 @@ from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
 from LiuXin_alpha.storage.store_backend_plugins.squashfs_build import (
     SquashfsBuildStorageBackend,
 )
-from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
+from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly.squashfs_readonly_storage_backend import (
     SquashfsReadOnlyStorageBackend,
 )
 from tests.fixtures.storage_unicode import (

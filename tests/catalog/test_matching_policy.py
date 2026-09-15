@@ -1,4 +1,12 @@
-"""Behavior tests for the catalog identity matching policy."""
+"""
+Exercise shared and specialized Catalog identity decisions against real repository rows.
+
+Pure value tests cover selected result shapes and identifier normalization. Database
+cases cover shared policy references, duplicate/conflicting identities, corroboration,
+Agent aliases and types, contextual Expression matching, identifier storage copies,
+and insufficient Item evidence. Fixtures and assertions are unchanged; each test
+documents the specific decision or exception it observes.
+"""
 
 from __future__ import annotations
 
@@ -19,6 +27,20 @@ from LiuXin_alpha.catalog.matching.policy import MatchingPolicy, normalise_ident
 
 
 def test_match_results_expose_explicit_validated_decisions() -> None:
+    """
+    Check legacy decision defaults, resolution predicates, and selected shape errors.
+
+    Construct match/no-match results without explicit decisions and an ambiguous result with
+    alternatives. Assert their predicates, then reject a match without an ID, a non-match with an
+    ID, and an evidence score above one. This selected boundary test does not cover every numeric or
+    container validation case.
+
+    Example:
+        >>> test_match_results_expose_explicit_validated_decisions()  # doctest: +SKIP
+
+
+    :return: None after the stated matching and error assertions pass.
+    """
     legacy_match = MatchResult(7, 0.9, "legacy compatible")
     legacy_non_match = MatchResult(None, 0.0, "legacy compatible")
 
@@ -44,6 +66,19 @@ def test_match_results_expose_explicit_validated_decisions() -> None:
 
 
 def test_identifier_normalization_is_scheme_specific() -> None:
+    """
+    Check ISBN checksum handling, DOI canonicalization, and generic case preservation.
+
+    Normalize one ISBN-13, one DOI URL, and one publisher-code string; assert the expected canonical
+    values. A changed ISBN check digit must raise ValueError. No remote authority or database is
+    consulted, and these examples do not cover every supported scheme or override form.
+
+    Example:
+        >>> test_identifier_normalization_is_scheme_specific()  # doctest: +SKIP
+
+
+    :return: None after the stated matching and error assertions pass.
+    """
     isbn = normalise_identifier(
         IdentifierCandidate("ISBN-13", "978-0-306-40615-7")
     )
@@ -65,6 +100,21 @@ def test_identifier_normalization_is_scheme_specific() -> None:
 
 
 def test_catalog_shares_one_configured_matching_policy(db) -> None:
+    """
+    Check identity of the supplied policy on selected Catalog owners.
+
+    Construct a Catalog with a custom ambiguity margin and assert that its grouped matcher object,
+    Work repository, and Agent repository retain that exact policy instance. This case checks those
+    three references rather than enumerating every repository or exercising the resulting
+    thresholds.
+
+    Example:
+        >>> test_catalog_shares_one_configured_matching_policy(db)  # doctest: +SKIP
+
+
+    :param db: Database fixture used for real catalogue rows, links, and repository operations.
+    :return: None after the stated matching and error assertions pass.
+    """
     policy = MatchingPolicy(ambiguity_margin=0.01)
     catalog = Catalog(db, matching_policy=policy)
 
@@ -74,6 +124,21 @@ def test_catalog_shares_one_configured_matching_policy(db) -> None:
 
 
 def test_duplicate_exact_work_titles_are_ambiguous_and_block_creation(db) -> None:
+    """
+    Check punctuation-equivalent Work titles produce an unresolved identity choice.
+
+    Create two Work rows whose titles differ by a colon, then assert an ambiguous decision with both
+    IDs in order and no selected ID. match_or_create must raise CatalogAmbiguousMatchError carrying
+    an equal result. The test observes the decision/error boundary without a separate post-error
+    row-count assertion.
+
+    Example:
+        >>> test_duplicate_exact_work_titles_are_ambiguous_and_block_creation(db)  # doctest: +SKIP
+
+
+    :param db: Database fixture used for real catalogue rows, links, and repository operations.
+    :return: None after the stated matching and error assertions pass.
+    """
     catalog = Catalog(db)
     title = f"Duplicate: Work {uuid.uuid4()}"
     first_id = catalog.works.create({"title": title})
@@ -91,6 +156,20 @@ def test_duplicate_exact_work_titles_are_ambiguous_and_block_creation(db) -> Non
 
 
 def test_sparse_work_rows_and_corroborated_approximate_titles_match(db) -> None:
+    """
+    Check sparse exact-title matching and the need to corroborate an approximate title.
+
+    Create a Work with title and year. An exact-title candidate containing an extra medium field
+    matches at confidence one, while a shortened title alone misses. Adding the matching year
+    selects the Work and records the year in matched_on.
+
+    Example:
+        >>> test_sparse_work_rows_and_corroborated_approximate_titles_match(db)  # doctest: +SKIP
+
+
+    :param db: Database fixture used for real catalogue rows, links, and repository operations.
+    :return: None after the stated matching and error assertions pass.
+    """
     catalog = Catalog(db)
     title = f"The Long Journey Home {uuid.uuid4()}"
     work_id = catalog.works.create({"title": title, "original_year": 1984})
@@ -115,6 +194,21 @@ def test_sparse_work_rows_and_corroborated_approximate_titles_match(db) -> None:
 
 
 def test_work_identifier_conflicts_are_explicit_and_block_creation(db) -> None:
+    """
+    Check conflicting UUID owners override otherwise usable Work title evidence.
+
+    Link different UUIDs to two Works. One identifier hint selects its Work with decisive evidence;
+    supplying both produces conflict with both owner IDs and decisive evidence throughout.
+    match_or_create must raise the matching-conflict exception carrying the same decision value; the
+    test does not recount rows afterward.
+
+    Example:
+        >>> test_work_identifier_conflicts_are_explicit_and_block_creation(db)  # doctest: +SKIP
+
+
+    :param db: Database fixture used for real catalogue rows, links, and repository operations.
+    :return: None after the stated matching and error assertions pass.
+    """
     catalog = Catalog(db)
     first_title = f"Identifier Work One {uuid.uuid4()}"
     second_title = f"Identifier Work Two {uuid.uuid4()}"
@@ -168,6 +262,20 @@ def test_work_identifier_conflicts_are_explicit_and_block_creation(db) -> None:
 
 
 def test_identifier_owner_rejects_a_radically_different_work_title(db) -> None:
+    """
+    Check that a linked identifier does not force a contradictory Work title match.
+
+    Create a Work and attach a UUID, then combine that UUID hint with an unrelated title. The result
+    must report conflict and retain the known owner as its sole alternative, without selecting it as
+    a safe match.
+
+    Example:
+        >>> test_identifier_owner_rejects_a_radically_different_work_title(db)  # doctest: +SKIP
+
+
+    :param db: Database fixture used for real catalogue rows, links, and repository operations.
+    :return: None after the stated matching and error assertions pass.
+    """
     catalog = Catalog(db)
     title = f"A Treatise on Botany {uuid.uuid4()}"
     work_id = catalog.works.create({"title": title})
@@ -193,6 +301,20 @@ def test_identifier_owner_rejects_a_radically_different_work_title(db) -> None:
 
 
 def test_duplicate_exact_agent_names_are_ambiguous(db) -> None:
+    """
+    Check duplicate Agent names remain ambiguous instead of choosing an arbitrary row.
+
+    Create two person Agents with identical names, assert both IDs appear in the ambiguous result,
+    and require match_or_create to raise CatalogAmbiguousMatchError. The fixture exercises real
+    repository rows rather than a matcher-only double.
+
+    Example:
+        >>> test_duplicate_exact_agent_names_are_ambiguous(db)  # doctest: +SKIP
+
+
+    :param db: Database fixture used for real catalogue rows, links, and repository operations.
+    :return: None after the stated matching and error assertions pass.
+    """
     catalog = Catalog(db)
     name = f"Alex Example {uuid.uuid4()}"
     first_id = catalog.agents.create({"name": name, "type": "person"})
@@ -207,6 +329,20 @@ def test_duplicate_exact_agent_names_are_ambiguous(db) -> None:
 
 
 def test_agent_aliases_match_exactly_and_agent_type_can_reject_them(db) -> None:
+    """
+    Check an exact organisation alias, incompatible Agent type, and unsupported approximation.
+
+    Store a canonical name plus a semicolon-separated alias. Matching the alias with organisation
+    type must select the Agent and cite agent_aliases. The same alias with person type and an
+    uncorroborated shortened alias must each yield no_match.
+
+    Example:
+        >>> test_agent_aliases_match_exactly_and_agent_type_can_reject_them(db)  # doctest: +SKIP
+
+
+    :param db: Database fixture used for real catalogue rows, links, and repository operations.
+    :return: None after the stated matching and error assertions pass.
+    """
     catalog = Catalog(db)
     canonical_name = f"Example Organisation {uuid.uuid4()}"
     alias = f"Example Press {uuid.uuid4()}"
@@ -235,6 +371,20 @@ def test_agent_aliases_match_exactly_and_agent_type_can_reject_them(db) -> None:
 
 
 def test_agent_hint_corroborates_an_approximate_work_title(db) -> None:
+    """
+    Check credited-Agent hints can support an approximate Work title.
+
+    Link an author to a Work and compare a shortened title with two Agent-hint sets. The credited
+    name selects the Work and appears in matched_on; an unrelated name yields no_match. This
+    verifies name evidence through the stored relationship.
+
+    Example:
+        >>> test_agent_hint_corroborates_an_approximate_work_title(db)  # doctest: +SKIP
+
+
+    :param db: Database fixture used for real catalogue rows, links, and repository operations.
+    :return: None after the stated matching and error assertions pass.
+    """
     catalog = Catalog(db)
     title = f"Collected Tales from Elsewhere {uuid.uuid4()}"
     work_id = catalog.works.create({"title": title})
@@ -268,6 +418,20 @@ def test_agent_hint_corroborates_an_approximate_work_title(db) -> None:
 
 
 def test_contextual_duplicate_expressions_are_ambiguous(db) -> None:
+    """
+    Check duplicate Expression labels inside one Work remain unresolved.
+
+    Create two Expressions, link both to the same Work, and assert that contextual matching returns
+    both IDs as alternatives. Contextual match_or_create must raise the ambiguity exception rather
+    than return a selected Expression ID.
+
+    Example:
+        >>> test_contextual_duplicate_expressions_are_ambiguous(db)  # doctest: +SKIP
+
+
+    :param db: Database fixture used for real catalogue rows, links, and repository operations.
+    :return: None after the stated matching and error assertions pass.
+    """
     catalog = Catalog(db)
     work_id = catalog.works.create({"title": f"Scoped Work {uuid.uuid4()}"})
     label = f"English text {uuid.uuid4()}"
@@ -288,6 +452,20 @@ def test_contextual_duplicate_expressions_are_ambiguous(db) -> None:
 
 
 def test_identifier_repository_uses_normalized_equality(db) -> None:
+    """
+    Check DOI spelling variants resolve to one stored identifier.
+
+    Persist a DOI URL and query a differently cased DOI-prefix form. Assert that matching selects
+    the stored ID and returns nonempty decisive evidence. The case checks local normalization and
+    lookup, without contacting a DOI service.
+
+    Example:
+        >>> test_identifier_repository_uses_normalized_equality(db)  # doctest: +SKIP
+
+
+    :param db: Database fixture used for real catalogue rows, links, and repository operations.
+    :return: None after the stated matching and error assertions pass.
+    """
     catalog = Catalog(db)
     identifier_id = catalog.identifiers.match_or_create(
         IdentifierCandidate("doi", "https://doi.org/10.1000/ABC")
@@ -301,6 +479,20 @@ def test_identifier_repository_uses_normalized_equality(db) -> None:
 
 
 def test_identifier_storage_copies_are_deterministic_but_owners_are_ambiguous(db) -> None:
+    """
+    Distinguish deterministic identifier-row selection from ambiguous bibliographic ownership.
+
+    Link the same UUID to two Works and assert identifier candidates follow the two storage-copy
+    IDs, with identifier best selecting the first. A Work candidate carrying only that UUID must
+    instead report both Work owners as ambiguous.
+
+    Example:
+        >>> test_identifier_storage_copies_are_deterministic_but_owners_are_ambiguous(db)  # doctest: +SKIP
+
+
+    :param db: Database fixture used for real catalogue rows, links, and repository operations.
+    :return: None after the stated matching and error assertions pass.
+    """
     catalog = Catalog(db)
     first_work_id = catalog.works.create(
         {"title": f"Copied Identifier One {uuid.uuid4()}"}
@@ -343,6 +535,20 @@ def test_identifier_storage_copies_are_deterministic_but_owners_are_ambiguous(db
 
 
 def test_descriptive_item_fields_do_not_establish_copy_identity(db) -> None:
+    """
+    Check shared shelf location alone cannot identify an Item copy.
+
+    Build a Work/Expression/Manifestation path and an Item with a shelf location. Matching another
+    candidate containing only that location within the same Manifestation must return no_match;
+    descriptive placement is insufficient identity evidence in this scenario.
+
+    Example:
+        >>> test_descriptive_item_fields_do_not_establish_copy_identity(db)  # doctest: +SKIP
+
+
+    :param db: Database fixture used for real catalogue rows, links, and repository operations.
+    :return: None after the stated matching and error assertions pass.
+    """
     catalog = Catalog(db)
     work_id = catalog.works.create({"title": f"Item Work {uuid.uuid4()}"})
     expression_id = catalog.expressions.match_or_create(

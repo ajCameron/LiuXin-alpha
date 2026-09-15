@@ -1,4 +1,16 @@
-"""Evidence-based Agent identity matching."""
+"""
+Match Agent names and aliases, with a separate identifier-owner decision path.
+
+Without identifier ownership, the matcher requires exact normalized name equality
+and rejects incompatible supplied Agent types. Approximate name-only matching is
+not enabled by lowering a policy threshold. Known identifier owners instead undergo
+type/name contradiction checks and return a terminal decision without the final
+acceptance gate. Repository mutation policy remains outside this read-only matcher.
+
+Example:
+    >>> AgentMatcher._aliases("Mary Shelley(#BREAK#)M. Shelley")
+    ('Mary Shelley', 'M. Shelley')
+"""
 
 from __future__ import annotations
 
@@ -26,11 +38,23 @@ from .policy import (
 
 
 class AgentMatcher:
-    """Match incoming metadata candidates to existing Agents.
+    """
+    Resolve Agents from exact normalized names/aliases or known identifier ownership.
 
-    :param db: Catalog database handle.
-    :param repositories: Bound catalog repository group.
-    :param policy: Matching decision boundaries.
+    Descriptive-only matching requires an exact normalized canonical name, sort name, or stored
+    alias; a conflicting supplied Agent type rejects the row. There is no approximate name-only
+    opt-in. Identifier-backed matching instead checks the unique owner's type and nearest name using
+    the configured conflict cutoff. That terminal path can return a match below ordinary confidence
+    acceptance. The matcher reads through repositories without creating entities.
+
+    Example:
+        >>> matcher = catalog.matching.agents  # doctest: +SKIP
+        >>> decision = matcher.exact("Mary Shelley")  # doctest: +SKIP
+
+
+    :ivar db: Borrowed database context retained without lifecycle management.
+    :ivar repositories: Group supplying Agent rows and curated identifier owner references.
+    :ivar policy: Identifier-name contradiction and evidence-label thresholds plus final descriptive selection boundaries.
     """
 
     def __init__(
@@ -39,12 +63,23 @@ class AgentMatcher:
         repositories: Any,
         policy: MatchingPolicy = DEFAULT_MATCHING_POLICY,
     ) -> None:
-        """Store the database, repository group, and policy.
+        """
+        Retain the database context, repository group, and Agent matching policy.
 
-        :param db: Catalog database handle.
-        :param repositories: Bound catalog repository group.
-        :param policy: Matching decision boundaries.
-        :return: None.
+        Assign all three objects by reference without type checks, queries, copying, or policy
+        rebinding. Actual reads use the supplied repositories; db is retained as context and is not
+        opened or closed by this matcher.
+
+        Example:
+            >>> matcher = AgentMatcher(None, None)
+            >>> matcher.policy is DEFAULT_MATCHING_POLICY
+            True
+
+
+        :param db: Borrowed database context retained on the matcher; repository objects perform the reads.
+        :param repositories: Group exposing the Agent and identifier repositories plus any supporting owners.
+        :param policy: Matching boundaries retained by reference; defaults to the shared frozen policy.
+        :return: None after assigning the three dependencies.
         """
 
         self.db = db
@@ -53,6 +88,22 @@ class AgentMatcher:
 
     @staticmethod
     def _candidate_name(data: RowMapping) -> object | None:
+        """
+        Choose canonical name before sort name, accepting any non-None value.
+
+        An empty or false-valued canonical name still wins over a supplied sort name. This helper
+        performs no text normalization, alias expansion, or type validation.
+
+        Example:
+            >>> AgentMatcher._candidate_name({"agent_canonical_name": "", "agent_sort_name": "Shelley, Mary"})
+            ''
+            >>> AgentMatcher._candidate_name({}) is None
+            True
+
+
+        :param data: Normalized candidate mapping containing canonical-name and/or sort-name columns.
+        :return: First non-None candidate name object, or None when neither column supplies one.
+        """
         for field in ("agent_canonical_name", "agent_sort_name"):
             value = data.get(field)
             if value is not None:
@@ -61,6 +112,26 @@ class AgentMatcher:
 
     @staticmethod
     def _aliases(value: object) -> tuple[str, ...]:
+        """
+        Read stored aliases from a JSON-array string or the legacy delimiter format.
+
+        Non-string and whitespace-only inputs yield no aliases. Text beginning with an opening
+        bracket after leading whitespace is attempted as JSON; a decoded list keeps only string
+        entries, without stripping, deduplicating, or removing empty strings. Caught JSON type/value
+        errors fall back to delimiter parsing. The fallback splits on (#BREAK#), semicolons,
+        vertical bars, and newlines, strips each piece, and omits empty pieces. This parser performs
+        no persistence.
+
+        Example:
+            >>> AgentMatcher._aliases('[" Mary ", 7, "", "Mary"]')
+            (' Mary ', '', 'Mary')
+            >>> AgentMatcher._aliases("Mary(#BREAK#) Percy;|Mary")
+            ('Mary', 'Percy', 'Mary')
+
+
+        :param value: Stored alias value; only strings are interpreted.
+        :return: Alias strings in stored order, with JSON and delimiter forms retaining their distinct whitespace/empty-value behavior.
+        """
         if not isinstance(value, str) or not value.strip():
             return ()
         if value.lstrip().startswith("["):
@@ -77,6 +148,23 @@ class AgentMatcher:
         )
 
     def _row_names(self, row: RowMapping) -> tuple[tuple[str, object], ...]:
+        """
+        Collect truthy stored names followed by parsed aliases in their original order.
+
+        Canonical and sort names are included only when truthy, unlike candidate-name selection's
+        non-None check. Parsed alias strings are appended under the agent_aliases field label,
+        including blanks retained by the JSON-array path. Neither names nor aliases are normalized
+        or deduplicated at this stage.
+
+        Example:
+            >>> matcher = AgentMatcher(None, None)
+            >>> matcher._row_names({"agent_canonical_name": "", "agent_sort_name": "Shelley", "agent_aliases": '[" Mary ", ""]'})
+            (('agent_sort_name', 'Shelley'), ('agent_aliases', ' Mary '), ('agent_aliases', ''))
+
+
+        :param row: Stored Agent mapping whose canonical name, sort name, and aliases should be collected.
+        :return: An ordered tuple of (stored field name, comparison value) pairs.
+        """
         names = [
             (field, row[field])
             for field in ("agent_canonical_name", "agent_sort_name")
@@ -93,6 +181,32 @@ class AgentMatcher:
         row: RowMapping,
         data: RowMapping,
     ) -> MatchResult | None:
+        """
+        Build an Agent candidate only for an exact normalized name and compatible type.
+
+        Choose the stored name/alias with greatest normalized similarity, taking the first on ties,
+        and reject every score other than one. Name evidence weighs six. When both Agent types are
+        non-None, compare normalized text: equality adds weight-two corroboration, while inequality
+        rejects the row immediately rather than emitting a conflict result.
+
+        Require an integer agent_id for a returned candidate, accepting bool under Python's integer
+        check and imposing no positivity rule. Retained evidence scores are all one, so confidence
+        is one. The result references the original row and names the actual selected field plus any
+        matching type in matched_on.
+
+        Example:
+            >>> matcher = AgentMatcher(None, None)
+            >>> row = {"agent_id": 7, "agent_canonical_name": "Mary Shelley", "agent_type": "person"}
+            >>> matcher._evaluate_row(row, {"agent_canonical_name": "MARY SHELLEY"}).confidence
+            1.0
+            >>> matcher._evaluate_row(row, {"agent_canonical_name": "Mary Shelley", "agent_type": "organisation"}) is None
+            True
+
+
+        :param row: Existing Agent row with available name variants and an integer ID for returned matches.
+        :param data: Normalized candidate name/type fields; identifiers are handled by a separate path.
+        :return: An exact descriptive candidate, or None for missing/inexact names, incompatible type, or an invalid ID type.
+        """
         expected_name = self._candidate_name(data)
         names = self._row_names(row)
         if expected_name is None or not names:
@@ -151,6 +265,32 @@ class AgentMatcher:
         candidate: MetadataCandidate,
         data: RowMapping,
     ) -> MatchResult | None:
+        """
+        Resolve identifier owners, then check the selected Agent's type and closest name.
+
+        Ignore hints with no usable integer owner IDs. A hint shared by several Agents yields
+        ambiguity over all owners before cross-hint conflict is considered; another narrower hint
+        does not disambiguate it. Different singleton owners yield conflict. A sole owner is
+        fetched, with absence reported as conflict containing the ID but no evidence items.
+
+        Existing-owner identifier evidence weighs ten. If both types are present and normalize
+        differently, append weight-two conflict evidence and return before comparing names.
+        Compatible types do not add evidence on this path. Compare a supplied name with the nearest
+        canonical/sort/alias value when available, labeling its weight-six evidence
+        agent_canonical_name regardless of the actual source field. Similarity strictly below
+        identifier_conflict_threshold yields conflict; otherwise return a match without final
+        confidence acceptance. Conflict-labeled name evidence can therefore coexist with an overall
+        match.
+
+        Example:
+            >>> terminal = matcher._identifier_decision(candidate, normalized_data)  # doctest: +SKIP
+
+
+        :param candidate: MetadataCandidate whose structured identifiers may resolve Agent owners.
+        :param data: Repository-normalized name/type fields used to check a uniquely identified owner.
+        :return: An identifier-backed match/ambiguous/conflict result, or None when no usable owner exists.
+        :raises Exception: Identifier parsing, owner retrieval, malformed IDs, and evidence failures propagate.
+        """
         resolved = identifier_owner_rows(
             self.repositories,
             candidate,
@@ -300,6 +440,24 @@ class AgentMatcher:
         self,
         candidate: MetadataCandidate,
     ) -> tuple[tuple[MatchResult, ...], MatchResult | None]:
+        """
+        Separate terminal identifier outcomes from descriptive Agent scan candidates.
+
+        Require a MetadataCandidate, then normalize fields while ignoring unknown columns and
+        retaining the repository's other alias/ID validation. Identifier rows are read first,
+        including when the candidate supplies no identifiers. A terminal match is both the sole
+        candidate and terminal result; terminal ambiguity/conflict supplies an empty candidate
+        tuple. Only an unresolved identifier lookup with no terminal decision scans all Agent rows.
+
+        Example:
+            >>> possible, terminal = matcher._evaluated_candidates(candidate)  # doctest: +SKIP
+
+
+        :param candidate: MetadataCandidate supplying Agent name/type fields and optional identifier hints.
+        :return: A (possible-match tuple, optional terminal decision) pair before display ranking.
+        :raises TypeError: If candidate is not a MetadataCandidate.
+        :raises Exception: Repository normalization, identifier lookup, and descriptive-evaluation failures propagate.
+        """
         if not isinstance(candidate, MetadataCandidate):
             raise TypeError("candidate must be a MetadataCandidate")
         repository = self.repositories.agents
@@ -322,11 +480,29 @@ class AgentMatcher:
         *,
         limit: int = 20,
     ) -> Sequence[MatchResult]:
-        """Return exact policy-qualified Agent candidates.
+        """
+        Collect possible Agent matches and apply a display limit after ranking.
 
-        :param candidate: Candidate Agent metadata and structured hints.
-        :param limit: Maximum candidates to return.
-        :return: Qualified candidates ordered by evidence and confidence.
+        The concrete matcher evaluates identifier ownership first, otherwise scanning descriptive
+        rows. Decisive evidence ranks ahead of descending confidence, then ascending entity ID with
+        -1 used for a false-valued ID. Acceptance and ambiguity are not resolved by this method.
+        Identifier ambiguity or conflict is suppressed as an empty candidate tuple; use best to
+        distinguish it.
+
+        A limit of zero still performs normalization and matching before returning empty. Candidate
+        records retain their stored row mappings and can have confidence below acceptance. No
+        catalogue entity is created or changed.
+
+        Example:
+            >>> candidates = catalog.matching.agents.candidates(candidate, limit=5)  # doctest: +SKIP
+
+
+        :param candidate: MetadataCandidate containing Agent fields and supported structured hints.
+        :param limit: Nonnegative integer result cap applied after evaluation; booleans are rejected.
+        :return: Ranked possible matches, returned as a tuple by the concrete implementation.
+        :raises TypeError: If limit is not an integer, is a boolean, or candidate is not a MetadataCandidate.
+        :raises ValueError: If limit is negative or a supplied identifier fails normalization.
+        :raises Exception: Repository access, input/hint parsing, and evidence failures propagate.
         """
 
         if not isinstance(limit, int) or isinstance(limit, bool):
@@ -345,10 +521,47 @@ class AgentMatcher:
         return tuple(ranked[:limit])
 
     def best(self, candidate: MetadataCandidate) -> MatchResult:
-        """Return the final Agent identity decision for ``candidate``.
+        """
+        Return the complete Agent decision, giving resolved identifier ownership priority.
 
-        :param candidate: Candidate Agent metadata and structured hints.
-        :return: Explained match, no-match, ambiguity, or conflict.
+        Identifier-backed match, ambiguity, and conflict results return directly. In particular, a
+        uniquely identified owner can remain a match below the ordinary acceptance threshold, and an
+        individual conflict evidence item need not make the overall decision conflict. Specialized
+        contradiction checks determine the terminal result. Descriptive-only candidates instead pass
+        through common acceptance and ambiguity selection over the full set.
+
+        The example uses in-memory repository stand-ins to show the distinction between weighted
+        confidence and a terminal identifier decision. Matching itself performs no persistence.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> owner = {"agent_id": 7, "agent_canonical_name": "abcd"}
+            >>> identifier = {
+            ...     "entity_identifier_entity_type": "agent",
+            ...     "entity_identifier_scheme": "local", "entity_identifier_value": "42",
+            ...     "entity_identifier_entity_id": 7,
+            ... }
+            >>> repository = SimpleNamespace(
+            ...     get=lambda entity_id: owner,
+            ...     normalise_input=lambda data, **options: dict(data),
+            ... )
+            >>> repositories = SimpleNamespace(
+            ...     agents=repository,
+            ...     identifiers=SimpleNamespace(_all_rows=lambda: (identifier,)),
+            ... )
+            >>> matcher = AgentMatcher(None, repositories)
+            >>> candidate = MetadataCandidate(
+            ...     {"agent_canonical_name": "abxy"}, hints={"identifiers": {"local": "42"}},
+            ... )
+            >>> result = matcher.best(candidate)
+            >>> result.decision, result.confidence, result.evidence[-1].kind
+            ('match', 0.8125, 'conflict')
+
+
+        :param candidate: MetadataCandidate carrying Agent fields and optional identifier/other supported hints.
+        :return: A match, no_match, ambiguous, or conflict result; selected records retain the stored row mapping.
+        :raises TypeError: If candidate is not a MetadataCandidate.
+        :raises Exception: Repository, input/hint normalization, and evidence failures propagate.
         """
 
         results, terminal = self._evaluated_candidates(candidate)
@@ -357,10 +570,22 @@ class AgentMatcher:
         return decide_best(results, subject="Agent", policy=self.policy)
 
     def exact(self, candidate_str: str) -> MatchResult:
-        """Apply the final policy to an Agent name string.
+        """
+        Apply final matching policy to one normalized Agent name string.
 
-        :param candidate_str: Agent name to normalize and match.
-        :return: Exact match, no-match, or ambiguity result.
+        This convenience supplies only the name, without identifier or supporting hints. Matching is
+        Unicode/case/punctuation tolerant, not byte equality; empty normalized text does not
+        establish identity. Duplicate qualifying rows can produce ambiguity. The concrete
+        implementation wraps the string in a MetadataCandidate and calls best.
+
+        Example:
+            >>> result = catalog.matching.agents.exact("Mary Shelley")  # doctest: +SKIP
+
+
+        :param candidate_str: Agent name supplied as a string; positional calls are portable across the protocol and implementation.
+        :return: A normalized exact match, no_match, or ambiguous result for the string-only input.
+        :raises TypeError: If the supplied title/name is not a string.
+        :raises Exception: Repository and delegated matching failures propagate.
         """
 
         if not isinstance(candidate_str, str):

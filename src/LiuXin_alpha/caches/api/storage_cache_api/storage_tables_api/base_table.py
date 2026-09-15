@@ -1,4 +1,9 @@
-"""Compatibility re-export for the storage table base API contracts."""
+"""
+Re-export canonical table metadata, cardinalities and base contracts.
+
+Keep the legacy integer cardinality constants, enum, null identity sentinel
+and base table API available at this import path without creating wrappers.
+"""
 
 from .base_table_api import (
     MANY_MANY,

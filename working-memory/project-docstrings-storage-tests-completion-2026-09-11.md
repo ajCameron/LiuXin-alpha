@@ -70,8 +70,11 @@ complete the wider source/test/script/example/inherited/data-submodule goal.
   Its illustration is now a plain Python code block; fixture/test behavior is
   unchanged. Focused recovery: **11 skipped**, 3.89s, exit 0. The rclone JSON token
   cap wording is corrected to characters. Both corrections pass the 26-file
-  AST/Ruff comparison and strict audit/normalizer. Full regression recovery is
-  tracked in the subsequent checkpoint.
+  AST/Ruff comparison and strict audit/normalizer. Full regression recovery in the
+  subsequent checkpoint completed with **1,244 passed, 883 skipped, 2 failed**:
+  the known manager size guard and sandbox-denied loopback socket creation. The
+  permission-approved HTTP rerun then passed (**1 passed**, 3.38s). The original
+  broad run's exit-1 evidence is retained; no whole-project green run is claimed.
 
 Durable results use
 `working-memory/test-results/docstrings-storage-tests-completion-2026-09-11-{regression,quality,contracts}.{log,done}`.

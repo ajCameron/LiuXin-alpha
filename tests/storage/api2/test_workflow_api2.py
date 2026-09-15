@@ -17,7 +17,7 @@ from uuid import UUID
 import pytest
 
 import LiuXin_alpha.storage.api as api
-from LiuXin_alpha.storage import utils as storage_utils
+import LiuXin_alpha.storage.utils.workflow as storage_utils
 
 
 PRIMARY_STORE_UUID = UUID("00000000-0000-0000-0000-000000000001")

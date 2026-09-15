@@ -2,8 +2,9 @@
 Check manager component ownership, ordering, size limits, and ingest codec identity.
 
 Imported-class introspection exercises the concrete composition and missing-helper
-failures. The codec case uses an in-memory request round trip; physical-line guards
-include documentation and remain separate from runtime complexity checks.
+failures. The codec case uses an in-memory request round trip. Physical-line guards
+exclude documentation-only lines, retain comments and other blank lines, and
+remain separate from runtime complexity checks.
 """
 
 from __future__ import annotations
@@ -49,6 +50,7 @@ from LiuXin_alpha.storage.storage_manager.mixins._policy_support import (
 from LiuXin_alpha.storage.storage_manager.mixins._support import (
     _StorageManagerSupportMixin,
 )
+from tests.support.docstring_ownership import SourceMetrics
 
 COMPONENTS = (
     (StoreAdministrationMixin, api.StoreAdministrationAPI),
@@ -122,8 +124,9 @@ def test_manager_module_stays_a_small_composition_root() -> None:
     Enforce physical-line ceilings for the manager owner and each adjacent top-level mixin file.
 
     The manager file may contain at most 120 lines and each mixin Python file at most 900.
-    splitlines counts documentation, comments, and blank lines as well as code. This bounded size
-    check does not measure executable complexity or nested directories.
+    Documentation-only lines are excluded; code, comments, other blank lines, and lines shared
+    with code still count. This size check does not measure executable complexity or nested
+    directories. Each source file is read and measured once.
 
     Example:
         >>> test_manager_module_stays_a_small_composition_root()  # doctest: +SKIP
@@ -132,14 +135,14 @@ def test_manager_module_stays_a_small_composition_root() -> None:
     :return: None when the manager and all directly contained mixin files fit the unchanged ceilings.
     """
     manager_path = Path(inspect.getfile(TransientStorageManager))
-    assert len(manager_path.read_text(encoding="utf-8").splitlines()) <= 120
+    assert SourceMetrics(manager_path.read_text(encoding="utf-8")).line_count() <= 120
 
     mixin_directory = manager_path.with_name("mixins")
-    oversized = {
-        path.name: len(path.read_text(encoding="utf-8").splitlines())
-        for path in mixin_directory.glob("*.py")
-        if len(path.read_text(encoding="utf-8").splitlines()) > 900
-    }
+    oversized = {}
+    for path in mixin_directory.glob("*.py"):
+        line_count = SourceMetrics(path.read_text(encoding="utf-8")).line_count()
+        if line_count > 900:
+            oversized[path.name] = line_count
     assert not oversized
 
 

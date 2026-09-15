@@ -1,8 +1,8 @@
 
 """
-Set methods for the custom columns.
+Mutate legacy custom-column SQL values and their results-cache projections.
 
-Responsible for writing value out to custom columns.
+Hosts supply metadata, adapters, macros, cache access and notification hooks. SQL writes, cache updates, dirtying and commits have separate failure boundaries; these methods do not provide a rollback context spanning the whole operation.
 """
 
 from __future__ import annotations
@@ -20,7 +20,12 @@ from LiuXin_alpha.utils.logging import default_log
 
 class CCSetMethodsMixin:
     """
-    Set values in a custom column.
+    Coordinate custom value writes with legacy cache and notification hooks.
+
+    Single and bulk writers delegate to _set_custom; the specialized text/multiple path uses temporary SQL tables. Existing adapter, macro and host-interface limitations propagate, including cleanup_tags failures for ordinary nonblank strings.
+
+    Example:
+        On a compatible host, set_custom(owner_id, 4, num=column_id, commit=False) stages a scalar update and dirtying while leaving the final explicit commit to its caller.
     """
     def set_custom_bulk_multiple(
         self: "CustomColumnsAPI",
@@ -32,16 +37,25 @@ class CCSetMethodsMixin:
         notify: bool = False,
     ) -> None:
         """
-        Fast algorithm for updating custom column is_multiple datatypes.
+        Apply additions and removals to several editable text/multiple values.
 
-        Do not use with other custom column datatypes.
-        :param cc_row_ids:
-        :param add:
-        :param remove:
-        :param label:
-        :param num:
-        :param notify:
-        :return:
+        Validate column editability/type, then clean both tag lists before checking empty owners or a no-op. Current CustomColumns.cleanup_tags fails for ordinary nonblank text. With a compatible override, exact additions win over identical removals, new values are inserted, fixed-name TEMP tables drive link changes, then owners are dirtied and committed before cache refresh. Temporary tables are not removed in a finally block, and one-shot owner iterators can be exhausted before later steps.
+
+        Example:
+            With a host supplying working tag cleanup and a reusable ID list, set_custom_bulk_multiple([1, 2], add=["Travel"], num=column_id) adds the tag to both owners.
+
+
+        :param cc_row_ids: Reusable owner-ID iterable; consumed by several database/cache/notification steps.
+        :param add: Tags to add, or None for none.
+        :param remove: Tags to remove, or None for none.
+        :param label: Optional custom-column label; takes precedence over num.
+        :param num: Numeric metadata key used when label is None.
+        :param notify: Whether to notify after committing and refreshing the cache, default False.
+        :return: None; no affected-owner result is returned.
+        :raises NotImplementedError: Neither label nor num is supplied.
+        :raises KeyError: The selected metadata record is absent.
+        :raises ValueError: The column is noneditable or not text/multiple.
+        :raises AttributeError: The current ordinary-string cleanup path attempts .decode on str.
         """
         if add is None:
             add = []
@@ -115,18 +129,23 @@ class CCSetMethodsMixin:
         extras: list[Any] = None,
     ) -> None:
         """
-        Change the value of a column for a set of books.
+        Call the single-owner worker in sequence, then dirty and commit the batch.
 
-        The ids parameter is a list of book ids to change. The extra field must be None or a list the same length as
-        ids.
-        :param cc_row_ids: The ids to set the value for
-        :param val: Value to set
-        :param label: Either this or the num is used to identify the column to set the value for
-        :param num: The id of the column in the custom columns table
-        :param append: If possible, the value is appended to the end of the current value in memory
-        :param notify: A notification callback
-        :param extras: Either None or a dictionary keyed with the positions of the individual ids in the ids itterator
-        :return:
+        A failure can follow earlier SQL/cache changes; no batch rollback is supplied. After a successful loop, dirty the requested IDs and commit even for an empty sequence. The worker’s additional case-change refresh IDs are not merged into that final dirtying call.
+
+        Example:
+            On a compatible host, set_custom_bulk([1, 2], "Saga", num=series_column, extras=[1.0, 2.0]) supplies a separate series position for each owner.
+
+
+        :param cc_row_ids: Sized sequence of owner IDs, retained for final dirtying.
+        :param val: Value passed to every worker call.
+        :param label: Optional custom-column label; takes precedence over num.
+        :param num: Numeric metadata key used when label is None.
+        :param append: Forward append behavior to each worker.
+        :param notify: Forward notification policy to each worker, which can notify before the final commit.
+        :param extras: Optional sequence of per-owner extras, required to match the ID count.
+        :return: None; additional owners returned by individual workers are discarded.
+        :raises ValueError: extras and cc_row_ids have different lengths.
         """
         if extras is not None and len(extras) != len(cc_row_ids):
             raise ValueError("Length of ids and extras is not the same")
@@ -151,24 +170,24 @@ class CCSetMethodsMixin:
         allow_case_change: bool = False,
     ) -> set[int]:
         """
-        Sets a single value for a custom column.
+        Write one owner’s custom value, dirty affected IDs and optionally commit.
 
-        This method calls the _set_custom method to do the actual work and notes that
-        the records in question have been dirtied using self.dirtied.
-        Calls self._set_custom with all this information, and dirties the appropriate record.
-        :param cc_row_id: The book id to set the custom column value for
-        :param val: The value to set the custom_column to
-        :param label: Either this, or the num, is used to specify which custom column to set the value for
-        :param num: The id of the custom column in the custom column table (either this or label can be used - label is
-                    checked first (this should be swapper around).
-        :param append:
-        :param notify: A handler to notify the database that the metadata of a book has changed
-        :param extra: If the data type is series sets the extra field of the link table to this value - which is the
-                      position of the book in the series
-        :param commit: Update the database with the newly changed value
-        :param allow_case_change: In a case where the data is normalized can case changes be made to use an existing
-                                  value?
-        :return:
+        Dirty the union of the requested ID and worker result with commit=False, then optionally commit. A composite worker returns an empty set without writing, but this wrapper still dirties the requested ID and may commit. Errors can follow partial writes or notification.
+
+        Example:
+            Given a compatible host, changed = set_custom(owner_id, "Draft", num=column_id, commit=False) returns extra owners requiring refresh without an explicit wrapper commit.
+
+
+        :param cc_row_id: Owner ID passed to the worker.
+        :param val: Value adapted by the worker.
+        :param label: Optional custom-column label; takes precedence over num.
+        :param num: Numeric metadata key used when label is None.
+        :param append: Append only where the selected storage supports multiple values.
+        :param notify: Let the worker notify before this method’s dirtying/commit step.
+        :param extra: Optional series position; None permits parsing/defaulting.
+        :param commit: Commit self.conn after dirtying when True.
+        :param allow_case_change: Allow the worker’s legacy case-change path for reused normalized values.
+        :return: Worker set of additional affected owner IDs; the requested ID is not automatically added to this return value.
         """
         rv = self._set_custom(
             cc_row_id,
@@ -197,20 +216,30 @@ class CCSetMethodsMixin:
         allow_case_change: bool = False,
     ) -> set[int]:
         """
-        Does the work of setting a custom column to be a designated value.
-        Will return an empty set if the datatype is composite (and, thus, not editable)
-        :param id_:
-        :param val:
-        :param label: Either this, or num, is used to determine the custom_column to operate on
-        :param num: The id of the custom column in the custom_columns table
-        :param append: Append the val to the current val in that table
-        :param notify:
-        :param extra: For a 'series' type custom column the link table has an additional column called extra - this can
-                      be set using this value.
-        :param allow_case_change: In a case where the data is normalized can case changes be made to use an existing
-                                  value?
-        :return books_to_refresh: A set of the book_ids which now need refreshing (specifically the caches - including
-                                  the backup of the metadata about the book) might need to be updated on disk.
+        Adapt and persist one custom value, then refresh its cached projection.
+
+        Composite values return an empty set before editability checks. Other writes require editable metadata. Normalized replacement clears links and cached value before adding truthy requested values; an existing series link does not update its extra. Unnormalized storage deletes the old owner value and inserts a non-None replacement. Reload the value through legacy meta2 SQL and update the cache. Current allow_case_change calls update_cc_value(table, value, id), reversing that macro’s ID/value parameters and omitting the explicit connection. No complete-operation commit or rollback is supplied here; delegated macros can have independent effects.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> host = SimpleNamespace(custom_column_num_map={1: {"datatype": "composite"}})
+            >>> CCSetMethodsMixin._set_custom(host, 7, "ignored", num=1)
+            set()
+
+
+        :param id_: Owner ID used by SQL and cache lookups.
+        :param val: Value passed through the datatype adapter.
+        :param label: Optional custom-column label; takes precedence over num.
+        :param num: Numeric metadata key used when label is None.
+        :param append: Preserve existing links only for multiple normalized storage when True.
+        :param notify: Emit metadata notification for this owner after cache refresh.
+        :param extra: Series position; when None, parse it from the adapted value or use 1.0.
+        :param allow_case_change: Permit case-change updates to an already stored normalized value.
+        :return: Set of other owner IDs found when a shared normalized spelling changes.
+        :raises NotImplementedError: Neither label nor num is supplied.
+        :raises KeyError: The selected metadata record is absent.
+        :raises ValueError: A non-composite column is not editable.
+        :raises InvalidUpdate: A truthy enumeration value is outside its allowed values.
         """
         # Todo: Swap the order in which these are checked everywhere
         if label is not None:

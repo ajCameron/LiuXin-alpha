@@ -1,4 +1,6 @@
-"""Apply normalized label metadata to catalogue entities."""
+"""
+Retain the legacy Tag-link mixin and its iterable dispatch behavior.
+"""
 
 
 from LiuXin_alpha.databases.api import RowAPI
@@ -15,19 +17,37 @@ from typing import Union, Iterable
 
 class LabelApplyMixin:
     """
-    Apply a label to a resource.
+    Provide Tag linking with runtime RowAPI checks to the Apply host.
+
+    Despite the class name, the implementation targets tags. Its current
+    iterable-before-string ordering is unsafe for nonempty text inputs.
+
+    Example:
+        Use a resolved Tag Row to take the direct link path.
     """
 
     db: DatabaseAPI
 
     def tag(self, tag: Union[RowAPI, Iterable[str]], resource: RowAPI) -> None:
         """
-        Apply a tag to the given resource.
+        Link Tag Rows or recursively process iterables using the legacy branch order.
 
-        If the tag is a row, apply it directly. If the tag is text, then ensure the tag, and then use that row.
-        :param tag: A row, string or iterable.
-        :param resource: Something which can have a tag applied to it.
-        :return:
+        An empty iterable, including empty text, returns without validating the
+        resource. The iterable branch makes later list/set and string resolution
+        branches unreachable for normal values of those types. Row inputs check
+        a tags-to-resource link table, then link Tag as primary. No transaction
+        wraps processing of several elements.
+
+        Example:
+            Pass an existing Tag Row for the direct linking path. A nonempty string
+            recurses into its own characters and can raise RecursionError.
+
+
+        :param tag: RowAPI object or iterable; string iteration currently precedes the text branch.
+        :param resource: RowAPI resource, validated only once a Tag Row has been resolved.
+        :return: None; duplicate/integrity errors during linking are suppressed.
+        :raises InputIntegrityError: A noniterable value, resource or link route is unsupported.
+        :raises RecursionError: A nonempty string is recursively iterated instead of resolved.
         """
         if isinstance(tag, RowAPI):
             tag_row = tag

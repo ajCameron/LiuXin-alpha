@@ -7,8 +7,7 @@ coordination. All names are re-exported unchanged from repositories.py. This
 package supplies no database implementation or external Store transaction.
 
 Durable manager adapters import these ports here. Application code should use
-StorageManagerAPI; its facade and historical repositories_api module retain
-identity-preserving compatibility exports of the same protocols.
+StorageManagerAPI operations instead of depending on these persistence ports.
 """
 
 from LiuXin_alpha.storage.api.persistence_api.repositories import (

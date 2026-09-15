@@ -1,9 +1,12 @@
-"""Catalog facade helpers for row-oriented metadata tools.
+"""
+Compose and export legacy row-oriented Catalog metadata helpers.
 
-The top-level :class:`~LiuXin_alpha.catalog.Catalog` facade composes these
-helpers and exposes them as ``catalog.add``, ``catalog.ensure``,
-``catalog.apply``, and ``catalog.intralink``. Direct imports remain supported
-for compatibility and characterization tests.
+Catalog exposes Add, Apply, Ensure and Intralinker through its composition
+root. Keep this compatibility path and its stable version export available;
+new work should use semantic repositories, coordinated mutations or writers.
+These helpers deal in metadata Rows; physical asset management belongs to
+storage/library services. Importing this module loads helper classes but does
+not construct a Catalog or open a database.
 """
 
 # Standard functions for making objects, checking that those objects don't already exist using the standardization

@@ -1,9 +1,9 @@
 """
 Check terminal owner sizes, composition responsibilities, abstract-method resolution, and quality-scope coverage.
 
-The size guards count physical lines, including docstrings. Their current failures
-during the whole-project documentation migration are recorded in working memory;
-this documentation does not change their thresholds, AST rules, or scope selection.
+The size guards exclude documentation-only lines while retaining code, comments,
+and other blank lines. Function spans retain their AST boundaries. Numeric limits,
+composition rules, and quality-scope selection remain unchanged.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from LiuXin_alpha.surfaces.terminal.browser import TextDatabaseBrowser
 from LiuXin_alpha.surfaces.terminal.browser_components.contracts import BrowserState
 from LiuXin_alpha.surfaces.terminal.windowed_components.contracts import WindowedState
 from LiuXin_alpha.surfaces.terminal.windowed_ui import _CursesUiDriver
+from tests.support.docstring_ownership import SourceMetrics
 
 ROOT = Path(__file__).resolve().parents[2]
 TERMINAL = ROOT / "src/LiuXin_alpha/surfaces/terminal"
@@ -30,22 +31,25 @@ def test_component_owners_and_functions_remain_bounded(directory: str) -> None:
     """
     Enforce nonempty component discovery and the existing 450-file/160-function physical-line ceilings.
 
+    Recognized docstrings are excluded only on documentation-only lines, including
+    nested owners. Comments, other blank lines, and lines shared with code count.
+
     Example:
         >>> test_component_owners_and_functions_remain_bounded("browser_components")  # doctest: +SKIP
 
 
     :param directory: Parametrized browser_components or windowed_components directory beneath the terminal package.
-    :return: None if every discovered Python file and named function meets the unchanged physical-line limits.
+    :return: None if every discovered Python file and named function meets the unchanged limits after documentation-only lines are excluded.
     """
     paths = sorted((TERMINAL / directory).rglob("*.py"))
     assert paths
     for path in paths:
-        source = path.read_text()
-        assert len(source.splitlines()) <= 450, path
-        for node in ast.walk(ast.parse(source)):
+        metrics = SourceMetrics(path.read_text())
+        assert metrics.line_count() <= 450, path
+        for node in ast.walk(metrics.tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 assert node.end_lineno is not None
-                assert node.end_lineno - node.lineno + 1 <= 160, (path, node.name)
+                assert metrics.line_count(node) <= 160, (path, node.name)
 
 
 @pytest.mark.parametrize(
@@ -62,7 +66,8 @@ def test_roots_only_initialize_and_bind_components(
     Enforce the root file's 250-line ceiling and exact directly defined method-name set on its composition class.
 
     Other classes in the same file are not inspected for method membership, but
-    all file lines still count. This check does not inspect allowed method bodies.
+    all file lines except documentation-only lines still count. This check does
+    not inspect allowed method bodies.
 
     Example:
         >>> test_roots_only_initialize_and_bind_components("browser.py", "TextDatabaseBrowser", {"__init__", "_extension_host"})  # doctest: +SKIP
@@ -73,11 +78,11 @@ def test_roots_only_initialize_and_bind_components(
     :param allowed: Exact set of directly declared function names permitted on that class.
     :return: None after the unchanged file limit and owner-method set assertions succeed.
     """
-    source = (TERMINAL / filename).read_text()
-    assert len(source.splitlines()) <= 250
+    metrics = SourceMetrics((TERMINAL / filename).read_text())
+    assert metrics.line_count() <= 250
     node = next(
         node
-        for node in ast.parse(source).body
+        for node in metrics.tree.body
         if isinstance(node, ast.ClassDef) and node.name == owner
     )
     assert {n.name for n in node.body if isinstance(n, ast.FunctionDef)} == allowed

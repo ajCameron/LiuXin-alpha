@@ -1,6 +1,6 @@
 
 """
-Custom column writers - responsible for writing information out to custom columns.
+Write legacy custom-series indexes to link columns and cached book values.
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
@@ -18,14 +18,24 @@ if TYPE_CHECKING:
 
 class CustomSeriesIndexWriter(BaseWriter):
     """
-    Class for writing data out to custom series index tables.
+    Adapt custom-series index values and bind the link-column update hook.
+
+    The hook updates the first linked series only; cache entries are assigned even when a book has no series link.
+
+    Example:
+        With a configured index field, ``CustomSeriesIndexWriter(field).set_books({7: 2.0}, db)`` updates its first series position.
     """
 
     def __init__(self, field: "FieldBasicInterfaceAPI") -> None:
         """
-        Startup the custom series index writer.
+        Initialize the shared adapter and bind ``custom_series_index``.
 
-        :param field:
+        Example:
+            Construct ``CustomSeriesIndexWriter(index_field)`` before passing book-to-index updates to ``set_books``.
+
+
+        :param field: Legacy field whose name and metadata select the inherited value adapter.
+        :return: None; stores the field and bound update hook.
         """
         super(CustomSeriesIndexWriter, self).__init__(field)
         self.set_books_func = self.custom_series_index
@@ -33,14 +43,19 @@ class CustomSeriesIndexWriter(BaseWriter):
     @staticmethod
     def custom_series_index(book_id_val_map, db: "CatalogAPI", field, *args) -> set[int]:
         """
-        Table of type series have an extra column in their link table - which is the index of that custom series.
+        Assign cached indexes and persist those with a linked series.
 
-        This method writes new values for the custom index out to the database.
-        :param book_id_val_map: Keyed with the id of the book and valued with the new index value for that book.
-        :param db: The database to preform the update in
-        :param field: The base field - the name of the index field will be constructed from that
-        :param args: Any additional arguments are ignored
-        :return:
+        For each book, inspect ``series_field.ids_for_book`` and use its first ID, wrapping a scalar integer in a tuple. Assign every requested cache value before issuing one batch macro call. Books without a truthy linked-ID result affect the cache but are absent from the returned set. A later lookup or write failure does not roll back earlier cache assignments.
+
+        Example:
+            For a book linked to series 4, ``custom_series_index({7: None}, db, field)`` writes index 1.0 for link (7, 4) and returns {7}. With no link it still caches 1.0 but returns an empty set.
+
+
+        :param book_id_val_map: Book IDs mapped to new index values; None becomes 1.0.
+        :param db: Database adapter wrapped or called by the writer; collaborator failures propagate.
+        :param field: Index field exposing series_field, table.book_col_map and table/column metadata.
+        :param args: Additional compatibility arguments, ignored by this hook.
+        :return: Set of book IDs included in the database update sequence.
         """
         series_field = field.series_field
         sequence = []

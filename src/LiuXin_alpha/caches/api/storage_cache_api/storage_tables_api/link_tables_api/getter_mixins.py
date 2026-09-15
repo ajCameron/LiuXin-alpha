@@ -1,4 +1,10 @@
-"""Read-side helpers shared by link-table storage-cache contracts."""
+"""
+Define common plural endpoint projections and raw pair-row lookup contracts.
+
+The mixin keeps source and destination traversal symmetric. Value searches
+match the opposite table before crossing links; column projections read
+the requested endpoint side. Concrete classes supply all lookup behavior.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +18,16 @@ from LiuXin_alpha.databases.db_types import DstTableID, SrcTableID, TableColumnN
 
 class StorageCacheGetterMixinAPI(abc.ABC):
     """
-    Common methods for getting infomation about linked tables.
+    Specify shared plural directed link queries independently of cache storage.
+
+    Abstract getters separate projected link values, raw association Rows
+    and endpoint IDs/Rows/column values. Cardinality determines scalar versus
+    plural lookup shapes; value searches can be plural even for singular links.
+    Concrete backends define freshness, copying, ordering and ambiguity errors.
+
+    Example:
+        Retrieve a physical link Row when its stored metadata columns are needed,
+        or an endpoint Row when the linked entity payload is needed.
     """
 
     # -------------------
@@ -25,13 +40,19 @@ class StorageCacheGetterMixinAPI(abc.ABC):
             require_ordering: bool = False,
             type_filter: Optional[str] = None) -> Sequence[SrcTableID]:
         """
-        Return the src ids linked to a dst id.
+        Find source identities linked to the selected destination identity.
 
-        :param dst_id:
-        :param require_ordering:
-        :param type_filter:
+        Abstract contract. Traverse accepted links in the requested direction. Snapshot freshness
+        and endpoint-existence checks belong to the concrete backend.
 
-        :return:
+        Example:
+            Use this direction to traverse from destination rows back to source rows.
+
+
+        :param dst_id: Destination row identity for reverse link selection.
+        :param require_ordering: Request supported link ordering; concrete priority rules may order even when false.
+        :param type_filter: Optional exact link-type restriction interpreted by the backend.
+        :return: Sequence of linked source identities; repeated links/value matches may remain repeated.
         """
 
     @abc.abstractmethod
@@ -42,13 +63,21 @@ class StorageCacheGetterMixinAPI(abc.ABC):
             require_ordering: bool = False,
             type_filter: Optional[str] = None) -> Sequence[SrcTableID]:
         """
-        Search the dst table for a value, and return the src ids corresponding to it.
+        Find source identities linked to destination-column value matches.
 
-        :param dst_value:
-        :param dst_column:
-        :param require_ordering:
-        :param type_filter:
-        :return:
+        Abstract contract. Value matching searches the opposite endpoint table before traversing
+        links; several matching rows can make the result plural even for one-to-one
+        relations.
+
+        Example:
+            Several equal destination values can contribute several source results.
+
+
+        :param dst_value: Value matched against the specified destination-table column.
+        :param dst_column: Destination column to search or project, according to the getter.
+        :param require_ordering: Request supported link ordering; concrete priority rules may order even when false.
+        :param type_filter: Optional exact link-type restriction interpreted by the backend.
+        :return: Sequence of linked source identities; repeated links/value matches may remain repeated.
         """
 
     @abc.abstractmethod
@@ -58,13 +87,20 @@ class StorageCacheGetterMixinAPI(abc.ABC):
             require_ordering: bool = False,
             type_filter: Optional[str] = None) -> Sequence["RowAPI"]:
         """
-        Return the src rows linked to a dst id.
+        Find source Rows linked to the selected destination identity.
 
-        :param dst_id:
-        :param require_ordering:
-        :param type_filter:
+        Abstract contract. Traverse accepted links in the requested direction. Snapshot freshness
+        and endpoint-existence checks belong to the concrete backend.
+        Row payload ownership and treatment of dangling endpoints are backend-specific.
 
-        :return:
+        Example:
+            Use this direction to traverse from destination rows back to source rows.
+
+
+        :param dst_id: Destination row identity for reverse link selection.
+        :param require_ordering: Request supported link ordering; concrete priority rules may order even when false.
+        :param type_filter: Optional exact link-type restriction interpreted by the backend.
+        :return: Sequence of linked source Rows; repeated links/value matches may remain repeated.
         """
 
     @abc.abstractmethod
@@ -75,13 +111,22 @@ class StorageCacheGetterMixinAPI(abc.ABC):
             require_ordering: bool = False,
             type_filter: Optional[str] = None) -> Sequence["RowAPI"]:
         """
-        Search the dst table for a value, and return the src ids corresponding to it.
+        Find source Rows linked to destination-column value matches.
 
-        :param dst_value:
-        :param dst_column:
-        :param require_ordering:
-        :param type_filter:
-        :return:
+        Abstract contract. Value matching searches the opposite endpoint table before traversing
+        links; several matching rows can make the result plural even for one-to-one
+        relations.
+        Row payload ownership and treatment of dangling endpoints are backend-specific.
+
+        Example:
+            Several equal destination values can contribute several source results.
+
+
+        :param dst_value: Value matched against the specified destination-table column.
+        :param dst_column: Destination column to search or project, according to the getter.
+        :param require_ordering: Request supported link ordering; concrete priority rules may order even when false.
+        :param type_filter: Optional exact link-type restriction interpreted by the backend.
+        :return: Sequence of linked source Rows; repeated links/value matches may remain repeated.
         """
 
     @abc.abstractmethod
@@ -92,13 +137,22 @@ class StorageCacheGetterMixinAPI(abc.ABC):
             require_ordering: bool = False,
             type_filter: Optional[str] = None) -> Sequence[Any]:
         """
-        Return the values linked to a given src id.
+        Find source column values linked to the selected destination identity.
 
-        :param dst_id:
-        :param src_column:
-        :param require_ordering:
-        :param type_filter:
-        :return:
+        Abstract contract. Traverse accepted links in the requested direction. Snapshot freshness
+        and endpoint-existence checks belong to the concrete backend.
+        Read the named column on the returned endpoint side; null/default handling
+        is supplied by the implementation.
+
+        Example:
+            Use this direction to traverse from destination rows back to source rows.
+
+
+        :param dst_id: Destination row identity for reverse link selection.
+        :param src_column: Source column to search or project, according to the getter.
+        :param require_ordering: Request supported link ordering; concrete priority rules may order even when false.
+        :param type_filter: Optional exact link-type restriction interpreted by the backend.
+        :return: Sequence of linked source column values; repeated links/value matches may remain repeated.
         """
 
     # -------------------
@@ -112,13 +166,19 @@ class StorageCacheGetterMixinAPI(abc.ABC):
             require_ordering: bool = False,
             type_filter: Optional[str] = None) -> Sequence[DstTableID]:
         """
-        Return the src ids linked to a dst id.
+        Find destination identities linked to the selected source identity.
 
-        :param src_id:
-        :param require_ordering:
-        :param type_filter:
+        Abstract contract. Traverse accepted links in the requested direction. Snapshot freshness
+        and endpoint-existence checks belong to the concrete backend.
 
-        :return:
+        Example:
+            Use this direction to traverse from source rows back to destination rows.
+
+
+        :param src_id: Source row identity for directed link selection.
+        :param require_ordering: Request supported link ordering; concrete priority rules may order even when false.
+        :param type_filter: Optional exact link-type restriction interpreted by the backend.
+        :return: Sequence of linked destination identities; repeated links/value matches may remain repeated.
         """
 
     @abc.abstractmethod
@@ -129,13 +189,21 @@ class StorageCacheGetterMixinAPI(abc.ABC):
             require_ordering: bool = False,
             type_filter: Optional[str] = None) -> Sequence[DstTableID]:
         """
-        Search the dst table for a value, and return the src ids corresponding to it.
+        Find destination identities linked to source-column value matches.
 
-        :param src_value:
-        :param src_column:
-        :param require_ordering:
-        :param type_filter:
-        :return:
+        Abstract contract. Value matching searches the opposite endpoint table before traversing
+        links; several matching rows can make the result plural even for one-to-one
+        relations.
+
+        Example:
+            Several equal source values can contribute several destination results.
+
+
+        :param src_value: Value matched against the specified source-table column.
+        :param src_column: Source column to search or project, according to the getter.
+        :param require_ordering: Request supported link ordering; concrete priority rules may order even when false.
+        :param type_filter: Optional exact link-type restriction interpreted by the backend.
+        :return: Sequence of linked destination identities; repeated links/value matches may remain repeated.
         """
 
     @abc.abstractmethod
@@ -145,13 +213,20 @@ class StorageCacheGetterMixinAPI(abc.ABC):
             require_ordering: bool = False,
             type_filter: Optional[str] = None) -> Sequence["RowAPI"]:
         """
-        Return the src rows linked to a dst id.
+        Find destination Rows linked to the selected source identity.
 
-        :param src_id:
-        :param require_ordering:
-        :param type_filter:
+        Abstract contract. Traverse accepted links in the requested direction. Snapshot freshness
+        and endpoint-existence checks belong to the concrete backend.
+        Row payload ownership and treatment of dangling endpoints are backend-specific.
 
-        :return:
+        Example:
+            Use this direction to traverse from source rows back to destination rows.
+
+
+        :param src_id: Source row identity for directed link selection.
+        :param require_ordering: Request supported link ordering; concrete priority rules may order even when false.
+        :param type_filter: Optional exact link-type restriction interpreted by the backend.
+        :return: Sequence of linked destination Rows; repeated links/value matches may remain repeated.
         """
 
     @abc.abstractmethod
@@ -162,13 +237,22 @@ class StorageCacheGetterMixinAPI(abc.ABC):
             require_ordering: bool = False,
             type_filter: Optional[str] = None) -> Sequence["RowAPI"]:
         """
-        Search the dst table for a value, and return the src ids corresponding to it.
+        Find destination Rows linked to source-column value matches.
 
-        :param src_value:
-        :param src_column:
-        :param require_ordering:
-        :param type_filter:
-        :return:
+        Abstract contract. Value matching searches the opposite endpoint table before traversing
+        links; several matching rows can make the result plural even for one-to-one
+        relations.
+        Row payload ownership and treatment of dangling endpoints are backend-specific.
+
+        Example:
+            Several equal source values can contribute several destination results.
+
+
+        :param src_value: Value matched against the specified source-table column.
+        :param src_column: Source column to search or project, according to the getter.
+        :param require_ordering: Request supported link ordering; concrete priority rules may order even when false.
+        :param type_filter: Optional exact link-type restriction interpreted by the backend.
+        :return: Sequence of linked destination Rows; repeated links/value matches may remain repeated.
         """
 
     @abc.abstractmethod
@@ -179,13 +263,22 @@ class StorageCacheGetterMixinAPI(abc.ABC):
             require_ordering: bool = False,
             type_filter: Optional[str] = None) -> Sequence[Any]:
         """
-        Return the values linked to a given src id.
+        Find destination column values linked to the selected source identity.
 
-        :param src_id:
-        :param dst_column:
-        :param require_ordering:
-        :param type_filter:
-        :return:
+        Abstract contract. Traverse accepted links in the requested direction. Snapshot freshness
+        and endpoint-existence checks belong to the concrete backend.
+        Read the named column on the returned endpoint side; null/default handling
+        is supplied by the implementation.
+
+        Example:
+            Use this direction to traverse from source rows back to destination rows.
+
+
+        :param src_id: Source row identity for directed link selection.
+        :param dst_column: Destination column to search or project, according to the getter.
+        :param require_ordering: Request supported link ordering; concrete priority rules may order even when false.
+        :param type_filter: Optional exact link-type restriction interpreted by the backend.
+        :return: Sequence of linked destination column values; repeated links/value matches may remain repeated.
         """
 
     # -------------------
@@ -199,13 +292,20 @@ class StorageCacheGetterMixinAPI(abc.ABC):
             dst_id: DstTableID,
             insist_on_singular: bool = True) -> Optional["InterlinkRowAPI"]:
         """
-        Get a link row between the given src and dst.
+        Read one optional physical association Rows selected by the directed endpoint pair.
 
-        Always singular, or None.
-        :param src_id:
-        :param dst_id:
-        :param insist_on_singular: If True, and the table allows multiple src/dst links, error.
-        :return:
+        Abstract contract. Raw Rows expose physical link columns.
+        Concrete implementations define singularity errors for ambiguous records.
+        The optional singularity flag, where supplied, requests strict checking.
+
+        Example:
+            An absent association can yield None without creating a new link.
+
+
+        :param src_id: Source row identity for directed link selection.
+        :param dst_id: Destination row identity for reverse link selection.
+        :param insist_on_singular: True requests an error when several physical records match instead of selecting one.
+        :return: Physical link Row, or None when no accepted link exists.
         """
 
     @abc.abstractmethod
@@ -214,12 +314,18 @@ class StorageCacheGetterMixinAPI(abc.ABC):
             src_id: SrcTableID,
             dst_id: DstTableID) -> Sequence["InterlinkRowAPI"]:
         """
-        Get the link rows between the given src and dst.
+        Read all physical association Rows selected by the directed endpoint pair.
 
-        May be multiple, in the case where multiple srcs could connect to multiple dsts.
-        :param src_id:
-        :param dst_id:
-        :return:
+        Abstract contract. Raw Rows expose physical link columns.
+        Repeated physical links can remain repeated; ordering follows the backend.
+
+        Example:
+            Two physical links for a pair can yield two separate records.
+
+
+        :param src_id: Source row identity for directed link selection.
+        :param dst_id: Destination row identity for reverse link selection.
+        :return: Sequence of physical association Rows, empty when no records match.
         """
 
     # --------------

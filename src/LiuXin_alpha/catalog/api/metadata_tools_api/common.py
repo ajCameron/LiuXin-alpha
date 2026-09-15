@@ -1,8 +1,11 @@
-"""Shared value types for the Row-oriented metadata helper contracts.
+"""
+Define shared annotations for legacy row-oriented metadata contracts.
 
-``LinkPriority`` accepts a numeric order, ``"highest"`` for helper-assigned
-precedence, or ``None`` for backend defaults. Date-like values are normalized
-by the concrete helper before persistence.
+RowOrMapping permits database Rows or mappings; TextOrRow accepts text or
+a Row. LinkPriority includes numbers, strings such as highest, and None; its
+annotation does not validate allowed strings. DateLike permits numeric dates
+while IsoDateLike does not. Concrete helpers decide normalization and storage
+behavior; type aliases themselves enforce no runtime conversions.
 """
 
 from __future__ import annotations

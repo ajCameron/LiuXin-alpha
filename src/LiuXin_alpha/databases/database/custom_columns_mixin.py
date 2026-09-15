@@ -1,6 +1,8 @@
 
 """
-Mixin to the database to provide custom columns functionality.
+Retrieve Calibre-style custom values through normalized links or direct value tables.
+
+These helpers depend on the facade custom-table cache and historical column naming. Normalized values are materialized as Rows; direct values remain wrapper search dictionaries.
 """
 
 from __future__ import annotations
@@ -22,17 +24,12 @@ if TYPE_CHECKING:
 
 class CustomColumnDatabaseMixin:
     """
-    Custom columns allow users to add custom data to the database.
+    Add custom-value lookup to a database with wrapper and row-factory collaborators.
 
-    They are named/labelled with three different properties.
-     - num
-     - name
-     - label
+    Callers choose whether a custom datatype uses a link table; the mixin does not infer that storage mode. Refresh custom_tables after schema changes before using normalized lookup.
 
-     Num is their current display priority (can change)
-     Name is the name that has been assigned to them on the database
-     Label is the user visibile display string for the column.
-
+    Example:
+        Given an existing custom-column definition and a primary row, db.get_interlinked_rows_cc(row, "custom_column_2", link_table=True) resolves normalized values.
     """
 
     # Todo: Attempt sql injection whenever you can feed into a table
@@ -47,13 +44,19 @@ class CustomColumnDatabaseMixin:
             custom_column: str,
             link_table: bool = True) -> list["RowAPI"]:
         """
-        Takes a row and a custom column - returns the custom column rows for the given custom column
+        Find custom values for a primary row, ordered by stored record identity.
 
-        :param primary_row: A row in a table with a custom column
-        :param custom_column: The name of the custom column to retrieve the rows for
-                              E.g. "custom_column_2"
-        :param link_table:
-        :return:
+        Normalized lookup validates <primary table>_<custom column>_link against custom_tables, searches its singular-name _book column, sorts by link _id, then resolves each _value ID. Direct lookup searches the value table _book column and sorts by its _id. It retains historical naming assumptions and does not deduplicate values.
+
+        Example:
+            For an unnormalized custom column belonging to row, values = db.get_interlinked_rows_cc(row, custom_table, link_table=False) returns dictionaries ordered by their stored IDs.
+
+
+        :param primary_row: Primary row providing its table and row_id.
+        :param custom_column: Custom value table name, such as custom_column_2.
+        :param link_table: True to follow a normalized link table; False to search the custom table directly.
+        :return: List of materialized Rows for normalized storage, or raw row dictionaries for direct storage; [] when no matches exist.
+        :raises InputIntegrityError: Normalized lookup has no registered link table for this row table and custom column.
         """
         if link_table:
             target_table = primary_row.table

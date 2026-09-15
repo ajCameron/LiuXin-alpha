@@ -754,7 +754,7 @@ def _build_squashfs_readonly(configuration, context):
     :param context: Runtime context supplying a backing-path resolver for Asset-backed intent; unused for direct paths.
     :return: The constructed SquashfsReadOnlyStorageBackend; resolver, option, import, and constructor failures propagate.
     """
-    from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
+    from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly.squashfs_readonly_storage_backend import (
         SquashfsReadOnlyStorageBackend,
     )
 

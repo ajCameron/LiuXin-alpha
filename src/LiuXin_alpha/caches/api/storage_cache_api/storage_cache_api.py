@@ -1,9 +1,11 @@
 """
-Top-level API for a storage cache.
+Define storage-backend capabilities, lifecycle contracts and common read adapters.
 
-The StorageCache is responsible for raw cached values and relationships as read
-from the database. Higher-level concerns such as search presentation,
-user-facing sort semantics, and views belong in the InterfaceCache layer.
+Backends provide table/link/field objects and their refresh policy. Common
+helpers project field values and normalize source-oriented link-row access
+across getter signatures. Application search, presentation and coordinated
+writes belong to the composed CacheAPI. This contract does not create
+connections, allocate backend registries or own database transactions.
 """
 from __future__ import annotations
 
@@ -60,11 +62,17 @@ LinkTableKey = tuple[str, str]
 @dataclass(frozen=True, slots=True)
 class StorageCacheCapabilities:
     """
-    Declared semantic/performance capabilities for one cache backend.
+    Declare observable freshness and optional helper support for a backend.
 
-    This is intentionally small and backend-facing. It exists so callers and
-    tests can reason about backend policy without importing implementation
-    details or inferring behavior from class names.
+    This frozen slots dataclass records live ordinary reads, live held-child
+    behavior, vectorized helper support and whether external changes require
+    reload/invalidation. Defaults describe a snapshot backend. Values are
+    declarations rather than runtime probes; no consistency checks between
+    flags are performed.
+
+    Example:
+        >>> StorageCacheCapabilities().requires_reload_for_external_changes
+        True
     """
 
     #: Does the backend reflect external DB changes on ordinary read access?
@@ -82,11 +90,20 @@ class StorageCacheCapabilities:
 
 class StorageCacheAPI(abc.ABC):
     """
-    Top-level storage cache API.
+    Specify storage-cache lifecycle, directed tables, fields and dependency refresh.
 
-    A StorageCache owns cached single-table objects, cached link-table objects,
-    and storage-facing field objects built on top of them. It is intentionally
-    lower-level than any interface/library cache.
+    Concrete plugins implement the abstract operations and initialize their
+    registries. The base retains a borrowed database reference and supplies
+    readiness, field-value and source-oriented link-row adapters. Abstract
+    method bodies supply no default loading, validation or mutation behavior.
+
+    Consult capabilities before relying on live reads or retained child objects.
+    Ordering, reference identity and refresh granularity depend on the plugin;
+    this interface adds no shared transaction or concurrency boundary.
+
+    Example:
+        Use get_cached_row_values to project several fields through a concrete
+        plugin while consulting its capabilities for external-change visibility.
     """
 
     plugin_name: ClassVar[str] = "storage_cache"
@@ -106,24 +123,28 @@ class StorageCacheAPI(abc.ABC):
 
     def __init__(self, db: Optional["DatabaseAPI"]) -> None:
         """
-        Create the storage cache.
+        Retain the optional database reference for later backend initialization.
 
-        Implementations may choose to defer all actual reading until ``read()``.
+        Example:
+            A concrete plugin can call this constructor before creating its own
+            empty table and field mappings.
 
-        :param db:
-        :return:
+
+        :param db: Borrowed database/catalog reference; None permits detached construction.
+        :return: None; assigns db without loading rows or allocating backend registries.
         """
         self.db = db
 
     @property
     def catalog(self) -> Optional["DatabaseAPI"]:
         """
-        Return the database/catalog handle attached to this cache.
+        Expose the database reference under the public catalog alias.
 
-        ``db`` remains the internal storage spelling. This public alias
-        matches the cache lifecycle contract and older cache child objects.
+        Example:
+            cache.catalog and cache.db reference the same attached object.
 
-        :return: Attached database handle, or ``None`` when detached.
+
+        :return: The current db reference, including None when detached.
         """
 
         return self.db
@@ -131,10 +152,15 @@ class StorageCacheAPI(abc.ABC):
     @catalog.setter
     def catalog(self, database: Optional["DatabaseAPI"]) -> None:
         """
-        Attach or detach the database/catalog handle.
+        Assign the public catalog alias directly to the database reference.
 
-        :param database: New database handle, or ``None`` to detach it.
-        :return: None.
+        Example:
+            Setting cache.catalog = None changes the root reference; use the
+            backend lifecycle methods when child references must also be released.
+
+
+        :param database: Database reference to retain, or None to detach this root reference.
+        :return: None; replaces db without validation, reload or child-reference propagation.
         """
 
         self.db = database
@@ -142,21 +168,29 @@ class StorageCacheAPI(abc.ABC):
     @property
     def cache_type(self) -> str:
         """
-        Canonical plugin/cache type for this cache instance.
+        Return the configured plugin name as a string.
 
-        :return:
+        Example:
+            A plugin declaring plugin_name="schema_backed" reports schema_backed.
+
+
+        :return: str(plugin_name) without registry lookup or normalization.
         """
         return str(self.plugin_name)
 
     @property
     def capabilities(self) -> StorageCacheCapabilities:
         """
-        Declared capabilities for this cache instance's backend.
+        Expose the backend's declared capability value.
 
-        Concrete backends may narrow this at runtime when optional dependencies
-        or configuration disable part of the declared helper surface.
+        A backend may override this property when optional dependencies affect
+        available helpers; this base implementation performs no capability probe.
 
-        :return:
+        Example:
+            Read capabilities.live_child_objects before retaining a field across reloads.
+
+
+        :return: The plugin_capabilities object unchanged.
         """
         return self.plugin_capabilities
 
@@ -167,28 +201,46 @@ class StorageCacheAPI(abc.ABC):
     @abc.abstractmethod
     def is_loaded(self) -> bool:
         """
-        Has the cache been loaded from storage at least once?
+        Report whether the backend has loaded storage state.
 
-        :return:
+        Abstract contract; the backend supplies this operation.
+        Loading and initialization are distinct contract states.
+
+        Example:
+            A backend may discover objects before marking them fully initialized.
+
+
+        :return: Backend-defined load-state boolean.
         """
 
     @property
     @abc.abstractmethod
     def is_initialized(self) -> bool:
         """
-        Is the cache fully initialized and safe for normal use?
+        Report whether the backend considers itself ready for normal access.
 
-        This is stricter than ``is_loaded``; for example, a cache might have
-        discovered table objects but not yet populated them.
+        Abstract contract; the backend supplies this operation.
+        assert_ready consults this flag without checking other state.
 
-        :return:
+        Example:
+            A backend should report false until its required table/field initialization finishes.
+
+
+        :return: Backend-defined readiness boolean.
         """
 
     def assert_ready(self) -> None:
         """
-        Raise if the cache is not yet fully initialized.
+        Require the backend's initialized flag before proceeding.
 
-        :return:
+        Do not independently check is_loaded, database attachment or child state.
+
+        Example:
+            A detached backend whose initialized flag remains true passes this check.
+
+
+        :return: None when is_initialized is truthy.
+        :raises RuntimeError: is_initialized is false-valued.
         """
         if not self.is_initialized:
             raise RuntimeError("StorageCache is not fully initialized")
@@ -196,54 +248,76 @@ class StorageCacheAPI(abc.ABC):
     @abc.abstractmethod
     def read(self, db: Optional["DatabaseAPI"] = None) -> None:
         """
-        Fully initialize the storage cache from the database.
+        Initialize table and field state from the selected database.
 
-        A typical implementation will:
-        - read/build table objects
-        - populate table caches
-        - read/build field objects
-        - populate field caches
+        Abstract contract. The backend controls schema discovery, data loading and publication of state.
 
-        :param db:
-        :return:
+        Example:
+            A schema backend builds tables, populates them, constructs fields and reads projections.
+
+
+        :param db: Optional database override; None requests use of the backend's current attachment.
+        :return: None; the backend performs the requested lifecycle phase.
         """
 
     @abc.abstractmethod
     def reload(self, db: Optional["DatabaseAPI"] = None) -> None:
         """
-        Reload the whole storage cache from the database.
+        Reload complete storage-cache state from the selected database.
 
-        :param db:
-        :return:
+        Abstract contract. Object reuse versus replacement and failure recovery depend on the backend.
+
+        Example:
+            Reload a snapshot backend after external writes when a full rebuild is needed.
+
+
+        :param db: Optional database override; None requests use of the backend's current attachment.
+        :return: None; the backend performs the requested lifecycle phase.
         """
 
     @abc.abstractmethod
     def clear(self) -> None:
         """
-        Drop all in-memory cached state.
+        Drop cached state according to the backend lifecycle contract.
 
-        :return:
+        Abstract contract; the backend supplies this operation.
+        Attachment and previously handed-out child behavior are backend-specific.
+
+        Example:
+            A snapshot backend can discard registries while retaining its database attachment.
+
+
+        :return: None; the backend clears its owned cache state.
         """
 
     @abc.abstractmethod
     def detach_db(self) -> Optional["DatabaseAPI"]:
         """
-        Detach and return the currently attached database, if any.
+        Release backend database references and return the previous attachment.
 
-        Implementations may use this to make shutdown and teardown cheaper by
-        breaking references to the live database object.
+        Abstract contract; the backend supplies this operation.
+        Concrete implementations determine which held child references are released.
 
-        :return:
+        Example:
+            Detach can break references during teardown without closing the borrowed database.
+
+
+        :return: Previous database reference, or None when already detached.
         """
 
     @abc.abstractmethod
     def close(self) -> None:
         """
-        Close the cache and release live references.
+        Release owned cache state and live database references.
 
-        This should leave the cache in a detached / inert state.
+        Abstract contract; the backend supplies this operation.
+        The backend defines child cleanup and whether later reattachment is supported.
 
-        :return:
+        Example:
+            Snapshot plugins can implement close by clearing registries and detaching.
+
+
+        :return: None; the backend performs its cache shutdown procedure.
         """
 
     # ------------------------------------------------------------------
@@ -252,39 +326,61 @@ class StorageCacheAPI(abc.ABC):
     @abc.abstractmethod
     def read_tables(self, db: Optional["DatabaseAPI"] = None) -> None:
         """
-        Build cached table objects from the database schema.
+        Discover and construct table objects from storage metadata.
 
-        This should define table objects, but need not populate them yet.
+        Abstract contract. This build phase need not populate table rows.
 
-        :param db:
-        :return:
+        Example:
+            A schema backend registers main tables and directed link views before initialization.
+
+
+        :param db: Optional database override; None requests use of the backend's current attachment.
+        :return: None; the backend performs the requested lifecycle phase.
         """
 
     @abc.abstractmethod
     def initialize_tables(self, db: Optional["DatabaseAPI"] = None) -> None:
         """
-        Populate the cached table objects with data from the database.
+        Populate previously constructed table cache objects.
 
-        :param db:
-        :return:
+        Abstract contract. This phase uses the backend's existing table registry.
+
+        Example:
+            Read main-table and physical link rows before initializing field projections.
+
+
+        :param db: Optional database override; None requests use of the backend's current attachment.
+        :return: None; the backend performs the requested lifecycle phase.
         """
 
     @abc.abstractmethod
     def read_fields(self, db: Optional["DatabaseAPI"] = None) -> None:
         """
-        Build storage field objects from the schema / configured metadata.
+        Construct field objects from available table and relation metadata.
 
-        :param db:
-        :return:
+        Abstract contract. This build phase need not populate field values.
+
+        Example:
+            A backend can construct a scalar title field and a books-to-tags projection.
+
+
+        :param db: Optional database override; None requests use of the backend's current attachment.
+        :return: None; the backend performs the requested lifecycle phase.
         """
 
     @abc.abstractmethod
     def initialize_fields(self, db: Optional["DatabaseAPI"] = None) -> None:
         """
-        Populate storage field objects from the cached tables.
+        Populate previously constructed field objects.
 
-        :param db:
-        :return:
+        Abstract contract. Underlying table data should be ready for field projection.
+
+        Example:
+            Build field value maps from the table snapshots initialized in the preceding phase.
+
+
+        :param db: Optional database override; None requests use of the backend's current attachment.
+        :return: None; the backend performs the requested lifecycle phase.
         """
 
     def get_cached_value(
@@ -294,14 +390,24 @@ class StorageCacheAPI(abc.ABC):
         default_value: Any = None,
     ) -> Any:
         """
-        Return one cached field value for one owning row id.
+        Read one field through the first supported value accessor.
 
-        Implementations may override this with plugin-specific fast paths.
+        Try callable get_value_from_id, get_value_from_src_id, then
+        get_values_from_src_id, followed by a Mapping ids_values_map. Scalar getters
+        and the mapping replace None with default_value. The plural getter returns
+        its result unchanged, even None or an empty sequence. Missing field, getter
+        and conversion errors propagate without trying a later accessor.
 
-        :param owner_id:
-        :param field_key:
-        :param default_value:
-        :return:
+        Example:
+            A missing scalar returns the supplied default, while an unlinked plural
+            field can return () instead of that default.
+
+
+        :param owner_id: Owner identity converted with int after field resolution.
+        :param field_key: Field key passed to get_field before ID conversion.
+        :param default_value: Fallback returned for None on scalar or mapping paths.
+        :return: Accessor result, with the fallback applied only on scalar/mapping paths.
+        :raises TypeError: The resolved field has no supported accessor or mapping.
         """
         field = self.get_field(field_key)
         row_id = int(owner_id)
@@ -336,14 +442,19 @@ class StorageCacheAPI(abc.ABC):
         default_value: Any = None,
     ) -> Sequence[Any]:
         """
-        Return cached values for the given row id across the given field keys.
+        Project field keys in caller order through get_cached_value.
 
-        Implementations may override this with plugin-specific fast paths.
+        Perform no single-row snapshot or transaction across the lookups.
+        A later failure propagates after earlier fields have already been read.
 
-        :param owner_id:
-        :param field_keys:
-        :param default_value:
-        :return:
+        Example:
+            Requesting ("title", "title") returns two values in that order.
+
+
+        :param owner_id: Owner identity forwarded separately for each field lookup.
+        :param field_keys: Ordered field keys; duplicate keys cause repeated lookups.
+        :param default_value: Fallback forwarded to each cached-value lookup.
+        :return: Tuple of projected values, empty for no keys.
         """
         return tuple(
             self.get_cached_value(owner_id, field_key, default_value=default_value)
@@ -359,10 +470,16 @@ class StorageCacheAPI(abc.ABC):
         name: "MainTableName",
     ) -> bool:
         """
-        Return True if the named main table is cached.
+        Test whether the backend exposes the named main table.
 
-        :param name:
-        :return:
+        Abstract contract; freshness work, if any, belongs to the backend.
+
+        Example:
+            A schema with a registered books table can answer true for books.
+
+
+        :param name: Main-table name interpreted by the backend.
+        :return: Boolean table presence according to backend resolution rules.
         """
 
     @abc.abstractmethod
@@ -371,20 +488,32 @@ class StorageCacheAPI(abc.ABC):
         name: Union["MainTableName", StorageCacheSingleTableAPI],
     ) -> StorageCacheSingleTableAPI:
         """
-        Resolve a cached main table.
+        Resolve a main-table name or reference through the backend.
 
-        Passing an already-resolved cached table should return it unchanged.
+        Abstract contract. A supplied reference identifies the requested table;
+        plugins can resolve it through their registry rather than preserving identity.
 
-        :param name:
-        :return:
+        Example:
+            Resolve books before inspecting its row_ids or column headings.
+
+
+        :param name: Main-table name or table API reference resolved by the backend.
+        :return: Resolved main-table object.
         """
 
     @abc.abstractmethod
     def iter_main_tables(self) -> Iterable[StorageCacheSingleTableAPI]:
         """
-        Iterate all cached main tables.
+        Iterate main-table objects exposed by this backend.
 
-        :return:
+        Abstract contract; the backend supplies this operation.
+        Ordering and refresh during iteration depend on the plugin.
+
+        Example:
+            Enumerate main tables to inspect their declared columns.
+
+
+        :return: Iterable of main-table cache objects.
         """
 
     @abc.abstractmethod
@@ -393,20 +522,32 @@ class StorageCacheAPI(abc.ABC):
         name: str,
     ) -> StorageCacheBaseTableAPI:
         """
-        Resolve any cached table by name.
+        Resolve a cached main or physical link table by name.
 
-        This may return a main table or a link table.
+        Abstract contract; naming collisions and selection among directed views
+        are resolved by the plugin.
 
-        :param name:
-        :return:
+        Example:
+            A physical association-table name can resolve a link-table view.
+
+
+        :param name: Table name interpreted by the backend.
+        :return: Resolved table cache object.
         """
 
     @abc.abstractmethod
     def iter_tables(self) -> Iterable[StorageCacheBaseTableAPI]:
         """
-        Iterate all cached tables, including link tables.
+        Iterate main and link table objects exposed by this backend.
 
-        :return:
+        Abstract contract; the backend supplies this operation.
+        Distinct directed link views may represent the same physical table.
+
+        Example:
+            A backend can expose forward and reverse association views separately.
+
+
+        :return: Iterable of table cache objects.
         """
 
     # ------------------------------------------------------------------
@@ -420,14 +561,19 @@ class StorageCacheAPI(abc.ABC):
         table_type: Optional[TableTypes] = None,
     ) -> bool:
         """
-        Return True if a cached link table exists between the given tables.
+        Test for a directed link route with an optional cardinality requirement.
 
-        If ``table_type`` is provided, the relation must also match that type.
+        Abstract contract. Endpoint resolution and errors for unknown tables
+        belong to the backend; presence checks need not suppress all lookup errors.
 
-        :param src_table:
-        :param dst_table:
-        :param table_type:
-        :return:
+        Example:
+            A books-to-tags route can be requested specifically as MANY_MANY.
+
+
+        :param src_table: Source table name or table API reference.
+        :param dst_table: Destination table name or table API reference.
+        :param table_type: Optional required relation cardinality.
+        :return: Boolean presence of a route matching the optional cardinality.
         """
 
     @abc.abstractmethod
@@ -438,14 +584,19 @@ class StorageCacheAPI(abc.ABC):
         table_type: Optional[TableTypes] = None,
     ) -> StorageCacheLinkTableBaseAPI[Any]:
         """
-        Resolve the cached link table connecting the given tables.
+        Resolve a directed link route with an optional cardinality requirement.
 
-        If ``table_type`` is provided, the resolved table must match that type.
+        Abstract contract. Endpoint resolution and errors for unknown tables
+        belong to the backend; presence checks need not suppress all lookup errors.
 
-        :param src_table:
-        :param dst_table:
-        :param table_type:
-        :return:
+        Example:
+            A books-to-tags route can be requested specifically as MANY_MANY.
+
+
+        :param src_table: Source table name or table API reference.
+        :param dst_table: Destination table name or table API reference.
+        :param table_type: Optional required relation cardinality.
+        :return: Directed link-table cache object matching the requested cardinality.
         """
 
     @staticmethod
@@ -457,6 +608,35 @@ class StorageCacheAPI(abc.ABC):
         require_ordering: bool = False,
         type_filter: Optional[str] = None,
     ) -> Sequence[Any]:
+        """
+        Adapt a named link-row getter's keyword support and result shape.
+
+        Reject a non-callable getter. Inspect its signature to pass named
+        require_ordering/type_filter parameters or both through **kwargs; failed
+        inspection optimistically sends both. Positional-only parameters with those
+        names are still passed by keyword and can fail.
+
+        Normalize None to (), a row_dict object, dict, string or bytes to a singleton
+        tuple, and other results with tuple(). A TypeError during iteration falls
+        back to a singleton containing the original result, potentially already
+        partly consumed. Getter errors and other iteration errors propagate.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> table = SimpleNamespace(get_rows=lambda row_id: {"id": row_id})
+            >>> StorageCacheAPI._call_link_row_getter(table, "get_rows", 7)
+            ({'id': 7},)
+
+
+        :param link_table: Link object providing the named getter and a table label for errors.
+        :param getter_name: Getter attribute name resolved without a fixed allowlist.
+        :param row_id: Row identity converted with int at invocation.
+        :param require_ordering: Ordering hint sent when accepted by the discovered signature.
+        :param type_filter: Type filter sent when accepted by the discovered signature.
+        :return: Tuple of zero, one or many returned objects; no Row-type validation is added.
+        :raises AttributeError: The getter is missing/non-callable; getter-raised AttributeError also propagates.
+        """
+
         getter = getattr(link_table, getter_name, None)
         if not callable(getter):
             raise AttributeError(
@@ -501,6 +681,29 @@ class StorageCacheAPI(abc.ABC):
         require_ordering: bool = False,
         type_filter: Optional[str] = None,
     ) -> Sequence[Any]:
+        """
+        Try the plural side getter, falling back to its singular spelling.
+
+        Any AttributeError from the plural adapter triggers singular fallback,
+        including one raised inside the getter or result normalization. An empty
+        plural result is already successful. Singular fallback uses the default
+        false ordering hint; non-AttributeError failures propagate immediately.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> table = SimpleNamespace(table="links", get_link_row_for_src=lambda row_id: None)
+            >>> StorageCacheAPI._call_link_rows_for_side(table, 7, side="src")
+            ()
+
+
+        :param link_table: Directed link object used for getter lookup.
+        :param row_id: Endpoint identity converted with int.
+        :param side: Suffix such as src or dst; no explicit validation is performed.
+        :param require_ordering: Ordering hint for the plural call only.
+        :param type_filter: Type filter forwarded to both plural and singular attempts.
+        :return: Normalized row tuple from the first successful attempt.
+        """
+
         plural_getter = f"get_link_rows_for_{side}"
         singular_getter = f"get_link_row_for_{side}"
 
@@ -531,18 +734,26 @@ class StorageCacheAPI(abc.ABC):
         type_filter: Optional[str] = None,
     ) -> Sequence[Any]:
         """
-        Return raw link rows from the caller's source row toward a target table.
+        Read raw association rows from a source toward a target in either stored orientation.
 
-        This is source-oriented: callers do not need to know whether the cache
-        stores the underlying link table in the requested direction or in the
-        reverse direction.
+        Try the forward route first. Only its lookup KeyError or None result
+        selects reverse lookup, whose destination side represents the caller's
+        source. A successful forward lookup with no rows does not try the reverse.
+        Getter failures do not trigger route reversal. Payload columns are not
+        rewritten to a new orientation.
 
-        :param source_table:
-        :param source_id:
-        :param target_table:
-        :param require_ordering:
-        :param type_filter:
-        :return:
+        Example:
+            A cache storing only tags-to-books can serve a books-to-tags request
+            by selecting raw link rows for the book ID on its destination side.
+
+
+        :param source_table: Source table name or table API reference.
+        :param source_id: Source row identity converted with int after route selection.
+        :param target_table: Destination table name or table API reference.
+        :param require_ordering: Ordering hint passed to the selected side adapter.
+        :param type_filter: Optional exact link-type restriction passed through supported getter parameters.
+        :return: Normalized tuple of raw link-row objects from the selected directed view.
+        :raises KeyError: Reverse lookup fails after no forward route was selected.
         """
         try:
             link_table = self.get_link_table(source_table, target_table)
@@ -576,11 +787,18 @@ class StorageCacheAPI(abc.ABC):
         dst_table: Union["MainTableName", StorageCacheSingleTableAPI],
     ) -> StorageCacheOneToOneLinkTable[Any]:
         """
-        Resolve a cached one-to-one link table.
+        Resolve a directed one-to-one link-table view.
 
-        :param src_table:
-        :param dst_table:
-        :return:
+        Abstract contract; the backend resolves endpoints and rejects an
+        unavailable or incompatible route.
+
+        Example:
+            Use this accessor when the caller requires one-to-one association semantics.
+
+
+        :param src_table: Source table name or table API reference.
+        :param dst_table: Destination table name or table API reference.
+        :return: Link-table object supporting the requested cardinality API.
         """
 
     @abc.abstractmethod
@@ -590,11 +808,18 @@ class StorageCacheAPI(abc.ABC):
         dst_table: Union["MainTableName", StorageCacheSingleTableAPI],
     ) -> StorageCacheOneToManyLinkTable:
         """
-        Resolve a cached one-to-many link table.
+        Resolve a directed one-to-many link-table view.
 
-        :param src_table:
-        :param dst_table:
-        :return:
+        Abstract contract; the backend resolves endpoints and rejects an
+        unavailable or incompatible route.
+
+        Example:
+            Use this accessor when the caller requires one-to-many association semantics.
+
+
+        :param src_table: Source table name or table API reference.
+        :param dst_table: Destination table name or table API reference.
+        :return: Link-table object supporting the requested cardinality API.
         """
 
     @abc.abstractmethod
@@ -604,11 +829,18 @@ class StorageCacheAPI(abc.ABC):
         dst_table: Union["MainTableName", StorageCacheSingleTableAPI],
     ) -> StorageCacheManyToOneLinkTable:
         """
-        Resolve a cached many-to-one link table.
+        Resolve a directed many-to-one link-table view.
 
-        :param src_table:
-        :param dst_table:
-        :return:
+        Abstract contract; the backend resolves endpoints and rejects an
+        unavailable or incompatible route.
+
+        Example:
+            Use this accessor when the caller requires many-to-one association semantics.
+
+
+        :param src_table: Source table name or table API reference.
+        :param dst_table: Destination table name or table API reference.
+        :return: Link-table object supporting the requested cardinality API.
         """
 
     @abc.abstractmethod
@@ -618,19 +850,33 @@ class StorageCacheAPI(abc.ABC):
         dst_table: Union["MainTableName", StorageCacheSingleTableAPI],
     ) -> StorageCacheManyToManyLinkTable:
         """
-        Resolve a cached many-to-many link table.
+        Resolve a directed many-to-many link-table view.
 
-        :param src_table:
-        :param dst_table:
-        :return:
+        Abstract contract; the backend resolves endpoints and rejects an
+        unavailable or incompatible route.
+
+        Example:
+            Use this accessor when the caller requires many-to-many association semantics.
+
+
+        :param src_table: Source table name or table API reference.
+        :param dst_table: Destination table name or table API reference.
+        :return: Link-table object supporting the requested cardinality API.
         """
 
     @abc.abstractmethod
     def iter_link_tables(self) -> Iterable[StorageCacheLinkTableBaseAPI[Any]]:
         """
-        Iterate all cached link tables.
+        Iterate registered directed link-table views.
 
-        :return:
+        Abstract contract; the backend supplies this operation.
+        Physical-table deduplication and iteration order are backend-specific.
+
+        Example:
+            Both books-to-tags and tags-to-books may be present.
+
+
+        :return: Iterable of link-table cache objects.
         """
 
     # ------------------------------------------------------------------
@@ -639,10 +885,17 @@ class StorageCacheAPI(abc.ABC):
     @abc.abstractmethod
     def has_field(self, name: FieldKey) -> bool:
         """
-        Return True if the named storage field is cached.
+        Test whether the backend resolves a storage field name.
 
-        :param name:
-        :return:
+        Abstract contract. Alias support and validation of field references
+        depend on the plugin.
+
+        Example:
+            A backend may accept both books.title and an unambiguous title alias.
+
+
+        :param name: Field key/name interpreted by the backend.
+        :return: Boolean field presence according to backend name-resolution rules.
         """
 
     @abc.abstractmethod
@@ -651,20 +904,32 @@ class StorageCacheAPI(abc.ABC):
         name: Union[FieldKey, FieldBasicInterfaceAPI[Any]],
     ) -> FieldBasicInterfaceAPI[Any]:
         """
-        Resolve one cached storage field.
+        Resolve a field name or reference through the backend.
 
-        Passing an already-resolved cached field should return it unchanged.
+        Abstract contract. Registry lookup and dependency refresh belong to the
+        backend; a supplied reference need not preserve object identity.
 
-        :param name:
-        :return:
+        Example:
+            Resolve books.tags.tag_name to project tag values for source books.
+
+
+        :param name: Field key/name or field API reference resolved by the backend.
+        :return: Scalar or relation field object for the requested key.
         """
 
     @abc.abstractmethod
     def iter_fields(self) -> Iterable[FieldBasicInterfaceAPI[Any]]:
         """
-        Iterate all cached storage fields.
+        Iterate the backend's storage field objects.
 
-        :return:
+        Abstract contract; the backend supplies this operation.
+        Backends choose ordering, alias deduplication and refresh behavior.
+
+        Example:
+            A concrete plugin can yield each canonical field once despite several aliases.
+
+
+        :return: Iterable of scalar and relation field objects.
         """
 
     @abc.abstractmethod
@@ -673,10 +938,17 @@ class StorageCacheAPI(abc.ABC):
         table: Union["MainTableName", StorageCacheSingleTableAPI],
     ) -> Sequence[FieldBasicInterfaceAPI[Any]]:
         """
-        Return fields whose source table is the given table.
+        Return storage fields owned by the requested source table.
 
-        :param table:
-        :return:
+        Abstract contract. Destination-table dependencies do not by themselves
+        make a relation field owned by that destination.
+
+        Example:
+            A books-to-tags projection belongs to books for this enumeration.
+
+
+        :param table: Main-table name or table API reference resolved by the backend.
+        :return: Sequence of scalar and relation fields whose owner is that table.
         """
 
     # ------------------------------------------------------------------
@@ -689,11 +961,17 @@ class StorageCacheAPI(abc.ABC):
         db: Optional["DatabaseAPI"] = None,
     ) -> None:
         """
-        Reload one cached main table.
+        Reload a main table and coordinate affected cached dependencies.
 
-        :param name:
-        :param db:
-        :return:
+        Abstract contract. The backend defines field repair and attachment behavior.
+
+        Example:
+            Refresh books after external row edits.
+
+
+        :param name: Main-table name or table API reference resolved by the backend.
+        :param db: Optional database override; None requests use of the backend's current attachment.
+        :return: None; the backend applies its refresh/invalidation policy.
         """
 
     def reload_ids(
@@ -702,16 +980,21 @@ class StorageCacheAPI(abc.ABC):
         ids: Iterable[int],
         db: Optional["DatabaseAPI"] = None,
     ) -> None:
-        """Reload selected main-table rows.
+        """
+        Reload the entire main table for an ignored bounded-ID hint.
 
-        The default is deliberately conservative so existing and externally
-        supplied plugins remain correct. Snapshot backends with a bounded row
-        refresh should override this method.
+        This conservative default keeps plugins without bounded repair correct.
+        It forwards even an empty hint as a full table reload; capable backends
+        should override it to repair selected rows and dependent projections.
 
-        :param table: Main table containing the changed rows.
-        :param ids: Durable row identifiers to refresh or evict.
-        :param db: Optional database override.
-        :return: None.
+        Example:
+            An empty ID iterator still triggers reload_main_table in this default implementation.
+
+
+        :param table: Main-table name or table API reference resolved by the backend.
+        :param ids: Row ID iterable ignored without consumption or conversion.
+        :param db: Optional database override; None requests use of the backend's current attachment.
+        :return: None; delegates to reload_main_table with the database override.
         """
 
         del ids
@@ -726,13 +1009,19 @@ class StorageCacheAPI(abc.ABC):
         table_type: Optional[TableTypes] = None,
     ) -> None:
         """
-        Reload one cached link table.
+        Reload a directed link-table view and its affected projections.
 
-        :param src_table:
-        :param dst_table:
-        :param db:
-        :param table_type:
-        :return:
+        Abstract contract. Reverse-view and endpoint refresh depend on the implementation.
+
+        Example:
+            Refresh books-to-tags after an external association insert.
+
+
+        :param src_table: Source table name or table API reference.
+        :param dst_table: Destination table name or table API reference.
+        :param db: Optional database override; None requests use of the backend's current attachment.
+        :param table_type: Optional required relation cardinality.
+        :return: None; the backend applies its refresh/invalidation policy.
         """
 
     @abc.abstractmethod
@@ -742,11 +1031,17 @@ class StorageCacheAPI(abc.ABC):
         db: Optional["DatabaseAPI"] = None,
     ) -> None:
         """
-        Reload one cached field.
+        Rebuild one resolved storage field.
 
-        :param name:
-        :param db:
-        :return:
+        Abstract contract. Underlying table/link freshness and alias acceptance depend on the backend.
+
+        Example:
+            Refresh a canonical books.title projection after its table cache was updated.
+
+
+        :param name: Field key/name or field API reference resolved by the backend.
+        :param db: Optional database override; None requests use of the backend's current attachment.
+        :return: None; the backend applies its refresh/invalidation policy.
         """
 
     @abc.abstractmethod
@@ -755,10 +1050,16 @@ class StorageCacheAPI(abc.ABC):
         table: Union["MainTableName", StorageCacheSingleTableAPI],
     ) -> None:
         """
-        Mark one whole main table as stale.
+        Invalidate one complete main-table dependency.
 
-        :param table:
-        :return:
+        Abstract contract. Eager versus deferred refresh is backend-specific.
+
+        Example:
+            Mark books stale after a database change.
+
+
+        :param table: Main-table name or table API reference resolved by the backend.
+        :return: None; the backend applies its refresh/invalidation policy.
         """
 
     @abc.abstractmethod
@@ -769,12 +1070,18 @@ class StorageCacheAPI(abc.ABC):
         table_type: Optional[TableTypes] = None,
     ) -> None:
         """
-        Mark one whole link table as stale.
+        Invalidate a directed association dependency.
 
-        :param src_table:
-        :param dst_table:
-        :param table_type:
-        :return:
+        Abstract contract. The optional type constrains the requested route; refresh timing is backend-specific.
+
+        Example:
+            Mark the books-to-tags association stale after links change.
+
+
+        :param src_table: Source table name or table API reference.
+        :param dst_table: Destination table name or table API reference.
+        :param table_type: Optional required relation cardinality.
+        :return: None; the backend applies its refresh/invalidation policy.
         """
 
     @abc.abstractmethod
@@ -783,10 +1090,16 @@ class StorageCacheAPI(abc.ABC):
         name: Union[FieldKey, FieldBasicInterfaceAPI[Any]],
     ) -> None:
         """
-        Mark one whole field as stale.
+        Invalidate one storage field dependency.
 
-        :param name:
-        :return:
+        Abstract contract. The backend resolves the field and chooses refresh timing.
+
+        Example:
+            Mark books.title stale before its next coordinated read.
+
+
+        :param name: Field key/name or field API reference resolved by the backend.
+        :return: None; the backend applies its refresh/invalidation policy.
         """
 
     @abc.abstractmethod
@@ -796,12 +1109,15 @@ class StorageCacheAPI(abc.ABC):
         ids: Iterable[int],
     ) -> None:
         """
-        Mark the given ids as stale in the cache.
+        Invalidate selected main-table row identities.
 
-        Implementations may eagerly refresh them, lazily refresh them on next
-        access, or simply note them as dirty.
+        Abstract contract. Backends may perform bounded repair, invalidate the entire table or observe live data.
 
-        :param table:
-        :param ids:
-        :return:
+        Example:
+            Mark book ID 7 changed after an external edit; consult backend capabilities for visibility.
+
+
+        :param table: Main-table name or table API reference resolved by the backend.
+        :param ids: Durable row IDs identifying potentially changed or removed rows.
+        :return: None; the backend applies its refresh/invalidation policy.
         """

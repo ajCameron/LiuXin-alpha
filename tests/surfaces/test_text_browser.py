@@ -33,7 +33,7 @@ from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
 from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
     wget_html_storage_backend as wget_backend_module,
 )
-from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly.wget_utils import WgetResult
+from LiuXin_alpha.ingest.sources.wget_utils import WgetResult
 from LiuXin_alpha.utils.jobs import JobRequest
 from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 from tests.support._surface_storage_tables import ensure_surface_asset_tables

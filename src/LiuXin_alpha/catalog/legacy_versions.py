@@ -1,4 +1,9 @@
-"""Stable version metadata for preserved legacy catalog surfaces."""
+"""
+Publish the stable version tuple for preserved legacy Catalog metadata tools.
+
+The tuple is shared by compatibility exports so version inspection need not
+import row helpers or the database stack. It does not advertise new features.
+"""
 
 from __future__ import annotations
 

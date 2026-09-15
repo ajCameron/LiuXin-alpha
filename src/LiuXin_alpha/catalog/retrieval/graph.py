@@ -1,4 +1,6 @@
-"""Bounded full-descendant WEMI graph retrieval."""
+"""
+Retrieve Work descendants with explicit result bounds and truncation metadata.
+"""
 
 from __future__ import annotations
 
@@ -9,13 +11,45 @@ from ..api.common import EntityId, RowMapping, WemiGraph, WemiLevel
 
 
 class WemiGraphRetriever:
-    """Read a Work and every descendant selected by explicit result limits."""
+    """
+    Traverse selected descendants while retaining their structural edges.
+
+    Example:
+        Request a graph with ``max_items=10`` to limit returned Items; inspect
+        ``truncated_levels`` before treating it as complete.
+    """
 
     def __init__(self, repositories: Any) -> None:
+        """
+        Retain the supplied repositories without querying or validating them.
+
+        Example:
+            Construct the service once when composing a Catalog; later calls use the same group.
+
+
+        :param repositories: Repository group used by later reads.
+        :return: None; stores the borrowed reference.
+        """
+
         self.repositories = repositories
 
     @staticmethod
     def _limit(name: str, value: int) -> int:
+        """
+        Validate one nonnegative integer result bound.
+
+        Example:
+            >>> WemiGraphRetriever._limit("max_items", 0)
+            0
+
+
+        :param name: Limit name used in error messages.
+        :param value: Value to validate; bool is explicitly rejected.
+        :return: The unchanged valid integer.
+        :raises TypeError: Value is not an integer or is bool.
+        :raises ValueError: Value is negative.
+        """
+
         if not isinstance(value, int) or isinstance(value, bool):
             raise TypeError(f"{name} must be an integer")
         if value < 0:
@@ -27,6 +61,21 @@ class WemiGraphRetriever:
         rows: Iterable[RowMapping],
         id_column: str,
     ) -> tuple[RowMapping, ...]:
+        """
+        Keep the first row for each ID, preserving encounter order.
+
+        Missing IDs share the key None and collapse into one row. Unhashable IDs raise TypeError.
+
+        Example:
+            >>> WemiGraphRetriever._deduplicate([{"id": 1}, {"id": 1}], "id")
+            ({'id': 1},)
+
+
+        :param rows: Rows to consume without copying their mappings.
+        :param id_column: Column whose hashable value identifies a row.
+        :return: Tuple of retained original mappings.
+        """
+
         result: list[RowMapping] = []
         seen: set[object] = set()
         for row in rows:
@@ -46,6 +95,21 @@ class WemiGraphRetriever:
         child_id: EntityId,
         metadata: Mapping[str, object] | None = None,
     ) -> RowMapping:
+        """
+        Build a structural edge with a shallow copy of its metadata.
+
+        Example:
+            A Manifestation-to-Item edge uses ``metadata={"storage": "foreign_key"}``.
+
+
+        :param parent_level: Parent WEMI level; not validated here.
+        :param parent_id: Parent ID; not validated here.
+        :param child_level: Child WEMI level; not validated here.
+        :param child_id: Child ID; not validated here.
+        :param metadata: Optional mapping; None becomes an empty dictionary.
+        :return: New edge dictionary with parent/child levels, IDs and metadata.
+        """
+
         return {
             "parent_level": parent_level,
             "parent_id": parent_id,
@@ -62,7 +126,29 @@ class WemiGraphRetriever:
         max_manifestations: int = 500,
         max_items: int = 1000,
     ) -> WemiGraph:
-        """Return a bounded full descendant graph rooted at one Work."""
+        """
+        Read a Work and descendants selected by per-level result limits.
+
+        Limits bound output, not database reads: each visited parent materializes its
+        children before slicing. Expressions keep repository order; Manifestations and
+        Items keep their first row per ID. Edges to discarded children are removed,
+        but distinct parent relationships remain. Trimming a level marks descendants
+        as truncated too, even without visiting omitted branches. Reads do not share
+        a snapshot transaction. Zero limits are allowed.
+
+        Example:
+            With ``max_expressions=0``, an existing Work still appears; if it has
+            Expressions, Expression, Manifestation and Item are all marked truncated.
+
+
+        :param work_id: Existing Work ID; required after all limits are validated.
+        :param max_expressions: Maximum Expression rows returned; nonnegative integer excluding bool.
+        :param max_manifestations: Maximum distinct Manifestation rows returned; nonnegative integer excluding bool.
+        :param max_items: Maximum distinct Item rows returned; nonnegative integer excluding bool.
+        :return: Graph with retained edges and truncated levels in WEMI order.
+        :raises TypeError: Any limit is not an integer or is bool.
+        :raises ValueError: Any limit is negative.
+        """
 
         max_expressions = self._limit("max_expressions", max_expressions)
         max_manifestations = self._limit(

@@ -1,7 +1,10 @@
-"""Public cache API surface.
+"""
+Collect application-cache and storage-cache contracts in one import surface.
 
-Application code should use the composed :class:`CacheAPI`. Storage-cache
-contracts remain available for plugin implementations.
+The application contracts describe lifecycle, structured queries and mediated
+writes. The storage contracts describe backend rows, fields, tables and
+capabilities. Names are re-exported from their defining modules; concrete
+backend implementations are exposed by LiuXin_alpha.caches instead.
 """
 
 from LiuXin_alpha.caches.api.cache_api import (

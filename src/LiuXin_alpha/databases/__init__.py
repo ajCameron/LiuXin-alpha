@@ -2,11 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 """
-Public root surface for the :mod:`LiuXin_alpha.databases` package.
+Expose database constants eagerly and resolve heavier public entry points lazily.
 
-Keep this file deliberately small and mostly lazy. Importing the package root should
-be cheap, and callers should not need deep module paths for the common public entry
-points.
+The package root imports datatype constants immediately. Runtime access to advertised database, Row, API, driver-registry, schema/metadata and utility exports loads their owning modules through __getattr__. TYPE_CHECKING imports support static users; these exports do not require callers to use deep implementation paths.
 """
 
 from __future__ import annotations
@@ -87,10 +85,18 @@ __all__ = [
 
 def __getattr__(name: str):
     """
-    Decent front end.
+    Resolve a recognized public database export from its owning module on demand.
 
-    :param name:
-    :return:
+    Dispatch exact names to concrete database/Row/maintenance modules, API contracts, macro/schema/column metadata, the driver registry or selected utilities. Results are not explicitly assigned into this module globals by the hook. Import failures and missing owner attributes propagate; arbitrary names are rejected.
+
+    Example:
+        >>> __getattr__("LinkKind").TYPED_PRIORITY.value
+        'typed_priority'
+
+
+    :param name: Requested public export name.
+    :return: The owning module object attribute or explicitly imported class/function.
+    :raises AttributeError: The name is unrecognized, or its owning module lacks the requested attribute.
     """
     if name == "Database":
         from LiuXin_alpha.databases.database import Database

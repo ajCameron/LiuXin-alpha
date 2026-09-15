@@ -4,6 +4,22 @@ This document describes the replacement storage API in
 `LiuXin_alpha.storage.api`. The old `06 - Storage.md` model is deprecated and
 is retained only as salvage material.
 
+## Import ownership
+
+The `LiuXin_alpha.storage` package is a namespace. Import contracts from
+`LiuXin_alpha.storage.api` and implementations from their owning modules:
+
+```python
+from LiuXin_alpha.storage.api import StorageManagerAPI
+from LiuXin_alpha.storage.store_manager import StorageManager
+from LiuXin_alpha.storage.store_container import StoreContainer
+```
+
+The former package-root implementation exports have been removed. Existing
+`from LiuXin_alpha.storage import api` imports still load the real `api`
+subpackage through Python's normal import machinery; no compatibility hook is
+involved. Importing the storage root alone loads no storage implementations.
+
 ## The three boundaries
 
 ```text
@@ -593,7 +609,8 @@ Free-standing operations live under `LiuXin_alpha.storage.utils`, not
 - `storage.utils.workflow` contains workflow implementation helpers such as
   archive-path normalization.
 
-The `storage.utils` package lazily exposes these names for convenient imports.
+Import each utility from its owning module; the `storage.utils` package does not
+forward individual functions.
 API facade methods may delegate to utilities, but the API modules themselves
 contain contracts, models, typed errors, and facade adapters rather than a
 collection of free operations. General sync/async adaptation remains in
@@ -632,7 +649,7 @@ output is streamed into a selected writable Store. The workflow then records:
 The simple surface is:
 
 ```python
-from LiuXin_alpha.storage import SealedArtifactWorkflow
+from LiuXin_alpha.storage.workflows.sealed_artifact_workflow import SealedArtifactWorkflow
 
 sealed = SealedArtifactWorkflow(manager)
 tool = sealed.pin_local_executor("mksquashfs", version="4.6.1")
@@ -1183,8 +1200,7 @@ Repository and transaction contracts live under
 `LiuXin_alpha.storage.api.persistence_api`. They are implementation-facing
 ports for durable manager adapters, not another application API. The package
 contains repositories for Assets, Replicas, Composites, and derivations plus a
-unit-of-work factory. The old `storage_manager_api.repositories_api` module
-reexports those same protocols for compatibility.
+unit-of-work factory. Import these protocols directly from the persistence API.
 
 A durable Replica repository must round-trip the complete
 `ReplicaDeclaration`/`ReplicaRecord`, including its placement-hint snapshot.

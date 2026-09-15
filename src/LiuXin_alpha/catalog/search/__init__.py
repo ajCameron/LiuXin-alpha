@@ -2,9 +2,13 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 """
-Front end for the search functionality.
+Evaluate Calibre-compatible queries over Catalog caches and stored search definitions.
 
-Allows you to search strings and/or the database.
+Matching supports text, typed fields, grouped aliases and user categories.
+SavedSearchQueries persists query text; LRUCache stores derived values.
+Search coordinates parsing/cache reuse around these components. Existing
+match/matchkind aliases and legacy parser behavior remain compatibility
+surfaces, including mode-specific candidate and cache limitations.
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function, annotations
@@ -46,10 +50,19 @@ REGEXP_MATCH = 2
 
 def _matchkind(query: str) -> tuple[Union[Literal[0], Literal[1], Literal[2]], str]:
     """
-    Determines the type of search to be run from a query.
+    Select contains, equals or regex matching from a query prefix.
 
-    :param query:
-    :return:
+    For text longer than one character, a leading backslash escapes the next
+    prefix; = selects equality and ~ selects regex. ICU-lowercase nonregex
+    queries, preserving regex case because escapes may be case-sensitive.
+
+    Example:
+        >>> _matchkind("=Title")
+        (1, 'title')
+
+
+    :param query: Query text; one-character prefixes remain literal contains queries.
+    :return: Pair of match-kind constant and processed query.
     """
     match_kind = CONTAINS_MATCH
 
@@ -80,13 +93,24 @@ def _match(
         matchkind,
         use_primary_find_in_search: bool = True) -> bool:
     """
-    Generates matches based on the query.
+    Match any supplied text value using contains, equality or regex rules.
 
-    :param query:
-    :param value:
-    :param matchkind: CONTAINS, REGEXP or EQUALS
-    :param use_primary_find_in_search:
-    :return:
+    Values are ICU-lowercased. Equality supports a leading dot for hierarchical
+    prefixes and two dots for exact dot-component matches. Two-dot preprocessing
+    also removes one dot before other modes. Regex uses case-insensitive Unicode
+    search; re.error is suppressed for incomplete search-ahead expressions. Other
+    errors propagate, including an empty equality query indexing query[0].
+
+    Example:
+        >>> _match(".books", ("books.fiction",), EQUALS_MATCH)
+        True
+
+
+    :param query: Processed query, normally from _matchkind.
+    :param value: Iterable of text values, despite the single-element tuple annotation.
+    :param matchkind: CONTAINS_MATCH, EQUALS_MATCH or REGEXP_MATCH; unknown values do not match.
+    :param use_primary_find_in_search: Use ICU primary_contains for contains mode; false uses substring membership.
+    :return: True on the first match, otherwise False.
     """
     if query.startswith(".."):
         query = query[1:]
@@ -137,17 +161,30 @@ match = _match
 
 class KeyPairSearch: # {{{
     """
-    Execute the query on every key
+    Search mapping-valued fields by key/value patterns or presence.
+
+    Example:
+        An identifiers mapping can be searched with ``isbn:123`` or ``isbn:false``.
     """
     def __call__(self, query: str, field_iter, candidates, use_primary_find: bool) -> set[int]:
         """
-        Preform a key search for the query.
+        Collect IDs whose mapping entries match a key/value query.
 
-        :param query:
-        :param field_iter:
-        :param candidates:
-        :param use_primary_find:
-        :return:
+        Without a colon, match values across all keys. Processed true/false values
+        select presence logic even with explicit =/~ prefixes. Empty key/value
+        patterns impose no constraint on that side. Positive results rely on the
+        iterator to restrict IDs to candidates; no final intersection is performed.
+
+        Example:
+            A key:true query tests the exact processed key's truthy value, ignoring its
+            pattern match mode.
+
+
+        :param query: Text split at its first colon; key/value sides use _matchkind.
+        :param field_iter: Zero-argument callable yielding (mapping, ID set) pairs.
+        :param candidates: Candidate ID set used for false/presence complements; not mutated.
+        :param use_primary_find: ICU primary matching preference for ordinary key/value patterns.
+        :return: Union of matching ID sets or candidates minus IDs with a present value.
         """
         matches = set()
         if ":" in query:
@@ -199,17 +236,29 @@ class KeyPairSearch: # {{{
 # Todo: Probably should not be here - actually a cache thing?
 class SavedSearchQueries:  # {{{
     """
-    The saved results of running a bunch of search queries.
+    Retain named query text backed by one database preference.
+
+    Hold only a weak database reference. Non-weak-referenceable handles and
+    None produce an inert instance with an empty mapping. Mutating operations
+    are no-ops after the database is gone; this stores queries, not result sets.
+
+    Example:
+        ``SavedSearchQueries(None, "saved")`` permits lookup/names without persistence.
     """
     queries = {}
     opt_name = ""
 
     def __init__(self, db: "DatabaseAPI", _opt_name) -> None:
         """
-        Startup the saved searched queries cache.
+        Capture a weak database reference and load its saved-query preference.
 
-        :param db:
-        :param _opt_name:
+        Example:
+            A non-weak-referenceable handle is treated as absent, even if it exposes preference methods.
+
+
+        :param db: Database exposing pref/set_pref/_set_pref, or None.
+        :param _opt_name: Preference key used for reading and subsequent writes.
+        :return: None; sets an instance mapping from the database or {}.
         """
         self.opt_name = _opt_name
         try:
@@ -222,17 +271,25 @@ class SavedSearchQueries:  # {{{
     @property
     def db(self) -> Optional["DatabaseAPI"]:
         """
-        Proxy for the database.
+        Dereference the borrowed database handle.
 
-        :return:
+        Example:
+            Keeping SavedSearchQueries alive does not keep its database alive.
+
+
+        :return: Live database object, or None if absent/collected.
         """
         return self._db()
 
     def load_from_db(self) -> None:
         """
-        Preform a load onto the database from the local search cache.
+        Replace local query state with the database preference value.
 
-        :return:
+        Example:
+            Calling this after database collection resets queries to {}.
+
+
+        :return: None; retains the returned preference mapping without copying or validation.
         """
         db = self.db
         if db is not None:
@@ -244,10 +301,14 @@ class SavedSearchQueries:  # {{{
     @staticmethod
     def force_unicode(x: Any) -> str:
         """
-        Coerce an object to Unicode and return the result.
+        Preserve text or decode a byte-like value with replacement.
 
-        :param x:
-        :return:
+        Example:
+            A malformed byte sequence is replaced during decoding; arbitrary integers are not stringified.
+
+
+        :param x: Text, or object supporting decode(preferred_encoding, "replace").
+        :return: Unicode text; unsupported objects can raise AttributeError.
         """
         if not isinstance(x, unicode):
             x = x.decode(preferred_encoding, "replace")
@@ -255,11 +316,17 @@ class SavedSearchQueries:  # {{{
 
     def add(self, name: Any, value: Any) -> None:
         """
-        Add an object to the cache, coercing it to Unicode as we go.
+        Set a decoded name and stripped query, then persist with set_pref.
 
-        :param name:
-        :param value:
-        :return:
+        The local map changes before persistence; write failure does not restore it.
+
+        Example:
+            An existing name is overwritten, while whitespace in the name is preserved.
+
+
+        :param name: Query name; decoded but not stripped.
+        :param value: Query text; decoded and stripped.
+        :return: None; no action without a live database.
         """
         db = self.db
         if db is not None:
@@ -268,20 +335,53 @@ class SavedSearchQueries:  # {{{
 
     def lookup(self, name: str) -> Optional[str]:
         """
-        Retrieve and return a value from the cache.
+        Read a saved query by its decoded exact name.
 
-        :param name:
-        :return:
+        Example:
+            Lookup continues to use the loaded map even if the weak database reference expires.
+
+
+        :param name: Query name; no whitespace trimming.
+        :return: Stored value, or None for an unknown name.
         """
         return self.queries.get(self.force_unicode(name), None)
 
     def delete(self, name):
+        """
+        Remove a decoded name and persist the resulting mapping.
+
+        Persistence failure leaves the local deletion applied.
+
+        Example:
+            An absent database makes deletion a no-op on local state.
+
+
+        :param name: Exact query name to remove.
+        :return: None; missing names are tolerated and still trigger set_pref when connected.
+        """
+
         db = self.db
         if db is not None:
             self.queries.pop(self.force_unicode(name), False)
             db.set_pref(self.opt_name, self.queries)
 
     def rename(self, old_name, new_name):
+        """
+        Assign the old value to a new name, remove the old key and persist.
+
+        No operation occurs without a live database. Local mutation precedes the
+        private persistence call and is not rolled back on failure.
+
+        Example:
+            Renaming a missing old name stores None under the new name; renaming a name
+            to itself removes it.
+
+
+        :param old_name: Old name decoded without trimming.
+        :param new_name: New name decoded without trimming; existing values are overwritten.
+        :return: None; uses _set_pref when the database is live.
+        """
+
         db = self.db
         if db is not None:
             self.queries[self.force_unicode(new_name)] = self.queries.get(self.force_unicode(old_name), None)
@@ -289,12 +389,33 @@ class SavedSearchQueries:  # {{{
             db._set_pref(self.opt_name, self.queries)
 
     def set_all(self, smap):
+        """
+        Adopt a caller-supplied query mapping and persist it directly.
+
+        Example:
+            Subsequent mutation of the supplied mapping is visible in local query state.
+
+
+        :param smap: Mapping retained by reference; names/values are not decoded or stripped.
+        :return: None; uses _set_pref, or does nothing without a live database.
+        """
+
         db = self.db
         if db is not None:
             self.queries = smap
             db._set_pref(self.opt_name, smap)
 
     def names(self):
+        """
+        Sort stored names using the ICU collation key.
+
+        Example:
+            Names are returned in collation order rather than insertion order.
+
+
+        :return: New list of query names.
+        """
+
         return sorted(iterkeys(self.queries), key=sort_key)
 
 
@@ -302,7 +423,17 @@ class SavedSearchQueries:  # {{{
 
 
 class Parser(SearchQueryParser):  # {{{
-    """Evaluate parsed Calibre-compatible search expressions over a cache."""
+    """
+    Dispatch parsed searches over cached, virtual and typed field values.
+
+    The parser borrows a cache and candidate universe, tracks virtual-field
+    use, and delegates expression parsing to SearchQueryParser. Group aliases
+    and category matching retain legacy recursion/complement semantics.
+
+    Example:
+        A title query uses text matching, while a numeric ID query iterates the
+        candidate IDs directly.
+    """
 
     def __init__(
         self,
@@ -320,6 +451,33 @@ class Parser(SearchQueryParser):  # {{{
         lookup_saved_search,
         parse_cache,
     ):
+        """
+        Bind field-search collaborators and initialize optimized expression parsing.
+
+        A false-valued virtual mapping is replaced by a new dictionary. Location
+        generators can be exhausted while creating all_search_locations before
+        base initialization; supply a reusable collection.
+
+        Example:
+            If no marked virtual field is supplied, this parser serves as its empty-value fallback.
+
+
+        :param dbcache: Borrowed cache exposing fields, field_metadata, metadata proxies and preferences.
+        :param all_book_ids: Candidate universe retained by reference.
+        :param gst: Grouped-search configuration retained by reference.
+        :param date_search: Date-search callable.
+        :param num_search: Numeric-search callable.
+        :param bool_search: Boolean-search callable.
+        :param keypair_search: Mapping key/value search callable.
+        :param limit_search_columns: Whether an all-location search may be restricted.
+        :param limit_search_columns_to: Locations allowed for restricted all searches.
+        :param locations: Reusable location collection passed to both frozenset and the base parser.
+        :param virtual_fields: Optional mapping of virtual fields; a truthy supplied mapping is mutated to add marked if absent.
+        :param lookup_saved_search: Saved-search lookup callback passed to the base parser.
+        :param parse_cache: Shared parse cache passed to the base parser.
+        :return: None; configures collaborators without reading searchable values.
+        """
+
         self.dbcache, self.all_book_ids = dbcache, all_book_ids
         self.all_search_locations = frozenset(locations)
         self.grouped_search_terms = gst
@@ -342,12 +500,47 @@ class Parser(SearchQueryParser):  # {{{
 
     @property
     def field_metadata(self):
+        """
+        Expose the bound cache's field descriptor container.
+
+        Example:
+            This property fails once an owning Search detaches dbcache after evaluation.
+
+
+        :return: Live dbcache.field_metadata reference.
+        """
+
         return self.dbcache.field_metadata
 
     def universal_set(self):
+        """
+        Expose the borrowed universe of candidate book IDs.
+
+        Example:
+            Callers must copy this set before mutating a derived search universe.
+
+
+        :return: The original all_book_ids object, without a copy.
+        """
+
         return self.all_book_ids
 
     def field_iter(self, name, candidates):
+        """
+        Delegate value iteration to a real or fallback virtual field.
+
+        Missing real and virtual keys propagate KeyError. The metadata proxy is
+        obtained before field lookup; this method does not intersect returned IDs.
+
+        Example:
+            Using a virtual field sets virtual_field_used=True.
+
+
+        :param name: Field key resolved in cache.fields, then virtual_fields on KeyError.
+        :param candidates: Candidate IDs forwarded unchanged.
+        :return: Result of field.iter_searchable_values(metadata_proxy, candidates).
+        """
+
         get_metadata = self.dbcache._get_proxy_metadata
         try:
             field = self.dbcache.fields[name]
@@ -357,20 +550,65 @@ class Parser(SearchQueryParser):  # {{{
         return field.iter_searchable_values(get_metadata, candidates)
 
     def iter_searchable_values(self, *args, **kwargs):
+        """
+        Supply no values when the parser acts as the marked virtual field.
+
+        Example:
+            The default marked field contributes no matches until a real virtual field is supplied.
+
+
+        :param args: Ignored positional field-iteration arguments.
+        :param kwargs: Ignored keyword field-iteration arguments.
+        :return: Empty iterator.
+        """
+
         return iter(())
 
     def parse(self, *args, **kwargs):
+        """
+        Reset virtual-field tracking before delegating expression evaluation.
+
+        The current base parser replaces an explicit candidates argument with
+        universal_set(), so parse-level candidate restriction is ignored.
+        Base-parser exceptions propagate after the flag reset.
+
+        Example:
+            Each parse starts with virtual_field_used=False; field iteration can set it during evaluation.
+
+
+        :param args: Base-parser arguments, normally query and optional candidate IDs.
+        :param kwargs: Base-parser keyword arguments passed unchanged.
+        :return: Matched ID set returned by SearchQueryParser.parse.
+        """
+
         self.virtual_field_used = False
         return SearchQueryParser.parse(self, *args, **kwargs)
 
     def get_matches(self, location, query, candidates=None, allow_recursion=True):
         """
-        Preform the search and returns the matches.
-        :param location: One of the locations in the database.
-        :param query: The query to match against
-        :param candidates:
-        :param allow_recursion:
-        :return:
+        Dispatch one location/query pair to typed, grouped or text matching.
+
+        Resolve aliases through field metadata. Dispatch dates, numbers, multiplicity
+        counts, booleans and colon-separated mappings before generic text. ISBN
+        location injects an exact isbn key query. User categories use their own
+        lookup. Restricted all searches union only configured valid locations.
+        Generic all omits virtual fields, uuid, id and series_sort; presence tests
+        use truthy nonblank values. Languages resolve names/codes, numeric all-field
+        matching compares converted values, and text matching honors prefix modes.
+        Virtual-field use is recorded. No broad exception handling hides collaborator
+        errors or unsupported recursive groups.
+
+        Example:
+            A grouped false query complements against all_book_ids, which can include
+            IDs outside a supplied candidate subset.
+
+
+        :param location: Allowed search location; checked before trimming/lowercasing aliases.
+        :param query: Query text; blank/whitespace input returns no matches.
+        :param candidates: Optional candidate set; None uses all_book_ids and supplied sets are not mutated.
+        :param allow_recursion: Allow one grouped-alias expansion; nested grouped expansion raises.
+        :return: Matched ID set, subject to legacy group-complement and iterator behavior.
+        :raises ParseException: A grouped alias expands into another group while recursion is disabled.
         """
         # If candidates is not None, it must not be modified. Changing its value will break query optimization in the
         # search parser
@@ -448,6 +686,17 @@ class Parser(SearchQueryParser):  # {{{
                     is_many = False
 
                     def fi(default_value=None):
+                        """
+                        Yield candidate IDs as their own numeric field values.
+
+                        Example:
+                            Numeric ID matching needs no cached field lookup because IDs are their own values.
+
+
+                        :param default_value: Unused compatibility default argument.
+                        :return: Iterator of (ID, singleton ID set) pairs from the enclosing candidates.
+                        """
+
                         for qid in candidates:
                             yield qid, {qid}
 
@@ -587,6 +836,24 @@ class Parser(SearchQueryParser):  # {{{
         return matches
 
     def get_user_category_matches(self, location, query, candidates):
+        """
+        Union exact member searches for a user category and optional subcategories.
+
+        Read user_categories preference. Each member triggers an exact-value search
+        on its category; matches are removed from a local candidate copy. Other
+        queries of sufficient length are treated as membership requests, without
+        validating that they spell true.
+
+        Example:
+            ``.false`` includes subcategories before complementing within candidates.
+
+
+        :param location: Category name without its leading @.
+        :param query: At least two characters; a leading dot includes subcategories, false inverts membership.
+        :param candidates: Candidate set copied for progressive member filtering.
+        :return: Matched candidate IDs, or their complement for false.
+        """
+
         matches = set()
         if len(query) < 2:
             return matches
@@ -616,20 +883,69 @@ class Parser(SearchQueryParser):  # {{{
 
 class LRUCache(object):  # {{{
     """
-    A simple Least-Recently-Used cache
+    Store bounded values with separate insertion and access order.
+
+    Age tracking controls eviction, but iteration follows dictionary insertion
+    order. Re-adding an existing key refreshes age without replacing its value.
+    The object is unsynchronized and does not copy stored values.
+
+    Example:
+        A repeated add for the same key retains its first value; use pop first
+        when replacement is required.
     """
 
     def __init__(self, limit=50):
+        """
+        Create empty value and age maps with an unchecked capacity.
+
+        Example:
+            A zero or negative capacity causes the first add to evict from an empty deque.
+
+
+        :param limit: Capacity used by add; supply a positive integer.
+        :return: None; initializes an empty dictionary and deque.
+        """
+
         self.item_map = {}
         self.age_map = deque()
         self.limit = limit
 
     def _move_up(self, key):
+        """
+        Move an existing key to the newest end of the age deque.
+
+        Example:
+            This internal helper assumes dictionary/deque consistency; absent keys can raise ValueError.
+
+
+        :param key: Key expected to be present in the nonempty age deque.
+        :return: None; leaves an already-newest key in place.
+        """
+
         if key != self.age_map[-1]:
             self.age_map.remove(key)
             self.age_map.append(key)
 
     def add(self, key, val):
+        """
+        Insert a new value or refresh an existing key without overwriting it.
+
+        Subscription assignment is an alias of this method and also preserves
+        existing values.
+
+        Example:
+            >>> cache = LRUCache(2)
+            >>> cache.add("key", 1)
+            >>> cache.add("key", 2)
+            >>> cache["key"]
+            1
+
+
+        :param key: Hashable cache key.
+        :param val: Value retained by reference only for a newly inserted key.
+        :return: None; evicts the oldest entry if capacity is reached.
+        """
+
         if key in self.item_map:
             self._move_up(key)
             return
@@ -643,16 +959,55 @@ class LRUCache(object):  # {{{
     __setitem__ = add
 
     def get(self, key, default=None):
+        """
+        Retrieve a value and refresh age unless it is identical to the default.
+
+        The identity comparison also skips age refresh for any stored object that
+        is the exact default object.
+
+        Example:
+            A stored None read with default=None is returned without refreshing its age.
+
+
+        :param key: Hashable cache key.
+        :param default: Fallback object returned unchanged for a missing key.
+        :return: Stored value or supplied default.
+        """
+
         ans = self.item_map.get(key, default)
         if ans is not default:
             self._move_up(key)
         return ans
 
     def clear(self):
+        """
+        Empty both value storage and age tracking.
+
+        Example:
+            After clear, len(cache) is zero and a new insertion starts a fresh age order.
+
+
+        :return: None; capacity remains unchanged.
+        """
+
         self.item_map.clear()
         self.age_map.clear()
 
     def pop(self, key, default=None):
+        """
+        Discard a key from both maps without returning its value.
+
+        A missing age entry is tolerated through ValueError handling.
+
+        Example:
+            Unlike dict.pop, this method cannot be used to retrieve the removed value.
+
+
+        :param key: Hashable key to remove.
+        :param default: Fallback passed to dictionary pop; its value is discarded.
+        :return: Always None on success, whether the key existed or not.
+        """
+
         self.item_map.pop(key, default)
         try:
             self.age_map.remove(key)
@@ -660,15 +1015,57 @@ class LRUCache(object):  # {{{
             pass
 
     def __contains__(self, key):
+        """
+        Check value-map membership without changing access age.
+
+        Example:
+            ``key in cache`` does not protect that key from eviction by refreshing it.
+
+
+        :param key: Hashable key to inspect.
+        :return: Whether a stored value exists for the key.
+        """
+
         return key in self.item_map
 
     def __len__(self):
+        """
+        Count entries in the age deque.
+
+        Example:
+            The count normally equals stored keys; direct external mutation of maps can break that invariant.
+
+
+        :return: Tracked entry count, assuming both maps remain consistent.
+        """
+
         return len(self.age_map)
 
     def __getitem__(self, key):
+        """
+        Read using get semantics, including None on a missing key.
+
+        Example:
+            ``cache["missing"]`` returns None instead of raising KeyError.
+
+
+        :param key: Hashable key to look up.
+        :return: Stored value or None; successful non-None reads refresh age.
+        """
+
         return self.get(key)
 
     def __iter__(self):
+        """
+        Iterate live key/value pairs in dictionary insertion order.
+
+        Example:
+            Accessing an older entry changes eviction age but not its iteration position.
+
+
+        :return: Iterator over item_map.items(); mutation may invalidate it.
+        """
+
         return iter(self.item_map.items())
 
 

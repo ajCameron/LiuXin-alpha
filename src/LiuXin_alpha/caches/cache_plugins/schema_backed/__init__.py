@@ -1,5 +1,10 @@
 """
-Schema-backed implementations of the storage cache APIs.
+Expose canonical schema-backed storage cache, table and field implementations.
+
+The package exports the concrete root cache, main/link tables and each
+relation-field family from its implementation module. The public
+LiuXin_alpha.caches.schema_backed surface re-exports these same classes.
+Importing this package does not construct a cache or read a database.
 """
 
 from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_cache import (

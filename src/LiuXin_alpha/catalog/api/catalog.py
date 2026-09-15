@@ -1,39 +1,19 @@
-"""Public facade contract for LiuXin's metadata-aware Catalog.
+"""
+Structural contracts for the Catalog facade and its composed service groups.
 
-Application code normally instantiates :class:`LiuXin_alpha.catalog.Catalog`,
-not this protocol.  :class:`CatalogAPI` describes the structural contract used
-by callers, tests, and alternate implementations.
+CatalogAPI describes the database, entity repositories, and generic writer methods.
+CatalogAddinsAPI groups repositories, matching, retrieval, and coordinated mutations
+with inherited Row-oriented compatibility helpers. Protocol methods declare the
+contract; the concrete implementation lives in LiuXin_alpha.catalog.catalog.
+Runtime protocol checks establish attribute presence, not database readiness.
 
-The facade has five deliberately separate areas:
-
-``catalog.repositories`` (also exposed as ``catalog.works``, ``catalog.items``,
-etc.)
-    Entity CRUD, relationship traversal, and convenient ``match_or_create``
-    operations.
-``catalog.matching``
-    Read-only identity decisions with evidence.  Use this when ambiguity or
-    conflict must be presented to a person instead of raising immediately.
-``catalog.retrieval``
-    Coherent WEMI bundles and display-neutral projections.
-``catalog.mutations``
-    Coordinated multi-table writes and merge policy.
-``catalog.add`` / ``ensure`` / ``apply`` / ``intralink``
-    Compatibility metadata helpers which work with database ``Row`` objects.
-
-Example::
-
-    from LiuXin_alpha.catalog import Catalog
-    from LiuXin_alpha.catalog.api import MetadataCandidate
-
-    catalog = Catalog(db)
-    work_id = catalog.works.match_or_create(
-        MetadataCandidate({"title": "Frankenstein"})
-    )
-    work = catalog.works.require(work_id)
-    assert work["work_id"] == work_id
-
-See ``dev-docs/catalog-api-usage.md`` for an end-to-end WEMI example and the
-matching decision rules.
+Example:
+    >>> from LiuXin_alpha.catalog import Catalog
+    >>> from LiuXin_alpha.catalog.api.common import MetadataCandidate
+    >>> catalog: CatalogAPI = Catalog(db)  # doctest: +SKIP
+    >>> work_id = catalog.works.match_or_create(  # doctest: +SKIP
+    ...     MetadataCandidate({"title": "Frankenstein"}),
+    ... )
 """
 
 from __future__ import annotations
@@ -78,15 +58,23 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class CatalogAddinsAPI(CatalogMetadataToolsAPI, Protocol):
-    """Composition groups exposed by the top-level Catalog facade.
+    """
+    Group the semantic Catalog services and inherited metadata compatibility tools.
 
-    API shape mirrors `LiuXin_alpha.catalog` module shape: metadata tools,
-    repositories, matching, retrieval, and mutations are separate areas behind
-    one convenience object.
+    Repositories own entity operations, matching explains identity decisions, retrieval assembles
+    read models, and mutations coordinate writes. Inherited add/ensure/apply/intralink attributes
+    support workflows using legacy database Row objects. This runtime-checkable protocol tests
+    attribute presence, not signatures, return types, database readiness, or behavioral conformance.
 
-    Prefer the repository/matching/retrieval/mutation groups for new code.
-    The inherited metadata-tool attributes are maintained for callers that work
-    directly with legacy database ``Row`` objects.
+    Example:
+        >>> isinstance(catalog, CatalogAddinsAPI)  # doctest: +SKIP
+        True
+
+
+    :ivar repositories: Grouped entity repository contracts.
+    :ivar matching: Read-only identity-decision services.
+    :ivar retrieval: WEMI traversal, bundle, graph, and projection services.
+    :ivar mutations: Coordinated mutation and merge-policy services.
     """
 
     repositories: "CatalogRepositoriesAPI"
@@ -97,20 +85,41 @@ class CatalogAddinsAPI(CatalogMetadataToolsAPI, Protocol):
 
 @runtime_checkable
 class CatalogAPI(CatalogAddinsAPI, Protocol):
-    """Structural API for the metadata-aware facade over a database handle.
+    """
+    Describe the metadata-aware facade and its schema-driven writer entry points.
 
-    ``CatalogAPI`` is a :class:`typing.Protocol`; it is useful as an annotation
-    and for ``isinstance(value, CatalogAPI)`` checks.  Construct the concrete
-    facade with ``Catalog(db)``.
+    Annotate callers with this protocol and construct the concrete Catalog with an existing
+    database. Grouped repositories and their convenience attributes provide entity-specific
+    operations; generic write methods route through schema-selected writers. The concrete facade
+    borrows the database and has no close or context-manager lifecycle. Runtime isinstance checks
+    inspect structural presence only and cannot prove operational compatibility.
 
-    The generic ``write*`` methods are the lower-level schema-driven mutation
-    surface.  For ordinary entity creation and editing, start with
-    ``catalog.works``, ``catalog.items``, or another repository.
+    Example:
+        >>> from LiuXin_alpha.catalog import Catalog
+        >>> catalog: CatalogAPI = Catalog(db)  # doctest: +SKIP
+        >>> work = catalog.works.require(work_id)  # doctest: +SKIP
 
-    Example::
 
-        catalog: CatalogAPI = Catalog(db)
-        work = catalog.works.require(work_id)
+    :ivar db: Database providing row, macro, and schema APIs required by the selected operation.
+    :ivar works: Works representing intellectual creations; also available in repositories.
+    :ivar expressions: Expressions representing realizations of Works; also available in repositories.
+    :ivar manifestations: Manifestations representing publication embodiments; also available in repositories.
+    :ivar items: Items representing individual copies; also available in repositories.
+    :ivar agents: Agents and their contributions to WEMI entities; also available in repositories.
+    :ivar identifiers: Scheme-aware entity identifiers and their WEMI links; also available in repositories.
+    :ivar item_identifiers: Identifiers observed on individual Items; also available in repositories.
+    :ivar titles: Logical titles and their WEMI relationships; also available in repositories.
+    :ivar notes: Notes attached to WEMI entities; also available in repositories.
+    :ivar tags: Reusable Tag values; also available in repositories.
+    :ivar labels: Reusable Label values; also available in repositories.
+    :ivar genres: Genre values and their entity relationships; also available in repositories.
+    :ivar subjects: Subject values and their entity relationships; also available in repositories.
+    :ivar series: Series values and their entity relationships; also available in repositories.
+    :ivar languages: Language values and their entity relationships; also available in repositories.
+    :ivar ratings: Rating values and their entity relationships; also available in repositories.
+    :ivar comments: Comment values and their entity relationships; also available in repositories.
+    :ivar synopses: Synopsis text and its entity relationships; also available in repositories.
+    :ivar annotations: Annotations scoped to individual Items; also available in repositories.
     """
 
     db: "DatabaseAPI"
@@ -142,24 +151,28 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         force_refresh: bool = False,
         destination_owned: bool | None = None,
     ) -> "SchemaCatalogWriter":
-        """Create the writer appropriate for one logical catalog field.
+        """
+        Resolve one schema column to a configured Catalog writer.
 
-        Core schema metadata determines whether ``dst_column`` is stored on the
-        source row, in an owned one-to-one row, or through a shared link table.
-        The returned writer exposes its concrete validation and bulk methods;
-        call :meth:`write` when that distinction is not needed.
+        A column on the source table selects a same-table writer. Otherwise the factory requires one
+        destination table and a directed link from the source. Declared or overridden ownership
+        selects an owned-row writer only for a one-to-one link; other destinations use a
+        shared-value link writer. Names are exact schema names, not repository field aliases.
+        Construction discovers schema and configures a new writer but does not apply a value update.
 
-        :param src_table: Source table whose integer IDs key the update.
-        :param dst_column: Public or storage destination value column.
-        :param force_refresh: Re-read schema metadata before selecting a writer.
-        :param destination_owned: Override inferred one-to-one ownership only
-            when the schema cannot express it.
-        :return: A configured same-table, owned-row, or link writer.
+        Example:
+            >>> writer = catalog.create_writer("works", "work_canonical_title")  # doctest: +SKIP
+            >>> result = writer.write_one(work_id, "Frankenstein")  # doctest: +SKIP
 
-        Example::
 
-            writer = catalog.create_writer("works", "tag")
-            result = writer.write({work_id: ["gothic", "science fiction"]})
+        :param src_table: Exact schema name of the main table whose row IDs key the update.
+        :param dst_column: Exact schema column name on the source table or a uniquely identified linked destination table.
+        :param force_refresh: Forwarded to schema discovery to request a refresh before writer selection.
+        :param destination_owned: None to use declared ownership, or a boolean override for a separate destination; ownership requires one-to-one cardinality.
+        :return: A new same-table, owned-row, or shared-value link writer for the resolved route.
+        :raises TypeError: If names, the ownership override, or schema-discovery dependencies have invalid types.
+        :raises KeyError: If the source table or destination column cannot be found.
+        :raises ValueError: If the source is not a writable main table, the destination is ambiguous/unlinked, or requested ownership is not one-to-one.
         """
 
         ...
@@ -173,27 +186,29 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         destination_owned: bool | None = None,
         **kwargs: Any,
     ) -> "Mapping[SrcTableID, object]":
-        """Resolve a schema-backed writer and apply a bulk update.
+        """
+        Select a schema writer and forward its bulk update arguments.
 
-        ``*args`` and ``**kwargs`` are passed to the selected writer unchanged.
-        This convenience is best when the caller already knows the field's
-        accepted write shape.  Use :meth:`create_writer` to inspect or retain
-        the concrete writer.
+        Selection uses create_writer on each call. Positional and remaining keyword arguments pass
+        unchanged to writer.write, so accepted replacement, incremental, rich-link, and type-scope
+        forms depend on that writer. The facade adds no transaction, exception translation, or
+        result conversion; execution and failure guarantees belong to the selected writer and
+        database operation.
 
-        :param src_table: Source table whose IDs key the update.
-        :param dst_column: Logical destination column or linked value column.
-        :param args: Positional arguments accepted by the selected writer.
-        :param force_refresh: Re-read schema metadata before writer selection.
-        :param destination_owned: Optional ownership override for ambiguous
-            one-to-one fields.
-        :param kwargs: Keyword arguments accepted by the selected writer.
-        :return: Written values or link rows keyed by source ID.
+        Example:
+            >>> result = catalog.write(  # doctest: +SKIP
+            ...     "works", "work_canonical_title", {work_id: "Frankenstein"},
+            ... )
 
-        Example::
 
-            catalog.write("works", "work_canonical_title", {
-                work_id: "Frankenstein; or, The Modern Prometheus",
-            })
+        :param src_table: Exact schema name of the main table whose row IDs key the update.
+        :param dst_column: Exact schema column name on the source table or a uniquely identified linked destination table.
+        :param args: Positional bulk-update arguments accepted by the selected writer.
+        :param force_refresh: Forwarded to schema discovery to request a refresh before writer selection.
+        :param destination_owned: None to use declared ownership, or a boolean override for a separate destination; ownership requires one-to-one cardinality.
+        :param kwargs: Remaining writer options, forwarded unchanged after factory options are consumed.
+        :return: The selected writer's mapping of source IDs to values or link rows, returned unchanged.
+        :raises Exception: Writer-selection, validation, and database failures propagate from the delegated operations.
         """
 
         ...
@@ -210,28 +225,29 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         destination_owned: bool | None = None,
         **kwargs: Any,
     ) -> "Mapping[SrcTableID, object]":
-        """Create a writer and update one source entity.
+        """
+        Select a schema writer and apply one source/value instruction.
 
-        :param src_table: Table containing ``src_id``.
-        :param dst_column: Logical destination column or linked value column.
-        :param src_id: Existing source-row ID.
-        :param dst_value: Scalar, collection, rich link value, or ``None`` to
-            clear, as accepted by the selected writer.
-        :param force_refresh: Re-read schema metadata before writer selection.
-        :param destination_owned: Optional ownership override for ambiguous
-            one-to-one fields.
-        :param kwargs: Concrete-writer options such as ``link_type``.
-        :return: A one-entry mapping keyed by ``src_id``; the mapping is not
-            unwrapped so its shape matches :meth:`write`.
+        The facade forwards src_id, dst_value, and kwargs to writer.write_one on a newly selected
+        writer. Scalar, collection, rich-link, and clear values have the meanings accepted by that
+        writer. The returned mapping is not unwrapped; writer-specific validation, atomicity, and
+        failure behavior are preserved.
 
-        Example::
+        Example:
+            >>> result = catalog.write_one(  # doctest: +SKIP
+            ...     "works", "work_canonical_title", work_id, "Frankenstein",
+            ... )
 
-            catalog.write_one(
-                "works",
-                "work_canonical_title",
-                work_id,
-                "Frankenstein; or, The Modern Prometheus",
-            )
+
+        :param src_table: Exact schema name of the main table whose row IDs key the update.
+        :param dst_column: Exact schema column name on the source table or a uniquely identified linked destination table.
+        :param src_id: Source-table row ID to update, validated by the selected writer.
+        :param dst_value: Value or clear instruction in the concrete writer's supported form.
+        :param force_refresh: Forwarded to schema discovery to request a refresh before writer selection.
+        :param destination_owned: None to use declared ownership, or a boolean override for a separate destination; ownership requires one-to-one cardinality.
+        :param kwargs: Additional writer options, such as link_type, forwarded unchanged.
+        :return: The concrete writer's source-ID mapping, without extracting a single value.
+        :raises Exception: Writer-selection, validation, and database failures propagate from the delegated operations.
         """
 
         ...
@@ -240,14 +256,23 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         self,
         update: "LinkUpdate",
     ) -> "Mapping[SrcTableID, tuple[LinkRow, ...]]":
-        """Apply an already normalized many-to-many link update.
+        """
+        Apply a normalized link instruction through the database macro surface.
 
-        Use this boundary when another component has built a ``LinkUpdate`` and
-        the Catalog should own transaction execution.  Repository methods are
-        clearer for common relationships such as Agent credits.
+        The concrete facade checks the update type, then calls update.write(db.macros).
+        Replacement/incremental composition and type scope belong to LinkUpdate; its final
+        replacement delegates atomic execution to the portable macro. Empty updates retain their
+        no-write behavior, though the facade still accesses db.macros. No surrounding transaction or
+        error translation is added.
 
-        :param update: Immutable replacement or incremental link instruction.
-        :return: Complete resulting link rows keyed by affected source ID.
+        Example:
+            >>> result = catalog.write_link_update(link_update)  # doctest: +SKIP
+
+
+        :param update: LinkUpdate containing replacement or incremental instructions for a directed link specification.
+        :return: Complete resulting link rows keyed by affected source ID, or the update's empty mapping.
+        :raises TypeError: If update is not a LinkUpdate in the concrete facade.
+        :raises Exception: Macro access, update composition, and database failures propagate unchanged.
         """
 
         ...
@@ -256,11 +281,22 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         self,
         update: "CatalogColumnUpdate[object]",
     ) -> "Mapping[SrcTableID, object]":
-        """Apply an already normalized same-table column update.
+        """
+        Apply a normalized same-table column instruction to the borrowed database.
 
-        :param update: Immutable update containing source IDs and validated
-            column values.
-        :return: Stable written values keyed by affected source ID.
+        The concrete facade checks the update type and delegates to update.write(db). Nonempty
+        instructions use the database bulk-column operation; empty values return without a database
+        write. The result is the update's stored value mapping, not a fresh read of database values
+        after triggers or coercion.
+
+        Example:
+            >>> result = catalog.write_column_update(column_update)  # doctest: +SKIP
+
+
+        :param update: CatalogColumnUpdate containing table/column specifications and source-ID values.
+        :return: The update's stable value mapping, returned after successful application or immediately when empty.
+        :raises TypeError: If update is not a CatalogColumnUpdate in the concrete facade.
+        :raises Exception: Database write failures propagate without an extra facade transaction.
         """
 
         ...
@@ -269,11 +305,23 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
         self,
         update: "CatalogOwnedRowUpdate[object]",
     ) -> "Mapping[SrcTableID, tuple[LinkRow, ...]]":
-        """Apply an already normalized owned one-to-one row update.
+        """
+        Apply normalized values for a destination owned through a one-to-one link.
 
-        :param update: Immutable instruction for destination rows whose
-            lifecycle belongs exclusively to their source rows.
-        :return: Complete resulting link rows keyed by affected source ID.
+        The concrete facade checks the update type and calls update.write(db.macros). Non-null
+        values replace existing destination values or create and link a row; None removes the link
+        while leaving the destination row for explicit cleanup. The update delegates atomic
+        execution to the portable macro. Empty values perform no write, although the facade still
+        resolves the macros attribute.
+
+        Example:
+            >>> result = catalog.write_owned_row_update(owned_update)  # doctest: +SKIP
+
+
+        :param update: CatalogOwnedRowUpdate with a one-to-one link, destination column, and replacement values.
+        :return: Complete resulting link rows keyed by affected source ID, or an empty mapping for no values.
+        :raises TypeError: If update is not a CatalogOwnedRowUpdate in the concrete facade.
+        :raises Exception: Macro access and database failures propagate without additional facade handling.
         """
 
         ...

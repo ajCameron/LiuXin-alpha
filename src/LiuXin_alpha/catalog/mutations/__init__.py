@@ -1,5 +1,5 @@
 """
-Mutation/policy implementations for the catalog layer.
+Compose and export Catalog mutation policy and coordinated writer services.
 """
 
 from __future__ import annotations
@@ -15,7 +15,10 @@ from .mutation_policy import MutationPolicy
 @dataclass(slots=True)
 class CatalogMutations:
     """
-    Grouped mutation services exposed by `Catalog.mutations`.
+    Create policy and writer services sharing the Catalog database and repositories.
+
+    Example:
+        The writer retains the same policy object exposed as mutations.policy.
     """
 
     db: DatabaseHandle
@@ -25,9 +28,13 @@ class CatalogMutations:
 
     def __post_init__(self) -> None:
         """
-        Called to pass the db class on.
+        Construct a policy and inject it into a fresh MetadataWriter.
 
-        :return:
+        Example:
+            Manual reinvocation replaces both objects without querying or validating the database.
+
+
+        :return: None; replaces policy/writer service fields.
         """
         self.policy = MutationPolicy(self.db, self.repositories)
         self.writer = MetadataWriter(self.db, self.repositories, self.policy)

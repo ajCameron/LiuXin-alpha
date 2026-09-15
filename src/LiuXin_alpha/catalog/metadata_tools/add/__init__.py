@@ -1,4 +1,6 @@
-"""Legacy metadata-addition facade composed from entity-specific mixins."""
+"""
+Compose legacy row-creation mixins into the Add facade.
+"""
 
 from __future__ import unicode_literals
 
@@ -31,10 +33,32 @@ class Add(
     TagAdderMixin,
 ):
     """
-    Composition root for adder mixins.
+    Group row creation with explicit peer wiring and shared helper precedence.
+
+    Construction retains a database, leaving ensure/apply as None until the
+    Catalog composition root wires them. WEMIAdderMixin precedes
+    AgentCreatorOrgMixin, so its date coercion methods also service Agent calls.
+    LabelMixin is retained separately and is not part of this facade.
+
+    Example:
+        After composition, ``catalog.add.identifier`` uses catalog.ensure; a
+        standalone Add needs that peer supplied before identifier creation.
     """
 
     def __init__(self, database):
+        """
+        Retain the database and initialize empty peer/cache references.
+
+        Example:
+            >>> database = object()
+            >>> Add(database).db is database
+            True
+
+
+        :param database: Borrowed database handle; not opened or validated.
+        :return: None; sets ensure, apply and the last-title bundle cache to None.
+        """
+
         self.db = database
         self.ensure = None
         self.apply = None

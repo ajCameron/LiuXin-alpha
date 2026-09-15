@@ -2,7 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 """
-Interface for convenient management of preferences stores in the database.
+Cache database preferences and serialize preference backups as JSON.
+
+DBPrefs loads the preferences table through driver_wrapper. Its item assignment/deletion methods persist changes; inherited dict operations and mutation of nested values do not automatically use those methods. Defaults are lookup fallbacks rather than stored rows.
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function, annotations
@@ -25,17 +27,29 @@ if TYPE_CHECKING:
 
 class DBPrefs(dict):
     """
-    Store preferences as key:value pairs in the db.
+    Expose stored preferences as a mutable dictionary with explicit database writes.
 
-    Ported from Calibre.
-    Used to store the preferences that affect how the database is displayed and sorted in the database itself.
+    Construction reads the preferences table. Item lookup falls back to defaults, but membership, inherited dict.get and namespaced lookup inspect stored entries only. Use item assignment or set/set_namespaced to persist a replacement; inherited update/clear and in-place edits to nested objects bypass persistence. disable_setting makes item assignment local only. Values and defaults are not copied.
+
+    Example:
+        prefs = DBPrefs(db)
+        prefs["page_size"] = 50
+        page_size = prefs["page_size"]
     """
 
     def __init__(self, db: "DatabaseAPI") -> None:
         """
-        Startup the preferences cache.
+        Attach the database and immediately load its stored preferences.
 
-        :param db:
+        Rows whose JSON values cannot be decoded are logged and skipped by load_from_db. Database enumeration failures propagate.
+
+        Example:
+            prefs = DBPrefs(db)
+            prefs.defaults["page_size"] = 50
+
+
+        :param db: Database providing driver_wrapper row operations and a lock context manager.
+        :return: None; creates empty defaults, enables persistence and populates this dictionary.
         """
         super(DBPrefs, self).__init__()
         self.db = db
@@ -45,10 +59,16 @@ class DBPrefs(dict):
 
     def load_from_db(self) -> None:
         """
-        Load the preferences off the database.
+        Replace cached entries with successfully decoded preference rows.
 
-        Originally used the self.db.conn method - modified to work with the LiuXin.databases.database intermediary.
-        :return:
+        Clear memory before reading all rows. Decode values through raw_to_object, logging and skipping each failed value. Rows are installed directly into the dict without database writes; repeated keys retain the last successfully decoded value. Enumeration or malformed row-access failures propagate after the cache has been cleared.
+
+        Example:
+            prefs.load_from_db()
+            current = prefs["page_size"]
+
+
+        :return: None; defaults and disable_setting are unchanged.
         """
         self.clear()
         key_values = []
@@ -66,10 +86,19 @@ class DBPrefs(dict):
     @staticmethod
     def raw_to_object(raw: AnyStr) -> Any:
         """
-        Deserialize a json encoded object.
+        Decode a JSON preference value, including the project tagged-object format.
 
-        :param raw:
-        :return:
+        Bytes use preferred_encoding with replacement for invalid sequences. The object hook restores supported sets, byte arrays, bytes and datetimes; this is not arbitrary Python object deserialization.
+
+        Example:
+            >>> DBPrefs.raw_to_object(b'{"enabled": true}')
+            {'enabled': True}
+
+
+        :param raw: JSON text or bytes; other objects are first converted with str.
+        :return: Decoded JSON value, with tagged objects reconstructed by from_json.
+        :raises ValueError: JSON or a supported tagged value is malformed.
+        :raises KeyError: A recognized tagged object omits its required value field.
         """
         if isinstance(raw, bytes):
             raw = raw.decode(preferred_encoding, errors="replace")
@@ -79,10 +108,20 @@ class DBPrefs(dict):
 
     def to_raw(self, val: Any) -> str:
         """
-        Serialize an object using json
+        Serialize a preference value using sorted JSON object keys.
 
-        :param val:
-        :return:
+        Sorted dictionary keys stabilize comparisons with stored text. This does not guarantee ordering of set elements handled by the custom encoder. Serialization does not write the database.
+
+        Example:
+            >>> prefs = dict.__new__(DBPrefs)
+            >>> json.loads(prefs.to_raw({"b": 2, "a": 1}))
+            {'a': 1, 'b': 2}
+
+
+        :param val: JSON-compatible value or an additional type supported by to_json.
+        :return: Indented JSON text suitable for preference_value.
+        :raises TypeError: A value or dictionary key cannot be serialized.
+        :raises ValueError: The JSON encoder detects a circular reference.
         """
         # sort_keys=True is required so that the serialization of dictionaries is not random, which is needed for the
         # changed check in __setitem__
@@ -90,19 +129,34 @@ class DBPrefs(dict):
 
     def has_setting(self, key: str) -> bool:
         """
-        Tests to see if a setting exists.
+        Check whether a key is explicitly present in the preference cache.
 
-        :param key:
-        :return:
+        Example:
+            >>> prefs = dict.__new__(DBPrefs)
+            >>> dict.__setitem__(prefs, "enabled", None)
+            >>> prefs.has_setting("enabled")
+            True
+
+
+        :param key: Preference key to test.
+        :return: True for a stored dictionary entry, including one set to None; defaults do not count.
         """
         return key in self
 
     def __getitem__(self, key: str) -> Any:
         """
-        Dictionary like interface for the preferences.
+        Return a cached preference or its configured default.
 
-        :param key:
-        :return:
+        Example:
+            >>> prefs = dict.__new__(DBPrefs)
+            >>> prefs.defaults = {"page_size": 50}
+            >>> prefs["page_size"]
+            50
+
+
+        :param key: Preference key looked up first in this dictionary, then in defaults.
+        :return: Stored object or default object, without copying it.
+        :raises KeyError: Neither the cache nor defaults contains the key.
         """
         try:
             return super(DBPrefs, self).__getitem__(key)
@@ -111,21 +165,34 @@ class DBPrefs(dict):
 
     def __delitem__(self, key: str) -> None:
         """
-        Remove an item from the preferences (and the database).
+        Remove a cached key, then delete matching database preference rows.
 
-        :param key:
-        :return:
+        Memory changes before driver_wrapper.delete. Database failure therefore leaves the cached entry removed. This method does not consult disable_setting or enter db.lock.
+
+        Example:
+            del prefs["page_size"]
+
+
+        :param key: Explicitly cached key to remove; a default-only key is insufficient.
+        :return: None; a remaining defaults entry can still satisfy subsequent item lookup.
+        :raises KeyError: The key is absent from the cached dictionary.
         """
         super(DBPrefs, self).__delitem__(key)
         self.db.driver_wrapper.delete(target_table="preferences", column="preference_key", value=key)
 
     def __setitem__(self, key: str, val: Any) -> None:
         """
-        Set the item locally and write it out to the database.
+        Persist a preference replacement before updating its cached value.
 
-        :param key:
-        :param val:
-        :return:
+        With disable_setting, assign directly without serialization or database access. Otherwise serialize first, enter db.lock, insert a missing row or update the first matching row only when raw JSON differs. Existing byte-valued JSON is decoded before comparison. The lock context belongs to the database host; this method makes no explicit commit call. Mutating a previously cached object in place is not detected automatically.
+
+        Example:
+            prefs["columns"] = ["title", "authors"]
+
+
+        :param key: Preference key used to search preference_key.
+        :param val: Value serialized with to_raw and then cached without copying.
+        :return: None; local assignment occurs only after successful persistence, unless persistence is disabled.
         """
         if self.disable_setting:
             super(DBPrefs, self).__setitem__(key, val)
@@ -156,23 +223,34 @@ class DBPrefs(dict):
 
     def set(self, key: str, val: Any) -> None:
         """
-        Set the preferences values on the database.
+        Assign a preference through the same persistence path as item assignment.
 
-        :param key:
-        :param val:
-        :return:
+        Example:
+            prefs.set("page_size", 50)
+
+
+        :param key: Preference key.
+        :param val: Replacement value passed unchanged to __setitem__.
+        :return: None; persistence and errors follow __setitem__.
         """
         self.__setitem__(key, val)
 
     def get_namespaced(self, namespace: str, key: str, default: Optional[Any] = None) -> Any:
         """
-        Get the value of a key in the given namespace.
+        Read an explicitly stored namespaced preference or the supplied fallback.
 
-        namespace being a preceding string for the entry - which designates a subspace of the keys.
-        :param namespace:
-        :param key:
-        :param default:
-        :return:
+        This lookup bypasses self.defaults and does not validate colons in either component. It performs no database read.
+
+        Example:
+            >>> prefs = dict.__new__(DBPrefs)
+            >>> prefs.get_namespaced("ui", "layout", "compact")
+            'compact'
+
+
+        :param namespace: Namespace interpolated into the stored key.
+        :param key: Local key interpolated after the namespace.
+        :param default: Value returned when the composite key is absent.
+        :return: Cached value for namespaced:namespace:key, or default.
         """
         key = "namespaced:%s:%s" % (namespace, key)
         try:
@@ -182,12 +260,17 @@ class DBPrefs(dict):
 
     def set_namespaced(self, namespace: str, key: str, val: Any) -> None:
         """
-        Set the value of a key in the given namespace.
+        Validate namespace components and persist their composite preference key.
 
-        :param namespace:
-        :param key:
-        :param val:
-        :return:
+        Example:
+            prefs.set_namespaced("ui", "layout", "compact")
+
+
+        :param namespace: Namespace without a colon.
+        :param key: Local key without a colon.
+        :param val: Replacement value passed through item assignment.
+        :return: None; stores under namespaced:namespace:key.
+        :raises KeyError: The key or namespace contains a colon.
         """
         if ":" in key:
             raise KeyError("Colons are not allowed in keys")
@@ -198,10 +281,16 @@ class DBPrefs(dict):
 
     def write_serialized(self, library_path: Union[pathlib.Path, AnyStr]) -> None:
         """
-        Backup these preferences into the databases folder.
+        Write cached entries to metadata_db_prefs_backup.json in an existing directory.
 
-        :param library_path:
-        :return:
+        Write UTF-8 JSON with the project encoder, excluding defaults. Opening the target truncates any existing backup; writes are not atomic and the directory is not created. Exceptions from path construction, opening or serialization are printed and logged rather than re-raised by this handler. Despite the AnyStr annotation, a bytes directory cannot be joined to this text filename.
+
+        Example:
+            prefs.write_serialized(library_directory)
+
+
+        :param library_path: Directory path accepted by os.path.join with a text filename; normally str or pathlib.Path.
+        :return: None, including after a caught failure.
         """
         try:
             to_filename = os.path.join(library_path, "metadata_db_prefs_backup.json")
@@ -219,11 +308,20 @@ class DBPrefs(dict):
             library_path: Union[pathlib.Path, AnyStr],
             recreate_prefs: bool = False) -> Any:
         """
-        Factory method - read a backup of these preferences out of the databases folder.
+        Read a preference backup as decoded data without constructing DBPrefs.
 
-        :param library_path:
-        :param recreate_prefs:
-        :return:
+        Read UTF-8 and apply from_json to tagged objects. File, decoding and JSON errors propagate. Defaults are not recreated from a backup.
+
+        Example:
+            backup = DBPrefs.read_serialized(library_directory)
+
+
+        :param library_path: Existing directory containing metadata_db_prefs_backup.json; use a text or pathlib path.
+        :param recreate_prefs: Unsupported recreation switch; leave False.
+        :return: Decoded JSON value, normally a dictionary; no database attachment or top-level type validation.
+        :raises NotImplementedError: recreate_prefs is True.
+        :raises OSError: The backup cannot be opened or read.
+        :raises ValueError: The file does not contain valid JSON or tagged data.
         """
         if recreate_prefs:
             raise NotImplementedError("Not currently supported")

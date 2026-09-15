@@ -1,6 +1,8 @@
 
 """
-Constants defining the database.
+Define immutable helper-table names and the compatibility subset allowed to be absent.
+
+Database schema refresh uses HELPER_TABLES for classification and requires all names outside OPTIONAL_HELPER_TABLES. The optional subset permits older catalogs to open with inferred read behavior; it does not create or migrate missing tables. Storage bootstrap owns its journal/ledger migration.
 """
 
 

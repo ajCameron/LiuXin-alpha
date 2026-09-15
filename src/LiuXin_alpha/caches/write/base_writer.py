@@ -1,14 +1,12 @@
 
 """
-Base class for the writers  -responsible for writing structured data to the database.
+Adapt legacy field writes and share Calibre-style value/link mutation helpers.
 
-Writers are convenience methods to streamline getting data into the database.
-These include functions such as
- - write author_sort_name
- - write covers
- - write identifiers
-
-and so on.
+Writers retain a field, choose an input adapter and invoke a specialized
+set_books_func. Shared helpers resolve/create related values, record case
+changes and mutate title-linked associations. These compatibility paths
+rely on legacy table maps and database macros; they do not provide the
+modern Cache facade's lifecycle or transaction/reconciliation boundary.
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
@@ -40,16 +38,32 @@ if TYPE_CHECKING:
 # Todo: Writer is, explicitely, doing two jobs. Updating the cache and updatiung the db. These should be different.
 class BaseWriter:
     """
-    Base clas for a calibre-style database writer.
+    Adapt accepted field values and delegate legacy database writes.
 
-    This assumes, at present, that we're writing into a table linked to books.
+    Construction records the field and its datatype and selects an adapter.
+    Subclasses replace set_books_func or implement the method. Specialized
+    helpers can mutate database rows, links and cache maps in several stages;
+    failures can follow earlier writes without rollback. The book-ID spelling
+    in this layer often selects rows from the titles table.
+
+    Example:
+        A title writer uses the same input adaptation wrapper with its own
+        set_books_func implementation.
     """
 
     def __init__(self, field: "FieldBasicInterfaceAPI") -> None:
         """
-        Writer base which should be used for every writer.
+        Select the field adapter and retain legacy writer metadata.
 
-        :param field:
+        Adapter selection happens first and can fail before remaining attributes
+        are assigned. No database write or cache initialization is performed.
+
+        Example:
+            A subclass can replace accept_vals after construction to filter values before adaptation.
+
+
+        :param field: Field providing name and metadata, including datatype.
+        :return: None; stores adapter/name/field/datatype and an accept-all value predicate.
         """
         self.adapter = get_adapter(field.name, field.metadata)
         self.name = field.name
@@ -64,13 +78,18 @@ class BaseWriter:
             field,
             allow_case_change: bool = False) -> set[int]:
         """
-        Should be over-ridden by the specified writer.
+        Require a subclass to implement the actual field write hook.
 
-        :param book_id_val_map:
-        :param db:
-        :param field:
-        :param allow_case_change:
-        :return:
+        Example:
+            Subclasses bind set_books_func to a specialized setter during construction.
+
+
+        :param book_id_val_map: Owner-ID-to-value mapping supplied by the wrapper.
+        :param db: Database/catalog adapter used by the concrete writer.
+        :param field: Field whose storage is being changed.
+        :param allow_case_change: Case-change policy offered to the concrete hook.
+        :return: No result; the base hook always raises.
+        :raises NotImplementedError: The base hook is called without an implementation.
         """
         raise NotImplementedError("Needs to be overridden.")
 
@@ -80,12 +99,19 @@ class BaseWriter:
             db: "CatalogAPI",
             allow_case_change: bool = True) -> set[int]:
         """
-        Used when the values in question should not be run through an adapter before being written out to the database.
+        Pass a nonempty value mapping directly to the selected write hook.
 
-        :param book_id_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+        Catch Exception from the hook, log it with the selected function, then
+        reraise. Logging can itself fail; no rollback or post-write repair is added.
+
+        Example:
+            An empty mapping returns set() without accessing the hook or database.
+
+
+        :param book_id_val_map: Caller mapping forwarded unchanged without acceptance filtering or adaptation.
+        :param db: Database/catalog adapter passed to the hook.
+        :param allow_case_change: Case-change flag passed positionally to the hook.
+        :return: Hook-provided dirty-ID set, or a new empty set for false-valued input.
         """
         if not book_id_val_map:
             return set()
@@ -105,12 +131,25 @@ class BaseWriter:
             db: "CatalogAPI",
             allow_case_change: bool = True) -> set[int]:
         """
-        Preform the write for the given metadata into the books in accordance with the book_id_val_mpa.
+        Filter original values, adapt accepted values and invoke the write hook.
 
-        :param book_id_val_map:
-        :param db:
-        :param allow_case_change:
-        :return:
+        Evaluate accept_vals on each original value before self.adapter. Build
+        the whole new mapping before writing. Filtering/adaptation failures occur
+        outside the logging try block; hook Exceptions are logged and reraised.
+        No transaction or cache reconciliation is added here.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> writer = SimpleNamespace(accept_vals=lambda v: v > 0, adapter=str, field=None,
+            ...     set_books_func=lambda values, db, field, case: set(values))
+            >>> BaseWriter.set_books(writer, {1: -1, 2: 3}, None)
+            {2}
+
+
+        :param book_id_val_map: Owner-ID-to-value mapping; keys are retained while accepted values are adapted.
+        :param db: Database/catalog adapter passed to the selected hook.
+        :param allow_case_change: Case-change flag passed positionally to the hook.
+        :return: Hook-provided dirty-ID set, or a new empty set when no values survive.
         """
         book_id_val_map = {k: self.adapter(v) for k, v in iteritems(book_id_val_map) if self.accept_vals(v)}
 
@@ -142,23 +181,37 @@ class BaseWriter:
         id_map_update = None,
     ):
         """
-        Get the db id for the value val - creating if necessary.
+        Resolve or create a related value and update caller-owned lookup maps.
 
-        If the val does not exist in the db it is inserted into it.
-        :param val: The value to search for
-        :param db: The database to do the search in.
-        :param m: field.metadata for the field being searched
-        :param table:
-        :param kmap: Case mapper - usually either icu_lower or the identity function
-        :param rid_map: Keyed with values from the database and valued with the id corresponding to that value
-                        Used to try and map the given value to values on the database.
+        Resolve target table/column before reverse lookup. On a missing key,
+        create an author through Catalog.agents.match_or_create_person, ensure a
+        custom-column value through macros, or fill/sync a blank ordinary row.
+        Author creation replaces commas with pipes in its stored name, computes
+        author sort and updates asort_map/alink_map. Failures while adding to
+        seen_item_ids are suppressed in author and ordinary-row paths.
 
-        :param allow_case_change:
-        :param case_changes: A dictionary recording the required case changes to get a match
-        :param val_map: A map keyed with the value and valued with its id
-        :param is_authors: Is the value from the authors table?
-        :param id_map_update:
-        :return None: All changes happen internally to the value passed into the function
+        Store the resolved ID in rid_map for a new value. Existing values can record
+        case_changes without writing that case here. Always update id_map_update
+        and val_map afterward. These mutations and row creation are not atomic;
+        a later map/key error can follow persistence.
+
+        Example:
+            Two inputs sharing the same kmap key can reuse the first resolved ID
+            through the mutated rid_map.
+
+
+        :param val: Value keyed through kmap and retained in the output maps.
+        :param db: Database/catalog adapter used for metadata lookup and creation.
+        :param m: Table-name string or metadata mapping with table and column entries.
+        :param table: Legacy table object holding ID, seen-ID and optional author maps.
+        :param kmap: Function mapping the value to its reverse-index lookup key.
+        :param rid_map: Reverse-value lookup mapping mutated when a missing value is created.
+        :param allow_case_change: True records a differing existing display value as a case change.
+        :param case_changes: Mutable ID-to-value mapping receiving requested case changes.
+        :param val_map: Mutable original-value-to-ID output mapping.
+        :param is_authors: True creates people through Catalog and updates author-specific cache maps.
+        :param id_map_update: Optional mutable ID-to-value output map; None creates a new dictionary.
+        :return: The supplied or newly created id_map_update dictionary.
         """
         id_map_update = id_map_update if id_map_update is not None else dict()
 
@@ -242,12 +295,20 @@ class BaseWriter:
             field: "FieldBasicInterfaceAPI",
             deleted: Union[tuple[str], list[str]]) -> None:
         """
-        Remove one to one entries in a table not of books type.
+        Break owner links using the first element of each supplied deletion entry.
 
-        :param db:
-        :param field:
-        :param deleted:
-        :return:
+        Do not normalize entries or delete destination rows explicitly. Strings
+        are also subscripted, so a plain string entry contributes its first character.
+        Any foreign-key cleanup is controlled by the database, not this helper.
+
+        Example:
+            Entries [(7,), (8,)] select IDs (7, 8) for link removal.
+
+
+        :param db: Database adapter exposing metadata_sql.break_generic_link.
+        :param field: Field whose table supplies link-table and owner-link-column names.
+        :param deleted: Deletion entries indexed at position zero; normally one-element records.
+        :return: None; invokes the generic link-breaking macro with a tuple of extracted IDs.
         """
         # Todo: Why is this hack necessary? Does it do what you think it does?
         deleted_ids = tuple(de[0] for de in deleted)
@@ -262,12 +323,18 @@ class BaseWriter:
             field: "FieldBasicInterfaceAPI",
             deleted: Union[tuple[str], list[str]]) -> None:
         """
-        Remove one to one entries in a custom table attached to books.
+        Break custom-column owner links using first elements of deletion entries.
 
-        :param db:
-        :param field:
-        :param deleted:
-        :return:
+        The helper does not validate entry shape or explicitly delete owner rows.
+
+        Example:
+            Entries [(7,), (8,)] are forwarded as book_id=(7, 8).
+
+
+        :param db: Database adapter exposing macros.break_cc_links_by_book_id.
+        :param field: Field whose metadata table identifies the custom-column link target.
+        :param deleted: Deletion entries indexed at position zero.
+        :return: None; calls the custom-column macro with the extracted ID tuple.
         """
         deleted_ids = tuple(de[0] for de in deleted)
 
@@ -277,15 +344,25 @@ class BaseWriter:
     @staticmethod
     def change_case(case_changes, dirtied, db, table, m, is_authors=False):
         """
-        Write case changes into the database.
+        Write related-value case changes and dirty every cached referring owner.
 
-        :param case_changes: A list of case changes to be applied to the database
-        :param dirtied: An object containing the dirtied books
-        :param db: A database to write the changes to
-        :param table: A Table object to cache the changes
-        :param m:
-        :param is_authors: Should
-        :return:
+        For a string metadata selector use direct_get_display_column; otherwise
+        read table/column entries. Database author values replace commas with pipes,
+        while id_map retains the caller value. Invoke update_columns even for empty
+        changes. Later cache/map failures do not roll back the earlier database call.
+
+        Example:
+            Changing one shared author display value dirties all owners in that
+            author's col_book_map entry.
+
+
+        :param case_changes: ID-to-display-value changes, read without copying nested values.
+        :param dirtied: Mutable dirty-owner collection supporting update.
+        :param db: Database adapter exposing column updates and display-column lookup.
+        :param table: Legacy table holding id_map, col_book_map and optional asort_map.
+        :param m: Table name or metadata mapping identifying the target column.
+        :param is_authors: True replaces commas for stored author names and recomputes cached author sort.
+        :return: None; writes the database values before changing cache maps and dirty IDs.
         """
         # Process the field to get the table and the column the update should happen in
         # Todo: Account for the authors-creators change
@@ -324,19 +401,36 @@ class BaseWriter:
         link_type: Optional[str] = None,
     ):
         """
-        Generic handler for applying changes to the db.
+        Replace title-linked associations using legacy exclusive-destination rules.
 
-        Should be fairly general.
-        :param db:
-        :param table:
-        :param field:
-        :param is_custom_series:
-        :param updated:
-        :param deleted:
-        :param clean_before_write: If True, then all links to any given book_id in update will be broken before
-                                   proceeding to write the new values out to the database.
-        :param link_type: If provided, then all the links will be set to this type
-        :return:
+        Remove deleted-owner links before acquiring the update lock. Nonempty
+        custom-series updates raise after those deletions. For other updates acquire
+        db.lock and fetch each owner from titles. Integer targets break existing
+        source and destination links filtered by link_type, then create the link.
+
+        Sequence/set targets break the source links for that type, deep-copy and
+        reverse their iteration order, then remove every destination's existing
+        links without a type restriction before creating replacements. Type dicts
+        recurse for non-None values; None values only clear that owner/type.
+        Recursion enters db.lock again, so the lock must support that usage.
+        clean_before_write has no effect. No enclosing transaction, row deletion
+        or cache-map repair is added; failures can follow earlier unlinking/writes.
+
+        Example:
+            A sequence replacement can transfer a destination away from another
+            owner by breaking its old destination-side links first.
+
+
+        :param db: Database adapter with metadata_sql/macros, row lookup and a context-managed lock.
+        :param table: Legacy target table describing link names and endpoint columns.
+        :param field: Field metadata used when checking the unsupported custom-series branch.
+        :param is_custom_series: True rejects nonempty updates through the unimplemented custom-series branch.
+        :param updated: Owner-ID mapping to integer targets, sequences/sets or per-type dictionaries.
+        :param deleted: Owner IDs whose links are removed before update processing.
+        :param clean_before_write: Compatibility flag forwarded recursively but not used to control cleanup.
+        :param link_type: Optional link type passed to creation and selected deletion/reprioritization calls.
+        :return: (None, None) after processing; no dirty-ID or result payload is calculated.
+        :raises NotImplementedError: A nonempty custom-series update or unsupported target shape is encountered.
         """
         # Update the db link table - remove all the links to the book
         if deleted:
@@ -487,18 +581,35 @@ class BaseWriter:
         link_type: Optional[str] = None,
     ):
         """
-        Generic handler for applying changes to the db.
+        Reconcile title-linked association sets while retaining reusable link metadata.
 
-        Should be fairly general. Even generic.
-        :param db:
-        :param table:
-        :param is_custom_series:
-        :param updated:
-        :param deleted:
-        :param clean_before_write: If True, then all links to any given book_id in update will be broken before
-                                   proceeding to write the new values out to the database.
-        :param link_type: If provided, then all the links will be set to this type
-        :return:
+        Apply deleted-owner link removals before the update lock and before
+        rejecting nonempty custom-series updates. Under db.lock, integer targets
+        create a link and reprioritize on DatabaseIntegrityError. Sequence/set
+        targets read existing IDs for link_type, reverse a deep-copied input list,
+        reprioritize existing links and create/reprioritize missing ones.
+
+        Remove previously accepted targets absent from the replacement set using
+        break_generic_single_link without a type argument. Type dictionaries recurse
+        for non-None values, while None clears that owner/type. Recursive calls
+        reenter the lock. clean_before_write is unused; integer updates do not
+        replace the entire source set. No enclosing transaction or rollback is added.
+
+        Example:
+            An existing association retained in a sequence is reprioritized so its
+            additional stored link metadata can survive.
+
+
+        :param db: Database adapter with metadata_sql/macros, row lookup and a context-managed lock.
+        :param table: Legacy target table describing link names and endpoint columns.
+        :param field: Field metadata used when checking the unsupported custom-series branch.
+        :param is_custom_series: True rejects nonempty updates through the unimplemented custom-series branch.
+        :param updated: Owner-ID mapping to integer targets, sequences/sets or per-type dictionaries.
+        :param deleted: Owner IDs whose links are removed before update processing.
+        :param clean_before_write: Compatibility flag forwarded recursively but not used to control cleanup.
+        :param link_type: Optional link type passed to creation and selected deletion/reprioritization calls.
+        :return: (None, None) after processing; cache maps are not repaired here.
+        :raises NotImplementedError: A nonempty custom-series update or unsupported target shape is encountered.
         """
         # Update the db link table - remove all the links to the book
         if deleted:
@@ -679,26 +790,49 @@ class BaseWriter:
         id_map_update,
     ):
         """
-        Attempt to map values to ids.
+        Resolve non-integer values into shared lookup maps through a caller matcher.
 
-        :param book_id_val_map:
-        :param db_id_matcher:
-        :param db:
-        :param m:
-        :param table:
-        :param kmap:
-        :param rid_map:
-        :param allow_case_change:
-        :param case_changes:
-        :param val_map:
-        :param id_map_update:
-        :return:
+        Skip top-level None and integers, including bool. Reverse a deep copy
+        of lists before resolving non-integer elements; iterate sets in their
+        existing order. Strings are single values. Type dictionaries send each
+        truthy value through the same helper, skipping false-valued entries.
+        Tuples and unsupported outer/nested shapes raise; earlier matcher calls
+        may already have created rows or updated maps.
+
+        Example:
+            For a list ["A", 7, "B"], matching visits "B" then "A" and leaves
+            integer ID 7 unresolved because it is already an identity.
+
+
+        :param book_id_val_map: Owner mapping containing strings, lists, sets, integer IDs, type dictionaries or None.
+        :param db_id_matcher: Matcher invoked for each unresolved value with shared map arguments.
+        :param db: Database/catalog adapter passed to the matcher.
+        :param m: Table-name or field metadata selector passed to the matcher.
+        :param table: Legacy related-value table passed to the matcher.
+        :param kmap: Value-key normalization callable passed to the matcher.
+        :param rid_map: Reverse-key-to-ID mapping that the matcher can extend.
+        :param allow_case_change: Case-change permission passed unchanged.
+        :param case_changes: Mutable ID-to-display-value case-change output.
+        :param val_map: Mutable original-value-to-ID output.
+        :param id_map_update: Mutable ID-to-value output passed by keyword to the matcher.
+        :return: None; matching effects occur through callbacks and shared dictionaries.
+        :raises NotImplementedError: An outer or nested value has an unsupported shape.
         """
         def _process_list_set_str_val(val) -> None:
             """
+            Resolve one supported scalar or collection using the enclosing matcher state.
 
-            :param val:
-            :return:
+            Lists are deep-copied and reversed; sets are iterated directly. Integer
+            elements and scalar integers are skipped. Strings are matched as a whole;
+            other shapes raise without rolling back earlier callback effects.
+
+            Example:
+                A list containing [3, "tag"] invokes the matcher only for "tag".
+
+
+            :param val: List, set, string or integer value to interpret.
+            :return: None; calls the matcher for unresolved elements using enclosing shared maps.
+            :raises NotImplementedError: The supplied scalar/container type is unsupported.
             """
 
             # We have a list or set of values
@@ -767,11 +901,16 @@ class BaseWriter:
     @staticmethod
     def _unexpected_val_in_book_id_val_map(book_id_val_map, val):
         """
-        Err msg.
+        Format the full update mapping and unsupported value for a diagnostic.
 
-        :param book_id_val_map:
-        :param val:
-        :return:
+        Example:
+            >>> "type(val): <class 'float'>" in BaseWriter._unexpected_val_in_book_id_val_map({1: 1.5}, 1.5)
+            True
+
+
+        :param book_id_val_map: Complete input mapping rendered with pprint.pformat.
+        :param val: Unsupported value whose string form and runtime type are included.
+        :return: Multiline diagnostic string; no logging or raising is performed here.
         """
         err_msg = [
             "Unexpected value found in book_id_val_map",

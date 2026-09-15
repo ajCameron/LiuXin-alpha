@@ -1,6 +1,8 @@
 
 """
-Mixin to handle access and control of the null rows.
+Repair the schema-specific sentinel rows used for absent series and publishing agents.
+
+These helpers perform writes through the facade wrapper. Current FRBR schemas use an organisation agent sentinel; a legacy publisher sentinel is considered only when the agents table is absent.
 """
 
 from typing import TYPE_CHECKING
@@ -15,20 +17,24 @@ if TYPE_CHECKING:
 # Todo: Null rows class?
 class DatabaseNullRowsMixin:
     """
-    Methods to retrieve and manipulate the null rows.
+    Ensure conventional ID-zero records exist with normalized display fields.
+
+    Example:
+        During writable database bootstrap, db.ensure_null_rows() repairs sentinel records after schema discovery.
     """
     # Todo: Methods to get null rows?
     # Todo: These methods should be private - only run during startup - probably not
     def ensure_null_rows(self: "DatabaseAPI") -> None:
         """
-        Ensure required sentinel/null rows exist.
+        Insert or repair the series and publishing-entity sentinel records.
 
-        Historically, LiuXin used id=0 in certain tables as a "null" record for
-        link tables.
+        When present, series ID 0 has a NULL display value. Prefer agents ID 0 with organisation type and AGENTS_NULL_CANONICAL_NAME; otherwise use publishers ID 0 when that legacy table exists. With no all_tables cache, attempt series and agents directly. Operations are sequential with no grouped rollback, and backend errors propagate.
 
-        In the FRBR-first/WEMI schema, publishing entities are modelled via
-        `agents` (+ subtype sidecars like `org_agents`) rather than a dedicated
-        `publishers` table.
+        Example:
+            For an open writable database, db.ensure_null_rows() restores a changed series sentinel display to None and the agent sentinel to its canonical organisation identity.
+
+
+        :return: None; existing sentinel rows may be updated even when already valid.
         """
 
         # Ensure the series null row

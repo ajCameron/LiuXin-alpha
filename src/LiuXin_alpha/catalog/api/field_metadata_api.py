@@ -1,20 +1,9 @@
-"""Structural API for Calibre-compatible field metadata containers.
+"""
+Define structural contracts for mutable Catalog field descriptors.
 
-Field metadata describes how logical fields map to storage, display, sorting,
-categories, and search terms. It is schema metadata, not the value of a field
-on one book or WEMI entity.
-
-Concrete containers behave like mappings, but their authoritative records live
-in ordered internal maps; this protocol documents the supported mapping-shaped
-surface rather than every inherited ``dict`` method.
-
-Example::
-
-    title = field_metadata["title"]
-    assert title["datatype"] == "text"
-
-    target = field_metadata.search_term_to_field_key("authors")
-    custom = field_metadata.custom_field_metadata(include_composites=False)
+Records describe schema, storage and search rather than entity values.
+Concrete containers store authoritative state in internal maps; this API
+documents their supported mapping surface and compatibility limitations.
 """
 
 from __future__ import annotations
@@ -49,12 +38,16 @@ _DefaultT = TypeVar("_DefaultT")
 
 
 class FieldMetadataEntry(TypedDict, total=False):
-    """Known keys in one Calibre-compatible field description.
+    """
+    Describe optional keys in a mutable field or category descriptor.
 
-    ``table``/``column`` describe storage, ``datatype`` and ``is_multiple``
-    describe values, ``search_terms`` provides query aliases, and ``display``
-    holds immutable presentation hints. Optionality reflects the several record
-    kinds: standard fields, custom fields, categories, and saved searches.
+    Storage keys identify tables/columns; datatype and is_multiple describe
+    values, search_terms lists aliases, and display holds presentation hints.
+    The TypedDict permits omitted keys and performs no runtime validation or
+    immutability enforcement.
+
+    Example:
+        A minimal annotation may use ``entry: FieldMetadataEntry = {"datatype": "text"}``.
     """
 
     table: NotRequired[str | None]
@@ -85,11 +78,16 @@ class FieldMetadataEntry(TypedDict, total=False):
 
 
 class SerializedFieldMetadataState(TypedDict):
-    """Round-trippable dynamic state accepted by ``fm_from_dict``.
+    """
+    Describe dynamic maps accepted by the field-metadata deserializer.
 
-    Standard built-in field definitions come from the concrete container and
-    are not repeated here; this state carries custom fields and dynamic
-    category/search maps.
+    Builtin records are regenerated. Custom/user/search records overlay them;
+    the supplied search map replaces generated aliases. The concrete loader
+    retains references and does not restore absent Series companions.
+
+    Example:
+        Keep builtin aliases in search_term_map when the reconstructed container
+        must retain those searches.
     """
 
     custom_fields: MutableMapping[str, FieldMetadataRecord]
@@ -100,51 +98,67 @@ class SerializedFieldMetadataState(TypedDict):
 
 
 class FieldMetadataGetterAPI(Protocol):
-    """Overloaded callable shape of ``FieldMetadata.get``.
+    """
+    Describe exact-key lookup with an optional caller-supplied default.
 
-    The overloads preserve the caller's explicit default type while returning a
-    mutable metadata record for known keys.
+    Concrete containers bind get to their internal map, so title_sort is not
+    resolved to sort as it is by subscription.
+
+    Example:
+        An absent title_sort key returns None from get even though subscription
+        can retrieve the sort descriptor.
     """
 
     @overload
     def __call__(self, key: str, /) -> FieldMetadataRecord | None:
         """
-        Return a field metadata record, or ``None`` when the key is unknown.
+        Read a live descriptor by exact key, returning None for a miss.
 
-        :param key: Internal field key, custom key, or category key.
-        :return: Metadata record, or ``None`` when unknown.
+        Example:
+            ``metadata.get("unknown")`` returns None.
+
+
+        :param key: Internal metadata key; most methods do not resolve search aliases.
+        :return: Shared mutable descriptor, or None.
         """
 
     @overload
     def __call__(self, key: str, default: _DefaultT, /) -> FieldMetadataRecord | _DefaultT:
         """
-        Return a field metadata record, or the supplied default.
+        Read a live descriptor by exact key with an explicit fallback.
 
-        :param key: Internal field key, custom key, or category key.
-        :param default: Value returned when ``key`` is unknown.
-        :return: Metadata record or the supplied default.
+        Example:
+            Pass a unique sentinel as default to distinguish an absent key from a stored value.
+
+
+        :param key: Internal metadata key; most methods do not resolve search aliases.
+        :param default: Object returned unchanged when the key is absent.
+        :return: Shared mutable descriptor, or the supplied default object.
         """
 
 
 @runtime_checkable
 class FieldMetadataAPI(Protocol):
     """
-    Public API implemented by catalog field metadata containers.
+    Manage mutable field descriptors in ordered internal registries.
 
-    The concrete implementation is dict-backed for compatibility, but it stores
-    live records in internal ordered mappings. This protocol describes the
-    supported mapping-like surface instead of the inherited ``dict`` methods
-    whose behaviour does not reflect those internal records.
+    Descriptors describe schema, storage, display hints and search aliases, not
+    values on a particular book. Standard keys are unprefixed; custom labels
+    normally use #. Kind distinguishes fields, built-in categories, user
+    categories and saved searches. Multiplicity mappings define cache/UI split
+    and join separators; an empty mapping denotes a single value. Table, column,
+    link_column and category_sort describe storage or specialized category reads;
+    None may require a derived/cache value. Name is the display label, rec_index
+    is the database result position and is_csp denotes colon-separated pairs.
 
-    Keys such as ``"title"`` identify standard fields. Custom keys normally use
-    the ``"#label"`` form. Call :meth:`label_to_key` when input may be a
-    user-facing label rather than an internal key.
+    The dict superclass is retained for compatibility. Supported mapping methods
+    use _tb_cats; unrelated inherited dict methods need not reflect those records.
+    Direct assignment is forbidden but returned descriptors are live and mutable.
+    Custom maps and aliases require the dedicated registration/removal methods.
 
-    Example::
-
-        if "title" in field_metadata:
-            title_description = field_metadata["title"]
-        custom_keys = field_metadata.custom_field_keys()
+    Example:
+        Use ``metadata["title"]["datatype"]`` to inspect schema; use repositories
+        to retrieve the title value belonging to a Work.
     """
 
     VALID_DATA_TYPES: frozenset[str | None]
@@ -155,204 +169,315 @@ class FieldMetadataAPI(Protocol):
 
     def __getitem__(self, key: str) -> FieldMetadataRecord:
         """
-        Return the metadata record for a field key.
+        Read a live descriptor, with title_sort treated as an alias of sort.
 
-        :param key: Existing internal field/category key.
-        :return: Live metadata record for ``key``.
-        :raises KeyError: If ``key`` is unknown.
+        Example:
+            Reading ``metadata["title_sort"]`` returns the same record as ``metadata["sort"]``.
+
+
+        :param key: Internal metadata key; most methods do not resolve search aliases.
+        :return: Mutable record stored under the resolved key.
+        :raises KeyError: The resolved key is absent.
         """
 
     def __setitem__(self, key: str, val: FieldMetadataRecord) -> None:
         """
-        Preserve dict-style assignment compatibility.
+        Reject direct descriptor assignment.
 
-        Implementations may reject assignment.
+        Example:
+            Use add_custom_field or a category method to insert records.
 
-        :param key: Internal field key.
-        :param val: Complete metadata record.
-        :return: ``None``.
-        :raises TypeError: When the concrete container is read-only.
+
+        :param key: Requested key, ignored.
+        :param val: Requested value, ignored.
+        :return: Never returns normally.
+        :raises AttributeError: Assignment is forbidden for these containers.
         """
 
     def __delitem__(self, key: str) -> None:
         """
-        Remove a metadata record by key.
+        Delete a record from the main ordered map only.
 
-        :param key: Existing dynamic or custom metadata key.
-        :return: ``None``.
+        Search aliases, custom records, label maps and companion fields are not
+        cleaned up. No title_sort alias resolution is performed.
+
+        Example:
+            Deleting a custom key can leave its record in custom_field_metadata().
+
+
+        :param key: Internal metadata key; most methods do not resolve search aliases.
+        :return: None; updates in-memory metadata only.
+        :raises KeyError: The exact key is absent.
         """
 
     def __iter__(self) -> Iterator[str]:
         """
-        Iterate field keys.
+        Iterate the main map in insertion order.
 
-        :return: Iterator of internal metadata keys in stable order.
+        Example:
+            The virtual title_sort alias is absent unless explicitly stored.
+
+
+        :return: Iterator of current keys; mutation during iteration can invalidate it.
         """
 
     def __contains__(self, key: object) -> bool:
         """
-        Return whether a field key is present.
+        Recognize stored keys and the unconditional title_sort alias.
 
-        :param key: Candidate internal field/category key.
-        :return: Whether a metadata record exists for ``key``.
+        Example:
+            Even after sort is removed, title_sort still reports membership.
+
+
+        :param key: Hashable candidate key.
+        :return: True for a stored key or title_sort.
         """
 
     def has_key(self, key: str) -> bool:
         """
-        Compatibility spelling for membership tests.
+        Expose the legacy spelling of the membership operation.
 
-        :param key: Candidate internal field/category key.
-        :return: Same result as ``key in field_metadata``.
+        Example:
+            ``metadata.has_key("title_sort")`` includes the virtual alias.
+
+
+        :param key: Internal metadata key; most methods do not resolve search aliases.
+        :return: Same boolean as the in operator.
         """
 
     def keys(self) -> KeysView[str]:
         """
-        Return all metadata keys.
+        Expose a live view of stored metadata keys.
 
-        :return: Dynamic view over all internal metadata keys.
+        Example:
+            A previously obtained keys view includes a subsequently added category.
+
+
+        :return: Keys view reflecting subsequent main-map changes.
         """
 
     def sortable_field_keys(self) -> list[str]:
         """
-        Return field keys with sortable datatypes.
+        Select field records with a non-None datatype.
 
-        :return: Keys whose datatype and display policy permit sorting.
+        Display configuration and actual comparison support are not inspected.
+
+        Example:
+            Series index fields qualify; category records do not.
+
+
+        :return: New list in main-map order.
         """
 
     def displayable_field_keys(self) -> list[str]:
         """
-        Return field keys that should be exposed in display contexts.
+        Select typed fields while excluding internal display helpers and indexes.
 
-        :return: Keys eligible for generic display field selection.
+        Example:
+            au_map, marked, ondevice, cover, series_sort and recognized series indexes are excluded.
+
+
+        :return: New list in main-map order.
         """
 
     def standard_field_keys(self) -> list[str]:
         """
-        Return non-custom field keys.
+        Select non-custom records whose kind is field.
 
-        :return: Built-in, non-custom field keys.
+        Example:
+            A custom Series companion has is_custom=False and can appear in this list.
+
+
+        :return: New list in main-map order.
         """
 
     def custom_field_keys(self, include_composites: bool = True) -> list[str]:
         """
-        Return custom field keys.
+        Select custom field records, optionally omitting composites.
 
-        :param include_composites: Include calculated composite custom fields.
-        :return: Custom keys, normally in ``"#label"`` form.
+        Example:
+            With include_composites=False, a calculated composite field is omitted.
+
+
+        :param include_composites: Whether datatype=composite records are included.
+        :return: New list in main-map order.
         """
 
     def all_field_keys(self) -> list[str]:
         """
-        Return every field key.
+        Select records whose kind is field, including custom fields.
 
-        :return: Standard, custom, and dynamic category/search keys.
+        Example:
+            The news category and user categories do not appear in this field-only list.
+
+
+        :return: New list excluding category, user and search records.
         """
 
     def iterkeys(self) -> Iterator[str]:
         """
-        Compatibility iterator over metadata keys.
+        Expose the legacy iterator spelling for main-map keys.
 
-        :return: Compatibility iterator equivalent to ``iter(keys())``.
+        Example:
+            Iterating keys includes dynamic categories but does not synthesize aliases.
+
+
+        :return: Key iterator in insertion order.
         """
 
     def itervalues(self) -> Iterable[FieldMetadataRecord]:
         """
-        Compatibility iterator over metadata records.
+        Iterate live descriptor objects from the main map.
 
-        :return: Compatibility iterable over live metadata records.
+        Example:
+            Mutating a yielded descriptor changes the container; no record copy is made.
+
+
+        :return: Iterator over shared records in insertion order.
         """
 
     def values(self) -> ValuesView[FieldMetadataRecord]:
         """
-        Return all metadata records.
+        Expose a live view of the main-map descriptors.
 
-        :return: Dynamic view over all metadata records.
+        Example:
+            New categories appear in an already obtained values view.
+
+
+        :return: Values view holding shared mutable records.
         """
 
     def iteritems(self) -> Iterator[tuple[str, FieldMetadataRecord]]:
         """
-        Compatibility iterator over metadata items.
+        Yield stored key/descriptor pairs in insertion order.
 
-        :return: Compatibility iterator of ``(key, record)`` pairs.
+        Example:
+            A caller can inspect each record's kind without copying all descriptors.
+
+
+        :return: Iterator of pairs sharing the live descriptor objects.
         """
 
     def custom_iteritems(self) -> Iterator[tuple[str, FieldMetadataRecord]]:
         """
-        Iterate custom metadata records.
+        Yield pairs from the dedicated custom-field map.
 
-        :return: Iterator of custom-field ``(key, record)`` pairs.
+        Example:
+            Generated Series companions are absent because they are not stored in the custom map.
+
+
+        :return: Iterator of custom keys and shared records.
         """
 
     def items(self) -> list[tuple[str, FieldMetadataRecord]]:
         """
-        Return metadata items as a list.
+        Snapshot the main map's pairs without copying descriptors.
 
-        :return: Snapshot list of all ``(key, record)`` pairs.
+        Example:
+            Later additions do not extend this list, but existing record mutations remain visible.
+
+
+        :return: New list of key/record tuples in insertion order.
         """
 
     def is_custom_field(self, key: str) -> bool:
         """
-        Return whether a key belongs to the custom field namespace.
+        Classify a key solely by its custom prefix.
 
-        :param key: Internal metadata key.
-        :return: Whether ``key`` belongs to the custom-field namespace.
+        Example:
+            An unknown ``#missing`` key still counts as custom by this predicate.
+
+
+        :param key: String key to inspect; existence is not required.
+        :return: Whether the key starts with custom_field_prefix.
         """
 
     def is_ignorable_field(self, key: str) -> bool:
         """
-        Return whether a field can be ignored in generic field walks.
+        Classify custom-prefixed and @-prefixed names as ignorable.
 
-        :param key: Internal metadata key.
-        :return: Whether generic metadata walks should skip this field.
+        Example:
+            ``@Shelf`` is ignorable even if no such user category has been registered.
+
+
+        :param key: String key to inspect; existence is not required.
+        :return: True for either namespace prefix.
         """
 
     def ignorable_field_keys(self) -> list[str]:
         """
-        Return ignorable field keys.
+        Select stored keys in the custom or @ namespace.
 
-        :return: All keys currently classified as ignorable.
+        Example:
+            A custom Series companion is included even though its is_custom flag is false.
+
+
+        :return: New list in main-map order.
         """
 
     def is_series_index(self, key: str) -> bool:
         """
-        Return whether a key is a series index companion field.
+        Recognize float _index fields with an existing base key.
 
-        :param key: Internal metadata key.
-        :return: Whether this is the numeric index companion of a series field.
+        Example:
+            A float ``#cycle_index`` qualifies when ``#cycle`` exists, regardless of its datatype.
+
+
+        :param key: Candidate key, including unknown or malformed values.
+        :return: Boolean; common lookup/type/attribute errors produce False.
         """
 
     def key_to_label(self, key: str) -> str:
         """
-        Convert an internal key to its label.
+        Read a stored label, falling back to the exact key.
 
-        :param key: Internal standard/custom field key.
-        :return: User-facing label associated with ``key``.
-        :raises KeyError: If ``key`` is unknown.
+        Example:
+            A stored None label is returned as None; it does not trigger the key fallback.
+
+
+        :param key: Internal metadata key; most methods do not resolve search aliases.
+        :return: Stored label value, or key if no label entry exists.
+        :raises KeyError: The exact key is absent; title_sort is not resolved here.
         """
 
     def label_to_key(self, label: str, prefer_custom: bool = False) -> str:
         """
-        Convert a field label to its internal key.
+        Resolve internal keys, non-custom labels and custom labels in precedence order.
 
-        :param label: User-facing label or already-internal key.
-        :param prefer_custom: Prefer a custom field when standard/custom labels
-            collide.
+        Without custom preference, exact keys win, followed by the first non-custom
+        record with a matching label, then the custom label map.
+
+        Example:
+            If both title and #title exist, prefer_custom=True selects #title for label title.
+
+
+        :param label: Internal key or stored label; not a translated display name.
+        :param prefer_custom: Try the custom label map before exact keys and non-custom labels.
         :return: Resolved internal key.
+        :raises ValueError: No candidate resolves the label.
         """
 
     def all_metadata(self) -> dict[str, FieldMetadataRecord]:
         """
-        Return all metadata records as a plain dictionary.
+        Snapshot the main map while sharing live record values.
 
-        :return: Snapshot mapping of every key to its metadata record.
+        Example:
+            This includes dynamic categories; it is not a serialized copy of auxiliary maps.
+
+
+        :return: New plain dictionary of all stored descriptors.
         """
 
     def custom_field_metadata(self, include_composites: bool = True) -> Mapping[str, FieldMetadataRecord]:
         """
-        Return custom field metadata records.
+        Expose custom records, optionally filtering calculated composites.
 
-        :param include_composites: Include calculated composite custom fields.
-        :return: Mapping containing only custom-field records.
+        Example:
+            Changing the unfiltered mapping itself changes the dedicated custom registry.
+
+
+        :param include_composites: True returns the live custom map; false builds a filtered main-map selection.
+        :return: Live custom map when unfiltered, otherwise a new dictionary sharing records.
         """
 
     def add_custom_field(
@@ -371,137 +496,223 @@ class FieldMetadataAPI(Protocol):
         in_table: str = "books",
     ) -> None:
         """
-        Add or refresh a custom field metadata record.
+        Register or refresh an in-memory custom descriptor and optional Series companion.
 
-        Existing ``label`` records are refreshed rather than duplicated.
+        A same-key record is refreshed only when is_custom is exactly True and its
+        label, colnum and effective in_table agree. Otherwise it is a duplicate error.
+        Datatype validation precedes record updates. Series fields add a non-custom
+        float _index companion and aliases. Refreshing an existing companion changes
+        only in_table; changing away from Series does not remove the old companion.
+        New records and alias registration are not atomic: a duplicate alias may fail
+        after map insertion. This method creates no database columns.
 
-        :param label: Stable custom label without the ``#`` prefix.
-        :param table: Auxiliary storage table, if any.
-        :param column: Value column in ``table``, if any.
-        :param datatype: Logical datatype such as ``"text"`` or ``"series"``.
-        :param colnum: Database/custom-column ordinal.
-        :param name: User-facing field name.
-        :param display: Immutable display configuration.
-        :param is_editable: Whether interfaces may edit values.
-        :param is_multiple: Multiplicity/separator description.
-        :param is_category: Whether values form a browse category.
-        :param is_csp: Whether the field uses colon-separated pairs.
-        :param in_table: Main record table containing direct values.
-        :return: ``None``.
+        Example:
+            Refreshing the same label, colnum and in_table preserves the descriptor object.
+
+
+        :param label: Unprefixed custom label; custom_field_prefix is prepended.
+        :param table: Storage table name or None.
+        :param column: Storage column name or None.
+        :param datatype: Logical datatype, validated against VALID_DATA_TYPES.
+        :param colnum: Custom-column number used in refresh identity checks.
+        :param name: Display name stored unchanged.
+        :param display: Display mapping retained by reference, not made immutable.
+        :param is_editable: Editability flag stored without coercion.
+        :param is_multiple: Multiplicity/separator mapping retained by reference.
+        :param is_category: Whether the field forms a browse category.
+        :param is_csp: Colon-separated-pair flag; not a composite-datatype flag.
+        :param in_table: Main table label; also part of refresh identity.
+        :return: None; updates in-memory metadata only.
+        :raises ValueError: The key conflicts, datatype is unsupported, or a new alias is duplicated.
         """
 
     def remove_dynamic_categories(self) -> None:
         """
-        Remove user and saved-search categories.
+        Remove category records of kind user or search and their declared aliases.
 
-        :return: ``None``. Standard/custom records remain.
+        Only records with a truthy is_category flag qualify. Other maps are retained.
+
+        Example:
+            Standard fields, custom fields and the news category remain.
+
+
+        :return: None; updates in-memory metadata only.
         """
 
     def remove_user_categories(self) -> None:
         """
-        Remove user categories.
+        Remove user-category records and their declared search aliases.
 
-        :return: ``None``. Saved-search categories remain.
+        Example:
+            Saved-search category records remain; missing aliases are tolerated.
+
+
+        :return: None; updates in-memory metadata only.
         """
 
     def add_grouped_search_terms(self, gst: GroupedSearchTerms) -> None:
         """
-        Add grouped search-term aliases.
+        Replace list-target groups, then register supplied aliases.
 
-        :param gst: Group name to field-key or field-key-list mapping.
-        :return: ``None``.
+        Duplicate-term ValueErrors are printed as tracebacks and processing continues.
+        Targets are retained by reference. Other failures propagate without rollback.
+
+        Example:
+            Calling this with {} removes list-target groups but preserves old string-target aliases.
+
+
+        :param gst: Group name to string or list target mapping; targets are not validated.
+        :return: None; updates in-memory metadata only.
         """
 
     def cc_series_index_column_for(self, key: str) -> int:
         """
-        Return the companion series-index custom column number.
+        Compute the tuple position immediately after a field's rec_index.
 
-        :param key: Custom series field key.
-        :return: Database column number of its index companion.
+        Example:
+            A field at rec_index=8 yields 9 even if it is not a Series.
+
+
+        :param key: Internal metadata key; most methods do not resolve search aliases.
+        :return: Stored rec_index plus one; no datatype or companion validation is performed.
+        :raises KeyError: The field or its rec_index is absent.
         """
 
     def add_user_category(self, label: str, name: str | None) -> None:
         """
-        Add a user-defined category.
+        Insert a user category with exact and ICU-lowercase search aliases.
 
-        :param label: Stable category label/key.
-        :param name: Optional user-facing category name.
-        :return: ``None``.
+        Duplicate keys fail before insertion. Alias conflicts can fail after the
+        record and earlier aliases are inserted.
+
+        Example:
+            ``@Shelf`` registers both @Shelf and @shelf aliases.
+
+
+        :param label: Exact category key, commonly beginning with @.
+        :param name: Display name stored unchanged.
+        :return: None; updates in-memory metadata only.
+        :raises ValueError: The key or one of its aliases already exists.
         """
 
     def add_search_category(self, label: str, name: str | None) -> None:
         """
-        Add a saved-search category.
+        Insert a saved-search category without search aliases.
 
-        :param label: Stable saved-search label/key.
-        :param name: Optional user-facing category name.
-        :return: ``None``.
+        Example:
+            A saved-search category appears in keys() but not all_field_keys().
+
+
+        :param label: Exact category key.
+        :param name: Display name stored unchanged.
+        :return: None; updates in-memory metadata only.
+        :raises ValueError: The key already exists.
         """
 
     def set_field_record_index(self, label: str, index: int, prefer_custom: bool = False) -> None:
         """
-        Set the database record index for a field label.
+        Set a record position using exact keys and prefixed custom keys.
 
-        :param label: Field label or internal key.
-        :param index: Zero-based position in database result records.
-        :param prefer_custom: Prefer a custom field on label collision.
-        :return: ``None``.
+        Resolution here does not use label_to_key or its stored-label search.
+
+        Example:
+            For label title, custom preference chooses #title if present, otherwise title.
+
+
+        :param label: Field key or unprefixed custom label.
+        :param index: Position stored without type or range validation.
+        :param prefer_custom: Try the prefixed key before the exact key.
+        :return: None; updates in-memory metadata only.
+        :raises KeyError: Neither selected key exists.
         """
 
     def get_search_terms(self) -> list[str]:
         """
-        Return all supported search terms.
+        List sorted registered aliases followed by special search items.
 
-        :return: Sorted or stable list of supported search aliases.
+        Example:
+            Defaults append all and search after sorting aliases; the result is not globally sorted.
+
+
+        :return: New list ending in the current search_items order.
         """
 
     def search_term_to_field_key(self, term: str) -> FieldMetadataSearchTarget:
         """
-        Resolve a search term to a field key or grouped field-key list.
+        Resolve an exact search alias, preserving unknown terms.
 
-        :param term: Search alias such as ``"authors"``.
-        :return: One internal field key or a grouped list of keys.
-        :raises KeyError: If the term is unknown.
+        Example:
+            An unknown ``unregistered`` alias returns ``unregistered`` rather than raising KeyError.
+
+
+        :param term: Case-sensitive alias; lowercasing is not performed here.
+        :return: Registered string/list target, or the original term when unknown.
         """
 
     def searchable_fields(self) -> list[str]:
         """
-        Return fields addressable through search terms.
+        Select field records declaring at least one search term.
 
-        :return: Internal field keys reachable from configured search terms.
+        This inspects record declarations, not whether aliases still exist in the map.
+
+        Example:
+            Grouped aliases do not themselves add fields; news and dynamic categories are excluded.
+
+
+        :return: New list in main-map order.
         """
 
 
 @runtime_checkable
 class CalibreFieldMetadataAPI(FieldMetadataAPI, Protocol):
-    """Field metadata plus Calibre result-record index assignment.
+    """
+    Extend the descriptor contract with Calibre result-index assignment.
 
-    Use this specialization where row tuples from a Calibre-compatible query
-    need to be mapped back to logical field descriptions.
+    Example:
+        A result adapter can assign indexes with set_field_record_index_from_field_map
+        before reading descriptor rec_index values.
     """
 
     def set_field_record_index_from_field_map(self, field_map: FieldRecordIndexMap) -> None:
         """
-        Set field record indexes from a label-to-index mapping.
+        Assign tuple positions sequentially with standard-key preference.
 
-        :param field_map: Field label/key to database result index mapping.
-        :return: ``None``.
+        Example:
+            If a later key is unknown, positions already assigned to earlier keys remain.
+
+
+        :param field_map: Mapping from field keys/custom labels to record positions.
+        :return: None; updates in-memory metadata only.
+        :raises KeyError: A key cannot be resolved by set_field_record_index.
         """
 
 
 class FieldMetadataDeserializerAPI(Protocol):
-    """Callable contract implemented by ``fm_from_dict``.
+    """
+    Describe reconstruction from borrowed custom and dynamic registry maps.
 
-    It reconstructs custom fields and dynamic categories over the concrete
-    implementation's built-in standard field definitions.
+    Example:
+        The returned registry shares supplied descriptor objects; copy state first
+        if the caller requires mutation isolation.
     """
 
     def __call__(self, src: SerializedFieldMetadataState) -> FieldMetadataAPI:
         """
-        Deserialize field metadata state.
+        Overlay borrowed serialized dynamic state on fresh LiuXin built-ins.
 
-        :param src: Serialized custom/dynamic field state.
-        :return: Reconstructed field metadata container.
+        The supplied search map replaces builtin aliases wholesale. Overlay order is
+        custom fields, user categories, then search categories; later keys win. No
+        validation or reconstruction of absent Series companions occurs. The bound
+        get method continues to reference the augmented main map.
+
+        Example:
+            Mutating a supplied custom record is visible in the reconstructed container.
+
+
+        :param src: Mapping containing custom_fields, user_categories, search_categories,
+            search_term_map and custom_label_to_key_map.
+        :return: New FieldMetadata sharing supplied maps and descriptor objects.
+        :raises KeyError: A required serialized-state key is missing.
         """
 
 

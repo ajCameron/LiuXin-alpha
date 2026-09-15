@@ -14,6 +14,8 @@ and outstanding work, not as a replacement for the subsystem guides.
   [responsibility boundaries](<04 - Seperation of Concerns.md>): where code belongs.
 - [Maintainability quality gates](maintainability-quality-gates.md): enforced
   formatting, typing, complexity, documentation, and dependency scopes.
+- [Project docstring completion plan](project-docstrings-completion-plan.md):
+  bounded work modules, exact remaining inventory, and verification checkpoints.
 - [CI ownership](continuous-integration.md) and [test streams](test-streams.md):
   automated checks and local feedback loops.
 - [Packaging](packaging.md): installed-artifact and runtime-resource contracts.

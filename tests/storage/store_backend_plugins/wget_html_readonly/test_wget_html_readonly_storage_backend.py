@@ -24,7 +24,7 @@ from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
 from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
     wget_html_storage_backend as backend_module,
 )
-from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly.wget_utils import WgetResult
+from LiuXin_alpha.ingest.sources.wget_utils import WgetResult
 from tests.fixtures.storage_unicode import (
     TORTURED_UNICODE_PATH_CASES,
     UNICODE_FILENAME,

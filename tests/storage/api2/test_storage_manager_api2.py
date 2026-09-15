@@ -21,7 +21,7 @@ from uuid import UUID
 import pytest
 
 import LiuXin_alpha.storage.api as api
-from LiuXin_alpha.storage import utils as storage_utils
+import LiuXin_alpha.storage.utils.store as storage_utils
 from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
 
 
@@ -1329,7 +1329,9 @@ def test_storage_manager_package_exposes_stable_segregated_import_paths() -> Non
     :return: None after the stated regression assertions pass.
     """
     from LiuXin_alpha.storage.api import storage_manager_api as manager_api
-    from LiuXin_alpha.storage.api.storage_manager_api.models.assets import ReplicaState
+    from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import (
+        ReplicaState,
+    )
     from LiuXin_alpha.storage.api.storage_manager_api.models.policies import ReplicationPolicy
     from LiuXin_alpha.storage.api.storage_manager_api.location_factory import LocationFactory
     from LiuXin_alpha.storage.api.storage_manager_api.derivations_api import DigitalAssetDerivationRegistryAPI
@@ -3223,28 +3225,6 @@ def test_composite_convenience_ingests_and_exports_members(tmp_path) -> None:
         manager.store_composite({"../escape.bin": b"escape"})
 
 
-def test_persistence_ports_have_a_dedicated_spi_with_compatibility_imports() -> None:
-    """
-    Verify dedicated persistence and historical manager repository modules export identical
-    Asset-repository and unit-of-work protocol objects.
-
-    Example:
-        >>> test_persistence_ports_have_a_dedicated_spi_with_compatibility_imports()  # doctest: +SKIP
-
-
-    :return: None after the stated regression assertions pass.
-    """
-    from LiuXin_alpha.storage.api.persistence_api import (
-        DigitalAssetRepositoryAPI as PersistenceRepository,
-        StorageUnitOfWorkAPI as PersistenceUnitOfWork,
-    )
-    from LiuXin_alpha.storage.api.storage_manager_api.repositories_api import (
-        DigitalAssetRepositoryAPI as CompatibilityRepository,
-        StorageUnitOfWorkAPI as CompatibilityUnitOfWork,
-    )
-
-    assert PersistenceRepository is CompatibilityRepository
-    assert PersistenceUnitOfWork is CompatibilityUnitOfWork
 
 
 def test_reference_manager_records_exact_derivation_and_disposable_policy() -> None:

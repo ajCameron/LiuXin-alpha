@@ -1,6 +1,8 @@
 
 """
-Front end for the dirtied metadata mixin - which handles dirtying and undirtying records.
+Track dirty-record notifications in memory, telemetry and an optional persistence table.
+
+Telemetry observes attempted queue/trigger activity, not a durable write ledger. Queue insertion, telemetry and SQL persistence have separate failure boundaries. Persistence belongs on the thread that owns the database connection.
 """
 
 from __future__ import annotations
@@ -23,14 +25,29 @@ if TYPE_CHECKING:
 
 class DatabaseWriteTelemetry:
     """
-    Thread-safe recorder for lightweight database write telemetry.
+    Maintain locked event counters and a bounded recent-event history.
+
+    Counters cover all observed events while the deque retains only recent ones. Row IDs are retained by reference; this recorder neither reads the database nor establishes transaction success.
+
+    Example:
+        >>> telemetry = DatabaseWriteTelemetry()
+        >>> telemetry.record_event(source="import", table="works", row_id=1)
+        >>> telemetry.snapshot()["observed_total"]
+        1
     """
 
     def __init__(self, *, max_recent_events: int = 200) -> None:
         """
-        Constructor.
+        Initialize empty counters and a bounded event deque.
 
-        :param max_recent_events:
+        Example:
+            >>> DatabaseWriteTelemetry(max_recent_events=20).snapshot()["observed_total"]
+            0
+
+
+        :param max_recent_events: Requested history capacity, converted to int and clamped to at least 20.
+        :return: None.
+        :raises ValueError: The capacity cannot be converted to int.
         """
         self._lock = threading.Lock()
         self._recent_events: deque[dict[str, Any]] = deque(maxlen=max(20, int(max_recent_events)))
@@ -47,13 +64,22 @@ class DatabaseWriteTelemetry:
         reason: str = "",
     ) -> None:
         """
-        Record an event for a table.
+        Normalize event labels, then increment counters and append its timestamped record.
 
-        :param source:
-        :param table:
-        :param row_id:
-        :param reason:
-        :return:
+        Label conversion and timestamp creation precede the lock. Counter/history mutation is protected together; recording does not verify a database write occurred.
+
+        Example:
+            >>> telemetry = DatabaseWriteTelemetry()
+            >>> telemetry.record_event(source=" ", table=" works ", row_id=7)
+            >>> telemetry.snapshot()["source_counts"]
+            {'unknown': 1}
+
+
+        :param source: Source label; blank or false values become unknown.
+        :param table: Table label; blank names are omitted from per-table counts.
+        :param row_id: Row identifier retained without conversion or copying.
+        :param reason: Optional reason label, stripped after string conversion.
+        :return: None.
         """
         event = {
             "timestamp": float(time.time()),
@@ -77,12 +103,20 @@ class DatabaseWriteTelemetry:
         recent_limit: int = 8,
     ) -> dict[str, Any]:
         """
-        Get the current state of the dirtied queue.
+        Copy telemetry counters and recent events while holding the recorder lock.
 
-        :param queue_size:
-        :param persisted_queue_size:
-        :param recent_limit:
-        :return:
+        Events are ordered oldest to newest within the chosen tail. Copies are shallow; mutable row_id objects remain shared. Supplied queue counts are not sampled atomically with counters.
+
+        Example:
+            >>> telemetry = DatabaseWriteTelemetry()
+            >>> telemetry.snapshot(queue_size=3)["queue_size"]
+            3
+
+
+        :param queue_size: Caller-supplied in-memory queue count, converted to int.
+        :param persisted_queue_size: Caller-supplied persisted queue count, converted to int.
+        :param recent_limit: Number of most recent retained events, clamped to at least one.
+        :return: Dictionary containing counters, supplied queue counts and copied event dictionaries.
         """
         with self._lock:
             recent = list(self._recent_events)[-max(1, int(recent_limit)) :]
@@ -98,16 +132,32 @@ class DatabaseWriteTelemetry:
 
 class ObservedDirtyRecordsQueue(queue.Queue):
     """
-    Queue.Queue variant that records non-destructive telemetry on put().
+    Observe successful Queue insertion without changing the queued item.
+
+    Only tuple items are decoded as table, row ID and optional reason for telemetry. Recording occurs after insertion, so telemetry failure can propagate even though the item is already queued.
+
+    Example:
+        >>> telemetry = DatabaseWriteTelemetry()
+        >>> events = ObservedDirtyRecordsQueue(telemetry=telemetry)
+        >>> events.put(("works", 4, "edit"))
+        >>> events.get_nowait()
+        ('works', 4, 'edit')
     """
 
     def __init__(self, *args, telemetry: Optional[DatabaseWriteTelemetry] = None, **kwargs) -> None:
         """
-        Constructor.
+        Initialize the standard queue and retain an optional event recorder.
 
-        :param args:
-        :param telemetry:
-        :param kwargs:
+        Example:
+            >>> events = ObservedDirtyRecordsQueue(maxsize=1)
+            >>> events.maxsize
+            1
+
+
+        :param args: Positional arguments forwarded to queue.Queue.
+        :param telemetry: Recorder used after each successful insertion, or None.
+        :param kwargs: Keyword arguments forwarded to queue.Queue.
+        :return: None.
         """
         super().__init__(*args, **kwargs)
         self._telemetry = telemetry
@@ -118,12 +168,22 @@ class ObservedDirtyRecordsQueue(queue.Queue):
             block: bool = True,
             timeout: Optional["Number"] = None) -> None:  # noqa: ANN001 - queue API compatibility
         """
-        Write an item out to the queue.
+        Insert an item using Queue blocking rules, then record dirty_queue telemetry.
 
-        :param item:
-        :param block:
-        :param timeout:
-        :return:
+        A tuple supplies table, row ID and optional reason; other objects produce blank telemetry fields. Tuple conversion and recorder exceptions occur after insertion, with no removal on failure.
+
+        Example:
+            >>> events = ObservedDirtyRecordsQueue()
+            >>> events.put(("works", 1), block=False)
+            >>> events.get_nowait()
+            ('works', 1)
+
+
+        :param item: Object retained unchanged in the queue.
+        :param block: Wait for capacity when True.
+        :param timeout: Optional Queue timeout in seconds.
+        :return: None.
+        :raises queue.Full: Capacity is unavailable under the requested blocking/timeout policy.
         """
         super().put(item, block=block, timeout=timeout)
         telemetry = self._telemetry
@@ -150,26 +210,40 @@ class ObservedDirtyRecordsQueue(queue.Queue):
 
 class TelemetryMaintainerProxy:
     """
-    Delegate maintenance callbacks while recording trigger-side telemetry.
+    Record maintenance callbacks before forwarding them to the target.
+
+    Target arguments and return values are preserved. Telemetry failure prevents delegation, while target failure leaves the already recorded observation intact. Other attributes are read directly from the target.
+
+    Example:
+        With an initialized maintainer and recorder, proxy = TelemetryMaintainerProxy(maintainer, telemetry) observes callback calls without owning a worker thread.
     """
 
     def __init__(self, target, telemetry: Optional[DatabaseWriteTelemetry]) -> None:
         """
-        Constructor.
+        Retain the maintenance target and optional recorder by reference.
 
-        :param target:
-        :param telemetry:
+        Example:
+            During facade assembly, TelemetryMaintainerProxy(maintainer, telemetry) wraps the newly created maintenance service.
+
+
+        :param target: Object implementing maintenance callbacks.
+        :param telemetry: Event recorder, or None to delegate without observations.
+        :return: None.
         """
         self._target = target
         self._telemetry = telemetry
 
     def dirty_record(self, table: str, row_id: int) -> None:  # noqa: ANN001 - callback compatibility
         """
-        Dirty a record in an individual table.
+        Observe a DIRTY_RECORD callback, then forward its original arguments.
 
-        :param table:
-        :param row_id:
-        :return:
+        Example:
+            With a configured proxy, proxy.dirty_record("works", 7) records trigger_dirty_record telemetry before invoking the maintainer.
+
+
+        :param table: Affected table passed unchanged to the target.
+        :param row_id: Affected row ID passed unchanged to the target.
+        :return: Target callback result, normally None.
         """
         telemetry = self._telemetry
         if telemetry is not None:
@@ -183,11 +257,15 @@ class TelemetryMaintainerProxy:
 
     def new_dirty_record(self, table: str, row_id: int) -> None:  # noqa: ANN001 - callback compatibility
         """
-        Record an event in a given table.
+        Observe a NEW_DIRTY_RECORD callback, then forward its original arguments.
 
-        :param table:
-        :param row_id:
-        :return:
+        Example:
+            With a configured proxy, proxy.new_dirty_record("works", 7) records trigger_new_dirty_record telemetry before delegation.
+
+
+        :param table: Affected table.
+        :param row_id: Affected row ID.
+        :return: Target callback result, normally None.
         """
         telemetry = self._telemetry
         if telemetry is not None:
@@ -207,14 +285,18 @@ class TelemetryMaintainerProxy:
             table1_id: int,
             table2_id: int) -> None:  # noqa: ANN001
         """
-        Note an interlink record has been dirtied.
+        Observe a relationship callback and forward its five original arguments.
 
-        :param update_type:
-        :param table1:
-        :param table2:
-        :param table1_id:
-        :param table2_id:
-        :return:
+        Example:
+            A configured proxy accepts proxy.dirty_interlink_record("add", "agents", "works", 1, 2) and delegates the same endpoint values.
+
+
+        :param update_type: Update classification included in the telemetry reason.
+        :param table1: First endpoint table, also used as the event table.
+        :param table2: Second endpoint table included in the reason.
+        :param table1_id: First endpoint ID, also used as the event row ID.
+        :param table2_id: Second endpoint ID included in the reason.
+        :return: Target callback result, normally None.
         """
         telemetry = self._telemetry
         if telemetry is not None:
@@ -233,12 +315,32 @@ class TelemetryMaintainerProxy:
         return self._target.dirty_interlink_record(update_type, table1, table2, table1_id, table2_id)
 
     def __getattr__(self, name: str):
+        """
+        Resolve an attribute absent on the proxy from its maintenance target.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> proxy = TelemetryMaintainerProxy(SimpleNamespace(label="worker"), None)
+            >>> proxy.label
+            'worker'
+
+
+        :param name: Attribute name to read.
+        :return: The target attribute, including bound methods.
+        :raises AttributeError: The target also lacks the requested attribute.
+        """
+
         return getattr(self._target, name)
 
 
 class DatabaseDirtiedRecordsMixin:
     """
-    Mixin containing methods dealing with the dirtied records queues.
+    Expose dirty-event queue counts, observations and best-effort persistence.
+
+    Requires a facade queue, schema categories and wrapper. Dirty events describe table/row/reason triples rather than deduplicated rows. Memory and persistence operations are separate; callers must coordinate the persistence thread.
+
+    Example:
+        For an open db, db.dirty_record("works", row_id, reason="edit") queues an event for later db.persist_dirtied_records().
     """
     # ------------------------------------------------------------------------------------------------------------------
     # Dirtied-record tracking (queue + optional persistence)
@@ -246,25 +348,31 @@ class DatabaseDirtiedRecordsMixin:
     @property
     def metadata_dirtied_table(self) -> str:
         """
-        Name of the persistent dirtied-records helper table.
+        Return the configured persistence-table name or its historical default.
 
-        The name is historic ("..._books") but the contents are generic: it records (table, row_id, reason)
-        so a sidecar writer can resume across process restarts.
+        The fallback applies only when the attribute is absent; an explicitly assigned None is returned unchanged.
+
+        Example:
+            >>> DatabaseDirtiedRecordsMixin().metadata_dirtied_table
+            'metadata_dirtied_books'
 
 
-        :return:
+        :return: Configured _metadata_dirtied_table value, default metadata_dirtied_books.
         """
         return getattr(self, "_metadata_dirtied_table", "metadata_dirtied_books")
 
     def get_dirtied_count(self: "DatabaseAPI", *, include_persisted: bool = False) -> int:
         """
-        Return the number of queued dirtied-record events.
+        Count current memory events and optionally add the persisted row count.
 
-        By default this reflects the in-memory queue size (fast, thread-safe-ish). If include_persisted is True,
-        we add the number of rows already persisted to ``metadata_dirtied_table``.
+        A None queue contributes zero. Queue and SQL counts are sampled separately; concurrent changes can make the combined result inconsistent.
 
-        :param include_persisted:
-        :return:
+        Example:
+            For an open db, db.get_dirtied_count(include_persisted=True) includes both observed queue sizes.
+
+
+        :param include_persisted: Include the persistence helper count when True.
+        :return: Approximate event count, without deduplication.
         """
         q = self.dirty_records_queue.qsize() if self.dirty_records_queue is not None else 0
         if include_persisted:
@@ -273,10 +381,16 @@ class DatabaseDirtiedRecordsMixin:
 
     def get_write_telemetry_snapshot(self, *, recent_limit: int = 8) -> dict[str, Any]:
         """
-        Return a lightweight live snapshot of observed database write activity.
+        Combine recorder observations with current memory and persisted queue counts.
 
-        :param recent_limit:
-        :return:
+        Persisted counting is best effort and may report zero on a query failure. Counts are collected outside the recorder lock.
+
+        Example:
+            For an open db, snapshot = db.get_write_telemetry_snapshot(recent_limit=5) provides counters and up to five retained events.
+
+
+        :param recent_limit: Tail size passed to the recorder when one is present.
+        :return: Telemetry dictionary, with zero event counters and an empty history if no recorder is attached.
         """
         telemetry = getattr(self, "write_telemetry", None)
         if telemetry is None:
@@ -296,16 +410,18 @@ class DatabaseDirtiedRecordsMixin:
 
     def dirty_record(self: "DatabaseAPI", table: str, row_id: int, reason: str = "") -> None:
         """
-        Enqueue a dirtied-record event for later processing.
+        Queue a table/row/reason event only for a recognized dirtiable table.
 
-        This method is intentionally lightweight: it only enqueues into ``dirty_records_queue`` so callers can
-        safely call it from many contexts (including triggers that bounce into Python). Persisting to the database
-        is performed separately via :meth:`persist_dirtied_records`.
+        If dirtiable_tables is None, attempt metadata refresh and suppress its ordinary errors before checking again. This method does not persist events or directly enqueue maintenance callbacks.
 
-        :param table:
-        :param row_id:
-        :param reason:
-        :return:
+        Example:
+            For a known dirtiable works table, db.dirty_record("works", 12, reason="metadata") puts that triple on the shared dirty queue.
+
+
+        :param table: Table name checked against the cached dirtiable set.
+        :param row_id: Row ID queued unchanged.
+        :param reason: Reason string queued unchanged.
+        :return: None; unknown tables log a warning and are ignored.
         """
         if self.dirtiable_tables is None:
             # Defensive: refresh metadata if this is called very early in init.
@@ -329,9 +445,15 @@ class DatabaseDirtiedRecordsMixin:
 
     def get_persisted_dirtied_count(self: "DatabaseAPI") -> int:
         """
-        Count rows currently stored in the persistent dirtied table (if present).
+        Best-effort count of rows in the configured persistence helper table.
 
-        :return:
+        A zero result does not distinguish an empty table from a database error.
+
+        Example:
+            For an open db, db.get_persisted_dirtied_count() counts stored events without draining the memory queue.
+
+
+        :return: Row count, or zero when the table/cache is unavailable or querying fails.
         """
         table = self.metadata_dirtied_table
         if getattr(self, "all_tables", None) is None or table not in self.all_tables:
@@ -345,13 +467,16 @@ class DatabaseDirtiedRecordsMixin:
 
     def persist_dirtied_records(self: "DatabaseAPI", *, limit: Optional[int] = None) -> int:
         """
-        Drain dirtied-record events from the in-memory queue into ``metadata_dirtied_table``.
+        Drain queued triples into the available legacy persistence columns.
 
-        This is intended to be called from a single controlling thread (e.g. a maintenance loop) to avoid
-        cross-thread SQLite connection use. Returns the number of persisted events.
+        Discover known ID/table/row/reason column aliases before draining and generate UUID primary keys. No explicit commit or task_done calls occur here. On executemany failure, best-effort requeue is possible only when table and row columns are available; partial SQL writes may coexist with requeued events. Malformed tuples stop draining after consumption, and row-ID conversion failures can escape after earlier events were removed. This is not a lossless transactional queue.
 
-        :param limit:
-        :return:
+        Example:
+            On the database-owning thread, written = db.persist_dirtied_records(limit=100) submits up to 100 queued events; backend transaction policy still determines durability.
+
+
+        :param limit: Maximum number of events to drain, or None for all currently available; nonpositive values drain none.
+        :return: Number of rows submitted successfully, or zero for unavailable schema, no events or insertion failure.
         """
         table = self.metadata_dirtied_table
         if getattr(self, "all_tables", None) is None or table not in self.all_tables:

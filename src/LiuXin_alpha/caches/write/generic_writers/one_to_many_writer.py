@@ -1,4 +1,6 @@
-"""Generic writer for one-to-many cache-backed relationships."""
+"""
+Write legacy one-to-many fields across unique/non-unique, typed and priority shapes.
+"""
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
@@ -13,10 +15,28 @@ from LiuXin_alpha.utils.text.icu import safe_lower
 
 class OneToManyWriter(ManyToOneWriter):
     """
-    Writer for objects with a One To Many relationship.
+    Select legacy one-to-many persistence by value uniqueness and link capabilities.
+
+    Inherit unadapted public updates from ManyToOneWriter. Enumeration metadata uses a filtering hook; other fields choose unique resolution or fresh-row creation. Most hooks return cache-update dictionaries, while an empty filtered enumeration returns a set.
+
+    Example:
+        For non-unique notes metadata, ``OneToManyWriter(field).set_books({7: ["note"]}, db)`` selects the appropriate typed/priority row writer.
     """
 
     def __init__(self, field):
+        """
+        Store destination metadata and bind the unique, non-unique or enumeration hook.
+
+        metadata.val_unique is converted with bool and defaults to False when absent. Both uniqueness branches route datatype="enumeration" to set_books_for_enum.
+
+        Example:
+            With val_unique=True and datatype="text", the writer binds set_books_func_one_many; without val_unique it binds the non-unique dispatcher.
+
+
+        :param field: Legacy field supplying metadata and the required table/cache hooks.
+        :return: None; initializes inherited state plus m_table, m_column, val_unique and set_books_func.
+        """
+
         super(OneToManyWriter, self).__init__(field)
 
         self.m_table = self.field.metadata["table"]
@@ -41,6 +61,26 @@ class OneToManyWriter(ManyToOneWriter):
             )
 
     def set_books_for_enum(self, book_id_val_map, db, field, allow_case_change):
+        """
+        Drop disallowed enumeration values and delegate accepted updates with case changes disabled.
+
+        Allowed values are tested exactly, without normalization. None is always retained. Unhashable values or unhashable configured choices raise TypeError before delegation.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> field = SimpleNamespace(metadata={"display": {"enum_values": ["A"]}})
+            >>> OneToManyWriter.set_books_for_enum(None, {7: "B"}, None, field, True)
+            set()
+
+
+        :param book_id_val_map: Owner IDs mapped to hashable enumeration values or None.
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param field: Field metadata supplying display.enum_values.
+        :param allow_case_change: Ignored requested case-change flag; delegation always uses False.
+        :return: An empty set if no entries survive, otherwise the unique writer result.
+        :raises TypeError: An enumeration choice or tested update value is unhashable.
+        """
+
         allowed = set(field.metadata["display"]["enum_values"])
         book_id_val_map = {k: v for k, v in iteritems(book_id_val_map) if v is None or v in allowed}
         if not book_id_val_map:
@@ -49,13 +89,21 @@ class OneToManyWriter(ManyToOneWriter):
 
     def set_books_function_one_many_not_unique(self, book_id_val_map, db, field, allow_case_change, *args):
         """
-        Responsible for returning enough information to preform a cache update.
-        :param book_id_val_map:
-        :param db:
-        :param field:
-        :param allow_case_change: Irrelevant here
-        :param args:
-        :return:
+        Preflight a non-unique update and dispatch by literal typed/priority flags.
+
+        Derive link-table and endpoint columns through driver_wrapper using "titles" and m_table, then run field.update_preflight and table.update_precheck. All four boolean capability combinations have dedicated writers; values other than literal True/False are rejected. The downstream helper persists rows/links and returns maps rather than directly refreshing the field cache.
+
+        Example:
+            A table with priority=True and typed=False routes a normalized list of notes to _do_not_unique_priority_and_not_typed_db_update.
+
+
+        :param book_id_val_map: Owner-to-value update mapping normalized by field.update_preflight.
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param field: Legacy field supplying metadata and the required table/cache hooks.
+        :param allow_case_change: Compatibility argument not used by this helper.
+        :param args: Additional arguments, logged and otherwise ignored.
+        :return: Dictionary with dirtied owner IDs, book_col_map projections and id_map values for cache consumers.
+        :raises NotImplementedError: A table capability flag is not a literal boolean.
         """
         if args:
             info_str = "set_books_func_one_many had unexpected arguments passed into it"
@@ -121,13 +169,21 @@ class OneToManyWriter(ManyToOneWriter):
         self, db, book_id_val_map, link_table, link_col, right_link_col
     ):
         """
-        Do db update in the case where the link does not have priority or type information.
-        :param db:
-        :param book_id_val_map:
-        :param link_table:
-        :param link_col:
-        :param right_link_col:
-        :return:
+        Replace untyped owner links by creating string rows or moving existing IDs.
+
+        Read each owner from "titles" and clear its links before processing a reversed copy of the supplied iterable. Strings create and sync new m_table rows; integers detach existing target links before relinking. Accumulate result IDs in sets; an empty iterable produces a None projection. None is not accepted and raises TypeError after owner links have already been cleared. id_map contains only newly created string rows. No transaction or cache refresh is supplied; prior removals/creations survive a later error.
+
+        Example:
+            With configured note metadata, an update ``{7: ["new note", 4]}`` creates one row and moves existing note 4 to owner 7.
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param book_id_val_map: Owner IDs mapped to iterables of strings/integers; use an empty iterable to clear links.
+        :param link_table: Physical link-table name.
+        :param link_col: Owner-ID column used to clear links.
+        :param right_link_col: Target-ID column used to detach an existing item from any owner.
+        :return: Dictionary with dirtied owner IDs, book_col_map projections and id_map values for cache consumers.
+        :raises NotImplementedError: An iterable element is neither a string nor an integer.
         """
         id_map = dict()
 
@@ -195,13 +251,21 @@ class OneToManyWriter(ManyToOneWriter):
         self, db, book_id_val_map, link_table, link_col, right_link_col
     ):
         """
-        Do db update in the case where the link does not have priority or type information.
-        :param db:
-        :param book_id_val_map:
-        :param link_table:
-        :param link_col:
-        :param right_link_col:
-        :return:
+        Replace untyped owner links by creating string rows or moving existing IDs.
+
+        Read each owner from "titles" and clear its links before processing a reversed copy of the supplied iterable. Strings create and sync new m_table rows; integers detach existing target links before relinking. Prepend each result ID so the returned list retains input order; None and empty iterables produce a None projection. id_map contains only newly created string rows. No transaction or cache refresh is supplied; prior removals/creations survive a later error.
+
+        Example:
+            With configured note metadata, an update ``{7: ["new note", 4]}`` creates one row and moves existing note 4 to owner 7.
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param book_id_val_map: Owner IDs mapped to iterables of strings/integers; None clears links.
+        :param link_table: Physical link-table name.
+        :param link_col: Owner-ID column used to clear links.
+        :param right_link_col: Target-ID column used to detach an existing item from any owner.
+        :return: Dictionary with dirtied owner IDs, book_col_map projections and id_map values for cache consumers.
+        :raises NotImplementedError: An iterable element is neither a string nor an integer.
         """
         id_map = dict()
 
@@ -281,17 +345,23 @@ class OneToManyWriter(ManyToOneWriter):
         field,
     ):
         """
-        Do db update in the case where the link does not have priority but does have type information.
-        :param db:
-        :param book_id_val_map:
-        :param link_table:
-        :param link_col:
+        Prepare typed row replacements, validate their cache maps, then relink targets.
 
-        :param right_link_col:
-        :param left_link_col:
+        For each type, clear its existing owner links before preparing new rows. Reverse each iterable, create/sync string rows and retain integer IDs; result lists retain input order even when priority is disabled. A typed None records a null projection, and an empty typed iterable may leave that type absent from the result. On cache_update_precheck failure, attempt to delete newly created rows, then re-raise; earlier link removals are not restored and cleanup can itself fail. After validation, owner-level None clears all links; other result IDs are detached from every owner and linked with the requested type. Typed None also issues a second type-filtered deletion through left_link_col. Other failures can leave partial row/link changes. No direct cache refresh occurs.
 
-        :param field:
-        :return:
+        Example:
+            For ``{7: {"note": ["new note", 4]}}``, prepare IDs and validate the resulting typed projection before linking each target to owner 7.
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param book_id_val_map: Owner IDs mapped to typed iterables, or None to clear every owner link.
+        :param link_table: Physical link-table name.
+        :param link_col: Owner-ID column used to clear links.
+        :param right_link_col: Target-ID column used to detach existing items.
+        :param left_link_col: Owner-ID column used for the second typed-None deletion pass.
+        :param field: Field whose table.cache_update_precheck validates the prepared ID maps.
+        :return: Dictionary with dirtied owner IDs, book_col_map projections and id_map values for cache consumers.
+        :raises NotImplementedError: A typed iterable element is neither string nor integer.
         """
         id_map = dict()
         new_ids = set()
@@ -405,13 +475,22 @@ class OneToManyWriter(ManyToOneWriter):
         self, db, book_id_val_map, link_table, link_col, right_link_col, field
     ):
         """
-        Do db update in the case where the link does not have priority or type information.
-        :param db:
-        :param book_id_val_map:
-        :param link_table:
-        :param link_col:
-        :param right_link_col:
-        :return:
+        Prepare typed row replacements, validate their cache maps, then relink targets.
+
+        For each type, clear its existing owner links before preparing new rows. Reverse each iterable, create/sync string rows and retain integer IDs; result lists retain input order even when priority is disabled. A typed None records a null projection, and an empty typed iterable may leave that type absent from the result. On cache_update_precheck failure, attempt to delete newly created rows, then re-raise; earlier link removals are not restored and cleanup can itself fail. After validation, owner-level None clears all links; other result IDs are detached from every owner and linked with the requested type. Typed None needs no second deletion because the first pass already cleared it. Other failures can leave partial row/link changes. No direct cache refresh occurs.
+
+        Example:
+            For ``{7: {"note": ["new note", 4]}}``, prepare IDs and validate the resulting typed projection before linking each target to owner 7.
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param book_id_val_map: Owner IDs mapped to typed iterables, or None to clear every owner link.
+        :param link_table: Physical link-table name.
+        :param link_col: Owner-ID column used to clear links.
+        :param right_link_col: Target-ID column used to detach existing items.
+        :param field: Field whose table.cache_update_precheck validates the prepared ID maps.
+        :return: Dictionary with dirtied owner IDs, book_col_map projections and id_map values for cache consumers.
+        :raises NotImplementedError: A typed iterable element is neither string nor integer.
         """
         id_map = dict()
         new_ids = set()
@@ -516,21 +595,54 @@ class OneToManyWriter(ManyToOneWriter):
         }
 
     def _default_dict_list_factory(self):
+        """
+        Create a fresh dictionary whose missing type keys receive independent lists.
+
+        Example:
+            >>> groups = OneToManyWriter._default_dict_list_factory(None)
+            >>> groups["a"].append(4)
+            >>> groups["b"]
+            []
+
+
+        :return: A new defaultdict(list).
+        """
+
         return defaultdict(list)
 
     def _default_dict_set_factory(self):
+        """
+        Create a fresh dictionary whose missing type keys receive independent sets.
+
+        Example:
+            >>> groups = OneToManyWriter._default_dict_set_factory(None)
+            >>> groups["a"].add(4)
+            >>> groups["b"]
+            set()
+
+
+        :return: A new defaultdict(set).
+        """
+
         return defaultdict(set)
 
     def set_books_func_one_many(self, book_id_val_map, db, field, allow_case_change, *args):
         """
-        Responsible for returning enough information to preform a cache update.
-        :param book_id_val_map: A map from the book ids to the update values
-        :param db: The database to run the update on
-        :param field: The field being updated
-        :param allow_case_change: If True allows case changes when trying to match the updated value to existing values
-                                  on the database.
-        :param args:
-        :return:
+        Resolve unique values after table preflight and dispatch by link capabilities.
+
+        Run update_preflight_unique and update_precheck_unique, build a case-normalized reverse value lookup, repair duplicates and resolve/create values with the shared helper. The preflight ID map is replaced with a fresh map before resolution. Collected case_changes are not passed to the downstream helpers, which each initialize their own empty case-change map. Choose among four literal typed/priority combinations. Lookup and repair may persist changes before later validation or link writes fail.
+
+        Example:
+            For a unique untyped unordered field, ``{7: {"Shelf A"}}`` resolves the value before the set-based link updater runs.
+
+
+        :param book_id_val_map: Owner updates accepted by the table unique preflight.
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param field: Legacy field supplying metadata and the required table/cache hooks.
+        :param allow_case_change: Case-change permission forwarded to value resolution.
+        :param args: Additional arguments, logged and otherwise ignored.
+        :return: Dictionary with dirtied owner IDs, book_col_map projections and id_map values for cache consumers.
+        :raises NotImplementedError: The capability flags or a value-resolution shape are unsupported.
         """
         if args:
             info_str = "set_books_func_one_many had unexpected arguments passed into it"
@@ -602,6 +714,24 @@ class OneToManyWriter(ManyToOneWriter):
             raise NotImplementedError
 
     def _do_unique_not_priority_and_not_typed_db_update(self, db, book_id_val_map, field, val_map, id_map_update):
+
+        """
+        Convert unique sets to changed ID projections and persist their links.
+
+        Build sets by retaining integer IDs and resolving other values through val_map. False payloads become empty sets; only integer and string elements are accepted. Compare against table.book_col_map.get(owner, None) to discard unchanged owners. Split changed projections by truthiness into updated and deleted, then dispatch generic or custom link persistence with clean_before_write=True. No internal_update_cache call occurs here. Unused-item cleanup defaults to enabled via metadata.clear_unused and runs after persistence. The locally created case-change map is empty; this helper does not apply case changes collected by the caller. Custom persistence forwards each collection as one macro item rather than flattening it.
+
+        Example:
+            With a compatible table, ``{7: ["Shelf", 4]}`` resolves "Shelf" through val_map, discards unchanged owner projections and dispatches the changed links.
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param book_id_val_map: Normalized owner updates in the corresponding typed/priority shape.
+        :param field: Legacy field supplying metadata and the required table/cache hooks.
+        :param val_map: Resolved value-to-ID lookup.
+        :param id_map_update: ID-to-value map returned unchanged in the result.
+        :return: Dictionary with dirtied owner IDs, book_col_map projections and id_map values for cache consumers.
+        :raises KeyError: A non-integer value has no entry in val_map.
+        """
 
         m = field.metadata
         table = field.table
@@ -685,6 +815,24 @@ class OneToManyWriter(ManyToOneWriter):
 
     def _do_unique_priority_and_not_typed_db_update(self, db, book_id_val_map, field, val_map, id_map_update):
 
+        """
+        Convert unique lists to changed ID projections and persist their links.
+
+        Build lists by retaining integer IDs and resolving other values through val_map. False payloads become empty lists; non-integer elements are looked up without a separate type check. Compare against table.book_col_map.get(owner, None) to discard unchanged owners. Split changed projections by truthiness into updated and deleted, then dispatch generic or custom link persistence with clean_before_write=True. No internal_update_cache call occurs here. Unused-item cleanup is currently inactive even when metadata.clear_unused is true. The locally created case-change map is empty; this helper does not apply case changes collected by the caller. Custom persistence forwards each collection as one macro item rather than flattening it.
+
+        Example:
+            With a compatible table, ``{7: ["Shelf", 4]}`` resolves "Shelf" through val_map, discards unchanged owner projections and dispatches the changed links.
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param book_id_val_map: Normalized owner updates in the corresponding typed/priority shape.
+        :param field: Legacy field supplying metadata and the required table/cache hooks.
+        :param val_map: Resolved value-to-ID lookup.
+        :param id_map_update: ID-to-value map returned unchanged in the result.
+        :return: Dictionary with dirtied owner IDs, book_col_map projections and id_map values for cache consumers.
+        :raises KeyError: A non-integer value has no entry in val_map.
+        """
+
         m = field.metadata
         table = field.table
         dt = m["datatype"]
@@ -712,6 +860,20 @@ class OneToManyWriter(ManyToOneWriter):
         clean_book_id_item_id_map = defaultdict(list)
 
         def _to_id(item, val_map):
+            """
+            Preserve an integer target ID or look up the resolved value.
+
+            Example:
+                Inside the enclosing conversion, integer 4 passes through and "Shelf" maps to 4 when val_map contains that entry.
+
+
+            :param item: One target value from the surrounding update container.
+            :param val_map: Mapping from non-integer values to target IDs.
+            :return: The original integer, including bool, or val_map[item].
+            :raises KeyError: A non-integer value is unresolved.
+            :raises TypeError: A non-integer lookup key is unhashable.
+            """
+
             if isinstance(item, int):
                 return item
             else:
@@ -769,6 +931,24 @@ class OneToManyWriter(ManyToOneWriter):
 
     def _do_unique_not_priority_and_typed_db_update(self, db, book_id_val_map, field, val_map, id_map_update):
 
+        """
+        Convert unique typed dictionaries of sets to changed ID projections and persist their links.
+
+        Build typed dictionaries of sets by retaining integer IDs and resolving other values through val_map. False owner payloads become None; any TypeError while converting a type value makes that type None, including iteration or lookup/hash errors. Compare against field.ids_for_book to discard unchanged owners. Split changed projections by truthiness into updated and deleted, then dispatch generic or custom link persistence with clean_before_write=True. No internal_update_cache call occurs here. Unused-item cleanup is currently inactive even when metadata.clear_unused is true. The locally created case-change map is empty; this helper does not apply case changes collected by the caller. Custom persistence forwards each collection as one macro item rather than flattening it.
+
+        Example:
+            With a compatible table, ``{7: {"note": ["Shelf", 4]}}`` resolves "Shelf" through val_map, discards unchanged owner projections and dispatches the changed links.
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param book_id_val_map: Normalized owner updates in the corresponding typed/priority shape.
+        :param field: Legacy field supplying metadata and the required table/cache hooks.
+        :param val_map: Resolved value-to-ID lookup.
+        :param id_map_update: ID-to-value map returned unchanged in the result.
+        :return: Dictionary with dirtied owner IDs, book_col_map projections and id_map values for cache consumers.
+        :raises KeyError: A non-integer value has no entry in val_map.
+        """
+
         m = field.metadata
         table = field.table
         dt = m["datatype"]
@@ -796,6 +976,20 @@ class OneToManyWriter(ManyToOneWriter):
         clean_book_id_item_id_map = dict()
 
         def _to_id(item, val_map):
+            """
+            Preserve an integer target ID or look up the resolved value.
+
+            Example:
+                Inside the enclosing conversion, integer 4 passes through and "Shelf" maps to 4 when val_map contains that entry.
+
+
+            :param item: One target value from the surrounding update container.
+            :param val_map: Mapping from non-integer values to target IDs.
+            :return: The original integer, including bool, or val_map[item].
+            :raises KeyError: A non-integer value is unresolved.
+            :raises TypeError: A non-integer lookup key is unhashable.
+            """
+
             if isinstance(item, int):
                 return item
             else:
@@ -860,6 +1054,24 @@ class OneToManyWriter(ManyToOneWriter):
 
     def _do_unique_priority_and_typed_db_update(self, db, book_id_val_map, field, val_map, id_map_update):
 
+        """
+        Convert unique typed dictionaries of lists to changed ID projections and persist their links.
+
+        Build typed dictionaries of lists by retaining integer IDs and resolving other values through val_map. False owner payloads become None; any TypeError while converting a type value makes that type None, including iteration or lookup/hash errors. Compare against field.ids_for_book to discard unchanged owners. Before persistence call table.cache_update_precheck with the converted updates and val_map. Split changed projections by truthiness into updated and deleted, then dispatch generic or custom link persistence with clean_before_write=True. No internal_update_cache call occurs here. Unused-item cleanup is currently inactive even when metadata.clear_unused is true. The locally created case-change map is empty; this helper does not apply case changes collected by the caller. Custom persistence forwards each collection as one macro item rather than flattening it.
+
+        Example:
+            With a compatible table, ``{7: {"note": ["Shelf", 4]}}`` resolves "Shelf" through val_map, discards unchanged owner projections and dispatches the changed links.
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param book_id_val_map: Normalized owner updates in the corresponding typed/priority shape.
+        :param field: Legacy field supplying metadata and the required table/cache hooks.
+        :param val_map: Resolved value-to-ID lookup.
+        :param id_map_update: ID-to-value map returned unchanged in the result.
+        :return: Dictionary with dirtied owner IDs, book_col_map projections and id_map values for cache consumers.
+        :raises KeyError: A non-integer value has no entry in val_map.
+        """
+
         m = field.metadata
         table = field.table
         dt = m["datatype"]
@@ -887,6 +1099,20 @@ class OneToManyWriter(ManyToOneWriter):
         clean_book_id_item_id_map = dict()
 
         def _to_id(item, val_map):
+            """
+            Preserve an integer target ID or look up the resolved value.
+
+            Example:
+                Inside the enclosing conversion, integer 4 passes through and "Shelf" maps to 4 when val_map contains that entry.
+
+
+            :param item: One target value from the surrounding update container.
+            :param val_map: Mapping from non-integer values to target IDs.
+            :return: The original integer, including bool, or val_map[item].
+            :raises KeyError: A non-integer value is unresolved.
+            :raises TypeError: A non-integer lookup key is unhashable.
+            """
+
             if isinstance(item, int):
                 return item
             else:
@@ -963,14 +1189,23 @@ class OneToManyWriter(ManyToOneWriter):
         priority=False,
     ):
         """
-        Update a many to one entry in a custom table.
-        :param db:
-        :param table:
-        :param field:
-        :param is_custom_series:
-        :param updated:
-        :param deleted:
-        :return:
+        Replace legacy custom links using one insertion record per update-map entry.
+
+        Deletions pass singleton owner-ID tuples outside the lock. Nonempty updates acquire db.lock, clear updated owners and call add_cc_link_with_extra_multi with pairs or series triples. clean_before_write and priority do not alter behavior. In particular, collections from higher-level one-to-many converters are not expanded here; acceptance of such values depends on the macro. No cache update or whole-operation rollback is provided.
+
+        Example:
+            For scalar ``updated={7: 4}``, the ordinary branch sends (7, 4); the series branch sends (7, 4, 1.0).
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param table: Table with link_table, falling back to metadata["table"] on AttributeError.
+        :param field: Field metadata with link_column for custom-series inserts.
+        :param is_custom_series: Whether insertion records carry index 1.0.
+        :param updated: Owner-to-item mapping; each value is forwarded as one item, without flattening collections.
+        :param deleted: Owner IDs whose custom links are deleted before locked updates.
+        :param clean_before_write: Compatibility argument not used by this helper.
+        :param priority: Compatibility argument not used by this helper.
+        :return: (None, None); no replacement cache maps are returned.
         """
         # Update the db link table - remove all the links to the book
         if deleted:

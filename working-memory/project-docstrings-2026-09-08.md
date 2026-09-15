@@ -1,5 +1,9 @@
 # Whole-project descriptive reST docstrings — 2026-09-08
 
+Current status: **paused at D095 by user request**. [Shutdown checkpoint](project-docstrings-hundred-paused-2026-09-15.md): 15/100 units verified in this chunk, 408 declarations; 853/2,732 complete project files. **D096 is next only on a new user request.** Earlier authorization and pause notes below are historical.
+
+## Historical handoff before this chunk
+
 ## Request and scope
 
 Active, unfinished goal: give every project function, class, and module a
@@ -8,31 +12,38 @@ broader than the earlier maintained-public-boundary ratchet. Do not declare it
 complete after a modern-only pass or replace missing prose with generated symbol
 name restatements.
 
-Work is on `codex/project-docstrings`, based on `edf6bf05`. PR #115 is unchanged
-by this new branch. The latest PR request was satisfied by confirming that the
-maintainability stages and close-out are already published there; the separate
-unfinished documentation pass remains local, without a commit or push.
+Work is on `codex/project-docstrings`, originally based on `edf6bf05`. The branch
+advanced to `9790d020` (pre-alpha documentation checkpoint) during the latest
+continuation's HTTP-test permission wait; that commit includes the 606-file
+reviewed checkpoint. The continuation itself did not commit or push, and its final
+working-memory updates remain local. PR #115 historically contains the earlier
+maintainability programme; no fresh remote publication status is claimed here.
 
-Latest continuation: [Storage and catalog example documentation — 2026-09-11](project-docstrings-storage-catalog-examples-2026-09-11.md),
-following [Storage test documentation completion](project-docstrings-storage-tests-completion-2026-09-11.md).
-The reviewed ledger and latest whole-project counts below include that batch;
-earlier verification sections retain their historical scope.
+Latest checkpoint: [user-requested pause — 2026-09-15](project-docstrings-d-paused-2026-09-15.md).
+The user authorized all 232 D units after the completed C03–C032 batch. Through
+D080, 80 D units and 1937 declarations are verified; 107 files promoted.
+Current complete-file coverage is 829/2,732: 1,136 classes and
+9,248 functions, or 11,213 declarations. Partially reviewed files
+retain 43 verified declarations. Remaining: 1,903 files,
+31,012 declarations and 1,260 documentation units.
+Individual static/regression/example results are linked from the D handoff and
+inventory. Earlier results retain their historical scope; no new full subsystem
+signoff is claimed before its milestone gates run.
 
-Current verification caveat: unchanged workflow-owner guards count docstrings
-toward physical-line and statement limits. Four Core service modules and the
-program facade now exceed file limits; one service function and all facade
-functions also exceed their span limits, and documented single-return wrappers
-have an extra docstring statement. Executable ASTs are unchanged apart from three
-specifically verified runtime documentation values. Permission for docstring-aware
-counting remains unanswered; no guard-logic or limit changes were made. Five
-terminal files now also exceed their unchanged file ceilings. The terminal guard
-test itself has docstring-only edits. Storage administration, ingest_reporting, and
-store_wizard exceed the unchanged 450-line file ceiling; _preflight_checks exceeds
-the 160-line function ceiling. The unchanged 900-line manager-mixin ceiling now fails for
-_policy_support.py (1,213), _support.py (1,139), and _contracts.py (902). These
-files fail the same composition test. The latest note records all seven observed
-pytest guard failures separately from passing
-behavioral, typing, formatting, lint, dependency, and complexity checks.
+Execution follows the [bounded completion plan](../dev-docs/project-docstrings-completion-plan.md).
+The user paused the D range on 2026-09-15 because token cost was too high.
+D081 remains queued; resume only on a new user request.
+No commit or publication is requested. Previous source/test modifications and the
+three runtime-doc exceptions remain preserved.
+
+Ownership-guard caveat resolved by G02: the baseline reproduced seven failures
+from counting docstrings toward file/function spans and wrapper statements.
+All seven now pass through the G01 helper with the original numeric limits and
+comparison operators. The final selection passed 48 tests/doctests with seven
+explicit doctest skips. Dependency, composition, delegation, and other ownership
+contracts remain enforced. G02 intentionally changes three test files; production
+source and the three previously verified runtime-documentation exceptions remain
+unchanged. Earlier notes reporting raw-line guard failures retain historical scope.
 
 The inventory includes private/nested/async functions, classes, modules, tests,
 examples, scripts, inherited/vendored Python, preference modules, and tracked
@@ -118,12 +129,54 @@ and the migration suite. Its initial verification is complete:
 
 ## Subsequent source-reviewed batches
 
-The reviewed Python set now contains **606 modules, 805 classes, and 6,816 functions**
-(8,227 declarations), all passing both the strict structural audit and normalizer
+The reviewed Python set now contains **668 modules, 874 classes, and 7,211 functions**
+(8,753 declarations), all passing both the strict structural audit and normalizer
 `--check`. The exact paths are saved in
 [project-docstrings-reviewed-files.txt](project-docstrings-reviewed-files.txt).
 The reviewed file set is:
 
+- C02 curated identifier repository/API: two full files, two classes, 22 functions.
+  Normalized identity, owner copying, primary flags/raw projection, and transactional
+  replacement are documented, with executable ASTs unchanged and focused checks passing.
+- C01 Agent repository and API: two full files, two classes, 27 functions. Canonical
+  resolution, aggregate/type/alias preparation, matching reuse, and credit ordering
+  descriptions now agree with implementation; executable ASTs are unchanged.
+- G01 docstring-aware ownership measurement helper and focused tests: two new
+  files, one class, sixteen functions; strict audit and normalizer pass. Existing
+  reviewed files retain their prior verification with unchanged source hashes.
+- Catalog exact-entity mechanics, configured repositories, note operations, and
+  repository exports/composition; their six remaining exact/note API modules;
+  complete convenience and semantic Catalog regression modules (12 files).
+- Catalog base/WEMI repositories: complete generic CRUD/link helpers, Work,
+  Expression, Manifestation, and Item repositories and their five API modules,
+  plus the full repository-invariant test module and nested failure seams.
+  Documents shallow row copies, validation/alias order, full-table paging,
+  priority/type identity, scoped matching, direct Item ownership, and creation/link
+  transaction boundaries. Corrects unsupported atomicity/link-metadata promises
+  while preserving all runtime behavior. Remaining repositories stay in scope.
+- Catalog specialized matchers: complete Work, Agent, curated Identifier, and
+  observed Item-Identifier implementations and their four API modules. Documents
+  identifier-first terminal decisions, acceptance bypass, aliases and evidence,
+  duplicate-row selection, and differing limit/ID validation. All matching source
+  and API modules are complete. Existing Work exact keyword mismatch is retained:
+  API `cand_str` versus concrete `candidate_str`; reconcile in a separate API change.
+- Catalog matching policy: complete policy/normalization/scoring helpers, exact
+  matcher and identity specification, all eleven specification declarations,
+  group composition, both corresponding API modules, and both matching regression
+  suites. Documents terminal decisions, scope/identity distinctions, candidate
+  display limits, floating-point boundaries, and repository-owned policies without
+  changing behavior. Specialized matchers and their contracts are completed above.
+- Catalog foundation: package/API exports, shared candidates/results/errors,
+  facade protocols, concrete composition and all nineteen repository shortcuts,
+  plus the complete import and API-documentation test modules. Documents exact
+  schema writer selection, delegated transaction/return behavior, borrowed database
+  lifetime, shallow frozen records, and matching validation limits. Full Catalog
+  regressions pass; the remaining Catalog owners and tests are still in scope.
+- Example completion: all five conversion modules, Library facade example, three
+  metadata examples, and comments-to-HTML example. Includes logger/metadata-stub
+  classes, nested shim functions, private helpers, and all CLI functions. All 28
+  tracked example/helper modules are now documented, with process-state, partial
+  effect, cleanup, result-cap, and reporting limitations made explicit.
 - Storage/catalog examples: all 11 storage scripts, six catalog example/helper
   modules, and the shared JSON/import helper. Descriptions cover persistence,
   partial effects, resource lifetime, exit/report distinctions, and actual sanitizer
@@ -577,11 +630,11 @@ Both root and data-submodule diffs are whitespace-clean. No new commit or push
 has been made on this documentation branch.
 
 Latest generated whole-project audit:
-`/tmp/liuxin-docstring-current-2026-09-11.json` covers 2,730 Python modules,
-4,400 classes, and 35,119 functions. Missing/blank docstrings remain on **1,067
-modules, 1,897 classes, and 20,185 functions (23,149 total)**, with no parse
-failures. Existing incomplete descriptions are additional findings: 3,551
-delimiter-layout, 9,717 missing-example, 2,777 parameter-field, 3,657 return-field,
+`/tmp/liuxin-docstring-catalog-exact-repositories-2026-09-12.json` covers 2,730 Python modules,
+4,400 classes, and 35,119 functions. Missing/blank docstrings remain on **1,065
+modules, 1,894 classes, and 20,044 functions (23,003 total)**, with no parse
+failures. Existing incomplete descriptions are additional findings: 3,288
+delimiter-layout, 9,492 missing-example, 2,735 parameter-field, 3,590 return-field,
 3,151 empty-parameter-description, 4,119 empty-return-description, and 28
 missing-summary findings. These categories overlap and are not additive totals
 of undocumented declarations. The full project goal remains unfinished.
@@ -1104,7 +1157,10 @@ retains the earlier checkpoint's decision, not the current documentation scope.
 
 ## Remaining work and next actions
 
-Continue from the reviewed ledger above:
+Use the [bounded plan](../dev-docs/project-docstrings-completion-plan.md) and exact
+work inventory for current scheduling; C033 is next after the completed thirty-module
+batch. Stop for token-spend review, then resume only explicitly requested modules. The historical backlog below describes remaining subject areas,
+not authorization to resume an unbounded pass:
 
 1. Keep auditing each subsequent edited file with `--check`, comparing its
    executable AST against `edf6bf05`, and running the affected tests. Do not
@@ -1233,10 +1289,21 @@ Continue from the reviewed ledger above:
    contracts, and live PostgreSQL manager tests are now documented too, completing
    all 85 storage test/helper modules. All 11 examples/storage scripts,
    examples/_example_utils.py, and all six catalog example/helper modules are now
-   reviewed and documented too. Continue with the ten remaining examples: conversion
-   (five), Library (one), metadata (three), and utilities (one), preserving headers
-   and inspecting runtime doc consumers. Existing example execution is not a
-   documentation-completion claim. The temporary writer now preserves headers.
+   reviewed and documented too. The remaining conversion (five), Library (one),
+   metadata (three), and utility (one) examples are now complete too, finishing all
+   28 tracked example/helper modules. Catalog exports, common/API values/errors,
+   facade protocols, and the concrete Catalog are now reviewed, with complete import
+   and API-documentation test modules. Shared matching policy, exact-entity matching,
+   all identity specifications, matcher composition, and both corresponding API
+   modules are now reviewed too, with both matching regression suites. This covers
+   29 of 113 Catalog source modules and 5 of 19 Catalog test modules, including all
+   matching implementation/API files, base and WEMI repositories/contracts, and the
+   complete repository-invariant regression module. Continue the remaining exact,
+   Agent, identifier, title/note repositories and contracts, then remaining Catalog
+   owners and tests.
+   Example execution does not
+   imply documentation of dependencies.
+   Preserve headers and inspect runtime doc consumers in every subsequent batch.
    Preserve the documented FRBR legacy fingerprint/identity behavior as an explicit
    follow-up issue rather than silently changing execution during documentation.
    Prior Composite/resolution read-ahead

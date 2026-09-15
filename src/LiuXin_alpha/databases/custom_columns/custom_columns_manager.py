@@ -1,16 +1,7 @@
-"""CustomColumnsManager: per-table CustomColumns instances.
+"""
+Discover custom-column attachment tables and lazily cache their facades.
 
-Custom columns are currently implemented as Calibre-style `custom_column_<N>` tables,
-with the definition rows stored in the `custom_columns` helper table.
-
-Historically, LiuXin/Calibre assumes custom columns attach to `books`.
-LiuXin-alpha is moving towards a schema where custom columns can be attached to multiple
-tables (e.g. `manifestations`, `works`, `agents`, ...).
-
-This manager provides a single place to:
-- discover which tables currently have custom columns
-- lazily construct exactly one `CustomColumns` instance per attachment table
-- refresh / invalidate those instances as schema changes occur
+CustomColumnsManager separates live table discovery from its instance cache. Discovery can return no tables while explicit get still constructs a facade. Construction/refresh inherit CustomColumns schema-cleanup and metadata side effects; the manager does not add transactions or concurrency control.
 """
 
 from __future__ import annotations
@@ -28,12 +19,21 @@ if TYPE_CHECKING:
 
 def _row_get(row: Union[dict, "RowAPI"], key: str, default: Any = None) -> Any:
     """
-    Best-effort dictionary-like access for DB row objects.
+    Read a row using get when available, falling back to item access on error.
 
-    :param row:
-    :param key:
-    :param default:
-    :return:
+    Catch ordinary exceptions from probing/calling get, then try row[key] and catch ordinary exceptions there. A successful get returning default does not trigger item access.
+
+    Example:
+        >>> _row_get({"value": None}, "value", "missing") is None
+        True
+        >>> _row_get({}, "value", "missing")
+        'missing'
+
+
+    :param row: Mapping-like or Row-like object.
+    :param key: Key passed unchanged to each access attempt.
+    :param default: Fallback returned only when neither access route succeeds.
+    :return: Result of get/item access, including an explicit None, or default.
     """
     try:
         if hasattr(row, "get"):
@@ -48,11 +48,18 @@ def _row_get(row: Union[dict, "RowAPI"], key: str, default: Any = None) -> Any:
 
 def _to_int(value: Any, default: int = 0) -> int:
     """
-    Attempts to convert `value` to `int`.
+    Convert a value with int, returning the supplied fallback on ordinary failure.
 
-    :param value:
-    :param default:
-    :return:
+    Numeric floats truncate and booleans become zero/one. Any ordinary exception from int is suppressed, not only malformed text.
+
+    Example:
+        >>> _to_int("2"), _to_int(2.9), _to_int("bad", 7)
+        (2, 2, 7)
+
+
+    :param value: Value to convert; None returns default without conversion.
+    :param default: Fallback retained as supplied rather than coerced or validated.
+    :return: Integer conversion, or default for None/conversion failure.
     """
     try:
         if value is None:
@@ -65,13 +72,16 @@ def _to_int(value: Any, default: int = 0) -> int:
 # Todo: Is any of this tested?
 @dataclass
 class CustomColumnsManager:
-    """Hold one `CustomColumns` instance per table that has custom columns.
+    """
+    Hold lazily constructed CustomColumns facades by canonical attachment table.
 
-    Notes
-    -----
-    - Instances are created lazily (on first access) unless `preload()` is called.
-    - Discovery is best-effort: if `custom_columns` doesn't exist, the manager behaves
-      like an empty registry and will still allow explicit `get(table)` calls.
+    The mutable dataclass retains db, default_table and field_metadata_by_table directly, with a fresh private cache per instance. It does not discover or preload on construction. Public membership/iteration query current definitions rather than cached keys. No locking prevents concurrent duplicate construction, and invalidation does not close facades or undo their schema effects.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> manager = CustomColumnsManager(SimpleNamespace(all_tables=set()))
+        >>> manager.tables()
+        ()
     """
 
     db: "DatabaseAPI"
@@ -84,27 +94,47 @@ class CustomColumnsManager:
 
     def tables(self) -> Tuple[str, ...]:
         """
-        Return the currently discovered attachment tables (canonicalized).
+        Rediscover attachment tables and return their names in sorted order.
 
-        :return:
+        This does not construct facades or report private cache keys. Best-effort discovery can hide missing catalogs or failed query setup; later iterator failures still propagate.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> CustomColumnsManager(SimpleNamespace(all_tables=set())).tables()
+            ()
+
+
+        :return: Tuple of distinct canonical names from non-deleted definitions.
         """
         return tuple(sorted(self._discover_tables()))
 
     def preload(self) -> None:
         """
-        Eagerly create custom column instances for all discovered tables.
+        Construct cached facades for every currently discovered attachment table.
 
-        :return:
+        Iterate the discovered set without sorting. An exception stops the pass after any earlier facades have been cached and may follow constructor cleanup effects. Existing cached facades are reused without refreshing them.
+
+        Example:
+            Given a configured manager, manager.preload() eagerly creates the facades that ordinary get calls would create on demand.
+
+
+        :return: None; populate the cache through get.
         """
         for t in self._discover_tables():
             self.get(t)
 
     def get(self, table: Optional[str] = None) -> "CustomColumns":
         """
-        Return the per-table `CustomColumns` instance (create + cache on demand).
+        Return a cached facade or construct one for the canonical requested table.
 
-        :param table:
-        :return:
+        Explicit requests do not require the name to be in current discovery. Resolve FieldMetadata, construct the facade, and cache only after successful construction. Subsequent calls reuse it without schema refresh. Construction may perform cleanup and trigger/field registration.
+
+        Example:
+            Given manager bound to db, manager.get("works") constructs the Work facade once for sequential successful calls and reuses it afterward.
+
+
+        :param table: Attachment table; None or another false value selects default_table.
+        :return: Cached or newly constructed CustomColumns object for the resolved name.
         """
         resolved = self._canonicalise_table(table or self.default_table)
 
@@ -116,12 +146,16 @@ class CustomColumnsManager:
 
     def refresh(self, *, table: Optional[str] = None) -> None:
         """
-        Refresh per table custom-column metadata.
+        Refresh definition maps on cached facades or one explicitly requested facade.
 
-        If `table` is None, refresh all cached instances.
+        The all-cached path does not discover newly added attachment tables. Refresh inherits the facade’s immediate malformed-definition deletion and accumulated removal/trigger lists; it does not recreate FieldMetadata registrations or install queued triggers. Errors stop the pass after earlier refreshes.
 
-        :param table:
-        :return:
+        Example:
+            After updating definitions, manager.refresh(table="works") refreshes that facade, creating it first if absent.
+
+
+        :param table: None refreshes every currently cached facade; a supplied name is resolved through get, constructing if necessary.
+        :return: None; invoke refresh_db_custom_columns_metadata on the chosen facades.
         """
         if table is None:
             for cc in self._cache.values():
@@ -132,12 +166,18 @@ class CustomColumnsManager:
 
     def invalidate(self, *, table: Optional[str] = None) -> None:
         """
-        Drop cached instances for the given table.
+        Discard cached facade references without closing them or changing the database.
 
-        If `table` is None, clears the entire cache.
+        External references remain usable. A later get can construct another facade and repeat its setup effects. This operation does not refresh live discovery or alter shared FieldMetadata.
 
-        :param table:
-        :return:
+        Example:
+            >>> from types import SimpleNamespace
+            >>> manager = CustomColumnsManager(SimpleNamespace(all_tables=set()))
+            >>> manager.invalidate()
+
+
+        :param table: None clears the entire cache; another value is canonicalized and removed if present.
+        :return: None, including when the selected cache entry is absent.
         """
         if table is None:
             self._cache.clear()
@@ -148,10 +188,19 @@ class CustomColumnsManager:
     # Todo: We should have a type for all the main tables
     def __contains__(self, table: str) -> bool:  # pragma: no cover
         """
-        Check we have a table in the cache.
+        Check live attachment discovery for a canonical string table name.
 
-        :param table:
-        :return:
+        An empty string follows the canonicalizer’s default-table fallback. This can inspect database metadata and query definitions; it is not a cheap private-cache membership test.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> manager = CustomColumnsManager(SimpleNamespace(all_tables=set()))
+            >>> 7 in manager, "works" in manager
+            (False, False)
+
+
+        :param table: String table name to canonicalize; non-strings return False immediately.
+        :return: True when the canonical name appears in current discovery, independently of cache membership.
         """
         if not isinstance(table, str):
             return False
@@ -160,18 +209,30 @@ class CustomColumnsManager:
 
     def __getitem__(self, table: str) -> "CustomColumns":  # pragma: no cover
         """
-        Retrieve a custom column table from the cache.
+        Delegate bracket access to lazy facade lookup.
 
-        :param table:
-        :return:
+        Example:
+            Given a configured manager, manager["works"] has the same construction/reuse behavior as manager.get("works").
+
+
+        :param table: Attachment table passed to get.
+        :return: Cached or newly constructed CustomColumns facade.
         """
         return self.get(table)
 
     def __iter__(self) -> Iterator[str]:  # pragma: no cover
         """
-        Iterate over all tables in the cache.
+        Iterate a sorted snapshot of currently discovered attachment names.
 
-        :return:
+        Call tables when generator iteration begins. These names can differ from cached facade keys, and later database changes are not reflected within the materialized tuple.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> tuple(CustomColumnsManager(SimpleNamespace(all_tables=set())))
+            ()
+
+
+        :return: Iterator of table-name strings; no facades are constructed.
         """
         yield from self.tables()
 
@@ -179,10 +240,20 @@ class CustomColumnsManager:
 
     def _field_metadata_for(self, table: str) -> Optional[Any]:
         """
-        Get the field metadata for a custom column.
+        Resolve explicit per-table FieldMetadata or the legacy database fallback.
 
-        :param table:
-        :return:
+        Explicit entries win without validation or copying. Ordinary errors reading db.field_metadata are suppressed. The fallback is limited to literal books and manifestations, not an arbitrary configured default table.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> marker = object()
+            >>> manager = CustomColumnsManager(SimpleNamespace(field_metadata=marker))
+            >>> manager._field_metadata_for("manifestations") is marker
+            True
+
+
+        :param table: Canonical attachment table name.
+        :return: Explicit mapping entry, including None, or db.field_metadata for books/manifestations when available; otherwise None.
         """
         if table in self.field_metadata_by_table:
             return self.field_metadata_by_table[table]
@@ -200,10 +271,19 @@ class CustomColumnsManager:
 
     def _canonicalise_table(self, in_table: str) -> str:
         """
-        Resolve compat aliases (books -> manifestations, etc.) when needed.
+        Prefer the wrapper’s attachment alias resolver, with a narrow local fallback.
 
-        :param in_table:
-        :return:
+        Suppress ordinary wrapper resolver errors. Fallback reads main_tables best-effort and maps books only when absent while manifestations is present. It does not trim names, validate schema existence or consistently coerce fallback values to strings.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> manager = CustomColumnsManager(SimpleNamespace(main_tables={"manifestations"}))
+            >>> manager._canonicalise_table("books")
+            'manifestations'
+
+
+        :param in_table: Attachment name; false input is replaced by default_table.
+        :return: Stringified wrapper result on success; otherwise the original/default name, with a possible books-to-manifestations substitution.
         """
         if not in_table:
             in_table = self.default_table
@@ -230,11 +310,18 @@ class CustomColumnsManager:
 
     def _discover_tables(self) -> Set[str]:
         """
-        Scan `custom_columns` and return the set of attachment tables.
+        Read non-deleted custom-column definitions and collect canonical attachments.
 
-        Excludes rows marked for deletion.
+        Try all_tables and optionally refresh_db_metadata. If the catalog is not known to be absent, request its rows. Only call/setup errors are suppressed: iteration failures propagate. Skip records whose deletion marker converts to exactly 1; other integers or invalid markers remain eligible. Missing/blank attachments use default_table; nonblank names retain whitespace before canonicalization. No facades are constructed.
 
-        :return:
+        Example:
+            >>> from types import SimpleNamespace
+            >>> manager = CustomColumnsManager(SimpleNamespace(all_tables=set()))
+            >>> manager._discover_tables()
+            set()
+
+
+        :return: Set of attachment names, or an empty set for a known missing catalog/query-setup failure.
         """
         tables: Set[str] = set()
 

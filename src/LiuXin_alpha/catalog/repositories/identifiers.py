@@ -1,4 +1,12 @@
-"""Repository for identifiers owned by catalog entities."""
+"""
+Manage curated identifier values and their direct Catalog ownership fields.
+
+Logical comparison normalizes scheme/value pairs across stored copies. Assignment
+updates a compatible row or copies one owned elsewhere; ownership is stored on
+entity_identifiers itself, not a relationship table. Primary flags are separate
+from matching. Complete WEMI replacement has an encompassing macro transaction.
+Raw Item observations belong to the separate item_identifiers repository.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +24,21 @@ from .base import BaseRepository, WEMI_TABLES
 
 
 class IdentifierRepository(BaseRepository):
-    """Store and resolve identifiers in the polymorphic ownership table."""
+    """
+    Normalize, find, assign, and replace curated identifiers for WEMI entities and Agents.
+
+    Borrow the database through BaseRepository. Generic CRUD translates public field
+    aliases but does not itself apply scheme-specific normalization. Use normalise,
+    find, match, or match_or_create for logical comparison. Matching requires a bound
+    repository group and chooses a stored copy without deciding bibliographic-owner
+    ambiguity. Assignment may return a different row ID, which callers must retain.
+
+    Example:
+        >>> repository = IdentifierRepository(None)
+        >>> candidate = repository.normalise(IdentifierCandidate('ISBN-13', '978-0-306-40615-7'))
+        >>> candidate.identifier_type, candidate.normalised_value
+        ('isbn13', '9780306406157')
+    """
 
     table_name = "entity_identifiers"
     id_column = "entity_identifier_id"
@@ -34,10 +56,28 @@ class IdentifierRepository(BaseRepository):
     }
 
     def normalise(self, candidate: IdentifierCandidate) -> IdentifierCandidate:
-        """Return a stable identifier comparison form.
+        """
+        Build a canonical comparison candidate without accessing storage.
 
-        :param candidate: Raw identifier candidate.
-        :return: Candidate with normalized scheme and value.
+        Delegate to the shared matching policy: canonicalize scheme aliases, validate
+        ISBN checksum/length and UUID syntax, and apply DOI/OCLC prefix rules. Other
+        schemes retain stripped, case-sensitive comparison text. A truthy normalised_value
+        override takes precedence over the original value. Preserve the stripped original
+        value separately from comparison text and retain source/hints references; neither
+        provenance nor hints are validated here. The input candidate is not mutated.
+
+        Example:
+            >>> from LiuXin_alpha.catalog.repositories.identifiers import IdentifierRepository
+            >>> candidate = IdentifierRepository(None).normalise(IdentifierCandidate('DOI', ' https://doi.org/10.1000/ABC '))
+            >>> candidate.identifier_type, candidate.value, candidate.normalised_value
+            ('doi', 'https://doi.org/10.1000/ABC', '10.1000/abc')
+
+
+        :param candidate: IdentifierCandidate containing scheme, original value, and optional comparison override/provenance/hints.
+        :return: New candidate with a canonical scheme and scheme-specific normalised_value.
+        :raises TypeError: If the candidate or its scheme/original value has the wrong type.
+        :raises ValueError: If scheme/value text is empty or scheme-specific validation fails.
+        :raises Exception: Invalid normalized overrides propagate failures from shared normalization.
         """
 
         from ..matching.policy import normalise_identifier
@@ -45,11 +85,26 @@ class IdentifierRepository(BaseRepository):
         return normalise_identifier(candidate)
 
     def find(self, *, identifier_type: str, value: str) -> RowMapping | None:
-        """Find an identifier by normalized scheme and value.
+        """
+        Return the first stored row matching normalized scheme and value, regardless of owner.
 
-        :param identifier_type: Identifier scheme, for example ``isbn13``.
-        :param value: Identifier value.
-        :return: First matching identifier row, or ``None``.
+        Validate both arguments as strings and normalize the incoming candidate before
+        materializing all rows in requested ascending identifier-ID order. For each row,
+        convert its raw scheme/value columns to strings (false-valued fields become empty)
+        and normalize them, skipping TypeError/ValueError failures. Compare canonical
+        scheme and normalised_value, ignoring provenance, primary flags, and ownership.
+        Duplicate logical copies do not cause ambiguity; the first is returned unchanged.
+
+        Example:
+            >>> row = catalog.identifiers.find(identifier_type='doi', value='doi:10.1000/abc')  # doctest: +SKIP
+
+
+        :param identifier_type: Scheme string or supported alias to normalize.
+        :param value: Original identifier value string to normalize and compare.
+        :return: First matching shallow row mapping, or None when no stored row matches.
+        :raises TypeError: If either argument is not a string.
+        :raises ValueError: If incoming normalization rejects the scheme/value.
+        :raises Exception: Database reads and other row-processing errors propagate.
         """
 
         if not isinstance(identifier_type, str) or not isinstance(value, str):
@@ -72,10 +127,22 @@ class IdentifierRepository(BaseRepository):
         return None
 
     def match(self, candidate: IdentifierCandidate) -> MatchResult:
-        """Return the exact existing identifier for ``candidate``.
+        """
+        Select one logical identifier storage copy with explained normalized evidence.
 
-        :param candidate: Identifier candidate to match.
-        :return: Explained exact match or non-match result.
+        Construct IdentifierMatcher with the borrowed database and bound repository group.
+        It scans and sorts matching copies by storage ID, without owner/provenance filters
+        or matching-policy thresholds. Multiple owners do not create ambiguity here;
+        Work/Agent matchers resolve bibliographic ownership separately. The standard
+        matcher reports a match or no-match and does not write to storage.
+
+        Example:
+            >>> result = catalog.identifiers.match(IdentifierCandidate('DOI', 'doi:10.1000/abc'))  # doctest: +SKIP
+
+
+        :param candidate: Logical identifier with raw value or a normalized comparison override.
+        :return: Explained first-copy MatchResult, or no_match when no normalized copy exists.
+        :raises Exception: Incoming normalization, missing repository binding, and row-processing failures propagate.
         """
 
         from ..matching.identifier_matcher import IdentifierMatcher
@@ -83,10 +150,23 @@ class IdentifierRepository(BaseRepository):
         return IdentifierMatcher(self.db, self.repositories).best(candidate)
 
     def match_or_create(self, candidate: IdentifierCandidate) -> EntityId:
-        """Return an exact identifier row or create a new logical value.
+        """
+        Reuse a matching storage copy or insert an initially unowned logical identifier.
 
-        :param candidate: Identifier to normalize and persist when absent.
-        :return: Existing or newly created identifier row ID.
+        Normalize the candidate, then match across all owners. A successful match is
+        returned without updating its spelling, provenance, primary flag, or ownership.
+        Otherwise insert the canonical scheme, stripped original value, and source; the
+        comparison override and hints are not stored. No encompassing transaction or
+        concurrent uniqueness guarantee joins matching to insertion. The concrete matcher
+        returns match/no-match; this wrapper does not separately reject other decisions.
+
+        Example:
+            >>> identifier_id = catalog.identifiers.match_or_create(IdentifierCandidate('doi', 'https://doi.org/10.1000/ABC', source='publisher'))  # doctest: +SKIP
+
+
+        :param candidate: Identifier to normalize and match, with source used only for a new row.
+        :return: Existing matching row ID, possibly already owned, or a new unowned row ID.
+        :raises Exception: Normalization, binding, matching, field-validation, and insertion failures propagate.
         """
 
         normalised = self.normalise(candidate)
@@ -110,13 +190,28 @@ class IdentifierRepository(BaseRepository):
         entity_id: EntityId,
         priority: int | None = None,
     ) -> EntityId:
-        """Assign an identifier row to a WEMI entity.
+        """
+        Assign a curated identifier to a WEMI owner, copying an incompatible owned row.
 
-        Identifier ownership is represented directly on ``entity_identifiers``.
-        Assigning an already-owned identifier to a different entity creates a
-        second owned row, preserving the original entity's identifier.
+        Validate level, require the owner and identifier, then update a compatible row or
+        create a copy while leaving the original owner unchanged. Ownership lives directly
+        on entity_identifiers, not a link table. Priority only controls the primary flag:
+        zero sets it, any other integer clears it, and None preserves it even on a copy.
+        No ranking value or cross-row primary uniqueness is enforced. There is no outer
+        transaction across this method's reads and write; callers can supply one.
 
-        :return: The assigned identifier row ID.
+        Example:
+            >>> assigned_id = catalog.identifiers.link_to_wemi(identifier_id=identifier_id, level='manifestation', entity_id=manifestation_id, priority=0)  # doctest: +SKIP
+
+
+        :param identifier_id: Existing curated identifier row to assign or copy.
+        :param level: work, expression, manifestation, or item, selecting the owner table/type.
+        :param entity_id: Existing owner ID, validated before the identifier and priority.
+        :param priority: Non-boolean integer controlling is_primary, or None to retain its stored value.
+        :return: Assigned row ID; a copy has a new ID that callers must use.
+        :raises ValueError: If level is unknown or an ID is negative.
+        :raises TypeError: If an ID or supplied priority is not an accepted integer.
+        :raises CatalogNotFoundError: If the owner or identifier does not exist.
         """
 
         if level not in WEMI_TABLES:
@@ -136,15 +231,26 @@ class IdentifierRepository(BaseRepository):
         agent_id: EntityId,
         priority: int | None = None,
     ) -> EntityId:
-        """Assign an identifier row to an Agent.
+        """
+        Assign a curated identifier to an Agent using direct ownership and copy semantics.
 
-        Assigning an identifier already owned by another entity copies its
-        logical value, matching :meth:`link_to_wemi` ownership semantics.
+        Require the Agent before the identifier and priority checks. A row compatible
+        with this owner is updated; one owned elsewhere is copied without changing the
+        original. No existing equivalent row at the destination is sought. Priority sets
+        only is_primary (zero true, other integers false); None retains the existing flag.
+        The assignment does not add an encompassing transaction or enforce a unique primary.
 
-        :param identifier_id: Existing identifier row ID.
-        :param agent_id: Existing Agent ID.
-        :param priority: Optional priority, where zero marks the primary value.
-        :return: Assigned identifier row ID.
+        Example:
+            >>> assigned_id = catalog.identifiers.link_to_agent(identifier_id=identifier_id, agent_id=agent_id, priority=0)  # doctest: +SKIP
+
+
+        :param identifier_id: Existing identifier row to update or copy.
+        :param agent_id: Existing Agent owner ID, checked first.
+        :param priority: Non-boolean integer controlling the primary flag, or None to preserve it.
+        :return: Assigned identifier row ID, which differs from the input when copied.
+        :raises CatalogNotFoundError: If the Agent or identifier is missing.
+        :raises TypeError: If an ID or explicit priority has an invalid type.
+        :raises ValueError: If an ID is negative.
         """
 
         return self._assign(
@@ -164,6 +270,33 @@ class IdentifierRepository(BaseRepository):
         entity_id: EntityId,
         priority: int | None,
     ) -> EntityId:
+        """
+        Update compatible ownership fields or copy an identifier for a different owner.
+
+        Require the destination row, copy the required identifier mapping, then validate
+        priority when supplied. Each existing ownership component must independently be
+        None or equal to its requested value for in-place update; partially filled but
+        compatible ownership is completed too. Otherwise copy all fields except the ID
+        and names ending in _timestamp_ep_k, then overwrite ownership and any requested
+        primary flag. Retain other fields, including provenance and a preserved primary
+        flag when priority is None. No destination deduplication or outer transaction is
+        performed; CRUD/schema constraints determine write behavior.
+
+        Example:
+            >>> assigned_id = catalog.identifiers._assign(identifier_id=identifier_id, entity_type='agent', entity_table='agents', entity_id=agent_id, priority=None)  # doctest: +SKIP
+
+
+        :param identifier_id: Existing identifier ID to read before choosing update or copy.
+        :param entity_type: Ownership discriminator stored on the assigned row.
+        :param entity_table: Destination table checked independently of the supplied discriminator.
+        :param entity_id: Existing destination row ID, required before identifier lookup.
+        :param priority: None to preserve is_primary, zero to set it, or another non-boolean integer to clear it.
+        :return: Original identifier ID after update, or newly inserted copy ID.
+        :raises CatalogNotFoundError: If either required row is absent.
+        :raises TypeError: If ID or priority validation fails.
+        :raises Exception: Schema validation, update, or copy insertion errors propagate.
+        """
+
         self._require_table_row(entity_table, entity_id)
         row = dict(self.require(identifier_id))
         current_level = row.get("entity_identifier_entity_type")
@@ -188,7 +321,26 @@ class IdentifierRepository(BaseRepository):
         return self.create(copied)
 
     def list_for_wemi(self, *, level: WemiLevel, entity_id: EntityId) -> Sequence[RowMapping]:
-        """Return identifier rows owned by one WEMI entity."""
+        """
+        Read curated identifier rows directly owned by one WEMI entity.
+
+        Validate level and require the owner before scanning all identifier rows. Filter
+        by exact ownership type and ID in Python, retaining requested ascending storage-ID
+        order. Return all primary and non-primary rows, without value normalization,
+        logical deduplication, or added _catalog_link metadata. Reads have no encompassing
+        snapshot transaction.
+
+        Example:
+            >>> rows = catalog.identifiers.list_for_wemi(level='work', entity_id=work_id)  # doctest: +SKIP
+
+
+        :param level: WEMI level selecting the ownership discriminator and source table.
+        :param entity_id: Existing owner ID required before scanning identifiers.
+        :return: Tuple of shallow identifier mappings with matching direct ownership fields.
+        :raises ValueError: If level is unknown or the owner ID is negative.
+        :raises TypeError: If the owner ID is not a non-boolean integer.
+        :raises CatalogNotFoundError: If the WEMI owner is absent, even when it would have no identifiers.
+        """
 
         if level not in WEMI_TABLES:
             raise ValueError(f"unknown WEMI level: {level!r}")
@@ -204,7 +356,25 @@ class IdentifierRepository(BaseRepository):
         level: WemiLevel,
         entity_id: EntityId,
     ) -> Mapping[str, str]:
-        """Return the primary Identifier value for each normalized scheme."""
+        """
+        Project stored scheme/value strings from rows with a truthy primary flag.
+
+        Read the owner's identifiers through list_for_wemi and skip false-valued primary
+        flags. Both scheme and value must be strings, but this method does not normalize,
+        trim, or validate their contents. Duplicate exact stored scheme keys raise; case
+        variants remain distinct keys. It neither chooses one duplicate nor repairs data.
+        Non-primary rows remain accessible through list_for_wemi.
+
+        Example:
+            >>> primary = catalog.identifiers.primary_values_for_wemi(level='work', entity_id=work_id)  # doctest: +SKIP
+
+
+        :param level: WEMI level whose identifiers should be projected.
+        :param entity_id: Existing owner ID required by the underlying listing call.
+        :return: New dict of stored scheme strings to stored value strings, possibly empty.
+        :raises CatalogMutationError: If a primary row lacks string scheme/value or repeats an exact scheme key.
+        :raises Exception: Owner validation and identifier-read failures propagate.
+        """
 
         result: dict[str, str] = {}
         for row in self.list_for_wemi(level=level, entity_id=entity_id):
@@ -230,12 +400,31 @@ class IdentifierRepository(BaseRepository):
         entity_id: EntityId,
         identifiers: Mapping[str, str],
     ) -> Mapping[str, EntityId]:
-        """Replace the complete identifier mapping for one WEMI entity.
+        """
+        Atomically replace every curated identifier row owned by one WEMI entity.
 
-        :param level: WEMI level which owns the identifiers.
-        :param entity_id: Existing WEMI entity ID.
-        :param identifiers: Identifier values keyed by scheme.
-        :return: Assigned identifier IDs keyed by normalized scheme.
+        Validate level and the string mapping, normalize all candidates, and reject
+        duplicate canonical schemes before opening a transaction or checking the owner.
+        Inside the transaction, list the owner's existing IDs, match/create each logical
+        value, assign it with priority zero, then delete old owned rows not selected.
+        Copies protect other owners; reuse can retain earlier spelling/provenance. Every
+        desired scheme is primary. An empty mapping still requires the owner and deletes
+        all its identifiers, including non-primary rows. Failures roll back writes through
+        the macro transaction. Returned IDs need not match earlier copies at this owner.
+
+        Example:
+            >>> assigned = catalog.identifiers.replace_for_wemi(level='work', entity_id=work_id, identifiers={'DOI': 'doi:10.1000/abc'})  # doctest: +SKIP
+
+
+        :param level: WEMI level selecting the owner table and ownership discriminator.
+        :param entity_id: Existing owner ID checked after complete mapping validation, inside the transaction.
+        :param identifiers: Complete desired mapping of nonblank scheme strings to nonblank value strings.
+        :return: New dict of canonical schemes to the assigned row IDs in mapping iteration order.
+        :raises TypeError: If identifiers is not a Mapping or contains non-string/blank keys or values.
+        :raises ValueError: If level, an ID, or scheme-specific normalization is invalid.
+        :raises CatalogMutationError: If distinct mapping keys normalize to the same scheme.
+        :raises CatalogNotFoundError: If the owner is absent.
+        :raises Exception: Matching, assignment, deletion, and transaction failures propagate.
         """
 
         if level not in WEMI_TABLES:
@@ -280,10 +469,23 @@ class IdentifierRepository(BaseRepository):
         return assigned
 
     def list_for_agent(self, agent_id: EntityId) -> Sequence[RowMapping]:
-        """Return identifier rows owned by one Agent.
+        """
+        Read all curated identifier rows directly owned by an existing Agent.
 
-        :param agent_id: Existing Agent ID.
-        :return: Agent-owned identifier rows in stable ID order.
+        Require the Agent, then scan all identifier rows and retain exact agent-type and
+        owner-ID matches in requested ascending storage-ID order. Return both primary
+        and non-primary rows without normalization, logical deduplication, or relationship
+        metadata. No read transaction or owner existence cache is added.
+
+        Example:
+            >>> identifiers = catalog.identifiers.list_for_agent(agent_id)  # doctest: +SKIP
+
+
+        :param agent_id: Existing Agent ID required before the identifier scan.
+        :return: Tuple of shallow Agent-owned identifier mappings in repository order.
+        :raises CatalogNotFoundError: If the Agent is missing.
+        :raises TypeError: If agent_id is not a non-boolean integer.
+        :raises ValueError: If agent_id is negative.
         """
 
         return self._list_for_owner(
@@ -299,6 +501,26 @@ class IdentifierRepository(BaseRepository):
         entity_table: str,
         entity_id: EntityId,
     ) -> Sequence[RowMapping]:
+        """
+        Require an owner and select exact direct-ownership matches from a full row scan.
+
+        The owner table is used only for existence validation; the discriminator is an
+        independent equality filter. Read all identifiers through _all_rows and retain
+        their order and shallow row mappings. Do not normalize values, inspect primary
+        flags, deduplicate logical identifiers, or open an enclosing read transaction.
+
+        Example:
+            >>> rows = catalog.identifiers._list_for_owner(entity_type='agent', entity_table='agents', entity_id=agent_id)  # doctest: +SKIP
+
+
+        :param entity_type: Exact ownership discriminator to compare on stored rows.
+        :param entity_table: Table containing the required owner row.
+        :param entity_id: Nonnegative non-boolean owner ID, also used in the equality filter.
+        :return: Tuple of matching shallow mappings in requested ascending identifier-ID order.
+        :raises CatalogNotFoundError: If the required owner row is absent.
+        :raises Exception: ID validation and database reads propagate their failures.
+        """
+
         self._require_table_row(entity_table, entity_id)
         return tuple(
             row

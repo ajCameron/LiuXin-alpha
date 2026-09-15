@@ -1,9 +1,7 @@
-"""Declared normalized identities for human-facing database values.
+"""
+Declare and derive normalized identities for selected database display values.
 
-Case-insensitive comparison and normalized identity are deliberately separate
-concepts.  A title can be searched case-insensitively without every work with
-that title becoming the same work.  The declarations in this module are only
-for relation rows whose display value is itself an identity.
+Identity policy is narrower than case-insensitive search. Built-in declarations cover relation values such as tags, scoped genres/subjects and named policies; Work titles and Agent names are not identities merely because they support normalized search. Helpers prepare payloads and catalog representations without reading or writing a database.
 """
 
 from __future__ import annotations
@@ -23,11 +21,15 @@ NORMALIZED_IDENTITIES_TABLE = "normalized_identities"
 
 @dataclass(frozen=True, slots=True)
 class NormalizedIdentitySpec:
-    """Describe one display value whose normalized form identifies its row.
+    """
+    Describe a display column whose derived key identifies rows within a scope.
 
-    ``scope_columns`` narrows identity to a parent or other owning relation.
-    For example, a genre name is unique within its parent, not across the
-    entire genre table.
+    table/value_column select stored display data; identity_column names its derived key and normalization_profile chooses the transformation. scope_columns narrows equality, for example to a genre parent. unique requests uniqueness from schema/macro consumers rather than enforcing it during construction. The frozen slotted dataclass validates basic name relationships only; supplied containers are not copied or deep-frozen.
+
+    Example:
+        >>> spec = default_normalized_identity_spec("genres", "genre")
+        >>> spec.scope_columns
+        ('genre_parent_id',)
     """
 
     table: str
@@ -38,6 +40,22 @@ class NormalizedIdentitySpec:
     unique: bool = True
 
     def __post_init__(self) -> None:
+        """
+        Reject blank name representations, repeated scopes and identical value/key columns.
+
+        Blank checks use str(value).strip(), so they do not enforce actual string types or strip surrounding whitespace in the stored names. Scope duplicate checks use set membership; the profile and unique flag are not validated here.
+
+        Example:
+            >>> spec = NormalizedIdentitySpec("tags", "tag", "tag_key", ColumnNormalizationProfile.TAG_SEARCH_TERM)
+            >>> spec.unique
+            True
+
+
+        :return: None; validation does not alter or normalize stored fields.
+        :raises ValueError: A name representation is blank, scope columns repeat, or value and identity columns compare equal.
+        :raises TypeError: A supplied scope entry cannot be hashed for duplicate checking.
+        """
+
         fields = (self.table, self.value_column, self.identity_column, *self.scope_columns)
         if any(not str(value).strip() for value in fields):
             raise ValueError("Normalized identity names cannot be blank.")
@@ -125,13 +143,39 @@ def default_normalized_identity_spec(
     table: str,
     value_column: str,
 ) -> NormalizedIdentitySpec | None:
-    """Return the built-in declaration for a display column, if it has one."""
+    """
+    Look up one built-in table/display-column identity declaration.
+
+    No case normalization or database override lookup occurs.
+
+    Example:
+        >>> default_normalized_identity_spec("tags", "tag").identity_column
+        'tag_phash'
+        >>> default_normalized_identity_spec("works", "work_title") is None
+        True
+
+
+    :param table: Table name stringified for exact lookup.
+    :param value_column: Display-column name stringified for exact lookup.
+    :return: Existing built-in spec, or None when the pair has no declared identity.
+    """
 
     return _DEFAULTS_BY_VALUE_COLUMN.get((str(table), str(value_column)))
 
 
 def iter_normalized_identity_defaults() -> Iterator[NormalizedIdentitySpec]:
-    """Yield the built-in declarations in deterministic order."""
+    """
+    Yield built-in identity declarations in their configured tuple order.
+
+    This is the source registry order rather than an on-demand database enumeration or independent sort.
+
+    Example:
+        >>> tuple(iter_normalized_identity_defaults()) == NORMALIZED_IDENTITY_DEFAULTS
+        True
+
+
+    :return: Iterator of the existing NormalizedIdentitySpec objects, without copying them.
+    """
 
     yield from NORMALIZED_IDENTITY_DEFAULTS
 
@@ -139,7 +183,17 @@ def iter_normalized_identity_defaults() -> Iterator[NormalizedIdentitySpec]:
 def normalized_identity_defaults_for_table(
     table: str,
 ) -> tuple[NormalizedIdentitySpec, ...]:
-    """Return the built-in identity declarations for one table."""
+    """
+    Return every built-in identity declaration for one exact table name.
+
+    Example:
+        >>> tuple(spec.value_column for spec in normalized_identity_defaults_for_table("custom_columns"))
+        ('custom_column_label', 'custom_column_name')
+
+
+    :param table: Table name stringified for the precomputed registry lookup.
+    :return: Tuple of existing specs in configured order, or an empty tuple.
+    """
 
     return _DEFAULTS_BY_TABLE.get(str(table), ())
 
@@ -148,7 +202,25 @@ def normalize_identity_value(
     value: Any,
     profile: ColumnNormalizationProfile,
 ) -> Any:
-    """Derive the stable comparison value for a declared identity."""
+    """
+    Apply one supported normalization profile while preserving non-string values.
+
+    NONE preserves text; UNICODE_NFC normalizes composition; NFC/trim/casefold applies those steps in order without a second NFC pass. Tag search removes whitespace and lowercases after NFC. Title search delegates to the legacy simpler-title helper, including its hyphen truncation, character/stop-word removal and underscore joining. No database comparison or uniqueness check occurs.
+
+    Example:
+        >>> normalize_identity_value("  Straße  ", ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD)
+        'strasse'
+        >>> normalize_identity_value("Science Fiction", ColumnNormalizationProfile.TAG_SEARCH_TERM)
+        'sciencefiction'
+        >>> normalize_identity_value(None, ColumnNormalizationProfile.NONE) is None
+        True
+
+
+    :param value: Value to transform; non-strings are returned unchanged after profile validation.
+    :param profile: ColumnNormalizationProfile member or its exact string value.
+    :return: Normalized string, or the original non-string value.
+    :raises InputIntegrityError: profile cannot be resolved to a supported normalization profile.
+    """
 
     if not isinstance(profile, ColumnNormalizationProfile):
         try:
@@ -183,11 +255,23 @@ def add_derived_identity_values(
     overwrite: bool = True,
     available_columns: set[str] | frozenset[str] | None = None,
 ) -> dict[str, Any]:
-    """Return a row payload with derived identity columns kept in sync.
+    """
+    Return a shallow row copy with eligible built-in identity keys derived.
 
-    A derived column is touched only when its display column is present.  This
-    makes the helper safe for partial updates.  ``None`` remains ``None`` so
-    the existing blank-row mechanism continues to work.
+    Leave the input mapping untouched. A present display value of None yields None for its key; missing display fields never trigger an update. overwrite=False preserves even an explicit None identity value. Scope fields and uniqueness constraints are neither supplied nor checked here.
+
+    Example:
+        >>> add_derived_identity_values("tags", {"tag": "Science Fiction"})
+        {'tag': 'Science Fiction', 'tag_phash': 'sciencefiction'}
+        >>> add_derived_identity_values("tags", {"tag": None}, available_columns={"tag"})
+        {'tag': None}
+
+
+    :param table: Exact table name compared against the built-in registry without string coercion.
+    :param row: Mapping of supplied row fields; only present display fields trigger derivation.
+    :param overwrite: Whether to replace an explicitly supplied identity field, default True.
+    :param available_columns: Optional set of schema columns; absent derived columns are skipped when this filter is supplied.
+    :return: New dictionary preserving unrelated values and adding or replacing eligible derived keys.
     """
 
     prepared = dict(row)
@@ -213,7 +297,20 @@ def add_derived_identity_values(
 def normalized_identity_db_values(
     spec: NormalizedIdentitySpec,
 ) -> tuple[str, str, str, str, str, int]:
-    """Serialize a declaration for the database-side catalog."""
+    """
+    Serialize a declaration into the normalized-identities catalog column order.
+
+    No database write occurs. Scope order is retained; normal specs encode their scope tuple as a JSON array. The profile must expose .value, because dataclass construction itself does not enforce its type.
+
+    Example:
+        >>> spec = default_normalized_identity_spec("tags", "tag")
+        >>> normalized_identity_db_values(spec)
+        ('tags', 'tag', 'tag_phash', 'tag_search_term', '[]', 1)
+
+
+    :param spec: Spec with a profile enum, JSON-serializable scope columns and an int-convertible unique flag.
+    :return: Tuple of table, value column, identity column, profile value, compact scope JSON and integer uniqueness.
+    """
 
     return (
         spec.table,
@@ -233,7 +330,27 @@ def normalized_identity_from_db_values(
     scope_columns_json: Any,
     unique: Any,
 ) -> NormalizedIdentitySpec:
-    """Deserialize one database-side identity declaration."""
+    """
+    Decode a catalog row and construct a normalized identity declaration.
+
+    Parse str(scope_columns_json or "[]") and reject non-list or non-string members. Nonempty bytes are stringified rather than decoded and therefore generally fail JSON parsing. Spec name/duplicate validation and enum lookup errors propagate separately from scope-JSON errors.
+
+    Example:
+        >>> spec = default_normalized_identity_spec("genres", "genre")
+        >>> normalized_identity_from_db_values(*normalized_identity_db_values(spec)) == spec
+        True
+
+
+    :param table: Table name converted with str.
+    :param value_column: Display-column name converted with str.
+    :param identity_column: Derived-column name converted with str.
+    :param normalization_profile: Profile value converted with str before exact enum lookup; use the stored value, not an enum repr.
+    :param scope_columns_json: JSON text representing a list of strings; false input is treated as an empty list.
+    :param unique: Flag converted with bool, so nonempty text such as "0" is true.
+    :return: New NormalizedIdentitySpec with tuple scope columns and boolean uniqueness.
+    :raises InputIntegrityError: Scope JSON cannot be parsed or is not a list of strings.
+    :raises ValueError: Profile lookup or NormalizedIdentitySpec name/scope validation fails.
+    """
 
     try:
         raw_scope = json.loads(str(scope_columns_json or "[]"))

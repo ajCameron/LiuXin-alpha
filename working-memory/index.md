@@ -1,16 +1,60 @@
 # Working Memory Index
 
-Updated: 2026-09-11
+Current status: **paused at D095 by user request**. [Shutdown checkpoint](project-docstrings-hundred-paused-2026-09-15.md): 15/100 units verified in this chunk, 408 declarations; 853/2,732 complete project files. **D096 is next only on a new user request.** Earlier authorization and pause notes below are historical.
+
+Updated: 2026-09-15
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [storage-root-shim-removal-2026-09-15.md](storage-root-shim-removal-2026-09-15.md)
+  Storage-root lazy exports removed; callers use owning modules. 165 tests and
+  configured quality checks passed. The documentation campaign remains paused.
+
+- [project-docstrings-d-2026-09-14.md](project-docstrings-d-2026-09-14.md)
+  Paused by user on 2026-09-15; D001–D095 verified (95/232).
+  [Shutdown checkpoint](project-docstrings-hundred-paused-2026-09-15.md): D096 queued; resume only on request. Coverage: 853/2,732 files.
+
+- [project-docstrings-thirty-2026-09-13.md](project-docstrings-thirty-2026-09-13.md)
+  Authorized thirty-module batch C03–C032 complete: 566 declarations, 54 complete
+  files and 37 declarations in a partial Search file. Coverage is 722/2,732 files.
+  Final Catalog/docs/examples: 588 passed, 75 explicit doctest skips; full quality
+  runner passed. Stop for token review; C033 is next only on explicit request.
+
+- [project-docstrings-c02-2026-09-12.md](project-docstrings-c02-2026-09-12.md)
+  C02 complete: curated identifier repository/API, 26 declarations. Fifteen focused
+  tests and four doctests pass; 20 examples explicitly skipped. Coverage is 668/2,732
+  files at that checkpoint. C03–C032 subsequently completed; see the latest note above.
+
+- [project-docstrings-c01-2026-09-12.md](project-docstrings-c01-2026-09-12.md)
+  C01 complete: Agent repository/API, 31 declarations. Thirteen focused tests and
+  six doctests pass; 23 examples explicitly skipped. Coverage is 666/2,732 files.
+  C02 subsequently completed; this retains the Agent checkpoint's evidence.
+
+- [project-docstrings-g02-2026-09-12.md](project-docstrings-g02-2026-09-12.md)
+  G02 complete: all seven ownership-guard failures resolved without raised limits;
+  48 tests/doctests passed, seven doctests skipped. Coverage remains 664/2,732 files.
+  C01 subsequently completed; the seven guard fixes remain verified.
+
+- [project-docstrings-g01-2026-09-12.md](project-docstrings-g01-2026-09-12.md)
+  G01 complete: shared docstring-aware measurement helper and focused tests;
+  65 tests/doctests pass. G02 subsequently integrated the helper into existing guards.
+
+- [project-docstrings-p00-2026-09-12.md](project-docstrings-p00-2026-09-12.md)
+  Planning checkpoint: modular plan and complete remaining inventory saved in
+  dev-docs. Work now proceeds one explicitly requested module at a time.
+  G01/G02 are subsequently complete; do not automatically continue the whole-project pass.
+
+- [project-docstrings-paused-2026-09-12.md](project-docstrings-paused-2026-09-12.md)
+  Historical pause for token cost. All outstanding results have been reconciled in
+  [the exact-repository checkpoint](project-docstrings-catalog-exact-repositories-2026-09-12.md).
+
 - [project-docstrings-2026-09-08.md](project-docstrings-2026-09-08.md)
-  Active whole-project descriptive reST documentation pass on
+  Paused whole-project descriptive reST documentation pass on
   `codex/project-docstrings`. Includes private/nested functions, inherited code,
   tests, scripts, examples, and tracked data-submodule Python. Records the full
-  baseline, migration safety repairs, 606 reviewed Python modules, the separate
+  baseline, migration safety repairs, 722 reviewed Python modules, the separate
   native-C documentation pass, legacy startup limitations, and remaining work.
   All 57 Core and 69 terminal source modules, plus the shared surface/Core adapter,
   host protocols, presentation/acquisition primitives, system profiles, category
@@ -115,12 +159,21 @@ Start here for active handoff notes. This index should stay short.
   manager example regressions, and live backend/PostgreSQL contracts are now
   reviewed too, completing all 85 storage test/helper modules. All 11 storage
   examples, six catalog example/helper modules, and their shared JSON/import helper
-  are now documented too. Ten conversion/Library/metadata/utility examples remain.
+  are now documented too. The remaining conversion/Library/metadata/utility examples
+  are complete too, finishing all 28 tracked example/helper modules. Catalog exports,
+  shared values/errors, facade protocols, and the concrete facade are now reviewed
+  too, with the complete import and API-documentation test modules. Shared matching
+  policy, exact-entity matching/specifications, group composition, and their two API
+  modules are now reviewed too, with both full matching regression modules. All four
+  specialized matchers and their API contracts are now complete too, finishing the
+  matching source/API trees. Base CRUD and all four WEMI repositories and their API
+  contracts are now complete too, with the full repository-invariant test module.
+  Remaining repositories and their contracts are next.
   The exact reviewed set is in
   [project-docstrings-reviewed-files.txt](project-docstrings-reviewed-files.txt).
   Latest verification
   and the known docstring-sensitive ownership-test conflicts are recorded in
-  [project-docstrings-storage-catalog-examples-2026-09-11.md](project-docstrings-storage-catalog-examples-2026-09-11.md).
+  [project-docstrings-catalog-wemi-repositories-2026-09-12.md](project-docstrings-catalog-wemi-repositories-2026-09-12.md).
 
 - [maintainability-closeout-2026-09-07.md](maintainability-closeout-2026-09-07.md)
   Final bounded close-out: one general CI owner, failure-aware merge summary,

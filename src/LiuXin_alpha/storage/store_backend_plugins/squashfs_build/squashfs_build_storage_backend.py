@@ -59,7 +59,7 @@ from LiuXin_alpha.storage.drivers.squashfs import (
     DEFAULT_MAX_SQUASHFS_TOTAL_UNCOMPRESSED_BYTES,
 )
 from LiuXin_alpha.storage.errors import SquashfsBuildImplicitOverwriteError
-from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
+from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly.squashfs_readonly_storage_backend import (
     SquashfsReadOnlyStorageBackend,
 )
 from LiuXin_alpha.storage.stores import FilesystemStore

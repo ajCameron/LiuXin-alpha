@@ -95,7 +95,9 @@ def main() -> int:
     """
 
     _bootstrap_src()
-    from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import build_squashfs_from_manifest
+    from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly.squashfs_manifest_builder import (
+        build_squashfs_from_manifest,
+    )
 
     args = parse_args()
     report = build_squashfs_from_manifest(

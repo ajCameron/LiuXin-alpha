@@ -1,6 +1,6 @@
 
 """
-Write language information into the database.
+Resolve legacy language updates and forward typed Work links to Catalog writers.
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
@@ -22,14 +22,24 @@ if TYPE_CHECKING:
 
 class LanguagesWriter(BaseWriter):
     """
-    Class for writing languages information out to the table.
+    Accept language codes or typed language lists without scalar adaptation.
+
+    Writes resolve Catalog language identities and target Work-language links. This class does not directly refresh the supplied legacy field cache.
+
+    Example:
+        For a configured field, ``LanguagesWriter(field).set_books({7: "eng"}, db)`` resolves English and writes a primary Work-language link.
     """
 
     def __init__(self, field: "FieldBasicInterfaceAPI") -> None:
         """
-        Constructor.
+        Initialize shared writer state and bind the unadapted language hook.
 
-        :param field:
+        Example:
+            Use ``LanguagesWriter(field)`` for updates such as ``{7: {"primary": ["eng"]}}``.
+
+
+        :param field: Legacy field whose name and metadata select the inherited value adapter.
+        :return: None; stores the field and binds no_adapter_set_books and set_languages.
         """
         super(LanguagesWriter, self).__init__(field=field)
 
@@ -43,15 +53,22 @@ class LanguagesWriter(BaseWriter):
             field: "FieldBasicInterfaceAPI",
             *args) -> set[int]:
         """
-        Preforms a set into the languages table.
+        Resolve each language payload and delegate a typed link write for its Work.
 
-        Parses the :param book_id_val_map: and uses the information it provides to update the links between the titles
-        table and the languages table.
-        :param book_id_val_map: Assume that we receive a directory keyed with the book id and valued with the language CODE.
-        :param db:
-        :param field:
-        :param args:
-        :return:
+        A string must resolve by ``catalog.languages.exact`` and is written as one LinkValue with link_type="primary". A dictionary requires at most one entry in its "primary" list, string type keys and list values; integer IDs pass ``languages.require``, strings use exact matching, and all resolved links are passed as one tuple. Empty dictionaries produce empty link tuples. Resolution finishes per Work before that Work is written; failures do not undo earlier Work writes. No legacy field cache is refreshed here.
+
+        Example:
+            With existing language IDs, ``set_languages({7: {"primary": [1], "secondary": [2]}}, db, field)`` forwards two typed LinkValue objects for Work 7.
+
+
+        :param book_id_val_map: Work IDs mapped to a language-code string or a dictionary of link-type strings to lists of language IDs/codes.
+        :param db: Database adapter wrapped or called by the writer; collaborator failures propagate.
+        :param field: Compatibility field argument; this hook does not inspect or update it.
+        :param args: Additional compatibility arguments, ignored by this hook.
+        :return: Set of all supplied Work IDs after all delegated writes succeed.
+        :raises ValueError: A language code does not resolve to a matched entity ID.
+        :raises AssertionError: The primary list has more than one value, or dictionary key/value types violate the asserted shape.
+        :raises NotImplementedError: A top-level payload or nested language value has an unsupported type.
         """
         catalog = Catalog(db)
         writer = catalog.create_writer("works", "language")

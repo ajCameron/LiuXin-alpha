@@ -1,5 +1,9 @@
 """
-many-many fields represent items such as manifestation tags.
+Define source-keyed many-to-many field projections and legacy update contracts.
+
+Values come from a destination column reached through a directed link
+table. Concrete backends supply reads, value matching and update behavior;
+this module provides endpoint binding, names and compatibility forwarding.
 """
 from __future__ import annotations
 
@@ -34,11 +38,16 @@ T = TypeVar("T")
 
 class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     """
-    Many-to-many field over a src table, a dst table, and a many-to-many link table.
+    Expose many-to-many destination values through source-keyed field access.
 
-    The field is keyed by src ids and exposes values from the dst table.
-    Each src id may resolve to many dst rows/values, and each dst row may be
-    shared by many src rows.
+    Each source can project several destination values.
+    Destinations may be shared by several sources.
+    Concrete implementations choose storage, refresh and malformed-link handling;
+    this API does not enforce cardinality, normalize values or own transactions.
+
+    Example:
+        >>> ManyToManyFieldAPI.field_storage_shape, ManyToManyFieldAPI.deletes_owner_rows
+        ('relation', False)
     """
 
     src_table: "StorageStorageCacheSingleTableAPI"
@@ -60,13 +69,23 @@ class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         db: "DatabaseAPI",
     ) -> None:
         """
-        Startup the cache for the given field.
+        Resolve source, destination and link objects before retaining field metadata.
 
-        :param src_table:
-        :param src_table_id_col:
-        :param dst_table:
-        :param dst_table_cache_col:
-        :param db:
+        Call get_main_table for source then destination, then get_link_table.
+        Only afterward assign column names and _db; lookup failures can leave
+        partially assigned endpoint state. Concrete subclasses supply these hooks.
+
+        Example:
+            A subclass establishes its owning root cache before this constructor
+            uses the table-resolution hooks.
+
+
+        :param src_table: Source table name or API reference.
+        :param src_table_id_col: Source identity column retained unchanged.
+        :param dst_table: Destination table name or API reference.
+        :param dst_table_cache_col: Destination column whose values will be projected.
+        :param db: Database reference retained after endpoint/link resolution.
+        :return: None; binds the route without invoking read or creating projection storage.
         """
         self.src_table = self.get_main_table(src_table)
         self.dst_table = self.get_main_table(dst_table)
@@ -85,37 +104,60 @@ class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         dst_table: Union["StorageStorageCacheSingleTableAPI", MainTableName],
     ) -> "StorageCacheManyToManyLinkTable":
         """
-        Resolve the many-to-many link table connecting the two tables.
+        Resolve the many-to-many link cache connecting the endpoints.
 
-        :param src_table:
-        :param dst_table:
-        :return:
+        Abstract contract; concrete implementations validate route availability
+        and cardinality according to their backend.
+
+        Example:
+            A many-to-many tags field requires a route that permits shared destinations.
+
+
+        :param src_table: Source table name or table API reference.
+        :param dst_table: Destination table name or table API reference.
+        :return: Directed link object with the required cardinality API.
         """
 
     @abc.abstractmethod
     def update(self, update: ManyManyInTwoTableFieldUpdate[T]) -> None:
         """
-        Update the field, and the underlying tables/db.
+        Apply field values and relationships through the concrete many-to-many backend.
 
-        :param update:
-        :return:
+        Abstract contract. Deleted IDs clear field mappings rather than delete
+        source rows. Creation policy, validation order, transaction handling and
+        related-row cleanup belong to the implementation and update payload.
+
+        Example:
+            A source deletion request can unlink its relation while retaining the owner row.
+
+
+        :param update: Cardinality-specific update containing source-keyed value/link intentions.
+        :return: None; the backend applies its supported changes and refresh policy.
         """
 
     @property
     def src_table_name(self) -> MainTableName:
         """
-        Get the name of the src table.
+        Expose the bound source table name.
 
-        :return:
+        Example:
+            A books-to-tags projection exposes books through this property.
+
+
+        :return: The src_table.table value without additional resolution.
         """
         return self.src_table.table
 
     @property
     def dst_table_name(self) -> MainTableName:
         """
-        Get the name of the dst table.
+        Expose the bound destination table name.
 
-        :return:
+        Example:
+            A books-to-tags projection exposes tags through this property.
+
+
+        :return: The dst_table.table value without additional resolution.
         """
         return self.dst_table.table
 
@@ -123,49 +165,81 @@ class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     @abc.abstractmethod
     def ids(self) -> set[MainTableID]:
         """
-        Get all src ids known to this field.
+        Expose source identities known to this field.
 
-        :return:
+        Abstract contract. Snapshot freshness and copying versus shared objects
+        are defined by the concrete backend.
+
+        Example:
+            A snapshot relation can omit a source that has no projected links.
+
+
+        :return: Set of cached source IDs; coverage of unlinked sources is backend-specific.
         """
 
     @property
     @abc.abstractmethod
     def values(self) -> list[T]:
         """
-        Get all values in the cache.
+        Expose all values represented by the field projection.
 
-        :return:
+        Abstract contract. Snapshot freshness and copying versus shared objects
+        are defined by the concrete backend.
+
+        Example:
+            Several sources can contribute the same value to this list.
+
+
+        :return: List of values; order and duplicate retention follow the backend.
         """
 
     @property
     @abc.abstractmethod
     def values_set(self) -> set[T]:
         """
-        Return all distinct values known to this field.
+        Expose distinct values represented by this field.
 
-        :return:
+        Abstract contract. Snapshot freshness and copying versus shared objects
+        are defined by the concrete backend.
+
+        Example:
+            Repeated projected strings can contribute one distinct value.
+
+
+        :return: Set of projected values using the backend's supported value semantics.
         """
 
     @property
     @abc.abstractmethod
     def ids_values_map(self) -> dict[MainTableID, Sequence[Optional[T]]]:
         """
-        Return the src-id to values map for this field.
+        Expose source identities mapped to projected value sequences.
 
-        The concrete sequence may be ordered or unordered depending on the
-        linked table's capabilities. Callers should not infer semantic ordering
-        unless they explicitly know the field supports it.
+        Abstract contract. Snapshot freshness and copying versus shared objects
+        are defined by the concrete backend. Sequence order is not guaranteed
+        by this mapping alone; consult the link/field implementation.
 
-        :return:
+        Example:
+            An unlinked source need not have an entry in the mapping.
+
+
+        :return: Mapping from source IDs to sequences of optional destination values.
         """
 
     @property
     @abc.abstractmethod
     def dst_ids_values_map(self) -> dict[MainTableID, Optional[T]]:
         """
-        Return the dst-id to value map for this field.
+        Expose known destination identities and their projected values.
 
-        :return:
+        Abstract contract. Snapshot freshness and copying versus shared objects
+        are defined by the concrete backend.
+
+        Example:
+            Several sources sharing one destination can refer to one destination-value entry.
+
+
+        :return: Mapping from destination IDs to optional values.
         """
 
     @abc.abstractmethod
@@ -176,12 +250,19 @@ class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         type_filter: Optional[str] = None,
     ) -> Sequence[Optional[T]]:
         """
-        Get field values for the given src id.
+        Project destination values for one source identity.
 
-        :param src_id:
-        :param require_ordering:
-        :param type_filter:
-        :return:
+        Abstract contract. This API does not itself refresh tables, enforce
+        uniqueness or replace null values with an application default.
+
+        Example:
+            A source linked to two destinations can project ("A", "B").
+
+
+        :param src_id: Source row identity.
+        :param require_ordering: Request relation ordering supported by the concrete backend.
+        :param type_filter: Optional link-type restriction interpreted by the backend.
+        :return: Sequence of optional values, with order and missing-link behavior defined by the backend.
         """
 
     def get_values_from_id(
@@ -191,12 +272,17 @@ class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         type_filter: Optional[str] = None,
     ) -> Sequence[Optional[T]]:
         """
-        Compatibility alias for src-keyed callers.
+        Forward the compatibility owner-ID spelling to source-value lookup.
 
-        :param table_id:
-        :param require_ordering:
-        :param type_filter:
-        :return:
+        Example:
+            get_values_from_id(7, type_filter="tag") forwards the same ID and filter
+            to get_values_from_src_id.
+
+
+        :param table_id: Owner identity forwarded unchanged as the source ID.
+        :param require_ordering: Request relation ordering supported by the concrete backend.
+        :param type_filter: Optional link-type restriction interpreted by the backend.
+        :return: The get_values_from_src_id result without copying or default substitution.
         """
         return self.get_values_from_src_id(
             table_id,
@@ -207,10 +293,17 @@ class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     @abc.abstractmethod
     def get_value_from_dst_id(self, dst_id: MainTableID) -> Optional[T]:
         """
-        Get the field value from the dst id.
+        Read a projected column value by destination identity.
 
-        :param dst_id:
-        :return:
+        Abstract contract; whether lookup requires link membership is defined
+        by the implementation rather than this declaration.
+
+        Example:
+            A backend can expose a cached tag name directly by its tag ID.
+
+
+        :param dst_id: Destination row identity.
+        :return: Destination value or None according to backend missing/null semantics.
         """
 
     @abc.abstractmethod
@@ -221,12 +314,19 @@ class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         type_filter: Optional[str] = None,
     ) -> Sequence[MainTableID]:
         """
-        Resolve linked dst ids for the given src id.
+        Resolve linked dst identities.
 
-        :param src_id:
-        :param require_ordering:
-        :param type_filter:
-        :return:
+        Abstract contract. Endpoint existence checks, ordering and malformed-link
+        singularity behavior belong to the concrete backend.
+
+        Example:
+            Several links can yield several endpoint IDs for this lookup.
+
+
+        :param src_id: Source row identity.
+        :param require_ordering: Request relation ordering supported by the concrete backend.
+        :param type_filter: Optional link-type restriction interpreted by the backend.
+        :return: Sequence of endpoint identities; repeated physical links may remain repeated.
         """
 
     @abc.abstractmethod
@@ -237,34 +337,51 @@ class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         type_filter: Optional[str] = None,
     ) -> Sequence[MainTableID]:
         """
-        Resolve linked src ids for the given dst id.
+        Resolve linked src identities.
 
-        :param dst_id:
-        :param require_ordering:
-        :param type_filter:
-        :return:
+        Abstract contract. Endpoint existence checks, ordering and malformed-link
+        singularity behavior belong to the concrete backend.
+
+        Example:
+            Several links can yield several endpoint IDs for this lookup.
+
+
+        :param dst_id: Destination row identity.
+        :param require_ordering: Request relation ordering supported by the concrete backend.
+        :param type_filter: Optional link-type restriction interpreted by the backend.
+        :return: Sequence of endpoint identities; repeated physical links may remain repeated.
         """
 
     @abc.abstractmethod
     def get_src_ids_from_value(self, value: T) -> list[MainTableID]:
         """
-        Get src ids whose linked dst rows expose the given value.
+        Find source identities whose projected destination values match.
 
-        Uniqueness is not guaranteed.
+        Abstract contract. Hashability requirements, normalization and result
+        ordering depend on the concrete field.
 
-        :param value:
-        :return:
+        Example:
+            Two destinations with the same value can both contribute matching IDs.
+
+
+        :param value: Value interpreted by the backend's matching/index rules.
+        :return: List of matching identities; uniqueness is not guaranteed.
         """
 
     @abc.abstractmethod
     def get_dst_ids_from_value(self, value: T) -> list[MainTableID]:
         """
-        Get dst ids matching the given value.
+        Find destination identities whose projected destination values match.
 
-        Uniqueness is not guaranteed.
+        Abstract contract. Hashability requirements, normalization and result
+        ordering depend on the concrete field.
 
-        :param value:
-        :return:
+        Example:
+            Two destinations with the same value can both contribute matching IDs.
+
+
+        :param value: Value interpreted by the backend's matching/index rules.
+        :return: List of matching identities; uniqueness is not guaranteed.
         """
 
     @abc.abstractmethod
@@ -274,11 +391,18 @@ class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         dst_id: MainTableID,
     ) -> IndividualLinkProperties:
         """
-        Return link properties for the given src/dst pair.
+        Read association properties for a directed endpoint pair.
 
-        :param src_id:
-        :param dst_id:
-        :return:
+        Abstract contract. Unsupported columns and ambiguous physical pairs
+        are handled by the concrete implementation.
+
+        Example:
+            Read priority or type metadata for a book-to-tag association.
+
+
+        :param src_id: Source row identity.
+        :param dst_id: Destination row identity.
+        :return: IndividualLinkProperties value populated by the backend.
         """
 
     @abc.abstractmethod
@@ -287,10 +411,17 @@ class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         updated_link_properties: IndividualLinkProperties,
     ) -> None:
         """
-        Write link properties out to the cache.
+        Apply supplied association properties through the field backend.
 
-        :param updated_link_properties:
-        :return:
+        Abstract contract. None handling and supported columns vary by backend;
+        this interface adds no validation or transaction.
+
+        Example:
+            A supported priority change can alter the order of projected relation values.
+
+
+        :param updated_link_properties: Property object carrying endpoint identities and optional metadata values.
+        :return: None; the backend writes supported properties and updates its cache as needed.
         """
 
     @abc.abstractmethod
@@ -301,12 +432,19 @@ class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         extra_type: InterlinkExtraTypes,
     ) -> Optional[str | bool | int]:
         """
-        Get one extra value from the link row.
+        Read one logical property from an association.
 
-        :param src_id:
-        :param dst_id:
-        :param extra_type:
-        :return:
+        Abstract contract; unsupported selectors and absent pairs are resolved
+        by the implementation.
+
+        Example:
+            Read an origin property when the link schema exposes it.
+
+
+        :param src_id: Source row identity.
+        :param dst_id: Destination row identity.
+        :param extra_type: Logical link-property selector supported by the backend.
+        :return: Optional string, boolean or integer property value under the backend contract.
         """
 
     @abc.abstractmethod
@@ -318,11 +456,18 @@ class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         new_extra_value: Optional[str | bool | int],
     ) -> None:
         """
-        Write one extra value to the cache.
+        Write one logical property on an association.
 
-        :param src_id:
-        :param dst_id:
-        :param extra_type:
-        :param new_extra_value:
-        :return:
+        Abstract contract. A concrete setter can interpret None as an explicit
+        clear, distinct from a bulk property update that ignores None.
+
+        Example:
+            A schema-backed field can clear its supported origin property with None.
+
+
+        :param src_id: Source row identity.
+        :param dst_id: Destination row identity.
+        :param extra_type: Logical link-property selector supported by the backend.
+        :param new_extra_value: New optional property value interpreted by the concrete setter.
+        :return: None; the backend writes and refreshes supported association state.
         """

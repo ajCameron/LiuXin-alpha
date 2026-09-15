@@ -13,7 +13,7 @@ import dataclasses
 from enum import StrEnum
 
 from LiuXin_alpha.storage.api.models import StoreUUID
-from LiuXin_alpha.storage.api.storage_manager_api.models.assets import ReplicaMode
+from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import ReplicaMode
 from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
     DigitalAssetDerivationID,
     BackupPolicyID,

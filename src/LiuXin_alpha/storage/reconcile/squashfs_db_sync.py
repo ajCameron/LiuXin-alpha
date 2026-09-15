@@ -43,8 +43,10 @@ from LiuXin_alpha.storage.reconcile.models import (
     SquashfsArchivePublishReport,
     SquashfsDesignationReport,
 )
-from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
+from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly.squashfs_readonly_storage_backend import (
     SquashfsReadOnlyStorageBackend,
+)
+from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly.squashfs_manifest_builder import (
     build_squashfs_from_manifest,
 )
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name

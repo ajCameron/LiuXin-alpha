@@ -4,8 +4,10 @@
 
 Continues the unfinished whole-project goal after the
 [storage test checkpoint](project-docstrings-storage-tests-completion-2026-09-11.md).
-Branch remains `codex/project-docstrings` at `edf6bf05`, without commit or push.
-Existing worktree/data-submodule changes are preserved.
+Work began on `codex/project-docstrings` at `edf6bf05`. During the HTTP permission
+wait, the branch advanced to `9790d020` (pre-alpha documentation checkpoint), whose
+parent is `edf6bf05` and which includes these example edits. This continuation did
+not create that commit or push. Final working-memory updates remain local.
 
 Read and documented all 11 storage scripts, their shared examples/_example_utils.py
 helper, and all six catalog example/helper modules. All 18 files matched HEAD
@@ -92,12 +94,25 @@ Ruff remains **7 to 7**, and their strict audit/normalizer pass.
 - All five catalog scripts executed as real subprocesses, returned zero, and
   printed parseable final JSON reports. Each reported temporary storage, and its
   database path was absent after process exit. Per-script outputs are retained.
-- Full storage regression and final whitespace checks remain in progress at this
-  intermediate checkpoint. Use observed terminal exits and durable .done files,
-  not elapsed time alone.
+- Full storage regression completed: **1,244 passed, 883 skipped, 2 failed**,
+  778.31s. The two failures were the previously recorded manager composition size
+  guard and sandbox-denied loopback socket creation in the HTTP example test.
+  The permission-approved HTTP rerun passed: **1 passed**, 3.38s, with a real local
+  server and downloaded-byte comparison. Its durable run completed at 23:34 UTC
+  on September 11 (September 12 local time). The broad run is not a green-run
+  claim; retain its exit-1 evidence alongside the successful targeted rerun.
+- The unchanged 900-line manager-mixin ceiling still fails for _policy_support.py
+  (1,213), _support.py (1,139), and _contracts.py (902), all in one test. The other
+  six previously observed Core/CLI/terminal ownership-guard failures were not rerun
+  here. No guard or threshold was weakened. The pytest internal error is resolved.
+- Final root/data-submodule whitespace checks and working-memory link checks pass.
+  An independent AST recount confirms 606 unique reviewed paths and the declaration
+  totals above. This batch made no edits to the data submodule.
+  After the branch advanced, all 18 examples and the changed live-test module were
+  rechecked against the original `edf6bf05` executable ASTs, not just the new HEAD.
 
 Durable runs use `working-memory/test-results/` prefixes
-`docstrings-storage-examples-2026-09-11-{regression,quality,contracts}` and
+`docstrings-storage-examples-2026-09-11-{regression,quality,contracts,http-loopback}` and
 `docstrings-catalog-examples-2026-09-11-{regression,regression-corrected,quality,cli}`.
 The full storage run includes all tests/storage, storage/helper doctests, and
 tests/library/test_adding_unmanaged_disk_ingest.py. Catalog CLI logs are saved per
@@ -115,12 +130,14 @@ empty return descriptions, and 28 missing summaries.
 
 ## Next
 
-Ten tracked example modules remain unreviewed: five conversion modules, the Library
-facade example, three metadata examples, and the comments-to-HTML utility example.
-Their inventory totals two classes and 50 functions; these are not completed-file
-claims. Continue there, then across the remaining source/tests/scripts/inherited
-and data-submodule Python. The temporary documentation writer now preserves module
-headers and indents multiline return/exception fields, but still requires review.
+The subsequent [example completion checkpoint](project-docstrings-example-completion-2026-09-12.md)
+documents the ten remaining conversion/Library/metadata/utility modules, including
+both classes and all 50 functions. It verifies their help, doctests, and local
+execution, and documents the scratch-setting/shim limitations. All 28 tracked
+example/helper modules are now reviewed. Continue into catalog source, then across
+the remaining source/tests/scripts/inherited and data-submodule Python. The
+temporary documentation writer preserves module headers and indents multiline
+return/exception fields, but still requires review.
 
 Keep the whole-project scope, three narrow runtime-doc exceptions, all seven
 unresolved ownership-guard failures, and legacy FRBR fingerprint follow-up in the

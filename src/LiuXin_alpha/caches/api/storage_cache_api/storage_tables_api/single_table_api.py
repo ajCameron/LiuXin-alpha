@@ -1,5 +1,9 @@
 """
-Represents a single table on the database.
+Specify raw reads from a single cached table and retain its legacy alias.
+
+This API adds relationship discovery, column values and value-to-ID
+lookups to the common table lifecycle. It deliberately supplies no public
+mutation contract: application writes use the composed Cache/Catalog path.
 """
 
 from __future__ import annotations
@@ -16,10 +20,15 @@ if TYPE_CHECKING:
 
 class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
     """
-    Represents a single table on the database.
+    Expose raw column values and value-index lookups for one cached table.
 
-    Concrete cache tables are expected to hold a live database reference until
-    the parent cache detaches or closes them.
+    Concrete backends own row storage, value equality, ordering and refresh.
+    The inherited database reference is borrowed; its release follows backend
+    lifecycle. StorageStorageCacheSingleTableAPI aliases this same class.
+
+    Example:
+        >>> StorageStorageCacheSingleTableAPI is StorageCacheSingleTableAPI
+        True
     """
 
     # -----------------
@@ -28,9 +37,16 @@ class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
     @abc.abstractmethod
     def linked_to(self) -> Iterable[str]:
         """
-        Return an iterable of all the tables this table links to.
+        Enumerate table names known to be linked to this table.
 
-        :return:
+        Abstract contract; this does not require that every named relation
+        currently contains physical links.
+
+        Example:
+            An empty books-to-tags association can still make tags a linked table.
+
+
+        :return: Iterable of linked table names, according to backend metadata.
         """
 
     # --------------
@@ -39,39 +55,65 @@ class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
     @abc.abstractmethod
     def get_values_for(self, column: str) -> Sequence[Any]:
         """
-        Returns all the values for the given column - in their order.
+        Read all values for one column in the table's storage order.
 
-        Elsewhere, in Views, you can sort. Here you just get the raw values.
-        :param column:
-        :return:
+        Abstract contract. This is not an application sort or filtered view;
+        copy ownership and row alignment depend on the implementation.
+
+        Example:
+            Two rows storing the same title can contribute two equal values.
+
+
+        :param column: Column name interpreted by the backend.
+        :return: Sequence of raw column values, potentially including duplicates and None.
         """
 
     @abc.abstractmethod
     def get_unique_values(self, column: str) -> set[Any]:
         """
-        Returns all the unique values for the given column.
+        Collect distinct cached values for one column.
 
-        :param column:
-        :return:
+        Abstract contract; this does not declare or enforce a database uniqueness constraint.
+
+        Example:
+            Two equal stored titles can produce one set member.
+
+
+        :param column: Column whose known values are requested.
+        :return: Set of values under the backend's equality/hash semantics.
         """
 
     @abc.abstractmethod
     def get_ids_for_value(self, column: str, value: str) -> set[int]:
         """
-        Returns all the ids for the given column and value.
+        Find row identities matching a value in one cached column.
 
-        :param column:
-        :param value:
-        :return:
+        Abstract contract. Matching normalization, hashability requirements and
+        missing-column errors belong to the implementation.
+
+        Example:
+            A shared title value can match IDs {1, 2}.
+
+
+        :param column: Column used for matching.
+        :param value: Lookup value; concrete backends define accepted types despite the string annotation.
+        :return: Set of matching integer row IDs.
         """
 
     @abc.abstractmethod
     def get_col_value_from_id(self, table_id: MainTableID) -> Any:
         """
-        Get the column value for a specific id.
+        Read the table's designated value for one row identity.
 
-        :param table_id:
-        :return:
+        Abstract contract; the backend selects a meaningful default column and
+        defines missing-ID behavior.
+
+        Example:
+            A table whose default column is title returns that title for a row ID.
+
+
+        :param table_id: Row identity interpreted by the backend.
+        :return: Default-column value or another backend-defined fallback representation.
         """
 
     # Storage components intentionally expose no public database mutation

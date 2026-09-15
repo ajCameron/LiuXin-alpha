@@ -1,0 +1,11 @@
+# D095 — src/LiuXin_alpha/databases/database/mixins — triggers_mixin_api, 2026-09-14
+
+Selected metadata/search/tree/trigger contracts reviewed against concrete implementations, including repeated declarations and implemented case aliases. Static gates, 33 shared literal example statements, six direct trigger tests, full configured quality and all 2,732-file reconciliation passed. Retained metadata/bootstrap/search/tree regressions: 42 passed and two existing NULL-search xfails. Trigger removal returns the backend result (True for shared SQL), with a commit per successful drop. No executable behavior changed.
+
+Verified 5 selected declarations. Executable ASTs, comments,
+headers, and lint baselines are preserved; selected docs pass audit/normalizer.
+Partial files are promoted only after every assigned slice and full-file checks.
+
+[Evidence](test-results/docstrings-d-2026-09-14/D095/observations.json) records scope IDs, hashes,
+checks and current inventory. Check commands/terminal exits are in the referenced
+completion records. Work remains within the authorized D range.

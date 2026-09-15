@@ -1,4 +1,12 @@
-"""Behavior tests for the schema-backed semantic catalog facade."""
+"""
+Test semantic Catalog composition, real repository round trips, and coordinated writes.
+
+Cover legacy metadata-tool wiring, WEMI traversal/matching, attached metadata bundles
+and projections, selected merge transfers, and two rollback scenarios. The final
+regression creates a small SQL fixture schema to distinguish pure update planning
+from actual shared-value writes. Protocol-only checks remain separate evidence from
+stateful integration assertions; private labels use fresh UUIDs.
+"""
 
 from __future__ import annotations
 
@@ -39,10 +47,40 @@ from LiuXin_alpha.catalog.api.retrieval import CatalogRetrievalAPI
 
 
 def _token(prefix: str) -> str:
+    """
+    Generate a prefix plus a fresh canonical UUID4 string for database fixtures.
+
+    Format the prefix directly and retain the UUID's internal hyphens. Calls are independent and
+    probabilistically distinct; no existing-row lookup is performed.
+
+    Example:
+        >>> value = _token("work")
+        >>> value.startswith("work-"), uuid.UUID(value[5:]).version
+        (True, 4)
+
+
+    :param prefix: Human-readable test label prepended to a fresh UUID4.
+    :return: Prefix and canonical UUID4 text joined by a hyphen.
+    """
     return f"{prefix}-{uuid.uuid4()}"
 
 
 def test_catalog_metadata_tools_are_composed_and_live(db) -> None:
+    """
+    Verify metadata-tool cross-links and persist a Work through the legacy add surface.
+
+    Check Catalog and add/ensure/apply/intralink runtime protocol membership plus the selected
+    shared object references. Create a uniquely titled Work through catalog.add.work, then read its
+    row ID through catalog.works and verify the title agrees. The round trip supplies behavior
+    evidence beyond protocol presence.
+
+    Example:
+        >>> test_catalog_metadata_tools_are_composed_and_live(db)  # doctest: +SKIP
+
+
+    :param db: Provisioned schema-backed test database receiving real Catalog, relationship, and mutation operations.
+    :return: None after the stated regression assertions pass.
+    """
     catalog = Catalog(db)
 
     assert isinstance(catalog, CatalogMetadataToolsAPI)
@@ -64,6 +102,22 @@ def test_catalog_metadata_tools_are_composed_and_live(db) -> None:
 
 
 def test_catalog_repositories_round_trip_real_wemi_schema(db) -> None:
+    """
+    Round-trip a Work and scoped WEMI descendants through repositories and matchers.
+
+    Exercise Work create/get/require/list, case-insensitive title lookup, and an update call.
+    Match/create one Expression, Manifestation, and Item, then verify traversal in both available
+    directions and direct Item ownership. Require repository and grouped Work/child matching to
+    recover the expected IDs. Finally delete a separate disposable Work and confirm get returns
+    None. The test does not assert concurrent match/create uniqueness.
+
+    Example:
+        >>> test_catalog_repositories_round_trip_real_wemi_schema(db)  # doctest: +SKIP
+
+
+    :param db: Provisioned schema-backed test database receiving real Catalog, relationship, and mutation operations.
+    :return: None after the stated regression assertions pass.
+    """
     catalog = Catalog(db)
     title = _token("catalog-work")
 
@@ -149,6 +203,23 @@ def test_catalog_repositories_round_trip_real_wemi_schema(db) -> None:
 
 
 def test_catalog_attached_metadata_bundle_and_projections(db) -> None:
+    """
+    Collect a WEMI path and attached Agent, identifier, and updated Note metadata.
+
+    Build a four-level path, create and resolve/match an Agent, and link its author credit to the
+    Work. Create/find/match and assign a UUID identifier, add a Note, and update its text. Verify
+    the Item bundle's path and attachment ID sets, preferred title and Note projections, and grouped
+    Agent/identifier matcher entry points. Also inspect bundles rooted at each higher WEMI level,
+    the Item display subtitle, and summary Work ID. This is one selected path rather than exhaustive
+    graph or multi-parent behavior coverage.
+
+    Example:
+        >>> test_catalog_attached_metadata_bundle_and_projections(db)  # doctest: +SKIP
+
+
+    :param db: Provisioned schema-backed test database receiving real Catalog, relationship, and mutation operations.
+    :return: None after the stated regression assertions pass.
+    """
     catalog = Catalog(db)
     title = _token("bundle-work")
     work_id = catalog.works.create({"title": title})
@@ -255,6 +326,22 @@ def test_catalog_attached_metadata_bundle_and_projections(db) -> None:
 
 
 def test_coordinated_attachment_and_work_merge_preserve_relationships(db) -> None:
+    """
+    Move observed relationships through Work, Expression, and Manifestation merges.
+
+    Check selected mutation-policy answers, attach a Note and identifier to a source Work, merge it
+    into a target, and require source deletion plus retained Expression/metadata/title access. Merge
+    Expressions and verify a Manifestation moves, then merge Manifestations and verify an Item's
+    direct parent changes. The assertions cover these linked entities; they do not compare every
+    column, attachment identity, or possible merge conflict policy.
+
+    Example:
+        >>> test_coordinated_attachment_and_work_merge_preserve_relationships(db)  # doctest: +SKIP
+
+
+    :param db: Provisioned schema-backed test database receiving real Catalog, relationship, and mutation operations.
+    :return: None after the stated regression assertions pass.
+    """
     catalog = Catalog(db)
     source_id = catalog.works.create({"title": _token("merge-source")})
     target_id = catalog.works.create({"canonical_title": _token("merge-target")})
@@ -347,6 +434,21 @@ def test_coordinated_attachment_and_work_merge_preserve_relationships(db) -> Non
 
 
 def test_coordinated_attachment_rolls_back_every_repository_write(db) -> None:
+    """
+    Observe title and newly introduced Agent rollback after an invalid credit role.
+
+    Attempt one coordinated attachment containing a Work title change and a new Agent with an
+    invalid MARC role. Accept the backend's allowed-type or missing-row error wording, then require
+    the original title and no resolvable rejected Agent. These are the two state assertions; the
+    test does not snapshot every table.
+
+    Example:
+        >>> test_coordinated_attachment_rolls_back_every_repository_write(db)  # doctest: +SKIP
+
+
+    :param db: Provisioned schema-backed test database receiving real Catalog, relationship, and mutation operations.
+    :return: None after the stated regression assertions pass.
+    """
     catalog = Catalog(db)
     original_title = _token("atomic-attachment")
     rejected_agent = _token("rejected-agent")
@@ -369,6 +471,21 @@ def test_coordinated_attachment_rolls_back_every_repository_write(db) -> None:
 
 
 def test_catalog_implementation_satisfies_public_protocols(db) -> None:
+    """
+    Check the concrete facade, groups, repositories, and matchers against selected protocols.
+
+    Use runtime isinstance checks for Catalog, its four service groups, eight repositories, and
+    Work/Agent/identifier matchers. This verifies structural member availability on composed
+    objects; it does not validate callable signatures, persistence behavior, or the semantics of
+    every protocol method.
+
+    Example:
+        >>> test_catalog_implementation_satisfies_public_protocols(db)  # doctest: +SKIP
+
+
+    :param db: Provisioned schema-backed test database receiving real Catalog, relationship, and mutation operations.
+    :return: None after the stated regression assertions pass.
+    """
     catalog = Catalog(db)
 
     assert isinstance(catalog, CatalogAPI)
@@ -393,6 +510,22 @@ def test_catalog_implementation_satisfies_public_protocols(db) -> None:
 
 
 def test_shared_value_writer_build_is_pure_and_failed_write_is_atomic(db) -> None:
+    """
+    Keep destination rows absent during update planning and two failed shared-value writes.
+
+    Create a test source/value/link schema with unique source ownership and real foreign keys, then
+    force-refresh writer selection. Building an update must produce a truthy plan without inserting
+    a value row. Reject two destinations for one source, then provoke a foreign-key failure for a
+    missing source after destination resolution; the destination count must remain zero after both.
+    Embedded SQL is fixture schema, and no implementation or SQL literal is rewritten.
+
+    Example:
+        >>> test_shared_value_writer_build_is_pure_and_failed_write_is_atomic(db)  # doctest: +SKIP
+
+
+    :param db: Provisioned schema-backed test database receiving real Catalog, relationship, and mutation operations.
+    :return: None after the stated regression assertions pass.
+    """
     db.driver_wrapper.executescript(
         """
         CREATE TABLE catalog_atomic_sources (

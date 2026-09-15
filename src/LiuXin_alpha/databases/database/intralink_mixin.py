@@ -1,6 +1,8 @@
 
 """
-Method to handle intralink rows.
+Create, query and delete directed relationships within one database table.
+
+These facade helpers distinguish link Rows from endpoint Rows and depend on wrapper naming and schema rules. Mutations are incremental; historical return/deletion defects are documented where they occur rather than silently changing behavior.
 """
 
 from __future__ import annotations
@@ -22,7 +24,12 @@ if TYPE_CHECKING:
 
 class DatabaseIntralinkRowsMixin:
     """
-    Intralink rows on the database.
+    Add self-link operations to a facade with Row factories and schema helpers.
+
+    Link types are normalized on creation and may be restricted by preferences as well as database constraints. Lookup direction is significant; methods do not automatically reverse symmetric relationships.
+
+    Example:
+        For two existing Rows from a self-link-capable table, db.intralink_rows(first, second, link_type="related") creates the directed relationship if the configured type is allowed.
     """
 
     # ----------------------------------------------------------------------------------------------------------------------
@@ -36,12 +43,19 @@ class DatabaseIntralinkRowsMixin:
             secondary_row: "RowAPI",
             link_type: str) -> "IntralinkRowAPI":
         """
-        Intralink two rows - with an allowed link_type.
+        Create and synchronize a typed directed link between rows in the same table.
 
-        :param primary_row: This will be entered as the primary row
-        :param secondary_row: This will be entered as the secondary row
-        :param link_type:
-        :return:
+        Validate equal table names and IDs, then consult allowed_<table>_intralink_types preferences if present. Resolve endpoint/type columns, allocate an ID and sync. Later schema constraints still apply; failed synchronization has no explicit cleanup of an allocated placeholder.
+
+        Example:
+            With related permitted for the table, link = db.intralink_rows(first, second, " RELATED ") stores the normalized type related.
+
+
+        :param primary_row: Primary endpoint with a non-None row ID.
+        :param secondary_row: Secondary endpoint in the same table, also with an ID.
+        :param link_type: Type converted to text, stripped and lowercased before validation/storage.
+        :return: Persisted generic Row for the self-link.
+        :raises InputIntegrityError: Tables differ, an endpoint ID is missing, or preferences reject the normalized type.
         """
         link_type = six_unicode(link_type).lower().strip()
         if not primary_row.table == secondary_row.table:
@@ -114,11 +128,19 @@ class DatabaseIntralinkRowsMixin:
             primary_row: "RowAPI",
             secondary_row: "RowAPI") -> Optional["IntralinkRowAPI"]:
         """
-        Get the intralink row connecting the primary and secondary row - if any.
+        Find the unique directed self-link for an endpoint pair.
 
-        :param primary_row:
-        :param secondary_row:
-        :return:
+        Validate that a self-link table exists, search by primary ID, then compare secondary IDs as text. Type is not filtered, so differently typed matches can be ambiguous.
+
+        Example:
+            For same-table Rows, db.get_intralink_row(first, second) looks only in the first-to-second direction.
+
+
+        :param primary_row: Primary endpoint.
+        :param secondary_row: Secondary endpoint from the same table.
+        :return: Matching link Row, or None when absent.
+        :raises InputIntegrityError: Tables differ or the self-link table is unavailable.
+        :raises DatabaseIntegrityError: More than one link matches the directed pair.
         """
         primary_table = primary_row.table
         secondary_table = secondary_row.table
@@ -169,15 +191,19 @@ class DatabaseIntralinkRowsMixin:
             secondary: bool = True,
             link_type_filter: Optional[str] = None) -> list["RowAPI"]:
         """
-        Returns all intralink rows involving the given row.
+        Collect self-link Rows mentioning a seed in either endpoint column.
 
-        :param row:
-        :param primary: If True return link rows where this row is the primary
-        :type primary: bool
-        :param secondary: If True return lik rows where this row is the secondary
-        :type secondary: bool
-        :param link_type_filter: Filter to remove any links but the ones with this type
-        :return:
+        There is no deduplication or priority sort; a self-link can appear twice when both directions are requested. With both direction flags false the result is empty, although schema columns are still resolved.
+
+        Example:
+            For a seed Row, db.get_intralink_rows(seed, primary=False, secondary=True) returns incoming self-links.
+
+
+        :param row: Seed Row.
+        :param primary: Include relationships where the seed is primary.
+        :param secondary: Include relationships where the seed is secondary.
+        :param link_type_filter: Optional type compared as text without stripping or lowercasing.
+        :return: Link Row list, primary-query results followed by secondary-query results.
         """
         table = row.table
         row_id = six_unicode(row.row_id)
@@ -219,18 +245,18 @@ class DatabaseIntralinkRowsMixin:
             primary_row: "RowAPI",
             secondary_row: "RowAPI") -> Optional[list["RowAPI"]]:
         """
-        Get any rows intralinked to the given primary row.
+        Search one self-link direction while retaining the legacy link-row return value.
 
-        The row must be primary in the link - if it's secondary that means something different.
-        If the primary_row is not None, and the secondary row is None, returns every title linked to that row with that
-        row as the primary_id (so returns purely secondary rows).
-        If the secondary_row is not None, and the primary row is None, returns all the title linked to that row with
-        that row as the secondary_id (so returns purely secondary rows).
-        If both the primary and the secondary rows are not None - errors. You probably want the intralink_row. There's
-        a specific method for that and everything.
-        :param primary_row:
-        :param secondary_row:
-        :return:
+        Exactly one seed must be non-None. The method still loads opposite endpoint Rows before returning link Rows, so endpoint-loading errors can propagate without contributing returned values.
+
+        Example:
+            links = db.get_intralinked_rows(primary_row=seed, secondary_row=None) currently returns outgoing relationship records, not their target records.
+
+
+        :param primary_row: Outgoing seed, or None when using secondary_row.
+        :param secondary_row: Incoming seed, or None when using primary_row.
+        :return: Matching link Rows; despite the method name, the separately loaded endpoint Rows are discarded.
+        :raises InputIntegrityError: Both seeds are supplied or both are None.
         """
         if primary_row is not None and secondary_row is not None:
             err_str = "You seem to have both the title rows that you could want - do you want the intralink row itself?"
@@ -300,16 +326,20 @@ class DatabaseIntralinkRowsMixin:
             primary_row: "RowAPI",
             secondary_row: "RowAPI") -> None:
         """
-        Unlink two rows that have been intralinked.
+        Delete a unique directed pair or every outgoing link from a primary seed.
 
-        If primary_row and secondary_row are both not None, removes any interlink between the primary and the
-        secondary row.
-        If the primary_row is not None - deletes any intralink rows with that row as the primary.
-        If the secondary_row is not None - deletes any intralink rows with that row as secondary.
-        If both are None - errors.
-        :param primary_row:
-        :param secondary_row:
-        :return:
+        Both seeds select a unique pair; only a primary seed selects all outgoing links. The secondary-only branch incorrectly reads primary_row.table while primary_row is None and raises AttributeError. There is no grouped rollback for multi-row deletion.
+
+        Example:
+            For a valid seed, db.unlinked_intralink(primary_row=seed, secondary_row=None) removes its outgoing links and retains endpoint records.
+
+
+        :param primary_row: Primary seed, or None for the legacy incoming-only branch.
+        :param secondary_row: Secondary seed, or None to delete all outgoing links.
+        :return: None; a missing explicitly requested pair is a no-op.
+        :raises InputIntegrityError: Both seeds are None.
+        :raises AttributeError: Only secondary_row is supplied, due to the legacy branch defect.
+        :raises DatabaseIntegrityError: A requested pair has more than one link.
         """
         if primary_row is not None and secondary_row is not None:
 

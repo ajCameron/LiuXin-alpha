@@ -1,6 +1,6 @@
 
 """
-Writer responsible for writing UUID changes out to the database.
+Update the legacy UUID cache before delegating a scalar UUID database write.
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
@@ -16,13 +16,23 @@ if TYPE_CHECKING:
 
 class UUIDWriter(OneToOneWriter):
     """
-    Responsible for writing UUID data out to the database.
+    Write UUID fields with a cache update preceding scalar persistence.
+
+    Inherited UUID set_books filtering rejects false values before adaptation. The hook itself first updates the UUID cache and does not undo that update if database persistence later fails.
+
+    Example:
+        With a UUID field, ``UUIDWriter(field).set_books({7: uuid_text}, db)`` updates the legacy UUID cache before the scalar write.
     """
     def __init__(self, field: "FieldBasicInterfaceAPI") -> None:
         """
-        Constructor.
+        Initialize scalar UUID adaptation/filtering and bind set_uuid.
 
-        :param field:
+        Example:
+            After ``writer = UUIDWriter(uuid_field)``, a field named "uuid" uses the inherited bool acceptance predicate.
+
+
+        :param field: Legacy field whose name and metadata select the inherited value adapter.
+        :return: None; binds the UUID hook after OneToOneWriter initialization.
         """
         super(UUIDWriter, self).__init__(field)
         self.set_books_func = self.set_uuid
@@ -34,14 +44,19 @@ class UUIDWriter(OneToOneWriter):
             field: "FieldBasicInterfaceAPI",
             *args) -> set[int]:
         """
-        Update the uuid for the book.
+        Update the UUID cache, then invoke the scalar books-table write helper.
 
-        :param book_id_val_map: Keyed with the id of the book and valued with the new uuid value
-        :param db: The database/catalog to preform the update on
-        :param field: In memory field representing data from the database
-        :param args:
+        This hook performs no UUID parsing. When field is supplied, its UUID cache update happens even for an empty mapping and before database persistence. Cache errors prevent the write; later persistence errors propagate without restoring the earlier UUID cache state.
 
-        :return:
+        Example:
+            For a configured UUID field, ``writer.set_uuid({7: uuid_text}, db, field)`` calls ``field.table.update_uuid_cache`` before updating the database column.
+
+
+        :param book_id_val_map: Book IDs mapped to UUID strings, normally already accepted and adapted by set_books.
+        :param db: Database adapter wrapped or called by the writer; collaborator failures propagate.
+        :param field: UUID field supplying table.update_uuid_cache and scalar column metadata; None skips the first step but is still invalid for the inherited helper.
+        :param args: Additional arguments forwarded to one_one_in_books, where they are logged.
+        :return: The affected-ID set returned by one_one_in_books.
         """
         # Todo: This should not have to happen here
         # Update the cache

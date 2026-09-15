@@ -40,7 +40,7 @@ from LiuXin_alpha.storage.api.errors import (
     StoreUnavailable,
     StoreUnsupportedOperation,
 )
-from LiuXin_alpha.storage.api.location_api import Location, StoreUUID
+from LiuXin_alpha.storage.api.models import Location, StoreUUID
 from LiuXin_alpha.storage.api.models import (
     Digest,
     EnumerationCompleteness,

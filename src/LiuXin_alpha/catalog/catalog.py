@@ -1,4 +1,17 @@
-"""Concrete composition root for LiuXin's metadata-aware Catalog API."""
+"""
+Compose concrete Catalog owners and expose their shared repository shortcuts.
+
+Catalog retains a borrowed database, builds legacy metadata tools and nineteen
+entity repositories, and wires matching, retrieval, and mutation services around
+them. The facade delegates schema-driven writes to writer owners and normalized
+update objects. It adds no database lifecycle management or transaction wrapper.
+CatalogRepositories supplies the grouped instances and validated name lookup.
+
+Example:
+    >>> catalog = Catalog(db)  # doctest: +SKIP
+    >>> catalog.repositories.for_name("work") is catalog.works  # doctest: +SKIP
+    True
+"""
 
 from __future__ import annotations
 
@@ -52,10 +65,38 @@ if TYPE_CHECKING:
 
 @dataclass(slots=True)
 class CatalogRepositories:
-    """Grouped repository implementations exposed by ``Catalog.repositories``.
+    """
+    Hold the nineteen repository instances composed by a Catalog.
 
-    Catalog also exposes each member as a convenience property, so
-    ``catalog.repositories.works is catalog.works``.
+    The group stores supplied instances without validation or rebinding their dependencies. Its
+    slotted fields remain assignable. Catalog convenience properties return these same members,
+    while for_name resolves only public names from the explicit repository registry.
+
+    Example:
+        >>> repositories = catalog.repositories  # doctest: +SKIP
+        >>> repositories.works is catalog.works  # doctest: +SKIP
+        True
+
+
+    :ivar works: Repository for works representing intellectual creations.
+    :ivar expressions: Repository for expressions representing realizations of Works.
+    :ivar manifestations: Repository for manifestations representing publication embodiments.
+    :ivar items: Repository for items representing individual copies.
+    :ivar agents: Repository for agents and their contributions to WEMI entities.
+    :ivar identifiers: Repository for scheme-aware entity identifiers and their WEMI links.
+    :ivar item_identifiers: Repository for identifiers observed on individual Items.
+    :ivar titles: Repository for logical titles and their WEMI relationships.
+    :ivar notes: Repository for notes attached to WEMI entities.
+    :ivar tags: Repository for reusable Tag values.
+    :ivar labels: Repository for reusable Label values.
+    :ivar genres: Repository for genre values and their entity relationships.
+    :ivar subjects: Repository for subject values and their entity relationships.
+    :ivar series: Repository for series values and their entity relationships.
+    :ivar languages: Repository for language values and their entity relationships.
+    :ivar ratings: Repository for rating values and their entity relationships.
+    :ivar comments: Repository for comment values and their entity relationships.
+    :ivar synopses: Repository for synopsis text and its entity relationships.
+    :ivar annotations: Repository for annotations scoped to individual Items.
     """
 
     works: WorkRepository
@@ -79,7 +120,24 @@ class CatalogRepositories:
     annotations: AnnotationRepository
 
     def for_name(self, repository_name: str) -> Any:
-        """Return a repository by validated singular or plural public name."""
+        """
+        Resolve a public singular or plural repository name within this group.
+
+        Names are stripped, case-folded, and have hyphens replaced with underscores before explicit
+        singular aliases are applied. Only names in the public repository registry are accepted;
+        arbitrary attributes cannot be selected. Resolution returns the currently stored member
+        without constructing a repository or reading schema/database state.
+
+        Example:
+            >>> catalog.repositories.for_name(" Item-Identifier ") is catalog.item_identifiers  # doctest: +SKIP
+            True
+
+
+        :param repository_name: Public singular or plural entity name, allowing surrounding whitespace and hyphens.
+        :return: The existing repository instance stored under the normalized public name.
+        :raises TypeError: If repository_name is not a string.
+        :raises KeyError: If the normalized name is absent from the public registry.
+        """
 
         if not isinstance(repository_name, str):
             raise TypeError("repository_name must be a string")
@@ -115,31 +173,34 @@ class CatalogRepositories:
 
 
 class Catalog:
-    """Metadata-aware facade over an open LiuXin database.
+    """
+    Compose metadata-aware repositories and services over a borrowed database.
 
-    This object is where callers should enter the catalog layer. It should remain
-    a composition root, not a God object: substantive behavior belongs in the
-    metadata-tool, repository, matcher, retrieval, and mutation modules.
+    Repositories provide entity operations and matching conveniences; matching explains identity
+    decisions, retrieval assembles WEMI read models, and mutations coordinate semantic writes. The
+    add/ensure/apply/intralink tools retain legacy Row-based entry points. Substantive behavior
+    belongs to these owners, with the facade providing composition, shortcuts, and writer dispatch.
 
-    Use repositories for entity CRUD/relationships, ``matching`` for
-    side-effect-free identity decisions, ``retrieval`` for WEMI bundles and
-    projections, and ``mutations`` for coordinated writes.
+    The caller owns database lifetime. Catalog has no close method or context manager, and
+    constructing it does not establish that every database capability is available. Each operation
+    relies on its delegated owner's dependencies.
 
-    Example::
+    Example:
+        >>> catalog = Catalog(db)  # doctest: +SKIP
+        >>> catalog.works is catalog.repositories.works  # doctest: +SKIP
+        True
+        >>> bundle = catalog.retrieval.bundles.for_item(item_id)  # doctest: +SKIP
 
-        from LiuXin_alpha.catalog import Catalog
-        from LiuXin_alpha.catalog.api import MetadataCandidate
 
-        catalog = Catalog(db)
-        work_id = catalog.works.match_or_create(
-            MetadataCandidate({
-                "title": "Frankenstein",
-                "original_year": 1818,
-            })
-        )
-        work = catalog.works.require(work_id)
-
-    ``Catalog`` borrows ``db``; closing the Catalog does not close the database.
+    :ivar db: Borrowed database shared by the composed services.
+    :ivar repositories: Mutable group of concrete entity repository instances.
+    :ivar matching: Matching services using the supplied identity policy.
+    :ivar retrieval: WEMI traversal, bundle, graph, and projection services.
+    :ivar mutations: Coordinated writes and mutation-policy services.
+    :ivar add: Legacy metadata creation helpers sharing this Catalog's ensure/apply tools.
+    :ivar ensure: Legacy get-or-create helpers bound to the same add tool.
+    :ivar apply: Legacy metadata application helpers sharing add and ensure.
+    :ivar intralink: Legacy same-table relationship helpers using the borrowed database.
     """
 
     def __init__(
@@ -148,16 +209,28 @@ class Catalog:
         *,
         matching_policy: MatchingPolicy = DEFAULT_MATCHING_POLICY,
     ) -> None:
-        """Compose every Catalog service over one borrowed database.
+        """
+        Build repository and service instances around one database and matching policy.
 
-        All repositories share ``matching_policy`` so grouped matchers and
-        repository convenience methods make the same identity decisions.
+        MatchingPolicy is type-checked before any fields are assigned. Metadata tools are
+        constructed and cross-wired, then all nineteen repositories receive the shared repository
+        group and policy. Matching, retrieval, and mutation services receive the same database and
+        repository group. The database is retained without an upfront capability check; construction
+        failures propagate without facade cleanup or ownership transfer.
 
-        :param db: Open database handle used by all Catalog services. It must
-            provide portable macros and driver schema discovery.
-        :param matching_policy: Identity policy shared by repository and grouped
-            matching entry points.
-        :return: ``None``.
+        Example:
+            >>> catalog = Catalog(db)  # doctest: +SKIP
+            >>> catalog.add.ensure is catalog.ensure  # doctest: +SKIP
+            True
+            >>> catalog.db is db  # doctest: +SKIP
+            True
+
+
+        :param db: Borrowed database whose row, macro, and schema capabilities are needed by subsequent operations.
+        :param matching_policy: MatchingPolicy shared by all repositories and grouped matchers; defaults to the package policy.
+        :return: None after composing the services and their shared dependencies.
+        :raises TypeError: If matching_policy is not a MatchingPolicy.
+        :raises Exception: Errors from constructing or binding delegated owners propagate unchanged.
         """
         if not isinstance(matching_policy, MatchingPolicy):
             raise TypeError("matching_policy must be a MatchingPolicy")
@@ -236,22 +309,27 @@ class Catalog:
         destination_owned: bool | None = None,
     ) -> SchemaCatalogWriter:
         """
-        Create a schema-backed writer for one catalog field.
+        Resolve one schema column to a configured Catalog writer.
 
-        The schema factory selects a same-table column writer, an owned
-        one-to-one writer, or a shared-value link writer. The returned writer
-        retains its build, inspection, bulk, and single-value methods.
+        A column on the source table selects a same-table writer. Otherwise the factory requires one
+        destination table and a directed link from the source. Declared or overridden ownership
+        selects an owned-row writer only for a one-to-one link; other destinations use a
+        shared-value link writer. Names are exact schema names, not repository field aliases.
+        Construction discovers schema and configures a new writer but does not apply a value update.
 
-        :param src_table: Table whose row IDs key writer updates.
-        :param dst_column: Same-table or linked destination value column.
-        :param force_refresh: Refresh schema discovery before construction.
-        :param destination_owned: Optional one-to-one ownership override.
-        :return: Concrete catalog writer for the resolved storage shape.
+        Example:
+            >>> writer = catalog.create_writer("works", "work_canonical_title")  # doctest: +SKIP
+            >>> result = writer.write_one(work_id, "Frankenstein")  # doctest: +SKIP
 
-        Example::
 
-            writer = catalog.create_writer("works", "work_canonical_title")
-            writer.write_one(work_id, "Frankenstein; or, The Modern Prometheus")
+        :param src_table: Exact schema name of the main table whose row IDs key the update.
+        :param dst_column: Exact schema column name on the source table or a uniquely identified linked destination table.
+        :param force_refresh: Forwarded to schema discovery to request a refresh before writer selection.
+        :param destination_owned: None to use declared ownership, or a boolean override for a separate destination; ownership requires one-to-one cardinality.
+        :return: A new same-table, owned-row, or shared-value link writer for the resolved route.
+        :raises TypeError: If names, the ownership override, or schema-discovery dependencies have invalid types.
+        :raises KeyError: If the source table or destination column cannot be found.
+        :raises ValueError: If the source is not a writable main table, the destination is ambiguous/unlinked, or requested ownership is not one-to-one.
         """
 
         return create_catalog_writer(
@@ -272,27 +350,28 @@ class Catalog:
         **kwargs: Any,
     ) -> Mapping[SrcTableID, object]:
         """
-        Create a writer and apply one bulk catalog update.
+        Select a schema writer and forward its bulk update arguments.
 
-        Positional and keyword update arguments are passed unchanged to the
-        selected writer, preserving scalar, replacement, incremental,
-        typed-map, rich-link, and link-type-scope forms.
+        Selection uses create_writer on each call. Positional and remaining keyword arguments pass
+        unchanged to writer.write, so accepted replacement, incremental, rich-link, and type-scope
+        forms depend on that writer. The facade adds no transaction, exception translation, or
+        result conversion; execution and failure guarantees belong to the selected writer and
+        database operation.
 
-        :param src_table: Table whose row IDs key writer updates.
-        :param dst_column: Same-table or linked destination value column.
-        :param args: Positional arguments for the concrete writer.
-        :param force_refresh: Refresh schema discovery before construction.
-        :param destination_owned: Optional one-to-one ownership override.
-        :param kwargs: Keyword arguments for the concrete writer.
-        :return: Concrete writer result mapping.
+        Example:
+            >>> result = catalog.write(  # doctest: +SKIP
+            ...     "works", "work_canonical_title", {work_id: "Frankenstein"},
+            ... )
 
-        Example::
 
-            catalog.write(
-                "works",
-                "work_canonical_title",
-                {work_id: "Frankenstein; or, The Modern Prometheus"},
-            )
+        :param src_table: Exact schema name of the main table whose row IDs key the update.
+        :param dst_column: Exact schema column name on the source table or a uniquely identified linked destination table.
+        :param args: Positional bulk-update arguments accepted by the selected writer.
+        :param force_refresh: Forwarded to schema discovery to request a refresh before writer selection.
+        :param destination_owned: None to use declared ownership, or a boolean override for a separate destination; ownership requires one-to-one cardinality.
+        :param kwargs: Remaining writer options, forwarded unchanged after factory options are consumed.
+        :return: The selected writer's mapping of source IDs to values or link rows, returned unchanged.
+        :raises Exception: Writer-selection, validation, and database failures propagate from the delegated operations.
         """
 
         writer = self.create_writer(
@@ -315,25 +394,28 @@ class Catalog:
         **kwargs: Any,
     ) -> Mapping[SrcTableID, object]:
         """
-        Create a writer and apply one source/value catalog instruction.
+        Select a schema writer and apply one source/value instruction.
 
-        :param src_table: Table containing the source ID.
-        :param dst_column: Same-table or linked destination value column.
-        :param src_id: Source-table ID whose value or links should change.
-        :param dst_value: Raw, resolved, rich, or clear destination value.
-        :param force_refresh: Refresh schema discovery before construction.
-        :param destination_owned: Optional one-to-one ownership override.
-        :param kwargs: Options for the concrete writer, including link type.
-        :return: Concrete writer result mapping without unwrapping it.
+        The facade forwards src_id, dst_value, and kwargs to writer.write_one on a newly selected
+        writer. Scalar, collection, rich-link, and clear values have the meanings accepted by that
+        writer. The returned mapping is not unwrapped; writer-specific validation, atomicity, and
+        failure behavior are preserved.
 
-        Example::
+        Example:
+            >>> result = catalog.write_one(  # doctest: +SKIP
+            ...     "works", "work_canonical_title", work_id, "Frankenstein",
+            ... )
 
-            catalog.write_one(
-                "works",
-                "work_canonical_title",
-                work_id,
-                "Frankenstein; or, The Modern Prometheus",
-            )
+
+        :param src_table: Exact schema name of the main table whose row IDs key the update.
+        :param dst_column: Exact schema column name on the source table or a uniquely identified linked destination table.
+        :param src_id: Source-table row ID to update, validated by the selected writer.
+        :param dst_value: Value or clear instruction in the concrete writer's supported form.
+        :param force_refresh: Forwarded to schema discovery to request a refresh before writer selection.
+        :param destination_owned: None to use declared ownership, or a boolean override for a separate destination; ownership requires one-to-one cardinality.
+        :param kwargs: Additional writer options, such as link_type, forwarded unchanged.
+        :return: The concrete writer's source-ID mapping, without extracting a single value.
+        :raises Exception: Writer-selection, validation, and database failures propagate from the delegated operations.
         """
 
         writer = self.create_writer(
@@ -348,11 +430,23 @@ class Catalog:
         self,
         update: LinkUpdate,
     ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
-        """Apply a normalized link update through the catalog database.
+        """
+        Apply a normalized link instruction through the database macro surface.
 
-        The update retains its replacement, incremental-composition, type-scope,
-        atomicity, and empty-update semantics. The returned mapping contains the
-        complete link rows written for each affected source id.
+        The concrete facade checks the update type, then calls update.write(db.macros).
+        Replacement/incremental composition and type scope belong to LinkUpdate; its final
+        replacement delegates atomic execution to the portable macro. Empty updates retain their
+        no-write behavior, though the facade still accesses db.macros. No surrounding transaction or
+        error translation is added.
+
+        Example:
+            >>> result = catalog.write_link_update(link_update)  # doctest: +SKIP
+
+
+        :param update: LinkUpdate containing replacement or incremental instructions for a directed link specification.
+        :return: Complete resulting link rows keyed by affected source ID, or the update's empty mapping.
+        :raises TypeError: If update is not a LinkUpdate in the concrete facade.
+        :raises Exception: Macro access, update composition, and database failures propagate unchanged.
         """
 
         if not isinstance(update, LinkUpdate):
@@ -364,10 +458,21 @@ class Catalog:
         update: CatalogColumnUpdate[object],
     ) -> Mapping[SrcTableID, object]:
         """
-        Apply a normalized same-table column update.
+        Apply a normalized same-table column instruction to the borrowed database.
 
-        :param update: Immutable normalized column update.
-        :return: Stable written values keyed by source-table ID.
+        The concrete facade checks the update type and delegates to update.write(db). Nonempty
+        instructions use the database bulk-column operation; empty values return without a database
+        write. The result is the update's stored value mapping, not a fresh read of database values
+        after triggers or coercion.
+
+        Example:
+            >>> result = catalog.write_column_update(column_update)  # doctest: +SKIP
+
+
+        :param update: CatalogColumnUpdate containing table/column specifications and source-ID values.
+        :return: The update's stable value mapping, returned after successful application or immediately when empty.
+        :raises TypeError: If update is not a CatalogColumnUpdate in the concrete facade.
+        :raises Exception: Database write failures propagate without an extra facade transaction.
         """
 
         if not isinstance(update, CatalogColumnUpdate):
@@ -379,10 +484,22 @@ class Catalog:
         update: CatalogOwnedRowUpdate[object],
     ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
         """
-        Apply a normalized owned one-to-one destination-row update.
+        Apply normalized values for a destination owned through a one-to-one link.
 
-        :param update: Immutable normalized owned-row update.
-        :return: Complete link rows keyed by affected source-table ID.
+        The concrete facade checks the update type and calls update.write(db.macros). Non-null
+        values replace existing destination values or create and link a row; None removes the link
+        while leaving the destination row for explicit cleanup. The update delegates atomic
+        execution to the portable macro. Empty values perform no write, although the facade still
+        resolves the macros attribute.
+
+        Example:
+            >>> result = catalog.write_owned_row_update(owned_update)  # doctest: +SKIP
+
+
+        :param update: CatalogOwnedRowUpdate with a one-to-one link, destination column, and replacement values.
+        :return: Complete resulting link rows keyed by affected source ID, or an empty mapping for no values.
+        :raises TypeError: If update is not a CatalogOwnedRowUpdate in the concrete facade.
+        :raises Exception: Macro access and database failures propagate without additional facade handling.
         """
 
         if not isinstance(update, CatalogOwnedRowUpdate):
@@ -391,108 +508,355 @@ class Catalog:
 
     @property
     def works(self) -> WorkRepository:
-        """Return ``catalog.repositories.works``."""
+        """
+        Expose the repository for works representing intellectual creations.
+
+        This shortcut returns the current repositories.works member. Reading the property performs
+        no lookup, copy, or repository construction; entity operations and their validation remain
+        the responsibility of that repository.
+
+        Example:
+            >>> catalog.works is catalog.repositories.works  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.works.
+        """
         return self.repositories.works
 
     @property
     def expressions(self) -> ExpressionRepository:
-        """Return ``catalog.repositories.expressions``."""
+        """
+        Expose the repository for expressions representing realizations of Works.
+
+        This shortcut returns the current repositories.expressions member. Reading the property
+        performs no lookup, copy, or repository construction; entity operations and their validation
+        remain the responsibility of that repository.
+
+        Example:
+            >>> catalog.expressions is catalog.repositories.expressions  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.expressions.
+        """
         return self.repositories.expressions
 
     @property
     def manifestations(self) -> ManifestationRepository:
-        """Return ``catalog.repositories.manifestations``."""
+        """
+        Expose the repository for manifestations representing publication embodiments.
+
+        This shortcut returns the current repositories.manifestations member. Reading the property
+        performs no lookup, copy, or repository construction; entity operations and their validation
+        remain the responsibility of that repository.
+
+        Example:
+            >>> catalog.manifestations is catalog.repositories.manifestations  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.manifestations.
+        """
         return self.repositories.manifestations
 
     @property
     def items(self) -> ItemRepository:
-        """Return ``catalog.repositories.items``."""
+        """
+        Expose the repository for items representing individual copies.
+
+        This shortcut returns the current repositories.items member. Reading the property performs
+        no lookup, copy, or repository construction; entity operations and their validation remain
+        the responsibility of that repository.
+
+        Example:
+            >>> catalog.items is catalog.repositories.items  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.items.
+        """
         return self.repositories.items
 
     @property
     def agents(self) -> AgentRepository:
-        """Return ``catalog.repositories.agents``."""
+        """
+        Expose the repository for agents and their contributions to WEMI entities.
+
+        This shortcut returns the current repositories.agents member. Reading the property performs
+        no lookup, copy, or repository construction; entity operations and their validation remain
+        the responsibility of that repository.
+
+        Example:
+            >>> catalog.agents is catalog.repositories.agents  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.agents.
+        """
         return self.repositories.agents
 
     @property
     def identifiers(self) -> IdentifierRepository:
-        """Return ``catalog.repositories.identifiers``."""
+        """
+        Expose the repository for scheme-aware entity identifiers and their WEMI links.
+
+        This shortcut returns the current repositories.identifiers member. Reading the property
+        performs no lookup, copy, or repository construction; entity operations and their validation
+        remain the responsibility of that repository.
+
+        Example:
+            >>> catalog.identifiers is catalog.repositories.identifiers  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.identifiers.
+        """
         return self.repositories.identifiers
 
     @property
     def item_identifiers(self) -> ItemIdentifierRepository:
-        """Return the observed Item identifier repository."""
+        """
+        Expose the repository for identifiers observed on individual Items.
+
+        This shortcut returns the current repositories.item_identifiers member. Reading the property
+        performs no lookup, copy, or repository construction; entity operations and their validation
+        remain the responsibility of that repository.
+
+        Example:
+            >>> catalog.item_identifiers is catalog.repositories.item_identifiers  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.item_identifiers.
+        """
 
         return self.repositories.item_identifiers
 
     @property
     def titles(self) -> TitleRepository:
-        """Return the logical title repository."""
+        """
+        Expose the repository for logical titles and their WEMI relationships.
+
+        This shortcut returns the current repositories.titles member. Reading the property performs
+        no lookup, copy, or repository construction; entity operations and their validation remain
+        the responsibility of that repository.
+
+        Example:
+            >>> catalog.titles is catalog.repositories.titles  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.titles.
+        """
 
         return self.repositories.titles
 
     @property
     def notes(self) -> NoteRepository:
-        """Return the note repository."""
+        """
+        Expose the repository for notes attached to WEMI entities.
+
+        This shortcut returns the current repositories.notes member. Reading the property performs
+        no lookup, copy, or repository construction; entity operations and their validation remain
+        the responsibility of that repository.
+
+        Example:
+            >>> catalog.notes is catalog.repositories.notes  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.notes.
+        """
 
         return self.repositories.notes
 
     @property
     def tags(self) -> TagRepository:
-        """Return the exact-default Tag repository."""
+        """
+        Expose the repository for reusable Tag values.
+
+        This shortcut returns the current repositories.tags member. Reading the property performs no
+        lookup, copy, or repository construction; entity operations and their validation remain the
+        responsibility of that repository.
+
+        Example:
+            >>> catalog.tags is catalog.repositories.tags  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.tags.
+        """
 
         return self.repositories.tags
 
     @property
     def labels(self) -> LabelRepository:
-        """Return the exact-default Label repository."""
+        """
+        Expose the repository for reusable Label values.
+
+        This shortcut returns the current repositories.labels member. Reading the property performs
+        no lookup, copy, or repository construction; entity operations and their validation remain
+        the responsibility of that repository.
+
+        Example:
+            >>> catalog.labels is catalog.repositories.labels  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.labels.
+        """
 
         return self.repositories.labels
 
     @property
     def genres(self) -> GenreRepository:
-        """Return the exact-default Genre repository."""
+        """
+        Expose the repository for genre values and their entity relationships.
+
+        This shortcut returns the current repositories.genres member. Reading the property performs
+        no lookup, copy, or repository construction; entity operations and their validation remain
+        the responsibility of that repository.
+
+        Example:
+            >>> catalog.genres is catalog.repositories.genres  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.genres.
+        """
 
         return self.repositories.genres
 
     @property
     def subjects(self) -> SubjectRepository:
-        """Return the exact-default Subject repository."""
+        """
+        Expose the repository for subject values and their entity relationships.
+
+        This shortcut returns the current repositories.subjects member. Reading the property
+        performs no lookup, copy, or repository construction; entity operations and their validation
+        remain the responsibility of that repository.
+
+        Example:
+            >>> catalog.subjects is catalog.repositories.subjects  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.subjects.
+        """
 
         return self.repositories.subjects
 
     @property
     def series(self) -> SeriesRepository:
-        """Return the exact-default Series repository."""
+        """
+        Expose the repository for series values and their entity relationships.
+
+        This shortcut returns the current repositories.series member. Reading the property performs
+        no lookup, copy, or repository construction; entity operations and their validation remain
+        the responsibility of that repository.
+
+        Example:
+            >>> catalog.series is catalog.repositories.series  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.series.
+        """
 
         return self.repositories.series
 
     @property
     def languages(self) -> LanguageRepository:
-        """Return the exact-default immutable Language repository."""
+        """
+        Expose the repository for language values and their entity relationships.
+
+        This shortcut returns the current repositories.languages member. Reading the property
+        performs no lookup, copy, or repository construction; entity operations and their validation
+        remain the responsibility of that repository.
+
+        Example:
+            >>> catalog.languages is catalog.repositories.languages  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.languages.
+        """
 
         return self.repositories.languages
 
     @property
     def ratings(self) -> RatingRepository:
-        """Return the exact-default Rating repository."""
+        """
+        Expose the repository for rating values and their entity relationships.
+
+        This shortcut returns the current repositories.ratings member. Reading the property performs
+        no lookup, copy, or repository construction; entity operations and their validation remain
+        the responsibility of that repository.
+
+        Example:
+            >>> catalog.ratings is catalog.repositories.ratings  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.ratings.
+        """
 
         return self.repositories.ratings
 
     @property
     def comments(self) -> CommentRepository:
-        """Return the read-only-match Comment repository."""
+        """
+        Expose the repository for comment values and their entity relationships.
+
+        This shortcut returns the current repositories.comments member. Reading the property
+        performs no lookup, copy, or repository construction; entity operations and their validation
+        remain the responsibility of that repository.
+
+        Example:
+            >>> catalog.comments is catalog.repositories.comments  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.comments.
+        """
 
         return self.repositories.comments
 
     @property
     def synopses(self) -> SynopsisRepository:
-        """Return the exact-default Synopsis repository."""
+        """
+        Expose the repository for synopsis text and its entity relationships.
+
+        This shortcut returns the current repositories.synopses member. Reading the property
+        performs no lookup, copy, or repository construction; entity operations and their validation
+        remain the responsibility of that repository.
+
+        Example:
+            >>> catalog.synopses is catalog.repositories.synopses  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.synopses.
+        """
 
         return self.repositories.synopses
 
     @property
     def annotations(self) -> AnnotationRepository:
-        """Return the item-scoped Annotation repository."""
+        """
+        Expose the repository for annotations scoped to individual Items.
+
+        This shortcut returns the current repositories.annotations member. Reading the property
+        performs no lookup, copy, or repository construction; entity operations and their validation
+        remain the responsibility of that repository.
+
+        Example:
+            >>> catalog.annotations is catalog.repositories.annotations  # doctest: +SKIP
+            True
+
+
+        :return: The same repository instance held in repositories.annotations.
+        """
 
         return self.repositories.annotations

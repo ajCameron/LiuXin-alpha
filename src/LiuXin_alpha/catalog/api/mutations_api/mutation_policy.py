@@ -1,4 +1,6 @@
-"""Mutation policy API."""
+"""
+Describe preliminary mutation policy without promising final write validity.
+"""
 
 from __future__ import annotations
 
@@ -9,35 +11,61 @@ from ..common import EntityId, RowInput, WemiLevel
 
 @runtime_checkable
 class MutationPolicyAPI(Protocol):
-    """Side-effect-free preflight checks for semantic Catalog writes.
+    """
+    Provide read-only preliminary shape and existence checks for WEMI mutations.
 
-    A ``False`` result means the proposed operation is not currently supported
-    or violates policy. It does not mutate or reserve anything; the writer
-    validates again inside its transaction.
+    These checks may query repositories and raise database/ID errors. They do
+    not normalize payloads, reserve entities or guarantee that a writer succeeds.
+
+    Example:
+        Call can_update before displaying an operation, then handle validation or
+        storage errors from the actual write independently.
     """
 
     def can_create(self, *, level: WemiLevel, data: RowInput) -> bool:
-        """Return whether ``data`` is sufficient and allowed for creation.
+        """
+        Check only that a WEMI level and nonempty mapping are supplied.
 
-        :param level: WEMI level to create.
-        :param data: Proposed public values.
-        :return: ``True`` when the semantic writer may attempt creation.
+        Example:
+            A mapping containing only an unknown column can pass this preliminary check.
+
+
+        :param level: WEMI level selecting the semantic repository.
+        :param data: Proposed payload; contents are not normalized.
+        :return: True for a known level with a nonempty Mapping.
         """
 
     def can_update(self, *, level: WemiLevel, entity_id: EntityId, data: RowInput) -> bool:
-        """Return whether an existing entity may receive ``data``.
+        """
+        Check a nonempty mapping and look up an integer-ID target.
 
-        :param level: WEMI level containing ``entity_id``.
-        :param entity_id: Proposed update target.
-        :param data: Proposed scalar/relationship changes.
-        :return: ``True`` when the semantic writer may attempt the update.
+        Lookup failures propagate. A positive result neither reserves the Row nor
+        predicts success of later field/relationship validation.
+
+        Example:
+            An empty mapping is rejected before any repository lookup.
+
+
+        :param level: WEMI level selecting the semantic repository.
+        :param entity_id: Integer ID excluding bool; sign/existence checks are delegated.
+        :param data: Proposed mapping; individual fields are not validated.
+        :return: False for rejected shape/type or absent target; True when its Row exists.
         """
 
     def can_merge(self, *, level: WemiLevel, source_id: EntityId, target_id: EntityId) -> bool:
-        """Return whether source and target are eligible for a merge.
+        """
+        Check distinct integer IDs and read both same-level entities.
 
-        :param level: Shared WEMI level.
-        :param source_id: Entity proposed for absorption/deletion.
-        :param target_id: Entity proposed as canonical target.
-        :return: ``True`` when a merge may be attempted.
+        No semantic equivalence, relationship support or value-conflict checks are
+        performed. Sign validation and lookup errors belong to the repositories;
+        results do not lock or reserve either Row.
+
+        Example:
+            If source lookup returns None, target lookup is short-circuited.
+
+
+        :param level: WEMI level selecting the semantic repository.
+        :param source_id: Source ID, excluding bool.
+        :param target_id: Target ID, excluding bool.
+        :return: True when both Rows exist; otherwise False for rejected inputs or missing Rows.
         """

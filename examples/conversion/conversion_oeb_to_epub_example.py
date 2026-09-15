@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-Example: convert an OEB/OPF source to EPUB.
+Convert supplied or generated OEB input through the EPUB output plugin.
+
+Create output parents and a work directory, install the example plugin shim,
+load the OPF, and invoke the writer inside the scratch-setting context. Report
+output size and paths. The work_dir_cleaned field records intended cleanup before
+it runs; auto-created work directories use best-effort removal in finally.
 """
 
 from __future__ import annotations
@@ -25,6 +30,18 @@ from LiuXin_alpha.file_formats.conversion.plugins.epub_output import EPUBOutput
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse a required EPUB output path and optional OPF input, extraction destination, and work
+    directory. Omitted OPF input requests a sample. Explicit work directories are retained;
+    --keep-work-dir retains an automatically allocated one. --verbose enables example log output.
+    Paths are processed by main rather than validated by argparse.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Parsed argparse namespace; help and invalid arguments raise SystemExit.
+    """
     parser = argparse.ArgumentParser(description="Convert OEB/OPF source to EPUB")
     parser.add_argument("--input-opf", default=None, help="Path to metadata OPF. If omitted, a sample OEB is generated.")
     parser.add_argument("--output", required=True, help="Target EPUB file path")
@@ -44,6 +61,26 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """
+    Convert an OPF or generated sample to EPUB and print its diagnostic report. Expand/resolve
+    output and optional extraction paths, create output parents, and use either an explicitly
+    retained work directory or an automatically allocated one. Resolve/generate input, install the
+    process-global customize.ui shim without restoring it, and load the OEB book. Call EPUBOutput
+    with the example options/logger inside isolated_conversion_scratch; only that scratch setting is
+    restored by its context.
+
+    Report generated-input status, paths, and output stat size, using zero when the output does not
+    exist. A zero reported size does not independently change the return code. Print
+    work_dir_cleaned as the planned cleanup flag before finally attempts rmtree with
+    ignore_errors=True, so it is not proof of removal. Caller-selected work directories and
+    output/extraction files are retained, including after later failures.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero after printing the report; uncaught parsing, conversion, rendering, and cleanup errors propagate.
+    """
     args = parse_args()
 
     output_path = Path(args.output).expanduser().resolve()

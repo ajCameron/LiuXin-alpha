@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """
-Example: query Google Books plugin directly.
+Query GoogleBooks directly and optionally save the first returned cover.
+
+Require a truthy title, authors, or ISBN hint before creating the plugin. Run
+identify, drain a bounded number of queued metadata results, and print selected
+fields. The result limit controls queue consumption after identify returns, not
+network work. Cover retrieval is a separate optional plugin call; plugin logs
+can be printed to stderr while the final JSON uses unescaped Unicode.
 """
 
 from __future__ import annotations
@@ -27,6 +33,17 @@ from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse title/author/ISBN hints, integer timeout defaulting to 30 seconds, result limit defaulting
+    to three, optional cover path, and verbosity. Hints are not individually required by argparse;
+    main requires at least one truthy hint. Numeric ranges and ISBN validity are not checked here.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Parsed argparse namespace; help and invalid arguments raise SystemExit.
+    """
     parser = argparse.ArgumentParser(description="GoogleBooks plugin example")
     parser.add_argument("--title", default=None, help="Title hint")
     parser.add_argument("--authors", default=None, help='Author hint (e.g. "Alice & Bob")')
@@ -39,6 +56,24 @@ def parse_args() -> argparse.Namespace:
 
 
 def _metadata_to_dict(mi) -> dict[str, object]:
+    """
+    Project selected metadata attributes into a report dictionary. Attempt to copy get_identifiers()
+    or an empty mapping, replacing any Exception in that attempt with {}. Read title, publisher,
+    singular language, ISBN, and source relevance with None defaults; copy authors into a list,
+    defaulting false/missing authors to []. Other attribute/list-conversion errors propagate. Values
+    are not recursively sanitized or guaranteed JSON-serializable, and identifiers are not
+    normalized.
+
+    Example:
+        >>> _metadata_to_dict(None)["identifiers"]
+        {}
+        >>> _metadata_to_dict(None)["authors"]
+        []
+
+
+    :param mi: Metadata-like object exposing the optional attributes and identifier method used in the report.
+    :return: New dictionary of selected metadata fields, with copied authors and identifiers when available.
+    """
     ids = {}
     try:
         ids = dict(mi.get_identifiers() or {})
@@ -56,6 +91,26 @@ def _metadata_to_dict(mi) -> dict[str, object]:
 
 
 def _drain_queue(q: Queue, limit: int) -> list:
+    """
+    Remove up to limit queued items without waiting for a producer. Repeatedly call get_nowait until
+    the limit is reached or Empty is raised, preserving retrieval order. Zero/negative limits read
+    nothing. An Empty observation ends this attempt even if a producer adds more later; no task_done
+    calls or producer joins occur.
+
+    Example:
+        >>> queue = Queue()
+        >>> queue.put("first")
+        >>> queue.put("second")
+        >>> _drain_queue(queue, 1)
+        ['first']
+        >>> queue.get_nowait()
+        'second'
+
+
+    :param q: Queue-like object supporting get_nowait and the standard Empty outcome.
+    :param limit: Maximum items to remove; nonpositive values leave the queue untouched.
+    :return: List of the items removed before reaching the limit or observing an empty queue.
+    """
     out = []
     while len(out) < limit:
         try:
@@ -66,6 +121,25 @@ def _drain_queue(q: Queue, limit: int) -> list:
 
 
 def main() -> int:
+    """
+    Query the GoogleBooks plugin, optionally download a cover, and print a metadata report. Reject
+    an all-false hint set with a stderr message and status two; whitespace-only hints remain truthy.
+    Parse authors, pass ISBN unchanged, and call identify with a fresh abort Event and in-memory
+    log. After it returns, drain at most max(1, max_results) queued items. The reported result_count
+    is this drained count, not all work performed by the plugin.
+
+    If a cover path is truthy, call download_cover with a separate queue/Event regardless of
+    metadata result count, then save the first queued cover if present. Expand the target's tilde,
+    create parents, and overwrite with write_bytes; do not resolve the path, validate image
+    contents, or wrap publication atomically. Print optional logs to stderr and a Unicode JSON
+    report. Cover success does not determine the metadata-based exit status.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Two without any truthy query hint; otherwise zero for nonempty drained results or one for none. Uncaught plugin/I/O/rendering errors propagate.
+    """
     args = parse_args()
     if not (args.title or args.authors or args.isbn):
         print("At least one of --title/--authors/--isbn is required.", file=sys.stderr)

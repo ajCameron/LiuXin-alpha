@@ -1,6 +1,8 @@
 
 """
-Mixin to handle dealing with tree like structures in the database.
+Wrap hierarchical database records as Rows and delegate parent/child mutations.
+
+These helpers assume a compatible parent-column schema. Driver traversal determines path/walk behavior, while some facade loops do not detect cycles. Deletion relies on backend foreign-key actions rather than recursive facade traversal.
 """
 
 from __future__ import annotations
@@ -15,7 +17,12 @@ if TYPE_CHECKING:
 
 
 class DatabaseTreeMixin:
-    """Delegate hierarchical row operations from the facade to its driver."""
+    """
+    Provide parent chains, child searches and tree mutations for facade Rows.
+
+    Example:
+        For a Row in a parent-linked table, db.get_linear_row_list(row) retrieves its root-to-row chain.
+    """
 
 
     driver_wrapper: "DatabaseDriverWrapperAPI"
@@ -26,29 +33,47 @@ class DatabaseTreeMixin:
 
     def get_root_row(self, start_row):
         """
-        Get the root series of a tree.
+        Resolve a root through the legacy get_root_series implementation.
 
-        ALWAYS USE THIS INSTEAD OF get_root_series
-        :param start_row:
-        :return:
+        Example:
+            For a descendant Row, root = db.get_root_row(descendant) uses the same parent-chain path as the legacy series-named helper.
+
+
+        :param start_row: Starting Row in a parent-linked table.
+        :return: Root Row returned by get_root_series.
         """
         return self.get_root_series(start_row=start_row)
 
     # Todo: This method is terribly names - should be merged with the above and removed
     def get_root_series(self, start_row):
         """
-        Get the root series of a tree.
-        :param start_row:
-        :return:
+        Wrap the first record of the wrapper root-to-row chain.
+
+        Despite the name, the method works with any supported parent-linked table. It assumes the returned chain is nonempty.
+
+        Example:
+            For a parent-linked folder Row, db.get_root_series(folder) returns the first Row in the wrapper chain.
+
+
+        :param start_row: Starting Row whose row_dict is passed to the wrapper.
+        :return: Root Row bound to this facade.
+        :raises IndexError: The wrapper returns an empty chain.
         """
         row_dict_list = self.driver_wrapper.get_linear_row_list(start_row.row_dict)
         return Row(database=self, row_dict=row_dict_list[0])
 
     def get_children(self, src_row):
         """
-        Returns the immediate children of a row.
-        :param src_row:
-        :return:
+        Search the source table for rows whose parent ID equals the source ID.
+
+        No recursive traversal or sibling sorting is performed here.
+
+        Example:
+            For a parent-linked Row, db.get_children(parent) retrieves its direct children.
+
+
+        :param src_row: Parent Row providing its table and identity.
+        :return: List of immediate child Rows in search order.
         """
         src_row_table = src_row.table
         src_row_id = src_row.row_id
@@ -57,23 +82,31 @@ class DatabaseTreeMixin:
 
     def get_linear_row_list(self, start_row):
         """
-        Takes a starting row. Iterates up the tree, making an index of rows as it goes.
-        Starts from the highest entry, then proceeds down.
-        .......... -> grandparent_series -> parent_series -> series
+        Wrap the wrapper parent chain in root-to-start order.
 
-        :param start_row:
-        :return tree_row_index:
+        Example:
+            For root, child and grandchild in one chain, db.get_linear_row_list(grandchild) returns those three Rows in that order.
+
+
+        :param start_row: Starting Row whose row_dict supplies table and identity.
+        :return: List of Rows in wrapper chain order.
         """
         row_dict_list = self.driver_wrapper.get_linear_row_list(start_row.row_dict)
         return [Row(row_dict=r, database=self) for r in row_dict_list]
 
     def get_all_tree_rows(self, start_row, back_iterate=True):
         """
-        if back_iterate - start from a row - walk back up the tree to the root - then  walks back down the tree - adding
-        every row it finds to the row set which it then returns.
-        :param start_row:
-        :param back_iterate:
-        :return:
+        Collect a root or subtree and its descendants using an unordered work set.
+
+        Each popped Row searches its immediate children. Previously visited Rows are not excluded from the work set; cycles can cause nontermination. Requires a finite acyclic parent structure, and Row hashing determines set identity.
+
+        Example:
+            For an acyclic subtree, db.get_all_tree_rows(parent, back_iterate=False) collects parent and its descendants.
+
+
+        :param start_row: Row selecting the tree or subtree.
+        :param back_iterate: Resolve the root first when True; otherwise start at the supplied Row.
+        :return: Set of visited Rows, including the chosen root.
         """
         row_table = start_row.table
         row_parent_column = self.driver_wrapper.get_parent_column(row_table)
@@ -103,9 +136,14 @@ class DatabaseTreeMixin:
 
     def walk(self, start_row):
         """
-        Walk the tree - yielding all the rows as you go.
-        :param start_row:
-        :return:
+        Lazily wrap records produced by the wrapper tree walk.
+
+        Example:
+            For an open db and supported tree Row, for row in db.walk(root): consumes the wrapper traversal without an eager facade list.
+
+
+        :param start_row: Row whose row_dict starts backend traversal.
+        :return: Generator of Rows in backend traversal order.
         """
         start_row_dict = start_row.row_dict
         for table_row_dict in self.driver_wrapper.walk(start_row_dict):
@@ -113,13 +151,17 @@ class DatabaseTreeMixin:
 
     def search_tree(self, root_row, for_ids):
         """
-        Search a tree looking for any of the ids in the for_ids object - if one is found which is in the object return
-        True, else return False.
-        e.g. used when trying to find out if a row is in the tree that's rooted at the root row - for example if you
-        want to find out if a folder is inside another folder.
-        :param root_row: The row to start the search with
-        :param for_ids: Every id in the tree will be checked against this object.
-        :return:
+        Collect requested IDs encountered in the wrapper traversal.
+
+        The whole traversal is consumed rather than stopping at the first match. No ID coercion is applied.
+
+        Example:
+            For a tree rooted at root, db.search_tree(root, {wanted_id}) returns either an empty set or a set containing that ID.
+
+
+        :param root_row: Root Row selecting table and traversal start.
+        :param for_ids: Container used for membership tests against visited IDs.
+        :return: Set of matching IDs, not a boolean.
         """
         root_row_dict = root_row.row_dict
         target_table = root_row.table
@@ -141,11 +183,17 @@ class DatabaseTreeMixin:
     # Todo: What happens when you try and nest a row inside itself? (should fail - might not)
     def nest_rows(self, parent_row, child_rows):
         """
-        Takes a container row and a collection of target_rows. The target_rows are placed inside the container row.
-        :param parent_row: A row in the form of a dict which will end up being the stem for all the rows in
-        target_rows
-        :param child_rows: Either one row, or an iterable of rows
-        :return True/False: Checks against the database and makes sure that the change has been made (optional)
+        Set child parent-column values and update each child record through the wrapper.
+
+        The facade does not validate equal tables, prevent cycles or verify the final structure. A failed update can leave an input Row changed and earlier writes applied.
+
+        Example:
+            For compatible Rows in an acyclic tree, db.nest_rows(parent, [first, second]) assigns the parent ID to each child and writes it.
+
+
+        :param parent_row: Parent Row supplying table, identity and parent-column naming.
+        :param child_rows: Single concrete Row or iterable of child Rows.
+        :return: None; input Rows are mutated before their individual database updates.
         """
         container_table = parent_row.table
         # Deals with the case of child_rows being a single row
@@ -167,9 +215,16 @@ class DatabaseTreeMixin:
 
     def delete_tree(self, parent_row):
         """
-        Removes the tree rooted at the parent_row entirely - all entries in the tree are removed.
-        :param parent_row:
-        :return:
+        Delete only the supplied root Row through the normal facade delete path.
+
+        Descendant deletion depends entirely on configured database cascade rules; the facade does not walk or independently delete child Rows.
+
+        Example:
+            For a schema with cascading parent foreign keys, db.delete_tree(root) relies on those rules to remove descendants after deleting root.
+
+
+        :param parent_row: Root Row to delete.
+        :return: None.
         """
         # Due to the foreign key constraints removing the parent of a bunch of folders should also take out all children
         # of those folders. So deleting the root row should be enough to take out all the folders associated with it

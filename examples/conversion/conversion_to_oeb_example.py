@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """
-Example: convert many supported input formats to OEB (directory + OPF/NCX).
+Dispatch one supported input format to a plugin and export the result as an OEB tree.
+
+The fixed extension map selects input plugins; --list-formats prints its keys.
+Normal execution can delete an existing output tree when --clean-output is set,
+installs a process-global example shim unless disabled, and uses the scratch-setting
+context around conversion/postprocessing/export. The summary inventories resulting
+files, including pre-existing files when cleanup was not requested.
 """
 
 from __future__ import annotations
@@ -70,6 +76,17 @@ _PLUGIN_MAP: dict[str, tuple[str, str]] = {
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse source/output paths, optional format override, cleanup, shim, and logging controls.
+    --list-formats permits omission of both paths. For normal conversion their presence is checked
+    in main, while the parser itself leaves them optional.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Parsed argparse namespace; help and invalid arguments raise SystemExit.
+    """
     parser = argparse.ArgumentParser(description="Convert one input file to OEB")
     parser.add_argument("--input", help="Source file path")
     parser.add_argument("--output-dir", help="Target OEB directory path")
@@ -86,6 +103,22 @@ def parse_args() -> argparse.Namespace:
 
 
 def _build_input_options(plugin) -> SimpleNamespace:
+    """
+    Collect readable plugin recommendations and fill missing example defaults. Iterate
+    plugin.options or an empty list, reading each rec.option.name and recommended_value. Ignore
+    exceptions within an individual record; later duplicate names overwrite earlier values. Defaults
+    are added with setdefault, preserving any supplied value including None. Do not deep-copy
+    recommendations or guard failure to obtain/iterate the options collection.
+
+    Example:
+        >>> options = _build_input_options(SimpleNamespace(options=[]))
+        >>> options.max_levels, options.input_encoding
+        (5, None)
+
+
+    :param plugin: Plugin-like object whose optional options iterable supplies recommendation records.
+    :return: SimpleNamespace of collected recommendations plus missing fixed input defaults.
+    """
     values: dict[str, object] = {}
     for rec in (getattr(plugin, "options", None) or []):
         try:
@@ -111,6 +144,18 @@ def _build_input_options(plugin) -> SimpleNamespace:
 
 
 def _load_plugin(input_format: str):
+    """
+    Look up an exact format key, import its mapped module, and instantiate the class with None. Use
+    the fixed _PLUGIN_MAP without lowercasing or validation here. Missing keys raise KeyError;
+    import, attribute lookup, and constructor failures propagate.
+
+    Example:
+        >>> plugin = _load_plugin("txt")  # doctest: +SKIP
+
+
+    :param input_format: Exact normalized key in the fixed input plugin map.
+    :return: New mapped input-plugin instance.
+    """
     module_name, class_name = _PLUGIN_MAP[input_format]
     module = importlib.import_module(f"LiuXin_alpha.file_formats.conversion.plugins.{module_name}")
     plugin_cls = getattr(module, class_name)
@@ -118,6 +163,25 @@ def _load_plugin(input_format: str):
 
 
 def _normalize_to_oeb(plugin_result, *, result_label: str):
+    """
+    Accept a duck-typed OEB result or load an existing result path and describe that choice. An
+    object exposing both manifest and spine is returned unchanged, without type or content
+    validation, and keeps result_label in its details. Otherwise accept only str or Path: resolve
+    relative paths against the current directory, require existence, and delegate loading to
+    load_oeb_from_opf. Do not expand tildes or require is_file here. Path results always use the
+    opf_path label; every other result type raises TypeError.
+
+    Example:
+        >>> book = SimpleNamespace(manifest=[], spine=[])
+        >>> normalized, details = _normalize_to_oeb(book, result_label="example")
+        >>> normalized is book, details["input_plugin_result"]
+        (True, 'example')
+
+
+    :param plugin_result: Input-plugin return object or OPF path to adapt to the OEB output stage.
+    :param result_label: Description retained only when the result already exposes manifest and spine.
+    :return: Pair of OEB-like object and a dictionary describing object/path origin.
+    """
     if hasattr(plugin_result, "manifest") and hasattr(plugin_result, "spine"):
         return plugin_result, {"input_plugin_result": result_label, "input_plugin_opf_path": None}
     if isinstance(plugin_result, (str, Path)):
@@ -131,6 +195,27 @@ def _normalize_to_oeb(plugin_result, *, result_label: str):
 
 
 def main() -> int:
+    """
+    List configured formats or convert one local input file and print an output inventory.
+    --list-formats prints sorted map keys and returns before path work. Otherwise require both
+    paths, expand/resolve the input, and reject missing/non-file input. Lowercase the explicit
+    format or inferred suffix and require a mapped key. Expand/resolve the output, optionally remove
+    its existing tree, and create the directory before plugin loading.
+
+    Install the example shim unless disabled, build the plugin/recommendations, and pass a binary
+    input stream plus a shared accelerators dictionary into convert. Close that stream, normalize
+    the result, run a callable postprocess_book hook when present, and export with OEBOutput while
+    the scratch setting is active. Afterward report all files under output, a first-40 path preview,
+    plugin name, accelerators, and result-origin details. Existing files can remain when cleanup is
+    off; neither deleted nor partially written outputs are restored after failure. The shim remains
+    installed in this process.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero after printing the report; uncaught parsing, conversion, rendering, and cleanup errors propagate.
+    """
     args = parse_args()
 
     if args.list_formats:
