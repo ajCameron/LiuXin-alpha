@@ -1,10 +1,11 @@
 """
-Export wget discovery controls, its configured HTTP Store, and lookup exception.
+Expose wget discovery controls, the HTTP Store, and the tool-lookup exception.
 
-Exports retain their defining implementation objects, including the shared rate
-preference aliases. Importing the package does not execute wget or open a Store.
-Legacy Location/FileInfo names live in their dedicated compatibility modules.
+Locations and observed file metadata use the shared storage API values.
+The imported implementation owns backend construction and physical operations.
 """
+
+from LiuXin_alpha.ingest.sources.wget_utils import WgetNotInstalledError
 
 from .wget_html_storage_backend import (
     WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT,
@@ -14,7 +15,6 @@ from .wget_html_storage_backend import (
     get_default_crawler_http_requests_per_hour,
     get_default_wget_http_requests_per_hour,
 )
-from .wget_utils import WgetNotInstalledError
 
 __all__ = [
     "WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT",

@@ -1,35 +1,34 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import with_statement
-from __future__ import annotations
-
-import typing as _typing
+from __future__ import annotations, with_statement
 
 import os
 import re
 import sys
-from xml.sax.saxutils import escape
+import typing as _typing
 from string import Formatter
+from xml.sax.saxutils import escape
 
 from lxml import etree
 
 from LiuXin_alpha.constants import iswindows
-
-from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
-from LiuXin_alpha.file_formats.chardet import strip_encoding_declarations
-from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML_NS, XHTML, xml2text, urldefrag
-
+from LiuXin_alpha.file_formats.oeb.base import (
+    XHTML,
+    XHTML_NS,
+    XPath,
+    urldefrag,
+    xml2text,
+)
 from LiuXin_alpha.library.comments import comments_to_html
-
 from LiuXin_alpha.metadata import fmt_sidx
-
-from LiuXin_alpha.utils.mine_types import guess_type
-from LiuXin_alpha.utils.date import strftime
-from LiuXin_alpha.utils.date import is_date_undefined
+from LiuXin_alpha.utils.date import is_date_undefined, strftime
 from LiuXin_alpha.utils.language_tools.icu import sort_key
+from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
+from LiuXin_alpha.utils.libraries.calibre_chardet import strip_encoding_declarations
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.mine_types import guess_type
 from LiuXin_alpha.utils.resources import P
 
 unicode = str

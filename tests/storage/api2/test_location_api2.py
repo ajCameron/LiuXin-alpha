@@ -509,9 +509,8 @@ def test_location_rejects_database_ids_names_and_uuid_strings() -> None:
 
 def test_location_and_bound_facade_have_segregated_explicit_exports() -> None:
     """
-    Verify the value-only compatibility module preserves Location/StoreUUID identity and its exact
-    export list. BoundLocation identity is shared through manager exports, whose declared names must
-    be unique.
+    Verify the public API exposes the canonical Location/StoreUUID values and the manager-owned
+    BoundLocation facade. The manager export list must contain unique names.
 
     Example:
         >>> test_location_and_bound_facade_have_segregated_explicit_exports()  # doctest: +SKIP
@@ -519,12 +518,11 @@ def test_location_and_bound_facade_have_segregated_explicit_exports() -> None:
 
     :return: None after the stated regression assertions pass.
     """
-    from LiuXin_alpha.storage.api import location_api
+    from LiuXin_alpha.storage.api import models
     from LiuXin_alpha.storage.api import storage_manager_api
     from LiuXin_alpha.storage.api.storage_manager_api.location_api import BoundLocation
 
-    assert location_api.Location is api.Location
-    assert location_api.StoreUUID is api.StoreUUID
-    assert location_api.__all__ == ["Location", "StoreUUID"]
+    assert models.Location is api.Location
+    assert models.StoreUUID is api.StoreUUID
     assert storage_manager_api.BoundLocation is BoundLocation is api.BoundLocation
     assert len(storage_manager_api.__all__) == len(set(storage_manager_api.__all__))

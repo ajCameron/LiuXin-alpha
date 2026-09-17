@@ -1,4 +1,10 @@
-"""Canonical table groups used by the FRBR database generator."""
+"""
+Retain legacy relationship constraints, requested columns and type vocabularies.
+
+Mappings include pre-FRBR table names and imported metadata vocabularies. The FRBR
+builder copies legacy constraints per instance, then derives current link options
+from TOML; these dictionaries are not a complete current schema specification.
+"""
 
 
 

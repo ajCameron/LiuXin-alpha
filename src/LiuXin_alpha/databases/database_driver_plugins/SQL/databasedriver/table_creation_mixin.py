@@ -1,8 +1,6 @@
 
 """
-Mixin method to allow the driver to create tables.
-
-Does not include custom column table creation logic - those live in their own mixins.
+Build conventionally named main tables through the driver's script execution helper.
 """
 
 from __future__ import annotations
@@ -14,7 +12,10 @@ from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
 class TableCreationMixin:
     """
-    Mixin to permit the creation of new main tables.
+    Generate main-table DDL with an ID, requested data columns, datestamp and scratch fields.
+
+    Example:
+        ``driver.direct_create_main_table("examples")`` creates the conventional default layout.
     """
     # Todo: Should be creation methods for all types of table
     # Todo: Central registyr on the database for table types
@@ -33,20 +34,20 @@ class TableCreationMixin:
             default_unique: bool = False,
     ) -> None:
         """
-        Create a new main table on the database.
+        Create a conventionally named main table and invalidate schema caches.
 
-        This should rarely, to never, be actually used.
-        :param table_name: Name for the new main table (please obey the naming scheme). Trying to create a table with a
-                           name the same as that of another in the database)
-        :param column_headings: Columns names (in the final table the name of the table _ column name.
-                                The final table with have additional datestamp and scratch columns.
-                                Columns headings should be provided in the form of a dictionary (optionally ordered)
-                                Keyed with the name of the column and valued with the datatype for that column.
-        :param index_on: The columns to also create indexes for - defaults to 'all' - which will generate an index for
-                         all the requested custom columns
-        :param default_datatype: The default datatype what will be used if no other is provided. Defaults to txt.
+        With no headings, create one default data column and its index; only index_on="all" is implemented in that branch. Explicit headings must be a mapping to datatype specification mappings; that branch creates no indexes. default_unique is unused. Trusted names/types become SQL syntax; repeated default creation may fail on the existing index even though the table uses IF NOT EXISTS.
 
-        :return:
+        Example:
+            ``driver.direct_create_main_table("examples", {"name": {"datatype": "TEXT"}})`` creates an example_name column.
+
+
+        :param table_name: Trusted plural table name; its singular form prefixes generated columns.
+        :param column_headings: Optional suffix-to-specification mapping; each spec may contain a ``datatype`` key.
+        :param index_on: Use ``all`` for the default layout; ignored for explicit column specifications.
+        :param default_datatype: Trusted SQL type used for the default column or a spec missing datatype.
+        :param default_unique: Accepted but currently unused; no uniqueness constraint is generated from it.
+        :return: ``None``.
         """
         table_col = plural_singular_mapper(table_name)
 

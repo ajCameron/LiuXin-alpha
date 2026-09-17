@@ -13,10 +13,10 @@ import io
 
 import pytest
 
-from LiuXin_alpha.ingest import ingest_store
+from LiuXin_alpha.ingest.sources.wget_utils import WgetResult
+from LiuXin_alpha.ingest.stores import ingest_store
 from LiuXin_alpha.storage.api import EnumerationCompleteness, StoreReadOnly
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
-from LiuXin_alpha.storage.stores import FilesystemStore
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
     WgetBackendOptions,
     WgetHtmlReadOnlyStorageBackend,
@@ -24,7 +24,7 @@ from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
 from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
     wget_html_storage_backend as backend_module,
 )
-from LiuXin_alpha.ingest.sources.wget_utils import WgetResult
+from LiuXin_alpha.storage.stores import FilesystemStore
 from tests.fixtures.storage_unicode import (
     TORTURED_UNICODE_PATH_CASES,
     UNICODE_FILENAME,
@@ -161,7 +161,7 @@ def test_wget_backend_preserves_unicode_url_names_and_bytes(
     assert store.read_file(info) == UNICODE_PAYLOAD
 
     destination = FilesystemStore(tmp_path / "wget-html-ingest-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -338,7 +338,7 @@ def test_wget_backend_default_rate_limit_is_20_per_minute(monkeypatch) -> None:
 
     monkeypatch.setattr(backend_module, "run_wget", _fake_run_wget)
     store = WgetHtmlReadOnlyStorageBackend(url="https://example.com/")
-    urls = store.crawl_urls(force=True)
+    urls = store.discover_urls(force=True)
 
     assert urls == ["https://example.com/books/one.epub"]
     assert captured_args
@@ -377,7 +377,7 @@ def test_wget_backend_default_rate_limit_reads_preferences(monkeypatch) -> None:
     monkeypatch.setattr(backend_module, "get_default_crawler_http_requests_per_hour", lambda: 300.0)
 
     store = WgetHtmlReadOnlyStorageBackend(url="https://example.com/")
-    store.crawl_urls(force=True)
+    store.discover_urls(force=True)
 
     assert captured_args
     assert "--wait=12.000" in captured_args[0]
@@ -491,7 +491,7 @@ def test_wget_backend_can_disable_rate_limit_wait(monkeypatch) -> None:
         url="https://example.com/",
         options=WgetBackendOptions(max_http_requests_per_hour=0.0),
     )
-    store.crawl_urls(force=True)
+    store.discover_urls(force=True)
 
     assert captured_args
     assert all(not arg.startswith("--wait=") for arg in captured_args[0])
@@ -540,7 +540,7 @@ def test_wget_backend_crawl_filters_scope_and_non_file_urls(monkeypatch) -> None
         options=WgetBackendOptions(max_http_requests_per_hour=None),
     )
 
-    urls = store.crawl_urls(force=True)
+    urls = store.discover_urls(force=True)
     assert urls == [
         "https://example.com/books/one.epub",
         "https://example.com/books/two.mobi",
@@ -590,7 +590,7 @@ def test_wget_backend_crawl_reports_observed_url_decisions(monkeypatch) -> None:
         options=WgetBackendOptions(max_http_requests_per_hour=None),
     )
 
-    urls = store.crawl_urls(force=True, observed_url_callback=observed.append)
+    urls = store.discover_urls(force=True, observed_url_callback=observed.append)
     assert urls == [
         "https://example.com/books/one.epub",
         "https://example.com/books/guide.html",
@@ -685,7 +685,7 @@ def test_wget_backend_crawl_forwards_log_lines(monkeypatch) -> None:
 
     monkeypatch.setattr(backend_module, "run_wget", _fake_run_wget)
     store = WgetHtmlReadOnlyStorageBackend(url="https://example.com/")
-    urls = store.crawl_urls(force=True, log_line_callback=seen_lines.append)
+    urls = store.discover_urls(force=True, log_line_callback=seen_lines.append)
 
     assert urls == ["https://example.com/books/one.epub"]
     assert seen_lines == ["spider: queued https://example.com/books/one.epub"]
@@ -727,7 +727,7 @@ def test_wget_backend_crawl_forwards_discovered_urls_incrementally(monkeypatch) 
 
     monkeypatch.setattr(backend_module, "run_wget", _fake_run_wget)
     store = WgetHtmlReadOnlyStorageBackend(url="https://example.com/")
-    urls = store.crawl_urls(force=True, discovered_url_callback=seen_urls.append)
+    urls = store.discover_urls(force=True, discovered_url_callback=seen_urls.append)
 
     assert urls == [
         "https://example.com/books/one.epub",

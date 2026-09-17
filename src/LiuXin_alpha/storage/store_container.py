@@ -9,10 +9,9 @@ Its configuration and status snapshots can differ from current backend state.
 from __future__ import annotations
 
 import dataclasses
-
 from typing import TYPE_CHECKING
 
-from LiuXin_alpha.databases import Row
+from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.storage.api import StoreAPI, StoreConfiguration, StoreStatus
 from LiuXin_alpha.storage.store_spec_utils import (
     store_configuration_from_row,

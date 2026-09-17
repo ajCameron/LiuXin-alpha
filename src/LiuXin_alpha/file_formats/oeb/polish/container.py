@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
-
-import typing as _typing
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import hashlib
 import logging
@@ -12,6 +15,7 @@ import os
 import re
 import shutil
 import sys
+import typing as _typing
 import unicodedata
 import uuid
 from collections import defaultdict
@@ -21,7 +25,7 @@ from itertools import cycle
 from lxml import etree
 
 try:
-    from cssutils import replaceUrls, getUrls
+    from cssutils import getUrls, replaceUrls
 except ModuleNotFoundError:
     # cssutils is optional; provide a regex-based fallback.
     def _css_text(sheet: _typing.Any) -> bool:
@@ -60,55 +64,60 @@ except ModuleNotFoundError:
             text = text[:pos] + new_link + text[pos + len(link) :]
         return _set_css_text(sheet, text)
 
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.file_formats.conversion.preprocess import (
+    CSSPreProcessor as cssp,
+)
 from LiuXin_alpha.file_formats.conversion.preprocess import (
     HTMLPreProcessor,
-    CSSPreProcessor as cssp,
 )
 from LiuXin_alpha.file_formats.mobi import MobiError
 from LiuXin_alpha.file_formats.mobi.reader.headers import MetadataHeader
 from LiuXin_alpha.file_formats.mobi.tweak import set_cover
 from LiuXin_alpha.file_formats.oeb.base import (
-    serialize,
+    DC11_NS,
     OEB_DOCS,
     OEB_STYLES,
-    OPF2_NS,
-    DC11_NS,
     OPF,
+    OPF2_NS,
     Manifest,
-    rewrite_links,
-    iterlinks,
     itercsslinks,
+    iterlinks,
+    rewrite_links,
+    serialize,
     urlquote,
     urlunquote,
 )
-from LiuXin_alpha.file_formats.oeb.polish.errors import InvalidBook, DRMError
+from LiuXin_alpha.file_formats.oeb.parse_utils import (
+    RECOVER_PARSER,
+    NotHTML,
+    parse_html,
+)
+from LiuXin_alpha.file_formats.oeb.polish.errors import DRMError, InvalidBook
 from LiuXin_alpha.file_formats.oeb.polish.parsing import parse as parse_html_tweak
 from LiuXin_alpha.file_formats.oeb.polish.utils import (
-    PositionFinder,
     CommentFinder,
+    PositionFinder,
     guess_type,
     parse_css,
 )
-from LiuXin_alpha.file_formats.oeb.parse_utils import NotHTML, parse_html, RECOVER_PARSER
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
+from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
-from LiuXin_alpha.utils.storage.local import CurrentDir
-from LiuXin_alpha.utils.storage.local.filenames import nlinks_file, hardlink_file
+# Py2/Py3 compatability layer
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.libraries.liuxin_six import six_zip
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.ptempfiles import (
     PersistentTemporaryDirectory,
     PersistentTemporaryFile,
 )
-from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
-
-# Py2/Py3 compatability layer
-from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.libraries.liuxin_six import six_zip
-from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.storage.local import CurrentDir
+from LiuXin_alpha.utils.storage.local.filenames import hardlink_file, nlinks_file
 
 try:
-    from LiuXin_alpha.utils.ipc.simple_worker import fork_job, WorkerError
+    from LiuXin_alpha.utils.ipc.simple_worker import WorkerError, fork_job
 except ModuleNotFoundError:
     class WorkerError(RuntimeError):
         def __init__(self: _typing.Self, message: _typing.Any, orig_tb: _typing.Any = None) -> None:
@@ -1453,7 +1462,10 @@ def do_explode(path: _typing.Any, dest: _typing.Any) -> tuple[_typing.Any, ...]:
 
 
 def opf_to_azw3(opf: _typing.Any, outpath: _typing.Any, container: _typing.Any) -> None:
-    from LiuXin_alpha.customize.ui import plugin_for_input_format, plugin_for_output_format
+    from LiuXin_alpha.customize.ui import (
+        plugin_for_input_format,
+        plugin_for_output_format,
+    )
     from LiuXin_alpha.file_formats.conversion.plumber import Plumber, create_oebbook
 
     class Item(Manifest.Item):

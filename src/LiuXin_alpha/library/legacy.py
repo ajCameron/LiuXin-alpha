@@ -1,45 +1,42 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
-from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
 import traceback
 import types
 import warnings
 
-from LiuXin_alpha.databases import (
+from LiuXin_alpha.databases.adaptors import clean_identifier, get_series_values
+from LiuXin_alpha.databases.utils import (
     _get_next_series_num_for_list,
     _get_series_values,
+    cleanup_tags,
     get_data_as_dict,
 )
-from LiuXin_alpha.databases.adaptors import clean_identifier, get_series_values
+from LiuXin_alpha.exceptions import NoSuchFormat
+from LiuXin_alpha.folder_stores.location import Location
 from LiuXin_alpha.ingest.adding import (
-    find_books_in_directory,
-    import_book_directory_multiple,
-    import_book_directory,
-    recursive_import,
     add_catalog,
     add_news,
+    find_books_in_directory,
+    import_book_directory,
+    import_book_directory_multiple,
+    recursive_import,
 )
 from LiuXin_alpha.library.backend import DB
 from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
+from LiuXin_alpha.library.caches.calibre.view import CalibreView
+from LiuXin_alpha.metadata import validate_identifier
 from LiuXin_alpha.surfaces.categories import CATEGORY_SORTS
-from LiuXin_alpha.exceptions import NoSuchFormat
-from LiuXin_alpha.folder_stores.location import Location
 from LiuXin_alpha.utils.calibre import force_unicode
 from LiuXin_alpha.utils.date import utcnow
 from LiuXin_alpha.utils.icu import lower as icu_lower
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 from LiuXin_alpha.utils.logger import default_log
 from LiuXin_alpha.utils.search_query_parser import set_saved_searches
-from LiuXin_alpha.library.caches.calibre.view import CalibreView
-from LiuXin_alpha.metadata import validate_identifier
-from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
-
-from LiuXin_alpha.databases.utils import cleanup_tags
-
 from past.builtins import basestring
-
 
 # In the nicest possible way, yet another ------- database interface.
 # Built on the backend, which is, in turn, built on the database.

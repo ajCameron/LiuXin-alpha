@@ -10,15 +10,15 @@ for header inspection or empty reads, or prove exhaustive confidentiality.
 
 from __future__ import annotations
 
-import hashlib
 import dataclasses
+import hashlib
 import os
 
 import pytest
 
-from LiuXin_alpha.ingest import ingest_store
+from LiuXin_alpha.ingest.stores import ingest_store
 from LiuXin_alpha.storage import api
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.stores import (
     EncryptedStore,
     FilesystemStore,
@@ -27,8 +27,8 @@ from LiuXin_alpha.storage.stores import (
 from tests.fixtures.storage_unicode import (
     POSIX_BAD_BYTES_FILENAME,
     POSIX_BAD_BYTES_PAYLOAD,
-    StoragePathCase,
     TORTURED_UNICODE_PATH_CASES,
+    StoragePathCase,
 )
 from tests.storage.contracts.unicode_paths import exercise_unicode_path_case
 
@@ -303,7 +303,7 @@ def test_store_ingest_reads_from_and_publishes_to_encrypted_stores(tmp_path) -> 
         key_provider=_provider(),
         chunk_size=4096,
     )
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )

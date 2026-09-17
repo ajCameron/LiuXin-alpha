@@ -47,8 +47,7 @@ interpretation of placement rules.
 
 ## Storage CLI
 
-`surfaces/cli/storage.py` is an explicit import-compatibility boundary. Its
-`storage_commands` package owns:
+`surfaces/cli/storage_commands` contains the concrete CLI owners:
 
 - `parsers` and `parser_*`: command-family registration, split into individual
   command builders while preserving help and option order;

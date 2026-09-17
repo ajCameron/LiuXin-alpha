@@ -7,11 +7,13 @@ from __future__ import annotations
 import os
 from typing import BinaryIO
 
-from LiuXin_alpha.metadata.metadata import MetaData as Metadata
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as Metadata,
+)
 from LiuXin_alpha.metadata.utils import string_to_authors
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
-from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Ashish Kulkarni <kulkarni.ashish@gmail.com>"

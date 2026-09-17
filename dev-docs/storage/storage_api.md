@@ -830,13 +830,11 @@ as `StorageManagerAPI`: Store administration and routing first; Asset ingest,
 retrieval, and Replica lifecycle next; higher-level links, Composites,
 derivations, and policy after that; reconciliation and operational status last.
 Private state and support mixins hold only genuinely cross-cutting mechanics.
-`storage/storage_manager/manager.py` is the small composition and compatibility
-root.
+`storage/storage_manager/manager.py` is the small composition root.
 
 `TransientStorageManager` implements the complete facade for focused contract
-tests and deliberately disposable one-shot work. The former
-`InMemoryStorageManager` spelling is a compatibility alias. The production
-manager does not inherit from it. See `storage_component_status.md` for the
+tests and deliberately disposable one-shot work. The production manager does
+not inherit from it. See `storage_component_status.md` for the
 runtime composition and remaining production checklist.
 
 ### Starting a manager

@@ -9,30 +9,29 @@ this module provides endpoint binding, names and compatibility forwarding.
 from __future__ import annotations
 
 import abc
-
-from typing import TYPE_CHECKING, Union, TypeVar, Optional, Sequence
+from typing import TYPE_CHECKING, Optional, Sequence, TypeVar, Union
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field_api import (
     RelationFieldBasicInterfaceAPI,
 )
-
-from LiuXin_alpha.caches.updates.field_updates import ManyOneInTwoTableFieldUpdate
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.util_mixins import (
-    IndividualLinkProperties)
+    IndividualLinkProperties,
+)
+from LiuXin_alpha.caches.updates.field_updates import ManyOneInTwoTableFieldUpdate
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
-    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
-        StorageStorageCacheSingleTableAPI,
-    )
     from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.many_one_tables_api import (
         StorageCacheManyToOneLinkTable,
     )
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
+        StorageCacheSingleTableAPI,
+    )
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.db_types import (
-        MainTableName,
+        InterlinkExtraTypes,
         MainTableColumnName,
         MainTableID,
-        InterlinkExtraTypes,
+        MainTableName,
     )
 
 T = TypeVar("T")
@@ -53,8 +52,8 @@ class ManyToOneFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     """
 
     # Many-to-one fields have many entries in one table and one entry in another.
-    src_table: "StorageStorageCacheSingleTableAPI"
-    dst_table: "StorageStorageCacheSingleTableAPI"
+    src_table: "StorageCacheSingleTableAPI"
+    dst_table: "StorageCacheSingleTableAPI"
 
     # We key by a src id column and cache values from this dst column.
     src_table_id_col: MainTableColumnName
@@ -67,9 +66,9 @@ class ManyToOneFieldAPI(RelationFieldBasicInterfaceAPI[T]):
 
     def __init__(
         self,
-        src_table: Union["StorageStorageCacheSingleTableAPI", MainTableName],
+        src_table: Union["StorageCacheSingleTableAPI", MainTableName],
         src_table_id_col: MainTableColumnName,
-        dst_table: Union["StorageStorageCacheSingleTableAPI", MainTableName],
+        dst_table: Union["StorageCacheSingleTableAPI", MainTableName],
         dst_table_cache_col: MainTableColumnName,
         db: "DatabaseAPI",
     ) -> None:
@@ -105,8 +104,8 @@ class ManyToOneFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     @abc.abstractmethod
     def get_link_table(
         self,
-        src_table: Union["StorageStorageCacheSingleTableAPI", MainTableName],
-        dst_table: Union["StorageStorageCacheSingleTableAPI", MainTableName],
+        src_table: Union["StorageCacheSingleTableAPI", MainTableName],
+        dst_table: Union["StorageCacheSingleTableAPI", MainTableName],
     ) -> "StorageCacheManyToOneLinkTable":
         """
         Resolve the many-to-one link cache connecting the endpoints.

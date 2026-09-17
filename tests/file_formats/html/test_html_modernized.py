@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib
 import types
-
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -98,7 +97,7 @@ def test_html_output_generate_html_toc_smoke(tmp_path: Path) -> None:
 
 
 def test_liuxin_templite_basic_render() -> None:
-    from LiuXin_alpha.utils.liuxin_templite import Templite
+    from LiuXin_alpha.utils.libraries.liuxin_templite import Templite
 
     t = Templite("Hello ${name}$")
     assert t.render(name="World") == "Hello World"
@@ -185,3 +184,13 @@ def test_html_output_convert_end_to_end_smoke(tmp_path: Path) -> None:
     assert "smoke_html_output_files/calibreHtmlOutBasicCss.css" in names
     assert "smoke_html_output_files/text/ch1.xhtml" in names
     assert "smoke_html_output_files/styles/main.css" in names
+
+
+def test_html_zip_plugin_reports_unavailable_gui() -> None:
+    """Keep the existing headless failure explicit without importing GUI stubs."""
+    import pytest
+
+    from LiuXin_alpha.file_formats.html.to_zip import HTML2ZIP
+
+    with pytest.raises(RuntimeError, match="GUI conversion is unavailable"):
+        HTML2ZIP(None).run("book.html")

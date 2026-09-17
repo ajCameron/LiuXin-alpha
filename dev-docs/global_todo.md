@@ -3,7 +3,7 @@
 - Break the seven modern import-cycle components recorded in
   [maintainability-quality-gates.md](maintainability-quality-gates.md), then
   extract bounded services from `core/program_api.py` and
-  `surfaces/cli/storage.py` before widening the strict ratchet.
+  `surfaces/cli/storage_commands` before widening the strict ratchet.
 - Consolidate duplicate full-suite CI ownership, replace the compile-only
   `lint` label, and add a developer-documentation index.
 - Decide whether we want `python-event-bus` for a unified event system.

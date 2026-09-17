@@ -1,27 +1,29 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
-
-import typing as _typing
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import codecs
-import shutil
 import os
 import posixpath
-from urllib.parse import urlparse
+import shutil
+import typing as _typing
 from collections import Counter, defaultdict
+from urllib.parse import urlparse
 
-from LiuXin_alpha.file_formats.chardet import strip_encoding_declarations
-
-from LiuXin_alpha.utils.storage.local.filenames import sanitize_file_name_unicode
-
-from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.libraries.calibre_chardet import strip_encoding_declarations
 
 # Py2/Py3 compatability layer
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.storage.local.filenames import sanitize_file_name_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -198,9 +200,9 @@ def replace_file(container: _typing.Any, name: _typing.Any, path: _typing.Any, b
 
 def mt_to_category(container: _typing.Any, mt: _typing.Any) -> _typing.Any:
 
-    from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
-    from LiuXin_alpha.file_formats.oeb.polish.container import OEB_FONTS
     from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, OEB_STYLES
+    from LiuXin_alpha.file_formats.oeb.polish.container import OEB_FONTS
+    from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
 
     if mt in OEB_DOCS:
         category = "text"

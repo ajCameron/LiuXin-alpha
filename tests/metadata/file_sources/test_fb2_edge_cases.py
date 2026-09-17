@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.metadata.metadata import MetaData
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaData,
+)
 from LiuXin_alpha.metadata.utils import calibreMetaInformation
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
@@ -265,9 +267,8 @@ def test_fb2_apply_null_write_clears_existing_fields() -> None:
 
 
 def test_fb2_set_metadata_cover_and_single_name_author_paths(monkeypatch) -> None:
-    from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
-
     import LiuXin_alpha.metadata.file_sources.fb2 as fb2
+    from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
 
     monkeypatch.setattr(fb2, "identify", lambda _payload: ("png", None))
     monkeypatch.setattr(fb2, "_rnd_pic_file_name", lambda prefix="cover", size=32, ext="png": f"{prefix}.{ext}")

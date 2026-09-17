@@ -4,11 +4,7 @@ Define mutable reports shared by legacy file registration and SquashFS publicati
 Report construction validates neither identity nor counter consistency. Timestamps
 use wall-clock epoch milliseconds, and duration can be negative after a clock change.
 to_dict recursively copies fields and adds duration without serializing to JSON.
-StoreDbSyncReport preserves the UnmanagedDiskRegistrationReport class identity.
 
-Example:
-    >>> StoreDbSyncReport is UnmanagedDiskRegistrationReport
-    True
 """
 
 from __future__ import annotations
@@ -42,7 +38,7 @@ class UnmanagedDiskRegistrationReport:
 
     Fields are accepted without validating identities, timestamps, or counter consistency. Callbacks
     may observe and mutate the live report. Counters describe workflow observations and writes, not
-    one committed transaction. StoreDbSyncReport is an alias of this class.
+    one committed transaction.
 
     Example:
         >>> UnmanagedDiskRegistrationReport(1, '/books', 'Books').duration_seconds is None
@@ -295,12 +291,10 @@ class SquashfsArchivePublishReport:
         return payload
 
 
-StoreDbSyncReport = UnmanagedDiskRegistrationReport
 
 
 __all__ = [
     "UnmanagedDiskRegistrationReport",
     "SquashfsDesignationReport",
     "SquashfsArchivePublishReport",
-    "StoreDbSyncReport",
 ]

@@ -1,18 +1,14 @@
 """
-Export the configured RAR read-only member Store through its plugin package.
+Expose the read-only RAR member Store.
 
-RarReadOnlyStoreLocation is the shared Location class, retained as a compatibility
-alias rather than a format-specific subclass. Driver construction and member
-validation belong to RarReadOnlyStorageBackend and its raw archive driver.
+Locations and observed file metadata use the shared storage API values.
+The imported implementation owns backend construction and physical operations.
 """
 
-from LiuXin_alpha.storage.api import Location
 from LiuXin_alpha.storage.store_backend_plugins.archive_backends import (
     RarReadOnlyStorageBackend,
 )
 
-
-RarReadOnlyStoreLocation = Location
-
-
-__all__ = ["RarReadOnlyStorageBackend", "RarReadOnlyStoreLocation"]
+__all__ = [
+    "RarReadOnlyStorageBackend",
+]

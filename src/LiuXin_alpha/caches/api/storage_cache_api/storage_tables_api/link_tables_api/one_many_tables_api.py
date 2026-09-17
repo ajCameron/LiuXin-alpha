@@ -10,25 +10,24 @@ from __future__ import annotations
 
 import abc
 import dataclasses
+from typing import TYPE_CHECKING, Any, Optional, Sequence
 
-from typing import Optional, TYPE_CHECKING, Sequence, Any
-
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.link_table_base import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.link_table_base_api import (
     StorageCacheLinkTableBaseAPI,
 )
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.db_types import (
-        InterlinkTableID,
-        SrcTableID,
-        DstTableID,
-        TableColumnName,
-    )
     from LiuXin_alpha.caches.updates.table_updates import (
         OneManyInterlinkTableUpdate,
         OneManyInterLinkTableUpdateResults,
     )
-    from LiuXin_alpha.databases.api.row_api import RowAPI, InterlinkRowAPI
+    from LiuXin_alpha.databases.api.row_api import InterlinkRowAPI, RowAPI
+    from LiuXin_alpha.databases.db_types import (
+        DstTableID,
+        InterlinkTableID,
+        SrcTableID,
+        TableColumnName,
+    )
 
 
 @dataclasses.dataclass(slots=True)

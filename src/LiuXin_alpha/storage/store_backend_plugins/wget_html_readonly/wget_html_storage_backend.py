@@ -24,7 +24,7 @@ from LiuXin_alpha.ingest.sources.wget_html import (
 from LiuXin_alpha.storage.stores.http import HttpReadOnlyStore
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
-from .wget_utils import run_wget
+from LiuXin_alpha.ingest.sources.wget_utils import run_wget
 
 
 class WgetHtmlReadOnlyStorageBackend(HttpReadOnlyStore, WgetHtmlDiscoverySource):

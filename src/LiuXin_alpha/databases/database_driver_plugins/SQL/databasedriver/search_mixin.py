@@ -1,11 +1,8 @@
 
 """
-Methods to directly search the database.
+Query SQL rows by ID, equality or compound conditions and expose sentinel-row helpers.
 
-These include methods to
- - get exact matches based off ID
- - get random rows (random selection is a form of search - just a bad one)
- - fuzzy search is not low enough level to be included here (for now)
+Locational search remains unfinished. Methods differ in buffering and connection ownership; their individual contracts describe those differences.
 """
 
 from __future__ import annotations
@@ -28,16 +25,26 @@ from LiuXin_alpha.constants import VERBOSE_DEBUG
 
 class SearchMixin:
     """
-    Mixin for the search system.
+    Provide searches using host schema introspection and typed row conversion.
+
+    Example:
+        ``driver.direct_get_row_dict_from_id("books", 3)`` retrieves a row or ``False``.
     """
 
     @staticmethod
     def _coerce_search_text(value: Any) -> str:
         """
-        Gives you back a Unicode string for use in database searches.
+        Decode byte-like inputs as UTF-8 and coerce other values to Unicode.
 
-        :param value:
-        :return:
+        Invalid UTF-8 raises InputIntegrityError with the decoding exception as its cause.
+
+        Example:
+            >>> SearchMixin._coerce_search_text(memoryview(b"book"))
+            'book'
+
+
+        :param value: Search value; bytes, bytearray and memoryview require valid UTF-8.
+        :return: The decoded or coerced string.
         """
         if isinstance(value, (bytes, bytearray, memoryview)):
             try:
@@ -53,11 +60,17 @@ class SearchMixin:
             target_table: str,
             direct: bool = False) -> Optional[dict[str, Any]]:
         """
-        Returns a random row_dict from the specified table.
+        Pick a random row using SQLite RANDOM or rejection sampling over positive IDs.
 
-        :param target_table:
-        :param direct:
-        :return:
+        The default repeatedly samples IDs from 1 to the maximum and reseeds Python's global RNG. Sparse IDs can be slow; tables without positive integer IDs are unsuitable. A non-convertible null maximum returns None.
+
+        Example:
+            ``driver.direct_get_random_row_dict("books", direct=True)`` asks SQLite to select a row.
+
+
+        :param target_table: Existing table name to query.
+        :param direct: Use ORDER BY RANDOM rather than retrying random positive IDs.
+        :return: A converted row dictionary, or ``None`` for an empty table.
         """
         conn = self.get_connection()
         c = conn.cursor()
@@ -110,14 +123,18 @@ class SearchMixin:
             sort_column: Optional[str] = None,
             reverse: bool = False) -> list[dict[str, Any]]:
         """
-        Returns all rows from a given table in the database in the form of an index of row_dicts.
+        Load every row into memory, optionally ordering by a validated column.
 
-        # Todo: Try and fix this
-        Should only be used with small tables. Otherwise the memory cost is prohibitive.
-        :param table: Yield the rows from this table
-        :param sort_column: Sort the rows by the values in this column
-        :param reverse: Should the order of the rows be reversed?
-        :return:
+        Close the query connection after successful iteration. Use only when materializing the whole table is acceptable.
+
+        Example:
+            ``driver.direct_get_all_rows("books", sort_column="book_id", reverse=True)`` orders by descending ID.
+
+
+        :param table: Table name resolved by the host driver.
+        :param sort_column: Optional column belonging to the table; ``None`` adds no ORDER BY.
+        :param reverse: Use descending order when a sort column is supplied; otherwise ignored.
+        :return: A list of converted row dictionaries.
         """
         conn = self.get_connection()
         c = conn.cursor()
@@ -160,18 +177,18 @@ class SearchMixin:
             reverse: bool = False
     ) -> Iterator[dict[str, Any]]:
         """
-        Provides an iterator which returns all the rows in a specified table in the form of row_dicts. Ordered by id
+        Yield positive-ID rows in ascending ID order using ten-row queries.
 
-        Note:
-            This iterator intentionally skips any required sentinel/null row (commonly id=0) used
-            by some calibre-compatible tables. The chunked SELECT uses `WHERE <id_col> > start_id_value`
-            and starts at start_id_value=0, so the first chunk is `> 0`.
-            If you need the sentinel row, fetch it explicitly (e.g. `direct_get_row_dict_from_id(table, 0)`).
+        Each chunk is buffered and its connection closed before yielding. IDs at or below zero are excluded, and concurrent changes can affect later chunks. A supplied sort column is validated then raises NotImplementedError; reverse is unused.
 
-        :param table: Get an iterator for all the rows in this table.
-        :param sort_column: The column the table should be sorted by
-        :param reverse: Should the order of the rows be reversed?
-        :return:
+        Example:
+            ``list(driver.direct_get_row_dict_iterator("books"))`` omits a sentinel row with ID zero.
+
+
+        :param table: Table name resolved by the host driver.
+        :param sort_column: Accepted column name; non-null values currently select an unsupported ordering mode.
+        :param reverse: Accepted but ignored; traversal always uses ascending IDs.
+        :return: An iterator of converted row dictionaries.
         """
         table = force_unicode(table)
         table_id_column = self.direct_get_id_column(table)
@@ -226,10 +243,14 @@ class SearchMixin:
 
     def direct_get_unique_values_set(self, target_column: str) -> set[str]:
         """
-        Returns a set of the unique values in a column.
+        Collect distinct column values into a set and close the connection on success.
 
-        :param target_column:
-        :return values_set: A set of all the unique values in that column
+        Example:
+            ``driver.direct_get_unique_values_set("book_title")`` includes ``None`` if SQL NULL occurs.
+
+
+        :param target_column: Trusted column name whose table is inferred by the driver.
+        :return: The set of raw distinct values, without string coercion.
         """
         target_table = self.direct_identify_table_from_column(column_heading=target_column)
         stmt = "SELECT DISTINCT {} FROM {};".format(target_column, target_table)
@@ -244,11 +265,16 @@ class SearchMixin:
 
     def direct_get_unique_values_iterator(self, target_column: str) -> Iterator[str]:
         """
-        Iterates over the unique values in a column.
+        Yield from a fully materialized set of distinct values.
 
-        Helps to keep memory usage down when dealing with very large tables.
-        :param target_column:
-        :return:
+        This interface is an iterator but still loads all unique values before the first yield; ordering is unspecified.
+
+        Example:
+            ``iter(driver.direct_get_unique_values_iterator("book_title"))`` iterates deduplicated values.
+
+
+        :param target_column: Trusted column name whose table is inferred by the driver.
+        :return: An iterator over the raw distinct values.
         """
         # Needs to sort the table after every retrieval - so will be very slow for large databases
         # Todo: Come back and optimize/make this work
@@ -261,12 +287,17 @@ class SearchMixin:
 
     def direct_get_row_dict_from_id(self, table: str, row_id: int) -> Optional[dict[str, Any]] | bool:
         """
-        Attempts to get a specific row from the table give.
+        Bind a text-coerced ID and require at most one matching row.
 
-        Returns the result as a dictionary kweyed with the column name and valued with the values from that row.
-        :param table: The table to search in
-        :param row_id: The id this function will be looking for
-        :return row/False: The requested Row. False if nothing is found.
+        Multiple matches raise DatabaseIntegrityError; SQLite InterfaceError becomes DatabaseDriverError. Normal found/missing results close the connection.
+
+        Example:
+            ``driver.direct_get_row_dict_from_id("books", 0)`` can retrieve a sentinel row explicitly.
+
+
+        :param table: Table name resolved by the host driver.
+        :param row_id: ID converted to Unicode before binding to the query.
+        :return: The converted row dictionary, or ``False`` if absent.
         """
         table = force_unicode(table)
         row_id = force_unicode(row_id)
@@ -315,15 +346,14 @@ class SearchMixin:
 
     def direct_has_null_row(self, table: str) -> bool:
         """
-        Return True if the table contains a sentinel/null row at id=0.
+        Check for an ID-zero sentinel in a validated table and always close the query connection.
 
-        Some calibre-compatible tables reserve an explicit row with primary-key
-        value 0 (often with most fields NULL) to represent a missing/unknown
-        reference. Contract tests treat this row as *categorically different*
-        from "real" rows.
+        Example:
+            ``driver.direct_has_null_row("books")`` tests for the sentinel independently of other row values.
 
-        :param table:
-        :return:
+
+        :param table: Table name resolved by the host driver.
+        :return: Whether a row with ID zero exists.
         """
         table = force_unicode(table)
         if not self.direct_validate_existing_table_name(table):
@@ -341,10 +371,16 @@ class SearchMixin:
 
     def direct_get_null_row(self, table: str) -> Optional[dict[str, Any]] | bool:
         """
-        Fetch the sentinel/null row at id=0, or False if none exists.
+        Check for and fetch the ID-zero row using separate queries.
 
-        :param table:
-        :return:
+        A concurrent deletion between the queries can still produce False.
+
+        Example:
+            ``driver.direct_get_null_row("books")`` fetches the sentinel if present.
+
+
+        :param table: Table name resolved by the host driver.
+        :return: The sentinel row dictionary, or ``False`` if absent.
         """
         table = force_unicode(table)
         if not self.direct_has_null_row(table):
@@ -358,12 +394,18 @@ class SearchMixin:
             updates: Optional[dict[str, Any]] = None,
             **fields: Any) -> bool:
         """
-        Update the sentinel/null row (id=0) with the provided fields.
+        Merge updates and delegate a sentinel-row update to the row writer.
 
-        :param table: Target table.
-        :param updates: Optional mapping of column -> value.
-        :param fields: Convenience keyword arguments (merged over ``updates``).
-        :raises InputIntegrityError: if the table has no null row.
+        Missing sentinels raise InputIntegrityError. Keyword fields mutate an input dict in place and win over its values. Supplied ID-column updates also override the initial zero, so callers must omit that column to target the sentinel.
+
+        Example:
+            ``driver.direct_update_null_row("books", {"book_title": "Unknown"})`` updates an existing sentinel.
+
+
+        :param table: Table name resolved by the host driver.
+        :param updates: Optional dict or dict-convertible pairs of column/value updates.
+        :param fields: Column/value keyword overrides merged into the updates mapping.
+        :return: ``True`` after the update helper returns.
         """
         table = force_unicode(table)
         if updates is None:
@@ -383,9 +425,15 @@ class SearchMixin:
 
     def direct_get_all_hashes(self) -> set[str]:
         """
-        Returns a set of all hashes in the database.
+        Union non-null values from recognized hash columns across supported tables.
 
-        :return:
+        Skip tables whose headings cannot be read; value-query failures propagate. Empty strings and other non-null values are retained.
+
+        Example:
+            ``driver.direct_get_all_hashes()`` collects file, compressed-file, new-book and legacy hash values.
+
+
+        :return: A set of discovered non-null hash values.
         """
         candidate_columns_by_table = {
             "files": ("file_hash", "file_hash_sha256", "file_hash_blake3"),
@@ -412,11 +460,17 @@ class SearchMixin:
     # Todo - heavy abuse of typing can probably get this into a better place type wise
     def direct_get_all_values(self, table: str, column: str) -> set[Any]:
         """
-        Returns a set of all values in the given column in the given table.
+        Collect a column's raw values into a set, inferring the table when omitted.
 
-        :param table: The table to be searched
-        :param column: The column in that table
-        :return:
+        Identifiers are interpolated and must be trusted. This helper does not explicitly close its acquired connection.
+
+        Example:
+            ``driver.direct_get_all_values("books", "book_title")`` includes SQL NULL as ``None``.
+
+
+        :param table: Trusted table name, or ``None`` to infer it from the column.
+        :param column: Column name to read or match.
+        :return: A set of raw values, including ``None`` when present.
         """
         if table is not None:
             table = deepcopy(force_unicode(table))
@@ -440,16 +494,19 @@ class SearchMixin:
             table: Optional[str] = None,
             bindings: Optional[tuple[str, ...]] = None) -> None:
         """
-        Yield row dicts for a pre-built SQL statement.
+        Execute supplied SQL lazily and yield converted row dictionaries.
 
-        When `table` is provided, values are coerced using declared column types
-        (see :class:`~LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.value_casting_mixin.ValueCastingMixin`).
+        A table enables declared-type conversion. The connection closes in finally when exhausted, explicitly closed or interrupted by an exception; abandoning a live generator can retain it.
 
-        :param stmt:
-        :param headings:
-        :param table:
-        :param bindings:
-        :return:
+        Example:
+            ``rows = driver.direct_iterator_return("SELECT book_id FROM books", ["book_id"], "books")`` creates a lazy query.
+
+
+        :param stmt: Trusted SQL statement to execute.
+        :param headings: Reusable ordered column-name iterable matching each result row.
+        :param table: Optional table context for declared-type conversion.
+        :param bindings: Optional parameter sequence passed unchanged to execute.
+        :return: A generator of row dictionaries despite the None annotation.
         """
         conn = self.get_connection()
         c = conn.cursor()
@@ -475,13 +532,18 @@ class SearchMixin:
             search_term: Optional[str] = None
     ) -> list[dict[str, Any]]:
         """
-        Searches a specified column in a table by the given search term.
+        Find exact matches for a bound text search term in a validated column.
 
-        Returns an empty index if no results are found.
-        :param table: The table to search (can be unspecified - but don't want to break backwards compatibility
-        :param column: The column to search in
-        :param search_term: The string to search with
-        :return results: An index of row_dicts
+        The table must validate and the column must be a known simple identifier. Although table defaults to None, this implementation never infers it; callers should supply it. Malformed requests and SQLite operational errors raise InputIntegrityError.
+
+        Example:
+            ``driver.direct_search_table("books", "book_title", "Example")`` performs equality matching.
+
+
+        :param table: Table name resolved by the host driver.
+        :param column: Column name to read or match.
+        :param search_term: Non-null value coerced to text; byte-like inputs must be UTF-8.
+        :return: Converted matching rows, or an empty list.
         """
         if (table is not None) and (column is not None) and (search_term is not None):
             try:
@@ -556,19 +618,17 @@ class SearchMixin:
             iterator_return: bool = False
     ) -> Optional[Union[Iterator[dict[str, Any]], list[dict[str, Any]]]]:
         """
-        Takes an index of tuples (or indexes - the method is not fussy provided it contains the required terms).
+        AND together same-table comparison triples using bound values.
 
-        Which can then be used to search the database.
-        Tuples should take the form (column_name, binary_comparison_operator, target_value).
-        Binary comparison operators can include the LIKE operator.
-        Every tuple is joined together by an AND statement.
-        Will currently fail unless every row is in the same table.
-        Thus [(u'creator', u'=', u'David Weber'),(u'series',u'=',u'Honor Harrington')] becomes
-        SELECT * FROM `creators` * WHERE creator = 'David Weber' AND series = 'Honor Harrington';
-        :param search_index:
-        :param iterator_return: Should an iterator leading to the database be returned? Default: False - in which case
-        result is returned as an index
-        :return found_rows:
+        Normalize NULL equality/inequality and support iterable IN values; empty/None IN matches nothing. Columns and operators must be trusted because they become SQL syntax. Some SQL-looking scalar text values are rejected even though bound. Empty input returns None normally but raises in verbose-debug mode. The iterator branch leaves its preparatory connection unclosed and delegates query ownership to a generator.
+
+        Example:
+            ``driver.direct_multi_column_search([("book_id", "IN", [1, 2])])`` matches either ID.
+
+
+        :param search_index: Sized sequence of (column, operator, value) triples belonging to one inferred table.
+        :param iterator_return: Return a lazy query generator instead of materializing matching rows.
+        :return: A list or lazy row iterator, or ``None`` for empty input outside verbose-debug mode.
         """
         if len(search_index) == 0:
             if VERBOSE_DEBUG:
@@ -700,10 +760,16 @@ class SearchMixin:
     # 4) Should end up with something which is semantically identical to the initial query, before it was parsed
     def direct_locational_search(self, parsed_query):
         """
-        Takes an index parsed from a search query - builds an appropriate search query from that parsed query and
-        executes it on the database.
-        :param parsed_query: A query parsed by the SearchQueryParser.
-        :return:
+        Inspect a copied parsed-query tree through an unfinished transformation path.
+
+        No database search is executed. A string input is only logged; a transformable tree raises NotImplementedError at the disabled replacement step, and malformed trees may fail earlier.
+
+        Example:
+            ``driver.direct_locational_search("already transformed")`` logs the string and returns.
+
+
+        :param parsed_query: Search-parser tree or pretransformed Unicode query, copied before inspection.
+        :return: ``None`` for an already-string query; tree processing does not complete.
         """
         parsed_query = deepcopy(parsed_query)
         locations = self.locations
@@ -751,10 +817,19 @@ class SearchMixin:
     @staticmethod
     def can_index_be_transformed(target_index) -> bool:
         """
-        Tests to see if an index can be transformed into pure string form.
+        Check for an iterable triple with non-iterable second and third elements.
 
-        :param target_index:
-        :return:
+        Wrong-length iterables raise InputIntegrityError. Strings count as iterable, so text operands do not satisfy this legacy predicate.
+
+        Example:
+            >>> SearchMixin.can_index_be_transformed(["token", 1, 2])
+            True
+            >>> SearchMixin.can_index_be_transformed(["token", "books", "name"])
+            False
+
+
+        :param target_index: Sized, indexable candidate triple, or a non-iterable value.
+        :return: Whether the triple passes this structural test.
         """
         if not hasattr(target_index, "__iter__"):
             return False
@@ -772,10 +847,17 @@ class SearchMixin:
     @staticmethod
     def transform_index(target_index):
         """
-        Takes an index - transforms it into intermediate form.
+        Render a token, OR or AND triple as intermediate query text.
 
-        :param target_index:
-        :return:
+        Operands are concatenated without escaping or SQL execution; unknown operators raise LogicalError.
+
+        Example:
+            >>> SearchMixin.transform_index(["token", "books", "Example"])
+            'books:"Example"'
+
+
+        :param target_index: Indexable triple of operator and two string operands.
+        :return: The formatted intermediate string.
         """
 
         if target_index[0] == "token":

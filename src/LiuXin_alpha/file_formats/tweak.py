@@ -1,22 +1,26 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-import typing as _typing
-
-import sys
 import os
 import shlex
-import subprocess
 import shutil
+import subprocess
+import sys
+import typing as _typing
 import unicodedata
 
-from LiuXin_alpha.constants import iswindows, __appname__
-
+from LiuXin_alpha.constants import __appname__, iswindows
 from LiuXin_alpha.utils.calibre import as_unicode, walk
-from LiuXin_alpha import prints
+from LiuXin_alpha.utils.logging import prints
+
 try:
     from LiuXin_alpha.utils.ipc.simple_worker import WorkerError
 except ModuleNotFoundError:
@@ -25,8 +29,12 @@ except ModuleNotFoundError:
             super().__init__(message)
             self.orig_tb = orig_tb
 from LiuXin_alpha.utils.decompression.libunzip import extract as zipextract
+from LiuXin_alpha.utils.libraries.calibre_zipfile import (
+    ZIP_DEFLATED,
+    ZIP_STORED,
+    ZipFile,
+)
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory, TemporaryFile
-from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -46,8 +54,8 @@ def ask_cli_question(msg: _typing.Any) -> bool:
 
         ans = msvcrt.getch()
     else:
-        import tty
         import termios
+        import tty
 
         old_settings = termios.tcgetattr(sys.stdin.fileno())
         try:
@@ -65,7 +73,7 @@ def ask_cli_question(msg: _typing.Any) -> bool:
 
 
 def mobi_exploder(path: _typing.Any, tdir: _typing.Any, question: _typing.Callable[..., _typing.Any] = lambda x: True) -> _typing.Any:
-    from LiuXin_alpha.utils.calibre.ebooks.mobi.tweak import explode, BadFormat
+    from LiuXin_alpha.utils.calibre.ebooks.mobi.tweak import BadFormat, explode
 
     try:
         return explode(path, tdir, question=question)

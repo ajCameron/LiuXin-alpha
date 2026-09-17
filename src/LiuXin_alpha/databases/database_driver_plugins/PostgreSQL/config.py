@@ -1,4 +1,10 @@
-"""Runtime configuration helpers for the LiuXin PostgreSQL backend."""
+"""
+Resolve PostgreSQL URLs, service profiles, schemas and process-local credentials.
+
+Configuration is read at call time. URL recognition checks the scheme rather than
+connection validity; service names use a conservative character allowlist. Redaction
+helpers mask known URL fields and are not general secret scanners.
+"""
 
 from __future__ import annotations
 
@@ -31,29 +37,79 @@ SERVICE_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 class PostgresConfigError(RuntimeError):
-    """Raised when PostgreSQL configuration is missing or invalid."""
+    """
+    Report absent or invalid PostgreSQL configuration or an unavailable password prompt.
+
+    Example:
+        Catch ``PostgresConfigError`` when interactive credentials are required in
+        a process without a terminal.
+    """
 
 
 @dataclass(frozen=True)
 class PostgresConnectionTarget:
-    """Resolved PostgreSQL connection target."""
+    """
+    Immutable target kind and value resolved from PostgreSQL settings.
+
+    ``kind`` is url, service or the empty string; ``value`` holds the corresponding
+    URL/profile. Construction itself performs no validation or redaction.
+
+    Example:
+        >>> PostgresConnectionTarget("service", "library").label
+        'service=library'
+    """
 
     kind: POSTGRES_TARGET_KINDS
     value: str
 
     @property
     def configured(self) -> bool:
+        """
+        Check that both target fields are nonempty without validating their contents.
+
+        Example:
+            >>> PostgresConnectionTarget("", "").configured
+            False
+
+
+        :return: True when both kind and value are truthy.
+        """
         return bool(self.kind and self.value)
 
     @property
     def label(self) -> str:
+        """
+        Return a service= label or the unchanged target value.
+
+        URL labels may contain credentials; use redact_postgres_target for status output.
+
+        Example:
+            >>> PostgresConnectionTarget("service", "library").label
+            'service=library'
+
+
+        :return: Service label or raw URL/value.
+        """
         if self.kind == "service":
             return f"service={self.value}"
         return self.value
 
 
 def is_postgres_url(value: object) -> bool:
-    """Return True when *value* is a PostgreSQL URL."""
+    """
+    Recognize postgres or postgresql schemes after trimming whitespace.
+
+    Malformed URL parsing returns False; a recognized scheme does not prove that host,
+    database or credentials are usable.
+
+    Example:
+        >>> is_postgres_url("postgresql:///library")
+        True
+
+
+    :param value: Value converted to text before inspection.
+    :return: Whether parsing finds a supported scheme.
+    """
 
     text = str(value or "").strip()
     if not text:
@@ -65,7 +121,17 @@ def is_postgres_url(value: object) -> bool:
 
 
 def is_postgres_service_name(value: object) -> bool:
-    """Return True when *value* is a conservative PostgreSQL service name."""
+    """
+    Validate a trimmed service name after removing an optional service= prefix.
+
+    Example:
+        >>> is_postgres_service_name("service=library_read")
+        True
+
+
+    :param value: Value converted to text before inspection.
+    :return: True for nonempty names containing only letters, digits, underscore, dot or hyphen.
+    """
 
     text = _normalise_service_name(value)
     return bool(text and SERVICE_NAME_RE.fullmatch(text))
@@ -75,7 +141,21 @@ def configured_postgres_url(
     metadata: Mapping[str, object] | None = None,
     explicit: str | None = None,
 ) -> str:
-    """Return the configured PostgreSQL URL, preferring explicit and metadata values."""
+    """
+    Return the first recognized URL from explicit, metadata then environment candidates.
+
+    Metadata uses METADATA_URL_KEYS order; environment uses LIUXIN_POSTGRES_URL before
+    LIUXIN_DATABASE_URL. Invalid candidates are skipped rather than rejected.
+
+    Example:
+        >>> configured_postgres_url(explicit="postgresql:///library")
+        'postgresql:///library'
+
+
+    :param metadata: Optional database metadata mapping; recognized keys are checked in documented precedence order.
+    :param explicit: Explicit candidate considered before metadata and environment values.
+    :return: First valid-scheme URL with surrounding whitespace removed, or an empty string.
+    """
 
     candidates: list[object] = []
     if explicit not in (None, ""):
@@ -95,7 +175,21 @@ def configured_postgres_service(
     metadata: Mapping[str, object] | None = None,
     explicit: str | None = None,
 ) -> str:
-    """Return the configured PostgreSQL service profile name."""
+    """
+    Return the first valid service profile from explicit, metadata then environment.
+
+    Metadata uses METADATA_SERVICE_KEYS order; LIUXIN_POSTGRES_SERVICE precedes PGSERVICE.
+    Invalid candidates are skipped and service= prefixes are removed.
+
+    Example:
+        >>> configured_postgres_service(explicit="service=library")
+        'library'
+
+
+    :param metadata: Optional database metadata mapping; recognized keys are checked in documented precedence order.
+    :param explicit: Explicit candidate considered before metadata and environment values.
+    :return: Normalized profile name, or an empty string.
+    """
 
     candidates: list[object] = []
     if explicit not in (None, ""):
@@ -117,7 +211,23 @@ def configured_postgres_target(
     explicit_url: str | None = None,
     explicit_service: str | None = None,
 ) -> PostgresConnectionTarget:
-    """Return the configured PostgreSQL URL or service target."""
+    """
+    Choose a URL or service from explicit inputs, metadata and environment.
+
+    Explicit URL resolution runs first, then explicit service, metadata URL/service and
+    environment URL/service. Each explicit resolver can itself fall back to environment
+    settings when its explicit candidate is invalid; this can outrank later candidates.
+
+    Example:
+        >>> configured_postgres_target(explicit_url="postgresql:///library").kind
+        'url'
+
+
+    :param metadata: Optional database metadata mapping; recognized keys are checked in documented precedence order.
+    :param explicit_url: URL candidate resolved before the explicit service.
+    :param explicit_service: Service candidate resolved if explicit URL resolution yielded nothing.
+    :return: Resolved target, or an empty-kind/empty-value target.
+    """
 
     if explicit_url not in (None, ""):
         url = configured_postgres_url(metadata=None, explicit=explicit_url)
@@ -144,7 +254,19 @@ def configured_postgres_target(
 
 
 def configured_postgres_password(explicit: str | None = None) -> str:
-    """Return a configured PostgreSQL password without persisting it."""
+    """
+    Read an explicit nonempty password or LIUXIN_POSTGRES_PASSWORD.
+
+    The returned secret is not persisted by this function.
+
+    Example:
+        >>> configured_postgres_password(explicit="example-password")
+        'example-password'
+
+
+    :param explicit: Password preferred when neither None nor the empty string.
+    :return: Explicit password converted to text, or the environment value/default empty string.
+    """
 
     if explicit not in (None, ""):
         return str(explicit)
@@ -155,7 +277,21 @@ def configured_postgres_schema(
     metadata: Mapping[str, object] | None = None,
     explicit: str | None = None,
 ) -> str:
-    """Return the configured PostgreSQL schema name."""
+    """
+    Resolve explicit, metadata schema, environment then public.
+
+    An explicit whitespace-only value selects public immediately; blank metadata falls
+    through to LIUXIN_POSTGRES_SCHEMA.
+
+    Example:
+        >>> configured_postgres_schema({"schema": "library"})
+        'library'
+
+
+    :param metadata: Optional database metadata mapping; recognized keys are checked in documented precedence order.
+    :param explicit: Explicit candidate considered before metadata and environment values.
+    :return: Trimmed schema name, defaulting to public.
+    """
 
     if explicit not in (None, ""):
         return str(explicit).strip() or DEFAULT_POSTGRES_SCHEMA
@@ -168,10 +304,17 @@ def configured_postgres_schema(
 
 def store_postgres_password(password: str) -> str:
     """
-    Store a prompted PostgreSQL password for reuse within this process only.
+    Store a nonempty password in this process environment for subsequent connections.
 
-    Persistent secret storage should remain in ``.pgpass``, ``PGSERVICE``, the
-    shell environment, or the user's password manager.
+    No file is written. An empty input leaves any existing environment value untouched;
+    child processes may inherit the environment.
+
+    Example:
+        ``store_postgres_password(prompted)`` lets later connections reuse a prompt result.
+
+
+    :param password: Password text supplied by the caller.
+    :return: Supplied password coerced to text, including an empty string.
     """
 
     text = str(password or "")
@@ -181,7 +324,18 @@ def store_postgres_password(password: str) -> str:
 
 
 def prompt_and_store_postgres_password(url: str, *, overwrite: bool = False) -> str:
-    """Prompt for a PostgreSQL password and store it for this process."""
+    """
+    Reuse the configured password or prompt and store a replacement.
+
+    Example:
+        ``prompt_and_store_postgres_password(target.label, overwrite=True)`` requests
+        a fresh password when stdin is interactive.
+
+
+    :param url: PostgreSQL URL or service label used by the operation.
+    :param overwrite: Whether to prompt even when an environment password already exists.
+    :return: Existing or newly prompted password.
+    """
 
     existing = configured_postgres_password()
     if existing and not overwrite:
@@ -199,10 +353,25 @@ def write_postgres_env_file(
     schema: str | None = None,
 ) -> Path:
     """
-    Write shell exports for LiuXin PostgreSQL commands.
+    Overwrite a shell export file with the selected target and optional settings.
 
-    The file is written mode 0600 because URLs describe private infrastructure and
-    may optionally include a password export.
+    Create missing parent directories, write quoted exports, then chmod the file to 0600.
+    The chmod occurs after writing. include_password controls a separate password export;
+    a password already embedded in a URL remains in that URL export. Invalid unresolved
+    targets raise PostgresConfigError; filesystem errors propagate.
+
+    Example:
+        ``write_postgres_env_file(path, url=None, service="library")`` writes a
+        LIUXIN_POSTGRES_SERVICE export for subsequent shell commands.
+
+
+    :param path: Destination filename; an existing file is overwritten.
+    :param url: PostgreSQL URL or service label used by the operation.
+    :param service: Optional explicit service candidate used by target resolution.
+    :param password: Password text supplied by the caller.
+    :param include_password: Whether to include a separate LIUXIN_POSTGRES_PASSWORD export.
+    :param schema: Optional nonblank schema exported as LIUXIN_POSTGRES_SCHEMA.
+    :return: Expanded path of the written file.
     """
 
     target_config = configured_postgres_target(explicit_url=url, explicit_service=service)
@@ -230,7 +399,17 @@ def write_postgres_env_file(
 
 
 def redact_postgres_target(value: object) -> str:
-    """Redact a resolved PostgreSQL target for logs and status output."""
+    """
+    Format service targets unchanged or pass URL targets through URL redaction.
+
+    Example:
+        >>> redact_postgres_target(PostgresConnectionTarget("service", "library"))
+        'service=library'
+
+
+    :param value: Resolved target or text; literal service= labels bypass URL redaction.
+    :return: Service label or redacted URL text.
+    """
 
     if isinstance(value, PostgresConnectionTarget):
         if value.kind == "service":
@@ -243,7 +422,22 @@ def redact_postgres_target(value: object) -> str:
 
 
 def redact_postgres_url(value: object) -> str:
-    """Redact passwords and secret query parameters from a PostgreSQL URL."""
+    """
+    Mask authority passwords and query values whose keys contain secret markers.
+
+    Markers are pass, password, token, secret and key, matched case-insensitively.
+    URLs without a scheme or network location pass through unchanged, including their
+    query text. An initial parsing failure returns an invalid-URL marker; this helper
+    is not a general credential scrubber.
+
+    Example:
+        >>> redact_postgres_url("postgresql://reader:example@localhost/library")
+        'postgresql://reader:***@localhost/library'
+
+
+    :param value: Value converted to text before inspection.
+    :return: Rebuilt redacted URL, unchanged unsupported text or an invalid-URL marker.
+    """
 
     text = str(value or "").strip()
     if not text:
@@ -280,7 +474,21 @@ def redact_postgres_url(value: object) -> str:
 
 
 def add_password_to_url(url: str, password: str) -> str:
-    """Return *url* with *password* inserted when the URL has no password."""
+    """
+    Insert an encoded password only when no authority password is present.
+
+    An empty supplied password or an existing password returns the original URL.
+    Otherwise credentials are quoted and the authority is rebuilt; parse errors propagate.
+
+    Example:
+        >>> add_password_to_url("postgresql://reader@localhost/library", "sample")
+        'postgresql://reader:sample@localhost/library'
+
+
+    :param url: PostgreSQL URL or service label used by the operation.
+    :param password: Password text supplied by the caller.
+    :return: Original or rebuilt URL containing credentials.
+    """
 
     if not password:
         return url
@@ -299,7 +507,17 @@ def add_password_to_url(url: str, password: str) -> str:
 
 
 def url_has_password(url: str) -> bool:
-    """Return True when *url* embeds a password."""
+    """
+    Check whether parsing exposes an authority password, including an empty password.
+
+    Example:
+        >>> url_has_password("postgresql://reader:@localhost/library")
+        True
+
+
+    :param url: PostgreSQL URL or service label used by the operation.
+    :return: False on parse errors or absent password; True otherwise.
+    """
 
     try:
         return urlsplit(url).password is not None
@@ -308,7 +526,19 @@ def url_has_password(url: str) -> bool:
 
 
 def password_prompt_label(url: str) -> str:
-    """Return a human-readable label for a PostgreSQL password prompt."""
+    """
+    Describe a target using user, host and database without its authority password.
+
+    Service labels pass through; missing URL components use configured-* placeholders.
+
+    Example:
+        >>> password_prompt_label("postgresql://reader@localhost/library")
+        'reader@localhost/library'
+
+
+    :param url: PostgreSQL URL or service label used by the operation.
+    :return: Prompt label, or PostgreSQL when initial URL parsing fails.
+    """
 
     text = str(url or "").strip()
     if text.casefold().startswith("service="):
@@ -324,7 +554,19 @@ def password_prompt_label(url: str) -> str:
 
 
 def prompt_postgres_password(url: str) -> str:
-    """Prompt for a PostgreSQL password when stdin is interactive."""
+    """
+    Prompt through getpass only when stdin is a terminal.
+
+    Raise PostgresConfigError for noninteractive stdin; do not store the answer here.
+
+    Example:
+        In a terminal, ``prompt_postgres_password("service=library")`` asks for
+        the profile password without echoing it.
+
+
+    :param url: PostgreSQL URL or service label used by the operation.
+    :return: Password entered by the user.
+    """
 
     if not sys.stdin.isatty():
         raise PostgresConfigError(
@@ -335,7 +577,17 @@ def prompt_postgres_password(url: str) -> str:
 
 
 def should_prompt_for_password_error(exc: BaseException) -> bool:
-    """Return True for psycopg authentication failures that may be solved by prompting."""
+    """
+    Recognize password-related error text that may justify one prompt.
+
+    Example:
+        >>> should_prompt_for_password_error(RuntimeError("no password supplied"))
+        True
+
+
+    :param exc: Exception whose string is inspected; exception type is not checked.
+    :return: Whether the lowercased message contains a supported authentication marker.
+    """
 
     message = str(exc).casefold()
     return (
@@ -346,6 +598,17 @@ def should_prompt_for_password_error(exc: BaseException) -> bool:
 
 
 def _normalise_service_name(value: object) -> str:
+    """
+    Strip whitespace and one case-insensitive service= prefix without validating.
+
+    Example:
+        >>> _normalise_service_name(" SERVICE= library ")
+        'library'
+
+
+    :param value: Value converted to text before inspection.
+    :return: Trimmed profile text, possibly empty.
+    """
     text = str(value or "").strip()
     if text.casefold().startswith("service="):
         return text.split("=", 1)[1].strip()
@@ -353,6 +616,17 @@ def _normalise_service_name(value: object) -> str:
 
 
 def _configured_postgres_url_from_metadata_only(metadata: Mapping[str, object]) -> str:
+    """
+    Select the first supported URL from metadata without environment fallback.
+
+    Example:
+        >>> _configured_postgres_url_from_metadata_only({"dsn": "postgresql:///books"})
+        'postgresql:///books'
+
+
+    :param metadata: Optional database metadata mapping; recognized keys are checked in documented precedence order.
+    :return: First trimmed metadata URL or an empty string.
+    """
     for key in METADATA_URL_KEYS:
         text = str(metadata.get(key) or "").strip()
         if is_postgres_url(text):
@@ -361,6 +635,17 @@ def _configured_postgres_url_from_metadata_only(metadata: Mapping[str, object]) 
 
 
 def _configured_postgres_service_from_metadata_only(metadata: Mapping[str, object]) -> str:
+    """
+    Select the first valid metadata service without environment fallback.
+
+    Example:
+        >>> _configured_postgres_service_from_metadata_only({"service": "books"})
+        'books'
+
+
+    :param metadata: Optional database metadata mapping; recognized keys are checked in documented precedence order.
+    :return: First normalized metadata profile or an empty string.
+    """
     for key in METADATA_SERVICE_KEYS:
         text = _normalise_service_name(metadata.get(key))
         if is_postgres_service_name(text):

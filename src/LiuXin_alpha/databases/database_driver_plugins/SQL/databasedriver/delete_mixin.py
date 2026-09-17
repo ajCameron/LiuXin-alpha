@@ -1,6 +1,8 @@
 
 """
-Mixin for deleting entries from the table.
+Delete rows or link tables through SQL driver primitives.
+
+These helpers have distinct commit/close behavior; callers should not assume batch failures roll back.
 """
 
 from __future__ import annotations
@@ -16,16 +18,25 @@ from LiuXin_alpha.errors import InputIntegrityError, DatabaseIntegrityError, Dat
 
 class DeleteMixin:
     """
-    Methods to delete entries from the database.
+    Provide validated-table deletion and link-table removal helpers.
+
+    Example:
+        ``driver.direct_clear_table("books")`` removes all rows from an existing table.
     """
 
     def direct_delete_many_by_ids(self, target_table: str, row_ids: Iterable[int]) -> bool:
         """
-        Delete many entries from the given table.
+        Delete rows by string-coerced IDs using executemany.
 
-        :param target_table:
-        :param row_ids:
-        :return:
+        Commit/close run in finally. Handled SQLite errors also close first, so the second commit on a closed connection can mask the translated error. Successful execution does not verify how many rows matched.
+
+        Example:
+            ``driver.direct_delete_many_by_ids("books", [2, 4])`` deletes matching IDs.
+
+
+        :param target_table: Existing table name, validated by the driver.
+        :param row_ids: Iterable of row IDs, each converted to a string binding.
+        :return: ``True`` after successful execution, including no matches.
         """
         row_ids = ((str(rid),) for rid in row_ids)
 
@@ -80,13 +91,19 @@ class DeleteMixin:
     # Todo: Merge
     def direct_delete(self, target_table: str, column: str, value: str, many: bool = False) -> bool:
         """
-        Delete all the entries in the target_table whose column matches that value.
+        Delete matching column values, optionally as repeated bound-value statements.
 
-        :param target_table:
-        :param column:
-        :param value:
-        :param many: Is it a single value or many
-        :return:
+        Only the table is validated; column identifiers must be trusted. The batch form stringifies values. Commit/close run even on errors, and duplicate error-path cleanup can mask a translated SQLite exception.
+
+        Example:
+            ``driver.direct_delete("books", "book_id", 3)`` deletes a matching row.
+
+
+        :param target_table: Existing table name, validated by the driver.
+        :param column: Trusted column identifier interpolated into SQL.
+        :param value: One bound value, or an iterable when ``many`` is true.
+        :param many: Execute one deletion per supplied value instead of one scalar deletion.
+        :return: ``True`` on successful execution, even if no row matched.
         """
         if not self.direct_validate_existing_table_name(target_table):
             err_str = "target_table not found in database.\n"
@@ -145,22 +162,32 @@ class DeleteMixin:
     # Todo: Standardize on "table" not "target_table"
     def direct_delete_many(self, target_table: str, column: str, values: Any) -> None:
         """
-        Delete all the entries in the target_table whose column matches that value.
+        Delegate repeated column-value deletion to ``direct_delete``.
 
-        :param target_table:
-        :param column:
-        :param values:
-        :return:
+        Example:
+            ``driver.direct_delete_many("books", "book_id", [2, 4])`` deletes both IDs.
+
+
+        :param target_table: Existing table name, validated by the driver.
+        :param column: Trusted column identifier interpolated into SQL.
+        :param values: Iterable of values stringified and bound by the batch deletion helper.
+        :return: ``None``; the delegated boolean result is discarded.
         """
         self.direct_delete(target_table=target_table, column=column, value=values, many=True)
 
     def direct_delete_row_by_id(self, target_table: str, row_id: int) -> bool:
         """
-        Takes a table and a row_id - deletes the row with that id.
+        Delete one ID match and commit without closing the acquired connection.
 
-        :param target_table:
-        :param row_id:
-        :return:
+        Missing IDs still count as success. SQLite operational/integrity errors are translated, with commit attempted on error as well.
+
+        Example:
+            ``driver.direct_delete_row_by_id("books", 3)`` deletes the ID if present.
+
+
+        :param target_table: Existing table name, validated by the driver.
+        :param row_id: ID value bound against the table's ID column.
+        :return: ``True`` after successful execution.
         """
         if not self.direct_validate_existing_table_name(target_table):
             err_str = "target_table not found in database."
@@ -209,11 +236,16 @@ class DeleteMixin:
 
     def direct_clear_table(self, target_table: str) -> bool:
         """
-        Deletes every record from a table.
+        Delete every row, commit, and count remaining rows before closing the connection.
 
-        :param target_table:
-        :param prompt:
-        :return:
+        Translate SQLite operational/integrity errors. The count is taken after an explicit commit and is not an atomic guarantee against concurrent inserts.
+
+        Example:
+            ``driver.direct_clear_table("books")`` returns whether its follow-up count is zero.
+
+
+        :param target_table: Existing table name, validated by the driver.
+        :return: Whether the follow-up row count is zero.
         """
         if not self.direct_validate_existing_table_name(target_table):
             err_str = "target_table not found in database.\n"
@@ -260,11 +292,17 @@ class DeleteMixin:
 
     def direct_unlink_main_tables(self, primary_table: str, secondary_table: str) -> None:
         """
-        Break an existing link between two main tables. The link will be broken regardless of type.
+        Drop the whole interlink table between two main tables and invalidate caches.
 
-        :param primary_table:
-        :param secondary_table:
-        :return:
+        This removes all link rows and types, not an individual row relationship.
+
+        Example:
+            ``driver.direct_unlink_main_tables("books", "tags")`` drops their interlink table.
+
+
+        :param primary_table: First main-table name used to resolve the link table.
+        :param secondary_table: Second main-table name used to resolve the link table.
+        :return: ``None``.
         """
         table_name, column_name = self._get_link_table_name_col_name(primary_table, secondary_table)
 

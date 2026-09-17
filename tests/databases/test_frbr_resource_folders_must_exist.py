@@ -10,7 +10,9 @@ import pathlib
 
 import pytest
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import database_generator as frbr_gen
+from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
+    database_generator as frbr_gen,
+)
 
 
 def test_missing_table_sql_folder_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
@@ -20,7 +22,7 @@ def test_missing_table_sql_folder_raises(monkeypatch: pytest.MonkeyPatch, tmp_pa
     monkeypatch.setattr(frbr_gen, "__folder__", str(empty_root), raising=True)
 
     with pytest.raises(NotADirectoryError, match=r"table_sql"):
-        frbr_gen.get_main_tables_sql_files()
+        frbr_gen.get_main_table_sql_files()
 
 
 def test_missing_trigger_sql_folder_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:

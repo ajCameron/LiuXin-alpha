@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-import typing as _typing
-
 import re
+import typing as _typing
 
 import lxml.html
 from lxml.html import tostring
 
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
-from LiuXin_alpha.file_formats.readability.cleaners import clean_attributes, normalize_spaces
+from LiuXin_alpha.file_formats.readability.cleaners import (
+    clean_attributes,
+    normalize_spaces,
+)
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 

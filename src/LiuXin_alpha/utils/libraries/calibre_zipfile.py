@@ -8,26 +8,24 @@ etc.
 
 from __future__ import print_function
 
-import struct
+import binascii
+import io
 import os
-import time
-import sys
+import re
 import shutil
 import stat
-import re
-import io
-import binascii
-
+import struct
+import sys
+import time
 from contextlib import closing
 from tempfile import SpooledTemporaryFile
 
 from LiuXin_alpha.constants import filesystem_encoding
-
-from LiuXin_alpha.file_formats.chardet import detect
-
+from LiuXin_alpha.utils.libraries.calibre_chardet import detect
+from LiuXin_alpha.utils.libraries.liuxin_six import basestring, six_cStringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import six_long as long
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 from LiuXin_alpha.utils.storage.local.filenames import sanitize_file_name2
-from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO, basestring, six_unicode as unicode, six_long as long
-
 
 try:
     import zlib  # We may need its compression method

@@ -13,9 +13,7 @@ from unittest.mock import create_autospec
 import pytest
 
 from LiuXin_alpha.core import CoreClientAPI
-from LiuXin_alpha.surfaces import terminal
-from LiuXin_alpha.surfaces.terminal import app, browser, database_creation, presentation
-from LiuXin_alpha.surfaces.terminal import text_browser as compatibility
+from LiuXin_alpha.surfaces.terminal import app, browser
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.surfaces.terminal.plugins.base import TerminalLifecyclePluginAPI
 
@@ -60,29 +58,6 @@ def test_cold_owner_imports_do_not_load_startup_or_curses(owner: str) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_compatibility_exports_refer_to_the_actual_owners() -> None:
-    assert set(terminal.__all__) <= set(dir(terminal))
-    owners = {
-        "DatabaseCreationWizardConfig": database_creation,
-        "create_database_from_wizard": database_creation,
-        "run_database_creation_wizard": database_creation,
-        "TextDatabaseBrowser": browser,
-        "build_parser": app,
-        "main": app,
-        "run_windowed_text_browser": app,
-    }
-    for name, owner in owners.items():
-        assert getattr(compatibility, name) is getattr(owner, name)
-        assert getattr(terminal, name) is getattr(owner, name)
-    assert compatibility._CommandCompletion is browser._CommandCompletion
-    assert compatibility._render_ascii_table is presentation.render_ascii_table
-    assert compatibility._ask_text is presentation.ask_text
-    assert terminal.commands.TerminalCommandAPI is TerminalCommandAPI
-    assert terminal.plugins.TerminalLifecyclePluginAPI is TerminalLifecyclePluginAPI
-    with pytest.raises(AttributeError, match="missing_export"):
-        _ = terminal.missing_export
-
-
 def test_plain_entry_point_does_not_require_curses() -> None:
     script = f"""
 import importlib.abc
@@ -92,7 +67,8 @@ class NoCurses(importlib.abc.MetaPathFinder):
         if fullname == 'curses' or fullname.startswith('curses.'):
             raise ImportError('curses intentionally unavailable')
 sys.meta_path.insert(0, NoCurses())
-from {PREFIX} import TextDatabaseBrowser, build_parser, main
+from {PREFIX}.browser import TextDatabaseBrowser
+from {PREFIX}.app import build_parser, main
 assert build_parser().parse_args(['--database', 'example.sqlite']).ui_mode == 'plain'
 try:
     main(['--help'])
@@ -208,7 +184,7 @@ def test_windowed_composition_binds_the_real_browser_to_its_driver(monkeypatch) 
     assert len(seen) == 1
 
 
-@pytest.mark.parametrize("entry", [app.main, compatibility.main, terminal.main])
+@pytest.mark.parametrize("entry", [app.main])
 def test_entry_points_keep_argument_and_command_mode_contracts(
     entry, monkeypatch, capsys
 ) -> None:

@@ -12,8 +12,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Sequence
 
-from LiuXin_alpha.utils.logging.event_logs.in_memory_list import InMemoryEventLog
-
 from LiuXin_alpha.ingest.sources.api import (
     DiscoveredUrlCallback,
     DiscoverySourceAPI,
@@ -31,7 +29,11 @@ from LiuXin_alpha.ingest.sources.html_common import (
     looks_like_file_url,
     normalize_http_url,
 )
-from LiuXin_alpha.ingest.sources.wget_utils import extract_http_urls_from_wget_output, run_wget
+from LiuXin_alpha.ingest.sources.wget_utils import (
+    extract_http_urls_from_wget_output,
+    run_wget,
+)
+from LiuXin_alpha.utils.logging.event_logs.in_memory_list import InMemoryEventLog
 
 WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT = CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT
 WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY = CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY
@@ -433,18 +435,6 @@ class WgetHtmlDiscoverySource(DiscoverySourceAPI):
         self._crawl_cache_urls = filtered
         return list(filtered)
 
-    def crawl_urls(self, **kwargs) -> list[str]:  # noqa: ANN003 - compatibility shim
-        """
-        Preserve the legacy method name by forwarding all keywords to discover_urls.
-
-        Example:
-            >>> urls = source.crawl_urls(force=False)  # doctest: +SKIP
-
-
-        :param kwargs: Discovery options passed unchanged to the current implementation.
-        :return: Discovery's URL list with the same caching and error semantics.
-        """
-        return self.discover_urls(**kwargs)
 
     def file_exists(self, file_url: str) -> bool:
         """

@@ -22,7 +22,7 @@ import pytest
 
 import LiuXin_alpha.storage.api as api
 import LiuXin_alpha.storage.utils.store as storage_utils
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 
 
 MEMORY_STORE_UUID = UUID("00000000-0000-0000-0000-000000000001")
@@ -1559,8 +1559,8 @@ def test_error_family_preserves_actionable_failure_categories() -> None:
 
 def test_free_operations_are_segregated_from_contract_exports() -> None:
     """
-    Verify the listed free-operation helpers live in storage.utils exports rather than the API
-    facade, and representative Store/driver/workflow helpers retain their defining-module ownership.
+    Verify free operations are exported by their Store, driver, and workflow owner modules.
+    The API facade supplies contracts and does not republish these helpers.
 
     Example:
         >>> test_free_operations_are_segregated_from_contract_exports()  # doctest: +SKIP
@@ -1590,14 +1590,18 @@ def test_free_operations_are_segregated_from_contract_exports() -> None:
     }
 
     assert not utility_names & set(api.__all__)
-    assert utility_names <= set(storage_utils.__all__)
+    from LiuXin_alpha.storage.utils import driver, workflow
+
+    assert utility_names <= (
+        set(storage_utils.__all__) | set(driver.__all__) | set(workflow.__all__)
+    )
     assert storage_utils.try_stat.__module__ == (
         "LiuXin_alpha.storage.utils.store"
     )
-    assert storage_utils.transfer_between_drivers.__module__ == (
+    assert driver.transfer_between_drivers.__module__ == (
         "LiuXin_alpha.storage.utils.driver"
     )
-    assert storage_utils.normalize_archive_path.__module__ == (
+    assert workflow.normalize_archive_path.__module__ == (
         "LiuXin_alpha.storage.utils.workflow"
     )
 
@@ -1924,7 +1928,7 @@ def test_manager_exposes_characteristics_and_preflights_declared_size() -> None:
         max_object_bytes=4,
     )
     store = _CharacteristicMemoryStore(MAIN_STORE_UUID, profile)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     source = io.BytesIO(b"payload")
@@ -1959,7 +1963,7 @@ def test_automatic_active_placement_avoids_archival_snapshot_writers() -> None:
         recommended_write_usage=api.StorageWriteUsage.ARCHIVAL_SNAPSHOT,
     )
     archive = _CharacteristicMemoryStore(ARCHIVE_STORE_UUID, profile)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((archive.configuration, archive),),
     )
 
@@ -1993,7 +1997,7 @@ def test_store_status_warnings_are_promoted_to_operational_issues() -> None:
         api.StorageCharacteristics(),
         warnings=("normalization requires explicit approval",),
     )
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
 
@@ -2204,7 +2208,7 @@ def test_public_exports_reject_ambiguous_legacy_value_names() -> None:
         "RecipeArtifactReference",
         "RecipeInput",
         "RecipeInputReference",
-        "RegisteredBackupArtifact",
+        "BackupArtifactRegistration",
         "Replica",
         "ReplicaSpec",
         "ReplicationPlan",
@@ -2764,7 +2768,7 @@ def test_reference_manager_is_concrete_and_ingest_is_idempotent() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     operation_id = UUID("00000000-0000-0000-0000-000000000901")
@@ -2783,7 +2787,7 @@ def test_reference_manager_is_concrete_and_ingest_is_idempotent() -> None:
     )
     deduplicated = manager.ingest_bytes(b"payload")
 
-    assert not InMemoryStorageManager.__abstractmethods__
+    assert not TransientStorageManager.__abstractmethods__
     assert retried == first
     assert deduplicated.asset_record == first.asset_record
     assert (
@@ -2817,7 +2821,7 @@ def test_operational_status_reports_replica_and_policy_recovery_actions() -> Non
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     result = manager.ingest_bytes(b"health payload", verify=True)
@@ -2863,7 +2867,7 @@ def test_failed_manager_publication_leaves_no_phantom_asset(
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
 
@@ -2904,7 +2908,7 @@ def test_adopt_location_preserves_metadata_for_a_new_asset() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     location = store.write_bytes(store.location("incoming/book.epub"), b"book").location
@@ -2952,7 +2956,7 @@ def test_reference_manager_replicates_verifies_and_reconciles() -> None:
     """
     main = _MemoryStore(MAIN_STORE_UUID)
     other = _MemoryStore(OTHER_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=(
             (main.configuration, main),
             (other.configuration, other),
@@ -3001,7 +3005,7 @@ def test_policy_plans_do_not_place_independent_modes_on_an_occupied_store() -> N
     main = _MemoryStore(MAIN_STORE_UUID)
     other = _MemoryStore(OTHER_STORE_UUID)
     archive = _MemoryStore(ARCHIVE_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=(
             (main.configuration, main),
             (other.configuration, other),
@@ -3056,7 +3060,7 @@ def test_detailed_file_ingest_returns_result_and_defaults_original_name(
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     source = tmp_path / "Tortured-Caf\u00e9-Cafe\u0301.epub"
@@ -3089,7 +3093,7 @@ def test_replication_reuses_and_can_override_recorded_placement_hints() -> None:
     main = _PlacementAwareMemoryStore(MAIN_STORE_UUID)
     other = _PlacementAwareMemoryStore(OTHER_STORE_UUID)
     archive = _PlacementAwareMemoryStore(ARCHIVE_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=(
             (main.configuration, main),
             (other.configuration, other),
@@ -3137,7 +3141,7 @@ def test_verify_digital_asset_supports_exact_ordered_replica_subsets() -> None:
     main = _MemoryStore(MAIN_STORE_UUID)
     other = _MemoryStore(OTHER_STORE_UUID)
     archive = _MemoryStore(ARCHIVE_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=(
             (main.configuration, main),
             (other.configuration, other),
@@ -3192,7 +3196,7 @@ def test_composite_convenience_ingests_and_exports_members(tmp_path) -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     composite = manager.store_composite(
@@ -3240,7 +3244,7 @@ def test_reference_manager_records_exact_derivation_and_disposable_policy() -> N
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     source = manager.ingest_bytes(b"source").asset_record
@@ -3330,7 +3334,7 @@ def test_reference_manager_validates_composites_and_derivation_cycles() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     first = manager.ingest_bytes(b"first").asset_record
@@ -3397,7 +3401,7 @@ def test_derivation_graph_traverses_chains_branches_and_workflows() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     html = manager.ingest_bytes(b"html").asset_record
@@ -3496,7 +3500,7 @@ def test_namespaced_workflow_references_filter_derivations_and_graphs() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     source = manager.ingest_bytes(b"source").asset_record
@@ -3546,7 +3550,7 @@ def test_recreation_plan_selects_shortest_route_and_orders_chain() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     html_ingest = manager.ingest_bytes(b"html")
@@ -3699,7 +3703,7 @@ def test_reference_manager_store_lifecycle_uses_injected_factory() -> None:
         created.append(configuration.store_uuid)
         return _MemoryStore(configuration.store_uuid)
 
-    manager = InMemoryStorageManager(store_factory=factory)
+    manager = TransientStorageManager(store_factory=factory)
     configuration = api.StoreConfiguration(
         MAIN_STORE_UUID,
         "main",
@@ -3729,7 +3733,7 @@ def test_reference_manager_distinguishes_unknown_and_unavailable_stores() -> Non
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
 
@@ -3757,7 +3761,7 @@ def test_store_default_policies_are_captured_at_first_placement() -> None:
 
     :return: None after the stated regression assertions pass.
     """
-    manager = InMemoryStorageManager()
+    manager = TransientStorageManager()
     main_policy = manager.create_replication_policy(
         api.ReplicationPolicy(name="main-policy")
     )
@@ -3814,7 +3818,7 @@ def test_policy_updates_validate_recreation_and_revision_transactionally() -> No
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     asset = manager.ingest_bytes(b"no-recipe").asset_record
@@ -3879,7 +3883,7 @@ def test_uri_only_recipe_artifacts_require_an_availability_resolver() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     source = manager.ingest_bytes(b"source").asset_record
@@ -3966,7 +3970,7 @@ def test_optional_composite_members_do_not_make_assessment_unreadable() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     required = manager.ingest_bytes(b"required").asset_record
@@ -4009,7 +4013,7 @@ def test_staged_replica_is_not_selected_or_counted_as_readable() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     asset = manager.declare_digital_asset(
@@ -4044,7 +4048,7 @@ def test_ingest_operation_id_binds_the_complete_request() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     operation_id = UUID("00000000-0000-0000-0000-000000000902")
@@ -4074,7 +4078,7 @@ def test_ingest_operation_id_binds_placement_hints() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _PlacementAwareMemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     operation_id = UUID("00000000-0000-0000-0000-000000000903")
@@ -4104,7 +4108,7 @@ def test_ingest_republishes_when_a_matching_replica_is_missing() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     first = manager.ingest_bytes(b"replace-missing")
@@ -4167,7 +4171,7 @@ def test_storage_manager_exposes_concrete_convenience_operations() -> None:
         "record_derivation",
     }.isdisjoint(api.StorageManagerAPI.__abstractmethods__)
     assert "add_store" in api.StorageManagerAPI.__abstractmethods__
-    assert "add_store" not in InMemoryStorageManager.__abstractmethods__
+    assert "add_store" not in TransientStorageManager.__abstractmethods__
     assert {
         "list_ingest_operations",
         "recover_pending_ingests",
@@ -4177,7 +4181,7 @@ def test_storage_manager_exposes_concrete_convenience_operations() -> None:
         "list_ingest_operations",
         "recover_pending_ingests",
         "retry_ingest_operation",
-    }.isdisjoint(InMemoryStorageManager.__abstractmethods__)
+    }.isdisjoint(TransientStorageManager.__abstractmethods__)
 
 
 def test_convenience_storage_and_retrieval_accept_ordinary_inputs(
@@ -4197,7 +4201,7 @@ def test_convenience_storage_and_retrieval_accept_ordinary_inputs(
     """
     main = _MemoryStore(MAIN_STORE_UUID)
     other = _MemoryStore(OTHER_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=(
             (main.configuration, main),
             (other.configuration, other),
@@ -4290,7 +4294,7 @@ def test_convenience_storage_forwards_metadata_as_rich_placement_hints() -> None
     :return: None after the stated regression assertions pass.
     """
     store = _PlacementAwareMemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     metadata = {
@@ -4370,7 +4374,7 @@ def test_convenience_storage_keeps_hints_advisory_for_plain_stores() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
 
@@ -4397,7 +4401,7 @@ def test_convenience_composites_and_item_links_hide_membership_objects() -> None
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     book = manager.store_bytes(b"book")
@@ -4463,7 +4467,7 @@ def test_convenience_policy_store_and_declaration_helpers() -> None:
         created.append(configuration)
         return _MemoryStore(configuration.store_uuid)
 
-    manager = InMemoryStorageManager(store_factory=factory)
+    manager = TransientStorageManager(store_factory=factory)
     replication = manager.define_replication_policy(
         "durable",
         copies=2,
@@ -4529,7 +4533,7 @@ def test_convenience_provenance_hides_source_reference_objects() -> None:
     :return: None after the stated regression assertions pass.
     """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     source = manager.store_bytes(b"source")

@@ -1,5 +1,9 @@
 # D-range documentation pass — 2026-09-14
 
+Current continuation: [D106–D115 complete](project-docstrings-d106-d115-2026-09-17.md),
+2026-09-17. Live D progress is 115/232 units and 2,836/5,685 declarations.
+D116 requires a new request. The dated D095 pause and counts below are historical.
+
 Current status: **paused at D095 by user request**. [Shutdown checkpoint](project-docstrings-hundred-paused-2026-09-15.md): 15/100 units verified in this chunk, 408 declarations; 853/2,732 complete project files. **D096 is next only on a new user request.** Earlier authorization and pause notes below are historical.
 
 ## Historical handoff before this chunk

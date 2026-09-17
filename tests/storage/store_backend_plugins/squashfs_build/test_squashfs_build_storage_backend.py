@@ -32,7 +32,7 @@ from LiuXin_alpha.storage.api import (
     WriteMode,
 )
 from LiuXin_alpha.storage.errors import SquashfsBuildImplicitOverwriteError
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.store_backend_plugins.squashfs_build import (
     SquashfsBuildStorageBackend,
 )
@@ -621,7 +621,7 @@ def test_storage_manager_can_instantiate_squashfs_builder_from_configuration(
             staging_root=str(tmp_path / "stage"),
         )
 
-    manager = InMemoryStorageManager(store_factory=factory)
+    manager = TransientStorageManager(store_factory=factory)
     manager.create_store(configuration, startup=False)
 
     plugin = manager.get_store(configuration.store_uuid)

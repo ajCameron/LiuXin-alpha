@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import dataclasses
 import json
-
 from collections.abc import Callable, Iterable, Iterator, Mapping, MutableMapping
 from datetime import UTC, datetime
 from enum import Enum
@@ -25,14 +24,28 @@ from typing import Any, Generic, TypeVar
 from uuid import UUID
 
 import LiuXin_alpha.storage.api as api
-
+from LiuXin_alpha.storage.storage_manager.mixins._types import (
+    _AdoptIngestRequest,
+    _IdentifiedStreamIngestRequest,
+    _IngestOperation,
+    _StoreObjectIngestRequest,
+    _StreamIngestRequest,
+)
 from LiuXin_alpha.storage.store_spec_utils import store_configuration_to_row_dict
-
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")
 _FORMAT = "liuxin-storage-record"
 _FORMAT_VERSION = 1
+
+# Version-one envelope tags are stable wire identifiers, independent of import paths.
+_INGEST_JOURNAL_TYPE_NAMES: dict[type[Any], str] = {
+    _AdoptIngestRequest: "LiuXin_alpha.storage.storage_manager.manager._AdoptIngestRequest",
+    _IdentifiedStreamIngestRequest: "LiuXin_alpha.storage.storage_manager.manager._IdentifiedStreamIngestRequest",
+    _IngestOperation: "LiuXin_alpha.storage.storage_manager.manager._IngestOperation",
+    _StoreObjectIngestRequest: "LiuXin_alpha.storage.storage_manager.manager._StoreObjectIngestRequest",
+    _StreamIngestRequest: "LiuXin_alpha.storage.storage_manager.manager._StreamIngestRequest",
+}
 
 
 class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
@@ -118,9 +131,7 @@ class RepositoryRecordMapping(MutableMapping[_K, _V], Generic[_K, _V]):
         """
 
         if self._key_of is not None and self._key_of(value) != key:
-            raise ValueError(
-                "repository mapping key does not match record identity."
-            )
+            raise ValueError("repository mapping key does not match record identity.")
         self._upsert(value)
 
     def __delitem__(self, key: _K) -> None:
@@ -612,9 +623,7 @@ class DatabaseStorageMetadataRepository:
         self.cache: Any | None = None
         self._cached_tables: frozenset[str] = frozenset()
         self._cache_tables: frozenset[str] = frozenset()
-        self.has_ingest_journal = (
-            "storage_ingest_operations" in set(db.get_tables())
-        )
+        self.has_ingest_journal = "storage_ingest_operations" in set(db.get_tables())
         if cache is not None:
             self.set_cache(cache)
 
@@ -772,7 +781,9 @@ class DatabaseStorageMetadataRepository:
         try:
             table, id_column, scratch_column = self._RECORD_IDENTITIES[kind]
         except KeyError:
-            raise ValueError(f"Unknown storage metadata record kind: {kind!r}") from None
+            raise ValueError(
+                f"Unknown storage metadata record kind: {kind!r}"
+            ) from None
         reservation = json.dumps(
             {
                 "format": _FORMAT,
@@ -815,9 +826,7 @@ class DatabaseStorageMetadataRepository:
             self._cache_tables = frozenset()
             return
         if getattr(cache, "database", None) is not self.db:
-            raise ValueError(
-                "storage metadata cache must use the manager database."
-            )
+            raise ValueError("storage metadata cache must use the manager database.")
         from LiuXin_alpha.caches import CacheState
 
         state = cache.state
@@ -838,9 +847,9 @@ class DatabaseStorageMetadataRepository:
         self._cached_tables = frozenset(cached_tables)
         self._cache_tables = frozenset(available)
 
-    def asset_records(self) -> RepositoryRecordMapping[
-        api.DigitalAssetID, api.DigitalAssetRecord
-    ]:
+    def asset_records(
+        self,
+    ) -> RepositoryRecordMapping[api.DigitalAssetID, api.DigitalAssetRecord]:
         """
         Return a new mapping facade over Asset reads/upserts/removals. Assignment checks
         value.digital_asset_id against the key, but adds no revision, reference, or transaction
@@ -861,9 +870,9 @@ class DatabaseStorageMetadataRepository:
             key_of=lambda record: record.digital_asset_id,
         )
 
-    def replica_records(self) -> RepositoryRecordMapping[
-        api.ReplicaID, api.ReplicaRecord
-    ]:
+    def replica_records(
+        self,
+    ) -> RepositoryRecordMapping[api.ReplicaID, api.ReplicaRecord]:
         """
         Return a new mapping facade over Replica reads/upserts/removals. Assignment checks
         value.replica_id against the key, but adds no revision, reference, or transaction checks.
@@ -884,7 +893,9 @@ class DatabaseStorageMetadataRepository:
             key_of=lambda record: record.replica_id,
         )
 
-    def composite_records(self) -> RepositoryRecordMapping[
+    def composite_records(
+        self,
+    ) -> RepositoryRecordMapping[
         api.CompositeDigitalAssetID, api.CompositeDigitalAssetRecord
     ]:
         """
@@ -908,7 +919,9 @@ class DatabaseStorageMetadataRepository:
             key_of=lambda record: record.composite_digital_asset_id,
         )
 
-    def derivation_records(self) -> RepositoryRecordMapping[
+    def derivation_records(
+        self,
+    ) -> RepositoryRecordMapping[
         api.DigitalAssetDerivationID, api.DigitalAssetDerivationRecord
     ]:
         """
@@ -932,9 +945,9 @@ class DatabaseStorageMetadataRepository:
             key_of=lambda record: record.digital_asset_derivation_id,
         )
 
-    def replication_policy_records(self) -> RepositoryRecordMapping[
-        api.ReplicationPolicyID, api.ReplicationPolicyRecord
-    ]:
+    def replication_policy_records(
+        self,
+    ) -> RepositoryRecordMapping[api.ReplicationPolicyID, api.ReplicationPolicyRecord]:
         """
         Return a new mapping facade over replication-policy reads/upserts/removals. Assignment
         checks value.replication_policy_id against the key, but adds no revision, reference, or
@@ -956,9 +969,9 @@ class DatabaseStorageMetadataRepository:
             key_of=lambda record: record.replication_policy_id,
         )
 
-    def backup_policy_records(self) -> RepositoryRecordMapping[
-        api.BackupPolicyID, api.BackupPolicyRecord
-    ]:
+    def backup_policy_records(
+        self,
+    ) -> RepositoryRecordMapping[api.BackupPolicyID, api.BackupPolicyRecord]:
         """
         Return a new mapping facade over backup-policy reads/upserts/removals. Assignment checks
         value.backup_policy_id against the key, but adds no revision, reference, or transaction
@@ -1016,9 +1029,7 @@ class DatabaseStorageMetadataRepository:
             remove=lambda _operation_id: None,
         )
 
-    def get_asset(
-        self, digital_asset_id: api.DigitalAssetID
-    ) -> api.DigitalAssetRecord:
+    def get_asset(self, digital_asset_id: api.DigitalAssetID) -> api.DigitalAssetRecord:
         """
         Load one Asset through the current cache/macro route and family decoder. The key is
         int-converted for row lookup but retained for the decoded mapping lookup. Missing rows,
@@ -1347,14 +1358,8 @@ class DatabaseStorageMetadataRepository:
         :return: None after targeted invalidation or a no-op.
         """
 
-        if (
-            self.cache is not None
-            and table in self._cache_tables
-            and row_ids
-        ):
-            self.cache.invalidate(
-                ids={table: tuple(int(row_id) for row_id in row_ids)}
-            )
+        if self.cache is not None and table in self._cache_tables and row_ids:
+            self.cache.invalidate(ids={table: tuple(int(row_id) for row_id in row_ids)})
 
     # ------------------------------------------------------------------
     # Store identity and record persistence
@@ -1438,9 +1443,7 @@ class DatabaseStorageMetadataRepository:
         :return: None after successful row deletion and invalidation.
         """
 
-        rows = self.macros.get_rows(
-            "stores", where={"store_uuid": str(store_ref)}
-        )
+        rows = self.macros.get_rows("stores", where={"store_uuid": str(store_ref)})
         if not rows:
             raise api.StoreConfigurationNotFound(
                 f"No durable Store row for UUID {store_ref}."
@@ -1538,9 +1541,7 @@ class DatabaseStorageMetadataRepository:
         values = {
             "asset_replica_digital_asset_id": int(record.digital_asset_id),
             "asset_replica_store_id": store_id,
-            "asset_replica_storage_key": _database_scalar_text(
-                record.location.key
-            ),
+            "asset_replica_storage_key": _database_scalar_text(record.location.key),
             "asset_replica_mode": record.mode.value,
             "asset_replica_presence_status": record.state.value,
             "asset_replica_integrity_status": record.state.value,
@@ -1630,7 +1631,8 @@ class DatabaseStorageMetadataRepository:
             for member in record.members:
                 member_type = (
                     member.role
-                    if member.role in {"member", "chapter", "track", "disc_member", "part"}
+                    if member.role
+                    in {"member", "chapter", "track", "disc_member", "part"}
                     else "member"
                 )
                 self.macros.insert_row(
@@ -1840,9 +1842,7 @@ class DatabaseStorageMetadataRepository:
         """
 
         self.macros.delete_row("replication_policies", int(replication_policy_id))
-        self._invalidate_record_ids(
-            "replication_policies", int(replication_policy_id)
-        )
+        self._invalidate_record_ids("replication_policies", int(replication_policy_id))
 
     def upsert_backup_policy(self, record: api.BackupPolicyRecord) -> None:
         """
@@ -2280,9 +2280,7 @@ class DatabaseStorageMetadataRepository:
             return None
         payload = self._load(row["storage_ingest_operation_scratch"])
         if not isinstance(payload, dict):
-            raise api.StorageManagementError(
-                "invalid durable ingest journal payload."
-            )
+            raise api.StorageManagementError("invalid durable ingest journal payload.")
         error = row.get("storage_ingest_operation_last_error")
         return (
             str(row["storage_ingest_operation_state"]),
@@ -2308,17 +2306,11 @@ class DatabaseStorageMetadataRepository:
             return ()
         return tuple(
             {
-                "operation_id": UUID(
-                    str(row["storage_ingest_operation_uuid"])
-                ),
+                "operation_id": UUID(str(row["storage_ingest_operation_uuid"])),
                 "state": str(row["storage_ingest_operation_state"]),
-                "last_error": row.get(
-                    "storage_ingest_operation_last_error"
-                ),
+                "last_error": row.get("storage_ingest_operation_last_error"),
                 "store_ref": row.get("storage_ingest_operation_store_uuid"),
-                "storage_key": row.get(
-                    "storage_ingest_operation_storage_key"
-                ),
+                "storage_key": row.get("storage_ingest_operation_storage_key"),
             }
             for row in self.macros.get_rows(
                 "storage_ingest_operations",
@@ -2499,9 +2491,7 @@ class DatabaseStorageMetadataRepository:
             else rows
         )
         for row in source:
-            decoded = self._load_optional_record(
-                row, "composite_digital_asset_scratch"
-            )
+            decoded = self._load_optional_record(row, "composite_digital_asset_scratch")
             if isinstance(decoded, api.CompositeDigitalAssetRecord):
                 records[decoded.composite_digital_asset_id] = decoded
                 continue
@@ -2542,9 +2532,7 @@ class DatabaseStorageMetadataRepository:
                             or 0
                         ),
                         role=_optional_text(
-                            link.get(
-                                "composite_digital_asset_digital_asset_link_type"
-                            )
+                            link.get("composite_digital_asset_digital_asset_link_type")
                         ),
                         required=bool(
                             link.get(
@@ -2587,7 +2575,9 @@ class DatabaseStorageMetadataRepository:
         :return: A fresh identity-keyed dictionary of decoded or reconstructible derivation records.
         """
 
-        records: dict[api.DigitalAssetDerivationID, api.DigitalAssetDerivationRecord] = {}
+        records: dict[
+            api.DigitalAssetDerivationID, api.DigitalAssetDerivationRecord
+        ] = {}
         source = (
             self._record_rows(
                 "digital_asset_derivations",
@@ -2678,7 +2668,9 @@ class DatabaseStorageMetadataRepository:
             identifier = api.ReplicationPolicyID(int(row["replication_policy_id"]))
             try:
                 policy = api.ReplicationPolicy(
-                    name=str(row.get("replication_policy_name") or f"policy-{identifier}"),
+                    name=str(
+                        row.get("replication_policy_name") or f"policy-{identifier}"
+                    ),
                     min_copies=int(row.get("replication_policy_min_copies") or 0),
                     target_copies=_optional_int(
                         row.get("replication_policy_target_copies")
@@ -2694,13 +2686,19 @@ class DatabaseStorageMetadataRepository:
                         row.get("replication_policy_max_copies_per_bucket") or 1
                     ),
                     required_store_tags=frozenset(
-                        _json_list(row.get("replication_policy_required_store_tags_json"), [])
+                        _json_list(
+                            row.get("replication_policy_required_store_tags_json"), []
+                        )
                     ),
                     preferred_store_tags=frozenset(
-                        _json_list(row.get("replication_policy_preferred_store_tags_json"), [])
+                        _json_list(
+                            row.get("replication_policy_preferred_store_tags_json"), []
+                        )
                     ),
                     forbidden_store_tags=frozenset(
-                        _json_list(row.get("replication_policy_forbidden_store_tags_json"), [])
+                        _json_list(
+                            row.get("replication_policy_forbidden_store_tags_json"), []
+                        )
                     ),
                     synchronous_write_copies=int(
                         row.get("replication_policy_synchronous_write_copies") or 0
@@ -2771,13 +2769,19 @@ class DatabaseStorageMetadataRepository:
                         row.get("backup_policy_max_copies_per_bucket") or 1
                     ),
                     required_store_tags=frozenset(
-                        _json_list(row.get("backup_policy_required_store_tags_json"), [])
+                        _json_list(
+                            row.get("backup_policy_required_store_tags_json"), []
+                        )
                     ),
                     preferred_store_tags=frozenset(
-                        _json_list(row.get("backup_policy_preferred_store_tags_json"), [])
+                        _json_list(
+                            row.get("backup_policy_preferred_store_tags_json"), []
+                        )
                     ),
                     forbidden_store_tags=frozenset(
-                        _json_list(row.get("backup_policy_forbidden_store_tags_json"), [])
+                        _json_list(
+                            row.get("backup_policy_forbidden_store_tags_json"), []
+                        )
                     ),
                     periodic_verification=bool(
                         row.get("backup_policy_periodic_verification")
@@ -2831,10 +2835,14 @@ class DatabaseStorageMetadataRepository:
                     continue
                 scratch = self._load_optional_record(row, f"{prefix}_scratch")
                 role = (
-                    _optional_text(scratch.get("role"))
-                    if isinstance(scratch, dict)
-                    else None
-                ) or _optional_text(row.get(f"{prefix}_type")) or "primary_payload"
+                    (
+                        _optional_text(scratch.get("role"))
+                        if isinstance(scratch, dict)
+                        else None
+                    )
+                    or _optional_text(row.get(f"{prefix}_type"))
+                    or "primary_payload"
+                )
                 targets[(api.ItemID(int(item_id)), role)] = (
                     kind,
                     constructor(int(target_id)),
@@ -2910,9 +2918,7 @@ class DatabaseStorageMetadataRepository:
                 table, {id_column: row_id, **payload}, id_column=id_column
             )
         else:
-            self.macros.update_row(
-                table, row_id, payload, id_column=id_column
-            )
+            self.macros.update_row(table, row_id, payload, id_column=id_column)
 
     def _delete_matching(
         self,
@@ -2936,9 +2942,7 @@ class DatabaseStorageMetadataRepository:
         """
 
         for row in self.macros.get_rows(table, where=where):
-            self.macros.delete_row(
-                table, row[id_column], id_column=id_column
-            )
+            self.macros.delete_row(table, row[id_column], id_column=id_column)
 
     def _delete_item_target(self, item_id: api.ItemID, role: str) -> None:
         """
@@ -2969,10 +2973,14 @@ class DatabaseStorageMetadataRepository:
             for row in rows:
                 scratch = self._load_optional_record(row, f"{prefix}_scratch")
                 row_role = (
-                    _optional_text(scratch.get("role"))
-                    if isinstance(scratch, dict)
-                    else None
-                ) or _optional_text(row.get(f"{prefix}_type")) or "primary_payload"
+                    (
+                        _optional_text(scratch.get("role"))
+                        if isinstance(scratch, dict)
+                        else None
+                    )
+                    or _optional_text(row.get(f"{prefix}_type"))
+                    or "primary_payload"
+                )
                 if row_role == role:
                     self.macros.delete_row(table, row[f"{prefix}_id"])
 
@@ -2991,9 +2999,7 @@ class DatabaseStorageMetadataRepository:
         :return: The first matching Store row ID converted to int.
         """
 
-        rows = self.macros.get_rows(
-            "stores", where={"store_uuid": str(store_ref)}
-        )
+        rows = self.macros.get_rows("stores", where={"store_uuid": str(store_ref)})
         if not rows:
             raise api.StoreConfigurationNotFound(
                 f"No durable Store row for UUID {store_ref}."
@@ -3289,8 +3295,8 @@ def _storage_value_types(additional: Iterable[type[Any]]) -> dict[str, type[Any]
     Build the decoder registry from explicit types and storage API dataclasses/enums.
 
     Additional entries are set-collected without verifying their category. API exports are scanned
-    without importing types by serialized name; keys use each type's actual module and qualified
-    name. Distinct types sharing a name collide with set-iteration-dependent precedence.
+    without importing types by serialized name. Journal types use explicit stable wire tags;
+    other keys use the actual module and qualified name. Duplicate tags retain set-order precedence.
     Constructors remain responsible for decoded field/value validation.
 
     Example:
@@ -3315,19 +3321,23 @@ def _storage_value_types(additional: Iterable[type[Any]]) -> dict[str, type[Any]
 
 def _type_name(value: type[Any]) -> str:
     """
-    Combine the supplied type's current module and qualified name. No importability or name
-    stability is checked; explicit __module__ assignments affect persisted identities.
+    Return a stable ingest-journal tag, or the actual qualified name for other types.
+
+    The explicit version-one tags preserve stored records without exporting private types
+    from historical modules or changing their Python identities. Other names are not validated.
 
     Example:
         >>> _type_name(int)
         'builtins.int'
 
 
-    :param value: Type whose module and qualified name identify it in an envelope.
-    :return: The dotted module-qualified type name.
+    :param value: Type whose stable tag or module and qualified name identifies it in an envelope.
+    :return: The journal wire tag, or the dotted module-qualified type name.
     """
 
-    return f"{value.__module__}.{value.__qualname__}"
+    return _INGEST_JOURNAL_TYPE_NAMES.get(
+        value, f"{value.__module__}.{value.__qualname__}"
+    )
 
 
 def _encode(value: Any) -> Any:
@@ -3425,8 +3435,7 @@ def _decode(value: Any, types: Mapping[str, type[Any]]) -> Any:
         return frozenset(_decode(item, types) for item in value["$frozenset"])
     if "$mapping" in value:
         return {
-            _decode(key, types): _decode(item, types)
-            for key, item in value["$mapping"]
+            _decode(key, types): _decode(item, types) for key, item in value["$mapping"]
         }
     if "$enum" in value:
         type_name = str(value["$enum"])
@@ -3606,7 +3615,9 @@ def _json_list(value: Any, default: list[str]) -> list[str]:
     if value in (None, ""):
         return list(default)
     decoded = json.loads(str(value))
-    return [str(item) for item in decoded] if isinstance(decoded, list) else list(default)
+    return (
+        [str(item) for item in decoded] if isinstance(decoded, list) else list(default)
+    )
 
 
 __all__ = [

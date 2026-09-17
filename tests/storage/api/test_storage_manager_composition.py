@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import abc
 import inspect
+import pickle
 from pathlib import Path
 from uuid import UUID
 
@@ -22,13 +23,6 @@ from LiuXin_alpha.storage.storage_manager.database_repository import (
     _decode,
     _encode,
     _storage_value_types,
-)
-from LiuXin_alpha.storage.storage_manager.manager import (
-    _AdoptIngestRequest,
-    _IdentifiedStreamIngestRequest,
-    _IngestOperation,
-    _StoreObjectIngestRequest,
-    _StreamIngestRequest,
 )
 from LiuXin_alpha.storage.storage_manager.mixins import (
     CompositeDigitalAssetMixin,
@@ -49,6 +43,13 @@ from LiuXin_alpha.storage.storage_manager.mixins._policy_support import (
 )
 from LiuXin_alpha.storage.storage_manager.mixins._support import (
     _StorageManagerSupportMixin,
+)
+from LiuXin_alpha.storage.storage_manager.mixins._types import (
+    _AdoptIngestRequest,
+    _IdentifiedStreamIngestRequest,
+    _IngestOperation,
+    _StoreObjectIngestRequest,
+    _StreamIngestRequest,
 )
 from tests.support.docstring_ownership import SourceMetrics
 
@@ -185,8 +186,7 @@ def test_missing_helper_components_cannot_construct_a_manager(
 
 def test_persisted_ingest_types_keep_their_historical_wire_names() -> None:
     """
-    Check historical module identities for all listed ingest types and codec round-trip one adoption
-    request.
+    Check real Python ownership and stable journal identifiers for ingest values.
 
     The encoded dataclass tag must still name the legacy manager module, and decoding through the
     explicit type registry must reproduce the request. This exercises in-memory serialization and
@@ -196,7 +196,7 @@ def test_persisted_ingest_types_keep_their_historical_wire_names() -> None:
         >>> test_persisted_ingest_types_keep_their_historical_wire_names()  # doctest: +SKIP
 
 
-    :return: None after type module names, the adoption-request tag, and decoded equality match expectations.
+    :return: None after owner modules, stored tags, codec equality, and pickle equality are verified.
     """
     expected_module = "LiuXin_alpha.storage.storage_manager.manager"
     persisted_types = (
@@ -207,7 +207,12 @@ def test_persisted_ingest_types_keep_their_historical_wire_names() -> None:
         _IngestOperation,
     )
 
-    assert {value.__module__ for value in persisted_types} == {expected_module}
+    assert {value.__module__ for value in persisted_types} == {
+        "LiuXin_alpha.storage.storage_manager.mixins._types"
+    }
+    registry = _storage_value_types(persisted_types)
+    for value in persisted_types:
+        assert registry[f"{expected_module}.{value.__name__}"] is value
 
     request = _AdoptIngestRequest(
         api.Location(UUID(int=1), "incoming/book.epub"),
@@ -220,4 +225,5 @@ def test_persisted_ingest_types_keep_their_historical_wire_names() -> None:
     )
     encoded = _encode(request)
     assert encoded["$dataclass"] == f"{expected_module}._AdoptIngestRequest"
-    assert _decode(encoded, _storage_value_types(persisted_types)) == request
+    assert _decode(encoded, registry) == request
+    assert pickle.loads(pickle.dumps(request)) == request

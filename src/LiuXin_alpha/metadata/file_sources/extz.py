@@ -12,8 +12,12 @@ from typing import Any
 
 from LiuXin_alpha.file_formats.opf.opf import _sanitize_metadata_for_xml
 from LiuXin_alpha.file_formats.opf.opf2 import OPF
-from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
-from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import Metadata as OPFCalibreMetadata
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaInformation,
+)
+from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import (
+    Metadata as OPFCalibreMetadata,
+)
 from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile, safe_replace
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.localization import trans as _

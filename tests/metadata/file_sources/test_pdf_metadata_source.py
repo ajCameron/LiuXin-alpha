@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.metadata.metadata import MetaData
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaData,
+)
 
 
 def _values(raw):
@@ -141,7 +143,9 @@ def test_pdf_metadata_module_import_smoke() -> None:
 
 
 def test_pdf_reader_plugin_is_available_and_preserves_stream_position() -> None:
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.customize.builtins.metadata_readers import (
+        get_metadata_reader_plugins,
+    )
 
     payload = _build_pdf(title="Reader Title")
     plugins = get_metadata_reader_plugins()

@@ -3,37 +3,40 @@ from __future__ import annotations
 import builtins
 import io
 import signal
-
 from pathlib import Path
 
 import pytest
 
+from LiuXin_alpha.core import workflow_jobs as core_workflow_jobs
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.core import workflow_jobs as core_workflow_jobs
+from LiuXin_alpha.ingest.sources.wget_utils import WgetResult
+from LiuXin_alpha.library.library import Library
+from LiuXin_alpha.metadata.standardization import (
+    make_tag_search_term,
+    make_title_search_term,
+    standardize_genre,
+)
+from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
+    native_html_storage_backend as native_html_backend_module,
+)
+from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
+    rclone_http_storage_backend as rclone_backend_module,
+)
+from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
+    wget_html_storage_backend as wget_backend_module,
+)
+from LiuXin_alpha.surfaces.terminal import app as terminal_app
+from LiuXin_alpha.surfaces.terminal import browser as browser_module
+from LiuXin_alpha.surfaces.terminal.app import main as browser_main
+from LiuXin_alpha.surfaces.terminal.browser import TextDatabaseBrowser
+from LiuXin_alpha.surfaces.terminal.browser_components import session as browser_session
 from LiuXin_alpha.surfaces.terminal.commands import DEFAULT_COMMAND_CLASSES
 from LiuXin_alpha.surfaces.terminal.commands import db as db_command_module
 from LiuXin_alpha.surfaces.terminal.commands import off as off_commands
 from LiuXin_alpha.surfaces.terminal.commands import on as on_commands
 from LiuXin_alpha.surfaces.terminal.commands import sync as sync_command_module
 from LiuXin_alpha.surfaces.terminal.plugins import TerminalLifecyclePluginAPI
-from LiuXin_alpha.surfaces.terminal import text_browser as text_browser_module
-from LiuXin_alpha.surfaces.terminal import app as terminal_app
-from LiuXin_alpha.surfaces.terminal import browser as browser_module
-from LiuXin_alpha.surfaces.terminal.browser_components import session as browser_session
-from LiuXin_alpha.surfaces.terminal.text_browser import TextDatabaseBrowser, main as browser_main
-from LiuXin_alpha.library.library import Library
-from LiuXin_alpha.metadata.standardization import make_tag_search_term, make_title_search_term, standardize_genre
-from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
-    rclone_http_storage_backend as rclone_backend_module,
-)
-from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
-    native_html_storage_backend as native_html_backend_module,
-)
-from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
-    wget_html_storage_backend as wget_backend_module,
-)
-from LiuXin_alpha.ingest.sources.wget_utils import WgetResult
 from LiuXin_alpha.utils.jobs import JobRequest
 from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
@@ -234,7 +237,7 @@ def test_text_browser_main_non_interactive(driver_spec, tmp_path: Path, capsys) 
 
 
 def test_text_browser_parser_accepts_windowed_mode_options() -> None:
-    parser = text_browser_module.build_parser()
+    parser = terminal_app.build_parser()
     args = parser.parse_args(
         [
             "--database",

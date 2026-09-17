@@ -9,21 +9,20 @@ persistence checks. Raw undecodable filenames are exercised only on POSIX.
 from __future__ import annotations
 
 import os
-
 from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.ingest import ingest_store
+from LiuXin_alpha.ingest.stores import ingest_store
 from LiuXin_alpha.storage import api
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
-from LiuXin_alpha.storage.stores import FilesystemStore
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive import (
     OnDiskUnmanagedStorageBackend,
 )
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_existing_unmanaged_drive_single_file import (
     OnDiskUnmanagedSingleFile,
 )
+from LiuXin_alpha.storage.stores import FilesystemStore
 from tests.fixtures.storage_unicode import (
     POSIX_BAD_BYTES_FILENAME,
     POSIX_BAD_BYTES_FILENAME_BYTES,
@@ -98,7 +97,7 @@ def test_on_disk_unmanaged_drive_ingests_undecodable_filename_bytes(
     assert store.location_from_uri(uri) == location
 
     destination = FilesystemStore(tmp_path / "destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -245,7 +244,7 @@ def test_storage_manager_can_attach_on_disk_unmanaged_store(tmp_path: Path) -> N
     """
     (tmp_path / "book.epub").write_bytes(b"book")
     store = OnDiskUnmanagedStorageBackend(tmp_path)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
         default_store_ref=store.store_ref,
     )

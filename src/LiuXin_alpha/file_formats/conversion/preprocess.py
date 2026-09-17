@@ -3,15 +3,14 @@
 
 from __future__ import annotations
 
-import typing as _typing
 import functools
-import re
 import json
-
-from LiuXin_alpha.utils.text import entity_to_unicode, as_unicode
+import re
+import typing as _typing
 
 # Py2/Py3
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.text import as_unicode, entity_to_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -79,9 +78,10 @@ def wrap_lines(match: _typing.Any) -> _typing.Any:
 def smarten_punctuation(html: _typing.Any, log: _typing.Any) -> _typing.Any:
 
     from uuid import uuid4
-    from LiuXin_alpha.utils.libraries.smartypants import smartyPants
-    from LiuXin_alpha.file_formats.chardet import substitute_entites
+
     from LiuXin_alpha.file_formats.conversion.utils import HeuristicProcessor
+    from LiuXin_alpha.utils.libraries.calibre_chardet import substitute_entites
+    from LiuXin_alpha.utils.libraries.smartypants import smartyPants
 
     preprocessor = HeuristicProcessor(log=log)
     start = "calibre-smartypants-" + str(uuid4())
@@ -763,8 +763,8 @@ class HTMLPreProcessor(object):
         html = XMLDECL_RE.sub("", html)
 
         if getattr(self.extra_opts, "asciiize", False):
-            from LiuXin_alpha.utils.localization import get_udc
             from LiuXin_alpha.utils.libraries.mreplace import MReplace
+            from LiuXin_alpha.utils.localization import get_udc
 
             unihandecoder = get_udc()
             mr = MReplace(data={"«": "&lt;" * 3, "»": "&gt;" * 3})

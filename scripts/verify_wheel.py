@@ -5,10 +5,8 @@ from __future__ import annotations
 
 import argparse
 import zipfile
-
 from pathlib import Path
 from typing import Sequence
-
 
 REQUIRED_MEMBERS = {
     "LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/aggregate_tables.toml",
@@ -20,11 +18,7 @@ REQUIRED_MEMBERS = {
     "LiuXin_alpha/utils/libraries/iso639/ISO-639-2_utf-8.txt",
     "LiuXin_alpha/utils/libraries/liuxin_dateutil/zoneinfo/zoneinfo-2010g.tar.gz",
 }
-REQUIRED_ENTRY_POINTS = {
-    "liuxin = LiuXin_alpha.surfaces.terminal.text_browser:main",
-    "liuxin-cli = LiuXin_alpha.surfaces.cli:main",
-    "liuxin-storage-audit = LiuXin_alpha.surfaces.cli.storage_audit:main",
-}
+REQUIRED_ENTRY_POINTS = {"liuxin = LiuXin_alpha.surfaces.cli.app:main"}
 
 
 def verify_wheel(wheel_path: Path) -> None:

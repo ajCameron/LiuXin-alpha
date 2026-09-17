@@ -10,7 +10,9 @@ import re
 import zipfile
 from pathlib import Path
 
-from LiuXin_alpha.metadata.metadata import MetaData as Metadata
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as Metadata,
+)
 from LiuXin_alpha.metadata.utils import check_isbn, string_to_authors
 from LiuXin_alpha.utils.calibre import prepare_string_for_xml
 from LiuXin_alpha.utils.localization import trans as _

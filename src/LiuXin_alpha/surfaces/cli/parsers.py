@@ -28,7 +28,7 @@ from LiuXin_alpha.surfaces.cli.parser_types import CompletionRegistrar
 from LiuXin_alpha.surfaces.cli.postgres import build_postgres_parser
 from LiuXin_alpha.surfaces.cli.serve import build_serve_parser
 from LiuXin_alpha.surfaces.cli.squashfs_parsers import build_squashfs_parser
-from LiuXin_alpha.surfaces.cli.storage import build_storage_parser
+from LiuXin_alpha.surfaces.cli.storage_commands.parsers import build_storage_parser
 from LiuXin_alpha.surfaces.cli.workflows import (
     build_backup_parser,
     build_conversion_parser,

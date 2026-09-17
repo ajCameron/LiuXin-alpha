@@ -1,5 +1,4 @@
-from __future__ import print_function
-from __future__ import annotations
+from __future__ import annotations, print_function
 
 import typing as _typing
 
@@ -11,45 +10,49 @@ import logging
 import os
 import sys
 
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import (
-    Book,
-    PageStyle,
-    TextStyle,
+    CR,
     BlockStyle,
-    ImageStream,
-    Font,
-    StyleDefault,
+    Bold,
+    Book,
     BookSetting,
+    Canvas,
+    CharButton,
+    DropCaps,
+    EmpLine,
+    Font,
+    Footer,
     Header,
     Image,
     ImageBlock,
-    Page,
-    TextBlock,
-    Canvas,
-    Paragraph,
-    CR,
-    Span,
+    ImageStream,
     Italic,
-    Sup,
-    Sub,
-    Bold,
-    EmpLine,
     JumpButton,
-    CharButton,
+    Page,
+    PageStyle,
+    Paragraph,
     Plot,
-    DropCaps,
-    Footer,
     RuledLine,
+    Span,
+    StyleDefault,
+    Sub,
+    Sup,
+    TextBlock,
+    TextStyle,
 )
-
-from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulStoneSoup, NavigableString, CData, Tag
 from LiuXin_alpha.utils.calibre import setup_cli_handlers
 from LiuXin_alpha.utils.config import OptionParser
-from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.libraries.BeautifulSoup import (
+    BeautifulStoneSoup,
+    CData,
+    NavigableString,
+    Tag,
+)
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
 
 # Py2/Py3 compatbility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"

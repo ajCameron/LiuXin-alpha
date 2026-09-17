@@ -10,14 +10,22 @@ requested by the concrete update policy; no encompassing transaction is added.
 from __future__ import annotations
 
 import dataclasses
-
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, Generic, Iterable, Optional, Sequence, TypeVar, Union, cast
-
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table import (
-    StorageCacheSingleTableAPI,
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    Iterable,
+    Optional,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
 )
 
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
+    StorageCacheSingleTableAPI,
+)
 from LiuXin_alpha.caches.cache_plugins.schema_backed.common import (
     _canonical_field_key,
     _ensure_db,
@@ -27,7 +35,9 @@ from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.link_tables.
 )
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_cache import SchemaBackedStorageCache
+    from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_cache import (
+        SchemaBackedStorageCache,
+    )
 
 T = TypeVar("T")
 

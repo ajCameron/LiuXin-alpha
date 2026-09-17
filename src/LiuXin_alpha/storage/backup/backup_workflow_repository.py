@@ -11,12 +11,11 @@ from __future__ import annotations
 
 import dataclasses
 import json
-
 from collections.abc import Iterator
 from typing import Any
 from uuid import UUID
 
-from LiuXin_alpha.databases import Row
+from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.storage.api import (
     BackupArtifactRegistration,
     BackupSourceDeclaration,

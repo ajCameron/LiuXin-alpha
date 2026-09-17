@@ -49,11 +49,11 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api import (
     StorageCacheOneToOneLinkTable,
     StorageCacheOneToOneLinkTableAPI,
     StorageCacheSingleTableAPI,
-    StorageStorageCacheSingleTableAPI,
     TableMetadata,
     TableTypes,
     null,
 )
+
 __all__ = [
     "CacheOneOneInSameTableFieldAPI",
     "CacheOneOneInSameTableFieldUniqueAPI",
@@ -91,7 +91,6 @@ __all__ = [
     "StorageCacheOneToOneLinkTable",
     "StorageCacheOneToOneLinkTableAPI",
     "StorageCacheSingleTableAPI",
-    "StorageStorageCacheSingleTableAPI",
     "TableMetadata",
     "TableTypes",
     "null",

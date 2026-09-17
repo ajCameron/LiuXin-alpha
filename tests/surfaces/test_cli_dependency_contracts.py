@@ -1,5 +1,5 @@
 """
-Protect CLI composition, standalone imports, completion, and compatibility exports.
+Protect CLI composition, standalone imports, completion, and command dispatch.
 
 Cold-import checks use isolated interpreter processes; parser/completion tests
 inspect or render the grammar without starting Core. SquashFS job/provenance
@@ -10,7 +10,6 @@ Python snippets remain subprocess fixtures, not documentation declarations.
 from __future__ import annotations
 
 import argparse
-import importlib
 import os
 import subprocess
 import sys
@@ -24,9 +23,7 @@ from LiuXin_alpha.surfaces.cli import (
     app,
     completion,
     parsers,
-    squashfs,
     squashfs_commands,
-    squashfs_parsers,
 )
 from LiuXin_alpha.surfaces.cli.parser_types import CompletionSubparsers
 from LiuXin_alpha.surfaces.core import CoreRow, CoreSurfaceModel
@@ -44,7 +41,6 @@ PREFIX = "LiuXin_alpha.surfaces.cli"
         ".completion",
         ".squashfs_commands",
         ".squashfs_parsers",
-        ".squashfs",
     ],
 )
 def test_cold_import_does_not_load_application_entry_points(module: str) -> None:
@@ -63,14 +59,11 @@ def test_cold_import_does_not_load_application_entry_points(module: str) -> None
     :return: None; assert the subprocess succeeds without forbidden imported modules.
     """
     forbidden = {f"{PREFIX}.app"}
-    if module != ".squashfs":
-        forbidden.add(f"{PREFIX}.squashfs")
     if module not in {".completion"}:
         forbidden.add(f"{PREFIX}.completion")
     if module in {
         "",
         ".parser_types",
-        ".squashfs",
         ".squashfs_commands",
         ".squashfs_parsers",
     }:
@@ -133,72 +126,19 @@ def test_completion_registrar_is_explicit_and_called_once() -> None:
     )
 
 
-@pytest.mark.parametrize("module", [PREFIX, f"{PREFIX}.squashfs"])
-@pytest.mark.parametrize(
-    "argv", [None, ["metadata", "inspect", "--help"], ["postgres", "--help"]]
-)
-def test_compatibility_main_forwards_exact_arguments_and_exit_code(
-    monkeypatch, module: str, argv: list[str] | None
-) -> None:
+def test_squashfs_parser_dispatches_to_the_command_owner() -> None:
     """
-    Check lazy compatibility dispatch preserves argument identity and exit code.
-
-    Patch the application entry point, then call the package or SquashFS facade.
-    No real argument parsing or command execution occurs through the stub.
-
-    Example:
-        >>> test_compatibility_main_forwards_exact_arguments_and_exit_code(monkeypatch, PREFIX, None)  # doctest: +SKIP
-
-
-    :param monkeypatch: Pytest fixture restoring the patched application dispatcher.
-    :param module: Importable compatibility module whose main is exercised.
-    :param argv: Parametrized token list or None, expected to pass through by identity.
-    :return: None; assert one dispatch call and unchanged sentinel return status.
-    """
-    seen = []
-
-    def dispatch(selected: list[str] | None = None) -> int:
-        """
-        Capture the original argument object and supply a recognizable exit code.
-
-        Example:
-            >>> dispatch(None)  # doctest: +SKIP
-            37
-
-
-        :param selected: Forwarded token list or None retained without copying.
-        :return: Sentinel status 37 after appending selected to the enclosing list.
-        """
-        seen.append(selected)
-        return 37
-
-    monkeypatch.setattr(app, "main", dispatch)
-    assert importlib.import_module(module).main(argv) == 37
-    assert len(seen) == 1 and seen[0] is argv
-
-
-def test_squashfs_compatibility_exports_are_the_actual_owners() -> None:
-    """
-    Verify SquashFS compatibility names are aliases to their implementation owners.
+    Verify the application parser dispatches SquashFS provenance to its owner.
 
     Also parse provenance arguments and check handler identity and option values;
     no provenance query or storage operation is executed.
 
     Example:
-        >>> test_squashfs_compatibility_exports_are_the_actual_owners()
+        >>> test_squashfs_parser_dispatches_to_the_command_owner()
 
 
-    :return: None; assert export identities and provenance parser bindings.
+    :return: None; assert provenance parser bindings.
     """
-    assert squashfs.build_squashfs_parser is squashfs_parsers.build_squashfs_parser
-    for name in (
-        "cmd_publish_store",
-        "cmd_publish_from_ids",
-        "cmd_provenance",
-        "_run_job",
-        "_build_provenance_payload",
-    ):
-        assert getattr(squashfs, name) is getattr(squashfs_commands, name)
     parser = app.build_parser()
     args = parser.parse_args(["squashfs", "provenance", "--file-id", "7", "--json"])
     assert args.handler is squashfs_commands.cmd_provenance
@@ -325,7 +265,7 @@ def test_completion_preserves_each_alias_path_and_nested_options() -> None:
     assert "--file-ids-file" in tree[("squashfs", "publish-from-ids")]
 
 
-@pytest.mark.parametrize("entry", [app.main, squashfs.main])
+@pytest.mark.parametrize("entry", [app.main])
 def test_complete_entry_points_keep_help_and_invalid_argument_exits(
     entry, capsys
 ) -> None:
@@ -336,7 +276,7 @@ def test_complete_entry_points_keep_help_and_invalid_argument_exits(
         >>> test_complete_entry_points_keep_help_and_invalid_argument_exits(app.main, capsys)  # doctest: +SKIP
 
 
-    :param entry: Parametrized application or SquashFS compatibility main function.
+    :param entry: Parametrized application main function.
     :param capsys: Pytest stdout/stderr capture used to inspect help and diagnostics.
     :return: None; assert help exits zero and invalid shell selection exits two.
     """

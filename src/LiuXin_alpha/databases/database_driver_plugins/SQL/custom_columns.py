@@ -1,6 +1,10 @@
 
 """
-Provide custom columns functionality to the database driver.
+Create SQLite custom-value tables and their one/many relationships.
+
+These low-level helpers build physical tables/links without registering a complete
+Calibre-style custom_columns metadata record. Concrete hosts supply execution,
+naming, cached table information and schema-change callbacks.
 """
 
 from __future__ import annotations
@@ -8,7 +12,11 @@ from __future__ import annotations
 
 class SQLiteCustomColumnsDriverMixin:
     """
-    Mixin which contains all the logic for the custom columns in one place.
+    Build dedicated custom-value storage tables through concrete driver hooks.
+
+    Example:
+        ``driver.direct_create_custom_column("works", "note")`` creates the
+        inline one-to-one storage table for that label.
     """
 
     # Todo: The code for this is currently over in macros. It should probably be here
@@ -28,34 +36,23 @@ class SQLiteCustomColumnsDriverMixin:
             data_type: str = "TEXT",
             multi: bool = False) -> None:
         """
-        Direct create a custom column in a given table.
+        Dispatch physical custom-column creation by relationship type.
 
-        This column can have one or many values and will be included in the row return under the custom_fields
-        attribute.
+        Falsy multi selects inline one-to-one; True selects many_many. Other supported
+        values are one_many and many_one. Reject custom_columns as a target by assertion
+        and unknown modes with NotImplementedError. Despite the annotation, return the
+        created table name from the selected helper.
 
-        Custom columns are stored in tables linked to the main table. You can tell the tables store custom columns
-        because their names will start with "custom_column__"
-        :param in_table: Table to create the custom column in. Can be "main", "interlink", "intralink" or "helper".
-        :param column_name: Name for the custom column which will be created in the given table.
-        :param data_type: Datatype for the new custom column
+        Example:
+            ``direct_create_custom_column("works", "labels", multi=True)`` selects
+            the many-to-many builder.
 
-        :param multi: If False a one to one table will be created
 
-                      If True multiple values will be allowed for each value in the original table.
-                      The form that the multi parameters takes will determine the type of multiple relation formed
-                      between the table and it's new column.
-
-                      If the multi value is simply True then the relation will take it's default form - many_to_many
-
-                      If multi = "one_many" then the relation will take a one_many form (one book can be linked to many
-                      items - but no other book can be linked to that item.
-                      Items are considered to be unique.
-
-                      If multi = "many_one" then the relation will take a many_one form (many books can be linked to
-                      one, and only one, item.
-                      Items are considered to be unique.
-
-        :return:
+        :param in_table: Existing target table, not a table-category label.
+        :param column_name: Custom-column label used to derive the storage name.
+        :param data_type: SQL type forwarded to one-to-one/one-to-many; only one-to-one currently uses it.
+        :param multi: Falsy for one-to-one, True for many_many, or a supported relationship string.
+        :return: Created custom-value table name.
         """
         assert in_table != "custom_columns", "Cannot create custom column in custom_columns table"
 
@@ -104,20 +101,22 @@ class SQLiteCustomColumnsDriverMixin:
             normalized: bool = False
     ) -> str:
         """
-        Create a custom column with a one-one relation between entries in the custom column and the given target table.
+        Create an inline custom-value table with a unique parent reference and cascade FK.
 
-        There can be, at most, one value for every value in the :param target_table:
-        Removing a value from the :param target_table: will also remove a value from this table.
+        Assert label/target validity and cache nonexistence, create lookup/value indexes,
+        then invoke schema-change/cache hooks. The parent-reference column has TEXT affinity.
+        Normalized mode is unsupported and raises NotImplementedError.
 
-        :param target_table: The table which the custom column will be attached to
-        :param custom_column_name: The name of the custom column which will be generated
-        :param datatype: Datatype for the custom column
-        :param normalized: If True then the one-one table will be through a link table (useful for something like
-                           series - where you want multiple entries in the cc but only one should be linked to the
-                           main entry at any one time
-                           If False, there is no link table.
+        Example:
+            For each work, at most one linked note row can exist; deleting the work
+            cascades to that row when SQLite foreign keys are enabled.
 
-        :return custom_col_table: The name of the table holding the new custom column
+
+        :param target_table: Existing main table to which the custom values belong.
+        :param custom_column_name: Custom-column label used in its generated storage-table name.
+        :param datatype: Requested SQL type; only the inline one-to-one builder uses it.
+        :param normalized: Must be False; the normalized link-table variant is not implemented.
+        :return: Created storage-table name.
         """
         # VALIDATE
 
@@ -212,18 +211,20 @@ class SQLiteCustomColumnsDriverMixin:
             custom_column_name: str,
             datatype: str = "TEXT") -> str:
         """
-        Create a custom column with a one-many relation between entries in the custom column and the given target table.
+        Create a value table and exclusive one-to-many links plus an unlink cleanup trigger.
 
-        There can be many values for every value in the :param target_table:, but these values must not intersect
-        (they must be unique to the given book, title, series e.t.c)
+        The trigger deletes the custom value whenever its link is removed. The datatype
+        argument is currently ignored: main-table creation uses its own default type.
 
-        Removing a value from the :param target_table: will also remove all the linked custom column values.
+        Example:
+            One work can own several custom values, and unlinking one deletes that
+            owned value through the generated trigger.
 
-        :param target_table: The table which the custom column will be attached to
-        :param custom_column_name: The name of the custom column which will be generated
-        :param datatype: Datatype for the custom column
 
-        :return custom_col_table: The name of the table holding the new custom column
+        :param target_table: Existing main table to which the custom values belong.
+        :param custom_column_name: Custom-column label used in its generated storage-table name.
+        :param datatype: Requested SQL type; only the inline one-to-one builder uses it.
+        :return: Created custom-value table name.
         """
         assert self.direct_validate_table_name(table_name=custom_column_name)
         assert target_table != "custom_columns", "Cannot Create a custom column on the custom_columns table"
@@ -279,19 +280,18 @@ class SQLiteCustomColumnsDriverMixin:
             target_table: str,
             custom_column_name: str) -> str:
         """
-        Create a custom column with a many-one relation between the entries in the custom column and the given target
-        table.
+        Create reusable custom values with at most one linked value per parent.
 
-        There can be many :param target_table: rows linked to the entries in this column -  but each  can only be linked
-        to one of the entries in the custom table.
+        Build the main table with default settings, then many_one links and refresh schema
+        state. No unused-value cleanup trigger is installed here.
 
-        Removing a value from :param target_table: will also remove all the elements linked to that title will be
-        removed.
+        Example:
+            Several works may share one custom value while each work has at most one.
 
-        :param target_table:
-        :param custom_column_name:
 
-        :return:
+        :param target_table: Existing main table to which the custom values belong.
+        :param custom_column_name: Custom-column label used in its generated storage-table name.
+        :return: Created custom-value table name.
         """
         assert target_table != "custom_columns", "Cannot create custom column in custom_columns"
         assert self.direct_validate_table_name(table_name=custom_column_name)
@@ -320,15 +320,17 @@ class SQLiteCustomColumnsDriverMixin:
             target_table: str,
             custom_column_name: str) -> str:
         """
-        Create a custom column with a many-many relation between the entries in the custom column and the given target
-        table.
+        Create shared custom values and strict many-to-many links without optional columns.
 
-        There can be many :param target_table: rows linked to the entries in the columns - and many entries can be
-        linked to many entries in the custom column.
+        Build the main table with default settings and notify the host of schema changes.
 
-        :param target_table:
-        :param custom_column_name:
-        :return:
+        Example:
+            Multiple works can share several custom labels through the generated link table.
+
+
+        :param target_table: Existing main table to which the custom values belong.
+        :param custom_column_name: Custom-column label used in its generated storage-table name.
+        :return: Created custom-value table name.
         """
         assert target_table != "custom_columns", "Cannot create custom column in custom_columns"
         assert self.direct_validate_table_name(table_name=custom_column_name)
@@ -355,12 +357,15 @@ class SQLiteCustomColumnsDriverMixin:
     @staticmethod
     def direct_get_custom_column_table_name(table: str, column_name: str) -> str:
         """
-        Returns the name of a table to be used to store the given custom column.
+        Combine table and label into the custom_column$ naming convention without validation.
 
-        The name of the table contains information as to the name of the custom column and the table it's being applied
-        to.
-        :param table: The table the custom column is in
-        :param column_name: The name of the custom column to be created
-        :return:
+        Example:
+            >>> SQLiteCustomColumnsDriverMixin.direct_get_custom_column_table_name("works", "note")
+            'custom_column$works$note'
+
+
+        :param table: Target table spelling inserted into the name.
+        :param column_name: Custom label inserted into the name.
+        :return: Storage-table name containing both supplied components.
         """
         return "custom_column${0}${1}".format(table, column_name)

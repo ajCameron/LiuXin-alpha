@@ -1,8 +1,6 @@
 
 """
-calibre emulation add ins.
-
-Some of the calibre emulation methods require direct database access.
+Expose filesystem modification time using Calibre-compatible UTC datetime conversion.
 """
 
 import datetime
@@ -12,7 +10,10 @@ from LiuXin_alpha.utils.date import utcfromtimestamp
 
 class CalibreEmulationMixin:
     """
-    Emulation methods to bring the driver more in line with calibre.
+    Provide file metadata expected by Calibre-facing driver callers.
+
+    Example:
+        A file-backed driver supplies ``database_path`` for this mixin.
     """
 
     # ----------------------------------------------------------------------------------------------------------------------
@@ -21,9 +22,15 @@ class CalibreEmulationMixin:
 
     def direct_last_modified(self) -> datetime.datetime:
         """
-        Returns the last modification time for the databases as a utc (unix time code) timestamp.
+        Read the database file mtime and convert it to a UTC datetime.
 
-        :return:
+        Filesystem errors propagate; no database connection is opened.
+
+        Example:
+            ``driver.direct_last_modified()`` reports the database file modification time.
+
+
+        :return: The UTC datetime produced by ``utcfromtimestamp``.
         """
         import os
 

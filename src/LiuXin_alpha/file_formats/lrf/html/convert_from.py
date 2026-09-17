@@ -4,11 +4,7 @@ Code to convert HTML ebooks into LRF ebooks.
 I am indebted to esperanc for the initial CSS->Xylog Style conversion code and to Falstaff for pylrs.
 """
 
-from __future__ import print_function
-from __future__ import annotations
-
-import typing as _typing
-
+from __future__ import annotations, print_function
 
 import copy
 import glob
@@ -16,6 +12,7 @@ import os
 import re
 import sys
 import tempfile
+import typing as _typing
 from collections import deque
 from functools import partial
 from math import ceil, floor
@@ -37,52 +34,55 @@ except ModuleNotFoundError:
     class Device:
         THUMBNAIL_HEIGHT = 144
 
+from LiuXin_alpha.constants import __appname__
 from LiuXin_alpha.file_formats import ConversionError
-
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 from LiuXin_alpha.file_formats.lrf import Book
 from LiuXin_alpha.file_formats.lrf.html.color_map import lrs_color
 from LiuXin_alpha.file_formats.lrf.html.table import Table
 from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import (
-    Paragraph,
     CR,
-    Italic,
-    ImageStream,
-    TextBlock,
-    ImageBlock,
-    JumpButton,
-    CharButton,
-    Plot,
-    Image,
     BlockSpace,
-    RuledLine,
     BookSetting,
     Canvas,
+    CharButton,
     DropCaps,
-    LrsError,
-    Sup,
-    Sub,
     EmpLine,
+    Image,
+    ImageBlock,
+    ImageStream,
+    Italic,
+    JumpButton,
+    LrsError,
+    Paragraph,
+    Plot,
+    RuledLine,
+    Span,
+    Sub,
+    Sup,
+    TextBlock,
 )
-from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import Span
-
+from LiuXin_alpha.utils.calibre import (
+    entity_to_unicode,
+    filename_to_utf8,
+    fit_image,
+    preferred_encoding,
+)
 from LiuXin_alpha.utils.libraries.BeautifulSoup import (
     BeautifulSoup,
     Comment,
-    Tag,
-    NavigableString,
     Declaration,
+    NavigableString,
     ProcessingInstruction,
+    Tag,
 )
-from LiuXin_alpha.utils.calibre import filename_to_utf8, fit_image, preferred_encoding, entity_to_unicode
-from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.storage.local.file_ops import load_file
-from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
-from LiuXin_alpha.constants import __appname__
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
+from LiuXin_alpha.utils.storage.local.file_ops import load_file
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -1882,7 +1882,9 @@ class HTMLConverter(object):
                 if self.render_tables_as_images:
                     try:
                         print("Rendering table...")
-                        from LiuXin_alpha.file_formats.lrf.html.table_as_image import render_table
+                        from LiuXin_alpha.file_formats.lrf.html.table_as_image import (
+                            render_table,
+                        )
 
                         pheight = int(self.current_page.pageStyle.attrs["textheight"])
                         pwidth = int(self.current_page.pageStyle.attrs["textwidth"])

@@ -18,14 +18,12 @@ from __future__ import annotations
 
 import dataclasses
 import os
-
 from collections.abc import Callable, Iterator
 from typing import Any, Literal
 from urllib.parse import unquote_to_bytes, urlparse
 from uuid import UUID
 
 from LiuXin_alpha.storage import api
-
 
 BackendBuilder = Callable[
     [api.StoreConfiguration, "StoreConstructionContext"],
@@ -521,7 +519,7 @@ def _build_calibre_like(configuration, _context):
 def _build_sqlite(configuration, _context):
     """
     Construct a single-file SQLite blob Store using the root, name, and UUID only. Lazily import
-    SingleFileSqliteStorageBackend and pass store_root_uri unchanged with _common identity fields.
+    SQLiteStore and pass store_root_uri unchanged with _common identity fields.
     Full configuration and backend_options are not forwarded, so the backend derives remaining
     policy from its own constructor defaults. Path interpretation and resource effects belong to
     that constructor; this adapter adds no startup or database persistence.
@@ -532,13 +530,11 @@ def _build_sqlite(configuration, _context):
 
     :param configuration: Intent supplying store_root_uri, store_name, and store_uuid; other fields are unused by this adapter.
     :param _context: Unused runtime context accepted for the common builder signature.
-    :return: The constructed SingleFileSqliteStorageBackend; import, path, and constructor failures propagate.
+    :return: The constructed SQLiteStore; import, path, and constructor failures propagate.
     """
-    from LiuXin_alpha.storage.store_backend_plugins.single_file_sqlite import (
-        SingleFileSqliteStorageBackend,
-    )
+    from LiuXin_alpha.storage.stores.sqlite import SQLiteStore
 
-    return SingleFileSqliteStorageBackend(
+    return SQLiteStore(
         configuration.store_root_uri,
         **_common(configuration),
     )
@@ -634,7 +630,7 @@ def _build_wget_html(configuration, _context):
 def _build_ftp(configuration, _context):
     """
     Construct a read-only Store for FTP/FTPS access from root/name/UUID and options. Pass every
-    backend option as a FtpBackendOptions keyword, then pass the options object to
+    backend option as a FtpDriverOptions keyword, then pass the options object to
     FtpReadOnlyStorageBackend. Unknown names fail in option construction. The full configuration is
     not retained through this call; remaining fields follow backend defaults. Imports and validation
     are delegated without explicitly starting a crawler, transfer, or inventory operation.
@@ -643,18 +639,18 @@ def _build_ftp(configuration, _context):
         >>> store = _build_ftp(configuration, context)  # doctest: +SKIP
 
 
-    :param configuration: Intent supplying the root/name/UUID and keywords for FtpBackendOptions.
+    :param configuration: Intent supplying the root/name/UUID and keywords for FtpDriverOptions.
     :param _context: Unused runtime context; this adapter does not inject a transport client.
     :return: The constructed FtpReadOnlyStorageBackend; option/import/constructor errors propagate.
     """
+    from LiuXin_alpha.storage.drivers.ftp import FtpDriverOptions
     from LiuXin_alpha.storage.store_backend_plugins.ftp_readonly import (
-        FtpBackendOptions,
         FtpReadOnlyStorageBackend,
     )
 
     return FtpReadOnlyStorageBackend(
         configuration.store_root_uri,
-        options=FtpBackendOptions(**_options(configuration)),
+        options=FtpDriverOptions(**_options(configuration)),
         **_common(configuration),
     )
 

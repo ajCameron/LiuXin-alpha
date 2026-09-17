@@ -13,10 +13,17 @@ import re
 from typing import Iterable
 
 from LiuXin_alpha.metadata.constants import canonicalize_id_name
-from LiuXin_alpha.metadata.metadata import MetaData
-from LiuXin_alpha.metadata.utils import calibreMetaInformation, check_isbn, string_to_authors
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaData,
+)
+from LiuXin_alpha.metadata.utils import (
+    calibreMetaInformation,
+    check_isbn,
+    string_to_authors,
+)
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
-from LiuXin_alpha.utils.localization import canonicalize_lang, trans as _
+from LiuXin_alpha.utils.localization import canonicalize_lang
+from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 
 VALID_FOR = ["OPF"]

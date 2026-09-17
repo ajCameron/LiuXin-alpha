@@ -1,13 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-import typing as _typing
-
-import re
 import os
+import re
+import typing as _typing
 from collections import namedtuple
 from functools import partial
 from operator import attrgetter
@@ -17,13 +21,12 @@ try:
 except ModuleNotFoundError:
     from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
-
 from LiuXin_alpha.utils.calibre import guess_type, replace_entities
-from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
 
 # Py2/Py3 compatability layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

@@ -12,15 +12,15 @@ from uuid import UUID
 
 import pytest
 
-from LiuXin_alpha.ingest import (
+from LiuXin_alpha.ingest.remote_html import (
+    ensure_wget_html_readonly_store,
     register_wget_html_readonly_store_files,
     register_wget_html_readonly_with_database_path,
 )
-from LiuXin_alpha.ingest.remote_html import ensure_wget_html_readonly_store
+from LiuXin_alpha.ingest.sources.wget_utils import WgetResult
 from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
     wget_html_storage_backend as backend_module,
 )
-from LiuXin_alpha.ingest.sources.wget_utils import WgetResult
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 

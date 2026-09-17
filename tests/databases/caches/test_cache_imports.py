@@ -132,7 +132,10 @@ class TestCacheImportAPIs:
         assert NumpyVectorizedStorageCache is not None
 
     def test_numpy_vectorized_plugin_uses_independent_cache_and_field_types(self) -> None:
-        from LiuXin_alpha.caches import NumpyVectorizedStorageCache, SchemaBackedStorageCache
+        from LiuXin_alpha.caches import (
+            NumpyVectorizedStorageCache,
+            SchemaBackedStorageCache,
+        )
         from LiuXin_alpha.caches.cache_plugins.numpy_vectorized.link_table import (
             NumpyVectorizedLinkTable,
         )
@@ -207,6 +210,30 @@ class TestCacheImportAPIs:
     def test_schema_backed_public_surface_resolves_to_canonical_schema_backed_types(
         self,
     ) -> None:
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedLinkTable as PublicSchemaBackedLinkTable,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedMainTableCache as PublicSchemaBackedMainTableCache,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedManyManyField as PublicSchemaBackedManyManyField,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedManyOneField as PublicSchemaBackedManyOneField,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedOneManyField as PublicSchemaBackedOneManyField,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedSameTableField as PublicSchemaBackedSameTableField,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedStorageCache as PublicSchemaBackedStorageCache,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedTwoTableOneOneField as PublicSchemaBackedTwoTableOneOneField,
+        )
         from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_cache import (
             SchemaBackedStorageCache as CanonicalSchemaBackedStorageCache,
         )
@@ -221,6 +248,8 @@ class TestCacheImportAPIs:
         )
         from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_fields.one_one_field import (
             SchemaBackedSameTableField as CanonicalSchemaBackedSameTableField,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_fields.one_one_field import (
             SchemaBackedTwoTableOneOneField as CanonicalSchemaBackedTwoTableOneOneField,
         )
         from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.link_tables.link_table import (
@@ -228,16 +257,6 @@ class TestCacheImportAPIs:
         )
         from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.single_table import (
             SchemaBackedMainTableCache as CanonicalSchemaBackedMainTableCache,
-        )
-        from LiuXin_alpha.caches.schema_backed import (
-            SchemaBackedLinkTable as PublicSchemaBackedLinkTable,
-            SchemaBackedMainTableCache as PublicSchemaBackedMainTableCache,
-            SchemaBackedManyManyField as PublicSchemaBackedManyManyField,
-            SchemaBackedManyOneField as PublicSchemaBackedManyOneField,
-            SchemaBackedOneManyField as PublicSchemaBackedOneManyField,
-            SchemaBackedSameTableField as PublicSchemaBackedSameTableField,
-            SchemaBackedStorageCache as PublicSchemaBackedStorageCache,
-            SchemaBackedTwoTableOneOneField as PublicSchemaBackedTwoTableOneOneField,
         )
 
         assert PublicSchemaBackedStorageCache is CanonicalSchemaBackedStorageCache

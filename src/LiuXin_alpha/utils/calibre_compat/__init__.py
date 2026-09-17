@@ -1,14 +1,11 @@
-"""Calibre-compatibility shims for LiuXin.
+"""Calibre metadata implementations and import diagnostics.
 
-This package hosts import-layer and lightweight compatibility objects so that
-third-party calibre plugins can run inside LiuXin without the calibre runtime.
-
-Entry point: :func:`install_calibre_shims`.
+Import implementations from LiuXin_alpha.utils.calibre_compat directly. This
+package does not install aliases under the external calibre namespace.
 """
 
 from __future__ import annotations
 
-from .install import install_calibre_shims
 from .import_diagnostics import (
     calibre_import_failure_logging,
     install_calibre_import_failure_logging,
@@ -19,7 +16,6 @@ from .import_diagnostics import (
 )
 
 __all__ = [
-    "install_calibre_shims",
     "calibre_import_failure_logging",
     "install_calibre_import_failure_logging",
     "uninstall_calibre_import_failure_logging",

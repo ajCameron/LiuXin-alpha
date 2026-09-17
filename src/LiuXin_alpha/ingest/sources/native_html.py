@@ -14,14 +14,11 @@ import threading
 import time
 import urllib.error
 import urllib.request
-
 from collections import deque
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
-
-from LiuXin_alpha.utils.logging.event_logs.in_memory_list import InMemoryEventLog
 
 from LiuXin_alpha.ingest.sources.api import (
     DiscoveredUrlCallback,
@@ -41,6 +38,7 @@ from LiuXin_alpha.ingest.sources.html_common import (
     looks_like_html_page_url,
     normalize_http_url,
 )
+from LiuXin_alpha.utils.logging.event_logs.in_memory_list import InMemoryEventLog
 
 NATIVE_HTML_MAX_REQUESTS_PER_HOUR_DEFAULT = CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT
 NATIVE_HTML_MAX_REQUESTS_PER_HOUR_PREF_KEY = CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY
@@ -714,18 +712,6 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
         self._crawl_cache_urls = filtered
         return list(filtered)
 
-    def crawl_urls(self, **kwargs) -> list[str]:  # noqa: ANN003 - compatibility shim
-        """
-        Forward the legacy crawl method spelling to discovery with unchanged options.
-
-        Example:
-            >>> urls = source.crawl_urls(force=False)  # doctest: +SKIP
-
-
-        :param kwargs: Keyword arguments passed directly to discover_urls.
-        :return: Discovery's URL list, preserving its cache/callback/error behavior.
-        """
-        return self.discover_urls(**kwargs)
 
     def file_exists(self, file_url: str) -> bool:
         """

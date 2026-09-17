@@ -6,9 +6,8 @@ state and support hooks. Its public transient class keeps manager metadata in
 memory while attached Stores still perform real byte operations. Durable
 application managers reuse the composition with persistence-specific hooks.
 
-Five private request/result aliases retain their historical import locations
-for existing adapters and serialized journal envelopes. InMemoryStorageManager
-is the same class object as TransientStorageManager, not another implementation.
+Private request/result values live in mixins._types. The database repository
+owns their stable journal identifiers independently of Python import paths.
 """
 
 from __future__ import annotations
@@ -27,21 +26,12 @@ from LiuXin_alpha.storage.storage_manager.mixins import (
     StorageRouterMixin,
     StoreAdministrationMixin,
 )
-from LiuXin_alpha.storage.storage_manager.mixins import _types as _manager_types
 from LiuXin_alpha.storage.storage_manager.mixins._policy_support import (
     _StorageManagerPolicySupportMixin,
 )
 from LiuXin_alpha.storage.storage_manager.mixins._support import (
     _StorageManagerSupportMixin,
 )
-
-# Private compatibility exports consumed by the database-backed manager and by
-# durable journal envelopes written before the implementation was decomposed.
-_AdoptIngestRequest = _manager_types._AdoptIngestRequest
-_IdentifiedStreamIngestRequest = _manager_types._IdentifiedStreamIngestRequest
-_IngestOperation = _manager_types._IngestOperation
-_StoreObjectIngestRequest = _manager_types._StoreObjectIngestRequest
-_StreamIngestRequest = _manager_types._StreamIngestRequest
 
 
 class _StorageManagerOrchestrator(
@@ -85,24 +75,15 @@ class TransientStorageManager(_StorageManagerOrchestrator):
     closing does not erase the retained in-memory registries.
 
     Use the application database-backed StorageManager for durable catalogue ownership. This class
-    is not a storage cache and does not join the cache lifecycle. InMemoryStorageManager remains an
-    identity alias for older callers.
+    is not a storage cache and does not join the cache lifecycle.
 
     Example:
         >>> with TransientStorageManager() as manager:
         ...     tuple(manager.iter_stores())
         ()
-        >>> InMemoryStorageManager is TransientStorageManager
-        True
     """
 
 
-# Compatibility for callers written before the persistence boundary was made
-# explicit. New code should prefer the honest ``TransientStorageManager`` name.
-InMemoryStorageManager = TransientStorageManager
-
-
 __all__ = [
-    "InMemoryStorageManager",
     "TransientStorageManager",
 ]

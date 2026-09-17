@@ -1,4 +1,10 @@
-"""PostgreSQL schema builder for LiuXin's core and storage tables."""
+"""
+Build PostgreSQL core/storage DDL and translate bundled helper-table definitions.
+
+Explicit tables are created first, followed by dependency-ordered helpers, inferred
+column metadata and supported normalized-identity seeds. Creation uses IF NOT EXISTS
+and conflict-tolerant inserts; it does not migrate incompatible existing tables.
+"""
 
 from __future__ import annotations
 
@@ -42,7 +48,16 @@ _HELPER_SQL_FOLDERS = (
 
 @dataclass(frozen=True)
 class TableDefinition:
-    """Declarative PostgreSQL table fragments assembled by the schema builder."""
+    """
+    Immutable table name, column/constraint fragments and standalone index statements.
+
+    Fragments are trusted internal SQL, not validated user input. Indexes are emitted
+    after their owning CREATE TABLE statement.
+
+    Example:
+        ``TableDefinition("notes", ('"note_id" bigint primary key',))`` defines
+        one table without opening a connection.
+    """
 
     name: str
     columns: tuple[str, ...]
@@ -51,7 +66,21 @@ class TableDefinition:
 
 
 def create_new_database(target_location: str | Mapping[str, object]) -> None:
-    """Registry builder entry point for PostgreSQL URL targets."""
+    """
+    Connect to an existing PostgreSQL database and initialize its LiuXin schema.
+
+    A metadata mapping resolves its schema through configuration; a string URL uses
+    public. The raw connection is always closed after creation. This entry point does
+    not issue CREATE DATABASE or create server roles.
+
+    Example:
+        ``create_new_database({"service": "owner", "schema": "library"})``
+        initializes tables in library on the configured database.
+
+
+    :param target_location: Connection metadata mapping or PostgreSQL URL string.
+    :return: None; creates schema objects and seeds through the schema builder.
+    """
 
     metadata: Mapping[str, object] | None
     url: str | None
@@ -72,7 +101,22 @@ def create_new_database(target_location: str | Mapping[str, object]) -> None:
 
 
 def create_postgres_schema(conn: Any, *, schema: str = "public") -> None:
-    """Create the initial LiuXin PostgreSQL schema on an open connection."""
+    """
+    Create schema objects and seed records in the supplied connection transaction.
+
+    The connection must provide execute() and transactional context management. It stays
+    open after return. Execution/context failures become DatabaseDriverError; statement
+    building occurs before that exception wrapper.
+
+    Example:
+        ``create_postgres_schema(adapter, schema="library")`` creates missing
+        managed objects while retaining ownership of adapter with the caller.
+
+
+    :param conn: Open connection adapter or compatible transactional connection.
+    :param schema: Schema selected with a quoted search_path.
+    :return: None; commits on successful context exit and logs completion.
+    """
 
     schema_name = _quote_identifier(schema)
     statements = build_schema_statements(schema=schema)
@@ -94,7 +138,20 @@ def create_postgres_schema(conn: Any, *, schema: str = "public") -> None:
 
 
 def build_schema_statements(*, schema: str = "public") -> tuple[str, ...]:
-    """Return PostgreSQL DDL statements for the initial LiuXin schema."""
+    """
+    Assemble search_path, explicit tables/indexes, helper DDL and seed inserts.
+
+    Reads bundled SQL helper files without connecting to PostgreSQL. Foreign-key cycles
+    in helper definitions raise DatabaseDriverError.
+
+    Example:
+        >>> build_schema_statements(schema="library")[0]
+        'set search_path to "library"'
+
+
+    :param schema: Schema selected with a quoted search_path.
+    :return: Ordered immutable SQL statement tuple.
+    """
 
     statements: list[str] = []
     statements.append(f"set search_path to {_quote_identifier(schema)}")
@@ -108,7 +165,16 @@ def build_schema_statements(*, schema: str = "public") -> tuple[str, ...]:
 
 
 def schema_table_catalog() -> dict[str, tuple[str, ...]]:
-    """Return table -> columns for the schema builder's managed tables."""
+    """
+    Describe managed explicit and translated helper columns without querying a server.
+
+    Example:
+        >>> "work_id" in schema_table_catalog()["works"]
+        True
+
+
+    :return: New table-to-column-tuples mapping in declaration order within each table.
+    """
 
     catalog = {table.name: _column_names(table.columns) for table in TABLE_DEFINITIONS}
     catalog.update(_helper_table_catalog())
@@ -116,12 +182,39 @@ def schema_table_catalog() -> dict[str, tuple[str, ...]]:
 
 
 def _create_table_sql(table: TableDefinition) -> str:
+    """
+    Join trusted column and constraint fragments into CREATE TABLE IF NOT EXISTS.
+
+    The internal table name is surrounded by quotes but not escaped here.
+
+    Example:
+        >>> _create_table_sql(TableDefinition("t", ('"id" bigint',))).startswith('create table if not exists "t"')
+        True
+
+
+    :param table: Trusted internal table declaration; its indexes are handled separately.
+    :return: CREATE TABLE statement without a trailing semicolon.
+    """
     parts = [*table.columns, *table.constraints]
     body = ",\n  ".join(parts)
     return f'create table if not exists "{table.name}" (\n  {body}\n)'
 
 
 def _helper_sql_statements() -> tuple[str, ...]:
+    """
+    Translate selected helper tables/indexes and order table groups by foreign keys.
+
+    Exclude explicitly managed tables. Preserve discovery order among ready groups;
+    ignore self-references and dependencies outside the discovered helpers. Reject cycles
+    with DatabaseDriverError rather than returning a partial order.
+
+    Example:
+        A helper referenced by digital_asset_derivations is emitted before that
+        dependent table, regardless of its source filename order.
+
+
+    :return: Ordered translated helper statements.
+    """
     grouped: dict[str, list[str]] = {}
     discovery_order: list[str] = []
     explicit = {definition.name for definition in TABLE_DEFINITIONS}
@@ -171,7 +264,17 @@ def _helper_sql_statements() -> tuple[str, ...]:
 
 
 def _statement_referenced_tables(statement: str) -> set[str]:
-    """Return tables named by portable ``REFERENCES`` clauses."""
+    """
+    Extract quoted table names following REFERENCES using the bundled SQL pattern.
+
+    Example:
+        >>> _statement_referenced_tables('references "works" ("work_id")')
+        {'works'}
+
+
+    :param statement: SQL fragment searched case-insensitively; unquoted references are ignored.
+    :return: Set of double-quoted or backtick-quoted referenced names.
+    """
 
     return {
         match.group(1)
@@ -184,6 +287,15 @@ def _statement_referenced_tables(statement: str) -> set[str]:
 
 
 def _helper_table_catalog() -> dict[str, tuple[str, ...]]:
+    """
+    Parse columns of selected helper CREATE TABLE statements after translation.
+
+    Example:
+        The helper catalog includes column_metadata from its bundled SQL file.
+
+
+    :return: Mapping of helper table names to ordered column-name tuples.
+    """
     catalog: dict[str, tuple[str, ...]] = {}
     explicit = {definition.name for definition in TABLE_DEFINITIONS}
     helper_tables = set(HELPER_TABLES) - explicit
@@ -197,6 +309,19 @@ def _helper_table_catalog() -> dict[str, tuple[str, ...]]:
 
 
 def _column_metadata_seed_statements() -> tuple[str, ...]:
+    """
+    Render inferred column policy records as conflict-tolerant inserts.
+
+    Existing table/column records are preserved with ON CONFLICT DO NOTHING, including
+    user-edited policies and presentation options.
+
+    Example:
+        A work_title seed records its inferred semantic role and JSON option maps
+        without overwriting an existing metadata row.
+
+
+    :return: Tuple of column_metadata INSERT statements.
+    """
     statements: list[str] = []
     for metadata in _schema_column_metadata_defaults():
         statements.append(
@@ -231,7 +356,19 @@ def _column_metadata_seed_statements() -> tuple[str, ...]:
 
 
 def _normalized_identity_seed_statements() -> tuple[str, ...]:
-    """Seed declarations which are supported by the physical PG catalog."""
+    """
+    Seed default identity policies only when all required physical columns exist.
+
+    Value/key/scope columns must be present in the built catalog. Existing policies
+    are retained on table/value-column conflict.
+
+    Example:
+        A default whose identity key column is absent from the PostgreSQL catalog
+        is omitted rather than generating an unusable seed.
+
+
+    :return: Tuple of supported normalized_identities INSERT statements.
+    """
 
     statements: list[str] = []
     catalog = schema_table_catalog()
@@ -268,7 +405,19 @@ def _normalized_identity_seed_statements() -> tuple[str, ...]:
 
 
 def _schema_column_metadata_defaults() -> tuple[ColumnMetadata, ...]:
-    """Infer one complete metadata record per physical PostgreSQL column."""
+    """
+    Infer one policy record per physical explicit/helper column.
+
+    Use declared type and detected primary/foreign-key roles; sort results by table
+    and column after consolidating repeated keys.
+
+    Example:
+        The work_id record is inferred as an identifier, while work_title receives
+        the title policy.
+
+
+    :return: Tuple of ColumnMetadata records ordered by table and column.
+    """
 
     records: dict[tuple[str, str], ColumnMetadata] = {}
 
@@ -305,6 +454,17 @@ def _schema_column_metadata_defaults() -> tuple[ColumnMetadata, ...]:
 
 
 def _column_declaration(declaration: str) -> tuple[str, str] | None:
+    """
+    Parse one double-quoted column declaration and its remaining type/constraint text.
+
+    Example:
+        >>> _column_declaration('"work_id" bigint,')
+        ('work_id', 'bigint')
+
+
+    :param declaration: Single declaration line, optionally ending in a comma.
+    :return: Column/type-text pair or None when the line does not match.
+    """
     match = re.match(r'^\s*"([^"]+)"\s+(.+?)\s*,?\s*$', declaration)
     if match is None:
         return None
@@ -314,6 +474,19 @@ def _column_declaration(declaration: str) -> tuple[str, str] | None:
 def _create_statement_column_declarations(
     sql: str,
 ) -> tuple[tuple[str, str], ...]:
+    """
+    Collect quoted column lines until the first recognized table constraint.
+
+    Once constraint parsing starts, later lines are ignored. This expects the bundled
+    multiline DDL layout rather than arbitrary SQL.
+
+    Example:
+        A line starting ``constraint `` ends column collection for that statement.
+
+
+    :param sql: SQL text in the limited layout used by bundled table definitions.
+    :return: Ordered column/type-text pairs.
+    """
     declarations: list[tuple[str, str]] = []
     in_constraints = False
     for line in sql.splitlines():
@@ -331,6 +504,19 @@ def _create_statement_column_declarations(
 
 
 def _foreign_key_columns(sql: str) -> set[str]:
+    """
+    Find double-quoted single-column FOREIGN KEY clauses.
+
+    Composite keys and inline REFERENCES declarations are outside this pattern.
+
+    Example:
+        >>> _foreign_key_columns('foreign key ("work_id") references "works"')
+        {'work_id'}
+
+
+    :param sql: SQL text in the limited layout used by bundled table definitions.
+    :return: Set of detected local foreign-key columns.
+    """
     return {
         match.group(1)
         for match in re.finditer(
@@ -342,6 +528,20 @@ def _foreign_key_columns(sql: str) -> set[str]:
 
 
 def _sqlite_helper_statements() -> tuple[str, ...]:
+    """
+    Read bundled metadata/workflow SQL files and retain table/index creation.
+
+    Sort filenames within each configured folder, remove full-line comments and split
+    on semicolons. This assumes the controlled SQL resources contain no embedded
+    semicolon constructs requiring a parser.
+
+    Example:
+        CREATE TABLE IF NOT EXISTS and CREATE UNIQUE INDEX IF NOT EXISTS survive;
+        other statement kinds are excluded.
+
+
+    :return: Tuple of stripped SQLite helper statements.
+    """
     statements: list[str] = []
     for folder in _HELPER_SQL_FOLDERS:
         for sql_path in sorted(folder.glob("*.sql")):
@@ -359,6 +559,19 @@ def _sqlite_helper_statements() -> tuple[str, ...]:
 
 
 def _strip_sql_comments(sql_text: str) -> str:
+    """
+    Remove lines whose trimmed text starts with --, retaining all other lines.
+
+    Inline comments, block comments and SQL string syntax are not parsed.
+
+    Example:
+        >>> _strip_sql_comments(chr(10).join(["-- heading", "select 1"]))
+        'select 1'
+
+
+    :param sql_text: SQL resource text to filter.
+    :return: Remaining lines joined with newline characters.
+    """
     lines: list[str] = []
     for line in sql_text.splitlines():
         stripped = line.strip()
@@ -369,6 +582,21 @@ def _strip_sql_comments(sql_text: str) -> str:
 
 
 def _translate_sqlite_statement(sql: str) -> str:
+    """
+    Translate the controlled helper DDL subset into PostgreSQL text.
+
+    Replace backticks, the bundled epoch expression, NOCASE collation and known type
+    spellings. Replacements scan the whole text, including literals; this is not a
+    general SQLite-to-PostgreSQL converter.
+
+    Example:
+        >>> _translate_sqlite_statement('"id" INTEGER PRIMARY KEY')
+        '"id" bigint generated by default as identity primary key'
+
+
+    :param sql: SQL text in the limited layout used by bundled table definitions.
+    :return: Translated helper statement.
+    """
     translated = sql.replace("`", '"')
     translated = re.sub(
         r"CAST\(\s*\(julianday\('now'\)\s*-\s*2440587\.5\)\s*\*\s*86400000\s+AS\s+INTEGER\s*\)",
@@ -393,22 +621,66 @@ def _translate_sqlite_statement(sql: str) -> str:
 
 
 def _statement_table_name(sql: str) -> str | None:
+    """
+    Extract a simple table name from CREATE TABLE IF NOT EXISTS text.
+
+    Example:
+        >>> _statement_table_name('create table if not exists "works" (id int)')
+        'works'
+
+
+    :param sql: SQL text in the limited layout used by bundled table definitions.
+    :return: Matched ASCII word-like name, or None.
+    """
     match = re.search(r'create\s+table\s+if\s+not\s+exists\s+[`"]?([A-Za-z0-9_]+)[`"]?', sql, re.IGNORECASE)
     return match.group(1) if match else None
 
 
 def _statement_index_table_name(sql: str) -> str | None:
+    """
+    Extract the simple relation after ON and before an opening parenthesis.
+
+    Example:
+        >>> _statement_index_table_name('create index i on "works" (work_id)')
+        'works'
+
+
+    :param sql: SQL text in the limited layout used by bundled table definitions.
+    :return: Matched index-target table name, or None.
+    """
     match = re.search(r'\bon\s+[`"]?([A-Za-z0-9_]+)[`"]?\s*\(', sql, re.IGNORECASE)
     return match.group(1) if match else None
 
 
 def _create_statement_column_names(sql: str) -> tuple[str, ...]:
+    """
+    Discard type text from parsed CREATE TABLE column declarations.
+
+    Example:
+        >>> _create_statement_column_names(chr(10).join(['create table t (', '"id" bigint', ')']))
+        ('id',)
+
+
+    :param sql: SQL text in the limited layout used by bundled table definitions.
+    :return: Ordered tuple of column names.
+    """
     return tuple(
         column for column, _declared_type in _create_statement_column_declarations(sql)
     )
 
 
 def _column_names(columns: Sequence[str]) -> tuple[str, ...]:
+    """
+    Read the leading double-quoted name from each trusted column fragment.
+
+    Example:
+        >>> _column_names(('"id" bigint', "constraint ignored"))
+        ('id',)
+
+
+    :param columns: Trusted internal column declaration strings.
+    :return: Ordered names; fragments without a leading quote are skipped.
+    """
     names: list[str] = []
     for column in columns:
         text = column.strip()
@@ -419,30 +691,107 @@ def _column_names(columns: Sequence[str]) -> tuple[str, ...]:
 
 
 def _identity_pk(column: str) -> str:
+    """
+    Build a bigint identity primary-key fragment from a trusted column name.
+
+    Example:
+        >>> _identity_pk("work_id")
+        '"work_id" bigint generated by default as identity primary key'
+
+
+    :param column: Trusted column name interpolated into a DDL fragment.
+    :return: Column DDL using GENERATED BY DEFAULT AS IDENTITY.
+    """
     return f'"{column}" bigint generated by default as identity primary key'
 
 
 def _epoch_column(column: str) -> str:
+    """
+    Build a required bigint epoch-millisecond column with a clock_timestamp default.
+
+    Example:
+        The work_created_timestamp_ep_k fragment initializes milliseconds when
+        a row is inserted; it does not install an update trigger.
+
+
+    :param column: Trusted column name interpolated into a DDL fragment.
+    :return: NOT NULL bigint column DDL with the shared epoch default.
+    """
     return f'"{column}" bigint not null default {EPOCH_MS_DEFAULT}'
 
 
 def _nullable_epoch_column(column: str) -> str:
+    """
+    Build a nullable bigint epoch column without a generated default.
+
+    Example:
+        >>> _nullable_epoch_column("observed_at")
+        '"observed_at" bigint null'
+
+
+    :param column: Trusted column name interpolated into a DDL fragment.
+    :return: Nullable bigint column DDL.
+    """
     return f'"{column}" bigint null'
 
 
 def _scratch_column(table_singular: str) -> str:
+    """
+    Build the conventional nullable scratch text column for a table prefix.
+
+    Example:
+        >>> _scratch_column("work")
+        '"work_scratch" text null'
+
+
+    :param table_singular: Trusted singular prefix used before _scratch.
+    :return: Nullable scratch-column DDL.
+    """
     return f'"{table_singular}_scratch" text null'
 
 
 def _quote_identifier(identifier: str) -> str:
+    """
+    Escape double quotes and delimit one SQL identifier.
+
+    Example:
+        >>> _quote_identifier("library")
+        '"library"'
+
+
+    :param identifier: Identifier converted to text and escaped.
+    :return: Quoted identifier.
+    """
     return '"' + str(identifier).replace('"', '""') + '"'
 
 
 def _sql_literal(value: str) -> str:
+    """
+    Quote text as a SQL literal by doubling apostrophes.
+
+    Example:
+        >>> _sql_literal("work")
+        "'work'"
+
+
+    :param value: Value to render as a SQL literal.
+    :return: Single-quoted text literal.
+    """
     return "'" + str(value).replace("'", "''") + "'"
 
 
 def _sql_nullable_literal(value: str | None) -> str:
+    """
+    Render None as SQL null and other values as quoted text.
+
+    Example:
+        >>> _sql_nullable_literal(None)
+        'null'
+
+
+    :param value: Value to render as a SQL literal.
+    :return: SQL null token or escaped string literal.
+    """
     return "null" if value is None else _sql_literal(value)
 
 

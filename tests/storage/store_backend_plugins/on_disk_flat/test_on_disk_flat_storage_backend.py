@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from LiuXin_alpha.storage import api
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_flat import (
     OnDiskFlatStorageBackend,
 )
@@ -216,7 +216,7 @@ def test_storage_manager_can_use_on_disk_flat_store(tmp_path: Path) -> None:
     :return: None after the stated regression assertions pass.
     """
     store = OnDiskFlatStorageBackend(tmp_path)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
         default_store_ref=store.store_ref,
     )

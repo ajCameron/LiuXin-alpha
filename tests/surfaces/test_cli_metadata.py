@@ -14,7 +14,6 @@ import base64
 import json
 import os
 import zipfile
-
 from pathlib import Path
 from typing import Any
 
@@ -1089,17 +1088,17 @@ def test_online_cover_can_publish_binary_separately_from_json_report(
     assert "content" not in cover_report
 
 
-def test_metadata_help_is_available_from_packaged_and_compatibility_parsers(
+def test_metadata_help_is_available_from_the_application_parser(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """
-    Expose metadata help through both the packaged app and historical SquashFS entry.
+    Expose metadata help through the application entry point.
 
     Example:
-        >>> test_metadata_help_is_available_from_packaged_and_compatibility_parsers(capsys)  # doctest: +SKIP
+        >>> test_metadata_help_is_available_from_the_application_parser(capsys)  # doctest: +SKIP
 
 
-    :param capsys: Capture read separately for the two parser help invocations.
+    :param capsys: Capture for the parser help invocation.
     :return: None; assert clean argparse exits and advertised dump-json support.
     """
     with pytest.raises(SystemExit) as packaged:
@@ -1107,12 +1106,6 @@ def test_metadata_help_is_available_from_packaged_and_compatibility_parsers(
     assert packaged.value.code == 0
     assert "dump-json" in capsys.readouterr().out
 
-    from LiuXin_alpha.surfaces.cli.squashfs import main as compatibility_main
-
-    with pytest.raises(SystemExit) as compatibility:
-        compatibility_main(["metadata", "--help"])
-    assert compatibility.value.code == 0
-    assert "dump-json" in capsys.readouterr().out
 
 
 def test_catalogue_commands_round_trip_through_a_real_local_core(

@@ -1,15 +1,12 @@
 """
-Expose the SquashFS staging Store and its common Location compatibility alias.
+Expose the SquashFS staging Store for explicit archive validation and sealing.
 
-Committed filesystem staging becomes a validated archive through explicit seal.
-Use the returned read-only Store for archive access after successful sealing;
-the builder retains its staging view and refuses new leased mutations.
+Locations and observed file metadata use the shared storage API values.
+The imported implementation owns backend construction and physical operations.
 """
 
-from .squashfs_build_location import SquashfsBuildStoreLocation
 from .squashfs_build_storage_backend import SquashfsBuildStorageBackend
 
 __all__ = [
-    "SquashfsBuildStoreLocation",
     "SquashfsBuildStorageBackend",
 ]

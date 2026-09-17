@@ -1,20 +1,39 @@
 # Working Memory Index
 
-Current status: **paused at D095 by user request**. [Shutdown checkpoint](project-docstrings-hundred-paused-2026-09-15.md): 15/100 units verified in this chunk, 408 declarations; 853/2,732 complete project files. **D096 is next only on a new user request.** Earlier authorization and pause notes below are historical.
+Current status: D106–D115 documentation complete: 257 declarations in 25 files.
+[Latest checkpoint](project-docstrings-d106-d115-2026-09-17.md). Coverage:
+**839/2,671 files**. **D116 is next only on a new request**; earlier broad
+authorizations remain paused. The completed shim cleanup is preserved separately.
 
-Updated: 2026-09-15
+Updated: 2026-09-17
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [project-docstrings-d106-d115-2026-09-17.md](project-docstrings-d106-d115-2026-09-17.md)
+  D106–D115 verified: shared SQL support, Calibre/FRBR builders and driver mixins.
+  139 regressions passed, three skipped; 35 examples and full quality gates passed.
+  D116 is next only on request.
+
+- [project-docstrings-ten-2026-09-17.md](project-docstrings-ten-2026-09-17.md)
+  D096–D105 verified: driver registry/macros and PostgreSQL backend. 35 focused
+  tests, 78 examples, four macro modes and full quality gates passed. Historical
+  checkpoint before D106–D115.
+
+- [shim-removal-2026-09-16.md](shim-removal-2026-09-16.md)
+  Completed repository-wide import-shim cleanup: 61 modules removed, tests and
+  quality checks passed, documentation inventory reconciled. Historical checkpoint
+  before the ten-unit documentation continuation.
 
 - [storage-root-shim-removal-2026-09-15.md](storage-root-shim-removal-2026-09-15.md)
   Storage-root lazy exports removed; callers use owning modules. 165 tests and
   configured quality checks passed. The documentation campaign remains paused.
 
 - [project-docstrings-d-2026-09-14.md](project-docstrings-d-2026-09-14.md)
-  Paused by user on 2026-09-15; D001–D095 verified (95/232).
-  [Shutdown checkpoint](project-docstrings-hundred-paused-2026-09-15.md): D096 queued; resume only on request. Coverage: 853/2,732 files.
+  Historical D001–D095 record and [shutdown checkpoint](project-docstrings-hundred-paused-2026-09-15.md).
+  Current continuation, maintenance-adjusted coverage and D116 resume point are
+  in the latest ten-unit checkpoint above.
 
 - [project-docstrings-thirty-2026-09-13.md](project-docstrings-thirty-2026-09-13.md)
   Authorized thirty-module batch C03–C032 complete: 566 declarations, 54 complete

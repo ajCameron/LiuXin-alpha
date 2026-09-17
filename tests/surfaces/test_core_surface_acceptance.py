@@ -12,14 +12,13 @@ from __future__ import annotations
 
 import io
 import urllib.parse
-
 from pathlib import Path
 from wsgiref.util import setup_testing_defaults
 
 from LiuXin_alpha.core import CoreHttpDaemon, RemoteCoreClient, create_core
 from LiuXin_alpha.surfaces.api_readonly.app import ApiReadOnlyApplication
 from LiuXin_alpha.surfaces.opds_readonly.app import OpdsReadOnlyApplication
-from LiuXin_alpha.surfaces.terminal.text_browser import TextDatabaseBrowser
+from LiuXin_alpha.surfaces.terminal.browser import TextDatabaseBrowser
 from LiuXin_alpha.surfaces.tkinter_gui.backend import TkGuiBackend
 from LiuXin_alpha.surfaces.tkinter_gui.session import TkGuiSession
 from LiuXin_alpha.surfaces.tkinter_gui.state import TkGuiConfig

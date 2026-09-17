@@ -1,24 +1,26 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
-
-import typing as _typing
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import os
+import typing as _typing
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
-from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
-    choose_conversion_workdir,
-)
-from LiuXin_alpha.file_formats.conversion.report import ensure_conversion_report
 from LiuXin_alpha.file_formats.archive_preflight import (
     normalized_zip_member_name,
     validate_zip_member_infos,
 )
-
-from LiuXin_alpha.utils.calibre import CurrentDir
-from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
+from LiuXin_alpha.file_formats.conversion.report import ensure_conversion_report
+from LiuXin_alpha.utils.calibre import CurrentDir, guess_type
 from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL 3"
@@ -138,8 +140,8 @@ class HTMLZInput(InputFormatPlugin):
         :param accelerators:
         :return:
         """
-        from LiuXin_alpha.file_formats.chardet import xml_to_unicode
         from LiuXin_alpha.file_formats.opf.opf2 import OPF
+        from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         self.log = log

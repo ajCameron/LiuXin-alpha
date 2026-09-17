@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
-
-import typing as _typing
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import re
+import typing as _typing
 
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
@@ -19,22 +23,27 @@ except Exception:  # pragma: no cover - runtime without lxml
 
     html = _MissingLxmlHtml()
 
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode, strip_encoding_declarations
-
 from LiuXin_alpha.constants import filesystem_encoding, force_unicode
-
-from LiuXin_alpha.utils.text.xml_utils import xml_replace_entities
-
-from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import namespaces as html5_namespaces
-from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.libraries.calibre_chardet import (
+    strip_encoding_declarations,
+    xml_to_unicode,
+)
+from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import (
+    namespaces as html5_namespaces,
+)
+from LiuXin_alpha.utils.libraries.liuxin_six import (
+    dict_iteritems as iteritems,
+)
+from LiuXin_alpha.utils.libraries.liuxin_six import (
+    dict_itervalues as itervalues,
+)
 
 # Py2/Py3 compatability layer
 from LiuXin_alpha.utils.libraries.liuxin_six import (
     six_string_types,
-    dict_iteritems as iteritems,
-    dict_itervalues as itervalues,
 )
-
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.text.xml_utils import xml_replace_entities
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -119,7 +128,10 @@ def node_depth(node: _typing.Any) -> _typing.Any:
 
 
 def fix_self_closing_cdata_tags(data: _typing.Any) -> _typing.Any:
-    from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import cdataElements, rcdataElements
+    from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import (
+        cdataElements,
+        rcdataElements,
+    )
 
     return re.sub(
         r"<\s*(%s)\s*[^>]*/\s*>" % ("|".join(cdataElements | rcdataElements)),

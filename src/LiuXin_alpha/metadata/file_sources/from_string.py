@@ -16,8 +16,10 @@ from datetime import datetime
 from typing import Any
 
 from LiuXin_alpha.metadata.constants import ISBN_PATTENRS
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaData,
+)
 from LiuXin_alpha.metadata.ebook_metadata_tools import check_name
-from LiuXin_alpha.metadata.metadata import MetaData
 from LiuXin_alpha.metadata.utils import check_isbn, string_to_authors
 from LiuXin_alpha.utils.date import parse_only_date
 from LiuXin_alpha.utils.localization import trans as _

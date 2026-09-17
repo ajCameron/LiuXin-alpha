@@ -10,16 +10,25 @@ Owner-row creation/deletion belongs to table/database APIs.
 from __future__ import annotations
 
 import abc
-from typing import ClassVar, Generic, TYPE_CHECKING, Union, TypeVar, Iterable, Optional, Literal
+from typing import (
+    TYPE_CHECKING,
+    ClassVar,
+    Generic,
+    Iterable,
+    Literal,
+    Optional,
+    TypeVar,
+    Union,
+)
 
 from LiuXin_alpha.databases.api import DatabaseAPI
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table import (
-        StorageStorageCacheSingleTableAPI,
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
+        StorageCacheSingleTableAPI,
     )
-    from LiuXin_alpha.databases.db_types import MainTableName, MainTableID
     from LiuXin_alpha.catalog.api.field_metadata_api import FieldMetadataAPI
+    from LiuXin_alpha.databases.db_types import MainTableID, MainTableName
 
 T = TypeVar("T")
 
@@ -95,8 +104,8 @@ class FieldBasicInterfaceAPI(abc.ABC, Generic[T]):
     @abc.abstractmethod
     def get_main_table(
         self,
-        name: Union[MainTableName, "StorageStorageCacheSingleTableAPI"],
-    ) -> "StorageStorageCacheSingleTableAPI":
+        name: Union[MainTableName, "StorageCacheSingleTableAPI"],
+    ) -> "StorageCacheSingleTableAPI":
         """
         Resolve a field's owner or endpoint table through its cache.
 

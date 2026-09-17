@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import dataclasses
 import os
-
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 from uuid import UUID, uuid4
@@ -37,7 +36,7 @@ class SQLiteStore(DriverBackedStoreAPI[SQLiteObjectAddress]):
         >>> store.close()  # doctest: +SKIP
     """
 
-    store_kind = "sqlite"
+    store_kind = "single_file_sqlite"
 
     def __init__(
         self,

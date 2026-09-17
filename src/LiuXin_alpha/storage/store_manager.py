@@ -7,8 +7,8 @@ row reconciliation. Durable metadata ownership is established at construction;
 later configuration-source changes do not rebind that repository automatically.
 
 Store construction, physical bytes, configuration writes, facade installation,
-and cleanup retain separate failure boundaries. Compatibility exports preserve
-the StoreManager alias and public bootstrap result types at this import location.
+and cleanup retain separate failure boundaries. Public bootstrap result types
+are defined alongside the application manager.
 """
 
 from __future__ import annotations
@@ -39,15 +39,14 @@ from LiuXin_alpha.storage.storage_manager.database_repository import (
 from LiuXin_alpha.storage.storage_manager.database_unit_of_work import (
     DatabaseStorageUnitOfWorkFactory,
 )
-from LiuXin_alpha.storage.storage_manager.manager import (
-    _StorageManagerOrchestrator,
+from LiuXin_alpha.storage.storage_manager.manager import _StorageManagerOrchestrator
+from LiuXin_alpha.storage.storage_manager.mixins._types import (
     _AdoptIngestRequest,
     _IdentifiedStreamIngestRequest,
     _IngestOperation,
     _StoreObjectIngestRequest,
     _StreamIngestRequest,
 )
-from LiuXin_alpha.storage.store_factory import build_store
 from LiuXin_alpha.storage.store_spec_utils import store_configuration_from_row
 
 
@@ -64,7 +63,7 @@ class StorageManager(_StorageManagerOrchestrator):
     row. Database bootstrap or from_database performs that step. Store construction, byte
     publication, metadata writes, facade replacement, and cleanup have separate failure boundaries.
     The borrowed database is not owned by the manager; inherited lifecycle methods own attached
-    facade shutdown. StoreManager remains an alias for this same class.
+    facade shutdown.
 
     Example:
         >>> manager = StorageManager()
@@ -157,7 +156,7 @@ class StorageManager(_StorageManagerOrchestrator):
             ),
         )
         selected_factory = store_factory or (
-            lambda configuration: build_store(
+            lambda configuration: DEFAULT_BACKEND_REGISTRY.build(
                 configuration,
                 context=self.backend_context,
             )
@@ -1433,7 +1432,6 @@ class StorageManager(_StorageManagerOrchestrator):
         return manager, report
 
 
-StoreManager = StorageManager
 StorageBootstrapIssue = api.StorageBootstrapIssue
 StorageBootstrapReport = api.StorageBootstrapReport
 
@@ -1758,5 +1756,4 @@ __all__ = [
     "StorageBootstrapIssue",
     "StorageBootstrapReport",
     "StorageManager",
-    "StoreManager",
 ]

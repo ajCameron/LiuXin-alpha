@@ -3,7 +3,9 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 
-from LiuXin_alpha.metadata.metadata import MetaData
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaData,
+)
 
 
 def _values(raw):

@@ -1,20 +1,16 @@
 """
-Expose the writable managed-directory Store and common Location alias.
+Expose the writable managed-directory Store.
 
-The separate legacy single-file wrapper is not exported here. Managed allocation
-policy belongs to the backend rather than the Location value.
+Locations and observed file metadata use the shared storage API values.
+The imported implementation owns backend construction and physical operations.
 """
 
 from __future__ import annotations
 
-from .on_disk_existing_managed_drive_location import (
-    OnDiskExistingManagedStoreLocation,
-)
 from .on_disk_existing_managed_drive_storage_backend import (
     OnDiskExistingManagedStorageBackend,
 )
 
 __all__ = [
-    "OnDiskExistingManagedStoreLocation",
     "OnDiskExistingManagedStorageBackend",
 ]

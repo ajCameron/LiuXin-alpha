@@ -2,8 +2,8 @@
 Plan SquashFS backup declarations from configured Store inventory.
 
 The planner groups source-size estimates and captures digest/catalogue evidence without
-building or reserving output. PlannedBackupPack remains the BackupPackPlan compatibility
-alias. Inventory, digest, and Replica reads can observe different moments in time.
+building or reserving output. Plans use the public BackupPackPlan value.
+Inventory, digest, and Replica reads can observe different moments in time.
 """
 
 from __future__ import annotations
@@ -235,7 +235,8 @@ class StoreBackupPlanner(BackupPlannerAPI):
 
 # A descriptive implementation name remains useful to application code; the
 # public value returned by the planner is BackupPackPlan.
-PlannedBackupPack = BackupPackPlan
 
 
-__all__ = ["PlannedBackupPack", "StoreBackupPlanner"]
+__all__ = [
+    "StoreBackupPlanner",
+]

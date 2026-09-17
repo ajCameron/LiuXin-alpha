@@ -10,24 +10,22 @@ from __future__ import annotations
 
 import abc
 import dataclasses
-
-from typing import TYPE_CHECKING, Union, TypeVar, Generic, Optional
+from typing import TYPE_CHECKING, Generic, Optional, TypeVar, Union
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field_api import (
     RelationFieldBasicInterfaceAPI,
     ScalarFieldBasicInterfaceAPI,
 )
-
 from LiuXin_alpha.caches.updates.field_updates import OneOneInOneTableFieldUpdate
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.one_one_tables_api import (
         StorageCacheOneToOneLinkTableAPI,
     )
     from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
-        StorageStorageCacheSingleTableAPI,
+        StorageCacheSingleTableAPI,
     )
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.db_types import (
         MainTableColumnName,
         MainTableID,
@@ -51,7 +49,7 @@ class CacheOneOneInSameTableFieldAPI(ScalarFieldBasicInterfaceAPI[T]):
     """
 
     # The table the column is in.
-    in_table: "StorageStorageCacheSingleTableAPI"
+    in_table: "StorageCacheSingleTableAPI"
 
     _table_id_col: "MainTableName"
     _table_cached_col: "MainTableName"
@@ -60,7 +58,7 @@ class CacheOneOneInSameTableFieldAPI(ScalarFieldBasicInterfaceAPI[T]):
 
     def __init__(
         self,
-        in_table: Union["StorageStorageCacheSingleTableAPI", "MainTableName"],
+        in_table: Union["StorageCacheSingleTableAPI", "MainTableName"],
         db: "DatabaseAPI",
     ) -> None:
         """
@@ -281,8 +279,8 @@ class CacheOneOneInTwoTableFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         ('relation', False)
     """
 
-    src_table: "StorageStorageCacheSingleTableAPI"
-    dst_table: "StorageStorageCacheSingleTableAPI"
+    src_table: "StorageCacheSingleTableAPI"
+    dst_table: "StorageCacheSingleTableAPI"
 
     # We identify the src row by this column and cache the value from this dst column.
     src_table_id_col: MainTableColumnName
@@ -295,9 +293,9 @@ class CacheOneOneInTwoTableFieldAPI(RelationFieldBasicInterfaceAPI[T]):
 
     def __init__(
         self,
-        src_table: Union["StorageStorageCacheSingleTableAPI", "MainTableName"],
+        src_table: Union["StorageCacheSingleTableAPI", "MainTableName"],
         src_table_id_col: MainTableColumnName,
-        dst_table: Union["StorageStorageCacheSingleTableAPI", "MainTableName"],
+        dst_table: Union["StorageCacheSingleTableAPI", "MainTableName"],
         dst_table_cache_col: MainTableColumnName,
         db: "DatabaseAPI",
     ) -> None:
@@ -333,8 +331,8 @@ class CacheOneOneInTwoTableFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     @abc.abstractmethod
     def get_link_table(
         self,
-        src_table: Union["StorageStorageCacheSingleTableAPI", MainTableName],
-        dst_table: Union["StorageStorageCacheSingleTableAPI", MainTableName],
+        src_table: Union["StorageCacheSingleTableAPI", MainTableName],
+        dst_table: Union["StorageCacheSingleTableAPI", MainTableName],
     ) -> "StorageCacheOneToOneLinkTableAPI":
         """
         Resolve the one-to-one link cache connecting the endpoints.

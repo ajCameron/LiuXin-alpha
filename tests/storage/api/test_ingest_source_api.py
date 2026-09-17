@@ -18,8 +18,10 @@ from uuid import uuid4
 
 import pytest
 
-from LiuXin_alpha.ingest import StoreIngestCheckpointedError, ingest_store
+from LiuXin_alpha.ingest.models import StoreIngestCheckpointedError
+from LiuXin_alpha.ingest.stores import ingest_store
 from LiuXin_alpha.storage import api
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.store_backend_plugins.ftp_readonly import (
     FtpReadOnlyStorageBackend,
 )
@@ -27,7 +29,6 @@ from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     RcloneBackendOptions,
     RcloneHttpReadOnlyStorageBackend,
 )
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
 from LiuXin_alpha.storage.stores import (
     FilesystemStore,
     S3Store,
@@ -88,7 +89,7 @@ class _ObservedFilesystemStore(FilesystemStore):
         return super().open_prepared_ingest(prepared, offset=offset)
 
 
-class _ObservedManager(InMemoryStorageManager):
+class _ObservedManager(TransientStorageManager):
     """
     Count identified-stream ingest attempts while retaining in-memory manager behavior.
 
@@ -107,7 +108,7 @@ class _ObservedManager(InMemoryStorageManager):
             0
 
 
-        :param args: Positional arguments forwarded to InMemoryStorageManager.
+        :param args: Positional arguments forwarded to TransientStorageManager.
         :param kwargs: Keyword configuration, including Store registrations and default identity.
         :return: None after updating the test double state.
         """
@@ -126,7 +127,7 @@ class _ObservedManager(InMemoryStorageManager):
 
         :param args: Positional identified-stream arguments forwarded unchanged.
         :param kwargs: Keyword identity, destination, and ingest options forwarded unchanged.
-        :return: Result from InMemoryStorageManager; the increment remains if delegation fails.
+        :return: Result from TransientStorageManager; the increment remains if delegation fails.
         """
         self.identified_ingests += 1
         return super().ingest_identified_stream(*args, **kwargs)
@@ -549,7 +550,7 @@ def test_manager_rejects_unadvertised_prepared_identity(tmp_path: Path) -> None:
     source = _DishonestFilesystemStore(tmp_path / "source")
     destination = FilesystemStore(tmp_path / "destination")
     stored = source.store_bytes(b"payload", location="book")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -575,7 +576,7 @@ def test_store_ingest_uses_optional_preparation_without_backend_checks(
     source = _ObservedFilesystemStore(tmp_path / "source")
     destination = FilesystemStore(tmp_path / "destination")
     source.store_bytes(b"prepared", location="incoming/book.epub")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -606,7 +607,7 @@ def test_store_ingest_resumes_a_validated_partial_object_checkpoint(
     destination = FilesystemStore(tmp_path / "destination")
     payload = b"resumable payload"
     source.store_bytes(payload, location="incoming/book.epub")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -661,7 +662,7 @@ def test_store_ingest_rejects_an_invalid_object_checkpoint(
     source = _InterruptOnceFilesystemStore(tmp_path / "source")
     destination = FilesystemStore(tmp_path / "destination")
     stored = source.store_bytes(b"original payload", location="book.epub")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -713,7 +714,7 @@ def test_strict_store_ingest_exposes_its_retained_checkpoint(
     source = _InterruptOnceFilesystemStore(tmp_path / "source")
     destination = FilesystemStore(tmp_path / "destination")
     source.store_bytes(b"strict payload", location="book.epub")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )

@@ -11,17 +11,16 @@ from __future__ import annotations
 
 import json
 import stat
-
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+import LiuXin_alpha.surfaces.cli.storage_commands.ingest_config as storage_cli_ingest_config
 from LiuXin_alpha.surfaces.cli import initialize as init_cli
-from LiuXin_alpha.surfaces.cli import storage as storage_cli
-from LiuXin_alpha.surfaces.cli.storage_commands import parsers as storage_parsers
 from LiuXin_alpha.surfaces.cli.app import main as cli_main
+from LiuXin_alpha.surfaces.cli.storage_commands import parsers as storage_parsers
 
 
 class _Core:
@@ -513,7 +512,7 @@ def test_system_manifest_populates_safe_mixed_ingest_defaults(tmp_path: Path) ->
         },
     )()
 
-    storage_cli._apply_system_root_defaults(args)
+    storage_cli_ingest_config._apply_system_root_defaults(args)
 
     assert args.database == str(database)
     assert args.materialization_root == str(root / "materialized")

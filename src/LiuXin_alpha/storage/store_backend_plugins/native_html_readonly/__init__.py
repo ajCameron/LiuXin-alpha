@@ -1,9 +1,8 @@
 """
-Export the native HTML discovery options and configured read-only HTTP Store.
+Expose native HTML discovery options and the configured read-only HTTP Store.
 
-Exports retain the implementation objects and shared preference aliases. Importing
-this package does not construct a Store or start network discovery. Legacy
-Location/FileInfo aliases remain in their dedicated compatibility modules.
+Locations and observed file metadata use the shared storage API values.
+The imported implementation owns backend construction and physical operations.
 """
 
 from .native_html_storage_backend import (

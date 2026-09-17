@@ -14,45 +14,44 @@ This was necessary to kill an importerror caused by over-reliance on LiuXin.meta
 
 # Todo: Fix that horrible mess - import errors can be fixed in other ways than duplicating a huge chunk of code
 
-from __future__ import print_function
-from __future__ import annotations
+from __future__ import annotations, print_function
 
-import typing as _typing
-
-import re
-import sys
-import unittest
+import copy
 import functools
-import os
-import uuid
 import glob
 import json
-import copy
+import os
+import re
+import sys
+import typing as _typing
+import unittest
+import uuid
 from urllib.parse import unquote, urlparse
 
-from LiuXin_alpha.utils.libraries.liuxin_etree import etree, ElementMaker
-
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
-
-from LiuXin_alpha.metadata.utils import calibreMetaInformation as MetaInformation
-from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import Metadata as Metadata
-# Todo: Probably gets merged into utils right?
-from LiuXin_alpha.metadata.ebook_metadata_tools import check_isbn
-from LiuXin_alpha.metadata.utils import string_to_authors
+from LiuXin_alpha.constants import __appname__, __version__, filesystem_encoding
 from LiuXin_alpha.file_formats.toc import TOC
 
-from LiuXin_alpha.utils.mine_types import guess_type
-from LiuXin_alpha.utils.logging import prints
-from LiuXin_alpha.constants import __appname__, __version__, filesystem_encoding
+# Todo: Probably gets merged into utils right?
+from LiuXin_alpha.metadata.ebook_metadata_tools import check_isbn
+from LiuXin_alpha.metadata.utils import calibreMetaInformation as MetaInformation
+from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.preferences import preferences as tweaks
+from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import (
+    Metadata as Metadata,
+)
+from LiuXin_alpha.utils.date import isoformat, parse_date
+from LiuXin_alpha.utils.language_tools.icu import lower as icu_lower
+from LiuXin_alpha.utils.language_tools.icu import upper as icu_upper
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
 from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars, clean_xml_chars
-from LiuXin_alpha.utils.date import parse_date, isoformat
 from LiuXin_alpha.utils.libraries.iso639.iso639_tools import canonicalize_lang
-from LiuXin_alpha.utils.localization import trans as _, get_lang
-from LiuXin_alpha.utils.language_tools.icu import lower as icu_lower, upper as icu_upper
-
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, six_cStringIO, six_unicode as unicode
-
+from LiuXin_alpha.utils.libraries.liuxin_etree import ElementMaker, etree
+from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO, six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
+from LiuXin_alpha.utils.localization import get_lang
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logging import prints
+from LiuXin_alpha.utils.mine_types import guess_type
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
@@ -541,7 +540,10 @@ def serialize_user_metadata(metadata_elem: _typing.Any, all_user_metadata: _typi
     :param tail: Tail for the metadata element
     :return:
     """
-    from LiuXin_alpha.metadata.book.json_codec import object_to_unicode, encode_is_multiple
+    from LiuXin_alpha.metadata.book.json_codec import (
+        encode_is_multiple,
+        object_to_unicode,
+    )
     from LiuXin_alpha.utils.config.config_tools import to_json
 
     for name, fm in all_user_metadata.items():
@@ -693,8 +695,10 @@ class OPF(object):  # {{{
     def read_user_metadata(self: _typing.Self) -> None:
         self._user_metadata_ = {}
         temp = Metadata("x", ["x"])
+        from LiuXin_alpha.file_formats.metadata.book.json_codec import (
+            decode_is_multiple,
+        )
         from LiuXin_alpha.utils.config.config_tools import from_json
-        from LiuXin_alpha.file_formats.metadata.book.json_codec import decode_is_multiple
 
         elems = self.root.xpath('//*[name() = "meta" and starts-with(@name,' '"calibre:user_metadata:") and @content]')
         for elem in elems:
@@ -1541,7 +1545,7 @@ class OPFCreator(Metadata):
         self.guide.set_basedir(self.base_path)
 
         # Actual rendering
-        from LiuXin_alpha.file_formats.oeb.base import OPF2_NS, DC11_NS, CALIBRE_NS
+        from LiuXin_alpha.file_formats.oeb.base import CALIBRE_NS, DC11_NS, OPF2_NS
 
         DNS = OPF2_NS + "___xx___"
         E = ElementMaker(namespace=DNS, nsmap={None: DNS})
@@ -1615,7 +1619,9 @@ class OPFCreator(Metadata):
         if self.publication_type is not None:
             a(CAL_ELEM("calibre:publication_type", self.publication_type))
         if self.user_categories:
-            from LiuXin_alpha.file_formats.metadata.book.json_codec import object_to_unicode
+            from LiuXin_alpha.file_formats.metadata.book.json_codec import (
+                object_to_unicode,
+            )
 
             a(
                 CAL_ELEM(
@@ -1671,7 +1677,8 @@ def metadata_to_opf(mi: _typing.Any, as_string: bool = True, default_lang: _typi
     :return:
     """
     import textwrap
-    from LiuXin_alpha.file_formats.oeb.base import OPF, DC
+
+    from LiuXin_alpha.file_formats.oeb.base import DC, OPF
 
     if not mi.application_id:
         mi.application_id = str(uuid.uuid4())

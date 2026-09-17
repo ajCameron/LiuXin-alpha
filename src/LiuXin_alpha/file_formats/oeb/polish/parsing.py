@@ -1,43 +1,50 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
-
-import typing as _typing
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import copy
 import re
+import typing as _typing
 import warnings
-from functools import partial
 from bisect import bisect
+from functools import partial
 
-from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 from lxml.etree import (
-    ElementBase,
-    XMLParser,
-    ElementDefaultClassLookup,
     CommentBase,
+    ElementBase,
+    ElementDefaultClassLookup,
+    XMLParser,
     fromstring,
+)
+from lxml.etree import (
     Element as LxmlElement,
 )
 
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode, ENCODING_PATS
 from LiuXin_alpha.file_formats.oeb.parse_utils import fix_self_closing_cdata_tags
-
-from LiuXin_alpha.utils.text.xml_utils import xml_replace_entities
+from LiuXin_alpha.utils.libraries.calibre_chardet import ENCODING_PATS, xml_to_unicode
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
-
 from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import (
+    EOF,
     namespaces,
     tableInsertModeElements,
-    EOF,
+)
+from LiuXin_alpha.utils.libraries.liuxin_html5lib.html5parser import HTMLParser
+from LiuXin_alpha.utils.libraries.liuxin_html5lib.ihatexml import (
+    DataLossWarning,
+    InfosetFilter,
 )
 from LiuXin_alpha.utils.libraries.liuxin_html5lib.treebuilders._base import (
     TreeBuilder as BaseTreeBuilder,
 )
-from LiuXin_alpha.utils.libraries.liuxin_html5lib.ihatexml import InfosetFilter, DataLossWarning
-from LiuXin_alpha.utils.libraries.liuxin_html5lib.html5parser import HTMLParser
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
+from LiuXin_alpha.utils.text.xml_utils import xml_replace_entities
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

@@ -79,7 +79,7 @@ Application-surface ownership is enforced by
    the configured complexity ceiling; extract named policy or presentation
    helpers instead of raising the ceiling.
 8. Storage-manager behaviour belongs in the API-shaped implementation mixins;
-   `storage_manager/manager.py` remains a small composition and compatibility
+   `storage_manager/manager.py` remains a small composition
    root. Cross-cutting mechanics belong in explicitly private support mixins,
    not whichever public component happens to call them first.
 9. The documentation ratchet protects architectural and exported boundaries.
@@ -164,11 +164,11 @@ treated as evidence that the formatter ran.
   retains installation and explicit compatibility delegates only.
 - `surfaces/cli/storage_commands` separates administration, Store options and
   guided setup, parser construction, and ingest process/reporting concerns.
-  `surfaces/cli/storage.py` retains explicit compatibility aliases only.
+  Callers import those owners directly.
 - `surfaces/cli/parsers` owns the complete command grammar; `app` owns dispatch.
   Completion receives the grammar through an explicit registrar contract, and
   SquashFS parser declarations and execution have separate owners. Historical
-  entry points remain delegates or aliases. See [CLI composition](cli-composition.md).
+  entry-point shims have been removed; the installed command targets app.main. See [CLI composition](cli-composition.md).
 - `ingest/mixed_application.py` owns database, Store-manager, and mixed-ingest
   coordinator composition. CLI code owns parsing, operator interaction,
   process signals, logs, locks, and report presentation.
@@ -351,8 +351,8 @@ Stage 7 separates terminal startup/database creation from browser execution and
 shared presentation. The curses adapter imports the browser owner, while startup
 loads curses only on selection. Command and lifecycle APIs are generic over
 their host instead of importing the concrete browser under `TYPE_CHECKING`.
-The historical `text_browser` module retains explicit aliases; package exports
-resolve lazily. See [terminal composition](terminal-composition.md).
+Terminal callers import app, browser, database_creation and presentation directly;
+the package initializer is a namespace and __main__ invokes app.main. See [terminal composition](terminal-composition.md).
 
 Stage 8 splits the two large terminal owners into complete `browser_components`
 and `windowed_components` trees. The browser root is now 128 lines and the curses

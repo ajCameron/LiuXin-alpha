@@ -1,29 +1,29 @@
 from __future__ import annotations
 
 
-def test_databases_root_exports_expected_helpers() -> None:
-    import LiuXin_alpha.databases as dbmod
+def test_database_owners_expose_expected_helpers() -> None:
+    import LiuXin_alpha.databases.constants as database_constants
+    import LiuXin_alpha.databases.utils as database_utils
 
-    assert callable(dbmod._get_next_series_num_for_list)
-    assert callable(dbmod._get_series_values)
-    assert callable(dbmod.get_data_as_dict)
-    assert dbmod.CUSTOM_DATA_TYPES
-    assert dbmod.VALID_DATA_TYPES
+    assert callable(database_utils._get_next_series_num_for_list)
+    assert callable(database_utils._get_series_values)
+    assert callable(database_utils.get_data_as_dict)
+    assert database_constants.CUSTOM_DATA_TYPES
+    assert database_constants.VALID_DATA_TYPES
 
 
-def test_databases_root_lazy_exports_concrete_types() -> None:
-    from LiuXin_alpha.databases import (
+def test_database_owners_expose_concrete_types() -> None:
+    from LiuXin_alpha.databases.column_metadata import (
         ColumnMergePolicy,
         ColumnMetadata,
         ColumnNormalizationProfile,
         ColumnOptions,
         ColumnSemanticRole,
-        Database,
-        LinkCapabilities,
-        LinkKind,
-        Maintainer,
-        Row,
     )
+    from LiuXin_alpha.databases.database import Database
+    from LiuXin_alpha.databases.maintenance import Maintainer
+    from LiuXin_alpha.databases.row import Row
+    from LiuXin_alpha.databases.schema_specs import LinkCapabilities, LinkKind
 
     assert Database is not None
     assert Row is not None
@@ -38,7 +38,9 @@ def test_databases_root_lazy_exports_concrete_types() -> None:
 
 
 def test_database_driver_registry_lists_builtins() -> None:
-    from LiuXin_alpha.databases.database_driver_plugins import get_registered_database_driver_names
+    from LiuXin_alpha.databases.database_driver_plugins.registry import (
+        get_registered_database_driver_names,
+    )
 
     names = set(get_registered_database_driver_names())
     assert "SQLite" in names

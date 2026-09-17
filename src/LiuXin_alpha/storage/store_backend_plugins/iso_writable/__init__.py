@@ -1,16 +1,14 @@
 """
-Export the configured writable ISO Store and its legacy Location alias.
+Expose the configured writable ISO Store.
 
-Importing these names does not construct a Store or create an image. Actual
-creation and publication policy is applied by the adapter and raw writer.
+Locations and observed file metadata use the shared storage API values.
+The imported implementation owns backend construction and physical operations.
 """
 
-from LiuXin_alpha.storage.store_backend_plugins.iso_writable.iso_writable_location import (
-    IsoWritableStoreLocation,
-)
 from LiuXin_alpha.storage.store_backend_plugins.iso_writable.iso_writable_storage_backend import (
     IsoWritableStorageBackend,
 )
 
-
-__all__ = ["IsoWritableStorageBackend", "IsoWritableStoreLocation"]
+__all__ = [
+    "IsoWritableStorageBackend",
+]

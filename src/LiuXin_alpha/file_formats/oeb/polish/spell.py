@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
-
-import typing as _typing
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import sys
+import typing as _typing
 from collections import defaultdict
 
 from LiuXin_alpha.file_formats.oeb.base import barename
@@ -299,8 +303,6 @@ def replace_word(container: _typing.Any, new_word: _typing.Any, locations: _typi
 
 if __name__ == "__main__":
     import pprint
-    from LiuXin_alpha.surfaces.gui2.tweak_book import set_book_locale, dictionaries
 
     main_container = get_container(sys.argv[-1], tweak_mode=True)
-    set_book_locale(main_container.mi.language)
-    pprint.pprint(get_all_words(main_container, dictionaries.default_locale))
+    pprint.pprint(get_all_words(main_container, "en"))

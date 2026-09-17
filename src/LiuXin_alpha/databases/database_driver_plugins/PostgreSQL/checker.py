@@ -1,4 +1,9 @@
-"""Strict PostgreSQL readiness checks for LiuXin."""
+"""
+Inspect PostgreSQL configuration, connectivity, schema shape and runtime privileges.
+
+Readiness checks collect failures into a structured report and close their connection.
+They count rows in enabled table groups but do not create tables or repair grants.
+"""
 
 from __future__ import annotations
 
@@ -99,7 +104,28 @@ def run_postgres_self_test(
     check_storage: bool = True,
     check_helpers: bool = True,
 ) -> dict[str, Any]:
-    """Run the LiuXin PostgreSQL readiness check."""
+    """
+    Build a readiness report, stopping early when target, driver or connection is absent.
+
+    Enabled groups check tables, columns, selected data types and CRUD privileges. Counts
+    are skipped when SELECT is missing. Connection/query failures become failed checks;
+    any opened connection is closed. Disabled groups add successful skipped checks.
+
+    Example:
+        ``run_postgres_self_test(postgres_service="library", prompt_for_password=False)``
+        checks the configured database without an interactive credential prompt.
+
+
+    :param metadata: Optional configuration mapping used by target and schema resolution.
+    :param postgres_url: Explicit URL candidate, before metadata and environment resolution.
+    :param postgres_service: Explicit service profile candidate.
+    :param password: Optional connection password; otherwise use configured credentials.
+    :param prompt_for_password: Whether connection authentication may request a terminal password.
+    :param check_core: Whether to inspect required core tables and columns.
+    :param check_storage: Whether to inspect storage tables, columns and bigint size fields.
+    :param check_helpers: Whether to inspect required nonoptional helper tables.
+    :return: Report containing ok, checks, redacted target, schema and available identity/counts.
+    """
 
     target = configured_postgres_target(metadata, explicit_url=postgres_url, explicit_service=postgres_service)
     result: dict[str, Any] = {
@@ -208,7 +234,20 @@ def run_postgres_self_test(
 
 
 def format_postgres_self_test(result: Mapping[str, Any]) -> str:
-    """Return a short human-readable PostgreSQL readiness report."""
+    """
+    Render an existing report as a compact multiline status message.
+
+    This formatter trusts supplied messages and target text; redaction belongs to the
+    report producer.
+
+    Example:
+        >>> format_postgres_self_test({"ok": False}).splitlines()[-1]
+        'Result: FAILED'
+
+
+    :param result: Readiness report with optional checks, target, schema and ok fields.
+    :return: Report text without a trailing newline.
+    """
 
     lines = [
         "LiuXin PostgreSQL Self-Test",
@@ -234,6 +273,27 @@ def _check_table_group(
     required_columns: Mapping[str, Iterable[str]],
     required_column_types: Mapping[str, Mapping[str, Iterable[str]]] | None = None,
 ) -> None:
+    """
+    Append schema, privilege and read checks for one table group.
+
+    Missing tables stop the group immediately. Missing SELECT privileges stop all group
+    counts; other missing privileges still allow counts. Iterables are traversed more
+    than once, so callers should provide reusable collections.
+
+    Example:
+        The core group passes CORE_REQUIRED_TABLES and CORE_REQUIRED_COLUMNS to
+        record failures under names such as ``core.tables`` and ``core.reads``.
+
+
+    :param result: Mutable readiness report with a checks list.
+    :param cur: Open mapping-row cursor; ownership remains with the caller.
+    :param label: Prefix used for check names and the counts key.
+    :param schema: Schema containing the tables to inspect.
+    :param required_tables: Reusable table-name collection to check and count.
+    :param required_columns: Table names mapped to required column names.
+    :param required_column_types: Optional table/column mappings to accepted case-insensitive data types.
+    :return: None; mutates the report and executes catalog/count queries.
+    """
     schema_check = check_required_tables(cur, required_tables, schema=schema)
     missing_tables = list(schema_check.missing_tables)
     _add_check(
@@ -306,11 +366,40 @@ def _check_table_group(
 
 
 def _add_check(result: dict[str, Any], name: str, ok: bool, message: str) -> None:
+    """
+    Append a normalized check and recompute aggregate success over all checks.
+
+    Example:
+        >>> report = {"checks": []}
+        >>> _add_check(report, "configured", True, "ready")
+        >>> report["ok"]
+        True
+
+
+    :param result: Mutable readiness report with a checks list.
+    :param name: Stable check identifier.
+    :param ok: Truth value recorded for this check.
+    :param message: Human-readable detail converted to text.
+    :return: None; updates checks and ok in place.
+    """
     result["checks"].append({"name": name, "ok": bool(ok), "message": str(message)})
     result["ok"] = all(bool(check.get("ok")) for check in result["checks"])
 
 
 def _table_columns(cur: Any, table_name: str, *, schema: str = DEFAULT_POSTGRES_SCHEMA) -> set[str]:
+    """
+    Read column names from information_schema for an exact schema/table pair.
+
+    Example:
+        ``_table_columns(cur, "works", schema="public")`` includes work_id
+        when the managed core table exists.
+
+
+    :param cur: Open mapping-row cursor; ownership remains with the caller.
+    :param table_name: Unqualified table name within the selected schema.
+    :param schema: Schema containing the tables to inspect.
+    :return: Set of available column names.
+    """
     cur.execute(
         """
         select column_name
@@ -323,6 +412,19 @@ def _table_columns(cur: Any, table_name: str, *, schema: str = DEFAULT_POSTGRES_
 
 
 def _table_column_types(cur: Any, table_name: str, *, schema: str = DEFAULT_POSTGRES_SCHEMA) -> dict[str, str]:
+    """
+    Read information_schema data_type labels for the requested table.
+
+    Example:
+        For the managed digital_assets table, the returned mapping records
+        ``digital_asset_size_bytes`` as ``bigint``.
+
+
+    :param cur: Open mapping-row cursor; ownership remains with the caller.
+    :param table_name: Unqualified table name within the selected schema.
+    :param schema: Schema containing the tables to inspect.
+    :return: Mapping from column names to PostgreSQL data_type text.
+    """
     cur.execute(
         """
         select column_name, data_type
@@ -338,6 +440,18 @@ def _table_column_types(cur: Any, table_name: str, *, schema: str = DEFAULT_POST
 
 
 def _table_count(cur: Any, table_name: str, *, schema: str = DEFAULT_POSTGRES_SCHEMA) -> int:
+    """
+    Count every row using separately quoted schema and table identifiers.
+
+    Example:
+        ``_table_count(cur, "works")`` returns zero for an empty works table.
+
+
+    :param cur: Open mapping-row cursor; ownership remains with the caller.
+    :param table_name: Unqualified table name within the selected schema.
+    :param schema: Schema containing the tables to inspect.
+    :return: Integer row count, treating an absent/falsy count value as zero.
+    """
     cur.execute(f"select count(*) as count from {_qualified_table(schema, table_name)}")
     row = cur.fetchone()
     return int(_row_value(row, "count") or 0)
@@ -350,6 +464,23 @@ def _missing_table_privileges(
     *,
     schema: str = DEFAULT_POSTGRES_SCHEMA,
 ) -> dict[str, list[str]]:
+    """
+    Collect failed current-user privilege checks by table.
+
+    Privileges are traversed once per table, so a reusable collection is required for
+    complete checks across multiple tables.
+
+    Example:
+        ``_missing_table_privileges(cur, ("works",), ("SELECT", "UPDATE"))``
+        returns an empty mapping when both privileges are granted.
+
+
+    :param cur: Open mapping-row cursor; ownership remains with the caller.
+    :param table_names: Table names checked in iteration order.
+    :param privileges: Reusable collection of privilege names to check for each table.
+    :param schema: Schema containing the tables to inspect.
+    :return: Tables mapped to lists of missing uppercase privileges.
+    """
     missing: dict[str, list[str]] = {}
     for table_name in table_names:
         table = str(table_name)
@@ -360,6 +491,20 @@ def _missing_table_privileges(
 
 
 def _has_table_privilege(cur: Any, table_name: str, privilege: str, *, schema: str = DEFAULT_POSTGRES_SCHEMA) -> bool:
+    """
+    Ask PostgreSQL whether current_user has a named table privilege.
+
+    Example:
+        ``_has_table_privilege(cur, "works", "select")`` checks SELECT using
+        a schema-qualified relation name.
+
+
+    :param cur: Open mapping-row cursor; ownership remains with the caller.
+    :param table_name: Unqualified table name within the selected schema.
+    :param privilege: Privilege name; normalized to uppercase before binding.
+    :param schema: Schema containing the tables to inspect.
+    :return: Truth value from has_table_privilege.
+    """
     cur.execute(
         "select has_table_privilege(current_user, %s, %s) as ok",
         (_qualified_table(schema, table_name), privilege.upper()),
@@ -368,12 +513,38 @@ def _has_table_privilege(cur: Any, table_name: str, privilege: str, *, schema: s
 
 
 def _scalar_text(cur: Any, sql: str) -> str:
+    """
+    Execute a scalar query and stringify the first mapping value.
+
+    The row must be convertible to a dict; this helper is intended for mapping cursors.
+
+    Example:
+        The readiness check uses ``_scalar_text(cur, "select current_user")``
+        to label privilege failures.
+
+
+    :param cur: Open mapping-row cursor; ownership remains with the caller.
+    :param sql: SQL statement expected to return one mapping row.
+    :return: First value converted to text, or an empty string for a missing row.
+    """
     cur.execute(sql)
     row = cur.fetchone()
     return str(next(iter(dict(row).values())) if row else "")
 
 
 def _row_value(row: Any, key: str) -> Any:
+    """
+    Read a named value from a mapping or key-addressable row.
+
+    Example:
+        >>> _row_value({"ok": True}, "ok")
+        True
+
+
+    :param row: Mapping or row object returned by a cursor.
+    :param key: Column label used for lookup.
+    :return: Value for the key, or None when absent or indexing fails.
+    """
     if isinstance(row, Mapping):
         return row.get(key)
     try:
@@ -383,10 +554,32 @@ def _row_value(row: Any, key: str) -> Any:
 
 
 def _format_counts(counts: Mapping[str, int]) -> str:
+    """
+    Format counts in sorted table-name order.
+
+    Example:
+        >>> _format_counts({"works": 2, "agents": 1})
+        'agents=1, works=2'
+
+
+    :param counts: Mapping of table names to integer counts.
+    :return: Comma-separated table=count entries.
+    """
     return ", ".join(f"{table}={count}" for table, count in sorted(counts.items()))
 
 
 def _format_missing_columns(missing_columns: Mapping[str, Iterable[str]]) -> str:
+    """
+    Render missing columns grouped in sorted table order.
+
+    Example:
+        >>> _format_missing_columns({"works": ["work_title"]})
+        'works: work_title'
+
+
+    :param missing_columns: Mapping of table names to missing column names.
+    :return: Semicolon-separated table/column groups.
+    """
     return "; ".join(
         f"{table}: {', '.join(columns)}"
         for table, columns in sorted((table, list(columns)) for table, columns in missing_columns.items())
@@ -394,6 +587,17 @@ def _format_missing_columns(missing_columns: Mapping[str, Iterable[str]]) -> str
 
 
 def _format_column_type_mismatches(wrong_types: Mapping[str, Iterable[str]]) -> str:
+    """
+    Render type mismatch descriptions grouped in sorted table order.
+
+    Example:
+        >>> _format_column_type_mismatches({"assets": ["size: integer expected bigint"]})
+        'assets: size: integer expected bigint'
+
+
+    :param wrong_types: Mapping of tables to already formatted column-type failures.
+    :return: Semicolon-separated table/mismatch groups.
+    """
     return "; ".join(
         f"{table}: {', '.join(columns)}"
         for table, columns in sorted((table, list(columns)) for table, columns in wrong_types.items())
@@ -401,6 +605,22 @@ def _format_column_type_mismatches(wrong_types: Mapping[str, Iterable[str]]) -> 
 
 
 def _format_missing_privileges(missing_privileges: Mapping[str, Iterable[str]], role: str, schema: str) -> str:
+    """
+    Describe missing privileges and suggest an owner/admin grant command.
+
+    The displayed identifiers use shell quoting, not PostgreSQL identifier quoting;
+    this is diagnostic text rather than an executable SQL builder.
+
+    Example:
+        For works missing UPDATE, the report lists that privilege and suggests
+        granting the runtime CRUD privileges for the schema.
+
+
+    :param missing_privileges: Tables mapped to missing privilege names.
+    :param role: Reported role name; an unknown configured role is displayed as ROLE.
+    :param schema: Schema containing the tables to inspect.
+    :return: Failure detail with an illustrative repair command.
+    """
     missing = "; ".join(
         f"{table}: {', '.join(privileges)}"
         for table, privileges in sorted((table, list(privileges)) for table, privileges in missing_privileges.items())
@@ -415,10 +635,33 @@ def _format_missing_privileges(missing_privileges: Mapping[str, Iterable[str]], 
 
 
 def _q(name: str) -> str:
+    """
+    Double embedded quotes and delimit one SQL identifier.
+
+    Example:
+        >>> _q("works")
+        '"works"'
+
+
+    :param name: Identifier converted to text before quoting.
+    :return: Double-quoted identifier.
+    """
     return '"' + str(name).replace('"', '""') + '"'
 
 
 def _qualified_table(schema: str, table_name: str) -> str:
+    """
+    Quote schema and table separately to form a relation name.
+
+    Example:
+        >>> _qualified_table("public", "works")
+        '"public"."works"'
+
+
+    :param schema: Schema containing the tables to inspect.
+    :param table_name: Unqualified table name within the selected schema.
+    :return: Schema-qualified quoted relation name.
+    """
     return f"{_q(schema)}.{_q(table_name)}"
 
 
@@ -426,6 +669,18 @@ _MISSING_ROLE_RE = re.compile(r"role\s+[\"']?(?P<role>[^\"'\s]+)[\"']?\s+does no
 
 
 def _missing_role_check_message(exc: BaseException, url: str) -> str:
+    """
+    Recognize a missing-role error and supply an administrator-facing hint.
+
+    Example:
+        An error ``role "reader" does not exist`` yields guidance to create
+        the reader login with createuser.
+
+
+    :param exc: Exception whose text is searched for the missing-role pattern.
+    :param url: PostgreSQL URL used to identify the configured login role.
+    :return: Repair hint, or an empty string when the error does not match.
+    """
     message = str(exc or "")
     match = _MISSING_ROLE_RE.search(message)
     if not match:
@@ -441,6 +696,17 @@ def _missing_role_check_message(exc: BaseException, url: str) -> str:
 
 
 def _configured_role_name(url: str) -> str:
+    """
+    Extract and percent-decode the username from a connection URL.
+
+    Example:
+        >>> _configured_role_name("postgresql://reader@localhost/library")
+        'reader'
+
+
+    :param url: PostgreSQL URL used to identify the configured login role.
+    :return: Decoded username, or an empty string on missing user or parse failure.
+    """
     try:
         username = urlsplit(url).username
     except ValueError:

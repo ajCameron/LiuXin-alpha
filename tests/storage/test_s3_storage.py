@@ -14,7 +14,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import io
-
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -22,17 +21,17 @@ from uuid import uuid4
 
 import pytest
 
+from LiuXin_alpha.ingest.stores import ingest_store
 from LiuXin_alpha.storage import api
-from LiuXin_alpha.ingest import ingest_store
 from LiuXin_alpha.storage.drivers.s3 import (
     MINIMUM_MULTIPART_PART_SIZE,
     S3StorageDriver,
 )
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.stores import FilesystemStore, S3BackendOptions, S3Store
 from tests.fixtures.storage_unicode import (
-    StoragePathCase,
     TORTURED_UNICODE_PATH_CASES,
+    StoragePathCase,
 )
 from tests.storage.contracts.unicode_paths import exercise_unicode_path_case
 
@@ -563,7 +562,7 @@ def test_store_ingest_publishes_to_s3_with_discovered_metadata(
     destination, client = s3_store
     source = FilesystemStore(tmp_path / "source")
     source.store_bytes(b"s3 ingest", location="incoming/book.epub")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -601,7 +600,7 @@ def test_store_ingest_reads_rich_s3_stat_hints(
         metadata={"title": "Native title"},
     )
     destination = FilesystemStore(tmp_path / "destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -645,7 +644,7 @@ def test_truncated_s3_ingest_publishes_no_manager_state(
         "VersionId": record["version"],
     }
     destination = FilesystemStore(tmp_path / "s3-truncated-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -718,7 +717,7 @@ def test_s3_ingest_reports_a_resumable_inventory_checkpoint(
     destination = FilesystemStore(tmp_path / "checkpoint-destination")
     for key in ("one.epub", "two.epub", "three.epub"):
         source.store_bytes(key.encode(), location=key)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -1119,7 +1118,7 @@ def test_store_ingest_rejects_multi_page_cursor_cycles_without_publication(
         ),
     }
     destination = FilesystemStore(tmp_path / "cursor-cycle-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -1183,7 +1182,7 @@ def test_store_ingest_stops_endless_unique_cursors_without_publication(
         2,
     )
     destination = FilesystemStore(tmp_path / "unique-cursor-flood-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -1231,7 +1230,7 @@ def test_store_ingest_stops_oversized_inventory_before_publication(
         2,
     )
     destination = FilesystemStore(tmp_path / "inventory-flood-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -1272,7 +1271,7 @@ def test_store_ingest_rejects_oversized_plugin_cursor_without_publication(
     }
     monkeypatch.setattr(ingest_stores_module, "MAX_STORE_INGEST_CURSOR_CHARS", 8)
     destination = FilesystemStore(tmp_path / "oversized-cursor-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )

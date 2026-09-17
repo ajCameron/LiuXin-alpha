@@ -12,12 +12,11 @@ from __future__ import annotations
 
 import ftplib
 import socket
-
 from dataclasses import dataclass
 
 import pytest
 
-from LiuXin_alpha.ingest import ingest_store
+from LiuXin_alpha.ingest.stores import ingest_store
 from LiuXin_alpha.storage.api import (
     EnumerationCompleteness,
     Location,
@@ -30,15 +29,12 @@ from LiuXin_alpha.storage.api import (
     StorageUnavailable,
     StoreReadOnly,
 )
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
-from LiuXin_alpha.storage.stores import FilesystemStore
+from LiuXin_alpha.storage.drivers.ftp import FtpDriverOptions
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.store_backend_plugins.ftp_readonly import (
-    FtpBackendOptions,
     FtpReadOnlyStorageBackend,
 )
-from LiuXin_alpha.storage.store_backend_plugins.ftp_readonly.ftp_location import (
-    FtpReadOnlyStoreLocation,
-)
+from LiuXin_alpha.storage.stores import FilesystemStore
 from tests.fixtures.storage_unicode import (
     TORTURED_UNICODE_PATH_CASES,
     UNICODE_DIRECTORY,
@@ -480,7 +476,7 @@ def _make_store(
 
     return FtpReadOnlyStorageBackend(
         url=f"{scheme}://user:pass@example.com/library",
-        options=FtpBackendOptions(client_factory=_factory),
+        options=FtpDriverOptions(client_factory=_factory),
     )
 
 
@@ -599,7 +595,7 @@ def test_ftp_unicode_object_ingests_end_to_end(tmp_path) -> None:
     }
     source = _make_store(tree=tree)
     destination = FilesystemStore(tmp_path / "ftp-ingest-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -664,12 +660,12 @@ def test_truncated_ftp_ingest_publishes_no_manager_state(tmp_path) -> None:
     }
     source = FtpReadOnlyStorageBackend(
         "ftp://example.test/library/",
-        options=FtpBackendOptions(
+        options=FtpDriverOptions(
             client_factory=lambda: _TruncatedTransfer(tree)
         ),
     )
     destination = FilesystemStore(tmp_path / "ftp-truncated-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -744,7 +740,7 @@ def test_ftp_backend_stat_read_digest_and_ranges_follow_new_store_api() -> None:
     store = _make_store()
     location = store.locate("books/one.epub")
 
-    assert isinstance(location, FtpReadOnlyStoreLocation)
+    assert isinstance(location, Location)
     assert isinstance(location, Location)
     assert store.file_exists(location) is True
     info = store.stat_file(location)
@@ -947,7 +943,7 @@ def test_ftp_authentication_failure_remains_typed() -> None:
 
     store = FtpReadOnlyStorageBackend(
         "ftp://bad:secret@example.com/library",
-        options=FtpBackendOptions(client_factory=lambda: _AuthFailure(_tree())),
+        options=FtpDriverOptions(client_factory=lambda: _AuthFailure(_tree())),
     )
 
     with pytest.raises(StorageAuthenticationFailed):
@@ -988,7 +984,7 @@ def test_ftp_rejects_unpaired_surrogate_root_urls() -> None:
     with pytest.raises(StorageInvalidAddress, match="malformed Unicode"):
         FtpReadOnlyStorageBackend(
             "ftp://example.test/library/\ud800/",
-            options=FtpBackendOptions(client_factory=lambda: _FakeFtpClient(_tree())),
+            options=FtpDriverOptions(client_factory=lambda: _FakeFtpClient(_tree())),
         )
 
 
@@ -1016,7 +1012,7 @@ def test_ftp_rejects_malformed_root_url_encoding(root: str) -> None:
     with pytest.raises(StorageInvalidAddress):
         FtpReadOnlyStorageBackend(
             root,
-            options=FtpBackendOptions(client_factory=lambda: _FakeFtpClient(_tree())),
+            options=FtpDriverOptions(client_factory=lambda: _FakeFtpClient(_tree())),
         )
 
 
@@ -1033,7 +1029,7 @@ def test_ftp_canonicalizes_idn_roots_and_matching_object_uris() -> None:
     """
     store = FtpReadOnlyStorageBackend(
         "ftp://例え.テスト/library/",
-        options=FtpBackendOptions(client_factory=lambda: _FakeFtpClient(_tree())),
+        options=FtpDriverOptions(client_factory=lambda: _FakeFtpClient(_tree())),
     )
 
     location = store.locate("ftp://例え.テスト/library/books/one.epub")
@@ -1086,7 +1082,7 @@ def test_ftp_inventory_rejects_malformed_names_returned_by_the_server(
 
     store = FtpReadOnlyStorageBackend(
         "ftp://example.test/",
-        options=FtpBackendOptions(
+        options=FtpDriverOptions(
             client_factory=lambda: _MalformedListing(_tree())
         ),
     )
@@ -1143,7 +1139,7 @@ def test_ftp_inventory_ignores_protocol_self_entries_but_rejects_duplicates() ->
     client = _Listing(_tree())
     store = FtpReadOnlyStorageBackend(
         "ftp://example.test/",
-        options=FtpBackendOptions(client_factory=lambda: client),
+        options=FtpDriverOptions(client_factory=lambda: client),
     )
     assert [
         str(entry.object_address)
@@ -1174,7 +1170,7 @@ def test_ftp_inventory_stops_pathological_directory_depth() -> None:
     }
     store = FtpReadOnlyStorageBackend(
         "ftp://example.test/",
-        options=FtpBackendOptions(
+        options=FtpDriverOptions(
             client_factory=lambda: _FakeFtpClient(tree),
             max_inventory_depth=1,
         ),
@@ -1225,7 +1221,7 @@ def test_ftp_detects_a_successfully_completed_but_truncated_transfer() -> None:
 
     store = FtpReadOnlyStorageBackend(
         "ftp://example.test/library",
-        options=FtpBackendOptions(
+        options=FtpDriverOptions(
             client_factory=lambda: _TruncatingClient(_tree())
         ),
     )
@@ -1278,7 +1274,7 @@ def test_ftp_translates_mid_transfer_timeout_and_discards_staging() -> None:
 
     store = FtpReadOnlyStorageBackend(
         "ftp://example.test/library",
-        options=FtpBackendOptions(
+        options=FtpDriverOptions(
             client_factory=lambda: _TimingOutClient(_tree())
         ),
     )
@@ -1330,7 +1326,7 @@ def test_ftp_rejects_nonbyte_transfer_chunks() -> None:
 
     store = FtpReadOnlyStorageBackend(
         "ftp://example.test/library",
-        options=FtpBackendOptions(
+        options=FtpDriverOptions(
             client_factory=lambda: _TextTransferClient(_tree())
         ),
     )
@@ -1388,7 +1384,7 @@ def test_ftp_nlst_fallback_validates_server_names() -> None:
 
     store = FtpReadOnlyStorageBackend(
         "ftp://example.test/",
-        options=FtpBackendOptions(
+        options=FtpDriverOptions(
             client_factory=lambda: _BadNlstClient(_tree())
         ),
     )
@@ -1436,7 +1432,7 @@ def test_ftp_inventory_enforces_per_directory_and_total_entry_limits() -> None:
 
     per_directory = FtpReadOnlyStorageBackend(
         "ftp://example.test/",
-        options=FtpBackendOptions(
+        options=FtpDriverOptions(
             client_factory=lambda: _FloodingClient(_tree()),
             max_directory_entries=2,
         ),
@@ -1446,7 +1442,7 @@ def test_ftp_inventory_enforces_per_directory_and_total_entry_limits() -> None:
 
     total = FtpReadOnlyStorageBackend(
         "ftp://example.test/",
-        options=FtpBackendOptions(
+        options=FtpDriverOptions(
             client_factory=lambda: _FloodingClient(_tree()),
             max_directory_entries=10,
             max_inventory_entries=2,

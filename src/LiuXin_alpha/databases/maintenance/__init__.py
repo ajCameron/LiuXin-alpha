@@ -6,15 +6,17 @@ It separates:
 - the plugin primitives
 - builtin maintenance plugins
 - legacy helper functions that still need disentangling
-
-``maintenance_bot.py`` remains as a compatibility wrapper so existing imports do
-not all have to move in one refactor.
 """
 
 from __future__ import annotations
 
-from LiuXin_alpha.databases.maintenance.builtin_plugins import get_builtin_maintenance_plugins
-from LiuXin_alpha.databases.maintenance.engine import MaintenanceCallbackSink, MaintenanceEngine
+from LiuXin_alpha.databases.maintenance.builtin_plugins import (
+    get_builtin_maintenance_plugins,
+)
+from LiuXin_alpha.databases.maintenance.engine import (
+    MaintenanceCallbackSink,
+    MaintenanceEngine,
+)
 from LiuXin_alpha.databases.maintenance.events import (
     DirtyInterlinkEvent,
     DirtyRowEvent,

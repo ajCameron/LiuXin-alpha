@@ -1,21 +1,27 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import typing as _typing
-
 from functools import partial
 
 from lxml import etree
 
-from LiuXin_alpha.file_formats.oeb.polish.tests.base import BaseTest
-from LiuXin_alpha.file_formats.oeb.polish.parsing import parse_html5 as parse
-from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML_NS, SVG_NS, XLINK_NS
+from LiuXin_alpha.file_formats.oeb.base import SVG_NS, XHTML_NS, XLINK_NS, XPath
 from LiuXin_alpha.file_formats.oeb.parse_utils import html5_parse
-
-from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import cdataElements, rcdataElements
+from LiuXin_alpha.file_formats.oeb.polish.parsing import parse_html5 as parse
+from LiuXin_alpha.file_formats.oeb.polish.tests.base import BaseTest
+from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import (
+    cdataElements,
+    rcdataElements,
+)
 
 # Py2/Py3 compatability layer
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
@@ -251,8 +257,7 @@ def timing() -> None:
     import sys
     import time
 
-    from LiuXin_alpha.file_formats.chardet import xml_to_unicode
-
+    from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
     from LiuXin_alpha.utils.libraries.liuxin_html5lib import parse as vanilla
 
     filename = sys.argv[-1]

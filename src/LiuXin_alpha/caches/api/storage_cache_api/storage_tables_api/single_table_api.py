@@ -1,5 +1,5 @@
 """
-Specify raw reads from a single cached table and retain its legacy alias.
+Specify raw reads from a single cached table.
 
 This API adds relationship discovery, column values and value-to-ID
 lookups to the common table lifecycle. It deliberately supplies no public
@@ -9,10 +9,12 @@ mutation contract: application writes use the composed Cache/Catalog path.
 from __future__ import annotations
 
 import abc
+from collections.abc import Iterable, Sequence
+from typing import TYPE_CHECKING, Any
 
-from typing import TYPE_CHECKING, Sequence, Any, Iterable
-
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table_api import StorageCacheBaseTableAPI
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table_api import (
+    StorageCacheBaseTableAPI,
+)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.db_types import MainTableID
@@ -24,11 +26,11 @@ class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
 
     Concrete backends own row storage, value equality, ordering and refresh.
     The inherited database reference is borrowed; its release follows backend
-    lifecycle. StorageStorageCacheSingleTableAPI aliases this same class.
+    lifecycle.
 
     Example:
-        >>> StorageStorageCacheSingleTableAPI is StorageCacheSingleTableAPI
-        True
+        >>> StorageCacheSingleTableAPI.__name__
+        'StorageCacheSingleTableAPI'
     """
 
     # -----------------
@@ -119,7 +121,3 @@ class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
     # Storage components intentionally expose no public database mutation
     # contract. Application writes enter through the composed Cache facade,
     # delegate semantic persistence to Catalog, and then reconcile storage.
-
-
-# Backwards-compatible alias while the typo is cleaned out elsewhere.
-StorageStorageCacheSingleTableAPI = StorageCacheSingleTableAPI

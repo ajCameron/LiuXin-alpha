@@ -9,8 +9,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaData,
+)
 from LiuXin_alpha.metadata.file_sources import pdf
-from LiuXin_alpha.metadata.metadata import MetaData
 
 
 def _values(raw):
@@ -324,7 +326,7 @@ def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
     assert any("PDF info dictionary" in str(event[0]) for event in events)
 
 
-def test_pdf_writer_dict_tool_read_info_and_page_image_edges(tmp_path: Path, monkeypatch) -> None:
+def test_pdf_writer_dict_tool_and_page_image_edges(tmp_path: Path, monkeypatch) -> None:
     mi = MetaData()
     mi.title = "Title"
     mi.authors = ["Alice", "Bob"]
@@ -363,12 +365,6 @@ def test_pdf_writer_dict_tool_read_info_and_page_image_edges(tmp_path: Path, mon
     monkeypatch.setattr(pdf.os.path, "exists", lambda _path: False)
     monkeypatch.setattr(pdf.shutil, "which", lambda name: f"/usr/bin/{name}")
     assert pdf.get_tool("pdftoppm") == "/usr/bin/pdftoppm"
-
-    assert pdf.read_info(tmp_path, get_cover=True) is None
-    src = tmp_path / "src.pdf"
-    src.write_bytes(_pdf_with_info(b"<< /Title (Read Info) /Author (Alice) /Keywords (tag) /Producer (Tool) >>"))
-    info = pdf.read_info(tmp_path, get_cover=False)
-    assert info == {"Title": "Read Info", "Author": "Alice", "Keywords": "tag", "Producer": "Tool"}
 
     monkeypatch.setattr(pdf, "get_tool", lambda _name: None)
     with pytest.raises(RuntimeError, match="pdftoppm"):

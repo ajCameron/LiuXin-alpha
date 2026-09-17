@@ -220,7 +220,7 @@ class IngestSourceCapabilities:
             ...     IngestObjectDelivery.STREAMING,
             ... )
             >>> from uuid import UUID
-            >>> from LiuXin_alpha.storage.api.location_api import Location
+            >>> from LiuXin_alpha.storage.api.models import Location
             >>> prepared = PreparedIngestObject(
             ...     StoreInventoryEntry(Location(UUID(int=1), "book")),
             ...     IngestReadConsistency.UNGUARDED,
@@ -265,7 +265,7 @@ class PreparedIngestObject:
 
     Example:
         >>> from uuid import UUID
-        >>> from LiuXin_alpha.storage.api.location_api import Location
+        >>> from LiuXin_alpha.storage.api.models import Location
         >>> prepared = PreparedIngestObject(
         ...     StoreInventoryEntry(Location(UUID(int=1), "book.epub")),
         ...     read_consistency=IngestReadConsistency.UNGUARDED,
@@ -296,7 +296,7 @@ class PreparedIngestObject:
 
         Example:
             >>> from uuid import UUID
-            >>> from LiuXin_alpha.storage.api.location_api import Location
+            >>> from LiuXin_alpha.storage.api.models import Location
             >>> PreparedIngestObject(
             ...     StoreInventoryEntry(Location(UUID(int=1), "book")),
             ...     IngestReadConsistency.VERSION_PINNED,

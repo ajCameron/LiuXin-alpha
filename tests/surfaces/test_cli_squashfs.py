@@ -13,7 +13,6 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
-
 from pathlib import Path
 
 import pytest
@@ -25,12 +24,12 @@ pytest.importorskip(
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.surfaces.cli.squashfs import main as cli_main
 from LiuXin_alpha.storage.reconcile import (
     designate_files_for_squashfs_store,
     ensure_open_squashfs_store,
     publish_open_squashfs_store,
 )
+from LiuXin_alpha.surfaces.cli.app import main as cli_main
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 

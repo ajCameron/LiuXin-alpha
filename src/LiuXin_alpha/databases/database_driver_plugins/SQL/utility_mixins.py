@@ -1,72 +1,94 @@
 
 """
-Common mixins for other objects to add functionality.
+Share SQL naming conventions and SQLite link-table DDL construction.
 
-The issue is the same pattern - e.g. name generation - seems to be occuring in a number of places.
-The aim here is to have some common mixins which can DRY out the code base some.
+Builders emit controlled SQL fragments with cardinality, provenance and optional
+type/symmetry guards. Most methods only return SQL; execution methods rely on a
+concrete host connection, script executor and schema/cache hooks.
 """
 
 # Moving some of the code here so it can be imported and used for common operations
 
 from __future__ import absolute_import, annotations
 
-import sqlite3
 import re
-
-from typing import TYPE_CHECKING, Optional, Literal, Union
-
+import sqlite3
 from copy import deepcopy
-
-from typing import Optional, Iterable, Union, LiteralString
+from typing import TYPE_CHECKING, Iterable, Literal, LiteralString, Optional, Union
 
 from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
-
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types as basestring
 
 
 class ColumnNameMixin:
     """
-    Contains the methods used to generate the column and table names.
+    Derive singular column prefixes and conventional link/allowed-type table names.
+
+    Example:
+        >>> ColumnNameMixin.get_interlink_table_name("works", "agents")
+        ('agent_work_links', 'agent_work_link')
     """
 
     @staticmethod
     def get_allowed_types_table_name(for_table: str) -> str:
         """
-        Returns the allowed types table name for a given table.
+        Prefix the supplied table spelling with allowed_types__.
 
-        :param for_table:
-        :return:
+        Example:
+            >>> ColumnNameMixin.get_allowed_types_table_name("agent_work_links")
+            'allowed_types__agent_work_links'
+
+
+        :param for_table: Table whose allowed-type lookup name is derived.
+        :return: Allowed-type table name; no validation or SQL escaping is performed.
         """
         return "allowed_types__{}".format(for_table)
 
     def get_allowed_types_table_name_intralinks(self, for_table: str) -> str:
         """
-        Sometimes, intralink tables need types as well.
+        Build the allowed-type name from a repeated, unmodified main-table spelling.
 
-        :param for_table:
-        :return:
+        Example:
+            >>> ColumnNameMixin().get_allowed_types_table_name_intralinks("works")
+            'allowed_types__works_works_intralinks'
+
+
+        :param for_table: Table whose allowed-type lookup name is derived.
+        :return: Allowed-type name for the repeated main-table intralink spelling.
         """
         return self.get_allowed_types_table_name("{}_{}_intralinks".format(for_table, for_table))
 
     @staticmethod
     def direct_get_column_base(table_name: str) -> str:
         """
-        Returning the prefix for the column names for each column.
+        Use the shared plural/singular mapper to obtain a column prefix.
 
-        :param table_name:
-        :return:
+        Example:
+            >>> ColumnNameMixin.direct_get_column_base("works")
+            'work'
+
+
+        :param table_name: Table name passed unchanged to the shared mapper.
+        :return: Canonical singular prefix.
         """
         return plural_singular_mapper(table_name)
 
     @staticmethod
     def _get_link_table_name_col_name(primary_table: str, secondary_table: str) -> tuple[str, str]:
         """
-        Return the standardized name for a link table between the given primary and secondary tables.
+        Sort supplied table names, singularize each and derive link table/prefix names.
 
-        :param primary_table:
-        :param secondary_table:
-        :return table_name, col_name:
+        Sorting occurs before singularization; no table existence or identifier validation
+        is performed.
+
+        Example:
+            For works and agents, the result is agent_work_links and agent_work_link.
+
+
+        :param primary_table: First table sorted before singularization.
+        :param secondary_table: Second table sorted before singularization.
+        :return: Pair of plural link-table name and singular column prefix.
         """
         original_tables = [primary_table, secondary_table]
         tables = deepcopy(original_tables)
@@ -89,11 +111,18 @@ class ColumnNameMixin:
     @staticmethod
     def get_interlink_table_name(table1: str, table2: str) -> tuple[str, str]:
         """
-        Return the name for an interlink table, from the two tables it should join.
+        Sort supplied table names, singularize each and derive link table/prefix names.
 
-        :param table1:
-        :param table2:
-        :return table_name, col_name:
+        Sorting occurs before singularization; no table existence or identifier validation
+        is performed.
+
+        Example:
+            For works and agents, the result is agent_work_links and agent_work_link.
+
+
+        :param table1: First table whose singular prefix participates in the link name.
+        :param table2: Second table whose singular prefix participates in the link name.
+        :return: Pair of plural link-table name and singular column prefix.
         """
         tables = [table1, table2]
         tables.sort()
@@ -118,9 +147,14 @@ class ColumnNameMixin:
 
 class SQLiteTableLinkingMixin(ColumnNameMixin):
     """
-    Class for generating link tables.
+    Generate SQLite interlink/intralink schemas and execute selected setup operations.
 
-    Centralising the link table logic - to ensure consistency.
+    Hosts provide driver/builder hooks. Type lookup tables exist in both legacy FK
+    form and extensible __types tables guarded by triggers.
+
+    Example:
+        A concrete builder calls direct_get_direct_link_main_tables_sql to inspect
+        DDL before executing it.
     """
 
     allowed_link_types: frozenset[str] = frozenset(
@@ -138,15 +172,21 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
     # Todo: Standardize table names for this type of method to primary and secondary
     def set_database_version(self) -> None:
         """
-        Set the database version row in the `database_version` table.
+        Upsert row 1 of database_version using the APSW driver master-version string.
 
-        This provides a concrete implementation for DatabaseBuilderAPI.set_database_version
-        for any builder class that mixes in SQLiteTableLinkingMixin.
+        Commit, then assert that the value reads back. OperationalError on the write is
+        translated to an assertion suggesting that metadata tables are missing.
 
-        :return:
+        Example:
+            Call after creating database_version; the method writes and commits its version row.
+
+
+        :return: None; changes the host connection and checks the stored version.
         """
         # Todo: Just wrong. Very wrong.
-        from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw import get_SQLite_driver_master_version
+        from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw import (
+            get_SQLite_driver_master_version,
+        )
 
         version_str = get_SQLite_driver_master_version()
 
@@ -181,17 +221,24 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         nullable_fks: bool = True,
     ) -> str:
         """
-        Directly link two main tables on the database.
+        Generate a link script, execute it through the host and clear property caches.
 
-        :param primary_table:
-        :param secondary_table:
-        :param link_type:
-        :param requested_cols:
-        :param index_both:
-        :param allowed_types:
-        :param override_restriction_sql:
-        :param nullable_fks:
-        :return:
+        The legacy OperationalError diagnostic accesses e.message, which may itself raise
+        AttributeError on modern sqlite3 exceptions and mask the original failure.
+
+        Example:
+            Linking agents and works returns agent_work_links after script execution.
+
+
+        :param primary_table: First main table in the requested relationship.
+        :param secondary_table: Second main table in the requested relationship.
+        :param link_type: Supported cardinality name from allowed_link_types.
+        :param requested_cols: all, None, or iterable of optional metadata suffixes.
+        :param index_both: Whether to index both endpoint foreign-key columns.
+        :param allowed_types: Optional iterable of permitted type labels.
+        :param override_restriction_sql: Trusted raw constraint SQL replacing generated cardinality and type constraints.
+        :param nullable_fks: Requested FK nullability; interlink generation currently always emits nullable FKs.
+        :return: Generated link-table name on success.
         """
 
         link_sql_list, table_name = self.direct_get_direct_link_main_tables_sql(
@@ -237,49 +284,29 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         nullable_fks: bool = True,
     ) -> tuple[list[str], Union[str, LiteralString]]:
         """
-        Link the given main tables. The primary and secondary table designations indicate which table should be linked
-        to the other with the given relationship.
-        :param primary_table: This table will be linked to the secondary
-        :param secondary_table:
-        :param link_type: String indicating the type of link to be made between the two tables - primary will be linked
-                          to secondary with the given link type.
+        Generate link DDL, optional type-table inserts and endpoint/sequence indexes.
 
-        many_many - many of the primary table can be linked to many items in the secondary.
-                    E.g. titles and tags - many tags can be linked to many titles
-        many_one - many of the primary are linked to a single one of the secondary
-                   E.g. files and folder stores - many files can be in a single foplder store, but they cannot be in
-                   more than one folder store
-        one_many - one of the primary can be linked to many of the secondary (just many_one seen the other way round)
-                   E.g. one folder store can contain many files
-                   E.g. one book can contain many files
-        one_one - one of the primary can be linked to one of the secondary
-                  E.g. uuids - every book has one and only one
-        one_one_normalized - While the primary can only be linked to one of the secondary, the secondary can be linked
-                             to many of the primary
-                             E.g. the primary language of a title
-                             This is one
-        # Todo: Handle primary language through this mechanism, not the generic languages table
+        Sort singular bases and invert one/many orientation when needed. Strict many_many
+        uniqueness ignores type; nonexclusive uniqueness includes type when requested.
+        FKs remain nullable regardless of nullable_fks to allow blank-row construction.
+        Raw overrides replace automatic cardinality/type handling. This does not execute SQL;
+        identifiers and legacy type-seed literals require trusted inputs.
 
-        :param requested_cols: Link table will be generated with the following properties - which will be applied to
-                               each link. Default to "all"
-        :param allowed_types: If provided, and there's a types column requested, will generate a allowed types table
-                              and restrict the permitted types to these.
-                              Should be None, or an itterable.
-
-        :param index_both: Index both sides of the link to make searching lookup faster.
-
-        :param one_link_with_one_type: If True, and there is a type column, then only one link between entities in the
-                                       primary and secondayr table is allowed with each type
-
-        E.g. language_title_links. You are allowed to link lang_1 and title_1 more than once provided the type is either
-        null or different.
-
-        # Todo: This should probably go away - if you cannot express a restriction, you need to do more
-        :param override_restriction_sql: If provided, then this SQL will be used instead of the automatically generated
-                                         one for the restrictions
+        Example:
+            With requested_cols=None, the link still contains source, datestamp and scratch
+            columns alongside its IDs and relationship constraints.
 
 
-        :return:
+        :param primary_table: First main table in the requested relationship.
+        :param secondary_table: Second main table in the requested relationship.
+        :param link_type: Supported cardinality name from allowed_link_types.
+        :param requested_cols: all, None, or iterable of optional metadata suffixes.
+        :param index_both: Whether to index both endpoint foreign-key columns.
+        :param allowed_types: Optional iterable of permitted type labels.
+        :param one_link_with_one_type: Accepted but unused; uniqueness follows link_type and requested metadata.
+        :param override_restriction_sql: Trusted raw constraint SQL replacing generated cardinality and type constraints.
+        :param nullable_fks: Requested FK nullability; interlink generation currently always emits nullable FKs.
+        :return: SQL statement list and generated link-table name.
         """
         # Todo: Checking that primary and secondary are in main tables
         if link_type not in self.allowed_link_types:
@@ -368,6 +395,16 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             requested_cols_norm = {str(x).strip().lower() for x in requested_cols}
 
         def requested_col_enabled(name: str) -> bool:
+            """
+            Check the enclosing normalized selection for one optional metadata column.
+
+            Example:
+                A normalized all selection enables both type and priority.
+
+
+            :param name: Optional column suffix to look up.
+            :return: Whether all or the selected suffix set enables the name.
+            """
             return requested_cols_norm == "all" or (
                 isinstance(requested_cols_norm, set) and name in requested_cols_norm
             )
@@ -748,11 +785,14 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
     def _bad_link_type_error(self, link_type: str) -> str:
         """
-        Error message for when the requested link type between two tables is nonsense
+        Describe an unsupported cardinality and the host allowed-link set.
 
-        :param self:
-        :param link_type:
-        :return:
+        Example:
+            An unknown link_type is included in the multiline NotImplementedError detail.
+
+
+        :param link_type: Supported cardinality name from allowed_link_types.
+        :return: Diagnostic text; set display order is not guaranteed.
         """
         err_msg = [
             "Requested link type between two main tables is not known - probable typo?",
@@ -770,15 +810,23 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             nullable_fks: bool = True,
     ) -> list[str]:
         """
-        Build and return sqlite for the interlink table.
+        Resolve a required legacy constraint entry and generate the matching link script.
 
-        :param table1:
-        :param table2:
-        :param requested_cols:
-        :param allowed_types:
-        :param nullable_fks:
+        A string supplies raw constraints; a mapping supplies primary/secondary/link_type.
+        When type is requested, optional allowed labels can fall back to the legacy mapping.
+        Missing constraints fail by assertion; unexpected constraint representations raise
+        NotImplementedError.
 
-        :return:
+        Example:
+            An INTERLINK_TABLE_CONSTRAINTS mapping can select one_many for the generated link.
+
+
+        :param table1: First table whose singular prefix participates in the link name.
+        :param table2: Second table whose singular prefix participates in the link name.
+        :param requested_cols: all, None, or iterable of optional metadata suffixes.
+        :param allowed_types: Optional iterable of permitted type labels.
+        :param nullable_fks: Requested FK nullability; interlink generation currently always emits nullable FKs.
+        :return: Generated statement list without executing it.
         """
 
         table_name, _ = self.get_interlink_table_name(table1, table2)
@@ -841,32 +889,6 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         return full_script
 
     # Todo: How is this different from the above?
-    def _build_interlink_table_sqlite(
-        self,
-        table1: str,
-        table2: str,
-        requested_cols: Optional[Union[str, list[str]]] = None,
-        allowed_types: Optional[Iterable[str]] = None,
-        override_restriction_sql: Optional[str] = None,
-    ) -> list[str]:
-        """
-        Deprecated compatibility wrapper.
-
-        Historically this method had an independent SQL generator implementation.
-        To keep link-table SQL generation in one place, this now delegates to
-        `build_interlink_table_sqlite`.
-
-        NOTE: `override_restriction_sql` is ignored here; callers should update
-        `INTERLINK_TABLE_CONSTRAINTS` if they need custom restriction SQL.
-        """
-        _ = override_restriction_sql
-        return self.build_interlink_table_sqlite(
-            table1=table1,
-            table2=table2,
-            requested_cols=requested_cols,
-            allowed_types=allowed_types,
-            nullable_fks=True,
-        )
 
 
     def build_allowed_types_table_interlink(
@@ -875,11 +897,15 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             allowed_types: Optional[Iterable[str]] = None
     ) -> list[str]:
         """
-        Construct an allowed types table - populated with the values from the allowed_type_val_dict.
+        Return no statements for None, otherwise build a legacy allowed-type table.
 
-        :param for_table:
-        :param allowed_types:
-        :return att_sql: A list of SQLite statements which both creates and populates the table
+        Example:
+            ``build_allowed_types_table_interlink(name, None)`` returns an empty list.
+
+
+        :param for_table: Table whose allowed-type lookup name is derived.
+        :param allowed_types: Optional iterable of permitted type labels.
+        :return: DDL/insert statement list, or an empty list.
         """
         if allowed_types is None:
             return []
@@ -888,9 +914,18 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
     def _build_allowed_types_table_interlink(self, for_table, allowed_types):
         """
-        Construct an allowed types table - populated with the values from the allowed_type_val_dict.
-        :param for_table:
-        :return att_sql: A list of SQLite statements which both creates and populates the table
+        Generate a legacy allowed-type table and one unescaped insert per label.
+
+        The type column is unique and nullable. Inputs are interpolated into SQL, including
+        double-quoted seed values; use trusted labels and do not assume repeat seeding is safe.
+
+        Example:
+            Two labels produce one CREATE TABLE statement followed by two INSERT statements.
+
+
+        :param for_table: Table whose allowed-type lookup name is derived.
+        :param allowed_types: Optional iterable of permitted type labels.
+        :return: Ordered DDL and seed statements.
         """
 
         allowed_table_name = self.get_allowed_types_table_name(for_table)
@@ -941,13 +976,21 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         connection: sqlite3.Connection,
     ) -> None:
         """
-        Create/seed `{interlink_table_name}__types` and install guard triggers.
+        Create/seed a __types table, install nonnull-type guard triggers and commit.
 
-        :param interlink_table_name:
-        :param interlink_column_base:
-        :param allowed_types:
-        :param connection:
-        :return:
+        Seed labels are bound and inserted if absent. Insert/update guards reject nonnull
+        values missing from the reference table; NULL remains allowed. Existing guards
+        are retained by IF NOT EXISTS.
+
+        Example:
+            Adding a label to the reference table extends the accepted nonnull link types.
+
+
+        :param interlink_table_name: Trusted existing link-table name.
+        :param interlink_column_base: Trusted singular prefix of its type column.
+        :param allowed_types: Optional iterable of permitted type labels.
+        :param connection: Open SQLite connection; retained rather than closed here.
+        :return: None; mutates and commits the caller connection.
         """
 
         conn = connection
@@ -1005,11 +1048,18 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         allowed_types: Optional[Iterable[str]] = None,
     ) -> list[str]:
         """
-        Build an allowed-types table for an intralink table.
+        Build a legacy intralink type table using explicit labels or stored defaults.
 
-        :param for_table:
-        :param allowed_types:
-        :return:
+        Assert membership when the host exposes intralink_tables. Falsy resolved labels
+        produce no statements; interpolated seed labels are not escaped.
+
+        Example:
+            A main table without configured allowed types returns an empty statement list.
+
+
+        :param for_table: Table whose allowed-type lookup name is derived.
+        :param allowed_types: Optional iterable of permitted type labels.
+        :return: DDL/seed statements or an empty list.
         """
 
         # Preserve historical generator behaviour: intralink allowed-types are only
@@ -1061,26 +1111,29 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         use_reference_types_table: bool = False,
     ) -> list[str]:
         """
-        Build SQLite for a self-link (intralink) table.
+        Generate self-link DDL, indexes and optional canonical-order guard triggers.
 
-        Backwards compatible with the historical signature ``direct_build_intralink_table_sql(name, allowed_types=None)``.
+        None selects type; allowed labels force a type column. Always include source and
+        reject nonnull self-edges. Symmetric guards reject reversed endpoints rather than
+        swapping them; symmetric_types restricts that guard even when symmetric is true.
+        Reference-type mode omits the FK and requires later guard installation. Explicit
+        sequence_number/is_required subsets currently emit those columns twice because
+        the bespoke-column filter also includes them; all avoids that duplication.
 
-        Enhancements for the FRBR generator:
-          - requested_cols (interlink-style optional metadata columns, plus safe bespoke TEXT cols)
-          - origin/source/policy/data columns
-          - allowed type guards via `{table}__types` reference tables (when ``use_reference_types_table=True``)
-          - symmetric ordering enforcement (either for all rows via ``symmetric=True`` or for a subset of types via
-            ``symmetric_types=[...]``)
+        Example:
+            A symmetric work self-link accepts primary_id below secondary_id and rejects
+            the reverse ordering when both endpoints are nonnull.
 
-        :param name:
-        :param allowed_types:
-        :param requested_cols:
-        :param index_both:
-        :param nullable_fks:
-        :param symmetric:
-        :param symmetric_types:
-        :param use_reference_types_table:
-        :return:
+
+        :param name: Main-table name, optionally resolved by the host match_to_table_name hook.
+        :param allowed_types: Optional iterable of permitted type labels.
+        :param requested_cols: all, None, or iterable of optional metadata suffixes.
+        :param index_both: Whether to index both endpoint foreign-key columns.
+        :param nullable_fks: Whether the two self-link foreign keys are nullable.
+        :param symmetric: Whether to guard canonical ordering for all types when no subset is supplied.
+        :param symmetric_types: Optional reusable type-label collection limiting canonical-order guards.
+        :param use_reference_types_table: Whether a separately installed __types guard replaces legacy allowed-type FKs.
+        :return: Ordered statements; no SQL is executed.
         """
 
         name_local = deepcopy(name)
@@ -1149,6 +1202,17 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         # Interlink-style optional columns
         def _add_optional(col: str, ddl: str) -> None:
+            """
+            Append one comma-terminated optional column to the enclosing DDL list.
+
+            Example:
+                The priority suffix appends a prefixed INTEGER DEFAULT 0 column.
+
+
+            :param col: Trusted column suffix appended to the enclosing row_name.
+            :param ddl: Trusted SQL type/default fragment for the column.
+            :return: None; mutates the enclosing col_lines list.
+            """
             col_lines.append(f"  `{row_name}_{col}` {ddl},")
 
         if req == "all" or (req != "all" and "priority" in req):

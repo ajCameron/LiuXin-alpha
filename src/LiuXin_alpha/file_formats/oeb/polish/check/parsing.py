@@ -1,37 +1,42 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
-
-import typing as _typing
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import re
+import typing as _typing
+
 try:
     import cssutils
 except ModuleNotFoundError:
     cssutils = None
-from lxml.etree import XMLParser, fromstring, XMLSyntaxError
+from lxml.etree import XMLParser, XMLSyntaxError, fromstring
 
-from LiuXin_alpha.file_formats.chardet import (
-    replace_encoding_declarations,
-    find_declared_encoding,
-)
 from LiuXin_alpha.file_formats.html_entities import html5_entities
+from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, URL_SAFE, XHTML_NS, urlquote
+from LiuXin_alpha.file_formats.oeb.polish.check.base import ERROR, INFO, WARN, BaseError
 from LiuXin_alpha.file_formats.oeb.polish.pretty import (
     pretty_script_or_style as fix_style_tag,
 )
 from LiuXin_alpha.file_formats.oeb.polish.utils import PositionFinder, guess_type
-from LiuXin_alpha.file_formats.oeb.polish.check.base import BaseError, WARN, ERROR, INFO
-from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, XHTML_NS, urlquote, URL_SAFE
-
-from LiuXin_alpha.utils.text import as_unicode as force_unicode, human_readable
-from LiuXin_alpha.utils.text.xml_utils import prepare_string_for_xml
-from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.libraries.calibre_chardet import (
+    find_declared_encoding,
+    replace_encoding_declarations,
+)
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.text import as_unicode as force_unicode
+from LiuXin_alpha.utils.text import human_readable
+from LiuXin_alpha.utils.text.xml_utils import prepare_string_for_xml
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

@@ -187,30 +187,6 @@ def test_register_existing_disk_with_database_path_helper(
         assert files[0]["file_storage_key"] == "one.epub"
 
 
-def test_legacy_library_wrapper_re_exports_canonical_api() -> None:
-    """
-    Preserve object identity between legacy Library-module exports and canonical reconciliation
-    callables.
-
-    Imports and identity assertions perform no file registration.
-
-    Example:
-        >>> test_legacy_library_wrapper_re_exports_canonical_api()  # doctest: +SKIP
-
-
-    :return: None after the stated regression assertions pass.
-    """
-    from LiuXin_alpha.library import unmanaged_disk_ingest as legacy_ingest
-    from LiuXin_alpha.storage import reconcile
-
-    assert (
-        legacy_ingest.register_existing_disk_as_unmanaged_store
-        is reconcile.register_existing_disk_as_unmanaged_store
-    )
-    assert (
-        legacy_ingest.register_existing_disk_with_database_path
-        is reconcile.register_existing_disk_with_database_path
-    )
 
 
 def test_register_existing_disk_refreshes_db_storage_manager(db, tmp_path: Path) -> None:

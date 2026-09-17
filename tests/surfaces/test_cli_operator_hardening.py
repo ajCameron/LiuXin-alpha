@@ -16,7 +16,6 @@ import argparse
 import json
 import sqlite3
 import stat
-
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -26,7 +25,8 @@ import pytest
 from LiuXin_alpha.surfaces.cli import catalogue as catalogue_cli
 from LiuXin_alpha.surfaces.cli import diagnostics as diagnostics_cli
 from LiuXin_alpha.surfaces.cli import ingest_runs as ingest_runs_cli
-from LiuXin_alpha.surfaces.cli import storage as storage_cli
+from LiuXin_alpha.surfaces.cli import workflows as workflows_cli
+from LiuXin_alpha.surfaces.cli.app import main as cli_main
 from LiuXin_alpha.surfaces.cli.storage_commands import (
     administration,
     core_access,
@@ -34,8 +34,6 @@ from LiuXin_alpha.surfaces.cli.storage_commands import (
     store_add,
     store_wizard,
 )
-from LiuXin_alpha.surfaces.cli import workflows as workflows_cli
-from LiuXin_alpha.surfaces.cli.app import main as cli_main
 from LiuXin_alpha.surfaces.system_profile import (
     PROFILE_POINTER_FORMAT,
     apply_system_profile,

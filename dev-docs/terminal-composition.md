@@ -15,13 +15,11 @@ adapter. Browser execution does not select or import its presentation adapter.
 | `windowed_ui` | Curses driver construction and browser adapter; depends on the browser owner, not startup. |
 | `windowed_components` | Console/job scrollback, telemetry and status content, completion, input/history, layout/drawing, and shared compact presentation. |
 | `commands/base`, `plugins/base` | Generic extension APIs independent of concrete browser implementations. |
-| `text_browser` | Explicit historical public/private aliases; no duplicate implementation. |
-| `__init__`, `__main__` | Package exports and module entry point. Browser/application exports resolve lazily. |
+| `__init__`, `__main__` | Lightweight namespace and module entry point calling app.main. |
 
 `app.run_windowed_text_browser()` imports the curses adapter only when selected.
 Importing the terminal package, extension bases, shared helpers, or plain browser
-does not load the application or curses adapter. Package-level browser exports
-resolve to their actual owners, with the same public `__all__`. The commands and
+does not load the application or curses adapter. Import browser and application objects from their owning modules. The commands and
 plugins packages retain their existing registration/export behavior.
 
 ## Extension contracts
@@ -61,7 +59,8 @@ configured skipped-import policy remains only for dependencies outside the ratch
 
 ## Compatibility and tests
 
-Historical package and `text_browser` imports retain the same public objects.
+The historical package exports and text_browser facade have been removed.
+Import TextDatabaseBrowser from browser and main/build_parser from app.
 Parser options/help, default command registrations and aliases, plain/history
 behavior, non-interactive precedence, windowed configuration bounds, creation
 prompts, and failure policies remain covered by the terminal regression suites.
@@ -70,7 +69,7 @@ Tests replacing dependencies must patch the consuming owner (`app` for startup,
 old imported facade global.
 
 `tests/surfaces/test_terminal_dependency_contracts.py` covers cold imports,
-operation without curses for plain help, compatibility identity, real typed
+operation without curses for plain help, direct owner imports, real typed
 extension dispatch/lifecycle, and curses-driver/browser composition. Existing
 text-browser and windowed tests retain their behavior assertions. A missing
 terminal package now fails those suites rather than skipping them wholesale.

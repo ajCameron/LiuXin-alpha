@@ -9,11 +9,13 @@ import os
 import posixpath
 from collections.abc import Iterable
 
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaInformation,
+)
 from LiuXin_alpha.metadata.file_sources.extz import ExtzFormatError
 from LiuXin_alpha.metadata.file_sources.extz import get_metadata as extz_get_metadata
 from LiuXin_alpha.metadata.file_sources.extz import set_metadata as extz_set_metadata
 from LiuXin_alpha.metadata.file_sources.txt import get_metadata as txt_get_metadata
-from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
 from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log

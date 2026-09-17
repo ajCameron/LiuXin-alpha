@@ -1,22 +1,22 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
+import textwrap
 import typing as _typing
 
-import glob
-import os
-import textwrap
-
-from LiuXin_alpha.customize import FileTypePlugin
-from LiuXin_alpha.customize import numeric_version
-
-from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.customize import FileTypePlugin, numeric_version
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -46,33 +46,8 @@ every time you add an HTML file to the library.\
     on_import = True
 
     def run(self: _typing.Self, htmlfile: _typing.Any) -> _typing.Any:
-        from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
-        from LiuXin_alpha.surfaces.gui2.convert.gui_conversion import gui_convert
-        from LiuXin_alpha.customize.conversion import OptionRecommendation
-        from LiuXin_alpha.file_formats.epub import initialize_container
-
-        with TemporaryDirectory("_plugin_html2zip") as tdir:
-            recs = [("debug_pipeline", tdir, OptionRecommendation.HIGH)]
-            recs.append(["keep_ligatures", True, OptionRecommendation.HIGH])
-            if self.site_customization and self.site_customization.strip():
-                sc = self.site_customization.strip()
-                enc, _, bf = sc.partition("|")
-                if enc:
-                    recs.append(["input_encoding", enc, OptionRecommendation.HIGH])
-                if bf == "bf":
-                    recs.append(["breadth_first", True, OptionRecommendation.HIGH])
-            gui_convert(htmlfile, tdir, recs, abort_after_input_dump=True)
-            of = self.temporary_file("_plugin_html2zip.zip")
-            tdir = os.path.join(tdir, "input")
-            opf = glob.glob(os.path.join(tdir, "*.opf"))[0]
-            ncx = glob.glob(os.path.join(tdir, "*.ncx"))
-            if ncx:
-                os.remove(ncx[0])
-            epub = initialize_container(of.name, os.path.basename(opf))
-            epub.add_dir(tdir)
-            epub.close()
-
-        return of.name
+        """Report that this plugin requires the unavailable GUI conversion engine."""
+        raise RuntimeError("GUI conversion is unavailable in a headless environment.")
 
     def customization_help(self: _typing.Self, gui: bool = False) -> _typing.Any:
         return _(
@@ -87,13 +62,13 @@ every time you add an HTML file to the library.\
         :param parent:
         """
         from PyQt5.Qt import (
+            QCheckBox,
             QDialog,
             QDialogButtonBox,
-            QVBoxLayout,
             QLabel,
-            Qt,
             QLineEdit,
-            QCheckBox,
+            Qt,
+            QVBoxLayout,
         )
 
         config_dialog = QDialog(parent)
@@ -106,7 +81,7 @@ every time you add an HTML file to the library.\
         button_box.accepted.connect(config_dialog.accept)
         button_box.rejected.connect(config_dialog.reject)
         config_dialog.setWindowTitle(_("Customize") + " " + self.name)
-        from LiuXin_alpha.customize.ui import plugin_customization, customize_plugin
+        from LiuXin_alpha.customize.ui import customize_plugin, plugin_customization
 
         help_text = self.customization_help(gui=True)
         help_text = QLabel(help_text, config_dialog)

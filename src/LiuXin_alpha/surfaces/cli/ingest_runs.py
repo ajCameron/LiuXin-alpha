@@ -15,19 +15,17 @@ from __future__ import annotations
 import argparse
 import json
 import re
-
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from LiuXin_alpha.surfaces.cli.common import add_json_output, emit_json, load_json_file
-from LiuXin_alpha.surfaces.cli.storage import (
+from LiuXin_alpha.surfaces.cli.storage_commands.ingest import cmd_storage_ingest
+from LiuXin_alpha.surfaces.cli.storage_commands.ingest_options import (
     add_storage_ingest_arguments,
-    cmd_storage_ingest,
 )
 from LiuXin_alpha.surfaces.system_profile import load_system_profile
-
 
 _RUN_ID_PATTERN = re.compile(
     r"(?P<run>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"

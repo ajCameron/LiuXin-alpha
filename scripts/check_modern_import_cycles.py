@@ -30,16 +30,10 @@ WEB_APPLICATION_PREFIXES = (
     "LiuXin_alpha.surfaces.opds_readonly",
 )
 CLI_PREFIX = "LiuXin_alpha.surfaces.cli"
-CLI_ENTRY_POINTS = frozenset(
-    (CLI_PREFIX, f"{CLI_PREFIX}.__main__", f"{CLI_PREFIX}.squashfs")
-)
-CLI_COMPATIBILITY_TARGETS = frozenset(
-    (CLI_PREFIX, f"{CLI_PREFIX}.app", f"{CLI_PREFIX}.squashfs")
-)
+CLI_ENTRY_POINTS = frozenset((CLI_PREFIX, f"{CLI_PREFIX}.__main__"))
+CLI_COMPATIBILITY_TARGETS = frozenset((CLI_PREFIX, f"{CLI_PREFIX}.app"))
 TERMINAL_PREFIX = "LiuXin_alpha.surfaces.terminal"
-TERMINAL_ENTRY_POINTS = frozenset(
-    (TERMINAL_PREFIX, f"{TERMINAL_PREFIX}.__main__", f"{TERMINAL_PREFIX}.text_browser")
-)
+TERMINAL_ENTRY_POINTS = frozenset((TERMINAL_PREFIX, f"{TERMINAL_PREFIX}.__main__"))
 TERMINAL_COMPATIBILITY_TARGETS = frozenset(
     (*TERMINAL_ENTRY_POINTS, f"{TERMINAL_PREFIX}.app")
 )
@@ -277,7 +271,7 @@ def _forbidden_terminal_dependency(edge: ImportEdge) -> str | None:
         and edge.source not in TERMINAL_ENTRY_POINTS
         and edge.target in TERMINAL_COMPATIBILITY_TARGETS
     ):
-        return "terminal implementations must not import application or compatibility entry points"
+        return "terminal implementations must not import application entry points"
     if (
         edge.source == f"{TERMINAL_PREFIX}.browser"
         and edge.target == f"{TERMINAL_PREFIX}.windowed_ui"
@@ -298,7 +292,7 @@ def forbidden_dependency(edge: ImportEdge) -> str | None:
         and edge.source not in CLI_ENTRY_POINTS
         and edge.target in CLI_COMPATIBILITY_TARGETS
     ):
-        return "CLI implementations must not import application or compatibility entry points"
+        return "CLI implementations must not import application entry points"
     if (
         edge.source == f"{CLI_PREFIX}.parsers"
         and edge.target == f"{CLI_PREFIX}.completion"

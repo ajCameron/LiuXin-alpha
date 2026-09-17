@@ -17,20 +17,18 @@ editing this file.
 
 from __future__ import annotations
 
+import importlib
 import os
+import pkgutil
 import re
-import sqlite3
 import shutil
+import sqlite3
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, Iterable, Mapping, Optional, Protocol, Sequence
 
-import importlib
-import pkgutil
-
 from LiuXin_alpha.databases.bootstrap_constants import AGENTS_NULL_CANONICAL_NAME
-
 
 PROFILED_COMMON_TAG = "profiled-fixture"
 PROFILED_FIRST_TAG = "first-work"
@@ -806,7 +804,7 @@ def _build_profiled_test_db(
     import sqlite3
     from itertools import cycle
 
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator import (
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
         create_new_database,
     )
     from tests.support._surface_storage_tables import ensure_surface_asset_tables_sqlite
@@ -1059,7 +1057,7 @@ def _build_test_db_0_minimal(db_path: Path) -> None:
 
     import sqlite3
 
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator import (
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
         create_new_database,
     )
 

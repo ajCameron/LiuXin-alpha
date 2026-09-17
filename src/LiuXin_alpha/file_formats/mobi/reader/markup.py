@@ -1,15 +1,19 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
-
-import typing as _typing
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import os
 import re
+import typing as _typing
 
-from LiuXin_alpha.file_formats.chardet import strip_encoding_declarations
+from LiuXin_alpha.utils.libraries.calibre_chardet import strip_encoding_declarations
 
 # Py2/Py3 compatability
 from LiuXin_alpha.utils.libraries.liuxin_six import memory_range

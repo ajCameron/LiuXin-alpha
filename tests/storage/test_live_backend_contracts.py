@@ -14,8 +14,8 @@ import os
 
 import pytest
 
+from LiuXin_alpha.storage.drivers.ftp import FtpDriverOptions
 from LiuXin_alpha.storage.store_backend_plugins.ftp_readonly import (
-    FtpBackendOptions,
     FtpReadOnlyStorageBackend,
 )
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
@@ -152,7 +152,7 @@ def test_live_ftp_read_contract() -> None:
     """
     store = FtpReadOnlyStorageBackend(
         _required("LIUXIN_LIVE_FTP_ROOT"),
-        options=FtpBackendOptions(
+        options=FtpDriverOptions(
             timeout_s=20.0,
             max_directory_entries=1000,
             max_inventory_entries=5000,

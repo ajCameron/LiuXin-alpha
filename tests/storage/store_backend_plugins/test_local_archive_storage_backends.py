@@ -17,17 +17,15 @@ import pathlib
 import stat
 import tarfile
 import zipfile
-
 from uuid import uuid4
 
 import pytest
 
-from LiuXin_alpha.ingest import ingest_store
+from LiuXin_alpha.ingest.stores import ingest_store
 from LiuXin_alpha.storage import api
-from LiuXin_alpha.storage.drivers import zip as zip_driver_module
 from LiuXin_alpha.storage.backend_registry import DEFAULT_BACKEND_REGISTRY
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
-from LiuXin_alpha.storage.stores import FilesystemStore
+from LiuXin_alpha.storage.drivers import zip as zip_driver_module
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.store_backend_plugins.rar_readonly import (
     RarReadOnlyStorageBackend,
 )
@@ -43,13 +41,13 @@ from LiuXin_alpha.storage.store_backend_plugins.zip_readonly import (
 from LiuXin_alpha.storage.store_backend_plugins.zip_writable import (
     ZipWritableStorageBackend,
 )
+from LiuXin_alpha.storage.stores import FilesystemStore
 from tests.fixtures.storage_unicode import (
     POSIX_BAD_BYTES_FILENAME,
     POSIX_BAD_BYTES_PAYLOAD,
     TORTURED_UNICODE_PATH_CASES,
 )
 from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
-
 
 _RAR_FIXTURE = (
     pathlib.Path(__file__).resolve().parents[3]
@@ -1900,7 +1898,7 @@ def test_archive_store_ingests_end_to_end_without_extraction_tree(
         _write_tar(path, {"books/source.epub": payload}, mode="w:gz")
         source = TarReadOnlyStorageBackend(str(path))
     destination = FilesystemStore(tmp_path / "destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )

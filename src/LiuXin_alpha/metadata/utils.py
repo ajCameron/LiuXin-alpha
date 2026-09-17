@@ -7,28 +7,39 @@ Utils for metadata processing.
 from __future__ import annotations
 
 import os
-import sys
 import re
-from urllib.parse import quote, unquote, urlparse
+import sys
 from collections import namedtuple
+from urllib.parse import quote, unquote, urlparse
 
-from LiuXin_alpha.utils.libraries.liuxin_etree import etree, LXML_AVAILABLE
+from LiuXin_alpha.utils.libraries.liuxin_etree import LXML_AVAILABLE, etree
 
 _HAS_LXML = bool(LXML_AVAILABLE)
 
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union, Literal, Iterator, TypeVar, Type
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 from LiuXin_alpha.errors import InputIntegrityError
-
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 from LiuXin_alpha.file_formats.oeb.base import OPF
-from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.text import remove_bracketed_text
-from LiuXin_alpha.utils.paths import relpath
-from LiuXin_alpha.utils.mine_types import guess_type
-from LiuXin_alpha.utils.logging import prints
 from LiuXin_alpha.preferences import preferences as tweaks
-from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logging import default_log, prints
+from LiuXin_alpha.utils.mine_types import guess_type
+from LiuXin_alpha.utils.paths import relpath
+from LiuXin_alpha.utils.text import remove_bracketed_text
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
@@ -734,10 +745,10 @@ def normalize_languages(opf_languages, mi_languages):
     :param mi_languages:
     :return:
     """
-    from LiuXin_alpha.utils.localization import canonicalize_lang, lang_as_iso639_1
     from LiuXin_alpha.utils.libraries.iso639.iso639_tools import (
         lang_as_iso639_1 as fallback_lang_as_iso639_1,
     )
+    from LiuXin_alpha.utils.localization import canonicalize_lang, lang_as_iso639_1
 
     LocaleCode = namedtuple("LocaleCode", "langcode countrycode")
 

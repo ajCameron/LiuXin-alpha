@@ -13,13 +13,16 @@ that expect singular endpoints.
 from __future__ import annotations
 
 import abc
+from typing import TYPE_CHECKING, Generic, TypeVar
 
-from typing import TYPE_CHECKING, TypeVar, Generic
-
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table import StorageCacheBaseTableAPI
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table_api import (
+    StorageCacheBaseTableAPI,
+)
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table import TableTypes
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table_api import (
+        TableTypes,
+    )
 
 T = TypeVar("T")
 

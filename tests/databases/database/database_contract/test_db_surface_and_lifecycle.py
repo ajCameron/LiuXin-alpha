@@ -13,11 +13,11 @@ resource leaks, thread leaks, and reference-cycle bugs early.
 
 from __future__ import annotations
 
-from dataclasses import replace
 import os
 import sqlite3
 import types
 import uuid
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -501,9 +501,11 @@ def test_existing_driver_init_requires_metadata_none(db_metadata: dict, driver_s
     """existing_driver init path should enforce metadata=None (by design)."""
 
     from LiuXin_alpha.databases.database import Database
-    from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
+    from LiuXin_alpha.databases.database_driver_plugins.registry import (
+        load_database_driver,
+    )
 
-    Driver = loadDatabaseDriver(driver_spec.db_type)
+    Driver = load_database_driver(driver_spec.db_type)
     drv = Driver(db_metadata, db=None, set_conn=True)
     try:
         with pytest.raises(AssertionError):
@@ -519,9 +521,11 @@ def test_existing_driver_init_wires_db_refs(db_metadata: dict, driver_spec):
     """Database(existing_driver=...) should backfill db refs on driver + macros."""
 
     from LiuXin_alpha.databases.database import Database
-    from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
+    from LiuXin_alpha.databases.database_driver_plugins.registry import (
+        load_database_driver,
+    )
 
-    Driver = loadDatabaseDriver(driver_spec.db_type)
+    Driver = load_database_driver(driver_spec.db_type)
     drv = Driver(db_metadata, db=None, set_conn=True)
 
     db = Database(metadata=None, existing_driver=drv)
@@ -539,9 +543,11 @@ def test_existing_driver_init_close_releases_handles(db_path: Path, db_metadata:
     """Database(existing_driver=...) should still release file handles on close."""
 
     from LiuXin_alpha.databases.database import Database
-    from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
+    from LiuXin_alpha.databases.database_driver_plugins.registry import (
+        load_database_driver,
+    )
 
-    Driver = loadDatabaseDriver(driver_spec.db_type)
+    Driver = load_database_driver(driver_spec.db_type)
     drv = Driver(db_metadata, db=None, set_conn=True)
     db = Database(metadata=None, existing_driver=drv)
     db.close()
@@ -552,7 +558,9 @@ def test_existing_driver_init_close_releases_handles(db_path: Path, db_metadata:
 def test_set_driver_replaces_wrapper_and_closes_old_resources(open_db, db_metadata: dict, driver_spec):
     """set_driver() should close the previous wrapper lock connection and driver conn."""
 
-    from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
+    from LiuXin_alpha.databases.database_driver_plugins.registry import (
+        load_database_driver,
+    )
 
     db = open_db
 
@@ -564,7 +572,7 @@ def test_set_driver_replaces_wrapper_and_closes_old_resources(open_db, db_metada
     assert old_conn is not None
     assert old_lock is not None
 
-    Driver = loadDatabaseDriver(driver_spec.db_type)
+    Driver = load_database_driver(driver_spec.db_type)
     new_driver = Driver(db_metadata, db=None, set_conn=True)
 
     db.set_driver(new_driver)
@@ -609,10 +617,12 @@ def test_set_driver_with_same_driver_keeps_primary_conn(open_db):
 def test_set_driver_then_close_cleans_new_driver(open_db, db_metadata: dict, driver_spec):
     """If we swap drivers, a subsequent close() should clean the new resources too."""
 
-    from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
+    from LiuXin_alpha.databases.database_driver_plugins.registry import (
+        load_database_driver,
+    )
 
     db = open_db
-    Driver = loadDatabaseDriver(driver_spec.db_type)
+    Driver = load_database_driver(driver_spec.db_type)
     new_driver = Driver(db_metadata, db=None, set_conn=True)
     db.set_driver(new_driver)
 

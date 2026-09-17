@@ -21,15 +21,15 @@ from LiuXin_alpha.caches.api import (
     CachePredicate,
     CacheQuery,
     CacheQueryResult,
-    CacheRecord,
     CacheReconciliationError,
+    CacheRecord,
     CacheRelation,
     CacheSort,
     CacheState,
     FieldBasicInterfaceAPI,
-    StorageCacheCapabilities,
     StorageCacheAPI,
     StorageCacheBaseTableAPI,
+    StorageCacheCapabilities,
     StorageCacheSingleTableAPI,
     TableTypes,
     UnknownCacheFieldError,
@@ -51,7 +51,7 @@ from LiuXin_alpha.caches.cache_plugins.database_backed import (
 from LiuXin_alpha.caches.cache_plugins.numpy_vectorized import (
     NumpyVectorizedStorageCache,
 )
-from LiuXin_alpha.caches.schema_backed import (
+from LiuXin_alpha.caches.cache_plugins.schema_backed import (
     SchemaBackedLinkTable,
     SchemaBackedMainTableCache,
     SchemaBackedManyManyField,

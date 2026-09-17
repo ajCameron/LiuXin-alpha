@@ -2,17 +2,22 @@
 
 from __future__ import annotations
 
-import typing as _typing
-
 import codecs
 import os
 import struct
+import typing as _typing
 
 from LiuXin_alpha.constants import iswindows
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 from LiuXin_alpha.file_formats.toc import TOC
 from LiuXin_alpha.utils.calibre import guess_type as guess_mimetype
-from LiuXin_alpha.utils.libraries.chm import CHM_ENUMERATE_NORMAL, CHM_RESOLVE_SUCCESS, CHMError, CHMFile, chm_enumerate
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
+from LiuXin_alpha.utils.libraries.chm import (
+    CHM_ENUMERATE_NORMAL,
+    CHM_RESOLVE_SUCCESS,
+    CHMError,
+    CHMFile,
+    chm_enumerate,
+)
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>, and Alex Bramley <a.bramley at gmail.com>."

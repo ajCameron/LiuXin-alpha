@@ -17,18 +17,19 @@ import signal
 import subprocess
 import sys
 import zipfile
-
 from argparse import Namespace
 from pathlib import Path
 from typing import cast
 
 import pytest
 
+import LiuXin_alpha.surfaces.cli.storage_commands.constants as storage_cli_constants
+import LiuXin_alpha.surfaces.cli.storage_commands.ingest_paths as storage_cli_ingest_paths
+import LiuXin_alpha.surfaces.cli.storage_commands.ingest_reporting as storage_cli_ingest_reporting
+import LiuXin_alpha.surfaces.cli.storage_commands.signals as storage_cli_signals
 from LiuXin_alpha.surfaces.cli.app import main as cli_main
-from LiuXin_alpha.surfaces.cli import storage as storage_cli
 from LiuXin_alpha.surfaces.cli.storage_commands import ingest_preflight
 from LiuXin_alpha.utils.lock import ExclusiveFile
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RUN_ID = "12345678-1234-5678-9234-567812345678"
@@ -129,7 +130,7 @@ def test_discovery_writes_full_correlated_atomic_report(
     report_path = tmp_path / "report.json"
     rc = cli_main([*_base_arguments(tmp_path, source), "--discover-only"])
 
-    assert rc == storage_cli.EXIT_OK
+    assert rc == storage_cli_constants.EXIT_OK
     captured = capsys.readouterr()
     payload = cast(dict[str, object], json.loads(captured.out))
     assert payload == json.loads(report_path.read_text(encoding="utf-8"))
@@ -203,7 +204,7 @@ def test_preflight_reports_missing_required_squashfs_reader_without_writes(
         ]
     )
 
-    assert rc == storage_cli.EXIT_ISSUES
+    assert rc == storage_cli_constants.EXIT_ISSUES
     payload = cast(dict[str, object], json.loads(capsys.readouterr().out))
     assert payload["mode"] == "preflight"
     assert payload["status"] == "issues"
@@ -244,10 +245,10 @@ def test_database_inside_source_is_configuration_error_with_report(
         ]
     )
 
-    assert rc == storage_cli.EXIT_USAGE
+    assert rc == storage_cli_constants.EXIT_USAGE
     payload = cast(dict[str, object], json.loads(capsys.readouterr().out))
     assert payload["status"] == "configuration_error"
-    assert payload["exit_code"] == storage_cli.EXIT_USAGE
+    assert payload["exit_code"] == storage_cli_constants.EXIT_USAGE
     error = cast(dict[str, object], payload["error"])
     assert "--database must be outside --source-root" in cast(str, error["message"])
     assert "CLIUsageError" in cast(str, error["traceback"])
@@ -280,7 +281,7 @@ def test_no_stdout_report_keeps_result_in_durable_file(
         [*_base_arguments(tmp_path, source), "--discover-only", "--no-stdout-report"]
     )
 
-    assert rc == storage_cli.EXIT_OK
+    assert rc == storage_cli_constants.EXIT_OK
     captured = capsys.readouterr()
     assert captured.out == ""
     payload = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
@@ -316,7 +317,7 @@ def test_require_existing_database_fails_before_creating_it(
         ]
     )
 
-    assert rc == storage_cli.EXIT_USAGE
+    assert rc == storage_cli_constants.EXIT_USAGE
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "configuration_error"
     assert "database does not exist" in payload["error"]["message"]
@@ -370,8 +371,8 @@ def test_path_validation_rejects_run_outputs_inside_source_root(
         materialization_root=materialization,
     )
 
-    with pytest.raises(storage_cli.CLIUsageError, match=expected_message):
-        storage_cli._validate_paths(
+    with pytest.raises(storage_cli_constants.CLIUsageError, match=expected_message):
+        storage_cli_ingest_paths._validate_paths(
             args,
             source_root=source,
             report_path=report,
@@ -401,7 +402,7 @@ def test_existing_report_is_never_overwritten_without_explicit_opt_in(
 
     rc = cli_main([*_base_arguments(tmp_path, source), "--discover-only"])
 
-    assert rc == storage_cli.EXIT_USAGE
+    assert rc == storage_cli_constants.EXIT_USAGE
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "configuration_error"
     assert "pass --replace-report" in payload["error"]["message"]
@@ -427,8 +428,8 @@ def test_atomic_report_publisher_cannot_clobber_a_racing_writer(
     report = tmp_path / "report.json"
     report.write_text("racing-writer\n", encoding="utf-8")
 
-    with pytest.raises(storage_cli.CLIUsageError, match="--replace-report"):
-        storage_cli._write_report(
+    with pytest.raises(storage_cli_constants.CLIUsageError, match="--replace-report"):
+        storage_cli_ingest_reporting._write_report(
             report,
             {"ok": True},
             replace=False,
@@ -471,7 +472,7 @@ def test_real_run_refuses_an_already_owned_explicit_lock(
             ]
         )
 
-    assert rc == storage_cli.EXIT_USAGE
+    assert rc == storage_cli_constants.EXIT_USAGE
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "configuration_error"
     assert "another ingest owns run lock" in payload["error"]["message"]
@@ -491,7 +492,7 @@ def test_signal_cancellation_requires_a_second_signal_to_force_unwind() -> None:
 
     :return: None; assert requested state, first-signal identity, and second-signal unwinding.
     """
-    cancellation = storage_cli.SignalCancellation()
+    cancellation = storage_cli_signals.SignalCancellation()
 
     cancellation._receive(signal.SIGTERM, None)
 

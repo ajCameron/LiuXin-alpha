@@ -3,21 +3,28 @@
 Resolve legacy language updates and forward typed Work links to Catalog writers.
 """
 
-from __future__ import division, absolute_import, print_function, unicode_literals, annotations
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from typing import TYPE_CHECKING
 
 from LiuXin_alpha.caches.write.base_writer import BaseWriter
 from LiuXin_alpha.catalog import Catalog
 from LiuXin_alpha.databases.macro_types import LinkValue
-from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 
 if TYPE_CHECKING:
 
-    from LiuXin_alpha.catalog.api import CatalogAPI
-    from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field import (
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field_api import (
         FieldBasicInterfaceAPI,
     )
+    from LiuXin_alpha.catalog.api import CatalogAPI
 
 
 class LanguagesWriter(BaseWriter):

@@ -11,8 +11,6 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from LiuXin_alpha.catalog.api.metadata_tools_api.add_api import AddAPI
-from LiuXin_alpha.catalog.api.metadata_tools_api.apply_api import ApplyAPI
 from LiuXin_alpha.catalog.api.metadata_tools_api.common import (
     DateLike,
     IsoDateLike,
@@ -22,7 +20,11 @@ from LiuXin_alpha.catalog.api.metadata_tools_api.common import (
     RowValue,
     TextOrRow,
 )
-from LiuXin_alpha.catalog.api.metadata_tools_api.ensure_api import EnsureAPI
+from LiuXin_alpha.catalog.api.metadata_tools_api.facades import (
+    AddAPI,
+    ApplyAPI,
+    EnsureAPI,
+)
 from LiuXin_alpha.catalog.api.metadata_tools_api.fingerprints_api import (
     FingerprintSubject,
     FingerprintToolsAPI,

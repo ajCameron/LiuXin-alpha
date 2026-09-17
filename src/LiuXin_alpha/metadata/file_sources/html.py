@@ -14,11 +14,13 @@ from datetime import datetime
 from html.parser import HTMLParser
 from typing import Any
 
-from LiuXin_alpha.file_formats.chardet import detect, xml_to_unicode
-from LiuXin_alpha.metadata.metadata import MetaData as Metadata
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as Metadata,
+)
 from LiuXin_alpha.metadata.utils import check_isbn, string_to_authors
 from LiuXin_alpha.utils.calibre import replace_entities
 from LiuXin_alpha.utils.date import is_date_undefined, parse_date, parse_only_date
+from LiuXin_alpha.utils.libraries.calibre_chardet import detect, xml_to_unicode
 from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"

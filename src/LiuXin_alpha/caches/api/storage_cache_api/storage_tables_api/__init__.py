@@ -9,7 +9,7 @@ spellings retain their owning module's objects; application presentation
 and coordinated writes belong to the composed Cache facade.
 """
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table_api import (
     MANY_MANY,
     MANY_ONE,
     ONE_MANY,
@@ -36,9 +36,8 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_ap
     StorageCacheOneToOneLinkTable,
     StorageCacheOneToOneLinkTableAPI,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
     StorageCacheSingleTableAPI,
-    StorageStorageCacheSingleTableAPI,
 )
 
 __all__ = [
@@ -63,7 +62,6 @@ __all__ = [
     "StorageCacheOneToOneLinkTable",
     "StorageCacheOneToOneLinkTableAPI",
     "StorageCacheSingleTableAPI",
-    "StorageStorageCacheSingleTableAPI",
     "TableMetadata",
     "TableTypes",
     "null",

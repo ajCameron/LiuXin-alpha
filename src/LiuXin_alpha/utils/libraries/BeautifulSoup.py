@@ -80,22 +80,23 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE, DAMMIT.
 """
 # Todo: Add these terms to mewbot
 
-from __future__ import print_function, generators
-
+from __future__ import generators, print_function
 
 __author__ = "Leonard Richardson (leonardr@segfault.org)"
 __version__ = "3.0.5"
 __copyright__ = "Copyright (c) 2004-2007 Leonard Richardson"
 __license__ = "New-style BSD"
 
-from LiuXin_alpha.utils.libraries.sgmllib import SGMLParser, SGMLParseError
 import codecs
-import types
 import re
-import LiuXin_alpha.utils.libraries.sgmllib as sgmllib
+import types
 from html.entities import name2codepoint
 
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, six_unicode as unicode, six_unichar as unichr
+import LiuXin_alpha.utils.libraries.sgmllib as sgmllib
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unichar as unichr
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
+from LiuXin_alpha.utils.libraries.sgmllib import SGMLParseError, SGMLParser
 
 # This hack makes Beautiful Soup able to parse XML with namespaces
 sgmllib.tagfind = re.compile("[a-zA-Z][-_.:a-zA-Z0-9]*")
@@ -1121,7 +1122,7 @@ class BeautifulStoneSoup(Tag, SGMLParser):
         else:
             # Changed detection by Kovid
             # Re-written for LiuXin
-            import LiuXin_alpha.utils.calibre_chardet as chardet
+            import LiuXin_alpha.utils.libraries.calibre_chardet as chardet
 
             markup, self.originalEncoding = chardet.xml_to_unicode(markup)
         if markup:

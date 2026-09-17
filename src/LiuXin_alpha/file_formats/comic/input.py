@@ -2,20 +2,18 @@
 
 from __future__ import annotations
 
-import typing as _typing
-
 import os
 import re
 import shutil
 import traceback
+import typing as _typing
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from types import SimpleNamespace
 
-from LiuXin_alpha import prints
 from LiuXin_alpha.utils.calibre import walk
 from LiuXin_alpha.utils.decompression.archives import extract
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.logging import default_log, prints
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
 
 __license__ = "GPL v3"

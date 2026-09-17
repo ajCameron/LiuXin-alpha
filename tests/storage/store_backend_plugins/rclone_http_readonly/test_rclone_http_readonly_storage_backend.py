@@ -14,13 +14,12 @@ import hashlib
 import io
 import subprocess
 import threading
-
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
-from LiuXin_alpha.ingest import ingest_store
+from LiuXin_alpha.ingest.stores import ingest_store
 from LiuXin_alpha.storage.api import (
     EnumerationCompleteness,
     Location,
@@ -32,8 +31,7 @@ from LiuXin_alpha.storage.api import (
     StorageUnavailable,
     StoreReadOnly,
 )
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
-from LiuXin_alpha.storage.stores import FilesystemStore
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     RcloneBackendOptions,
     RcloneHttpReadOnlyStorageBackend,
@@ -41,9 +39,7 @@ from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     rclone_http_storage_backend as backend_module,
 )
-from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly.rclone_http_location import (
-    RcloneHttpReadOnlyStoreLocation,
-)
+from LiuXin_alpha.storage.stores import FilesystemStore
 from tests.fixtures.storage_unicode import (
     TORTURED_UNICODE_PATH_CASES,
     UNICODE_FILENAME,
@@ -175,7 +171,7 @@ def test_rclone_readonly_preserves_unicode_inventory_hints_and_bytes(
     )
 
     destination = FilesystemStore(tmp_path / "rclone-ingest-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -269,7 +265,7 @@ def test_truncated_rclone_ingest_publishes_no_manager_state(
         options=RcloneBackendOptions(max_http_requests_per_hour=0),
     )
     destination = FilesystemStore(tmp_path / "rclone-truncated-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -841,7 +837,7 @@ def test_rclone_stat_read_digest_and_range_use_new_store_api(monkeypatch) -> Non
     )
     location = store.locate("path/book.epub")
 
-    assert isinstance(location, RcloneHttpReadOnlyStoreLocation)
+    assert isinstance(location, Location)
     assert isinstance(location, Location)
     info = store.stat_file(location)
     assert info.size == 10

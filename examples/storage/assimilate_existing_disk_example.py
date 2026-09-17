@@ -12,9 +12,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-
 from pathlib import Path
-
 
 EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
 if str(EXAMPLES_ROOT) not in sys.path:
@@ -22,10 +20,9 @@ if str(EXAMPLES_ROOT) not in sys.path:
 
 from _example_utils import bootstrap_src_path, dump_json
 
-
 bootstrap_src_path()
 
-from LiuXin_alpha.ingest import ingest_store
+from LiuXin_alpha.ingest.stores import ingest_store
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive import (
     OnDiskUnmanagedStorageBackend,
 )

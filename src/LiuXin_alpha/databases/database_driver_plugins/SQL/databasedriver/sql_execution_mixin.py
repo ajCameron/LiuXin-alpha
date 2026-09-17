@@ -1,6 +1,6 @@
 
 """
-Methods to allows direct execution of SQL on the database.
+Execute SQL statements, batches and scripts with explicit driver connection policies.
 """
 
 import sqlite3
@@ -17,7 +17,12 @@ from LiuXin_alpha.errors import DatabaseDriverError
 
 class SQLExecutionMixin:
     """
-    Direct execution methods on the database.
+    Provide low-level SQL execution helpers for concrete drivers.
+
+    Helpers remove a legacy leading backslash/newline but otherwise execute trusted SQL. Script execution is not guaranteed atomic by these wrappers.
+
+    Example:
+        ``driver.direct_execute("SELECT 1")`` returns the primary connection's result cursor.
     """
 
     # Todo: This should be something like "execute sql script" - to distinguish it from the execute method in the conn
@@ -25,11 +30,16 @@ class SQLExecutionMixin:
             self,
             script: Union[str, list[str]]) -> None:
         """
-        Allows arbitrary scripts to be executed on the database.
+        Run a script on a fresh connection and close it after success.
 
-        Try not to shoot yourself in the foot.
-        :param script: This will be executed directly on the database.
-        :return:
+        No cache refresh or finally cleanup is performed. Despite the annotation, list input is passed directly to the backend and is not joined.
+
+        Example:
+            ``driver.direct_execute_sql_script("CREATE TABLE example (id INTEGER);")`` runs a script.
+
+
+        :param script: SQL script text; the backend must accept any non-string input.
+        :return: ``None``.
         """
         # Defensive: legacy code sometimes used raw triple-quoted strings beginning with "\\\n"
         # (intended to suppress the first newline). In raw strings that backslash becomes literal,
@@ -49,11 +59,17 @@ class SQLExecutionMixin:
     # Todo: Check that the return is correctly typed
     def direct_execute_sql(self, sql: str, parameters: Optional[tuple[str, ...]] = None) -> Optional[int]:
         """
-        Execute the given sql using a new conn, which will be closed after the execution.
+        Execute one statement on a fresh connection and commit.
 
-        :param sql:
-        :param parameters:
-        :return:
+        Return lastrowid without explicitly closing the connection or refreshing caches; backend execution errors propagate.
+
+        Example:
+            ``driver.direct_execute_sql("INSERT INTO example DEFAULT VALUES")`` returns the cursor lastrowid.
+
+
+        :param sql: SQL text to execute, with placeholders when bindings are supplied.
+        :param parameters: Optional sequence of values bound to SQL placeholders.
+        :return: The backend cursor lastrowid, whose meaning depends on the statement.
         """
         # Defensive: tolerate legacy raw triple-quoted strings beginning with "\\\n".
         if isinstance(sql, str):
@@ -72,9 +88,17 @@ class SQLExecutionMixin:
 
     def direct_get_table_sqlite(self, table, conn=None):
         """
-        Gets the SQLite for the given table. Useful for debugging.
-        :param table:
-        :param conn: Allows passing in a connection - provided as this is intended to be used for debugging.
+        Read a table's stored CREATE statement from sqlite_master.
+
+        Bind the name as a value. Missing tables, including view-only matches, raise InputIntegrityError; neither supplied nor acquired connections are closed here.
+
+        Example:
+            ``driver.direct_get_table_sqlite("books")`` retrieves a physical table definition.
+
+
+        :param table: Exact table name used in the bound sqlite_master lookup.
+        :param conn: Optional existing connection; ``None`` acquires a new one.
+        :return: The stored SQL text, which may be null for internal tables.
         """
         if conn is None:
             conn = self.get_connection()
@@ -93,18 +117,17 @@ class SQLExecutionMixin:
             sql: Union[str, tuple[str, ...], list[str]],
             values: Optional[tuple[str]] = None) -> None:
         """
-        Execute SQL directly on the database.
+        Execute one statement using a live primary connection and its transaction context.
 
-        Historically this method opened a fresh connection for every call and then called driver.refresh(), which
-        (also historically) closed and replaced the driver's primary connection. That combination made it easy for
-        long-lived helper objects to hold stale/closed connection references.
+        Replace a missing/broken primary handle; convert an integer binding to a one-element text tuple. Execution failures become DatabaseDriverError. Finally attempt a cache refresh while preserving a usable handle, so TEMP objects remain available.
 
-        We now prefer executing against the driver's primary connection. This avoids leaking connection handles,
-        preserves SQLite TEMP objects on that connection, and keeps helper classes (like CustomColumns/CalibreCache)
-        from being surprised by connection replacement.
+        Example:
+            ``cursor = driver.direct_execute("SELECT ?", (3,))`` returns the query result cursor.
 
-        :param sql: SQL code to execute on the database
-        :param values: The values to execute with the code.
+
+        :param sql: SQL text to execute, with placeholders when bindings are supplied.
+        :param values: Optional bindings; a bare integer is converted to a one-element string tuple.
+        :return: The backend execution result, normally a cursor, despite the None annotation.
         """
         if isinstance(values, int):
             values = (force_unicode(values),)
@@ -167,18 +190,17 @@ class SQLExecutionMixin:
 
     def direct_executemany(self, sql: str, values: Optional[tuple[str, ...]] = None) -> None:
         """
-        Executes many statements on the database.
+        Execute a batch on the primary connection, or delegate an unbound script.
 
-        Tries to preform sensible input transforms on the values before executing them.
-        This might lead to some problems but I can't immediately think of cases where they would, and it's a bit more
-        convenient this way.
-        e.g. if values=("Some string", "Another string") these will be transformed to
-                       (("Some string", ), ("Another string", )) before any attempt is made to execute them directly.
-        (As, usually, you don't supply bindings in the form of chars in a string - which seems to be the default
-         assumption SQLite makes)
-        :param sql:
-        :param values:
-        :return:
+        Only outer tuples receive scalar-to-one-tuple normalization. ValueError retries try alternate binding shapes; execution failures become DatabaseDriverError. Refresh caches after success. With values=None, delegate to direct_executescript.
+
+        Example:
+            ``driver.direct_executemany("INSERT INTO example(value) VALUES (?)", ("a", "b"))`` inserts two scalar values.
+
+
+        :param sql: SQL text to execute, with placeholders when bindings are supplied.
+        :param values: Binding rows, an outer tuple of scalar values, or ``None`` for script execution.
+        :return: ``None``.
         """
         # Defensive normalization for the same leading "\\\n" raw-string trap as direct_execute().
         if isinstance(sql, str):
@@ -238,9 +260,16 @@ class SQLExecutionMixin:
     # Todo: Merged with the above, and deprecate one
     def direct_executescript(self, sqlscript):
         """
-        Execute a script on the database
+        Run trusted multi-statement SQL on the primary connection and refresh caches.
 
-        :param sqlscript: A series of statements to execute. Seperated by ;
+        Create a primary handle if absent, wrap execution failures as DatabaseDriverError and attempt refresh in finally. Backend executescript transaction behavior still applies.
+
+        Example:
+            ``driver.direct_executescript("CREATE TABLE example(id INTEGER); INSERT INTO example VALUES (1);")`` runs both statements.
+
+
+        :param sqlscript: SQL script text passed to the backend executescript method.
+        :return: ``None``.
         """
         # Defensive normalization for the same leading "\\\n" raw-string trap as direct_execute().
         if isinstance(sqlscript, str):

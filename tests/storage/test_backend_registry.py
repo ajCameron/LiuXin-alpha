@@ -10,7 +10,6 @@ case checks staged bytes rather than sealing an archive or invoking its tool.
 from __future__ import annotations
 
 import json
-
 from uuid import uuid4
 
 import pytest
@@ -22,8 +21,6 @@ from LiuXin_alpha.storage.backend_registry import (
     StorageBackendRegistry,
     StoreConstructionContext,
 )
-from LiuXin_alpha.storage.store_factory import build_store
-from LiuXin_alpha.storage.store_manager import StorageManager
 from LiuXin_alpha.storage.store_backend_plugins.iso_readonly import (
     IsoReadOnlyStorageBackend,
 )
@@ -48,6 +45,7 @@ from LiuXin_alpha.storage.store_backend_plugins.zip_readonly import (
 from LiuXin_alpha.storage.store_backend_plugins.zip_writable import (
     ZipWritableStorageBackend,
 )
+from LiuXin_alpha.storage.store_manager import StorageManager
 from LiuXin_alpha.storage.store_spec_utils import (
     store_configuration_from_row,
     store_configuration_to_row_dict,
@@ -252,7 +250,7 @@ def test_factory_constructs_filesystem_through_registry(tmp_path) -> None:
         (tmp_path / "files").resolve().as_uri(),
     )
 
-    store = build_store(configuration)
+    store = DEFAULT_BACKEND_REGISTRY.build(configuration)
 
     assert isinstance(store, FilesystemStore)
     assert store.configuration is configuration
@@ -281,7 +279,7 @@ def test_s3_factory_uses_injected_client_and_persisted_non_secret_options() -> N
         ),
     )
 
-    store = build_store(
+    store = DEFAULT_BACKEND_REGISTRY.build(
         configuration,
         context=StoreConstructionContext(s3_client=client),
     )
@@ -322,14 +320,14 @@ def test_encrypted_factory_requires_runtime_dependencies(tmp_path) -> None:
     )
 
     with pytest.raises(api.StoreUnsupportedOperation, match="inner-Store resolver"):
-        build_store(configuration)
+        DEFAULT_BACKEND_REGISTRY.build(configuration)
     with pytest.raises(api.StoreUnsupportedOperation, match="key provider"):
-        build_store(
+        DEFAULT_BACKEND_REGISTRY.build(
             configuration,
             context=StoreConstructionContext(store_resolver=lambda _ref: inner),
         )
 
-    store = build_store(
+    store = DEFAULT_BACKEND_REGISTRY.build(
         configuration,
         context=StoreConstructionContext(
             store_resolver=lambda store_ref: (
@@ -579,7 +577,7 @@ def test_registry_rejects_writable_backend_over_a_catalogued_asset() -> None:
         api.StoreUnsupportedOperation,
         match="cannot expose a read-only Store backed by a Digital Asset",
     ):
-        build_store(
+        DEFAULT_BACKEND_REGISTRY.build(
             configuration,
             context=StoreConstructionContext(
                 backing_path_resolver=lambda _configuration: "/tmp/archive.zip"
@@ -1043,3 +1041,33 @@ def test_registry_rejects_duplicate_aliases() -> None:
 
     with pytest.raises(ValueError, match="already registered"):
         registry.register(StorageBackendDescriptor("two", "Two", builder, aliases=("shared",)))
+
+
+@pytest.mark.parametrize("kind", ["sqlite", "single_file_sqlite"])
+def test_sqlite_registry_builds_the_canonical_store(tmp_path, kind) -> None:
+    """
+    Resolve either configured spelling to the concrete SQLite Store and round-trip bytes.
+
+    The builder retains the requested UUID and publishes the canonical backend kind.
+    The Store is closed in a finally block so failures do not retain an open database.
+
+    Example:
+        >>> test_sqlite_registry_builds_the_canonical_store(tmp_path, "sqlite")  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest directory for the real SQLite BLOB container.
+    :param kind: Canonical single_file_sqlite key or its supported sqlite configuration alias.
+    :return: None after checking construction, identity, kind, and byte persistence.
+    """
+    from LiuXin_alpha.storage.stores.sqlite import SQLiteStore
+
+    configuration = _configuration(kind, (tmp_path / "objects.sqlite").as_uri())
+    store = DEFAULT_BACKEND_REGISTRY.build(configuration)
+    try:
+        assert type(store) is SQLiteStore
+        assert store.configuration.store_kind == "single_file_sqlite"
+        assert store.configuration.store_uuid == configuration.store_uuid
+        info = store.store_bytes(b"canonical sqlite", location="sample")
+        assert store.read_bytes(info.location) == b"canonical sqlite"
+    finally:
+        store.close()

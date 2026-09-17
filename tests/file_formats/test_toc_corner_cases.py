@@ -256,7 +256,7 @@ def test_render_handles_none_href_without_literal_none_text() -> None:
 
 
 def test_ebook_toc_module_is_compatibility_alias() -> None:
-    from LiuXin_alpha.file_formats import ebook_toc
+    import LiuXin_alpha.file_formats.toc as ebook_toc
     from LiuXin_alpha.file_formats import toc
 
     assert ebook_toc.TOC is toc.TOC

@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-liuxin = "LiuXin_alpha.surfaces.cli:main"
+liuxin = "LiuXin_alpha.surfaces.cli.app:main"
 
 [project.optional-dependencies]
 test = [
@@ -129,7 +129,6 @@ paths = [
   "tests/surfaces/test_terminal_component_ownership.py",
   "tests/surfaces/test_terminal_component_behavior.py",
   "src/LiuXin_alpha/surfaces/terminal/__init__.py",
-  "src/LiuXin_alpha/surfaces/terminal/text_browser.py",
   "src/LiuXin_alpha/surfaces/terminal/app.py",
   "src/LiuXin_alpha/surfaces/terminal/database_creation.py",
   "src/LiuXin_alpha/surfaces/terminal/presentation.py",
@@ -143,7 +142,6 @@ paths = [
   "src/LiuXin_alpha/surfaces/cli/completion.py",
   "src/LiuXin_alpha/surfaces/cli/parser_types.py",
   "src/LiuXin_alpha/surfaces/cli/parsers.py",
-  "src/LiuXin_alpha/surfaces/cli/squashfs.py",
   "src/LiuXin_alpha/surfaces/cli/squashfs_commands.py",
   "src/LiuXin_alpha/surfaces/cli/squashfs_parsers.py",
   "tests/surfaces/test_cli_dependency_contracts.py",
@@ -154,7 +152,6 @@ paths = [
   "src/LiuXin_alpha/core/program_endpoints",
   "src/LiuXin_alpha/core/program_api.py",
   "src/LiuXin_alpha/core/program_services",
-  "src/LiuXin_alpha/surfaces/cli/storage.py",
   "src/LiuXin_alpha/surfaces/cli/storage_commands",
   "src/LiuXin_alpha/ingest/mixed_application.py",
   "src/LiuXin_alpha/catalog/write/host_api.py",
@@ -202,7 +199,6 @@ include = [
   "src/LiuXin_alpha/surfaces/terminal/windowed_ui.py",
   "src/LiuXin_alpha/surfaces/terminal/windowed_components",
   "src/LiuXin_alpha/surfaces/terminal/__init__.py",
-  "src/LiuXin_alpha/surfaces/terminal/text_browser.py",
   "src/LiuXin_alpha/surfaces/terminal/app.py",
   "src/LiuXin_alpha/surfaces/terminal/database_creation.py",
   "src/LiuXin_alpha/surfaces/terminal/presentation.py",
@@ -213,7 +209,6 @@ include = [
   "src/LiuXin_alpha/surfaces/cli/completion.py",
   "src/LiuXin_alpha/surfaces/cli/parser_types.py",
   "src/LiuXin_alpha/surfaces/cli/parsers.py",
-  "src/LiuXin_alpha/surfaces/cli/squashfs.py",
   "src/LiuXin_alpha/surfaces/cli/squashfs_commands.py",
   "src/LiuXin_alpha/surfaces/cli/squashfs_parsers.py",
   "src/LiuXin_alpha/surfaces/presentation.py",
@@ -230,7 +225,6 @@ include = [
   "src/LiuXin_alpha/storage/api",
   "src/LiuXin_alpha/storage/storage_manager/manager.py",
   "src/LiuXin_alpha/storage/storage_manager/mixins",
-  "src/LiuXin_alpha/surfaces/cli/storage.py",
   "src/LiuXin_alpha/surfaces/cli/storage_commands",
 ]
 strict = [
@@ -271,7 +265,6 @@ files = [
   "src/LiuXin_alpha/surfaces/terminal/windowed_ui.py",
   "src/LiuXin_alpha/surfaces/terminal/windowed_components",
   "src/LiuXin_alpha/surfaces/terminal/__init__.py",
-  "src/LiuXin_alpha/surfaces/terminal/text_browser.py",
   "src/LiuXin_alpha/surfaces/terminal/app.py",
   "src/LiuXin_alpha/surfaces/terminal/database_creation.py",
   "src/LiuXin_alpha/surfaces/terminal/presentation.py",
@@ -282,7 +275,6 @@ files = [
   "src/LiuXin_alpha/surfaces/cli/completion.py",
   "src/LiuXin_alpha/surfaces/cli/parser_types.py",
   "src/LiuXin_alpha/surfaces/cli/parsers.py",
-  "src/LiuXin_alpha/surfaces/cli/squashfs.py",
   "src/LiuXin_alpha/surfaces/cli/squashfs_commands.py",
   "src/LiuXin_alpha/surfaces/cli/squashfs_parsers.py",
   "src/LiuXin_alpha/surfaces/presentation.py",
@@ -297,7 +289,6 @@ files = [
   "src/LiuXin_alpha/storage/api",
   "src/LiuXin_alpha/storage/storage_manager/manager.py",
   "src/LiuXin_alpha/storage/storage_manager/mixins",
-  "src/LiuXin_alpha/surfaces/cli/storage.py",
   "src/LiuXin_alpha/surfaces/cli/storage_commands",
 ]
 mypy_path = "$MYPY_CONFIG_FILE_DIR/src"

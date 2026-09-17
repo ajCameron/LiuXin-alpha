@@ -18,7 +18,7 @@ from pathlib import Path
 from string import ascii_letters, digits
 from typing import Any
 
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.file_formats.fb2 import base64_decode
 from LiuXin_alpha.file_formats.fb2.archive import (
     DEFAULT_MAX_ARCHIVE_MEMBERS,
     DEFAULT_MAX_COMPRESSION_RATIO,
@@ -28,15 +28,17 @@ from LiuXin_alpha.file_formats.fb2.archive import (
     FB2ZipError,
     extract_fb2_payload_from_bytes,
 )
-from LiuXin_alpha.file_formats.fb2 import base64_decode
-from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaInformation,
+)
 from LiuXin_alpha.metadata.utils import check_isbn
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
+from LiuXin_alpha.utils.libraries.calibre_zipfile import safe_replace
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.mine_types import guess_all_extensions, guess_type
-from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
-from LiuXin_alpha.utils.libraries.calibre_zipfile import safe_replace
-from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 try:
     from LiuXin_alpha.utils.image_tools.img import save_cover_data_to

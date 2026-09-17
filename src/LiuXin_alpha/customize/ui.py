@@ -3,47 +3,51 @@ User interface for customize - as a rule, you should try and import from here wh
 """
 # Todo: Make sure this is actually so
 
-from __future__ import with_statement, print_function
+from __future__ import print_function, with_statement
 
+import functools
 import os
 import shutil
-import traceback
-import functools
 import sys
 import time
+import traceback
 from collections import defaultdict
-
-from typing import Union, Optional, Iterator, Iterable, Any, BinaryIO, Callable, Type
+from collections.abc import Callable, Iterable, Iterator
+from typing import Any, BinaryIO, Optional, Type, Union
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG as DEBUG
-
 from LiuXin_alpha.customize import (
     Archive,
     CatalogPlugin,
+    EditBookToolPlugin,
     FileTypePlugin,
-    PluginNotFound,
+    InvalidPlugin,
+    LibraryClosedPlugin,
+    MDInputTransform,
     MetadataReaderPlugin,
     MetadataWriterPlugin,
-    InterfaceActionBase as InterfaceAction,
-    PreferencesPlugin,
-    platform,
-    InvalidPlugin,
-    StoreBase as Store,
-    ViewerPlugin,
-    EditBookToolPlugin,
-    MDInputTransform,
-    LibraryClosedPlugin,
     Plugin,
+    PluginNotFound,
+    PreferencesPlugin,
+    ViewerPlugin,
+    platform,
 )
+from LiuXin_alpha.customize import (
+    InterfaceActionBase as InterfaceAction,
+)
+from LiuXin_alpha.customize import (
+    StoreBase as Store,
+)
+from LiuXin_alpha.customize.archives import get_compressor_plugins
 from LiuXin_alpha.customize.builtins import plugins as builtin_plugins
-from LiuXin_alpha.customize.builtins.standardization import CreatorStandardize
-from LiuXin_alpha.customize.builtins.standardization import TitlePhashHandler
-from LiuXin_alpha.customize.builtins.standardization import BaseNameGenerator
+from LiuXin_alpha.customize.builtins.standardization import (
+    BaseNameGenerator,
+    CreatorStandardize,
+    TitlePhashHandler,
+)
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OutputFormatPlugin
 from LiuXin_alpha.customize.profiles import InputProfile, OutputProfile
 from LiuXin_alpha.customize.zipplugin import loader
-from LiuXin_alpha.customize.archives import get_compressor_plugins
-
 from LiuXin_alpha.databases.database import Database
 
 try:
@@ -53,7 +57,9 @@ except ModuleNotFoundError:
         pass
 
 try:
-    from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
+    from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+        CalibreLikeLiuXinBookMetaData as MetaInformation,
+    )
 except ModuleNotFoundError:
     from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
         CalibreLikeLiuXinBookMetaData as MetaInformation,
@@ -65,12 +71,16 @@ except ModuleNotFoundError:
     class Source(object):
         pass
 
-from LiuXin_alpha.utils.config.config_base import make_config_dir, Config, ConfigProxy, plugin_dir
+from LiuXin_alpha.utils.config.config_base import (
+    Config,
+    ConfigProxy,
+    make_config_dir,
+    plugin_dir,
+)
 from LiuXin_alpha.utils.config.config_tools import OptionParser
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
-
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 try:
     from past.builtins import basestring
@@ -705,7 +715,7 @@ def set_file_type_metadata(
                         break
                     except:
                         if report_error is None:
-                            from LiuXin_alpha import prints
+                            from LiuXin_alpha.utils.logging import prints
 
                             prints(
                                 "Failed to set metadata for the",
@@ -1267,9 +1277,9 @@ def build_plugin(path: str) -> None:
     :param path:
     :return:
     """
-    from LiuXin_alpha import prints
     from LiuXin_alpha.utils.calibre.ptempfile import PersistentTemporaryFile
-    from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile, ZIP_STORED
+    from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZIP_STORED, ZipFile
+    from LiuXin_alpha.utils.logging import prints
 
     path = type("")(path)
     names = frozenset(os.listdir(path))

@@ -8,8 +8,7 @@ argument-parser exits and other uncaught exceptions are not intercepted here.
 
 from __future__ import annotations
 
-from LiuXin_alpha.surfaces.cli import main
-
+from LiuXin_alpha.surfaces.cli.app import main
 
 if __name__ == "__main__":
     raise SystemExit(main())

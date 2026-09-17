@@ -10,12 +10,14 @@ import re
 from io import StringIO
 from typing import Any
 
-from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaInformation,
+)
 from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.utils.calibre import force_unicode
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
-from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"

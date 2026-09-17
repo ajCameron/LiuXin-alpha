@@ -58,7 +58,7 @@ def test_direct_surface_is_stable(driver) -> None:
 def test_driver_module_matches_requested_backend(driver_spec, driver) -> None:
     """Ensure the constructed driver matches the requested backend.
 
-    This catches routing mistakes in loadDatabaseDriver / driver selection.
+    This catches routing mistakes in load_database_driver / driver selection.
     """
 
     mod = driver.__class__.__module__
@@ -66,7 +66,7 @@ def test_driver_module_matches_requested_backend(driver_spec, driver) -> None:
     if driver_spec.id == "sqlite":
         assert ".database_driver_plugins.SQLite." in mod and "SQLite_apsw" not in mod, (
             f"Requested sqlite (stdlib) backend, but got driver from module: {mod}"\
-            "\nThis usually means loadDatabaseDriver still routes SQLite -> SQLite_apsw."
+            "\nThis usually means load_database_driver still routes SQLite -> SQLite_apsw."
         )
 
     elif driver_spec.id == "apsw":

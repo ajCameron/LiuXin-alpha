@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import io
 
-from LiuXin_alpha.ingest import StoreIngestMode, adopt_store, ingest_store
+from LiuXin_alpha.ingest.models import StoreIngestMode
+from LiuXin_alpha.ingest.stores import adopt_store, ingest_store
 from LiuXin_alpha.storage import api
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.stores import FilesystemStore, HttpReadOnlyStore
 
 
@@ -34,7 +35,7 @@ def test_adopt_store_filters_inventory_and_preserves_discovery_metadata(
     source = FilesystemStore(tmp_path / "source")
     source.store_bytes(b"book", location="incoming/book.epub")
     source.store_bytes(b"notes", location="incoming/notes.txt")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((source.configuration, source),),
         default_store_ref=source.store_ref,
     )
@@ -74,7 +75,7 @@ def test_ingest_store_copies_from_an_independent_source_to_default_store(
     source = FilesystemStore(tmp_path / "source")
     destination = FilesystemStore(tmp_path / "destination")
     source.store_bytes(b"one book", location="incoming/one.epub")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -102,7 +103,7 @@ def test_copy_ingest_rejects_the_same_source_and_destination(tmp_path) -> None:
     :return: None; assert ValueError with adopt_store guidance.
     """
     store = FilesystemStore(tmp_path / "store")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
         default_store_ref=store.store_ref,
     )
@@ -130,7 +131,7 @@ def test_ingest_store_reports_content_deduplication(tmp_path) -> None:
     destination = FilesystemStore(tmp_path / "destination")
     source.store_bytes(b"same", location="one.epub")
     source.store_bytes(b"same", location="two.epub")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -223,7 +224,7 @@ def test_ingest_accepts_inventory_objects_with_unknown_size(tmp_path) -> None:
         max_requests_per_hour=0,
     )
     destination = FilesystemStore(tmp_path / "unknown-size-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -258,7 +259,7 @@ def test_ingest_supports_bounded_parallel_store_reads_and_writes(tmp_path) -> No
             f"payload-{index}".encode(),
             location=f"incoming/{index}.epub",
         )
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -375,7 +376,7 @@ def test_remote_ingest_failure_publishes_no_asset_replica_or_destination_bytes(
         max_requests_per_hour=0,
     )
     destination = FilesystemStore(tmp_path / "truncated-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -439,7 +440,7 @@ def test_remote_ingest_reports_bounded_redacted_diagnostics_without_publication(
         max_requests_per_hour=0,
     )
     destination = FilesystemStore(tmp_path / "hostile-diagnostics-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -533,7 +534,7 @@ def test_remote_close_failure_after_eof_does_not_turn_committed_ingest_into_fail
         max_requests_per_hour=0,
     )
     destination = FilesystemStore(tmp_path / "hostile-close-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -679,7 +680,7 @@ def test_interrupted_version_pinned_http_ingest_resumes_from_checkpoint(
         max_requests_per_hour=0,
     )
     destination = FilesystemStore(tmp_path / "resume-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )

@@ -1,5 +1,4 @@
-from __future__ import with_statement
-from __future__ import annotations
+from __future__ import annotations, with_statement
 
 import typing as _typing
 
@@ -14,6 +13,9 @@ import re
 from io import BytesIO
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
 from LiuXin_alpha.file_formats.fb2.archive import (
     DEFAULT_MAX_ARCHIVE_MEMBERS,
     DEFAULT_MAX_COMPRESSION_RATIO,
@@ -23,20 +25,15 @@ from LiuXin_alpha.file_formats.fb2.archive import (
     FB2ZipError,
     extract_fb2_payload_from_bytes,
 )
-from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
-    choose_conversion_workdir,
-)
-
-from LiuXin_alpha.utils.calibre import CurrentDir
-from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.utils.calibre import CurrentDir, guess_type
 from LiuXin_alpha.utils.libraries.liuxin_etree import LXML_AVAILABLE, etree
-from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logging import default_log
-from LiuXin_alpha.utils.resources import P
 
 # Py2/Py3
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.resources import P
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Anatoly Shipitsin <norguhtar at gmail.com>"
@@ -177,9 +174,13 @@ class FB2Input(InputFormatPlugin):
             return None
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
-        from LiuXin_alpha.file_formats.chardet import xml_to_unicode
-        from LiuXin_alpha.file_formats.oeb.base import XLINK_NS, XHTML_NS, RECOVER_PARSER
+        from LiuXin_alpha.file_formats.oeb.base import (
+            RECOVER_PARSER,
+            XHTML_NS,
+            XLINK_NS,
+        )
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
+        from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
 
         if not LXML_AVAILABLE or getattr(etree, "XSLT", None) is None:
             raise RuntimeError("FB2 input conversion requires lxml with XSLT support")

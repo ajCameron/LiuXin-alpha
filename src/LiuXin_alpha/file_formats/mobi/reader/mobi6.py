@@ -1,16 +1,14 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import absolute_import, print_function
-from __future__ import annotations
-
-import typing as _typing
+from __future__ import absolute_import, annotations, print_function
 
 import os
 import re
 import shutil
 import struct
 import textwrap
+import typing as _typing
 from io import BytesIO
 
 # Todo: Add back image handling capacity - try and get PIL working again
@@ -21,28 +19,27 @@ try:
 except ImportError:
     PILImage = None
 
-from lxml import html, etree
-
-from LiuXin_alpha.metadata.utils import calibreMetaInformation as MetaInformation
-from LiuXin_alpha.file_formats.toc import TOC
+from lxml import etree, html
 
 from LiuXin_alpha.file_formats import DRMError, unit_convert
-from LiuXin_alpha.file_formats.chardet import ENCODING_PATS
 from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
 from LiuXin_alpha.file_formats.mobi import MobiError
 from LiuXin_alpha.file_formats.mobi.huffcdic import HuffReader
-from LiuXin_alpha.file_formats.mobi.reader.headers import BookHeader, read_palmdb_record_table
-from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator, OPF
-
-from LiuXin_alpha.utils.calibre import xml_entity_to_unicode, entity_to_unicode
+from LiuXin_alpha.file_formats.mobi.reader.headers import (
+    BookHeader,
+    read_palmdb_record_table,
+)
+from LiuXin_alpha.file_formats.opf.opf2 import OPF, OPFCreator
+from LiuXin_alpha.file_formats.toc import TOC
+from LiuXin_alpha.metadata.utils import calibreMetaInformation as MetaInformation
+from LiuXin_alpha.utils.calibre import entity_to_unicode, xml_entity_to_unicode
+from LiuXin_alpha.utils.libraries.calibre_chardet import ENCODING_PATS
 from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars
-from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 comparability
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
-
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range, six_cStringIO
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

@@ -63,7 +63,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator, Optional
 
-
 DEFAULT_DUMP_NAME = "backup-MySQL-55-2026-04-18.zip"
 DEFAULT_BUNDLE_NAME = "isfdb_mysql_55_2026_04_18"
 
@@ -328,7 +327,6 @@ _ensure_importable(REPO_ROOT)
 
 from LiuXin_alpha.metadata import standardize_genre as _genre_std  # noqa: E402
 from LiuXin_alpha.metadata.standardization import make_title_search_term  # noqa: E402
-
 
 COMPILED_GENRE_TAG_MAPPING = _genre_std.compile_genre_mapping(_genre_std.GENRE_SHORTENED_MAPPING)
 
@@ -2126,7 +2124,7 @@ def _build_frbr_target(
     stage_conn: sqlite3.Connection,
     output_db: Path,
 ) -> dict[str, int]:
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator import (
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
         create_new_database,
     )
 

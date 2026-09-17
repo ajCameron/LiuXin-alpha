@@ -1,4 +1,9 @@
-"""Helpers for granting LiuXin PostgreSQL runtime privileges."""
+"""
+Build administrative PostgreSQL setup SQL and apply runtime role grants.
+
+Pure builders return statements without executing them. The grant helper owns its
+connection and transaction; it neither creates a database nor creates login roles.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +26,13 @@ _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class PostgresRuntimePrivilegeError(RuntimeError):
-    """Raised when runtime role grants cannot be built or applied."""
+    """
+    Report invalid setup inputs or failure while applying runtime grants.
+
+    Example:
+        Catch ``PostgresRuntimePrivilegeError`` when a generated identifier is
+        invalid or the connected grantor lacks required privileges.
+    """
 
 
 def grant_runtime_role_privileges(
@@ -34,7 +45,28 @@ def grant_runtime_role_privileges(
     password: str | None = None,
     prompt_for_password: bool = True,
 ) -> dict[str, Any]:
-    """Grant the runtime role the privileges needed for LiuXin reads and writes."""
+    """
+    Validate role/schema names, then apply grants in one owned transaction.
+
+    Read database and grantor identity, set a local timeout, execute current/default
+    privilege grants, and close the connection. Default privileges apply to future
+    objects created by the connected grantor. Connection establishment errors propagate;
+    errors inside the grant transaction are wrapped with their original message.
+
+    Example:
+        ``grant_runtime_role_privileges(service="owner", role="library_runtime")``
+        grants access using the owner service and closes the connection afterwards.
+
+
+    :param metadata: Optional connection configuration mapping.
+    :param url: Optional explicit PostgreSQL URL.
+    :param service: Optional explicit service profile.
+    :param role: Runtime role receiving privileges.
+    :param schema: Schema name validated against the conservative identifier allowlist.
+    :param password: Optional password for the grantor connection.
+    :param prompt_for_password: Whether connection authentication may prompt on a terminal.
+    :return: Role/schema/database/grantor details, granted privilege lists and executed statements.
+    """
 
     runtime_role = _validate_identifier(role, "runtime role")
     schema_name = _validate_identifier(schema, "schema")
@@ -83,7 +115,24 @@ def build_runtime_grant_statements(
     database: str,
     default_privileges_for_role: str | None = None,
 ) -> list[str]:
-    """Return SQL statements for granting LiuXin runtime privileges."""
+    """
+    Build six grants for database connect, schema usage and current/future objects.
+
+    Grant CRUD on tables and USAGE/SELECT on sequences. Future-object defaults apply
+    to the explicitly named owner, or the SQL executor when no owner is supplied.
+    Invalid names raise PostgresRuntimePrivilegeError before statements are returned.
+
+    Example:
+        >>> len(build_runtime_grant_statements(role="reader", database="library"))
+        6
+
+
+    :param role: Runtime role receiving privileges.
+    :param schema: Schema name validated against the conservative identifier allowlist.
+    :param database: Database name validated before SQL generation.
+    :param default_privileges_for_role: Optional object-creating role for ALTER DEFAULT PRIVILEGES.
+    :return: Ordered list of SQL statements without trailing semicolons.
+    """
 
     runtime_role = _validate_identifier(role, "runtime role")
     schema_name = _validate_identifier(schema, "schema")
@@ -117,7 +166,29 @@ def build_postgres_setup_statements(
     create_roles: bool = True,
     section: str = "all",
 ) -> list[str]:
-    """Return an admin-facing SQL script for preparing a LiuXin PostgreSQL target."""
+    """
+    Build server and/or target-database setup statements for an administrator.
+
+    The server section may create roles and a database; the database section creates
+    the schema and grants owner/runtime access. These sections require different
+    connection contexts and must not be blindly executed as one transaction.
+
+    Example:
+        >>> build_postgres_setup_statements(database="library", owner_role="owner",
+        ...     runtime_role="reader", section="server", create_database=False,
+        ...     create_roles=False)[0].startswith("-- Server section:")
+        True
+
+
+    :param database: Database name validated before SQL generation.
+    :param owner_role: Role that owns the database/schema and creates future objects.
+    :param runtime_role: Role that receives runtime access.
+    :param schema: Schema name validated against the conservative identifier allowlist.
+    :param create_database: Whether to emit CREATE DATABASE, which is not idempotent.
+    :param create_roles: Whether to emit guarded LOGIN role creation blocks.
+    :param section: Case-insensitive all, server or database; surrounding whitespace is stripped.
+    :return: Ordered SQL/comment strings for the requested setup sections.
+    """
 
     database_name = _validate_identifier(database, "database")
     owner = _validate_identifier(owner_role, "owner role")
@@ -165,6 +236,25 @@ def _postgres_server_setup_statements(
     create_database: bool,
     create_roles: bool,
 ) -> list[str]:
+    """
+    Build the maintenance-database section with optional role/database creation.
+
+    Identical owner/runtime roles produce only one guarded role-creation block.
+    The generated database creation is unconditional when enabled.
+
+    Example:
+        With both creation flags false, the server section contains only its two
+        administrative comments.
+
+
+    :param database_ident: Already quoted database identifier.
+    :param owner_ident: Already quoted owner-role identifier.
+    :param owner: Validated owner role name, before identifier quoting.
+    :param runtime: Validated runtime role name, before identifier quoting.
+    :param create_database: Whether to emit CREATE DATABASE, which is not idempotent.
+    :param create_roles: Whether to emit guarded LOGIN role creation blocks.
+    :return: Server-section comments followed by enabled setup statements.
+    """
     statements = [
         "-- Server section: run as a PostgreSQL admin from a maintenance database such as postgres.",
         "-- Do not paste passwords into this file; set them separately with psql/createuser tooling.",
@@ -188,6 +278,26 @@ def _postgres_database_setup_statements(
     schema_name: str,
     database_name: str,
 ) -> list[str]:
+    """
+    Build schema creation and owner/runtime grants for the target database.
+
+    Inputs are internal, already validated names or quoted identifiers. Default object
+    privileges explicitly name the owner role.
+
+    Example:
+        The returned section grants schema CREATE to the owner and table CRUD
+        to the runtime role.
+
+
+    :param database_ident: Already quoted database identifier.
+    :param owner_ident: Already quoted owner-role identifier.
+    :param owner: Validated owner role name, before identifier quoting.
+    :param schema_ident: Already quoted schema identifier.
+    :param runtime: Validated runtime role name, before identifier quoting.
+    :param schema_name: Validated unquoted schema name passed to the grant builder.
+    :param database_name: Validated unquoted database name passed to the grant builder.
+    :return: Target-database comment and ordered SQL statements.
+    """
     return [
         "-- Database section: run while connected to the target LiuXin database.",
         f"create schema if not exists {schema_ident} authorization {owner_ident}",
@@ -203,6 +313,17 @@ def _postgres_database_setup_statements(
 
 
 def _validate_setup_section(value: str) -> str:
+    """
+    Normalize a setup section and reject values outside all/server/database.
+
+    Example:
+        >>> _validate_setup_section(" SERVER ")
+        'server'
+
+
+    :param value: Section selector converted to text and stripped.
+    :return: Normalized section name.
+    """
     text = str(value or "").strip().casefold()
     if text not in {"all", "server", "database"}:
         raise PostgresRuntimePrivilegeError(f"Invalid PostgreSQL setup section: {value!r}")
@@ -210,6 +331,20 @@ def _validate_setup_section(value: str) -> str:
 
 
 def _create_role_if_missing_statement(role: str) -> str:
+    """
+    Build a DO block that creates a LOGIN role only if its name is absent.
+
+    This helper quotes inputs but relies on its callers to validate identifiers.
+    No password or elevated role attributes are included.
+
+    Example:
+        A block for reader checks pg_catalog.pg_roles before issuing
+        ``create role "reader" login``.
+
+
+    :param role: Runtime role receiving privileges.
+    :return: Anonymous procedural block without a final statement separator.
+    """
     role_ident = _quote_identifier(role)
     role_literal = _quote_literal(role)
     create_literal = _quote_literal(f"create role {role_ident} login")
@@ -225,6 +360,17 @@ def _create_role_if_missing_statement(role: str) -> str:
 
 
 def _scalar_text(cur: Any, statement: str) -> str:
+    """
+    Execute a query and stringify the first mapping value or sequence element.
+
+    Example:
+        A one-column ``select current_database()`` row yields its database name.
+
+
+    :param cur: Open cursor used to execute and fetch one row.
+    :param statement: SQL expected to return a scalar result.
+    :return: First value as text, or an empty string for absent/unindexable rows.
+    """
     cur.execute(statement)
     row = cur.fetchone()
     if isinstance(row, Mapping):
@@ -236,6 +382,21 @@ def _scalar_text(cur: Any, statement: str) -> str:
 
 
 def _validate_identifier(value: str, label: str) -> str:
+    """
+    Accept a stripped ASCII letter/underscore identifier with alphanumeric suffix.
+
+    Reject empty values, punctuation and leading digits with a labeled
+    PostgresRuntimePrivilegeError.
+
+    Example:
+        >>> _validate_identifier(" library_reader ", "role")
+        'library_reader'
+
+
+    :param value: Name converted to text and trimmed.
+    :param label: Input description included in validation errors.
+    :return: Validated identifier text.
+    """
     text = str(value or "").strip()
     if not _IDENTIFIER_RE.fullmatch(text):
         raise PostgresRuntimePrivilegeError(f"Invalid PostgreSQL {label}: {value!r}")
@@ -243,10 +404,32 @@ def _validate_identifier(value: str, label: str) -> str:
 
 
 def _quote_identifier(value: str) -> str:
+    """
+    Delimit an identifier and double embedded double quotes without validation.
+
+    Example:
+        >>> _quote_identifier("reader")
+        '"reader"'
+
+
+    :param value: String identifier to escape.
+    :return: Double-quoted SQL identifier.
+    """
     return '"' + value.replace('"', '""') + '"'
 
 
 def _quote_literal(value: str) -> str:
+    """
+    Delimit text as a SQL string literal, doubling apostrophes.
+
+    Example:
+        >>> _quote_literal("reader")
+        "'reader'"
+
+
+    :param value: Text to escape as a string literal.
+    :return: Single-quoted SQL literal.
+    """
     return "'" + value.replace("'", "''") + "'"
 
 

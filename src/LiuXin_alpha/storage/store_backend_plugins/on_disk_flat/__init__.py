@@ -1,16 +1,14 @@
 """
-Expose the flat local Store and its common Location compatibility alias.
+Expose the local Store that allocates flat digest-based paths.
 
-Importing the package resolves those classes without constructing a Store or
-creating a filesystem root.
+Locations and observed file metadata use the shared storage API values.
+The imported implementation owns backend construction and physical operations.
 """
 
 from __future__ import annotations
 
-from .on_disk_flat_location import OnDiskFlatStoreLocation
 from .on_disk_flat_storage_backend import OnDiskFlatStorageBackend
 
 __all__ = [
-    "OnDiskFlatStoreLocation",
     "OnDiskFlatStorageBackend",
 ]

@@ -1,10 +1,11 @@
 # Complete project docstrings in bounded modules
 
-Status: **paused at D095 by user request**, 2026-09-15. The latest
-D081–D180 batch has verified **15/100 units (408 declarations)**.
-**Resume at D096 only on a new user request.** No D unit remains in progress.
-See the [shutdown checkpoint](../working-memory/project-docstrings-hundred-paused-2026-09-15.md).
-Earlier authorization text below is historical; this pause governs.
+Status: **D106–D115 complete**, 2026-09-17. The latest request authorized ten
+additional units: **257 declarations in 25 complete files**, all verified.
+**Stop here; D116 is next only on a new request.** See the
+[latest ten-unit checkpoint](../working-memory/project-docstrings-d106-d115-2026-09-17.md).
+Earlier full-D/hundred-unit authorizations remain paused; they do not enable
+continuation beyond this completed batch.
 
 ## Baseline and navigation
 
@@ -15,16 +16,23 @@ P00's whole-project audit reported 23,003 missing/blank docstrings; existing doc
 also need review. These measures are different and must not be added together.
 
 Since that baseline, G01 and the completed C batches reached 722 complete files.
-The D range has verified **95/232 units**, **2,345/5,719 declarations**,
-and **131/388 complete files**. Current project coverage is
-**853/2,732 files**, **11,628 declarations in complete files**,
+After the [shim cleanup](shim-removal-plan.md) and D106–D115 continuation,
+the live D scope contains
+**115/232 verified units**,
+**2,836/5,685 declarations**
+and **153/374 complete files**.
+Current project coverage is **839/2,671 files**,
+**12,064 declarations in complete files**,
 plus **37 verified partial-file declarations**.
-Remaining: **1,879 files and 30,604 declarations**.
-Baseline and current counts remain separate; partial files are not promoted early.
-The three established runtime-doc exceptions remain unchanged.
-The [storage-root cleanup](../working-memory/storage-root-shim-removal-2026-09-15.md)
-removed two hooks and added three documented test/helper functions after D095;
-current counts include that net addition. The documentation batch remains paused.
+Remaining: **1,832 files and 30,060 declarations**.
+
+The historical D095 checkpoint remains 95/232 units; source removals changed the
+live inventory rather than completing new documentation work. Removed scopes are
+archived in the [reconciliation evidence](../working-memory/test-results/shim-removal-2026-09-15/documentation-reconciliation.json).
+Affected files have new functional baselines in documentation-rebase.after.json;
+their original baseline hashes and historical documentation-only proofs are
+preserved. Do not replay old batch helpers with fixed file/declaration totals.
+The latest ten-unit continuation is complete, with D116 next only on request.
 
 - [Exact work inventory](project-docstrings-work-units.json): stable module IDs,
   source hashes, exact file/declaration selections, prerequisites, and checkpoints.
@@ -40,6 +48,32 @@ findings. Scope includes private/nested/async definitions, tests, scripts,
 examples, inherited code, preferences, and tracked submodule Python. Retain the
 completed native-C checkpoint separately. Ignored artifacts and anonymous lambdas
 are not named Python declarations to document.
+
+## Completed SQL continuation — D106–D115, 2026-09-17
+
+Shared SQL support, Calibre/FRBR builders and common driver mixins are complete.
+Each exact selection has [saved observations](../working-memory/test-results/docstrings-d106-d115-2026-09-17/campaign.json).
+The FRBR generator was promoted after both assigned units passed.
+
+Verification: 139 focused regressions passed, three skipped, 35 runnable examples
+passed, full configured quality gates passed, and all 257 declarations are clean.
+Executable ASTs and comments are unchanged; no Ruff findings were added.
+D116 (SQL driver utility functions, first selection) remains queued. This request
+covered exactly ten units and does not resume older broad batches.
+
+## Previous ten-unit continuation — D096–D105, 2026-09-17
+
+D096–D105 cover the driver registry/macros and PostgreSQL backend. Each exact
+selection has its own saved observations in the
+[batch evidence](../working-memory/test-results/docstrings-ten-2026-09-16/campaign.json).
+The batch began on 2026-09-16 and completed on 2026-09-17. Connection and native
+driver files were promoted only after all their assigned units passed.
+
+Verification: 35 focused regressions, 78 runnable examples, four isolated macro
+result modes, full configured quality gates, and complete-file docstring checks.
+Executable ASTs and comments are unchanged; no Ruff findings were added.
+D106 was the next queued unit at that checkpoint; the subsequent SQL continuation
+is recorded above. The earlier batch authorized only D096–D105.
 
 ## Authorized batch — 2026-09-13
 
@@ -168,14 +202,14 @@ track order is a recommended progression, not authorization to continue.
 |---|---:|---:|---|
 | C — Catalog | 28 | 20 | Repositories, retrieval, policy/writers, search, metadata tools, compatibility, remaining tests |
 | T — Test infrastructure | 116 | 66 | Shared fixtures, provisioning, database helpers, support utilities, typing fixtures |
-| U — Utilities | 318 | 208 | Configuration, logging/resources, text/language, images, jobs/IPC, archives, plugins, bundled libraries |
-| D — Databases and caches | 257 | 137 | Contracts/schema, individual backends, portable macros, rows/links, cache models/readers/writers, tests |
-| M — Metadata | 346 | 274 | APIs/constants, container families, book helpers, file/local/web sources, tests |
-| F — File formats | 576 | 347 | Conversion/OEB, individual format families, readers/writers, compatibility helpers, tests |
-| A — Application/configuration remainder | 135 | 128 | Library, customization, remaining surfaces/jobs, root modules, constants/resources, preferences, residual tests |
+| U — Utilities | 313 | 208 | Configuration, logging/resources, text/language, images, jobs/IPC, archives, plugins, bundled libraries |
+| D — Databases and caches | 246 | 127 | Contracts/schema, individual backends, portable macros, rows/links, cache models/readers/writers, tests |
+| M — Metadata | 344 | 274 | APIs/constants, container families, book helpers, file/local/web sources, tests |
+| F — File formats | 574 | 347 | Conversion/OEB, individual format families, readers/writers, compatibility helpers, tests |
+| A — Application/configuration remainder | 133 | 128 | Library, customization, remaining surfaces/jobs, root modules, constants/resources, preferences, residual tests |
 | S — Tools and script tests | 51 | 28 | Operational tools, benchmarks, fixture generators, build/package tools, verification tools |
 | L — Legacy source trees | 52 | 37 | Retained setup/test trees and compatibility shims |
-| **Total** | **1,879** | **1,245** | **All currently unreviewed files** |
+| **Total** | **1,857** | **1,235** | **All currently unreviewed files** |
 
 Implementation, API, and test documentation can occupy different modules when size
 requires it. Existing tests can validate multiple modules without being edited or

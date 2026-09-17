@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import json
 
-from LiuXin_alpha.surfaces.cli.squashfs import main as cli_main
 from LiuXin_alpha.surfaces.cli import postgres as pg_cli
+from LiuXin_alpha.surfaces.cli.app import main as cli_main
 
 
 def test_postgres_check_json_success(monkeypatch, capsys) -> None:

@@ -5,17 +5,16 @@ Read content from Haodoo.net pdb file.
 """
 from __future__ import annotations
 
-import typing as _typing
-
-import struct
 import os
+import struct
+import typing as _typing
 
 from LiuXin_alpha.file_formats.pdb import PDBError
 from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
-from LiuXin_alpha.file_formats.txt.processor import opf_writer, HTML_TEMPLATE
-
-from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
-
+from LiuXin_alpha.file_formats.txt.processor import HTML_TEMPLATE, opf_writer
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaInformation,
+)
 from LiuXin_alpha.utils.calibre import prepare_string_for_xml
 
 __license__ = "GPL v3"

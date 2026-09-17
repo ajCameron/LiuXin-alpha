@@ -1,7 +1,7 @@
 """
 Configure a read-only FTP/FTPS Store over the raw driver and shared Store adapters.
 
-FtpBackendOptions remains an exact alias of FtpDriverOptions. The Store retains
+FtpDriverOptions remains an exact alias of FtpDriverOptions. The Store retains
 runtime connection options, snapshots durable non-callback configuration, and adapts
 full FTP URLs to opaque Locations. Its ingest profile records completed spool delivery
 and inspection metadata rather than leaving those qualities at the base defaults.
@@ -30,7 +30,6 @@ from LiuXin_alpha.storage.drivers.ftp import (
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 
-FtpBackendOptions = FtpDriverOptions
 
 
 class FtpReadOnlyStorageBackend(DriverBackedStoreAPI[FtpObjectAddress]):
@@ -56,7 +55,7 @@ class FtpReadOnlyStorageBackend(DriverBackedStoreAPI[FtpObjectAddress]):
         *,
         name: Optional[str] = None,
         uuid: str | UUID | None = None,
-        options: FtpBackendOptions | None = None,
+        options: FtpDriverOptions | None = None,
     ) -> None:
         """
         Create Store identity, configure its raw driver, and capture durable option values.
@@ -82,7 +81,7 @@ class FtpReadOnlyStorageBackend(DriverBackedStoreAPI[FtpObjectAddress]):
         store_uuid = uuid4() if uuid is None else (
             uuid if isinstance(uuid, UUID) else UUID(uuid)
         )
-        self.options = options or FtpBackendOptions()
+        self.options = options or FtpDriverOptions()
         self.__driver = FtpStorageDriver(
             url,
             address_space_uuid=store_uuid,
@@ -251,4 +250,6 @@ class FtpReadOnlyStorageBackend(DriverBackedStoreAPI[FtpObjectAddress]):
         return self.probe()
 
 
-__all__ = ["FtpBackendOptions", "FtpReadOnlyStorageBackend"]
+__all__ = [
+    "FtpReadOnlyStorageBackend",
+]

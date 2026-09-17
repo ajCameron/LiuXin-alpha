@@ -1,6 +1,8 @@
 
 """
-Driver methods to deal with trees.
+Traverse legacy parent-pointer trees and write derived full-path and tree-ID fields.
+
+Traversal assumes acyclic, valid parent links. Some legacy entry points require host helpers that this mixin does not define.
 """
 
 import sqlite3
@@ -18,21 +20,24 @@ from LiuXin_alpha.utils.logging import default_log
 
 class TreeMethodsMixin:
     """
-    Methods to handle tree methods.
+    Provide parent-chain and derived-field operations using host row access helpers.
+
+    Example:
+        ``driver.direct_get_root_series(row)`` works with a valid parent-pointer chain.
     """
 
     def direct_set_full_column(self, target_table: str) -> bool:
         """
-        Populates the full column of the target table.
+        Write ancestor display paths for positive-ID rows, committing each row separately.
 
-        Rows which are part of a tree structure have a _full column.
-        This is a string representation of their place in the tree structure.
-        This method populates the full column for the target table.
+        Require the host's ``get_full_column_name`` helper and the aggregation helper's dependencies. A missing full column raises InputIntegrityError; SQLite operational failures become DatabaseDriverError. Sentinel rows are skipped and the acquired write connection is not explicitly closed.
 
-        Note:
-            This operates on "real" rows only; the row iterator intentionally excludes any sentinel/null row at id=0.
+        Example:
+            On a host providing the required helpers, ``driver.direct_set_full_column("series")`` refreshes stored paths.
 
-        :return:
+
+        :param target_table: Existing table whose derived column is required.
+        :return: ``True`` after all selected rows have been processed.
         """
         target_table = deepcopy(target_table)
         conn = self.get_connection()
@@ -71,18 +76,16 @@ class TreeMethodsMixin:
     # Todo: This is absolutely, hideously, heinously inefficient
     def direct_set_tree_ids(self, table: str) -> bool:
         """
-        Ensures that every distinct tree has a distinct id.
+        Write each positive-ID row's root ID and display value as a tree identifier.
 
-        Every tree in a tree like structure should have a unique id assigned to every row in that tree.
-        This function ensures that.
+        Use ``<root_id>_<root_display>``; an existing ID-zero sentinel receives ``0_<display>`` separately. Commit each update, with no atomic batch or explicit connection close. Missing tree-ID columns raise InputIntegrityError.
 
-        Note:
-            We iterate over "real" rows using `direct_get_row_dict_iterator()`, which intentionally excludes
-            any sentinel/null row at id=0 (if present). After updating non-null rows, we also set a deterministic
-            tree id for id=0 when the row exists, so callers and contract tests get a stable value.
+        Example:
+            ``driver.direct_set_tree_ids("series")`` groups descendants under their root-derived text ID.
 
-        :param table:
-        :return:
+
+        :param table: Existing table name used for schema lookup.
+        :return: ``True`` after the updates complete.
         """
         table = deepcopy(table)
         table_id_column = self.direct_get_id_column(table)
@@ -120,20 +123,29 @@ class TreeMethodsMixin:
 
     def direct_get_root_series(self, start_row: dict[str, Any]) -> dict[str, Any]:
         """
-        Gets the row at the root of the given tree. In the case of a trivial tree just returns the given row.
+        Return the first row in the starting row's ancestor chain.
 
-        :param start_row:
-        :return root_row:
+        Example:
+            ``driver.direct_get_root_series(row)`` returns the row itself when it has no parent.
+
+
+        :param start_row: Starting row dictionary; table inference may remove its ``table`` key.
+        :return: The root row dictionary.
         """
         return self.get_linear_row_index(start_row)[0]
 
     def direct_get_all_tree_rows(self, start_row: dict[str, Any]) -> dict[str, Any]:
         """
-        Starts from a series. Walks up the series tree, and then walks back down, collecting all references in one set.
+        Walk from the root down its descendants using a stack of pending rows.
 
-        This is going to take a number of database operations.
-        :param start_row:
-        :return:
+        This legacy path hardcodes ``series_id`` and therefore requires series-shaped rows. It does not exclude previously processed rows from requeueing, so cycles can prevent termination.
+
+        Example:
+            ``driver.direct_get_all_tree_rows(series_row)`` collects an acyclic series tree.
+
+
+        :param start_row: Starting row dictionary; table inference may remove its ``table`` key.
+        :return: A list of distinct collected row dictionaries, despite the dict annotation.
         """
         row_table = self.direct_identify_table_from_row(start_row)
         row_parent_column = self.direct_get_parent_column_name(row_table)
@@ -174,14 +186,18 @@ class TreeMethodsMixin:
             table_display_column: str,
             table_row_id: int) -> str:
         """
-        Builds a string, starting at the current index and working it's way back up to the root of the tree.
+        Join ancestor display values from root to the selected row with colon-space.
 
-        Useful for expressing the position of an element in a tree in a single string.
-        For example, used with series it would produce ....: series_grandfather: series_father: series
-        :param table: The table to search in
-        :param table_display_column: The column to be used as a display column
-        :param table_row_id: The id to start at
-        :return return_str: ....: row_grandfather: row_father: row - All being the display columns at each level
+        This legacy entry point calls the name-mangled ``__get_linear_index_of_columns`` helper, which this mixin does not define. Hosts without that helper raise AttributeError.
+
+        Example:
+            With the required helper supplied, a three-level path renders as ``Root: Parent: Child``.
+
+
+        :param table: Existing table name used for schema lookup.
+        :param table_display_column: Column whose values form the path components.
+        :param table_row_id: Starting row ID fetched from the table.
+        :return: The Unicode path string when the required host helper succeeds.
         """
         start_row = self.direct_get_row_dict_from_id(table, table_row_id)
         row_column_index = self.__get_linear_index_of_columns(start_row, table_display_column)
@@ -196,16 +212,17 @@ class TreeMethodsMixin:
             start_row: dict[str, Any],
             display_column: str) -> list[str]:
         """
-        Takes a starting row. Calls get_linear_row_index to get a list of rows with order .......... ->
-        grandparent_series -> parent_series -> series.
+        Extract display values from a root-to-start ancestor chain.
 
-        Extracts the designated column from each of these rows to form a
-        linear index of columns. Could be used, for example, in series to create a full series string.
-        What is actually used is a stripped down version of these functions, which has been added directly to the
-        connection.
-        :param start_row:
-        :param display_column: What column do you want as a display for the
-        :return:
+        Require the display key on the start and every ancestor; missing keys raise InputIntegrityError. Values are returned without string conversion.
+
+        Example:
+            ``driver.direct_get_linear_index_of_columns(row, "series")`` reads display values along the chain.
+
+
+        :param start_row: Starting row dictionary; table inference may remove its ``table`` key.
+        :param display_column: Column key required on every row in the ancestor chain.
+        :return: A list of raw display-column values in root-to-start order.
         """
         display_column = deepcopy(display_column)
         if display_column not in start_row:
@@ -232,11 +249,16 @@ class TreeMethodsMixin:
 
     def get_linear_row_index(self, start_row: dict[str, Any]) -> list[dict[str, Any]]:
         """
-        Takes a starting row. Iterates up the tree building an index of all the rows_dicts as it goes.
+        Follow parent IDs and prepend each visited row to produce a root-first chain.
 
-        :param start_row: A Row that the method will iterate back from
-        :return tree_row_index: An index of all the Rows in the tree forwards e.g.
-        .......... -> grandparent_series -> parent_series -> series
+        Treat absent parent keys, nulls and supported None text sentinels as roots. No visited set or missing-parent recovery is provided: callers must supply an acyclic chain of existing rows. Table inference can mutate the original starting mapping.
+
+        Example:
+            ``driver.get_linear_row_index(row)`` returns ``[root, ..., row]`` for a valid chain.
+
+
+        :param start_row: Starting row dictionary; table inference may remove its ``table`` key.
+        :return: The ancestor row dictionaries from root through the starting row.
         """
         start_row_dict = start_row
         row_table = self.direct_identify_table_from_row(start_row_dict)

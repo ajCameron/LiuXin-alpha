@@ -10,22 +10,23 @@ This class is an intentionally small first-pass wrapper around:
 from __future__ import annotations
 
 import pathlib
-
 from collections.abc import Iterable, Iterator
 from typing import Any, BinaryIO, Mapping, Optional
 from uuid import UUID
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.ingest import (
+from LiuXin_alpha.ingest.models import (
     RemoteHtmlRegistrationReport,
     StoreIngestObjectCheckpoint,
     StoreIngestReport,
-    adopt_store as adopt_configured_store,
-    ingest_store as ingest_configured_store,
+)
+from LiuXin_alpha.ingest.remote_html import (
     register_native_html_readonly_store_files,
     register_wget_html_readonly_store_files,
 )
+from LiuXin_alpha.ingest.stores import adopt_store as adopt_configured_store
+from LiuXin_alpha.ingest.stores import ingest_store as ingest_configured_store
 from LiuXin_alpha.metadata.containers import ItemMetadata, ItemMetadataHydrator
 from LiuXin_alpha.storage.api import (
     Digest,

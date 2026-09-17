@@ -1,20 +1,19 @@
 # CLI composition and dependency direction
 
 The operator CLI has one complete command grammar and one application dispatch
-path. Compatibility entry points do not maintain reduced copies of either.
+path. The installed liuxin command targets app.main directly.
 
 ## Ownership
 
 | Module under `surfaces/cli` | Responsibility |
 | --- | --- |
-| `__init__`, `__main__` | Installed/package entry points; package import remains lazy. |
-| `app` | Public `build_parser()` compatibility entry point, argument shortcuts/global selectors, command dispatch, exit/error handling. |
+| `__init__`, `__main__` | Lightweight namespace and module entry point invoking app.main. |
+| `app` | Public `build_parser()` entry point, argument shortcuts/global selectors, command dispatch, exit/error handling. |
 | `parsers` | Complete command-family registration in stable help order. |
 | `parser_types` | Standard-library-only, strict `CompletionSubparsers` and `CompletionRegistrar` contracts. |
 | `completion` | Shell script rendering, standalone completion command, completion argument registration. |
 | `squashfs_parsers` | SquashFS publication/provenance argument declarations. |
 | `squashfs_commands` | Core job submission/results and provenance rendering. |
-| `squashfs` | Explicit command/helper compatibility aliases and the historical `main()` delegate. |
 
 `parsers.create_parser(register_completion=...)` receives completion
 registration explicitly. Both the application and standalone completion pass
@@ -30,11 +29,10 @@ function and caller against each other.
 
 ## Compatibility and behavior
 
-The installed `liuxin` entry point, `surfaces.cli.main`, `app.main`,
-`app.build_parser`, standalone completion functions, and `squashfs.main` retain
-their call shapes. The historical SquashFS entry point still accepts the whole
-installed tree, including PostgreSQL and metadata commands. Its command and
-private-helper aliases refer to the implementation owners, not duplicate bodies.
+The installed liuxin entry point and python -m LiuXin_alpha.surfaces.cli both
+invoke LiuXin_alpha.surfaces.cli.app.main. Import parser, SquashFS and storage
+helpers from parsers, squashfs_commands/squashfs_parsers and storage_commands.
+The package main, squashfs and storage forwarding facades have been removed.
 
 Command names, aliases, help and option ordering, choices/defaults, shell script
 output, profile-selector placement, shortcuts, and error/exit handling are
@@ -55,15 +53,14 @@ arbitrary monkeypatch forwarding between modules is not introduced.
 2. Keep the injected completion registrar and its narrow contract aligned.
    Extend static positive/negative examples when introducing new call shapes.
 3. Add behavior tests for parsing, output, and failure paths. Completion must
-   cover aliases and nested commands, and compatibility entry points must
-   reach the complete installed tree.
+   cover aliases and nested commands, and app.main must reach the complete tree.
 4. Run `bash scripts/run_type_checks.sh` and the affected CLI tests. The
    `test_cli_dependency_contracts.py` suite covers cold imports, registration,
-   completion output, compatibility dispatch, and SquashFS Core receipts.
+   completion output, application dispatch, and SquashFS Core receipts.
 
-The dependency gate includes all 47 CLI modules, including deferred and
-type-only imports. Implementations cannot import `cli`, `app`, or `squashfs`
-entry-point facades; the three explicit entry wrappers are exceptions.
+The dependency gate includes every CLI module, including deferred and
+type-only imports. Implementations cannot import the cli package or app
+entry points; the package and __main__ are the declared entry boundaries.
 Parser composition cannot import the completion command, and parser contracts
 cannot import another LiuXin module. These direction rules also reject
 backward edges that do not yet form a cycle.

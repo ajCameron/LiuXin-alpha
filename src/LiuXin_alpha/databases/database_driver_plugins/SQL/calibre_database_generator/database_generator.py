@@ -1,24 +1,9 @@
-"""Calibre schema helpers + database generator.
+"""
+Create Calibre metadata and auxiliary SQLite databases from packaged SQL.
 
-This module builds a *Calibre-style* SQLite database by executing the canonical
-SQL snapshot shipped in LiuXin's package-owned resource tree.
-
-What this module is for:
-- Read Calibre's SQL resources via LiuXin's resource shim.
-- Extract Calibre schema versioning (PRAGMA application_id, user_version).
-- Create a blank ``metadata.db`` schema.
-- Create an on-disk Calibre *library skeleton* (folder + ``metadata.db`` +
-  optional aux DBs).
-
-Notes
------
-Calibre's metadata schema contains triggers that reference custom SQL functions
-like ``title_sort()`` and ``uuid4()``. Those functions do **not** need to exist
-to *create* the schema, but they **must** exist when inserting rows that fire
-the triggers (e.g. inserting into ``books``).
-
-LiuXin's SQLite driver wrappers already register these functions/aggregates when
-opening databases through the normal Database API.
+Version metadata describes the bundled snapshot, not a locally installed Calibre.
+Schema creation does not need trigger UDFs, but later book writes require them;
+the normal drivers and library builder register those functions.
 """
 
 from __future__ import annotations
@@ -46,7 +31,12 @@ _RESOURCE_SQL_FILES = {
 
 @dataclass(frozen=True)
 class CalibreSchemaInfo:
-    """Lightweight metadata extracted from Calibre's SQL."""
+    """
+    Immutable application ID, user version and SHA-256 of decoded snapshot SQL.
+
+    Example:
+        The metadata snapshot info identifies both its SQLite PRAGMAs and exact SQL text.
+    """
 
     application_id: int
     user_version: int
@@ -55,7 +45,15 @@ class CalibreSchemaInfo:
 
 @dataclass(frozen=True)
 class CalibreLibraryPaths:
-    """Filesystem paths for a Calibre library skeleton."""
+    """
+    Immutable path strings for a generated library and optional auxiliary databases.
+
+    Auxiliary fields are None when creation was not requested; a present path may refer
+    to the reduced best-effort schema without full-text search tables.
+
+    Example:
+        A metadata-only skeleton has metadata_db_path set and both auxiliary paths None.
+    """
 
     library_root: str
     metadata_db_path: str
@@ -68,13 +66,20 @@ _CACHE: Dict[str, CalibreSchemaInfo] = {}
 
 def create_new_database(connection: sqlite3.Connection, *, validate: bool = True) -> None:
     """
-    Create a new blank Calibre *metadata.db* schema in the given connection.
+    Execute the metadata snapshot on a caller-owned empty database.
 
-    The passed connection **must** point at an empty database.
+    Try to enable foreign keys, ignoring errors from that pragma, then run executescript
+    and optional validation. SQLite script transaction semantics apply; no connection
+    close or explicit final commit occurs here.
 
-    :param connection:
-    :param validate:
-    :return:
+    Example:
+        On a new in-memory connection, create_new_database installs the books and
+        library_id tables without populating a library UUID.
+
+
+    :param connection: Open SQLite connection owned by the caller.
+    :param validate: Whether to check snapshot versions and required metadata tables.
+    :return: None; creates schema objects on the supplied connection.
     """
     sql_text = read_calibre_sql("metadata")
 
@@ -94,11 +99,17 @@ def ensure_library_id_row(
         connection: sqlite3.Connection,
         library_uuid: str | None = None) -> str:
     """
-    Ensure the ``library_id`` table contains a UUID row and return it.
+    Reuse the first nonempty library UUID or insert a supplied/generated one.
 
-    :param connection:
-    :param library_uuid:
-    :return:
+    Does not validate UUID syntax, enforce a single existing row, commit or close.
+
+    Example:
+        An existing nonempty UUID is returned even when library_uuid requests a different one.
+
+
+    :param connection: Open SQLite connection owned by the caller.
+    :param library_uuid: Truthy UUID value converted to text; otherwise generate uuid4.
+    :return: Existing or newly inserted UUID text.
     """
     row = connection.execute("SELECT uuid FROM library_id LIMIT 1").fetchone()
     if row and row[0]:
@@ -110,7 +121,19 @@ def ensure_library_id_row(
 
 
 def validate_metadata_database(connection: sqlite3.Connection) -> None:
-    """Validate key invariants of a newly-created Calibre metadata database."""
+    """
+    Check snapshot application/user versions and a minimal required table set.
+
+    Raise AssertionError on mismatches or missing tables. This is not a complete schema,
+    foreign-key or trigger validation.
+
+    Example:
+        A database lacking books fails even when its PRAGMA version values match.
+
+
+    :param connection: Open SQLite connection owned by the caller.
+    :return: None when checks pass; otherwise raises AssertionError.
+    """
     info = calibre_metadata_schema_info()
 
     application_id = int(connection.execute("PRAGMA application_id").fetchone()[0])
@@ -156,28 +179,28 @@ def create_calibre_library_skeleton(
     best_effort_aux_dbs: bool = True,
 ) -> CalibreLibraryPaths:
     """
-    Create a minimal on-disk Calibre library folder.
+    Create library directories, metadata.db and requested auxiliary databases.
 
-    Always creates ``metadata.db`` in ``library_root``.
+    Reject a nondirectory root. Overwrite removes selected database files, not the whole
+    library. Without overwrite, an existing database is still opened and given the full
+    creation script, which may fail on existing objects. Owned connections are closed;
+    filesystem changes are not rolled back after later failures.
 
-    Optionally creates:
-    - ``.calnotes/notes.db`` (notes DB)
-    - ``full-text-search.db`` (FTS DB)
+    Example:
+        Creating a skeleton in a new directory returns its metadata.db path; enable
+        create_notes_db/create_fts_db to request the auxiliary schemas.
 
-    Notes/FTS DB creation is *best effort* by default because Calibre uses a
-    custom tokenizer for those (``tokenize='calibre ...'``) that is not present
-    in stock sqlite builds.
 
-    :param library_root:
-    :param overwrite:
-    :param validate:
-    :param ensure_library_uuid:
-    :param library_uuid:
-    :param create_data_dir:
-    :param create_notes_db:
-    :param create_fts_db:
-    :param best_effort_aux_dbs:
-    :return:
+    :param library_root: Directory containing the Calibre library.
+    :param overwrite: Whether to remove an existing database file before creation.
+    :param validate: Whether to check snapshot versions and required metadata tables.
+    :param ensure_library_uuid: Whether to ensure a library_id row after metadata creation.
+    :param library_uuid: Optional UUID used only when a library UUID needs inserting.
+    :param create_data_dir: Whether to create a data subdirectory.
+    :param create_notes_db: Whether to initialize .calnotes/notes.db.
+    :param create_fts_db: Whether to initialize full-text-search.db.
+    :param best_effort_aux_dbs: Whether missing FTS/tokenizer support permits reduced auxiliary schemas.
+    :return: Paths to the created/requested library databases.
     """
 
     root = Path(library_root)
@@ -241,11 +264,24 @@ def _create_aux_database(
     overwrite: bool,
     best_effort: bool,
 ) -> None:
-    """Create an auxiliary Calibre DB by ATTACHing it and executing its SQL.
+    """
+    Attach and initialize one auxiliary database, optionally retrying without FTS.
 
-    In best-effort mode, if Calibre's custom tokenizer (or FTS5) is missing,
-    we recreate the DB file and apply a reduced script that omits VIRTUAL TABLEs
-    and TRIGGERs.
+    For recognized missing FTS/tokenizer errors in best-effort mode, delete the partially
+    created target file and rebuild it with virtual-table/trigger definitions removed.
+    Other errors propagate; connections are closed in either case.
+
+    Example:
+        A notes database may be recreated without its virtual tables when the
+        Calibre tokenizer is unavailable.
+
+
+    :param db_path: Auxiliary database path; parent directories are created.
+    :param attach_name: Trusted SQL attachment identifier required by the snapshot.
+    :param sql_kind: Packaged SQL resource key, normally notes or fts.
+    :param overwrite: Whether to remove an existing database file before creation.
+    :param best_effort: Whether recognized FTS capability errors trigger reduced-schema recreation.
+    :return: None; creates or recreates the target file.
     """
 
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -260,6 +296,18 @@ def _create_aux_database(
     sql_text = read_calibre_sql(sql_kind)
 
     def _run(script: str) -> None:
+        """
+        Execute a script against the enclosing auxiliary file through an in-memory host.
+
+        Commit on success, attempt DETACH regardless of outcome and always close the host.
+
+        Example:
+            The notes script runs with the target file attached as notes_db.
+
+
+        :param script: SQL using the enclosing attachment name.
+        :return: None; creates schema objects in the attached file.
+        """
         conn = sqlite3.connect(":memory:")
         try:
             conn.execute("PRAGMA foreign_keys = ON")
@@ -289,7 +337,17 @@ def _create_aux_database(
 
 
 def _aux_db_fts_capability_missing(err: sqlite3.OperationalError) -> bool:
-    """Return True if an sqlite error looks like missing FTS5/tokenizer support."""
+    """
+    Recognize SQLite error messages associated with absent FTS5/tokenizers.
+
+    Example:
+        >>> _aux_db_fts_capability_missing(sqlite3.OperationalError("no such module: fts5"))
+        True
+
+
+    :param err: OperationalError produced by auxiliary schema creation.
+    :return: Whether a supported capability marker appears in the lowercased message.
+    """
     msg = str(err).lower()
     return (
         "no such module: fts5" in msg
@@ -300,7 +358,20 @@ def _aux_db_fts_capability_missing(err: sqlite3.OperationalError) -> bool:
 
 
 def _strip_virtual_tables_and_triggers(sql_text: str) -> str:
-    """Strip CREATE VIRTUAL TABLE and CREATE TRIGGER blocks from SQL."""
+    """
+    Remove virtual-table start lines and trigger blocks in the bundled SQL layout.
+
+    Virtual tables are assumed to fit one line; triggers end at a separate END; line.
+    This is a line filter rather than a general SQL parser.
+
+    Example:
+        >>> _strip_virtual_tables_and_triggers("create virtual table x using fts5(text);").strip()
+        ''
+
+
+    :param sql_text: SQL text from the packaged Calibre snapshot.
+    :return: Filtered text with a trailing newline.
+    """
     out_lines: list[str] = []
     skipping_trigger = False
 
@@ -323,12 +394,29 @@ def _strip_virtual_tables_and_triggers(sql_text: str) -> str:
 
 
 def calibre_sql_paths() -> Mapping[str, str]:
-    """Return absolute filesystem paths to Calibre SQL resources."""
+    """
+    Resolve each packaged SQL resource key to its filesystem path.
+
+    Example:
+        The returned mapping includes metadata, notes, fts and fts_triggers.
+
+
+    :return: New mapping of resource keys to resolved paths.
+    """
     return {k: get_path(v) for k, v in _RESOURCE_SQL_FILES.items()}
 
 
 def read_calibre_sql(kind: str) -> str:
-    """Read a named Calibre SQL resource and return as UTF-8 text."""
+    """
+    Read a supported SQL resource as UTF-8, replacing malformed byte sequences.
+
+    Example:
+        ``read_calibre_sql("metadata")`` returns the bundled metadata schema script.
+
+
+    :param kind: One of metadata, notes, fts or fts_triggers.
+    :return: Decoded SQL text; unknown keys raise KeyError and I/O errors propagate.
+    """
     if kind not in _RESOURCE_SQL_FILES:
         raise KeyError(f"Unknown calibre SQL kind: {kind!r}")
     path = get_path(_RESOURCE_SQL_FILES[kind], data=False)
@@ -339,6 +427,21 @@ def read_calibre_sql(kind: str) -> str:
 
 def _extract_schema_info_from_metadata_sql(sql_text: str) -> CalibreSchemaInfo:
     # application_id: `PRAGMA application_id = 0x63616c69;`
+    """
+    Parse standalone application_id/user_version pragmas and hash the full SQL text.
+
+    The application ID may be hexadecimal or decimal; user_version must be decimal.
+    Missing supported pragma lines raise ValueError.
+
+    Example:
+        >>> info = _extract_schema_info_from_metadata_sql(chr(10).join(["pragma application_id=0x10;", "pragma user_version=2;"]))
+        >>> (info.application_id, info.user_version)
+        (16, 2)
+
+
+    :param sql_text: SQL text from the packaged Calibre snapshot.
+    :return: Immutable version fields and UTF-8 SHA-256 fingerprint.
+    """
     app_m = re.search(
         r"(?im)^\s*pragma\s+application_id\s*=\s*(0x[0-9a-f]+|\d+)\s*;\s*$",
         sql_text,
@@ -359,7 +462,15 @@ def _extract_schema_info_from_metadata_sql(sql_text: str) -> CalibreSchemaInfo:
 
 
 def calibre_metadata_schema_info() -> CalibreSchemaInfo:
-    """Return Calibre metadata schema info extracted from metadata_sqlite.sql."""
+    """
+    Read and cache metadata snapshot version information for this process.
+
+    Example:
+        Repeated calls reuse the same cached CalibreSchemaInfo object.
+
+
+    :return: Cached schema-info record; later resource changes are not automatically detected.
+    """
     key = "metadata"
     info = _CACHE.get(key)
     if info is None:
@@ -370,10 +481,26 @@ def calibre_metadata_schema_info() -> CalibreSchemaInfo:
 
 
 def calibre_metadata_user_version() -> int:
-    """Return the current Calibre metadata.db user_version (from SQL snapshot)."""
+    """
+    Read user_version from the cached packaged metadata snapshot info.
+
+    Example:
+        This reports the bundled schema version without opening a library database.
+
+
+    :return: Snapshot user_version integer.
+    """
     return calibre_metadata_schema_info().user_version
 
 
 def calibre_metadata_application_id() -> int:
-    """Return the Calibre metadata.db application_id (from SQL snapshot)."""
+    """
+    Read application_id from the cached packaged metadata snapshot info.
+
+    Example:
+        This identifies the packaged metadata schema without inspecting an installed Calibre.
+
+
+    :return: Snapshot application_id integer.
+    """
     return calibre_metadata_schema_info().application_id

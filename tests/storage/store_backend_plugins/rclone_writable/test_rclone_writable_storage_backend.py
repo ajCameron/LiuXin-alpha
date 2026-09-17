@@ -12,24 +12,25 @@ from __future__ import annotations
 
 import hashlib
 import io
-
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from LiuXin_alpha.ingest.stores import ingest_store
 from LiuXin_alpha.storage import api
-from LiuXin_alpha.ingest import ingest_store
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
-from LiuXin_alpha.storage.stores import FilesystemStore
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     RcloneBackendOptions,
     RcloneHttpReadOnlyStorageBackend,
+)
+from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     rclone_http_storage_backend as invocation_module,
 )
 from LiuXin_alpha.storage.store_backend_plugins.rclone_writable import (
     RcloneWritableStorageBackend,
 )
+from LiuXin_alpha.storage.stores import FilesystemStore
 from tests.fixtures.storage_unicode import (
     TORTURED_UNICODE_PATH_CASES,
     UNICODE_FILENAME,
@@ -391,7 +392,7 @@ def test_store_ingest_publishes_to_writable_rclone(
     destination, remote = writable_store
     source = FilesystemStore(tmp_path / "source")
     source.store_bytes(b"remote ingest", location="incoming/book.epub")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -430,7 +431,7 @@ def test_rclone_to_rclone_ingest_uses_verified_native_transfer(
             enforce_global_rate_limit=False,
         ),
     )
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -636,7 +637,7 @@ def test_corrupt_rclone_native_transfer_publishes_no_manager_records(
             enforce_global_rate_limit=False,
         ),
     )
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )

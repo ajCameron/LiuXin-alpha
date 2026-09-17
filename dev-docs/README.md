@@ -16,6 +16,8 @@ and outstanding work, not as a replacement for the subsystem guides.
   formatting, typing, complexity, documentation, and dependency scopes.
 - [Project docstring completion plan](project-docstrings-completion-plan.md):
   bounded work modules, exact remaining inventory, and verification checkpoints.
+- [Import shim removal](shim-removal-plan.md): owner migrations, retained adapters,
+  verification and documentation-inventory reconciliation.
 - [CI ownership](continuous-integration.md) and [test streams](test-streams.md):
   automated checks and local feedback loops.
 - [Packaging](packaging.md): installed-artifact and runtime-resource contracts.

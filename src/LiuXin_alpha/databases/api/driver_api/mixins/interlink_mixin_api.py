@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Iterable, Optional, Union, Any, Literal, LiteralString
+from typing import Any, Iterable, Literal, LiteralString, Optional, Union
 
 
 class DriverInterlinkMixinAPI(abc.ABC):
@@ -45,24 +45,6 @@ class DriverInterlinkMixinAPI(abc.ABC):
         :return:
         """
 
-    @abc.abstractmethod
-    def _build_interlink_table_sqlite(
-            self,
-            table1: str,
-            table2: str,
-            requested_cols: Optional[Union[str, list[str]]] = None,
-            allowed_types: Optional[Iterable[str]] = None,
-            override_restriction_sql: Optional[str] = None) -> list[str]:
-        """
-        Does the work of actually building the interlink table to link two rows.
-
-        :param table1:
-        :param table2:
-        :param requested_cols:
-        :param allowed_types:
-        :param override_restriction_sql:
-        :return:
-        """
 
     # Todo: May not be a general drive method - should only be sql
     @abc.abstractmethod

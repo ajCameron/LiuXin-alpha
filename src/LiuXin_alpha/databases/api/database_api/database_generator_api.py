@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import abc
 import sqlite3
-from typing import Any, Iterable, Optional, Union, LiteralString
+from typing import Any, Iterable, LiteralString, Optional, Union
 
 
 class DatabaseGeneratorAPI(abc.ABC):
@@ -67,29 +67,6 @@ class DatabaseGeneratorAPI(abc.ABC):
         :return: Creation/insertion SQL; the shared SQLite implementation returns a list despite this abstract str annotation.
         """
 
-    @abc.abstractmethod
-    def _build_interlink_table_sqlite(self,
-                                      table1: str,
-                                      table2: str,
-                                      requested_cols: Optional[Union[str, list[str]]]=None,
-                                      allowed_types: Optional[Iterable[str]]=None,
-                                      override_restriction_sql: Optional[str]=None) -> list[str]:
-        """
-        Require the compatibility hook for producing interlink creation statements.
-
-        The shared wrapper delegates to build_interlink_table_sqlite and forces nullable foreign keys. Configure its restriction mapping rather than relying on this ignored override.
-
-        Example:
-            For a configured concrete builder, builder._build_interlink_table_sqlite("agents", "works") delegates to the current link SQL generator.
-
-
-        :param table1: First main table.
-        :param table2: Second main table.
-        :param requested_cols: Requested optional columns, or the implementation default.
-        :param allowed_types: Optional permitted type values.
-        :param override_restriction_sql: Legacy override argument; ignored by the shared SQLite compatibility wrapper.
-        :return: List of SQL statements; no execution is implied.
-        """
 
     @staticmethod
     @abc.abstractmethod

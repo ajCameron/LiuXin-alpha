@@ -3,7 +3,6 @@ from __future__ import annotations
 import importlib
 import sys
 import types
-
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -170,7 +169,7 @@ def test_htmlz_input_convert_uses_utf8_fallback_and_rewinds_stream(
 ) -> None:
     import LiuXin_alpha.file_formats.conversion.plugins.htmlz_input as htmlz_input_mod
     import LiuXin_alpha.file_formats.opf.opf2 as _opf2  # Preload OPF stack before chardet monkeypatching.
-    import LiuXin_alpha.file_formats.chardet as chardet_mod
+    import LiuXin_alpha.utils.libraries.calibre_chardet as chardet_mod
 
     archive = tmp_path / "book.htmlz"
     with ZipFile(archive, "w") as zf:

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import typing as _typing
-
 import os
+import typing as _typing
 from urllib.parse import unquote_to_bytes
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
@@ -143,8 +142,8 @@ class CHMInput(InputFormatPlugin):
     def _create_html_root(self: _typing.Self, hhcpath: _typing.Any, log: _typing.Any, encoding: _typing.Any) -> tuple[_typing.Any, ...]:
         from lxml import html
 
-        from LiuXin_alpha.file_formats.chardet import xml_to_unicode
         from LiuXin_alpha.file_formats.oeb.base import TOC, urlquote
+        from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
 
         try:
             hhcdata = self._read_file(hhcpath)
@@ -198,7 +197,7 @@ class CHMInput(InputFormatPlugin):
 
         with open(htmlpath, "wb") as f:
             if toc.count() > 1:
-                from lxml.html.builder import A, BODY, DIV, HTML
+                from lxml.html.builder import BODY, DIV, HTML, A
 
                 path0 = toc[0].href
                 path0 = unquote_path(path0)[0]

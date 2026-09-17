@@ -7,7 +7,7 @@ the shared link base and Item/Calibre UUID lookup specialization. Physical
 link-row payloads and projected link values are separate return surfaces.
 """
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.link_table_base import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.link_table_base_api import (
     StorageCacheLinkTableBaseAPI,
 )
 from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.many_many_tables_api import (

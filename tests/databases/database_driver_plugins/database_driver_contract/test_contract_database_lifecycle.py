@@ -44,12 +44,14 @@ def _assert_sqlite_integrity(db_path: Path) -> None:
 def test_direct_create_new_database_produces_schema(driver_spec, tmp_path):
     """Creating a new DB at a fresh path should yield a usable schema."""
 
-    from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
+    from LiuXin_alpha.databases.database_driver_plugins.registry import (
+        load_database_driver,
+    )
 
     db_path = tmp_path / f"contract_create_{driver_spec.id}.db"
     assert not db_path.exists()
 
-    Driver = loadDatabaseDriver(driver_spec.db_type)
+    Driver = load_database_driver(driver_spec.db_type)
     drv = Driver({"database_path": str(db_path)}, db=None, set_conn=False)
 
     # Create schema
@@ -92,12 +94,14 @@ def test_close_and_reopen_preserves_operation(driver, assert_integrity):
 def test_direct_backup_creates_copy(driver_spec, provisioned_contract_db, tmp_path):
     """direct_backup should write a readable DB file at an explicit destination."""
 
-    from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
+    from LiuXin_alpha.databases.database_driver_plugins.registry import (
+        load_database_driver,
+    )
 
     src_path = Path(provisioned_contract_db.db_path)
     assert src_path.exists()
 
-    Driver = loadDatabaseDriver(driver_spec.db_type)
+    Driver = load_database_driver(driver_spec.db_type)
     drv = Driver({"database_path": str(src_path)}, db=None, set_conn=True)
 
     backup_path = tmp_path / f"backup_{driver_spec.id}.db"
@@ -125,11 +129,13 @@ def test_direct_backup_creates_copy(driver_spec, provisioned_contract_db, tmp_pa
 def test_direct_self_delete_removes_db_file(driver_spec, tmp_path):
     """direct_self_delete should remove the database file when no handles are open."""
 
-    from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
+    from LiuXin_alpha.databases.database_driver_plugins.registry import (
+        load_database_driver,
+    )
 
     db_path = tmp_path / f"contract_delete_{driver_spec.id}.db"
 
-    Driver = loadDatabaseDriver(driver_spec.db_type)
+    Driver = load_database_driver(driver_spec.db_type)
     drv = Driver({"database_path": str(db_path)}, db=None, set_conn=False)
     drv.direct_create_new_database()
 
@@ -148,10 +154,12 @@ def test_direct_self_delete_works_even_if_conn_open_on_windows(driver_spec, tmp_
     This is a contract test because Windows cannot delete open SQLite files.
     """
 
-    from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
+    from LiuXin_alpha.databases.database_driver_plugins.registry import (
+        load_database_driver,
+    )
 
     db_path = tmp_path / f"contract_delete_open_{driver_spec.id}.db"
-    Driver = loadDatabaseDriver(driver_spec.db_type)
+    Driver = load_database_driver(driver_spec.db_type)
 
     drv = Driver({"database_path": str(db_path)}, db=None, set_conn=True)
     drv.direct_create_new_database()

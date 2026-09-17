@@ -3,7 +3,7 @@ Define private ingest requests, completed results, replay branches, and helper t
 
 Request dataclasses retain equality evidence without performing normalization,
 validation, or deep copying. Five persisted request/result classes deliberately
-keep the historical manager module name for journal compatibility. ID conversion
+have stable journal identifiers supplied by the database codec. ID conversion
 and backed-Store UUID helpers are internal implementation details; type aliases
 describe factory, registration, target, and metadata-key shapes without runtime checks.
 """
@@ -58,7 +58,7 @@ class _StreamIngestRequest:
     The ingest caller computes and sorts identity evidence before constructing this value. This
     dataclass neither normalizes nor validates fields. Equality includes expectations and all
     options, so equal bytes with a changed expected_size can be a different request. Frozen fields
-    retain nested objects, and the legacy manager module name is preserved for journal decoding.
+    retain nested objects; the database codec supplies the stable journal type identifier.
 
     Example:
         >>> request = _StreamIngestRequest(  # doctest: +SKIP
@@ -173,7 +173,7 @@ class _StoreObjectIngestRequest:
 
     Source version is part of request equality; retaining it does not enforce a version-pinned
     transfer. The value neither probes Stores nor validates digests, and it retains caller-owned
-    nested values. Its historical manager module name remains the serialization identity.
+    nested values. The database codec owns its stable serialization identifier.
 
     Example:
         >>> request = _StoreObjectIngestRequest(  # doctest: +SKIP
@@ -222,12 +222,12 @@ class _IngestOperation:
     Pair a completed ingest request with the result returned for a matching retry.
 
     No relationship between request and result is validated, and both remain retained references.
-    The operation UUID belongs to the surrounding repository key, not this value. The legacy manager
-    module name is preserved for durable journal compatibility.
+    The operation UUID belongs to the surrounding repository key, not this value. The database
+    codec retains stable journal identifiers independently of this class import path.
 
     Example:
         >>> _IngestOperation.__module__
-        'LiuXin_alpha.storage.storage_manager.manager'
+        'LiuXin_alpha.storage.storage_manager.mixins._types'
 
 
     :ivar request: Completed request whose class and field equality identify a retry.
@@ -424,17 +424,3 @@ def _backed_store_uuid(
         f"{normalized_options}"
     )
     return uuid5(NAMESPACE_URL, identity)
-
-
-# Ingest journals written before the mixin extraction contain these qualified
-# names. Preserve that wire identity so existing durable operations remain
-# readable and new envelopes do not churn solely because code moved modules.
-_LEGACY_MANAGER_MODULE = "LiuXin_alpha.storage.storage_manager.manager"
-for _persisted_type in (
-    _StreamIngestRequest,
-    _AdoptIngestRequest,
-    _IdentifiedStreamIngestRequest,
-    _StoreObjectIngestRequest,
-    _IngestOperation,
-):
-    _persisted_type.__module__ = _LEGACY_MANAGER_MODULE

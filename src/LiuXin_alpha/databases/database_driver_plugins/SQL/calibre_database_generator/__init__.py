@@ -1,13 +1,9 @@
-"""Calibre database generator helpers.
+"""
+Expose Calibre SQLite schema creation and library-population helpers.
 
-This package provides utilities for creating and validating *Calibre-style*
-SQLite databases using the canonical SQL shipped with Calibre.
-
-Design goals:
-- Reuse LiuXin's package-owned Calibre resource system via
-  `LiuXin_alpha.utils.resources.get_path`.
-- Keep Calibre schema versioning observable (pragma user_version).
-- Keep Phase 1 lightweight: locate SQL resources and expose version metadata.
+Resources come from the package-owned Calibre snapshot. Skeleton creation produces
+metadata.db and optional auxiliary databases; CalibreLibraryBuilder adds metadata
+and files using the minimal trigger functions required by that snapshot.
 """
 
 from __future__ import annotations

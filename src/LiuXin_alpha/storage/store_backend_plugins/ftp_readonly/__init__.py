@@ -1,17 +1,12 @@
 """
-Export the configured FTP/FTPS Store and its historical option/location names.
+Expose the configured FTP/FTPS Store and its runtime options.
 
-FtpBackendOptions is the raw driver's mutable FtpDriverOptions class, and
-FtpReadOnlyStoreLocation is the shared opaque Location value. The backend class
-adapts a configured FTP driver to the Store API; these exports add no connection
-or discovery side effects of their own.
+Locations and observed file metadata use the shared storage API values.
+The imported implementation owns backend construction and physical operations.
 """
 
-from .ftp_storage_backend import FtpBackendOptions, FtpReadOnlyStorageBackend
-from .ftp_location import FtpReadOnlyStoreLocation
+from .ftp_storage_backend import FtpReadOnlyStorageBackend
 
 __all__ = [
-    "FtpBackendOptions",
     "FtpReadOnlyStorageBackend",
-    "FtpReadOnlyStoreLocation",
 ]

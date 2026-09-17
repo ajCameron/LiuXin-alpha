@@ -13,10 +13,9 @@ import io
 
 import pytest
 
-from LiuXin_alpha.ingest import ingest_store
+from LiuXin_alpha.ingest.stores import ingest_store
 from LiuXin_alpha.storage.api import EnumerationCompleteness, StoreReadOnly
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
-from LiuXin_alpha.storage.stores import FilesystemStore
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
     NativeHtmlBackendOptions,
     NativeHtmlReadOnlyStorageBackend,
@@ -24,6 +23,7 @@ from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
 from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
     native_html_storage_backend as backend_module,
 )
+from LiuXin_alpha.storage.stores import FilesystemStore
 from tests.fixtures.storage_unicode import (
     TORTURED_UNICODE_PATH_CASES,
     UNICODE_FILENAME,
@@ -172,7 +172,7 @@ def test_native_backend_preserves_unicode_url_names_and_bytes(
     assert store.read_file(info) == UNICODE_PAYLOAD
 
     destination = FilesystemStore(tmp_path / "native-html-ingest-destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -374,7 +374,7 @@ def test_native_backend_crawl_descends_through_non_file_like_pages(monkeypatch) 
         url="https://example.com/library/",
         options=NativeHtmlBackendOptions(max_http_requests_per_hour=None, respect_robots=False),
     )
-    urls = store.crawl_urls(force=True)
+    urls = store.discover_urls(force=True)
 
     assert urls == [
         "https://example.com/library/files/one.epub",
@@ -436,7 +436,7 @@ def test_native_backend_reports_observed_url_decisions(monkeypatch) -> None:
         url="https://example.com/library/",
         options=NativeHtmlBackendOptions(max_http_requests_per_hour=None, respect_robots=False),
     )
-    urls = store.crawl_urls(force=True, observed_url_callback=observed.append)
+    urls = store.discover_urls(force=True, observed_url_callback=observed.append)
 
     assert urls == ["https://example.com/library/guide.html"]
     assert [str(item.get("reason")) for item in observed] == [
@@ -573,7 +573,7 @@ def test_native_backend_iter_locations_and_stat_follow_new_plugin_api(monkeypatc
         url="https://example.com/library/",
         options=NativeHtmlBackendOptions(max_http_requests_per_hour=None, respect_robots=False),
     )
-    store.crawl_urls(force=True)
+    store.discover_urls(force=True)
 
     locations = list(store.iter_locations())
 

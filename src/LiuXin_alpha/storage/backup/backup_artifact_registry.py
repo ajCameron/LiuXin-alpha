@@ -10,12 +10,11 @@ whole-image Asset provenance remain separate operations.
 from __future__ import annotations
 
 import pathlib
-
 from collections.abc import Iterator
 from urllib.parse import unquote, urlparse
 from uuid import UUID, uuid4
 
-from LiuXin_alpha.databases import Row
+from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.storage.api import (
     BackupArtifactRegistration,
     BackupArtifactRegistryAPI,
@@ -42,8 +41,8 @@ class BackupArtifactRegistry(BackupArtifactRegistryAPI):
 
     Existing registrations are reused before current path checks or new options are applied. Failed
     later attachment or linking can leave earlier metadata visible; retrying a now-visible
-    registration does not automatically finish the interrupted work. RegisteredBackupArtifact
-    remains an alias for the public registration value.
+    registration does not automatically finish the interrupted work. Results use
+    the public BackupArtifactRegistration value.
 
     Example:
         >>> registry = BackupArtifactRegistry(db, storage_manager=manager)  # doctest: +SKIP
@@ -484,7 +483,8 @@ def _decode_artifact_reference(value: str) -> str | Location:
     return _decode_reference(value)
 
 
-RegisteredBackupArtifact = BackupArtifactRegistration
 
 
-__all__ = ["BackupArtifactRegistry", "RegisteredBackupArtifact"]
+__all__ = [
+    "BackupArtifactRegistry",
+]

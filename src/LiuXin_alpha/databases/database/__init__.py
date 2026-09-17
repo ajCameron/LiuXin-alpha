@@ -7,54 +7,51 @@ Database selects a backend, attaches its wrapper/macros, classifies schema metad
 
 from __future__ import annotations, unicode_literals
 
-import re
 import os
 import pprint
+import re
 from copy import deepcopy
+from typing import TYPE_CHECKING, Optional
 from urllib.parse import urlsplit
 
-
-from typing import Optional, TYPE_CHECKING
-
-from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseDriverWrapperAPI, DatabaseDriverAPI
-
 from LiuXin_alpha.constants.paths import LiuXin_default_database
+from LiuXin_alpha.databases.api import (
+    DatabaseAPI,
+    DatabaseDriverAPI,
+    DatabaseDriverWrapperAPI,
+)
 from LiuXin_alpha.databases.database.constants import (
     HELPER_TABLES,
     OPTIONAL_HELPER_TABLES,
 )
-
-from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
-from LiuXin_alpha.databases.metadata_sql import MetadataSQL
-from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
-from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.databases.database.custom_columns_mixin import CustomColumnDatabaseMixin
-
-from LiuXin_alpha.errors import InputIntegrityError
-from LiuXin_alpha.errors import DatabaseIntegrityError
-
-from LiuXin_alpha.preferences import preferences
-
-from LiuXin_alpha.utils.logging import default_log
-
-from LiuXin_alpha.databases.database.rating_mixin import DatabaseRatingMixin
-from LiuXin_alpha.databases.database.null_rows_mixin import DatabaseNullRowsMixin
-from LiuXin_alpha.databases.database.metadata_mixin import DatabaseMetadataMixin
+from LiuXin_alpha.databases.database.custom_columns_mixin import (
+    CustomColumnDatabaseMixin,
+)
 from LiuXin_alpha.databases.database.dirtied_mixin import (
     DatabaseDirtiedRecordsMixin,
     DatabaseWriteTelemetry,
     ObservedDirtyRecordsQueue,
     TelemetryMaintainerProxy,
 )
-from LiuXin_alpha.databases.database.search_mixin import DatabaseSearchMixin
 from LiuXin_alpha.databases.database.interlink_mixin import DatabaseInterlinkRowsMixin
 from LiuXin_alpha.databases.database.intralink_mixin import DatabaseIntralinkRowsMixin
-from LiuXin_alpha.databases.database.tree_mixin import DatabaseTreeMixin
 from LiuXin_alpha.databases.database.linked_rows_mixin import DatabaseLinkedRowsMixin
+from LiuXin_alpha.databases.database.metadata_mixin import DatabaseMetadataMixin
+from LiuXin_alpha.databases.database.null_rows_mixin import DatabaseNullRowsMixin
+from LiuXin_alpha.databases.database.rating_mixin import DatabaseRatingMixin
+from LiuXin_alpha.databases.database.search_mixin import DatabaseSearchMixin
+from LiuXin_alpha.databases.database.tree_mixin import DatabaseTreeMixin
+from LiuXin_alpha.databases.database_driver_plugins.registry import load_database_driver
+from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 from LiuXin_alpha.databases.maintenance import Maintainer
+from LiuXin_alpha.databases.metadata_sql import MetadataSQL
+from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
+from LiuXin_alpha.preferences import preferences
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.logging import default_log
 
 if TYPE_CHECKING:
     from LiuXin_alpha.storage.store_manager import StorageBootstrapReport
@@ -497,7 +494,7 @@ class Database(
 
         self.metadata = metadata
         self.type = db_type
-        self.set_driver(loadDatabaseDriver(db_type)(self.metadata, self))
+        self.set_driver(load_database_driver(db_type)(self.metadata, self))
 
         if create or (path_backed and not path_existed and db_path not in (None, ":memory:")):
             if path_existed:
@@ -506,7 +503,7 @@ class Database(
                 self.create_new_database(blank=False, backup=False)
 
             # reload driver after schema creation
-            self.set_driver(loadDatabaseDriver(db_type)(self.metadata, self))
+            self.set_driver(load_database_driver(db_type)(self.metadata, self))
             self.lock = self.driver_wrapper.lock
 
         # Check to see if the database currently exists

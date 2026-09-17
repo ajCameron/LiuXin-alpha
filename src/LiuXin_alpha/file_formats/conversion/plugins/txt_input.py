@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import typing as _typing
 import os
+import typing as _typing
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
@@ -13,7 +13,6 @@ from LiuXin_alpha.file_formats.conversion.report import (
     ConversionLossSample,
     ensure_conversion_report,
 )
-
 from LiuXin_alpha.utils.calibre import CurrentDir, _ent_pat, walk, xml_entity_to_unicode
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
@@ -140,23 +139,25 @@ class TXTInput(InputFormatPlugin):
 
         import codecs
 
-        from LiuXin_alpha.file_formats.chardet import detect
-        from LiuXin_alpha.file_formats.conversion.preprocess import DocAnalysis, Dehyphenator
+        from LiuXin_alpha.file_formats.conversion.preprocess import (
+            Dehyphenator,
+            DocAnalysis,
+        )
         from LiuXin_alpha.file_formats.txt.processor import (
+            block_to_single_line,
             convert_basic,
             convert_markdown,
-            separate_paragraphs_single_line,
-            separate_paragraphs_print_formatted,
-            preserve_spaces,
-            detect_paragraph_type,
-            detect_formatting_type,
-            normalize_line_endings,
             convert_textile,
+            detect_formatting_type,
+            detect_paragraph_type,
+            normalize_line_endings,
+            preserve_spaces,
             remove_indents,
-            block_to_single_line,
             separate_hard_scene_breaks,
+            separate_paragraphs_print_formatted,
+            separate_paragraphs_single_line,
         )
-
+        from LiuXin_alpha.utils.libraries.calibre_chardet import detect
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         self.log = log
@@ -263,7 +264,9 @@ class TXTInput(InputFormatPlugin):
                 txt = separate_paragraphs_print_formatted(txt)
                 txt = block_to_single_line(txt)
             elif options.paragraph_type == "unformatted":
-                from LiuXin_alpha.file_formats.conversion.utils import HeuristicProcessor
+                from LiuXin_alpha.file_formats.conversion.utils import (
+                    HeuristicProcessor,
+                )
 
                 # unwrap lines based on punctuation
                 docanalysis = DocAnalysis("txt", txt)

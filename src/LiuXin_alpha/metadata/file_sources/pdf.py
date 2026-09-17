@@ -21,7 +21,6 @@ import shutil
 import subprocess
 import zlib
 from collections import defaultdict
-from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
 
@@ -30,12 +29,17 @@ from LiuXin_alpha.metadata.constants import (
     INFO_DICT_VALUE_DROP_SET,
     PRODUCER_DROP_REGEX_SET,
 )
-from LiuXin_alpha.metadata.metadata import MetaData
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaData,
+)
 from LiuXin_alpha.metadata.utils import check_doi, check_isbn, string_to_authors
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
-from LiuXin_alpha.utils.python_tools import check_against_regex_set, regex_dict_str_rekey
+from LiuXin_alpha.utils.python_tools import (
+    check_against_regex_set,
+    regex_dict_str_rekey,
+)
 
 VALID_FOR = ["PDF"]
 PRIORITY_FOR = ["PDF"]
@@ -943,30 +947,6 @@ def get_tool(tool_name):
     return found
 
 
-def read_info(outputdir, get_cover):
-    """
-    Compatibility shim for legacy worker entrypoint.
-    """
-    src = Path(outputdir) / "src.pdf"
-    if not src.is_file():
-        return None
-    md = get_metadata_inplace(src)
-    ans = {}
-    title = _first_value(getattr(md, "title", None))
-    authors = _field_values(getattr(md, "authors", None))
-    tags = _field_values(getattr(md, "tags", None))
-    producer = _first_value(getattr(md, "producers", None))
-    if title:
-        ans["Title"] = title
-    if authors:
-        ans["Author"] = ", ".join(authors)
-    if tags:
-        ans["Keywords"] = ", ".join(tags)
-    if producer:
-        ans["Producer"] = producer
-    # Cover extraction is backend-dependent and intentionally omitted in this shim.
-    del get_cover
-    return ans
 
 
 def page_images(pdfpath, outputdir, first=1, last=1):
@@ -1014,7 +994,6 @@ __all__ = [
     "get_quick_metadata",
     "set_metadata",
     "get_tool",
-    "read_info",
     "page_images",
     "get_calibre_metadata",
     "process_key_value_pair",

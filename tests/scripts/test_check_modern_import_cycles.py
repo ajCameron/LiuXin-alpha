@@ -44,16 +44,15 @@ def test_surface_scope_includes_every_new_and_nested_owner(package: str) -> None
     assert expected and expected <= set(inventory.modules.values())
 
 
-def test_cli_entry_wrappers_and_downward_composition_are_allowed(
+def test_cli_entry_points_and_downward_composition_are_allowed(
     tmp_path: Path,
 ) -> None:
     owners = {
-        "__init__": "def main():\n    from .app import main\n",
-        "__main__": "from LiuXin_alpha.surfaces.cli import main\n",
+        "__init__": "",
+        "__main__": "from LiuXin_alpha.surfaces.cli.app import main\n",
         "app": "from .parsers import create_parser\nfrom .completion import build_completion_parser\n",
         "completion": "from .parsers import create_parser\n",
         "parsers": "from .squashfs_parsers import build_squashfs_parser\n",
-        "squashfs": "def main():\n    from .app import main\n",
         "squashfs_parsers": "from .squashfs_commands import cmd_publish_store\n",
         "squashfs_commands": "",
     }
@@ -62,13 +61,12 @@ def test_cli_entry_wrappers_and_downward_composition_are_allowed(
     assert main(["--source-root", str(tmp_path)]) == 0
 
 
-def test_terminal_entry_wrappers_and_downward_composition_are_allowed(
+def test_terminal_entry_points_and_downward_composition_are_allowed(
     tmp_path: Path,
 ) -> None:
     owners = {
-        "__init__": "def __getattr__(name):\n    from . import text_browser\n",
-        "__main__": "from .text_browser import main\n",
-        "text_browser": "from .app import main\nfrom .browser import TextDatabaseBrowser\n",
+        "__init__": "",
+        "__main__": "from .app import main\n",
         "app": "from .browser import TextDatabaseBrowser\ndef run():\n    from .windowed_ui import run_windowed_browser\n",
         "windowed_ui": "from .browser import TextDatabaseBrowser\n",
         "browser": "from .commands.base import TerminalCommandAPI\n",
@@ -250,7 +248,7 @@ def test_gate_rejects_every_cycle_context(
         ("surfaces/presentation.py", "from .core import CoreRow", "independent leaves"),
         (
             "surfaces/terminal/browser.py",
-            "from .text_browser import main",
+            "from .app import main",
             "terminal implementations",
         ),
         (
@@ -285,7 +283,7 @@ def test_gate_rejects_every_cycle_context(
         ),
         (
             "surfaces/terminal/commands/core.py",
-            "from .. import TextDatabaseBrowser",
+            "from ..app import main",
             "terminal implementations",
         ),
         (
@@ -315,7 +313,7 @@ def test_gate_rejects_every_cycle_context(
         ),
         (
             "surfaces/cli/squashfs_commands.py",
-            "from .squashfs import main",
+            "from .app import main",
             "CLI implementations",
         ),
         ("surfaces/cli/parsers.py", "from . import main", "CLI implementations"),

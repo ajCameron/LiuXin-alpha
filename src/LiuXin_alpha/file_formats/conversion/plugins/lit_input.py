@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import with_statement
-from __future__ import annotations
+from __future__ import annotations, with_statement
 
 import typing as _typing
 
@@ -22,15 +21,15 @@ class LITInput(InputFormatPlugin):
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
 
-        from LiuXin_alpha.file_formats.lit.reader import LitReader
         from LiuXin_alpha.file_formats.conversion.plumber import create_oebbook
+        from LiuXin_alpha.file_formats.lit.reader import LitReader
 
         self.log = log
         return create_oebbook(log, stream, options, reader=LitReader)
 
     def postprocess_book(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
 
-        from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, XPath, XHTML
+        from LiuXin_alpha.file_formats.oeb.base import XHTML, XHTML_NS, XPath
 
         for item in oeb.spine:
             root = item.data
@@ -47,12 +46,15 @@ class LITInput(InputFormatPlugin):
                 if len(body) == 1 and body[0].tag == XHTML("pre"):
                     pre = body[0]
                     import copy
-                    from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+
                     from LiuXin_alpha.file_formats.txt.processor import (
                         convert_basic,
                         separate_paragraphs_single_line,
                     )
-                    from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+                    from LiuXin_alpha.utils.libraries.calibre_chardet import (
+                        xml_to_unicode,
+                    )
+                    from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
                     html = separate_paragraphs_single_line(pre.text)
                     html = convert_basic(html).replace("<html>", '<html xmlns="%s">' % XHTML_NS)

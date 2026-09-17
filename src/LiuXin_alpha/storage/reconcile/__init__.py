@@ -6,10 +6,6 @@ SquashFS designation/publication records archive state and can adopt verified
 Asset/Replica identities through a StorageManager. Their report values describe
 phase-specific observations and partial effects rather than an all-run transaction.
 Imports expose the underlying callables directly; no workflow runs on import.
-
-Example:
-    >>> StoreDbSyncReport is UnmanagedDiskRegistrationReport
-    True
 """
 
 from __future__ import annotations
@@ -17,7 +13,6 @@ from __future__ import annotations
 from LiuXin_alpha.storage.reconcile.models import (
     SquashfsArchivePublishReport,
     SquashfsDesignationReport,
-    StoreDbSyncReport,
     UnmanagedDiskRegistrationReport,
 )
 from LiuXin_alpha.storage.reconcile.squashfs_db_sync import (
@@ -40,7 +35,6 @@ from LiuXin_alpha.storage.reconcile.store_db_sync import (
 )
 
 __all__ = [
-    "StoreDbSyncReport",
     "UnmanagedDiskRegistrationReport",
     "SquashfsDesignationReport",
     "SquashfsArchivePublishReport",

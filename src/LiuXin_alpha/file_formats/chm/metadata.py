@@ -11,9 +11,9 @@ import codecs
 import io
 import re
 
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 from LiuXin_alpha.metadata.utils import calibreMetaInformation, string_to_authors
 from LiuXin_alpha.utils.calibre import force_unicode
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.ptempfiles import TemporaryFile

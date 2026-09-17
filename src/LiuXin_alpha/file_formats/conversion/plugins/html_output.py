@@ -1,24 +1,21 @@
-from __future__ import with_statement
-from __future__ import annotations
-
-import typing as _typing
+from __future__ import annotations, with_statement
 
 import os
 import re
 import shutil
-
+import typing as _typing
 from functools import partial
-from os.path import dirname, abspath, relpath as _relpath, exists, basename
+from os.path import abspath, basename, dirname, exists
+from os.path import relpath as _relpath
 from urllib.parse import unquote
 
-from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
-
+from LiuXin_alpha.customize.conversion import OptionRecommendation, OutputFormatPlugin
 from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+from LiuXin_alpha.utils.libraries.liuxin_templite import Templite
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
 from LiuXin_alpha.utils.resources import P
-from LiuXin_alpha.utils.liuxin_templite import Templite
 
 __license__ = "GPL 3"
 __copyright__ = "2010, Fabian Grassl <fg@jusmeum.de>"

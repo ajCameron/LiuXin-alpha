@@ -19,7 +19,6 @@ from unittest.mock import Mock
 
 import pytest
 
-from LiuXin_alpha import surfaces
 from LiuXin_alpha.surfaces import presentation
 from LiuXin_alpha.surfaces import system_profile as profiles
 from LiuXin_alpha.surfaces.acquisition_types import CoreStoredFile
@@ -690,38 +689,3 @@ def test_presentation_fallback_boundaries_and_stored_reader_identity() -> None:
     assert stored.read_bytes() is payload and stored.read_bytes() is payload
     assert reader.acquisition_read.call_count == 2
     reader.acquisition_read.assert_called_with("file", 7)
-
-
-def test_lazy_package_listing_and_failed_import_do_not_publish_a_cache_entry(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """
-    Keep directory listing import-free, reject unknown lazy names, and cache only successful imports.
-
-    Example:
-        >>> test_lazy_package_listing_and_failed_import_do_not_publish_a_cache_entry(patch)  # doctest: +SKIP
-
-
-    :param monkeypatch: Fixture replacing the import function and restoring the package's categories attribute afterward.
-    :return: None after lazy-name advertisement, failure identity, missing cache, and successful cache identity checks.
-    """
-    failure = ImportError("submodule failed")
-    importer = Mock(side_effect=failure)
-    monkeypatch.setattr(surfaces, "import_module", importer)
-    monkeypatch.setitem(surfaces.__dict__, "categories", None)
-    del surfaces.__dict__["categories"]
-    assert "categories" in surfaces.__dir__()
-    importer.assert_not_called()
-    with pytest.raises(AttributeError):
-        surfaces.__getattr__("not-a-lazy-module")
-    importer.assert_not_called()
-    with pytest.raises(ImportError) as raised:
-        surfaces.__getattr__("categories")
-    assert raised.value is failure and "categories" not in surfaces.__dict__
-    importer.side_effect = None
-    target = object()
-    importer.return_value = target
-    assert (
-        surfaces.__getattr__("categories") is target and surfaces.categories is target
-    )
-    assert importer.call_count == 2

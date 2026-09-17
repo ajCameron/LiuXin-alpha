@@ -1,4 +1,9 @@
-"""FRBR-oriented SQL schema generation and validation helpers."""
+"""
+Expose the FRBR-first SQLite schema creation entry point.
+
+create_new_database receives an open connection and builds from packaged SQL/TOML;
+it does not choose a filesystem path or close the caller connection.
+"""
 
 # Front end for the FRBR-first database generator.
 
