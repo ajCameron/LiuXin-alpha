@@ -31,6 +31,7 @@ BackendBuilder = Callable[
 ]
 
 
+# Todo: The formatting of the doc strings is not compatible with the linter.
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreConstructionContext:
     """
@@ -51,6 +52,7 @@ class StoreConstructionContext:
     :ivar backing_path_resolver: Optional callback receiving the complete Asset-backed StoreConfiguration and returning an accessible local container path.
     """
 
+    # Todo: s3_client... weirdly specific for this general class?
     s3_client: Any | None = None
     store_resolver: Callable[[api.StoreUUID], api.StoreAPI] | None = None
     encryption_key_provider: Any | None = None
@@ -140,10 +142,10 @@ class StorageBackendRegistry:
         later registration failure leaves earlier entries on the partially initialized instance; no
         backend builder is invoked.
 
+        # Todo: Add another example
         Example:
             >>> tuple(StorageBackendRegistry())
             ()
-
 
         :param descriptors: Initial descriptor sequence, consumed in order with the same validation as register.
         :return: None after all descriptors are registered; normalization or collision errors propagate.
@@ -559,6 +561,7 @@ def _build_http(configuration, _context):
     from LiuXin_alpha.storage.stores import HttpReadOnlyStore
 
     options = _options(configuration)
+    # Todo: Deal with the typing issue here
     return HttpReadOnlyStore(
         configuration.store_root_uri,
         store_kind="http_readonly",
@@ -568,7 +571,7 @@ def _build_http(configuration, _context):
         **_common(configuration),
     )
 
-
+# Todo: These should not be here... - they should be in the actual plugins
 def _build_native_html(configuration, _context):
     """
     Construct a read-only Store for native HTML discovery from root/name/UUID and options. Pass
@@ -653,6 +656,7 @@ def _build_ftp(configuration, _context):
         options=FtpDriverOptions(**_options(configuration)),
         **_common(configuration),
     )
+
 
 
 def _build_rclone_readonly(configuration, _context):
@@ -1134,6 +1138,7 @@ def _encrypted_inner_ref(root_uri: str) -> str | None:
     return parsed.netloc or parsed.path.strip("/") or None
 
 
+# Todo: Do all these methods have to be private?
 def _local_path(value: str) -> str:
     """
     Decode local file-URI path bytes while retaining other input strings unchanged. A file URI

@@ -1,8 +1,13 @@
-"""Shared fixtures for Database-level contract tests.
+"""
+Provide Database contract resource names, paths, metadata, and backend-parametrized open connections.
 
-We reuse the driver selection + torture-corpus fixtures defined for the driver
-contract suite. This keeps the matrix of backends consistent, and lets these
-tests double as lifecycle proxy tests for each driver.
+The open_db finalizer attempts close and suppresses ordinary cleanup exceptions;
+successful teardown does not prove that every underlying resource closed.
+
+Example:
+    Exercise these fixtures through their owning tests::
+
+        python -m pytest -q tests/databases/database/database_contract/test_db_add_title_wemi_split.py
 """
 
 from __future__ import annotations
@@ -15,35 +20,100 @@ import pytest
 
 @pytest.fixture
 def contract_db_name() -> str:
-    """Name of the test DB resource used by database-contract tests."""
+    """
+    Read LIUXIN_TEST_DB_NAME without trimming it, defaulting to test_db_13 only when unset.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_add_title_wemi_split.py
+
+
+    :return: Configured resource name, including an explicitly empty value.
+    """
 
     return os.environ.get("LIUXIN_TEST_DB_NAME", "test_db_13")
 
 
 @pytest.fixture
 def provisioned_contract_db(provision_test_database, contract_db_name: str):
-    """Provision a fresh writable test DB bundle for this test."""
+    """
+    Provision a writable copy of the selected contract database resource.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_add_title_wemi_split.py
+
+
+    :param provision_test_database: Fixture factory that copies the requested test
+        database into an isolated bundle.
+    :param contract_db_name: Fixture resource name read from the environment or the
+        default.
+    :return: Bundle returned by the shared provisioning fixture; that fixture owns its
+        files.
+    """
 
     return provision_test_database(contract_db_name)
 
 
 @pytest.fixture
 def db_metadata(provisioned_contract_db) -> dict:
-    """Metadata dict used by Database/driver constructors."""
+    """
+    Construct fresh database metadata from the provisioned bundle path.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_add_title_wemi_split.py
+
+
+    :param provisioned_contract_db: Provisioned writable database bundle supplied by the
+        fixture factory.
+    :return: Dictionary containing database_path as a string.
+    """
 
     return {"database_path": str(provisioned_contract_db.db_path)}
 
 
 @pytest.fixture
 def db_path(db_metadata: dict) -> Path:
-    """Concrete on-disk database path for this test."""
+    """
+    Convert the metadata database_path into a Path without opening it.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_add_title_wemi_split.py
+
+
+    :param db_metadata: Constructor metadata mapping with a database_path string.
+    :return: Path object for the provisioned on-disk database.
+    """
 
     return Path(db_metadata["database_path"])
 
 
 @pytest.fixture
 def open_db(driver_spec, db_metadata: dict):
-    """A Database instance that is always fully closed at teardown."""
+    """
+    Open the existing fixture database with the selected backend and yield it to the test.
+
+    Disable creation and backups. After a successful constructor call, attempt db.close
+    in finally and suppress Exception subclasses from close; constructor errors
+    propagate.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_add_title_wemi_split.py
+
+
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :param db_metadata: Constructor metadata mapping with a database_path string.
+    :return: Iterator yielding one Database instance.
+    """
 
     from LiuXin_alpha.databases.database import Database
 

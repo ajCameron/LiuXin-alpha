@@ -35,9 +35,10 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
 
 class TopologyRelation(StrEnum):
     """
-    Classify equality of declared Store host or device identities. UNKNOWN represents missing
-    topology evidence and must not be interpreted as physical separation. Values describe
-    configuration comparisons rather than a hardware probe.
+    Classify equality of declared Store host or device identities.
+
+    UNKNOWN represents missing topology evidence and must not be interpreted as physical separation.
+    Values describe configuration comparisons rather than a hardware probe.
 
     Example:
         >>> TopologyRelation.SAME.value
@@ -49,6 +50,7 @@ class TopologyRelation(StrEnum):
     UNKNOWN = "unknown"
 
 
+# Todo: More clarity as to what this is please?
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreBackingReference:
     """
@@ -111,6 +113,7 @@ class StoreBackingReference:
             raise TypeError("materialization_store_ref must be a UUID or None.")
 
 
+# Todo: Include an optional id for if this was loaded off the database
 @dataclasses.dataclass(slots=True, frozen=True)
 class StoreConfiguration:
     """
@@ -495,6 +498,7 @@ class StoreConfiguration:
                 )
 
 
+# Todo: Again, should not be here in the API reference
 def _endpoint_text(root: str | os.PathLike[str]) -> str:
     """
     Render PathLike values as expanded, resolved file URIs; stringify and strip other inputs.
@@ -574,8 +578,9 @@ def _option_pairs(
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageBootstrapIssue:
     """
-    Retain attribution and an explanation for a skipped or failed configuration load. The record
-    performs no validation and can describe a skipped offline Store as well as a failed
+    Retain attribution and an explanation for a skipped or failed configuration load.
+
+    The record performs no validation and can describe a skipped offline Store as well as a failed
     construction.
 
     Example:

@@ -1,15 +1,14 @@
-"""Database contract: targeted unicode nightmares (fast) (chunk 14).
+"""
+Check exact Unicode persistence, bound searches, distinct encodings, and bytes-input behavior through Database.
 
-This slice keeps runtime low while stress-testing the *Database* surface for:
+A function-scoped fixture creates a fixed-name table in each isolated test database.
+The corpus excludes embedded NUL and preserves first-seen order; individual tests
+check the specific returned values or memberships described below.
 
-* Exact round-trip preservation (write -> sync -> read) for tricky unicode.
-* Exact-match searching via Database.search() (uses parameter binding).
-* Distinguishing visually-similar strings (NFC vs NFD, ZWJ/ZWNJ, VS16 emoji).
-* Inert handling of SQL-injection-shaped strings (must remain data).
-* Bytes input coercion behavior (valid UTF-8 bytes should work; invalid bytes should raise).
+Example:
+    Run with pytest::
 
-These tests intentionally use a per-suite dedicated contract table with uniquely-named
-columns to avoid ambiguity in driver-side table identification.
+        python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py
 """
 
 from __future__ import annotations
@@ -25,6 +24,14 @@ from LiuXin_alpha.errors import InputIntegrityError
 
 @dataclass(frozen=True)
 class ContractTable:
+    """
+    Hold immutable table, ID, scratch, text, unique-value, and notes column names.
+
+    Example:
+        >>> table = ContractTable('sample', 'id', 'scratch', 'text', 'unique_value', 'notes')
+        >>> table.unique_col
+        'unique_value'
+    """
     name: str
     id_col: str
     scratch_col: str
@@ -34,7 +41,24 @@ class ContractTable:
 
 
 def _exec_sql(db, stmt: str, bindings: tuple | None = None) -> None:
-    """Execute SQL using a short-lived driver connection to avoid stale aliases."""
+    """
+    Execute SQL on a fresh driver connection, attempt commit, and attempt close in finally.
+
+    Require a driver with get_connection. On commit failure, try SQL COMMIT and suppress
+    ordinary fallback errors. Suppress ordinary close errors, while execution errors
+    propagate.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py
+
+
+    :param db: Caller-owned Database whose driver opens the temporary connection.
+    :param stmt: SQL statement executed unchanged.
+    :param bindings: Optional bindings; None omits the bindings argument.
+    :return: None; successful return does not guarantee commit success.
+    """
     driver = getattr(db, "driver", None)
     if driver is None or not hasattr(driver, "get_connection"):
         raise RuntimeError("Database has no driver with get_connection()")
@@ -61,13 +85,45 @@ def _exec_sql(db, stmt: str, bindings: tuple | None = None) -> None:
 
 
 def _u(i: int, s: str) -> str:
-    """Deterministic small unique token derived from payload."""
+    """
+    Combine an index formatted to at least four digits with a ten-character SHA-1 payload digest.
+
+    Encode with UTF-8 surrogatepass so unpaired surrogates can be hashed. This is a
+    deterministic test key, not a uniqueness guarantee.
+
+    Example:
+        >>> _u(3, 'abc')
+        'u14_0003_a9993e3647'
+        >>> _u(3, 'abc') == _u(3, 'abc')
+        True
+
+
+    :param i: Integer index formatted with a minimum width of four digits.
+    :param s: Payload string to encode and hash.
+    :return: Index-prefixed string token.
+    """
     digest = sha1(s.encode("utf-8", "surrogatepass")).hexdigest()[:10]
     return f"u14_{i:04d}_{digest}"
 
 
 @pytest.fixture
 def contract_table(open_db) -> ContractTable:
+    """
+    Create the fixed-name Unicode contract table if absent and attempt a metadata refresh.
+
+    Suppress ordinary refresh errors; the isolated database fixture owns the table
+    lifetime.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :return: ContractTable describing the created or existing table.
+    """
     t = ContractTable(
         name="db_contract_l14",
         id_col="db_contract_l14_id",
@@ -100,7 +156,19 @@ def contract_table(open_db) -> ContractTable:
 
 @pytest.fixture
 def nightmares_fast(torture_strings: Sequence[str]) -> Sequence[str]:
-    """Curated, stable subset + a few must-have edge cases."""
+    """
+    Combine required edge cases with the first twenty torture strings, filter NULs, and deduplicate in first-seen order.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py
+
+
+    :param torture_strings: Sliceable corpus whose first twenty entries extend the fixed
+        edge cases.
+    :return: Tuple of retained Unicode strings.
+    """
     must_have = [
         "Hello, world!",
         "mañana",                       # Latin-1 accent
@@ -141,6 +209,23 @@ def nightmares_fast(torture_strings: Sequence[str]) -> Sequence[str]:
 
 @pytest.mark.parametrize("i", list(range(0, 18)))
 def test_unicode_roundtrip_exact_text(open_db, contract_table: ContractTable, nightmares_fast: Sequence[str], i: int):
+    """
+    Persist a corpus payload and check its exact text and generated key after reload, plus the notes prefix.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_unicode_roundtrip_exact_text
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :param nightmares_fast: Ordered fixture tuple of non-NUL Unicode payloads.
+    :param i: Parametrized payload index, reduced modulo the fixture length.
+    :return: None; failed expectations raise AssertionError.
+    """
     payload = nightmares_fast[i % len(nightmares_fast)]
 
     row = open_db.get_blank_row(contract_table.name)
@@ -159,6 +244,25 @@ def test_unicode_roundtrip_exact_text(open_db, contract_table: ContractTable, ni
 
 @pytest.mark.parametrize("i", list(range(0, 14)))
 def test_unicode_search_exact_matches_row(open_db, contract_table: ContractTable, nightmares_fast: Sequence[str], i: int):
+    """
+    Search a persisted corpus payload and require a nonempty list containing the inserted ID.
+
+    Additional matching rows are allowed.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_unicode_search_exact_matches_row
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :param nightmares_fast: Ordered fixture tuple of non-NUL Unicode payloads.
+    :param i: Parametrized payload index, reduced modulo the fixture length.
+    :return: None; failed expectations raise AssertionError.
+    """
     payload = nightmares_fast[i % len(nightmares_fast)]
 
     row = open_db.get_blank_row(contract_table.name)
@@ -174,6 +278,21 @@ def test_unicode_search_exact_matches_row(open_db, contract_table: ContractTable
 
 
 def test_unicode_normalization_variants_are_distinct(open_db, contract_table: ContractTable):
+    """
+    Persist NFC and NFD forms in a unique column and check separate singleton search results retain their original forms and IDs.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_unicode_normalization_variants_are_distinct
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :return: None; failed expectations raise AssertionError.
+    """
     nfd = "e\u0301"
     nfc = "é"
     assert nfd != nfc  # different codepoints
@@ -199,6 +318,23 @@ def test_unicode_normalization_variants_are_distinct(open_db, contract_table: Co
 
 
 def test_unicode_zero_width_characters_preserved_and_searchable(open_db, contract_table: ContractTable):
+    """
+    Persist text with and without a zero-width space and require each search to include its exact text.
+
+    Neither result is required to be a singleton.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_unicode_zero_width_characters_preserved_and_searchable
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :return: None; failed expectations raise AssertionError.
+    """
     with_zw = "hello\u200bworld"
     without = "helloworld"
     assert with_zw != without
@@ -221,6 +357,21 @@ def test_unicode_zero_width_characters_preserved_and_searchable(open_db, contrac
 
 
 def test_unicode_emoji_variation_selector_distinct(open_db, contract_table: ContractTable):
+    """
+    Persist a snowman with and without VS16 and check each unique-value search yields one Row with a different ID.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_unicode_emoji_variation_selector_distinct
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :return: None; failed expectations raise AssertionError.
+    """
     base = "☃"
     vs16 = "☃️"
     assert base != vs16
@@ -244,6 +395,21 @@ def test_unicode_emoji_variation_selector_distinct(open_db, contract_table: Cont
 
 
 def test_unicode_rtl_marks_roundtrip(open_db, contract_table: ContractTable):
+    """
+    Check Arabic/Hebrew text and direction marks survive exact persistence and reload.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_unicode_rtl_marks_roundtrip
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :return: None; failed expectations raise AssertionError.
+    """
     payload = "العربية\u200f / עברית\u200e END"
     r = open_db.get_blank_row(contract_table.name)
     r[contract_table.text_col] = payload
@@ -256,6 +422,21 @@ def test_unicode_rtl_marks_roundtrip(open_db, contract_table: ContractTable):
 
 
 def test_unicode_multiline_and_tabs_preserved(open_db, contract_table: ContractTable):
+    """
+    Check mixed newline sequences and a tab survive exact persistence and reload.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_unicode_multiline_and_tabs_preserved
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :return: None; failed expectations raise AssertionError.
+    """
     payload = "line1\nline2\r\nline3\tend"
     r = open_db.get_blank_row(contract_table.name)
     r[contract_table.text_col] = payload
@@ -269,6 +450,21 @@ def test_unicode_multiline_and_tabs_preserved(open_db, contract_table: ContractT
 
 def test_unicode_long_string_roundtrip(open_db, contract_table: ContractTable):
     # Keep this large but not ridiculous for fast suites.
+    """
+    Repeat a multilingual fragment four hundred times and check exact reloaded text and length.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_unicode_long_string_roundtrip
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :return: None; failed expectations raise AssertionError.
+    """
     core = "中文👩🏽‍🚒ée\u0301—العربية—עברית—"
     payload = core * 400  # ~ (len(core)*400) chars
     r = open_db.get_blank_row(contract_table.name)
@@ -283,6 +479,21 @@ def test_unicode_long_string_roundtrip(open_db, contract_table: ContractTable):
 
 
 def test_injection_shaped_payload_is_inert_data(open_db, contract_table: ContractTable):
+    """
+    Store SQL-looking text, check the dedicated table still exists, and require search to return that exact text.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_injection_shaped_payload_is_inert_data
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :return: None; failed expectations raise AssertionError.
+    """
     payload = "'); DROP TABLE db_contract_l14;--"
     r = open_db.get_blank_row(contract_table.name)
     r[contract_table.text_col] = payload
@@ -297,6 +508,21 @@ def test_injection_shaped_payload_is_inert_data(open_db, contract_table: Contrac
 
 
 def test_search_accepts_valid_utf8_bytes(open_db, contract_table: ContractTable):
+    """
+    Store café as text and check searching its UTF-8 bytes returns the text payload.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_search_accepts_valid_utf8_bytes
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :return: None; failed expectations raise AssertionError.
+    """
     s = "café"
     r = open_db.get_blank_row(contract_table.name)
     r[contract_table.text_col] = s
@@ -308,6 +534,21 @@ def test_search_accepts_valid_utf8_bytes(open_db, contract_table: ContractTable)
 
 
 def test_search_rejects_invalid_utf8_bytes(open_db, contract_table: ContractTable):
+    """
+    Check searching invalid UTF-8 bytes raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_search_rejects_invalid_utf8_bytes
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :return: None; failed expectations raise AssertionError.
+    """
     s = "ok"
     r = open_db.get_blank_row(contract_table.name)
     r[contract_table.text_col] = s
@@ -319,6 +560,21 @@ def test_search_rejects_invalid_utf8_bytes(open_db, contract_table: ContractTabl
 
 
 def test_get_values_set_contains_tricky_members(open_db, contract_table: ContractTable):
+    """
+    Insert five tricky Unicode values and check the returned set includes each one, allowing additional members.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_get_values_set_contains_tricky_members
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :return: None; failed expectations raise AssertionError.
+    """
     vals = ["é", "e\u0301", "hello\u200bworld", "☃️", "👩🏽‍🚒"]
     for i, v in enumerate(vals):
         r = open_db.get_blank_row(contract_table.name)
@@ -335,6 +591,21 @@ def test_get_values_set_contains_tricky_members(open_db, contract_table: Contrac
 
 def test_casefold_is_not_applied_for_exact_search(open_db, contract_table: ContractTable):
     # German ß: STRASSE is not equal to straße under exact equality.
+    """
+    Store straße and check searching STRASSE yields no matches.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_casefold_is_not_applied_for_exact_search
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :return: None; failed expectations raise AssertionError.
+    """
     v = "straße"
     r = open_db.get_blank_row(contract_table.name)
     r[contract_table.text_col] = v
@@ -346,6 +617,24 @@ def test_casefold_is_not_applied_for_exact_search(open_db, contract_table: Contr
 
 
 def test_row_repr_does_not_crash_on_unicode(open_db, contract_table: ContractTable):
+    """
+    Check repr of a Unicode-bearing Row produces a nonempty string.
+
+    The final assertion accepts any nonempty representation, whether or not it contains
+    Row.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_unicode_nightmares_fast.py::test_row_repr_does_not_crash_on_unicode
+
+
+    :param open_db: Open Database for the selected backend; its fixture attempts close
+        after use.
+    :param contract_table: Fixture descriptor of the dedicated Unicode test table and
+        its column names.
+    :return: None; failed expectations raise AssertionError.
+    """
     payload = "👩🏽‍🚒 — العربية — 中文 — e\u0301"
     r = open_db.get_blank_row(contract_table.name)
     r[contract_table.text_col] = payload

@@ -1,7 +1,13 @@
-"""Constraint-level tests for FRBR interlink tables.
+"""
+Inspect generated interlink CREATE TABLE SQL for pair and role uniqueness.
 
-These tests validate that the TOML link_type semantics are translated into the
-intended SQLite uniqueness constraints (especially for role-style `type` links).
+Builds isolated SQLite catalogues and checks declared UNIQUE column groups. These
+cases inspect SQL rather than probing duplicate inserts.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_frbr_interlink_constraints.py
 """
 
 from __future__ import annotations
@@ -15,6 +21,23 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import Co
 
 
 def _table_sql(conn: sqlite3.Connection, table: str) -> str:
+    """
+    Read nonempty CREATE TABLE SQL for an exact bound table name.
+
+    Raises AssertionError if the table or its SQL is missing.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _ = conn.execute('CREATE TABLE demo (id INTEGER)')
+        >>> 'demo' in _table_sql(conn, 'demo')
+        True
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :return: Stored CREATE TABLE statement as a string.
+    """
     row = conn.execute(
         "SELECT sql FROM sqlite_master WHERE type='table' AND name=?;",
         (table,),
@@ -24,6 +47,20 @@ def _table_sql(conn: sqlite3.Connection, table: str) -> str:
 
 
 def _unique_groups(sql: str) -> list[set[str]]:
+    """
+    Extract column sets from simple table-level UNIQUE clauses.
+
+    Uses a case-insensitive regex, comma splitting and quote stripping. Does not parse
+    nested expressions or inline column uniqueness and discards column order.
+
+    Example:
+        >>> _unique_groups('CREATE TABLE t (a, b, UNIQUE (a, b))') == [{'a', 'b'}]
+        True
+
+
+    :param sql: CREATE TABLE SQL text to inspect.
+    :return: List of column-name sets in matched clause order.
+    """
     groups: list[set[str]] = []
     for m in re.finditer(r"UNIQUE\s*\(([^)]*)\)", sql, flags=re.IGNORECASE | re.MULTILINE):
         inner = m.group(1)
@@ -37,7 +74,19 @@ def _unique_groups(sql: str) -> list[set[str]]:
 
 
 def test_interlink_many_to_many_pair_uniqueness(tmp_path: pathlib.Path) -> None:
-    """A plain many-to-many link must be UNIQUE on the FK pair (A_id,B_id)."""
+    """
+    Require two endpoint columns and a UNIQUE pair on the generated work/expression table.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_interlink_constraints.py::test_interlink_many_to_many_pair_uniqueness
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     db_path = tmp_path / "frbr_interlink_pair_unique.db"
     conn = sqlite3.connect(str(db_path))
     try:
@@ -59,7 +108,22 @@ def test_interlink_many_to_many_pair_uniqueness(tmp_path: pathlib.Path) -> None:
 
 
 def test_interlink_many_to_many_non_exclusive_unique_includes_type(tmp_path: pathlib.Path) -> None:
-    """Role-style links (type column) must be UNIQUE on (A_id,B_id,type)."""
+    """
+    Require role uniqueness over both endpoints and type on agent/work links.
+
+    When priority exists, also checks uniqueness over the selected primary endpoint,
+    type and priority.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_interlink_constraints.py::test_interlink_many_to_many_non_exclusive_unique_includes_type
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     db_path = tmp_path / "frbr_interlink_type_unique.db"
     conn = sqlite3.connect(str(db_path))
     try:

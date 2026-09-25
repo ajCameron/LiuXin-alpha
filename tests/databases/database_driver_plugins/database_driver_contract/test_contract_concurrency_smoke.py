@@ -1,10 +1,13 @@
-"""Driver contract: concurrency smoke.
+"""
+Check sequential cross-connection visibility and resource release for each selected backend.
 
-This module is intentionally light-weight and deterministic.
+The two connections alternate operations in one thread; these probes do not
+establish general thread safety.
 
-We do *not* attempt to prove full thread-safety; instead we check the most common
-practical failure mode across driver backends: lingering write locks / missing
-commits that prevent a second connection from seeing changes or writing.
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_concurrency_smoke.py
 """
 
 from __future__ import annotations
@@ -18,10 +21,36 @@ _CONTRACT_TABLE = "contract_concurrency_smoke"
 
 
 def _cols(table: str) -> Tuple[str, str]:
+    """
+    Derive the ID and text column names for the trusted contract table.
+
+    Example:
+        >>> _cols('sample')
+        ('sample_id', 'sample_text')
+
+
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :return: Two-tuple of ID and text names.
+    """
     return (f"{table}_id", f"{table}_text")
 
 
 def _create_contract_table(driver) -> None:
+    """
+    Create the concurrency table if absent and clear the driver property cache.
+
+    Existing rows are retained.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_concurrency_smoke.py
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :return: None; changes schema and cached properties.
+    """
     table = _CONTRACT_TABLE
     id_col, text_col = _cols(table)
 
@@ -37,6 +66,22 @@ def _create_contract_table(driver) -> None:
 
 
 def _insert(driver, value: str) -> int:
+    """
+    Insert one text payload and infer its ID from the highest contract-table ID.
+
+    Require a non-None ID and assume no competing inserts.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_concurrency_smoke.py
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :param value: Text payload bound through the row-dictionary helper.
+    :return: Highest ID converted to int.
+    """
     table = _CONTRACT_TABLE
     _, text_col = _cols(table)
     driver.direct_add_simple_row_dict({text_col: value})
@@ -46,6 +91,20 @@ def _insert(driver, value: str) -> int:
 
 
 def _read(driver, row_id: int) -> str:
+    """
+    Fetch a contract row, assert it exists with the requested ID, and extract its text field.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_concurrency_smoke.py
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :param row_id: ID requested from the contract table.
+    :return: Stored text field value.
+    """
     table = _CONTRACT_TABLE
     id_col, text_col = _cols(table)
     row = driver.direct_get_row_dict_from_id(table, row_id)
@@ -55,11 +114,27 @@ def _read(driver, row_id: int) -> str:
 
 
 def test_two_connections_can_interleave_writes_and_reads(driver_spec, db_metadata, pick_payload, assert_integrity):
-    """Alternate writes across two independent Database instances.
+    """
+    Alternate twenty sequential writes between two Database instances and read each exact payload through the other.
 
-    Expectations:
-      * each writer commits so the other connection can see the new row
-      * no 'database is locked' errors in normal sequential usage
+    Run the integrity helper on both drivers and attempt to close both in finally,
+    suppressing ordinary close errors.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_concurrency_smoke.py::test_two_connections_can_interleave_writes_and_reads
+
+
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :param db_metadata: Metadata mapping containing the provisioned SQLite database
+        path.
+    :param pick_payload: Fixture callable selecting corpus strings by a wrapping integer
+        index.
+    :param assert_integrity: Fixture callable requiring the first retained
+        integrity_check result to be ok.
+    :return: None; failed expectations raise AssertionError.
     """
     from LiuXin_alpha.databases.database import Database
 
@@ -104,7 +179,25 @@ def test_two_connections_can_interleave_writes_and_reads(driver_spec, db_metadat
 
 
 def test_close_releases_resources_for_other_connection(driver_spec, db_metadata, pick_payload):
-    """A close on one connection should never poison a second connection."""
+    """
+    Close the first of two drivers, then insert and read an exact payload through the second.
+
+    Finally attempt both driver closes and suppress ordinary close errors.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_concurrency_smoke.py::test_close_releases_resources_for_other_connection
+
+
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :param db_metadata: Metadata mapping containing the provisioned SQLite database
+        path.
+    :param pick_payload: Fixture callable selecting corpus strings by a wrapping integer
+        index.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database import Database
 
     db1 = Database(metadata=db_metadata, db_type=driver_spec.db_type, create=False, backup=False)

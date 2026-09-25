@@ -1,7 +1,8 @@
 """
-Small internal plugin primitives for database maintenance work.
+Define maintenance plugin context, telemetry and lifecycle hooks.
 
-Plugins - intended to maintain the database can be registered here for the runner.
+Plugins share a database and optional logger. The base supplies inert lifecycle
+hooks and accepts every event; subclasses must implement handle_events().
 """
 
 from __future__ import annotations
@@ -20,11 +21,14 @@ if TYPE_CHECKING:
 @dataclasses.dataclass(slots=True)
 class MaintenancePluginContext:
     """
-    Context the plugin should operate in - gathered here in one place.
+    Carry the database and optional logger passed to a plugin.
 
-    Currently, contains
-     - the database the plugin is expected to operate on
-     - the logger the plugin is expected to use to record it's operation
+    This mutable slotted dataclass does not open or own either resource.
+
+    Example:
+        >>> context = MaintenancePluginContext(db=None)
+        >>> context.logger is None
+        True
     """
     db: "DatabaseAPI"
     logger: object | None = None
@@ -33,9 +37,14 @@ class MaintenancePluginContext:
 @dataclasses.dataclass(slots=True)
 class MaintenancePluginResult:
     """
-    The result of running the plugin.
+    Report handled, deferred and error counts for a plugin batch.
 
-    Intended to provide telemetry.
+    Counts default to zero and are not range-validated or aggregated by this record.
+
+    Example:
+        >>> result = MaintenancePluginResult(handled=2)
+        >>> result.handled, result.errors
+        (2, 0)
     """
     handled: int = 0
     deferred: int = 0
@@ -44,7 +53,15 @@ class MaintenancePluginResult:
 
 class MaintenancePluginBase(abc.ABC):
     """
-    Convenient base class for internal maintenance plugins.
+    Supply default lifecycle, selection and coalescing behavior for plugins.
+
+    name, priority and enabled_by_default are conventional attributes. The engine sorts
+    priority but does not filter enabled_by_default. handle_events() remains abstract.
+
+    Example:
+        >>> import inspect
+        >>> inspect.isabstract(MaintenancePluginBase)
+        True
     """
 
     name = "maintenance-plugin"
@@ -53,37 +70,53 @@ class MaintenancePluginBase(abc.ABC):
 
     def startup(self, context: MaintenancePluginContext) -> None:
         """
-        Called when it's time to start up the plugin.
+        Provide a lifecycle hook that ignores the context and performs no work.
 
-        :param context:
-        :return:
+        Example:
+            >>> worker.startup(context)  # doctest: +SKIP
+
+
+        :param context: Database and logger context for this invocation.
+        :return: None.
         """
         return None
 
     def shutdown(self, context: MaintenancePluginContext) -> None:
         """
-        Called when it's time to stop the plugin.
+        Provide a lifecycle hook that ignores the context and performs no work.
 
-        :param context:
-        :return:
+        Example:
+            >>> worker.shutdown(context)  # doctest: +SKIP
+
+
+        :param context: Database and logger context for this invocation.
+        :return: None.
         """
         return None
 
     def wants_event(self, event: MaintenanceEvent) -> bool:
         """
-        Events this plugin should respond to.
+        Accept every event unless a subclass narrows selection.
 
-        :param event:
-        :return:
+        Example:
+            >>> worker.wants_event(event)  # doctest: +SKIP
+
+
+        :param event: Maintenance event to inspect or enqueue.
+        :return: True for every supplied event.
         """
         return True
 
     def coalesce_key(self, event: MaintenanceEvent) -> object | None:
         """
-        Not... sure.
+        Keep an event independent of every other event in the batch.
 
-        :param event:
-        :return:
+        Example:
+            >>> worker.coalesce_key(event)  # doctest: +SKIP
+
+
+        :param event: Maintenance event to inspect or enqueue.
+        :return: None, requesting passthrough rather than coalescing.
         """
         return None
 
@@ -94,11 +127,17 @@ class MaintenancePluginBase(abc.ABC):
         events: Iterable[MaintenanceEvent],
     ) -> MaintenancePluginResult:
         """
-        Run the plugin against the given events.
+        Require subclasses to implement batch processing.
 
-        Preforms a run with the given context against the given events.
-        :param context:
-        :param events:
-        :return:
+        The abstract base body raises NotImplementedError if called directly.
+
+        Example:
+            >>> worker.handle_events(context, events)  # doctest: +SKIP
+
+
+        :param context: Database and logger context for this invocation.
+        :param events: Iterable of events to process.
+        :return: No normal return from the base; implementations should return
+            MaintenancePluginResult.
         """
         raise NotImplementedError

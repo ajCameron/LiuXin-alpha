@@ -35,6 +35,10 @@ class DigitalAssetDerivationKind(StrEnum):
         'extract'
     """
 
+    # Todo: convert instead of transcode? Or as well?
+    # Todo: compress
+    # Todo: denoise
+
     EXTRACT = "extract"
     CONVERT = "convert"
     TRANSCODE = "transcode"
@@ -227,7 +231,6 @@ class ReproductionRecipeArtifactReference:
         >>> artifact_reference.version
         '7.20.0'
 
-
     :ivar name: Nonblank artefact label retained without whitespace normalization.
     :ivar digest: Expected content digest; this constructor does not compute or independently validate it.
     :ivar version: Optional nonblank version label, separate from content identity.
@@ -327,6 +330,8 @@ class ReproductionRecipe:
     :ivar dependencies: Pinned dependency artefacts with exactly unique names; complete recipes require retrieval hints.
     :ivar parameters_json: JSON object text equal to sorted, compact json.dumps output with default escaping.
     :ivar environment_json: Environment object text checked by the same canonical JSON rule.
+    # Todo: we might want subtyped commands, and a to and from json on that method
+    # Todo: Might also want a class to represent external commands? So we can check what's available.
     :ivar command: Retained argument sequence; false entries reject, but whitespace-only arguments are allowed.
     :ivar working_directory: Canonical relative POSIX workspace directory; the literal current directory is allowed.
     :ivar output_path: Optional canonical relative POSIX output path, required when complete is truthy.
@@ -349,6 +354,7 @@ class ReproductionRecipe:
     output_path: str | None = None
     instructions: str | None = None
     expected_output_size: int | None = None
+    # Todo: We want normalization digests to check to see if things are "close enough" - e.g. the creation date of an epub does not matter
     expected_output_digests: tuple[Digest, ...] = ()
     recipe_version: int = 1
 
@@ -621,6 +627,8 @@ class DigitalAssetDerivationRecord:
         )
 
 
+# Todo: Increased detail - this includes a derivation graph for a digital asset
+# Todo: Need more and better traversal methods
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetDerivationGraph:
     """
@@ -695,6 +703,7 @@ class DigitalAssetDerivationGraph:
             raise ValueError("derivation_records must be unique.")
 
 
+# Todo: Tools to get the derivation graph from this, and the recreation plan from the graph
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetRecreationPlan:
     """
@@ -850,6 +859,7 @@ class DigitalAssetRecreationPlan:
         )
 
 
+# Todo: This should not be here
 def _require_text(value: str, field_name: str) -> None:
     """
     Require text that remains nonempty after stripping for the check.

@@ -1,6 +1,12 @@
 
 """
-Contains the logic to actually provide a SQLite database driver - using apsw as the acess backend.
+Combine stdlib driver connections with APSW-backed dump and restore.
+
+Importing this module requires apsw and the bundled APSW shell.
+DatabaseDriver.get_connection returns the local sqlite3 subclass; the separate APSW
+Connection supplies shell compatibility for file rebuilds. Both connection classes
+expose different transaction and result APIs. Driver.close tracks ordinary
+connections; rebuild contexts close their APSW handles separately.
 """
 
 
@@ -73,16 +79,42 @@ if TYPE_CHECKING:
 
 class Connection(apsw.Connection):
     """
-    Uses apsw to provide a connection to the database.
+    Configure an APSW connection for legacy shell and query compatibility.
+
+    Construction sets a 10-second busy timeout, a 5000-page cache target and in-memory
+    temporary storage, then registers sort, UUID, filter, collation and aggregate
+    helpers. This class is separate from the stdlib connection returned by
+    DatabaseDriver.get_connection; it does not enable foreign keys here. Callers own and
+    close the connection.
+
+    Example:
+        >>> conn = Connection(":memory:")
+        >>> conn.get("PRAGMA temp_store")
+        [(2,)]
+        >>> conn.close()
     """
 
     BUSY_TIMEOUT = 10000  # milliseconds
 
     def __init__(self, path: Union[str, pathlib.Path]) -> None:
         """
-        Constructor.
+        Open the APSW target and install compatibility settings and callbacks.
 
-        :param path:
+        APSW opens the supplied target before setup; opening or registration failures
+        propagate without a local cleanup wrapper. The default books_list_filter accepts
+        every value. Aggregate registrations preserve legacy implementations and do not
+        establish compatibility with every APSW version.
+
+        Example:
+            >>> conn = Connection(":memory:")
+            >>> conn.get("SELECT books_list_filter(42)")
+            [(1,)]
+            >>> conn.close()
+
+
+        :param path: Database target forwarded to apsw.Connection; use a filename or
+            :memory: as accepted by the installed binding.
+        :return: None; initializes an open APSW connection.
         """
         apsw.Connection.__init__(self, path)
 
@@ -111,21 +143,52 @@ class Connection(apsw.Connection):
 
     def create_dynamic_filter(self, name: str) -> None:
         """
-        Create and register the dymanic filters on the database.
+        Register an initially empty membership filter as a scalar SQL function.
 
-        :param name:
-        :return:
+        Create a DynamicFilter with no allowed IDs and register it under the requested name
+        with arity one. Its Python instance is retained by SQLite but is not returned or
+        stored on this wrapper, so this method exposes no handle for changing its
+        membership. Re-registering a name replaces its callback.
+
+        Example:
+            >>> conn = Connection(":memory:")
+            >>> conn.create_dynamic_filter("selected_books")
+            >>> conn.get("SELECT selected_books(1)")
+            [(0,)]
+            >>> conn.close()
+
+
+        :param name: Scalar-function name passed directly to APSW, without application-level
+            validation.
+        :return: None; subsequent calls to the registered filter return zero until its
+            hidden membership changes.
         """
         f = DynamicFilter(name)
         self.createscalarfunction(name, f, 1)
 
     def get(self, *args: Any, **kw: Any) -> Optional[Any]:
         """
-        Front end for the cursor get - uses next to pull a single result.
+        Execute through a new APSW cursor and fetch all rows or one scalar.
 
-        :param args:
-        :param kw:
-        :return:
+        Only the all keyword is read; it defaults to True, and other keywords are ignored.
+        False mode uses the legacy cursor.next method and catches only StopIteration or
+        IndexError to return None. APSW versions without that cursor method raise
+        AttributeError instead, even for empty results. No explicit transaction or cursor
+        cleanup is added.
+
+        Example:
+            >>> conn = Connection(":memory:")
+            >>> conn.get("SELECT ? UNION ALL SELECT ?", (2, 4))
+            [(2,), (4,)]
+            >>> conn.close()
+
+
+        :param args: Arguments passed unchanged to cursor.execute, normally SQL followed by
+            optional bindings.
+        :param kw: all selects all-row mode when truthy and the legacy scalar branch
+            otherwise.
+        :return: Fetched row list by default; first-column value or None in the legacy
+            scalar branch when supported.
         """
         ans = self.cursor().execute(*args)
         if kw.get("all", True):
@@ -137,22 +200,51 @@ class Connection(apsw.Connection):
 
     def execute(self, sql: str, bindings: Optional[tuple[str]] = None) -> Any:
         """
-        Allows direct execution on the database through the cursor.
+        Execute SQL and optional bindings on a newly created APSW cursor.
 
-        :param sql:
-        :param bindings:
-        :return:
+        Return the cursor execution result without fetching rows, closing the cursor or
+        starting a wrapper transaction. APSW SQL and binding rules, including its
+        multiple-statement behavior, apply; execution errors propagate.
+
+        Example:
+            >>> conn = Connection(":memory:")
+            >>> list(conn.execute("SELECT ?", (7,)))
+            [(7,)]
+            >>> conn.close()
+
+
+        :param sql: SQL text interpreted by APSW; use placeholders for bound data.
+        :param bindings: Optional sequence or mapping accepted by APSW; forwarded unchanged
+            despite the narrow tuple annotation.
+        :return: The result cursor returned by APSW execute.
         """
         cursor = self.cursor()
         return cursor.execute(sql, bindings)
 
     def executemany(self, sql: str, sequence_of_bindings: Sequence[Optional[tuple[str]]]) -> Any:
         """
-        Execute many statements on the database through the cursor.
+        Execute binding rows within an APSW connection transaction context.
 
-        :param sql:
-        :param sequence_of_bindings:
-        :return:
+        Enter the connection context before calling cursor.executemany and leave it before
+        returning the cursor. Normal context exit commits or releases its savepoint;
+        exceptions inside the context roll back. If a result-producing statement leaves lazy
+        cursor work, that later iteration occurs outside this wrapper context. Inputs and
+        execution errors are passed through to APSW.
+
+        Example:
+            >>> conn = Connection(":memory:")
+            >>> _ = conn.execute("CREATE TABLE sample (value INTEGER)")
+            >>> _ = conn.executemany("INSERT INTO sample VALUES (?)", [(2,), (4,)])
+            >>> conn.get("SELECT SUM(value) FROM sample")
+            [(6,)]
+            >>> conn.close()
+
+
+        :param sql: Statement to repeat with each binding row.
+        :param sequence_of_bindings: Iterable of parameter sequences or mappings accepted by
+            cursor.executemany.
+        :return: The APSW cursor result; the surrounding connection context has already
+            exited.
         """
         with self:  # Disable autocommit mode, for performance
             return self.cursor().executemany(sql, sequence_of_bindings)
@@ -160,15 +252,52 @@ class Connection(apsw.Connection):
 
 class SQLite_Connection(sqlite3.Connection):
     """
-    Add some helper methods around the SQLite connection.
+    Extend sqlite3.Connection with all-row, single-row and scalar fetching.
+
+    The get and get_row helpers forward positional arguments to execute and interpret
+    only the all keyword. They do not commit or close the connection. Direct
+    construction uses sqlite3 defaults; driver-specific converters, callbacks and
+    pragmas are installed by DatabaseDriver.get_connection instead.
+
+    Example:
+        >>> conn = SQLite_Connection(":memory:")
+        >>> conn.get_row("SELECT 3, 4", all=False)
+        (3, 4)
+        >>> conn.close()
     """
     def get(self, *args: Any, **kw: Any) -> Optional[Any]:
         """
-        Helper method for retrieving results from a database.
+        Execute one statement and fetch all rows or the first scalar.
 
-        :param args:
-        :param kw:
-        :return:
+        With a truthy all option, return fetchall(). Otherwise return column zero of
+        fetchone(), or None when no row is available. A selected SQL NULL also becomes
+        None in scalar mode. Positional bindings pass directly to sqlite3; other keyword
+        options are ignored and no transaction is committed.
+
+        The OperationalError handler accesses the obsolete exception.message attribute.
+        With standard Python 3 sqlite3 exceptions this raises AttributeError, masking
+        the original error instead of producing the intended diagnostic. Other execution
+        and fetch errors propagate.
+
+        Example:
+            >>> conn = SQLite_Connection(":memory:")
+            >>> conn.get("SELECT ? UNION ALL SELECT ?", (2, 4))
+            [(2,), (4,)]
+            >>> conn.get("SELECT 2, 4", all=False)
+            2
+            >>> conn.get("SELECT 2 WHERE 0", all=False) is None
+            True
+            >>> conn.get("SELECT NULL", all=False) is None
+            True
+            >>> conn.close()
+
+
+        :param args: SQL statement followed, when needed, by its sequence or mapping of
+            bound values.
+        :param kw: Only all is consulted: defaults to True; any false value selects
+            scalar mode.
+        :return: A list of rows by default, or the first column of the first row in
+            scalar mode; None for an absent scalar row.
         """
         try:
             ans = self.execute(*args)
@@ -187,10 +316,34 @@ class SQLite_Connection(sqlite3.Connection):
 
     def get_row(self, *args: Any, **kw: Any) -> Optional[Any]:
         """
-        Helper method designed to retrieve entire rows from the database.
+        Execute one statement and fetch all rows or one complete row.
 
-        :param args:
-        :return:
+        A truthy all option returns fetchall(); a false option returns fetchone(), with
+        None for no row. An SQL NULL remains part of the returned row. Extra keyword
+        options are ignored, while positional bindings go directly to execute. The
+        helper neither commits nor closes the connection.
+
+        As in get, the OperationalError handler reads exception.message, which masks
+        standard Python 3 SQLite operational errors with AttributeError. Other execution
+        and fetch errors propagate.
+
+        Example:
+            >>> conn = SQLite_Connection(":memory:")
+            >>> conn.get_row("SELECT ?, NULL", (5,), all=False)
+            (5, None)
+            >>> conn.get_row("SELECT 5 WHERE 0", all=False) is None
+            True
+            >>> conn.get_row("SELECT 5 WHERE 0")
+            []
+            >>> conn.close()
+
+
+        :param args: SQL statement followed by optional positional bindings accepted by
+            execute.
+        :param kw: Only all is consulted: defaults to True; any false value selects one-
+            row mode.
+        :return: A list of rows by default, or one row when all is false; None if that
+            single row is absent. Row shape follows the connection row factory.
         """
         try:
             ans = self.execute(*args)
@@ -229,13 +382,19 @@ class DatabaseDriver(
     ViewMixin,
     TableCreationMixin):
     """
-    Represents a collection of all the methods needed to interface with an actual database.
+    Provide the legacy APSW-named driver with stdlib working connections.
 
-    Any method starting with the word direct is intended to be directly exposed to the outside world.
-# Ideally only these should be present (this is intended to contain only the bare minimum required to interact with the
-# actual, on disk database.
-# NOTE - Using the variable substitution features in SQLite3 provides much better results than anything home baked for
-# preventing SQL injection attacks and escaping strings properly. Use this instead.
+    Ordinary queries use SQLite_Connection from sqlite3, shared SQL mixins and tracked
+    handles. APSW Connection and Shell are used specifically by dump_and_restore.
+    Construction normally opens a working connection but does not create the FRBR
+    schema; set_conn=False defers opening. Inherited close/reopen manage ordinary
+    handles. Callers coordinate concurrent use and file replacement.
+
+    Example:
+        >>> driver = DatabaseDriver({"database_path": ":memory:"}, set_conn=False)
+        >>> driver.conn is None
+        True
+        >>> driver.close()
     """
 
     def __init__(
@@ -245,15 +404,35 @@ class DatabaseDriver(
             set_conn: bool = True,
             dirty_records_queue=None) -> None:
         """
-        Initializing the class with db_metadata.
+        Initialize driver state and optionally open the primary connection.
 
-        Which is an object assumed to have a dictionary like interface which provides all the necessary fields to
-        connect to a database of the given type.
-        This DatabaseDriver (SQLite - apsw backed) requires the database_path. That's about it.
-        :param db_metadata:
-        :param db: The database this process is driving. Hopefully infinite recursion will not result.
-        :param set_conn: Set the globally used connection for the class
-        :return:
+        Retain the metadata and facade by reference, install the FRBR creation hook and
+        macro helper, initialize schema caches and connection tracking, and attach a no-
+        op maintenance callback. A truthy set_conn opens a configured connection
+        immediately; otherwise conn is None. Store the dirty-record queue after
+        connection setup. No schema builder or maintenance worker is started here.
+        Missing database_path raises KeyError, and connection setup errors propagate.
+
+        Example:
+            >>> metadata = {"database_path": ":memory:"}
+            >>> queue = []
+            >>> driver = DatabaseDriver(metadata, set_conn=False, dirty_records_queue=queue)
+            >>> driver.db_metadata is metadata and driver.dirty_records_queue is queue
+            True
+            >>> driver.event_count, driver.conn
+            (0, None)
+            >>> driver.close()
+
+
+        :param db_metadata: Mapping containing database_path; the path value is copied
+            to database_path while the mapping itself is retained.
+        :param db: Optional database facade retained for macro and shared-mixin
+            operations.
+        :param set_conn: Open a primary connection immediately when truthy; False defers
+            all connection setup.
+        :param dirty_records_queue: Queue or other object retained for later dirty-
+            record handling; not consumed here.
+        :return: None; initializes this driver and possibly its primary connection.
         """
         self._create_new_database = _create_new_database
 
@@ -308,10 +487,22 @@ class DatabaseDriver(
     # Todo: May make no sense in a WEMI context
     def direct_run_ta_update(self, ta_row_id: int) -> None:
         """
-        Runs the separate worker process which updates the titles_aggregate table after the basic update has occurred.
+        Launch the legacy aggregate-update thread when its preference enables it.
 
-        :param ta_row_id:
-        :return:
+        Only the exact string "true" for run_ta_update_after_each_change dispatches
+        run_ta_updates with a one-element ID list and this driver. The helper starts a
+        daemon thread; this method does not wait for completion. "false" and other
+        values, including boolean True, cause no dispatch. Preference lookup and launch
+        errors propagate; background failures are not returned to the caller.
+
+        Example:
+            With the preference set to the string "true", this schedules the update:
+            >>> driver.direct_run_ta_update(42)  # doctest: +SKIP
+
+
+        :param ta_row_id: Aggregate/title row ID passed unchanged in the worker input
+            list; not validated here.
+        :return: None, regardless of whether an update thread is launched.
         """
         if preferences["run_ta_update_after_each_change"] == "true":
             run_ta_updates(
@@ -334,8 +525,45 @@ class DatabaseDriver(
     # Internal, implementation dependant method. Should not be exposed to the outside
     def get_connection(self) -> "sqlite3.Connection":
         """
-        Method which creates a connection with foreign key support. Returns a connection.
-        :return conn: A connection to the database
+        Open, configure and track a fresh SQLite connection.
+
+        Register set/list/dict adapters and PYSET/PYLIST/PYDICT/DATE converters
+        globally, enable callback tracebacks, then open database_path with declared-type
+        parsing and check_same_thread=False. Every call opens a distinct connection,
+        including an independent database for the literal :memory: path. Existing
+        primary handles are not replaced.
+
+        Request foreign-key enforcement and warn if SQLite does not report it enabled.
+        Install aggregates, collations, regex/tree/sort/UUID helpers, an always-true
+        books_list_filter, maintenance callbacks and a progress callback after every
+        virtual-machine instruction. The progress handler prints the initial counter
+        value, zero. DIRTY_RECORD and NEW_DIRTY_RECORD look up the
+        current maintainer on each invocation; DIRTY_INTERLINK_RECORD binds the
+        maintainer method at connection creation. Cross-thread access still requires
+        caller coordination.
+
+        Best-effort LANGUAGE_ID registration may seed and lock an existing FRBR
+        languages table, committing changes; exceptions from that registration are
+        suppressed. Other setup failures propagate without guaranteed cleanup. The
+        opening OperationalError handler reads obsolete exception.message, so standard
+        Python 3 errors become AttributeError before its intended DatabaseDriverError
+        can be raised.
+
+        Example:
+            >>> driver = DatabaseDriver({"database_path": ":memory:"}, set_conn=False)
+            >>> conn = driver.get_connection()
+            0
+            >>> conn.get("PRAGMA foreign_keys", all=False)
+            1
+            >>> conn.get_row("SELECT 'abc' REGEXP 'b', books_list_filter(999)", all=False)
+            (1, 1)
+            >>> driver.conn is None and conn in driver._open_connections
+            True
+            >>> driver.close()
+
+
+        :return: An open SQLite_Connection tracked for inherited driver.close; callers
+            may close it earlier and must manage their transactions.
         """
         # Todo: Should only have to do all this once? Surely?
         # Registering converter and adaptor to deal with columns containing sets
@@ -389,6 +617,26 @@ class DatabaseDriver(
 
         # Adds regex search support to the connection
         def regexp(expr, item):
+            """
+            Search a value using a freshly compiled Python regular expression.
+
+            Installed as the two-argument SQLite REGEXP function on the enclosing
+            connection. Matching is a search, not a full-string match. There is no
+            pattern cache or NULL coercion: invalid patterns or incompatible values
+            raise in Python and become SQLite callback errors when invoked through SQL.
+
+            Example:
+                On a connection configured by get_connection:
+                >>> conn.get("SELECT 'abc' REGEXP 'b'", all=False)  # doctest: +SKIP
+                1
+
+
+            :param expr: Pattern supplied to re.compile without extra flags or
+                normalization.
+            :param item: Search target passed unchanged to the compiled pattern.
+            :return: True when search finds a match, otherwise False; SQLite exposes the
+                boolean as 1 or 0.
+            """
             reg = re.compile(expr)
             return reg.search(item) is not None
 
@@ -450,27 +698,66 @@ class DatabaseDriver(
 
     def last_modified(self) -> "datetime.date":
         """
-        Return last modified time as a UTC datetime object
+        Read the configured database file modification time in UTC.
 
-        :return:
+        Stat database_path on each call and convert st_mtime with utcfromtimestamp. This
+        is the main file timestamp, so it may not reflect changes still held in a WAL or
+        an uncommitted transaction. The result is a timezone-aware datetime despite the
+        legacy date annotation. Missing-file and other stat errors propagate; no
+        connection is opened.
+
+        Example:
+            >>> import tempfile
+            >>> with tempfile.NamedTemporaryFile() as file:
+            ...     driver = DatabaseDriver({"database_path": file.name}, set_conn=False)
+            ...     modified = driver.last_modified()
+            >>> modified.utcoffset().total_seconds()
+            0.0
+
+
+        :return: UTC datetime derived from the current file mtime, using the shared
+            timestamp converter.
         """
         return utcfromtimestamp(os.stat(self.database_path).st_mtime)
 
     # Todo: Needs to actually be written.
     def last_modified_epoch_k(self) -> int:
         """
-        The epoch in miliseconds since the UNIX epoch.
+        Reserve the legacy millisecond modification-time hook.
 
-        :return:
+        The method currently has only a docstring body: it does not stat the file, compute
+        an epoch or inspect the driver. It returns None despite its int annotation.
+
+        Example:
+            >>> DatabaseDriver.last_modified_epoch_k(object()) is None
+            True
+
+
+        :return: None; millisecond timestamp calculation is not implemented.
         """
 
     # Use with extreme caution - no safeguards
     def shell(self) -> None:
         """
-        Drops you into an SQLite shell.
+        Run an interactive SQL loop on a fresh connection.
 
-        Be careful. There are no safeguards.
-        :return:
+        Print the target and warning, then concatenate input lines without added
+        newlines until sqlite3.complete_statement accepts the buffer. Execute one
+        statement and commit after each successful execution; print fetched rows only
+        when the stripped text starts with SELECT. SQLite errors are printed and the
+        buffer is discarded without an explicit rollback. Other errors propagate.
+
+        A blank line exits even with incomplete buffered SQL. Normal exit refreshes
+        cached metadata and closes the connection; exceptions or interrupts have no
+        finally cleanup. This is unrestricted SQL on the configured database, with no
+        confirmation or read-only mode.
+
+        Example:
+            Start an interactive session and enter a blank line to finish:
+            >>> driver.shell()  # doctest: +SKIP
+
+
+        :return: None; may commit arbitrary SQL changes and refresh the driver caches.
         """
         conn = self.get_connection()
         cur = conn.cursor()
@@ -510,9 +797,37 @@ class DatabaseDriver(
 
     def sql_dump(self) -> Iterator[str]:
         """
-        Dump the current database out to a series of sql statements.
+        Yield SQL dump lines from the existing primary connection.
 
-        :return:
+        The generator enters the connection transaction context when iteration begins
+        and delegates to iterdump. Exhausting it successfully commits any pending
+        transaction; exceptional exit, including closing a suspended generator, rolls it
+        back. It does not close the connection. It requires a usable primary conn and
+        does not open one when initialization was deferred. SQLite dump scope applies:
+        this is not a copy of connection-local callbacks or every pragma.
+
+        Example:
+            >>> driver = DatabaseDriver({"database_path": ":memory:"})
+            0
+            >>> _ = driver.conn.execute("CREATE TABLE sample (value TEXT)")
+            >>> _ = driver.conn.execute("INSERT INTO sample VALUES (?)", ("saved",))
+            >>> lines = list(driver.sql_dump())
+            >>> any("saved" in line for line in lines)
+            True
+            >>> driver.conn.in_transaction
+            False
+            >>> _ = driver.conn.execute("INSERT INTO sample VALUES ('discarded')")
+            >>> dump = driver.sql_dump()
+            >>> next(dump)
+            'BEGIN TRANSACTION;'
+            >>> dump.close()
+            >>> driver.conn.get("SELECT COUNT(*) FROM sample", all=False)
+            1
+            >>> driver.close()
+
+
+        :return: Iterator of SQL text lines; SQL execution and transaction effects occur
+            during iteration.
         """
         with self.conn:
             for line in self.conn.iterdump():
@@ -523,16 +838,57 @@ class DatabaseDriver(
             callback: Callable[[str, ], None] = lambda x: x,
             sql: Optional[str] = None) -> None:
         """
-        Dump the database - and all the information in it - to a series SQL statements.
+        Rebuild the database file through the bundled APSW shell.
 
-        :param callback: Report the progress of the dump.
-        :param sql: These statements will be written into the start of the file before the data is saved to it - so they
-                    will be executed before the rest as the database is restored.
-        :return:
+        Read user_version from the primary stdlib connection, then write a complete APSW
+        .dump to a temporary UTF-8 SQL file, optionally preceded by extra SQL. Restore with
+        .read into a temporary file beside database_path and restore user_version afterward.
+        Connection contexts close both APSW handles. The shell accepts SQL and dot commands,
+        so the prefix must be trusted. The .read filename is appended without quoting;
+        scratch paths containing spaces or shell-token quoting characters can fail to parse.
+
+        After restoration, close all tracked driver handles, atomically replace the original
+        file and attempt reopen even if renaming fails. A reopen failure can mask the rename
+        error. Reopen uses stdlib SQLite again and does not refresh schema caches. There is
+        no backup or exclusive-use lock. Commit pending writes and coordinate other
+        connections first: the separate dump connection cannot see uncommitted work and
+        closing handles can discard it.
+
+        Callback, decoding, shell and filesystem errors propagate. Temporary-file contexts
+        remove their files; failures before replacement leave the original file in place,
+        while replacement cannot be rolled back by this method.
+
+        Example:
+            With committed data and a shell-compatible scratch path:
+            >>> driver.dump_and_restore(callback=print, sql="CREATE TABLE restore_note (value TEXT);")  # doctest: +SKIP
+
+
+        :param callback: Callable receiving localized dumping and restoring messages; return
+            values are ignored. None selects an identity callback.
+        :param sql: Optional trusted prefix: bytes are decoded as UTF-8, other non-None
+            values converted with str; this augments the full dump.
+        :return: None; replaces the file and reopens the primary stdlib connection on
+            success.
         """
         if callback is None:
 
             def callback(x):
+                """
+                Return a progress value unchanged when no callback was supplied.
+
+                This local fallback is created only for callback=None. The enclosing
+                method ignores its return value, so it adds no output or progress side
+                effects.
+
+                Example:
+                    Select the silent fallback during a prepared file rebuild:
+                    >>> driver.dump_and_restore(callback=None)  # doctest: +SKIP
+
+
+                :param x: Progress message received from the enclosing dump/restore
+                    operation.
+                :return: The same object passed as x.
+                """
                 return x
 
         uv = int(self.user_version)

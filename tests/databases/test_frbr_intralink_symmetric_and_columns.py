@@ -1,9 +1,13 @@
-"""Basic guardrail tests for FRBR intralink tables.
+"""
+Probe intralink ordering, type guards and optional metadata columns.
 
-We validate:
-- `symmetric` ordering enforcement (primary_id < secondary_id)
-- type guard triggers via `{table}__types` work even when PRAGMA foreign_keys is OFF
-- the shared intralink SQL builder supports interlink-style optional columns
+Tests use isolated file databases and close each connection in finally. The direct
+builder test uses a minimal mixin host with identity table-name matching.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_frbr_intralink_symmetric_and_columns.py
 """
 
 from __future__ import annotations
@@ -18,6 +22,21 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import SQ
 
 
 def _insert_two_works(conn: sqlite3.Connection) -> tuple[int, int]:
+    """
+    Insert two default works and return the two greatest work IDs.
+
+    Queries all work IDs in ascending order and requires at least two rows. Does not
+    commit; the returned IDs are selected by ordering rather than lastrowid.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_intralink_symmetric_and_columns.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :return: Two greatest integer work IDs in ascending order.
+    """
     conn.execute("INSERT INTO works DEFAULT VALUES;")
     conn.execute("INSERT INTO works DEFAULT VALUES;")
     rows = conn.execute("SELECT work_id FROM works ORDER BY work_id;").fetchall()
@@ -26,6 +45,19 @@ def _insert_two_works(conn: sqlite3.Connection) -> tuple[int, int]:
 
 
 def test_frbr_intralink_symmetric_ordering_enforced(tmp_path: pathlib.Path) -> None:
+    """
+    Reject reversed and self work links, then commit an ascending symmetric pair.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_intralink_symmetric_and_columns.py::test_frbr_intralink_symmetric_ordering_enforced
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     db_path = tmp_path / "frbr_intralink_symmetric.db"
     conn = sqlite3.connect(str(db_path))
     try:
@@ -72,6 +104,19 @@ def test_frbr_intralink_symmetric_ordering_enforced(tmp_path: pathlib.Path) -> N
 
 
 def test_frbr_intralink_type_guard_works_with_fk_off(tmp_path: pathlib.Path) -> None:
+    """
+    Reject an unknown work-intralink type after requesting foreign keys off before generation.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_intralink_symmetric_and_columns.py::test_frbr_intralink_type_guard_works_with_fk_off
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     db_path = tmp_path / "frbr_intralink_type_guard.db"
     conn = sqlite3.connect(str(db_path))
     try:
@@ -95,17 +140,64 @@ def test_frbr_intralink_type_guard_works_with_fk_off(tmp_path: pathlib.Path) -> 
 
 
 class _Dummy(SQLiteTableLinkingMixin):
-    """Minimal host for mixin testing."""
+    """
+    Host the shared link SQL builder with a caller-owned connection and identity name matching.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_intralink_symmetric_and_columns.py
+    """
 
     def __init__(self, conn: sqlite3.Connection) -> None:
+        """
+        Store the supplied connection without opening, committing or closing it.
+
+        Example:
+            >>> host = _Dummy(None)
+            >>> host.conn is None
+            True
+
+
+        :param conn: Caller-owned SQLite connection; this helper does not close it.
+        :return: None; initializes the conn attribute.
+        """
         self.conn = conn
 
     def match_to_table_name(self, name: str) -> str:
+        """
+        Return the supplied table name unchanged without schema lookup.
+
+        Example:
+            >>> _Dummy(None).match_to_table_name('widgets')
+            'widgets'
+
+
+        :param name: Table name passed through unchanged.
+        :return: Original name argument.
+        """
         return name
 
 
 def test_intralink_builder_optional_columns_and_symmetric_types(tmp_path: pathlib.Path) -> None:
-    """Directly validate the shared intralink builder supports interlink-style extras."""
+    """
+    Build widget intralinks with metadata extras and type-specific ordering.
+
+    Checks optional columns and nullable source, rejects reversed equivalent links,
+    permits reversed derived_from links and rejects an unknown type. The final
+    foreign-key OFF request occurs inside a write transaction, so this case alone does
+    not prove that pragma was applied.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_intralink_symmetric_and_columns.py::test_intralink_builder_optional_columns_and_symmetric_types
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     conn = sqlite3.connect(str(tmp_path / "intralink_builder_cols.db"))
     try:

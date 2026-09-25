@@ -1,6 +1,23 @@
 # Regional / cultural buckets (keep separate from core genre mapping).
 # Order matters if you use first-match-wins: most specific first.
 
+"""
+Provide regional and cultural label patterns separately from core genre classification.
+
+Insertion order affects first-match consumers, and broad regions can overlap
+country-specific labels. These are text-label matches, not inferences about an
+author's identity. merge_mappings combines tables without compiling or applying
+their patterns.
+
+Map canonical labels to tuples of uncompiled regular-expression strings. Consumers
+choose regex flags, normalization, and first-match or multi-match policy; importing
+the module performs no classification.
+
+Example:
+    >>> import re
+    >>> any(re.search(pattern, 'Nordic Noir', re.IGNORECASE) for pattern in REGIONAL_BUCKET_MAPPING['Nordic Noir']) is not False
+    True
+"""
 REGIONAL_BUCKET_MAPPING = {
     # ---- Europe (specific sub-labels people actually type) ----
     "Nordic Noir": (
@@ -458,6 +475,20 @@ REGIONAL_BUCKET_MAPPING = {
 
 # Optional: helper for layering maps in a controlled order (later maps appended last)
 def merge_mappings(*maps: dict) -> dict:
+    """
+    Combine mappings from left to right with ordinary dictionary update semantics.
+
+    Later values replace earlier values for duplicate keys while preserving the key's
+    original position. The result is a new dictionary, but mapped values remain shared.
+
+    Example:
+        >>> merge_mappings({'a': 1, 'b': 2}, {'a': 3})
+        {'a': 3, 'b': 2}
+
+
+    :param maps: Mappings to update into the result in argument order.
+    :return: Merged dictionary; empty when no mappings are supplied.
+    """
     merged = {}
     for m in maps:
         merged.update(m)

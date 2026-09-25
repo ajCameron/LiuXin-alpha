@@ -1,3 +1,11 @@
+"""
+Check fixture discovery exclusions, extraction errors, and portable normalization of warning/context paths using temporary fixtures.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_fixture_libraries_meta.py
+"""
 from __future__ import annotations
 
 import json
@@ -15,6 +23,19 @@ from tests.databases.calibre_fixture_libraries import (
 
 
 def test_discover_calibre_fixtures_ignores_incomplete_and_hidden_dirs(tmp_path: Path) -> None:
+    """
+    Create complete, incomplete, and underscore-prefixed fixture directories and require only the complete visible fixture to be discovered.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_fixture_libraries_meta.py::test_discover_calibre_fixtures_ignores_incomplete_and_hidden_dirs
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :return: None; failed expectations raise AssertionError.
+    """
     data_root = tmp_path / "LiuXin_alpha_data"
     root = data_root / "calibre_libraries"
     root.mkdir(parents=True)
@@ -42,6 +63,19 @@ def test_discover_calibre_fixtures_ignores_incomplete_and_hidden_dirs(tmp_path: 
 
 def test_extract_library_zip_raises_when_metadata_db_is_missing(tmp_path: Path) -> None:
     # Make a zip with no metadata.db
+    """
+    Create a fixture ZIP without metadata.db and check extraction raises RuntimeError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_fixture_libraries_meta.py::test_extract_library_zip_raises_when_metadata_db_is_missing
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :return: None; failed expectations raise AssertionError.
+    """
     z = tmp_path / "library.zip"
     with zipfile.ZipFile(z, "w") as zf:
         zf.writestr("calibre_library/README.txt", "no db here")
@@ -60,6 +94,17 @@ def test_extract_library_zip_raises_when_metadata_db_is_missing(tmp_path: Path) 
 
 
 def test_normalize_snapshot_strips_temp_prefixes_from_warnings_and_contexts() -> None:
+    """
+    Normalize POSIX and Windows-style temporary paths and check schema, warning, and drift prefixes begin at calibre_library.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_fixture_libraries_meta.py::test_normalize_snapshot_strips_temp_prefixes_from_warnings_and_contexts
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     snap = {
         "schema": {"issues": [{"context": {"path": "/tmp/foo/calibre_library/A/B"}}]},
         "books": [

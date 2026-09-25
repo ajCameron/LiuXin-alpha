@@ -1,16 +1,15 @@
 """
-Step 04: Tag Browser "categories" (CalibreCache.get_categories)
+Check legacy tag-browser visibility for custom and composite fields.
 
-Drop into:
-    tests/databases/caches/test_calibre_cache_04_categories.py
+These tests require LIUXIN_ENABLE_LEGACY_CALIBRE_CACHE_TESTS to be truthy and retain
+assumptions about the deprecated Calibre-shaped schema. They skip at module import
+by default under the FRBR-first schema. Enabling the gate does not make the fixture
+schema compatible.
 
-What this covers:
-- Built-in + custom columns that are "categories" appear as keys in CalibreCache.get_categories().
-- Custom columns attached to non-books tables are NOT exposed as tag-browser categories.
-- Composite custom columns only appear as categories when make_category=True (and can yield values).
+Example:
+    Run with pytest::
 
-This step intentionally focuses on *category exposure rules* rather than deep correctness of
-per-field category generation (that can come later).
+        python -m pytest -q tests/databases/caches/test_calibre_cache_04_categories.py
 """
 
 from __future__ import annotations
@@ -52,14 +51,42 @@ from LiuXin_alpha.catalog.field_metadata import FieldMetadata
 
 class TestPrefs(dict):
     """
-    Tiny prefs shim used by CalibreCache during init() and get_categories().
+    Provide explicit dictionary preferences with a separate fallback defaults mapping.
+
+    Example:
+        >>> prefs = TestPrefs({'flag': False})
+        >>> (prefs['flag'], 'flag' in prefs)
+        (False, False)
     """
 
     def __init__(self, defaults: dict | None = None):
+        """
+        Start with empty explicit storage and retain a truthy defaults mapping by reference.
+
+        Example:
+            >>> defaults = {'flag': False}
+            >>> TestPrefs(defaults).defaults is defaults
+            True
+
+
+        :param defaults: Fallback mapping; not copied when nonempty.
+        :return: None; false or absent defaults are replaced by a new empty dictionary.
+        """
         super().__init__()
         self.defaults = defaults or {}
 
     def __getitem__(self, key):
+        """
+        Read explicit storage first, then defaults, raising KeyError if both lack the key.
+
+        Example:
+            >>> TestPrefs({'x': 2})['x']
+            2
+
+
+        :param key: Preference key to look up or store.
+        :return: Stored or default preference value.
+        """
         if key in self:
             return super().__getitem__(key)
         if key in self.defaults:
@@ -67,23 +94,85 @@ class TestPrefs(dict):
         raise KeyError(key)
 
     def get(self, key, default=None):
+        """
+        Read explicit storage or defaults, otherwise return the supplied fallback.
+
+        Example:
+            >>> TestPrefs().get('missing', 3)
+            3
+
+
+        :param key: Preference key to look up or store.
+        :param default: Fallback returned when neither explicit storage nor defaults
+            contains the key.
+        :return: Preference value or fallback; missing keys do not raise KeyError.
+        """
         if key in self:
             return super().get(key)
         return self.defaults.get(key, default)
 
     def set(self, key, value) -> None:
+        """
+        Assign a preference into explicit dictionary storage.
+
+        Example:
+            >>> prefs = TestPrefs({'x': 2})
+            >>> prefs.set('x', 4)
+            >>> prefs['x']
+            4
+
+
+        :param key: Preference key to look up or store.
+        :param value: Preference value to store without conversion.
+        :return: None; does not persist outside this in-memory shim.
+        """
         self[key] = value
 
 
 class DummyFSM:
     """
-    Minimal fsm used by formats/covers/path tables during init().
+    Produce deterministic dummy path strings without reading or creating assets.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_04_categories.py
     """
 
     def __init__(self, root: Path):
+        """
+        Convert and retain the root as a Path without creating it.
+
+        Example:
+            >>> DummyFSM('root').root == Path('root')
+            True
+
+
+        :param root: Base path for synthesized dummy locations.
+        :return: None.
+        """
         self.root = Path(root)
 
     def get_loc(self, *args, **kwargs):
+        """
+        Select a row from arguments and synthesize a location from its first recognized ID.
+
+        book_folder_row overrides asset_row, which overrides the first positional argument,
+        including explicit None values. For dictionaries try file_id, cover_id, folder_id,
+        then id; unrecognized rows use unknown.
+
+        Example:
+            >>> DummyFSM('root').get_loc({'file_id': 7}) == str(Path('root') / 'file_id_7')
+            True
+            >>> DummyFSM('root').get_loc() is None
+            True
+
+
+        :param args: Optional positional values; only the first supplies a candidate row.
+        :param kwargs: Optional asset_row or book_folder_row values; other keywords are
+            ignored.
+        :return: Path string, or None when the selected row is None.
+        """
         row = None
         if args:
             row = args[0]
@@ -100,7 +189,20 @@ class DummyFSM:
 
 def _get_provision_fixture(request) -> Any:
     """
-    Support both fixture spellings used across the repo.
+    Try the named database provisioner before the older provisioning fixture name.
+
+    Only FixtureLookupError from a lookup triggers the fallback. If both lookups fail,
+    attempt to construct a final FixtureLookupError with the diagnostic message; other
+    errors propagate.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_04_categories.py
+
+
+    :param request: Pytest request used to resolve a provisioning fixture by name.
+    :return: First resolved fixture value; does not return when both lookups fail.
     """
     for name in ("provision_named_test_database", "provision_test_database"):
         try:
@@ -115,8 +217,21 @@ def _get_provision_fixture(request) -> Any:
 @pytest.fixture()
 def calibre_backend_db(tmp_path: Path, request):
     """
-    A Database instance with the minimum shims CalibreCache expects.
-    Uses test_db_0 by default.
+    Provision test_db_0 and attach the legacy cache tables, lock, filesystem, preferences, and metadata shims.
+
+    Return an open Database without a local cleanup finalizer. On TypeError, retry
+    provisioning without dst_dir.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_04_categories.py
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :param request: Pytest request used to resolve a provisioning fixture by name.
+    :return: Database configured as a legacy CalibreCache backend.
     """
     provision = _get_provision_fixture(request)
 
@@ -149,6 +264,23 @@ def calibre_backend_db(tmp_path: Path, request):
     db.restore_all_prefs = False
 
     def _init_prefs(default_prefs=None, restore_all_prefs=False, progress_callback=None):
+        """
+        Merge truthy defaults, materialize missing explicit keys, and optionally report the defaults count.
+
+        Existing explicit preferences remain unchanged. For any non-None defaults, call a
+        callable progress callback with (None, len(default_prefs)); ignore the restore flag.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/caches/test_calibre_cache_04_categories.py
+
+
+        :param default_prefs: Optional mapping of fallback preferences to merge.
+        :param restore_all_prefs: Accepted for legacy call compatibility; unused.
+        :param progress_callback: Optional callable receiving the defaults count.
+        :return: None; mutates the enclosing database preferences.
+        """
         if default_prefs:
             db.prefs.defaults.update(default_prefs)
             for k, v in default_prefs.items():
@@ -173,7 +305,17 @@ def calibre_backend_db(tmp_path: Path, request):
 
 def _refresh_backend_custom_columns(db: Database) -> None:
     """
-    Ensure db.custom_columns exists and has populated FieldMetadata entries for custom fields.
+    Replace db.custom_columns with a fresh helper that populates the supplied FieldMetadata.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_04_categories.py
+
+
+    :param db: Caller-owned Database to inspect or mutate; this helper does not close
+        it.
+    :return: None; updates the caller-owned database helper and metadata.
     """
     db.custom_columns = CustomColumns(db=db, field_metadata=db.field_metadata)
 
@@ -190,8 +332,27 @@ def _create_custom_column(
     make_category: bool = True,
 ) -> int:
     """
-    Create a calibre-style custom column (row in custom_columns + underlying tables),
-    then refresh db metadata so CalibreCache can see those tables/fields.
+    Create an editable custom column, refresh database metadata, and rebuild the backend custom-column helper.
+
+    Creation mutates the database and propagates errors; the caller owns the database
+    connection. The caller chooses its owning relation and category flag.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_04_categories.py
+
+
+    :param db: Caller-owned Database to inspect or mutate; this helper does not close
+        it.
+    :param label: Internal custom-column label.
+    :param datatype: Custom-column datatype passed to the creation API.
+    :param is_multiple: Whether the column stores multiple values.
+    :param display: Display mapping; false values are replaced by an empty dictionary.
+    :param name: Display name; false values fall back to UT plus the label.
+    :param table: Owning relation, defaulting to books.
+    :param make_category: Whether to request category exposure, defaulting to True.
+    :return: Integer ID returned by custom-column creation.
     """
     cc = CustomColumns(db=db, field_metadata=db.field_metadata)
 
@@ -214,16 +375,39 @@ def _create_custom_column(
 
 
 def _insert_minimal_book(db, title: str = "Ganymede") -> int:
-    """Ensure at least one "book-ish" entity exists.
+    """
+    Insert a linked work, expression, manifestation, and digital item for category computation.
 
-    In the FRBR-first schema, `books` is a compatibility *view* derived from the
-    canonical Work->Expression->Manifestation graph.
+    Write FRBR rows directly through the wrapper using SQLite last-insert IDs; do not
+    explicitly commit or close the caller-owned database.
 
-    For category/composite tests we just need there to be at least one title
-    and at least one ray.
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_04_categories.py
+
+
+    :param db: Caller-owned Database to inspect or mutate; this helper does not close
+        it.
+    :param title: Work title used verbatim for title/canonical title and lowercased for
+        sort title; defaults to Ganymede.
+    :return: Integer ID of the new work.
     """
 
     def _insert_and_lastrowid(sql: str, params: tuple) -> int:
+        """
+        Execute an insert and retrieve SQLite last_insert_rowid through a cursor or iterator fallback.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/caches/test_calibre_cache_04_categories.py
+
+
+        :param sql: Insert SQL passed to the enclosing database wrapper.
+        :param params: Bound parameter tuple for the insert.
+        :return: Integer ID from the first result cell; empty or incompatible results raise.
+        """
         db.driver_wrapper.execute(sql, params)
         cur = db.driver_wrapper.execute("SELECT last_insert_rowid();")
         try:
@@ -279,9 +463,17 @@ def _insert_minimal_book(db, title: str = "Ganymede") -> int:
 
 def _cat_name(x: Any) -> str:
     """
-    Category items can be Tag-like objects (with .name) or plain strings.
+    Normalize a category item using its string value, non-None name attribute, or str fallback.
 
-    Normalize to a comparable string.
+    Example:
+        >>> _cat_name('Ganymede')
+        'Ganymede'
+        >>> _cat_name(7)
+        '7'
+
+
+    :param x: String or category-like object to normalize.
+    :return: Comparable string representation.
     """
     if isinstance(x, str):
         return x
@@ -296,6 +488,19 @@ def _cat_name(x: Any) -> str:
 
 
 def test_get_categories_includes_custom_column_when_make_category_true(calibre_backend_db):
+    """
+    Check a books custom category appears under its hash-prefixed label with a list value.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_04_categories.py::test_get_categories_includes_custom_column_when_make_category_true
+
+
+    :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
+        shims; the local fixture has no close finalizer.
+    :return: None; failed expectations raise AssertionError.
+    """
     db = calibre_backend_db
 
     _create_custom_column(
@@ -320,6 +525,19 @@ def test_get_categories_includes_custom_column_when_make_category_true(calibre_b
 
 
 def test_get_categories_excludes_custom_columns_attached_to_non_books_tables(calibre_backend_db):
+    """
+    Check a category-enabled custom column on titles is absent from the legacy books tag browser.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_04_categories.py::test_get_categories_excludes_custom_columns_attached_to_non_books_tables
+
+
+    :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
+        shims; the local fixture has no close finalizer.
+    :return: None; failed expectations raise AssertionError.
+    """
     db = calibre_backend_db
 
     # Attach a custom column to 'titles' (non-books). It should not appear in Tag Browser categories.
@@ -342,6 +560,19 @@ def test_get_categories_excludes_custom_columns_attached_to_non_books_tables(cal
 
 
 def test_composite_custom_column_respects_make_category_and_can_generate_category_values(calibre_backend_db):
+    """
+    Check the category flag controls composite visibility and the enabled title template yields Ganymede.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_04_categories.py::test_composite_custom_column_respects_make_category_and_can_generate_category_values
+
+
+    :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
+        shims; the local fixture has no close finalizer.
+    :return: None; failed expectations raise AssertionError.
+    """
     db = calibre_backend_db
 
     # Ensure at least one book exists so composite categories have something to compute.

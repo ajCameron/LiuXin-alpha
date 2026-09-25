@@ -1,8 +1,31 @@
+"""
+Check generated book folders, format/cover presence, stored title/path, and insertions that exercise Calibre trigger functions.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_library_builder.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
 
 def test_builder_can_add_book_and_files(provision_populated_calibre_library):
+    """
+    Add a book and check a positive ID, nested relative path, folder/file presence, format size, and stored title/path.
+
+    The selected has_cover value and exact file contents are not asserted.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_library_builder.py::test_builder_can_add_book_and_files
+
+
+    :param provision_populated_calibre_library: Fixture factory returning an isolated
+        blank library and a builder for adding books; requires FTS5.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib, builder = provision_populated_calibre_library(name="calibre_lib_builder")
 
     # Minimal valid JPEG (SOI + EOI) is enough for file presence testing.
@@ -48,7 +71,19 @@ def test_builder_can_add_book_and_files(provision_populated_calibre_library):
 
 
 def test_builder_inserts_dont_trip_calibre_triggers(provision_populated_calibre_library):
-    """Regression: Calibre triggers reference title_sort()/uuid4()."""
+    """
+    Insert a PDF-bearing book through the builder and require a positive ID, exercising trigger-referenced functions without an exception.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_library_builder.py::test_builder_inserts_dont_trip_calibre_triggers
+
+
+    :param provision_populated_calibre_library: Fixture factory returning an isolated
+        blank library and a builder for adding books; requires FTS5.
+    :return: None; failed expectations raise AssertionError.
+    """
     _lib, builder = provision_populated_calibre_library(name="calibre_lib_triggers")
     added = builder.add_book(title="A Trigger Test", authors=["A. UDF"], formats={"PDF": b"%PDF-1.4\n"})
     assert added.book_id > 0

@@ -1,26 +1,15 @@
 """
-Step 03: CalibreCache custom columns bootstrap (single drop-in file)
+Check legacy custom-column bootstrap, table registration, and cleanup.
 
-Drop into:
-    tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py
+These tests require LIUXIN_ENABLE_LEGACY_CALIBRE_CACHE_TESTS to be truthy and retain
+assumptions about the deprecated Calibre-shaped schema. They skip at module import
+by default under the FRBR-first schema. Enabling the gate does not make the fixture
+schema compatible.
 
-What it checks:
-- initialize_custom_columns() loads custom column metadata into backend maps
-  (custom_column_label_map / custom_column_num_map), builds multiple separators,
-  registers custom_data_adapters, and creates the TEMP delete trigger when needed.
-- initialize_tables() registers custom columns as the appropriate table classes:
-    * normalized + is_multiple -> CalibreManyToManyTable
-    * normalized + single      -> CalibreManyToOneTable
-    * non-normalized           -> CalibreOneToOneTable
-    * series adds an *_index one-to-one table (expected shape)
-- custom columns marked for delete are removed (tables dropped + row deleted)
-  and the pref 'update_all_last_mod_dates_on_start' is set True.
-- orphaned custom column records (missing required tables) are removed.
+Example:
+    Run with pytest::
 
-Assumptions:
-- Repo provides one of:
-    provision_named_test_database(name=..., dst_dir=...)
-    provision_test_database(name=..., dst_dir=...)  (or legacy provision_test_database(name=...))
+        python -m pytest -q tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py
 """
 
 from __future__ import annotations
@@ -66,13 +55,43 @@ from LiuXin_alpha.library.caches.calibre.tables.many_many_tables.many_to_many_ta
 
 
 class TestPrefs(dict):
-    """Tiny prefs shim used by CalibreCache during init()."""
+    """
+    Provide explicit dictionary preferences with a separate fallback defaults mapping.
+
+    Example:
+        >>> prefs = TestPrefs({'flag': False})
+        >>> (prefs['flag'], 'flag' in prefs)
+        (False, False)
+    """
 
     def __init__(self, defaults: dict | None = None):
+        """
+        Start with empty explicit storage and retain a truthy defaults mapping by reference.
+
+        Example:
+            >>> defaults = {'flag': False}
+            >>> TestPrefs(defaults).defaults is defaults
+            True
+
+
+        :param defaults: Fallback mapping; not copied when nonempty.
+        :return: None; false or absent defaults are replaced by a new empty dictionary.
+        """
         super().__init__()
         self.defaults = defaults or {}
 
     def __getitem__(self, key):
+        """
+        Read explicit storage first, then defaults, raising KeyError if both lack the key.
+
+        Example:
+            >>> TestPrefs({'x': 2})['x']
+            2
+
+
+        :param key: Preference key to look up or store.
+        :return: Stored or default preference value.
+        """
         if key in self:
             return super().__getitem__(key)
         if key in self.defaults:
@@ -80,21 +99,85 @@ class TestPrefs(dict):
         raise KeyError(key)
 
     def get(self, key, default=None):
+        """
+        Read explicit storage or defaults, otherwise return the supplied fallback.
+
+        Example:
+            >>> TestPrefs().get('missing', 3)
+            3
+
+
+        :param key: Preference key to look up or store.
+        :param default: Fallback returned when neither explicit storage nor defaults
+            contains the key.
+        :return: Preference value or fallback; missing keys do not raise KeyError.
+        """
         if key in self:
             return super().get(key)
         return self.defaults.get(key, default)
 
     def set(self, key, value) -> None:
+        """
+        Assign a preference into explicit dictionary storage.
+
+        Example:
+            >>> prefs = TestPrefs({'x': 2})
+            >>> prefs.set('x', 4)
+            >>> prefs['x']
+            4
+
+
+        :param key: Preference key to look up or store.
+        :param value: Preference value to store without conversion.
+        :return: None; does not persist outside this in-memory shim.
+        """
         self[key] = value
 
 
 class DummyFSM:
-    """Minimal fsm used by formats/covers/path tables during init()."""
+    """
+    Produce deterministic dummy path strings without reading or creating assets.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py
+    """
 
     def __init__(self, root: Path):
+        """
+        Convert and retain the root as a Path without creating it.
+
+        Example:
+            >>> DummyFSM('root').root == Path('root')
+            True
+
+
+        :param root: Base path for synthesized dummy locations.
+        :return: None.
+        """
         self.root = Path(root)
 
     def get_loc(self, *args, **kwargs):
+        """
+        Select a row from arguments and synthesize a location from its first recognized ID.
+
+        book_folder_row overrides asset_row, which overrides the first positional argument,
+        including explicit None values. For dictionaries try file_id, cover_id, folder_id,
+        then id; unrecognized rows use unknown.
+
+        Example:
+            >>> DummyFSM('root').get_loc({'file_id': 7}) == str(Path('root') / 'file_id_7')
+            True
+            >>> DummyFSM('root').get_loc() is None
+            True
+
+
+        :param args: Optional positional values; only the first supplies a candidate row.
+        :param kwargs: Optional asset_row or book_folder_row values; other keywords are
+            ignored.
+        :return: Path string, or None when the selected row is None.
+        """
         row = None
         if args:
             row = args[0]
@@ -110,7 +193,22 @@ class DummyFSM:
 
 
 def _get_provision_fixture(request) -> Any:
-    """Support both fixture spellings used across the repo."""
+    """
+    Try the named database provisioner before the older provisioning fixture name.
+
+    Only FixtureLookupError from a lookup triggers the fallback. If both lookups fail,
+    attempt to construct a final FixtureLookupError with the diagnostic message; other
+    errors propagate.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py
+
+
+    :param request: Pytest request used to resolve a provisioning fixture by name.
+    :return: First resolved fixture value; does not return when both lookups fail.
+    """
     for name in ("provision_named_test_database", "provision_test_database"):
         try:
             return request.getfixturevalue(name)
@@ -124,8 +222,21 @@ def _get_provision_fixture(request) -> Any:
 @pytest.fixture()
 def calibre_backend_db(tmp_path: Path, request):
     """
-    A Database instance with the minimum shims CalibreCache expects.
-    Uses test_db_0 by default.
+    Provision test_db_0 and attach the legacy cache tables, lock, filesystem, preferences, and metadata shims.
+
+    Return an open Database without a local cleanup finalizer. On TypeError, retry
+    provisioning without dst_dir.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :param request: Pytest request used to resolve a provisioning fixture by name.
+    :return: Database configured as a legacy CalibreCache backend.
     """
     provision = _get_provision_fixture(request)
 
@@ -153,6 +264,23 @@ def calibre_backend_db(tmp_path: Path, request):
     db.restore_all_prefs = False
 
     def _init_prefs(default_prefs=None, restore_all_prefs=False, progress_callback=None):
+        """
+        Merge truthy defaults, materialize missing explicit keys, and optionally report the defaults count.
+
+        Existing explicit preferences remain unchanged. For any non-None defaults, call a
+        callable progress callback with (None, len(default_prefs)); ignore the restore flag.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py
+
+
+        :param default_prefs: Optional mapping of fallback preferences to merge.
+        :param restore_all_prefs: Accepted for legacy call compatibility; unused.
+        :param progress_callback: Optional callable receiving the defaults count.
+        :return: None; mutates the enclosing database preferences.
+        """
         if default_prefs:
             db.prefs.defaults.update(default_prefs)
             for k, v in default_prefs.items():
@@ -173,7 +301,19 @@ def calibre_backend_db(tmp_path: Path, request):
 
 @pytest.fixture()
 def live_calibre_cache(calibre_backend_db):
-    """A fully initialized CalibreCache instance."""
+    """
+    Construct the legacy cache, call init, and return it without a local close finalizer.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py
+
+
+    :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
+        shims; the local fixture has no close finalizer.
+    :return: Initialized CalibreCache; setup errors propagate.
+    """
     cache = CalibreCache(backend=calibre_backend_db)
     cache.init()
     return cache
@@ -185,7 +325,17 @@ def live_calibre_cache(calibre_backend_db):
 
 def _refresh_backend_custom_columns(db: Database) -> None:
     """
-    Ensure db.custom_columns exists and has populated FieldMetadata entries for custom fields.
+    Replace db.custom_columns with a fresh helper that populates the supplied FieldMetadata.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py
+
+
+    :param db: Caller-owned Database to inspect or mutate; this helper does not close
+        it.
+    :return: None; updates the caller-owned database helper and metadata.
     """
     # Do not pass a connection object; CustomColumns resolves a live one from db.driver.conn.
     db.custom_columns = CustomColumns(db=db, field_metadata=db.field_metadata)
@@ -201,8 +351,25 @@ def _create_custom_column(
     name: Optional[str] = None,
 ) -> int:
     """
-    Create a calibre-style custom column (row in custom_columns + underlying tables),
-    then refresh db metadata so CalibreCache.initialize_custom_columns can see those tables.
+    Create an editable custom column, refresh database metadata, and rebuild the backend custom-column helper.
+
+    Creation mutates the database and propagates errors; the caller owns the database
+    connection. The column belongs to books and requests category exposure.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py
+
+
+    :param db: Caller-owned Database to inspect or mutate; this helper does not close
+        it.
+    :param label: Internal custom-column label.
+    :param datatype: Custom-column datatype passed to the creation API.
+    :param is_multiple: Whether the column stores multiple values.
+    :param display: Display mapping; false values are replaced by an empty dictionary.
+    :param name: Display name; false values fall back to UT plus the label.
+    :return: Integer ID returned by custom-column creation.
     """
     # Use a short-lived CustomColumns instance for creation; it doesn't auto-refresh FieldMetadata afterwards.
     # Do not pass a connection object; CustomColumns resolves a live one from db.driver.conn.
@@ -230,6 +397,21 @@ def _create_custom_column(
 
 
 def _temp_trigger_names(db: Database) -> set[str]:
+    """
+    Read temporary SQLite trigger names from mapping or positional result rows.
+
+    Ignore positional extraction errors and remove None names; query errors propagate.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py
+
+
+    :param db: Caller-owned Database to inspect or mutate; this helper does not close
+        it.
+    :return: Set of extracted trigger names.
+    """
     rows = db.driver_wrapper.execute(
         "SELECT name FROM sqlite_temp_master WHERE type='trigger'"
     )
@@ -252,6 +434,19 @@ def _temp_trigger_names(db: Database) -> set[str]:
 
 
 def test_initialize_custom_columns_builds_maps_seps_trigger_and_adapters(calibre_backend_db):
+    """
+    Check custom label metadata, name separators, required datatype adapters, and the temporary book-delete trigger.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py::test_initialize_custom_columns_builds_maps_seps_trigger_and_adapters
+
+
+    :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
+        shims; the local fixture has no close finalizer.
+    :return: None; failed expectations raise AssertionError.
+    """
     db = calibre_backend_db
 
     # Create one multi-value text custom column, marked as "names"
@@ -292,6 +487,19 @@ def test_initialize_custom_columns_builds_maps_seps_trigger_and_adapters(calibre
 
 
 def test_initialize_tables_registers_custom_columns_with_expected_table_classes(calibre_backend_db):
+    """
+    Check custom field keys, selected relation-table classes, link-table names, and series-index metadata.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py::test_initialize_tables_registers_custom_columns_with_expected_table_classes
+
+
+    :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
+        shims; the local fixture has no close finalizer.
+    :return: None; failed expectations raise AssertionError.
+    """
     db = calibre_backend_db
 
     # Many-to-many (normalized + multiple)
@@ -361,6 +569,19 @@ def test_initialize_tables_registers_custom_columns_with_expected_table_classes(
 
 
 def test_mark_for_delete_drops_tables_deletes_row_and_sets_pref(calibre_backend_db):
+    """
+    Mark a normalized custom column for deletion and check its metadata row and backing tables disappear and the last-modified preference is set.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py::test_mark_for_delete_drops_tables_deletes_row_and_sets_pref
+
+
+    :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
+        shims; the local fixture has no close finalizer.
+    :return: None; failed expectations raise AssertionError.
+    """
     db = calibre_backend_db
 
     num = _create_custom_column(
@@ -408,6 +629,19 @@ def test_mark_for_delete_drops_tables_deletes_row_and_sets_pref(calibre_backend_
 
 
 def test_orphaned_custom_column_record_is_removed(calibre_backend_db):
+    """
+    Insert custom-column metadata without its backing tables and check bootstrap removes the orphaned row.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_03_custom_columns_bootstrap.py::test_orphaned_custom_column_record_is_removed
+
+
+    :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
+        shims; the local fixture has no close finalizer.
+    :return: None; failed expectations raise AssertionError.
+    """
     db = calibre_backend_db
 
     orphan_id = 9001

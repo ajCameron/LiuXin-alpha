@@ -1,11 +1,12 @@
 # Complete project docstrings in bounded modules
 
-Status: **D106–D115 complete**, 2026-09-17. The latest request authorized ten
-additional units: **257 declarations in 25 complete files**, all verified.
-**Stop here; D116 is next only on a new request.** See the
-[latest ten-unit checkpoint](../working-memory/project-docstrings-d106-d115-2026-09-17.md).
-Earlier full-D/hundred-unit authorizations remain paused; they do not enable
-continuation beyond this completed batch.
+Status: **M007–M016 complete**, 2026-09-25. All **132 new declarations** across
+**21 complete files** are verified, including promotion of 40 previously reviewed
+utility declarations. All 152 regressions, 98 runnable examples, static checks,
+and full quality checks passed. **M017 is next** on a new request: ten declarations
+across three unchanged containers/API files.
+See the [batch checkpoint](../working-memory/project-docstrings-m007-m016-2026-09-25.md).
+D remains archived complete; M is the active bounded campaign.
 
 ## Baseline and navigation
 
@@ -16,15 +17,15 @@ P00's whole-project audit reported 23,003 missing/blank docstrings; existing doc
 also need review. These measures are different and must not be added together.
 
 Since that baseline, G01 and the completed C batches reached 722 complete files.
-After the [shim cleanup](shim-removal-plan.md) and D106–D115 continuation,
-the live D scope contains
-**115/232 verified units**,
-**2,836/5,685 declarations**
-and **153/374 complete files**.
-Current project coverage is **839/2,671 files**,
-**12,064 declarations in complete files**,
-plus **37 verified partial-file declarations**.
-Remaining: **1,832 files and 30,060 declarations**.
+After the [shim cleanup](shim-removal-plan.md) and subsequent continuations,
+**D is complete: 232/232 units, 5,685/5,685 declarations, 374/374 files**.
+The active M track has **16/274 verified units**, **316/7,198 declarations**,
+and **32/344 complete files** reviewed.
+Current manifest coverage is **1,092/2,671 file review records**,
+**15,229 declarations in complete files**, plus **37 verified partial-file declarations**.
+Remaining: **1,579 files and 26,895 declarations**. Source discovery found no
+new or missing paths; 28 out-of-scope storage hash changes are recorded in the
+latest checkpoint. D archive, milestones and file/unit records remain unchanged.
 
 The historical D095 checkpoint remains 95/232 units; source removals changed the
 live inventory rather than completing new documentation work. Removed scopes are
@@ -32,7 +33,7 @@ archived in the [reconciliation evidence](../working-memory/test-results/shim-re
 Affected files have new functional baselines in documentation-rebase.after.json;
 their original baseline hashes and historical documentation-only proofs are
 preserved. Do not replay old batch helpers with fixed file/declaration totals.
-The latest ten-unit continuation is complete, with D116 next only on request.
+The latest ten-unit batch is complete, with M017 next only on request.
 
 - [Exact work inventory](project-docstrings-work-units.json): stable module IDs,
   source hashes, exact file/declaration selections, prerequisites, and checkpoints.
@@ -49,6 +50,240 @@ examples, inherited code, preferences, and tracked submodule Python. Retain the
 completed native-C checkpoint separately. Ignored artifacts and anonymous lambdas
 are not named Python declarations to document.
 
+## Completed ten-unit metadata batch — M007–M016, 2026-09-25
+
+All 132 new declarations across 21 files are verified. All files are complete,
+including the prior 40-declaration utility slice. The
+[saved observations](../working-memory/test-results/docstrings-m007-m016-2026-09-25/observations.json)
+record 152 passing regressions, 98 passing runnable statements, and clean static
+and full quality checks. Standalone genre tables are validated through their own
+examples; the active classifier uses separate maps. All three M017 files remain
+unchanged. Inventory reconciliation preserves previous baselines and the D archive.
+
+## Completed ten-unit database/metadata batch — D229–D232 and M001–M006, 2026-09-25
+
+All 275 selected declarations across 23 files are verified: 22 complete files
+promoted, plus 40 declarations in partial metadata/utils.py. The
+[saved observations](../working-memory/test-results/docstrings-d229-m006-2026-09-25/observations.json)
+record 215 passing regressions, two existing view skips, and 140 passing runnable
+example statements. Source/complete-file checks, full quality, and track-boundary
+discovery passed. All seven M007 declarations are unchanged.
+The [D completion record](../working-memory/test-results/docstrings-d229-m006-2026-09-25/D-completion.json)
+confirms every D unit/file is reviewed and all 374 current source hashes match.
+The complete D campaign was archived at that checkpoint. M007–M016 subsequently completed above.
+
+## Completed ten-unit PostgreSQL/SQLite/driver-contract batch — D219–D228, 2026-09-25
+
+All 249 new declarations across 21 files are verified and all files promoted,
+including 77 previously reviewed PostgreSQL declarations. The
+[saved observations](../working-memory/test-results/docstrings-d219-d228-2026-09-25/observations.json)
+record 182 passing regressions, three existing skips and 40 passing runnable
+example statements. Full-file documentation checks, full quality checks and
+source discovery passed. Executable code, comments, gates and all four D229
+files were unchanged at that checkpoint. D229–D232/M001–M006 subsequently completed above.
+
+## Completed ten-unit Unicode/Calibre/PostgreSQL batch — D209–D218, 2026-09-25
+
+All 212 selected declarations across 25 files are verified: 24 complete files
+promoted and 77 declarations reviewed in the partial PostgreSQL backend file.
+The [saved observations](../working-memory/test-results/docstrings-d209-d218-2026-09-25/observations.json)
+record 209 passing regressions, two optional skips and 39 passing runnable example
+statements. Selected/complete-file checks, full quality checks and discovery
+passed. Executable code, comments, gates and all twenty D219 declarations are unchanged.
+D219–D228 subsequently completed the PostgreSQL file and the batch recorded above.
+
+## Completed ten-unit Database-contract batch — D199–D208, 2026-09-25
+
+All 270 declarations across 12 files are verified and all files promoted. The
+[saved observations](../working-memory/test-results/docstrings-d199-d208-2026-09-25/observations.json)
+record 402 passing regressions, 40 skips, 12 expected failures,
+0 non-strict unexpected passes, and 50 passing runnable example statements.
+Complete-file checks, configured quality checks and discovery passed. Executable
+code, comments and existing skip/xfail markers are unchanged.
+D209–D218 subsequently completed the batch recorded above.
+
+## Completed ten-unit cache/Database-contract batch — D189–D198, 2026-09-25
+
+All 290 declarations across 24 files are verified and all files promoted. The
+[saved observations](../working-memory/test-results/docstrings-d189-d198-2026-09-25/observations.json)
+record 331 passing regressions, 12 skips and 119 passing runnable
+example statements, including 92 isolated helper statements from six gated legacy
+integration modules. Complete-file checks, configured quality checks and discovery
+passed. Executable code, comments and integration gates are unchanged.
+D199–D208 subsequently completed the Database-contract batch recorded above.
+
+## Completed ten-unit database/API/cache-test batch — D179–D188, 2026-09-25
+
+All 271 new declarations across 16 files are verified and all files promoted,
+including the locking file whose 35 earlier declarations remain unchanged. The
+[saved observations](../working-memory/test-results/docstrings-d179-d188-2026-09-24/observations.json)
+record 309 passing regressions, two environment skips and 139 passing runnable
+example statements. Complete-file checks, full configured quality checks and
+source discovery passed. Executable code and comments are unchanged.
+D189–D198 subsequently completed the cache and Database-contract batch recorded above.
+
+## Completed ten-unit database-test batch — D169–D178, 2026-09-24
+
+All 256 selected declarations across 25 files are verified: 24 complete files
+promoted and 35 declarations reviewed in the partial locking-test file. The
+[saved observations](../working-memory/test-results/docstrings-d169-d178-2026-09-24/observations.json)
+record 141 passing regressions, one conditional skip and 180 passing runnable
+example statements. Selected/complete-file checks, full configured quality gates
+and source discovery passed. Executable code, comments and D179 docs are unchanged.
+D179–D188 subsequently completed the locking file and the batch recorded above.
+
+## Completed twenty-unit maintenance, metadata and test batch — D149–D168, 2026-09-24
+
+All 477 declarations across 45 files are reviewed and promoted. The
+[saved observations](../working-memory/test-results/docstrings-d149-d168-2026-09-24/observations.json)
+record 311 passing regressions, 2 skips, 2 expected failures, 339 passing runnable
+example statements and 211 explicitly skipped integration statements. Complete-file
+audit/normalizer checks, full configured quality gates and source discovery passed.
+Executable code and comments are unchanged. D169–D178 subsequently completed
+the database-test batch recorded above.
+
+## Completed ten-unit wrapper batch — D139–D148, 2026-09-24
+
+All 241 declarations across 13 driver-wrapper and API files are reviewed and
+promoted. The [saved observations](../working-memory/test-results/docstrings-d139-d148-2026-09-24/observations.json)
+record 638 passing regressions, 2 skips, 12 expected failures, 103 passing runnable examples and 199
+explicitly skipped integration statements. Complete-file audit/normalizer checks,
+full configured quality checks and source discovery passed. Executable code and
+comments are unchanged. D149–D168 subsequently completed the maintenance/metadata/test batch recorded above.
+
+## Completed ten-unit driver batch — D129–D138, 2026-09-24
+
+All 208 declarations across 19 APSW backend and driver API files are reviewed and
+promoted. The [saved observations](../working-memory/test-results/docstrings-d129-d138-2026-09-24/observations.json)
+record 185 passing regressions, 4 skips, 109 passing runnable examples and 157
+explicitly skipped integration statements. Complete-file audit/normalizer checks,
+full configured quality checks and source discovery passed. Executable code and
+comments are unchanged. D139–D148 subsequently completed the wrapper/API batch recorded above.
+
+## Completed SQLite concrete driver — D128, 2026-09-24
+
+All 15 declarations in SQLite/databasedriver/__init__.py are reviewed and the file
+is promoted. The [saved observations](../working-memory/test-results/docstrings-d128-2026-09-24/observations.json)
+record seven passing regressions, 44 passing runnable example statements, six
+explicitly skipped integration examples, complete-file audit/normalizer checks and
+full configured quality checks. Executable code and comments are unchanged.
+D129–D138 subsequently completed the APSW/API batch recorded above.
+
+## Completed SQLite plugin initializer — D127, 2026-09-22
+
+Both declarations in SQLite/__init__.py are reviewed and the file is promoted.
+The [saved observations](../working-memory/test-results/docstrings-d127-2026-09-22/observations.json)
+record one passing import regression, nine passing runnable example statements,
+complete-file audit/normalizer checks and full configured quality checks.
+Executable code and comments are unchanged. D128 subsequently completed the
+SQLite concrete driver, as recorded above.
+
+## Completed custom-column management macros — D126, 2026-09-22
+
+All 11 declarations in SQL/macros/cc_macros_mixin/cc_management_macros.py are
+reviewed and the file is promoted. The
+[saved observations](../working-memory/test-results/docstrings-d126-2026-09-22/observations.json)
+record 15 passing regression checks, 64 passing runnable example statements,
+complete-file audit/normalizer checks and full configured quality checks.
+Executable code and comments are unchanged. D127 subsequently completed the
+SQLite plugin initializer, as recorded above.
+
+## Completed custom-column macro facade — D125, 2026-09-22
+
+All 39 declarations in SQL/macros/cc_macros_mixin/__init__.py and
+cc_ensure_values_mixin.py are reviewed and both files are promoted. The
+[saved observations](../working-memory/test-results/docstrings-d125-2026-09-22/observations.json)
+record two passing macro API contract checks, 81 passing runnable example statements,
+complete-file audit/normalizer checks and full configured quality checks. Runtime
+examples use explicit hosts and in-memory SQLite; no full legacy application run is
+claimed. Executable code and comments are unchanged. D126 subsequently completed
+the management macro file, as recorded above.
+
+## Completed legacy temporary-table macros — D124, 2026-09-21
+
+All five declarations in SQL/macros/temp_tables_macros_mixin.py are reviewed and
+the file is promoted. The
+[saved observations](../working-memory/test-results/docstrings-d124-2026-09-21/observations.json)
+record one passing SQLite regression, 37 passing runnable example statements,
+complete-file audit/normalizer checks and full configured quality checks.
+Executable code and comments are unchanged. D125 subsequently completed the
+custom-column macro facade and ensure-value mixin, as recorded above.
+
+## Completed portable SQL macro file — D123, 2026-09-21
+
+The remaining 36 declarations in SQL/macros/portable_macros_mixin.py are verified;
+all 76 declarations across D122 and D123 are reviewed and the file is promoted.
+The [saved observations](../working-memory/test-results/docstrings-d123-2026-09-21/observations.json)
+record 21 passing regressions, one expected pg_temp harness skip, 92 passing
+runnable example statements (45 from D123), complete-file audit/normalizer checks
+and full configured quality checks. Executable code, comments and D122 docstrings
+are unchanged. D124 subsequently completed the legacy temporary-table macro file,
+as recorded above.
+
+## Completed portable SQL macro selection — D122, 2026-09-21
+
+The first 40 declarations in SQL/macros/portable_macros_mixin.py are verified.
+The file was partial at this checkpoint; D123 subsequently completed the remaining
+36 declarations and promoted it as recorded above. The
+[saved observations](../working-memory/test-results/docstrings-d122-2026-09-21/observations.json)
+record seven passing focused regressions, 47 passing runnable example statements,
+selected audit/normalizer checks and full configured quality checks. Executable
+code, comments and the then-unselected D123 docstrings were unchanged.
+
+## Completed SQL macro continuation — D121, 2026-09-20
+
+All 32 declarations in SQL/macros/__init__.py and hash_tables_macros_mixin.py
+are reviewed and both files are promoted. The
+[saved observations](../working-memory/test-results/docstrings-d121-2026-09-20/observations.json)
+record three passing focused regressions, 28 passing runnable example statements,
+complete-file audit/normalizer checks and full configured quality checks.
+Executable code and comments are unchanged. D122 subsequently completed the first
+portable macro selection, as recorded above.
+
+## Completed SQL view continuation — D120, 2026-09-20
+
+All four declarations in SQL/databasedriver/view_mixin.py are reviewed and the
+file is promoted. The
+[saved observations](../working-memory/test-results/docstrings-d120-2026-09-20/observations.json)
+record one passing SQLite view round-trip regression, nine passing runnable
+example statements, complete-file audit/normalizer checks and full configured
+quality checks. Executable code and comments are unchanged. D121 subsequently
+completed the SQL macros package and hash-table mixin, as recorded above.
+
+## Completed SQL value-casting continuation — D119, 2026-09-20
+
+Four remaining methods in SQL/databasedriver/value_casting_mixin.py are verified;
+the file is now promoted with all 44 declarations reviewed. The
+[saved observations](../working-memory/test-results/docstrings-d119-2026-09-20/observations.json)
+record two passing SQLite regressions, 36 passing runnable examples (26 new),
+complete-file audit/normalizer checks and full configured quality checks.
+Executable code, comments and the D118 docstrings are unchanged. D120 subsequently
+completed the SQL view helpers, as recorded above.
+
+## Completed SQL column-policy continuation — D118, 2026-09-20
+
+Forty declarations in SQL/databasedriver/value_casting_mixin.py are verified.
+The [saved observations](../working-memory/test-results/docstrings-d118-2026-09-20/observations.json)
+retain exact scope, source hashes and commands. Twelve SQLite regressions, ten
+runnable examples and the configured quality gates passed. Executable AST and
+comments are unchanged; no Ruff findings were added.
+
+The file remained partial at this checkpoint; D119 subsequently completed and
+promoted it as recorded above. This resume followed the one-module contract.
+
+## Completed SQL utility continuation — D116–D117, 2026-09-20
+
+Both selections in SQL/databasedriver/utils.py are verified: 56 declarations,
+including nested aggregate callbacks. [Saved observations](../working-memory/test-results/docstrings-d116-d117-2026-09-19/campaign.json)
+retain exact scope and the original baseline.
+
+Verification: two focused SQLite regressions and 85 runnable examples passed;
+complete-file documentation checks and configured quality gates passed.
+One initial example was corrected to document existing byte-input restrictions
+in the collation helper. Executable ASTs and comments are unchanged.
+D118 was the next queued unit at that checkpoint and is now recorded above.
+This utility batch did not resume earlier broad authorizations.
+
 ## Completed SQL continuation — D106–D115, 2026-09-17
 
 Shared SQL support, Calibre/FRBR builders and common driver mixins are complete.
@@ -58,8 +293,8 @@ The FRBR generator was promoted after both assigned units passed.
 Verification: 139 focused regressions passed, three skipped, 35 runnable examples
 passed, full configured quality gates passed, and all 257 declarations are clean.
 Executable ASTs and comments are unchanged; no Ruff findings were added.
-D116 (SQL driver utility functions, first selection) remains queued. This request
-covered exactly ten units and does not resume older broad batches.
+D116 was the next queued unit at that checkpoint; the utility continuation is
+recorded above. That request covered exactly ten units.
 
 ## Previous ten-unit continuation — D096–D105, 2026-09-17
 

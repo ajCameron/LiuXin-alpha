@@ -91,6 +91,8 @@ class CompositeDigitalAssetMemberResolution:
     """
     Pair one complete membership relationship with its selected atomic Asset and Replica.
 
+    For a complete, composite digital asset
+
     Role, names, path, position, and required status remain available through membership.
     Construction checks membership-to-Asset ID agreement without assessing physical readability or
     membership in a particular Composite record.

@@ -91,6 +91,8 @@ and outstanding work, not as a replacement for the subsystem guides.
 These documents provide context and proposals; check the current owner, tests,
 and dated handoff before treating a sketch as a shipped contract.
 
+- [Top-level architecture review](top-level-architecture-review.md): dated findings
+  on subsystem ownership, configuration and plugin naming.
 - [Project motivation](<01 - Introduction.md>), [top-level module notes](top-level-modules-notes.md),
   [earlier separation model](seperation_of_concerns.md),
   [ideas](thoughts.md), and [cross-project TODOs](global_todo.md).

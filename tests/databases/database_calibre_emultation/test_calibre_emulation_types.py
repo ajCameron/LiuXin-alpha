@@ -1,4 +1,11 @@
-"""Stage A1 tests for Calibre emulation reader types."""
+"""
+Check Calibre reader value-object path conventions, selected serialized fields, JSON compatibility, and one frozen-field assignment.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+"""
 
 from __future__ import annotations
 
@@ -20,6 +27,19 @@ from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import (
 
 
 def test_calibre_library_paths_from_root(tmp_path: Path) -> None:
+    """
+    Check metadata, notes, and full-text paths derived from a library root and require JSON serialization of the path mapping.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py::test_calibre_library_paths_from_root
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :return: None; failed expectations raise AssertionError.
+    """
     root = tmp_path / "My Calibre Library"
     paths = CalibreLibraryPaths.from_root(root)
 
@@ -33,6 +53,17 @@ def test_calibre_library_paths_from_root(tmp_path: Path) -> None:
 
 
 def test_schema_info_to_dict_is_json_serialisable() -> None:
+    """
+    Serialize schema metadata with a Unicode custom-column display value and check version/datatype fields plus JSON compatibility.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py::test_schema_info_to_dict_is_json_serialisable
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     cc = CalibreCustomColumnDef(
         num=7,
         label="my_col",
@@ -58,6 +89,19 @@ def test_schema_info_to_dict_is_json_serialisable() -> None:
 
 
 def test_book_row_and_normalized_to_dict_are_json_serialisable(tmp_path: Path) -> None:
+    """
+    Build raw and normalized book objects with nested references and require their mappings to serialize as JSON.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py::test_book_row_and_normalized_to_dict_are_json_serialisable
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :return: None; failed expectations raise AssertionError.
+    """
     fmt = CalibreFormatRef(fmt="EPUB", file_path=tmp_path / "book.epub", size_bytes=12)
     series = CalibreSeriesRef(name="The Saga", index=2.0)
 
@@ -98,6 +142,17 @@ def test_book_row_and_normalized_to_dict_are_json_serialisable(tmp_path: Path) -
 
 
 def test_types_are_frozen() -> None:
+    """
+    Attempt to replace CalibreLibraryPaths.library_root and require an exception, without checking its exact class or other dataclasses.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py::test_types_are_frozen
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     paths = CalibreLibraryPaths.from_root(Path("/tmp/x"))
     with pytest.raises(Exception):
         # frozen dataclass should not allow setting

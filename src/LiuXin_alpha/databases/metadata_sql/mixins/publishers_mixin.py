@@ -1,4 +1,11 @@
-"""Metadata SQL macros for publisher catalogue rows."""
+"""
+Provide metadata SQL operations for publishers.
+
+These helpers target the stored schema named in their SQL. The host supplies db
+and/or execution methods. Per-method notes distinguish explicit live-connection
+commits from delegated transaction handling; filesystem assets are never moved by
+these helpers.
+"""
 
 
 
@@ -7,13 +14,28 @@ from LiuXin_alpha.errors import DatabaseDriverError
 
 class CMPublisherMacros:
     """
-    Macros for interacting with Publishers.
+    Implement the publishers operations used by MetadataSQL.
+
+    Requires a compatible owner database or host query methods. Backend/schema errors
+    propagate except where a method explicitly documents suppression.
+
+    Example:
+        >>> metadata_sql.link_publisher_to_null_publisher_row(1)  # doctest: +SKIP
     """
     def link_publisher_to_null_publisher_row(self, title_id):
         """
-        Link the null publisher row to a title with maximum priorityt.
-        :param title_id:
-        :return:
+        Insert a publisher-ID-zero link using global maximum priority plus one.
+
+        An empty link table yields NULL priority. Suppresses every DatabaseDriverError as if
+        a null link already existed, including unrelated driver failures.
+
+        Example:
+            >>> metadata_sql.link_publisher_to_null_publisher_row(1)  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :return: None.
         """
         # Nullify the publisher - by linking it to the null pub row
         stmt = (

@@ -1,24 +1,14 @@
-"""Database contract: Calibre-style custom columns (custom_column_N tables).
+"""
+Check Calibre-style custom-column creation, relations, constraints, and deletion on insertable schema tables.
 
-This suite targets the Database-level custom column APIs implemented via:
+Map legacy books requests to an available concrete FRBR table when needed. The tests
+refresh Database custom-table metadata after creation and exercise Unicode and
+SQL-looking data without changing fixture SQL.
 
-* ``CustomColumnsDriverWrapperMixin`` (create/update/mark-delete) accessed through
-  ``Database.driver_wrapper``.
-* ``CustomColumnDatabaseMixin.get_interlinked_rows_cc`` on ``Database``.
+Example:
+    Run with pytest::
 
-These tests deliberately use unicode + SQL-injection-shaped *data* payloads to ensure
-parameter binding is consistently used and that dangerous-looking strings remain inert.
-
-Notes
------
-The driver wrapper's Calibre-style custom columns create tables named:
-
-* ``custom_column_<id>``
-* ``<in_table>_custom_column_<id>_link`` (only for normalized types)
-
-The Database keeps its own ``Database.custom_tables`` cache, which is refreshed via
-``Database.refresh_db_metadata()``. The contract below therefore refreshes metadata
-after creating columns.
+        python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py
 """
 
 from __future__ import annotations
@@ -38,14 +28,42 @@ from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
 
 
 def _require_table(db, table: str) -> None:
+    """
+    Refresh relation names and skip when the required name is absent.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param table: Trusted test relation name passed to schema lookup or SQL
+        construction.
+    :return: None if present; otherwise raises a pytest skip.
+    """
     if table not in db.get_tables(force_refresh=True):
         pytest.skip(f"Table {table!r} not present in provisioned contract DB")
 
 
 def _pick_alt_main_table(db, *, exclude: set[str]) -> str | None:
-    """Pick a usable non-excluded main table that supports get_blank_row (has a scratch column).
+    """
+    Choose the first sorted, nonexcluded main table recognized as concrete whose scratch-column lookup does not raise.
 
-    We deliberately avoid views: contract tests should only write to real tables.
+    Skip unrecognized SQLite object kinds and scratch lookup exceptions; the returned
+    scratch value itself is not inspected.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param exclude: Set of main-table names to ignore.
+    :return: Candidate table name, or None.
     """
 
     for t in sorted(db.main_tables):
@@ -63,7 +81,27 @@ def _pick_alt_main_table(db, *, exclude: set[str]) -> str | None:
 
 
 def _sqlite_master_type(db, name: str) -> str | None:
-    """Return sqlite_master.type for name (table/view/index/trigger) if available."""
+    """
+    Look up an exact object name in sqlite_master with a bound parameter.
+
+    Accept cursor fetchone or iterator results. Return None for absent results or any
+    ordinary lookup/extraction error.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> import sqlite3
+        >>> conn = sqlite3.connect(':memory:')
+        >>> db = SimpleNamespace(driver_wrapper=conn)
+        >>> _sqlite_master_type(db, 'absent') is None
+        True
+        >>> conn.close()
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param name: Schema object name or custom-column display name, as described above.
+    :return: Object type string, or None.
+    """
     try:
         cur = db.driver_wrapper.execute("SELECT type FROM sqlite_master WHERE name=?;", (name,))
         row = cur.fetchone() if hasattr(cur, "fetchone") else (next(cur, None) if cur is not None else None)
@@ -73,7 +111,23 @@ def _sqlite_master_type(db, name: str) -> str | None:
 
 
 def _is_insertable_table(db, name: str) -> bool:
-    """True if `name` is a concrete table (not a view) in SQLite."""
+    """
+    Check that SQLite introspection identifies the object as a concrete table.
+
+    Unknown objects and backend/query failures return False. This classification does
+    not attempt an insert or check write permissions.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> _is_insertable_table(SimpleNamespace(), 'missing')
+        False
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param name: Schema object name or custom-column display name, as described above.
+    :return: True exactly when the reported object type is table.
+    """
     t = _sqlite_master_type(db, name)
     if t is None:
         # Unknown backend or table not found; be conservative and allow callers to handle.
@@ -81,11 +135,22 @@ def _is_insertable_table(db, name: str) -> bool:
     return t == "table"
 
 def _cc_default_table(db) -> str:
-    """Pick the default main table for Calibre-style custom columns.
+    """
+    Prefer manifestations, items, works, then books as a concrete custom-column owner.
 
-    Historically this was 'books'. In the FRBR/WEMI schema the closest analogue is
-    usually 'manifestations'. We therefore prefer insertable FRBR tables and only
-    fall back to 'books' if it is a *real* table (not a view).
+    Require presence, SQLite table classification, and a nonraising scratch lookup.
+    Otherwise try a sorted alternate main table excluding custom_columns, and skip if
+    none is available.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: Selected table name; may raise pytest skip when no candidate qualifies.
     """
 
     for cand in ("manifestations", "items", "works", "books"):
@@ -106,7 +171,21 @@ def _cc_default_table(db) -> str:
 
 
 def _cc_canonical_table(db, table: str) -> str:
-    """Canonicalise Calibre-era table choices to an insertable FRBR/WEMI analogue."""
+    """
+    Redirect absent or nonconcrete books requests to the selected insertable-table fallback.
+
+    Example:
+        >>> _cc_canonical_table(None, 'works')
+        'works'
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param table: Trusted test relation name passed to schema lookup or SQL
+        construction.
+    :return: Resolved table name; non-books names pass through unchanged without
+        validation.
+    """
 
     if table == "books":
         existing = set(db.get_tables(force_refresh=True))
@@ -120,7 +199,22 @@ def _cc_canonical_table(db, table: str) -> str:
 
 
 def _create_target_row(db, table: str):
-    """Create a blank Row in a table (requires that table has a scratch column)."""
+    """
+    Canonicalize the requested owner table, require its presence, and insert a blank row.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param table: Trusted test relation name passed to schema lookup or SQL
+        construction.
+    :return: New Row with a non-None row_id; skips for missing tables and propagates
+        insert errors.
+    """
 
     table = _cc_canonical_table(db, table)
     _require_table(db, table)
@@ -130,10 +224,38 @@ def _create_target_row(db, table: str):
 
 
 def _headings(db, table: str) -> list[str]:
+    """
+    Copy wrapper-reported column headings into a list.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param table: Trusted test relation name passed to schema lookup or SQL
+        construction.
+    :return: List of column names in wrapper order; lookup errors propagate.
+    """
     return list(db.driver_wrapper.get_column_headings(table))
 
 
 def _find_one(headings: Iterable[str], predicate, *, label: str) -> str:
+    """
+    Select exactly one heading matching a predicate, asserting on zero or multiple matches.
+
+    Example:
+        >>> _find_one(['x_id', 'x_value'], lambda h: h.endswith('_value'), label='value')
+        'x_value'
+
+
+    :param headings: Iterable of headings, consumed to build the match list.
+    :param predicate: Callable evaluated for each heading; its errors propagate.
+    :param label: Diagnostic description used in assertion messages.
+    :return: Selected heading converted to str.
+    """
     matches = [h for h in headings if predicate(h)]
     assert matches, f"Could not find {label} in headings: {list(headings)!r}"
     assert len(matches) == 1, f"Multiple candidates for {label}: {matches!r}"
@@ -141,10 +263,25 @@ def _find_one(headings: Iterable[str], predicate, *, label: str) -> str:
 
 
 def _detect_fk_from_col(db, *, table: str, target_table: str, headings: Iterable[str]) -> str | None:
-    """Find the column in `table` that FK-references `target_table`.
+    """
+    Find the first foreign-key source column referencing the target table and present in the supplied headings.
 
-    This keeps tests robust across legacy naming (e.g. *_book referencing a non-books table)
-    and FRBR/WEMI-aware naming.
+    Use a trusted table name in SQLite PRAGMA SQL. Query/fetch failures return None;
+    malformed result rows are ignored.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param table: Trusted test relation name passed to schema lookup or SQL
+        construction.
+    :param target_table: Referenced table name matched as text.
+    :param headings: Allowed source-column names, converted into a string set.
+    :return: Matching source column name, or None.
     """
 
     try:
@@ -171,6 +308,13 @@ def _detect_fk_from_col(db, *, table: str, target_table: str, headings: Iterable
 
 @dataclass(frozen=True)
 class _CCTables:
+    """
+    Store immutable custom value-table, optional link-table, and owner-table names.
+
+    Example:
+        >>> _CCTables('custom_column_1', None, 'works').in_table
+        'works'
+    """
     cc_table: str
     link_table: str | None
     in_table: str
@@ -178,7 +322,28 @@ class _CCTables:
 
 
 def _create_cc(db, *, name: str, datatype: str, in_table: str = "books", is_multiple: bool = False) -> tuple[int, _CCTables]:
-    """Create a custom column, refresh Database metadata, and return (num, tables)."""
+    """
+    Create a custom column on the canonical owner and refresh Database metadata.
+
+    Inspect actual relation names after creation and omit the link-table name when no
+    such table exists. Mutate the caller’s database; no explicit connection close
+    occurs.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param name: Custom-column display name passed to the wrapper.
+    :param datatype: Custom-column datatype.
+    :param in_table: Requested owning relation, defaulting to books and subject to
+        canonicalization.
+    :param is_multiple: Whether to request a multivalued column; defaults to False.
+    :return: Tuple of integer column ID and _CCTables descriptor.
+    """
 
     in_table = _cc_canonical_table(db, in_table)
 
@@ -202,7 +367,24 @@ def _create_cc(db, *, name: str, datatype: str, in_table: str = "books", is_mult
     return num, _CCTables(str(cc_table), str(lt) if lt else None, str(in_table))
 
 def _insert_custom_value_row(db, cc_table: str, value) -> int:
-    """Insert a row in a custom column value table and return its id."""
+    """
+    Find the unique _value column, insert a value, and read the table’s highest ID.
+
+    This isolated-test helper uses the highest ID rather than a connection-local
+    insertion ID and assumes no concurrent inserts.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param cc_table: Trusted custom value-table name.
+    :param value: Value inserted into or read from a custom value table.
+    :return: Highest custom value-row ID after insertion.
+    """
 
     headings = _headings(db, cc_table)
     value_col = _find_one(headings, lambda h: h.endswith("_value"), label="custom value column")
@@ -213,11 +395,28 @@ def _insert_custom_value_row(db, cc_table: str, value) -> int:
 
 
 def _insert_link_row(db, link_table: str, *, target_table: str, target_id: int, value_id: int, extra=None) -> int:
-    """Insert a row in a custom-column link table and return its id.
+    """
+    Insert a custom link using foreign-key introspection before trying legacy column-name heuristics.
 
-    Link-table naming is not fully stable across schemas (e.g. some Calibre-derived paths
-    keep the historical *_book column name even when the actual target table is not books).
-    This helper therefore prefers FK-introspection and only falls back to name heuristics.
+    Require one _value column. Fallback target selection tries the sole candidate, a
+    unique _book suffix, then a singularized target suffix. If supplied and available,
+    write extra into the first _extra column. Assert when target selection is ambiguous.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param link_table: Trusted link-table name used in heading and PRAGMA queries.
+    :param target_table: Referenced owning table used for FK matching and suffix
+        fallback.
+    :param target_id: Owner row ID, converted to int.
+    :param value_id: Custom value-row ID, converted to int.
+    :param extra: Optional link extra; ignored if None or no _extra column exists.
+    :return: Highest link-row ID after insertion; assumes no concurrent inserts.
     """
 
     headings = _headings(db, link_table)
@@ -225,7 +424,18 @@ def _insert_link_row(db, link_table: str, *, target_table: str, target_id: int, 
     value_col = _find_one(headings, lambda h: h.endswith("_value"), label="link value column")
 
     def _detect_target_col_via_fk() -> str | None:
-        """Use FK metadata to find the link table column that points at target_table."""
+        """
+        Find the first link foreign key referencing the enclosing target table and a known heading.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py
+
+
+        :return: Source column name, or None on query failure, malformed/unmatched rows, or
+            absence.
+        """
 
         try:
             rows = db.driver_wrapper.execute(
@@ -287,6 +497,19 @@ def _insert_link_row(db, link_table: str, *, target_table: str, target_id: int, 
 
 
 def test_create_custom_column_rejects_unknown_datatype(db) -> None:
+    """
+    Check creation rejects the unknown giraffe datatype with ValueError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_create_custom_column_rejects_unknown_datatype
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     in_table = _cc_default_table(db)
     with pytest.raises(ValueError):
         db.driver_wrapper.create_custom_column(name="cc_badtype", datatype="giraffe", in_table=in_table)
@@ -295,6 +518,20 @@ def test_create_custom_column_rejects_unknown_datatype(db) -> None:
 
 @pytest.mark.parametrize("datatype", ["rating", "int", "float", "datetime", "bool"])
 def test_create_custom_column_rejects_multiple_for_scalar_types(db, datatype: str) -> None:
+    """
+    Check each selected scalar datatype rejects is_multiple=True with NotImplementedError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_create_custom_column_rejects_multiple_for_scalar_types
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param datatype: Custom-column datatype for this parametrized test or creation call.
+    :return: None; failed expectations raise AssertionError.
+    """
     in_table = _cc_default_table(db)
     with pytest.raises(NotImplementedError):
         db.driver_wrapper.create_custom_column(
@@ -318,18 +555,59 @@ def test_create_custom_column_rejects_multiple_for_scalar_types(db, datatype: st
     ],
 )
 def test_create_custom_column_rejects_invalid_label(db, label: str) -> None:
+    """
+    Check each malformed custom label raises AssertionError or ValueError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_create_custom_column_rejects_invalid_label
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param label: Custom-column label for this validation case.
+    :return: None; failed expectations raise AssertionError.
+    """
     in_table = _cc_default_table(db)
     with pytest.raises((AssertionError, ValueError)):
         db.driver_wrapper.create_custom_column(name="cc_label", datatype="text", label=label, in_table=in_table)
 
 
 def test_create_custom_column_requires_valid_in_table(db) -> None:
+    """
+    Check a nonexistent owner table is rejected with AssertionError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_create_custom_column_requires_valid_in_table
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     with pytest.raises(AssertionError):
         db.driver_wrapper.create_custom_column(name="cc_tab", datatype="text", in_table="no_such_table")
 
 
 @pytest.mark.parametrize("datatype", ["rating", "text", "series", "enumeration"])
 def test_create_custom_column_creates_normalized_tables_and_is_discoverable(db, datatype: str) -> None:
+    """
+    Check normalized custom value/link tables exist, are categorized as custom, and appear in wrapper discovery.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_create_custom_column_creates_normalized_tables_and_is_discoverable
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param datatype: Custom-column datatype for this parametrized test or creation call.
+    :return: None; failed expectations raise AssertionError.
+    """
     _require_table(db, "custom_columns")
     _, tables = _create_cc(db, name=f"cc_{datatype}", datatype=datatype, in_table="books")
 
@@ -352,6 +630,20 @@ def test_create_custom_column_creates_normalized_tables_and_is_discoverable(db, 
 
 @pytest.mark.parametrize("datatype", ["comments", "datetime", "int", "float", "bool", "composite"])
 def test_create_custom_column_creates_unnormalized_table_only(db, datatype: str) -> None:
+    """
+    Check unnormalized datatypes create a custom value table without an existing link table.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_create_custom_column_creates_unnormalized_table_only
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param datatype: Custom-column datatype for this parametrized test or creation call.
+    :return: None; failed expectations raise AssertionError.
+    """
     _require_table(db, "custom_columns")
     _, tables = _create_cc(db, name=f"cc_{datatype}", datatype=datatype, in_table="books")
 
@@ -365,6 +657,19 @@ def test_create_custom_column_creates_unnormalized_table_only(db, datatype: str)
 
 
 def test_set_custom_column_metadata_updates_custom_columns_row(db) -> None:
+    """
+    Check metadata update reports a change and persists the new name, label, and false editable flag.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_set_custom_column_metadata_updates_custom_columns_row
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     num, _tables = _create_cc(db, name="cc_meta", datatype="text")
     base = _tables.in_table
 
@@ -405,6 +710,20 @@ def test_set_custom_column_metadata_updates_custom_columns_row(db) -> None:
 )
 def test_get_interlinked_rows_cc_normalized_roundtrip_unicode_and_injection(db, value: str) -> None:
     # Normalized TEXT custom column on books.
+    """
+    Check normalized links return one custom Row with the exact Unicode or SQL-looking value.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_get_interlinked_rows_cc_normalized_roundtrip_unicode_and_injection
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param value: Value inserted into or read from a custom value table.
+    :return: None; failed expectations raise AssertionError.
+    """
     _num, tables = _create_cc(db, name="cc_text", datatype="text", in_table="books")
     assert tables.link_table is not None
 
@@ -423,6 +742,19 @@ def test_get_interlinked_rows_cc_normalized_roundtrip_unicode_and_injection(db, 
 
 
 def test_get_interlinked_rows_cc_normalized_empty_when_no_links(db) -> None:
+    """
+    Check normalized lookup returns an empty list when the owner has no custom links.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_get_interlinked_rows_cc_normalized_empty_when_no_links
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     _num, tables = _create_cc(db, name="cc_empty", datatype="text", in_table="books")
     assert tables.link_table is not None
 
@@ -431,6 +763,21 @@ def test_get_interlinked_rows_cc_normalized_empty_when_no_links(db) -> None:
 
 
 def test_get_interlinked_rows_cc_normalized_orders_by_link_row_id(db, pick_payload) -> None:
+    """
+    Insert links in reverse value order and check lookup follows link insertion order; skip embedded-NUL corpus values.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_get_interlinked_rows_cc_normalized_orders_by_link_row_id
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param pick_payload: Fixture callable selecting a corpus payload by index modulo
+        corpus length.
+    :return: None; failed expectations raise AssertionError.
+    """
     _num, tables = _create_cc(db, name="cc_order", datatype="text", in_table="books")
     assert tables.link_table is not None
 
@@ -456,12 +803,38 @@ def test_get_interlinked_rows_cc_normalized_orders_by_link_row_id(db, pick_paylo
 
 def test_get_interlinked_rows_cc_normalized_errors_when_link_table_not_registered(db) -> None:
     # Use the schema-appropriate default main table (historically 'books').
+    """
+    Check an unregistered custom-column relation raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_get_interlinked_rows_cc_normalized_errors_when_link_table_not_registered
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     book = _create_target_row(db, _cc_default_table(db))
     with pytest.raises(InputIntegrityError):
         db.get_interlinked_rows_cc(book, "custom_column_999999", link_table=True)
 
 
 def test_get_interlinked_rows_cc_normalized_errors_on_target_table_mismatch(db) -> None:
+    """
+    Check an alternate owner row is rejected for the custom relation; skip if no alternate table qualifies.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_get_interlinked_rows_cc_normalized_errors_on_target_table_mismatch
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     _num, tables = _create_cc(db, name="cc_mismatch", datatype="text", in_table="books")
     assert tables.link_table is not None
 
@@ -475,6 +848,19 @@ def test_get_interlinked_rows_cc_normalized_errors_on_target_table_mismatch(db) 
 
 
 def test_link_table_enforces_unique_pairs(db) -> None:
+    """
+    Check inserting the same owner/value link twice raises DatabaseIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_link_table_enforces_unique_pairs
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     _num, tables = _create_cc(db, name="cc_pairs", datatype="text", in_table="books")
     assert tables.link_table is not None
 
@@ -487,6 +873,19 @@ def test_link_table_enforces_unique_pairs(db) -> None:
 
 
 def test_link_table_rejects_missing_foreign_keys(db) -> None:
+    """
+    Check links with nonexistent owner or value IDs raise DatabaseIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_link_table_rejects_missing_foreign_keys
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     _num, tables = _create_cc(db, name="cc_fk", datatype="text", in_table="books")
     assert tables.link_table is not None
 
@@ -503,6 +902,19 @@ def test_link_table_rejects_missing_foreign_keys(db) -> None:
 
 
 def test_custom_value_table_enforces_unique_value_for_normalized_types(db) -> None:
+    """
+    Check duplicate normalized text values raise DatabaseIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_custom_value_table_enforces_unique_value_for_normalized_types
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     _num, tables = _create_cc(db, name="cc_unique", datatype="text", in_table="books")
     _insert_custom_value_row(db, tables.cc_table, "dup")
     with pytest.raises(DatabaseIntegrityError):
@@ -510,10 +922,18 @@ def test_custom_value_table_enforces_unique_value_for_normalized_types(db) -> No
 
 
 def test_custom_value_table_sanitizes_embedded_nul(db) -> None:
-    """Embedded NUL bytes are normalized to a visible placeholder.
+    """
+    Check embedded NUL text is stored with the visible <NUL> placeholder and contains no NUL character.
 
-    Historically we avoid hard-rejecting these because they can appear in imported
-    metadata. Instead we keep stored TEXT values safe for common tooling.
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_custom_value_table_sanitizes_embedded_nul
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
     """
 
     _num, tables = _create_cc(db, name="cc_nul", datatype="text", in_table="books")
@@ -537,6 +957,23 @@ def test_custom_value_table_sanitizes_embedded_nul(db) -> None:
 
 @pytest.mark.parametrize("datatype", ["comments", "int", "float", "bool", "datetime"])
 def test_get_interlinked_rows_cc_unnormalized_roundtrip_via_direct_table(db, datatype: str) -> None:
+    """
+    Insert a datatype-specific direct value and check lookup returns dictionaries with the correct owner ID.
+
+    This assertion checks the result shape and owner, not the retrieved value’s datatype
+    or exact content.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_get_interlinked_rows_cc_unnormalized_roundtrip_via_direct_table
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :param datatype: Custom-column datatype for this parametrized test or creation call.
+    :return: None; failed expectations raise AssertionError.
+    """
     _num, tables = _create_cc(db, name=f"cc_un_{datatype}", datatype=datatype, in_table="books")
 
     book = _create_target_row(db, tables.in_table)
@@ -576,6 +1013,19 @@ def test_get_interlinked_rows_cc_unnormalized_roundtrip_via_direct_table(db, dat
 
 
 def test_get_interlinked_rows_cc_unnormalized_raises_if_link_table_true(db) -> None:
+    """
+    Check requesting link-table traversal for an unnormalized column raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_get_interlinked_rows_cc_unnormalized_raises_if_link_table_true
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     _num, tables = _create_cc(db, name="cc_un_comments", datatype="comments", in_table="books")
     book = _create_target_row(db, tables.in_table)
 
@@ -584,6 +1034,19 @@ def test_get_interlinked_rows_cc_unnormalized_raises_if_link_table_true(db) -> N
 
 
 def test_unnormalized_table_enforces_one_value_per_book(db) -> None:
+    """
+    Check a second direct value for the same owner raises DatabaseIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_unnormalized_table_enforces_one_value_per_book
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     _num, tables = _create_cc(db, name="cc_un_one", datatype="int", in_table="books")
     book = _create_target_row(db, tables.in_table)
 
@@ -612,6 +1075,19 @@ def test_unnormalized_table_enforces_one_value_per_book(db) -> None:
 
 
 def test_delete_custom_column_marks_for_delete(db) -> None:
+    """
+    Check deletion marks the metadata row with flag one while that row remains present.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_delete_custom_column_marks_for_delete
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     num, _tables = _create_cc(db, name="cc_todelete", datatype="text", in_table="books")
     db.driver_wrapper.delete_custom_column(num)
 
@@ -622,6 +1098,19 @@ def test_delete_custom_column_marks_for_delete(db) -> None:
 
 def test_marked_custom_column_is_removed_on_customcolumns_load(db) -> None:
     # CustomColumns' deletion routine should drop tables for the attachment table (books/manifestations/etc.).
+    """
+    Load CustomColumns after marking deletion and check the value table, link table, and metadata row are removed.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_marked_custom_column_is_removed_on_customcolumns_load
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     num, tables = _create_cc(db, name="cc_del_apply", datatype="text", in_table="books")
     assert tables.link_table is not None
 
@@ -643,6 +1132,19 @@ def test_marked_custom_column_is_removed_on_customcolumns_load(db) -> None:
 
 
 def test_mark_delete_for_non_default_table(db) -> None:
+    """
+    Mark and load a custom column on an alternate owner, checking both backing tables disappear; skip if no alternate table qualifies.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_custom_columns_calibre_style.py::test_mark_delete_for_non_default_table
+
+
+    :param db: Provisioned Database for the selected driver; the shared db fixture
+        attempts driver.close at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     base = _cc_default_table(db)
     alt = _pick_alt_main_table(db, exclude={base, "custom_columns"})
     if alt is None:

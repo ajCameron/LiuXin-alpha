@@ -19,6 +19,9 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 )
 
 
+# Todo: Need a method to get the currently active replication and backup policy
+# Todo: This is not feeling complete - it can't answer questions such as "currently set policy" e.t.c
+
 class StoragePolicyAPI(abc.ABC):
     """
     Define policy registration, Asset assignment, effective resolution, assessment, and planning.
@@ -31,6 +34,8 @@ class StoragePolicyAPI(abc.ABC):
         >>> assessment = manager.assess_replication(asset_id)  # doctest: +SKIP
     """
 
+    # Todo: Again, we need a convenience method for setting this replication policy
+    # Todo: How do we get what replication policy is currently live?
     @abc.abstractmethod
     def create_replication_policy(
         self,
@@ -312,6 +317,7 @@ class StoragePolicyAPI(abc.ABC):
         """
         ...
 
+    # Todo: asses_composite_digital_asset - to asses every member of a digital asset
     @abc.abstractmethod
     def assess_digital_asset(
         self,

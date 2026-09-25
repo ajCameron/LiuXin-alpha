@@ -1,4 +1,14 @@
-"""Tests for FRBR generator alignment with canonical metadata vocabularies."""
+"""
+Check that SQL vocabulary placeholders expand from canonical identifier and metadata enums.
+
+These are string-content tests; they do not execute the expanded SQL or prove
+constraint enforcement.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_frbr_metadata_vocabulary_constraints.py
+"""
 
 from __future__ import annotations
 
@@ -17,6 +27,15 @@ from LiuXin_alpha.metadata.constants.container_vocabularies import (
 
 
 def test_identifier_placeholders_are_generated_from_db_types() -> None:
+    """
+    Require all entity and scheme strings in expanded identifier SQL and remove all three markers.
+
+    Example:
+        >>> test_identifier_placeholders_are_generated_from_db_types()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     sql = frbr_gen._substitute_canonical_vocabulary_placeholders(
         "\n".join(
             [
@@ -39,6 +58,18 @@ def test_identifier_placeholders_are_generated_from_db_types() -> None:
 
 
 def test_future_metadata_family_placeholders_are_ready_for_schema_use() -> None:
+    """
+    Expand eight metadata-family markers and require every corresponding enum value.
+
+    Checks title, note, label, genre, subject and identifier-status vocabularies by
+    substring presence.
+
+    Example:
+        >>> test_future_metadata_family_placeholders_are_ready_for_schema_use()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     sql = frbr_gen._substitute_canonical_vocabulary_placeholders(
         "\n".join(
             [

@@ -1,7 +1,16 @@
 #!/usr/bin/env  python
 
 """
-Utils for metadata processing.
+Provide metadata author/title formatting, series indexes, resources, identifier checks, and OPF parsing helpers.
+
+Author separators and the XML parser are initialized at import. Article patterns are
+cached by language. Resource objects describe paths or URLs without opening them;
+parsing and directory enumeration perform the I/O described by their helpers.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/test_utils_coverage.py
 """
 
 from __future__ import annotations
@@ -69,10 +78,16 @@ except Exception as e:
 
 def soft_float_to_int(num: Union[float, int]) -> Union[int, float]:
     """
-    If a float is an integer then convert it to such - otherwise leave it as a float.
+    Coerce non-floats with float(), then convert mathematically integral values to int.
 
-    :param num:
-    :return:
+    Example:
+        >>> (soft_float_to_int(3.0), soft_float_to_int('3.5'))
+        (3, 3.5)
+
+
+    :param num: Numeric or float-convertible value.
+    :return: Integer when the float is integral, otherwise the float, including NaN/inf.
+        Conversion can lose large-integer precision or raise.
     """
     if not isinstance(num, float):
         num = float(num)
@@ -85,10 +100,20 @@ def soft_float_to_int(num: Union[float, int]) -> Union[int, float]:
 
 def string_to_authors(raw: str) -> List[str]:
     """
-    Split down a string containing multiple authors names and return them as a list of strings,
+    Decode the legacy ampersand token, protect doubled ampersands, apply the compiled separator pattern, and split names.
 
-    :param raw: An encoded string of authors
-    :return:
+    Trim segments without title-casing and drop empty ones. U+FFFF is the temporary
+    ampersand escape. Supported UnicodeDecodeError branches log and continue or return
+    the unsplit value; other errors propagate.
+
+    Example:
+        >>> string_to_authors('Ada && Bob & Grace')
+        ['Ada & Bob', 'Grace']
+
+
+    :param raw: Encoded author string using ampersands, doubled ampersands, or the
+        ,0420, token.
+    :return: List of author strings, or an empty list for falsy input.
     """
     if not raw:
         return []
@@ -118,11 +143,19 @@ def string_to_authors(raw: str) -> List[str]:
 
 def authors_to_string(authors: Iterable[str], xml_safe: bool = False) -> str:
     """
-    Take an iterable of authors and return them as a string.
+    Double embedded ampersands and join truthy author names with spaced ampersands.
 
-    :param authors:
-    :param xml_safe: If True, then uses double commands instead of ampersands
-    :return:
+    When xml_safe is true, replace every resulting ampersand with ,0420,; this is a
+    legacy delimiter encoding, not general XML escaping.
+
+    Example:
+        >>> authors_to_string(['Ada & Bob', 'Grace'], xml_safe=True)
+        'Ada ,0420,,0420, Bob ,0420, Grace'
+
+
+    :param authors: Optional iterable of author strings; falsy entries are omitted.
+    :param xml_safe: Whether to substitute the legacy ampersand token.
+    :return: Encoded author string, or empty string for None.
     """
     if authors is not None:
         enc_str = " & ".join([a.replace("&", "&&") for a in authors if a])
@@ -140,14 +173,23 @@ def author_to_author_sort(
         author: str, method: Literal["copy", "comma", "nocomma"] = "comma"
 ) -> str:
     """
-    Takes an author name and produces a sort string from it.
+    Derive a surname-first sort name with optional comma insertion and preference-based prefix/suffix handling.
 
-    :param author: The name of the author to transform
-    :param method: 'copy' - Just make a straight copy of the author name
-                   'comma' - Try and put the first name after the last name, separated by a comma
-                   'nocomma' - Same as with comma, but no actual comma
-    :type method: string indicating the mode
-    :return:
+    Strip bracketed text for tokenization. Preserve the original for short names, copy
+    mode/copywords, exhausted prefix/suffix tokens, or comma-mode names already
+    containing commas. None selects the preference with comma fallback; missing
+    copywords become an empty set, while missing prefix/suffix settings propagate.
+
+    Example:
+        >>> author_to_author_sort('Ada Lovelace', method='copy')
+        'Ada Lovelace'
+
+
+    :param author: Author name string to reorder.
+    :param method: copy, comma, or nocomma; defaults to comma, with None requesting the
+        preference.
+    :return: Derived sort string, unchanged original author, or empty string for falsy
+        input.
     """
     if not author:
         return ""
@@ -215,6 +257,17 @@ def author_to_author_sort(
 
 
 def authors_to_sort_string(authors):
+    """
+    Sort each author with the default comma method and join results with spaced ampersands.
+
+    Example:
+        >>> authors_to_sort_string(['Plato'])
+        'Plato'
+
+
+    :param authors: Iterable of author-name strings.
+    :return: Combined author-sort string; no separate ampersand escaping is performed.
+    """
     return " & ".join(map(author_to_author_sort, authors))
 
 
@@ -224,10 +277,20 @@ _title_pats = {}
 # Todo: We have multiple functions with the same name
 def get_title_sort_pat(lang: Optional[str] = None) -> Optional[re.Pattern[str]]:
     """
-    Return the title sort pattern for the given language.
+    Resolve and cache a case-insensitive leading-article pattern under the original language argument.
 
-    :param lang:
-    :return:
+    Use the preferred/default locale when absent. Canonicalization TypeError falls back
+    to no language; missing or invalid article data falls back to English patterns, and
+    invalid regexes use the built-in A/The/An pattern. Cached entries retain old
+    preference values.
+
+    Example:
+        >>> bool(get_title_sort_pat('eng').match('The Book'))
+        True
+
+
+    :param lang: Optional language selector and cache key.
+    :return: Compiled regex; may mutate the module cache.
     """
     from LiuXin_alpha.utils.localization import canonicalize_lang, get_lang
 
@@ -268,12 +331,18 @@ _ignore_starts: str = "'\"" + "".join([chr(x) for x in range(0x2018, 0x201E)] + 
 
 def title_sort(title: str, order: Optional[str] = None, lang: Optional[str] = None) -> str:
     """
-    Return the title sort pattern for the given language.
+    Strip a title and, unless strictly alphabetic, remove a leading quote and move a matching article to the end.
 
-    :param title:
-    :param order:
-    :param lang:
-    :return:
+    Example:
+        >>> title_sort(' The Book ', order='strictly_alphabetic')
+        'The Book'
+
+
+    :param title: Title string to transform.
+    :param order: Optional sorting mode; None reads the preference, while
+        strictly_alphabetic only strips whitespace.
+    :param lang: Optional language selector for the article-pattern cache.
+    :return: Title sort string using the cached language article pattern.
     """
     if order is None:
         order = tweaks["title_series_sorting"]
@@ -303,10 +372,16 @@ coding = tuple(zip(
 
 def roman(num: int) -> str:
     """
-    Return the roman numeral of the given number.
+    Render an integral numeric value from one through 3999 as an uppercase Roman numeral.
 
-    :param num:
-    :return:
+    Example:
+        >>> (roman(4), roman(4000), roman(2.5))
+        ('IV', '4000', '2.5')
+
+
+    :param num: Numeric candidate tested for bounds and integrality.
+    :return: Roman numeral, or str(num) for out-of-range or fractional numbers;
+        unsupported comparisons/conversions propagate.
     """
     if num <= 0 or num >= 4000 or int(num) != num:
         return str(num)
@@ -320,12 +395,21 @@ def roman(num: int) -> str:
 
 def fmt_sidx(i: Optional[str, int, float], fmt: str = "%.2f", use_roman: bool = False) -> str:
     """
-    Format series index.
+    Treat None/empty as one, convert to float, and format integral values as decimal or Roman numerals.
 
-    :param i:
-    :param fmt:
-    :param use_roman:
-    :return:
+    Use the supplied percent-format string only for fractional values. A
+    float-conversion TypeError returns the original value’s string form; ValueError,
+    nonfinite integer conversion, and formatting errors propagate.
+
+    Example:
+        >>> (fmt_sidx(None), fmt_sidx('2.50'), fmt_sidx(4, use_roman=True))
+        ('1', '2.50', 'IV')
+
+
+    :param i: Series index or float-convertible input; None and empty string mean one.
+    :param fmt: Percent-style fractional format, default %.2f.
+    :param use_roman: Whether integral values use roman() instead of decimal formatting.
+    :return: Formatted series index string.
     """
     if i is None or i == "":
         i = 1
@@ -340,16 +424,14 @@ def fmt_sidx(i: Optional[str, int, float], fmt: str = "%.2f", use_roman: bool = 
 
 class Resource:
     """
-    Represents a resource (usually a file on the filesystem or a URL pointing to the web.
+    Describe a local path or an unchanged remote URL with a MIME guess and optional local fragment.
 
-    Such resources are commonly referred to in OPF files.
+    Construction and href formatting do not check existence or fetch remote content.
 
-    They have the interface:
-
-    :member:`path`
-    :member:`mime_type`
-    :method:`href`
-
+    Example:
+        >>> resource = Resource('https://example.invalid/book', is_path=False)
+        >>> (resource.path, resource.href())
+        (None, 'https://example.invalid/book')
     """
 
     def __init__(
@@ -358,11 +440,24 @@ class Resource:
             basedir: Union[str, bytes] = os.getcwd(),
             is_path: bool = True) -> None:
         """
-        Startup a resource in the OPF.
+        Store a path or parse a URL, using a MIME guess with application/octet-stream fallback.
 
-        :param href_or_path:
-        :param basedir:
-        :param is_path:
+        Relative path inputs become absolute under basedir; absolute path inputs are
+        retained. URL inputs with empty/file schemes use their decoded path and fragment,
+        ignoring authority and query; other schemes retain the original href. The default
+        basedir was evaluated when this module was imported.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :param href_or_path: Filesystem path when is_path is true, otherwise URL text.
+        :param basedir: Base directory for relative local paths; byte values decode with
+            filesystem encoding and replacement errors.
+        :param is_path: Whether to interpret the input directly as a filesystem path.
+        :return: None; initializes descriptive state without opening a resource.
         """
         if isinstance(basedir, bytes):
             basedir = basedir.decode(sys.getfilesystemencoding(), "replace")
@@ -397,10 +492,20 @@ class Resource:
 
     def href(self, basedir: Optional[str] = None) -> str:
         """
-        Return a URL pointing to this resource. If it is a file on the filesystem the URL is relative to `basedir`.
+        Return the original remote href or a quoted local path relative to the resolved base, with a quoted fragment.
 
-        `basedir`: If None, the basedir of this resource is used (see :method:`set_basedir`).
-        If this resource has no basedir, then the current working directory is used as the basedir.
+        Use the stored base when truthy, otherwise the current directory. Equal path/base
+        yields only the fragment. relpath OSError falls back to the stored absolute path; no
+        existence check occurs.
+
+        Example:
+            >>> Resource('https://example.invalid/a book', is_path=False).href()
+            'https://example.invalid/a book'
+
+
+        :param basedir: Optional base override; None uses stored base or the current working
+            directory.
+        :return: Remote href unchanged or formatted local URL string.
         """
 
         if basedir is None:
@@ -425,93 +530,248 @@ class Resource:
 
     @classmethod
     def from_path(cls, path, basedir=None):
+        """
+        Construct a path resource using the current working directory when basedir is omitted.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :param path: Filesystem path forwarded to the constructor.
+        :param basedir: Optional base; None resolves os.getcwd() at call time.
+        :return: New instance of cls with is_path=True.
+        """
         return cls(path, basedir=os.getcwd() if basedir is None else basedir, is_path=True)
 
     def set_basedir(self, path):
+        """
+        Replace the stored base directory without modifying the resource path or validating the new base.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :param path: New base value retained as supplied.
+        :return: None; affects later relative href formatting.
+        """
         self._basedir = path
 
     def basedir(self):
+        """
+        Return the stored base directory value without resolving a fallback.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :return: Current _basedir value.
+        """
         return self._basedir
 
     def __repr__(self):
+        """
+        Render the stored path and currently computed href in a Resource(...) representation.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :return: Representation string; href errors propagate.
+        """
         return "Resource(%s, %s)" % (repr(self.path), repr(self.href()))
 
 
 class ResourceCollection:
     """
-    A collection of resources.
+    Keep an ordered mutable list of Resource references, with list-like access and shared-object base updates.
+
+    Example:
+        >>> collection = ResourceCollection()
+        >>> (len(collection), bool(collection), repr(collection))
+        (0, False, '[]')
     """
     _resources: list[Resource]
 
     def __init__(self) -> None:
         """
-        Initialize a collection of resources.
+        Initialize an empty resource list.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :return: None.
         """
         self._resources = []
 
     def __iter__(self) -> Iterator[Resource]:
         """
-        Itterate over the collection.
+        Yield stored resource references in current list order without taking a snapshot.
 
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :return: Generator over the backing list.
         """
         for r in self._resources:
             yield r
 
     def __len__(self) -> int:
         """
-        Return the number of resources in the collection.
+        Return the backing list’s current length.
 
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :return: Number of stored entries.
         """
         return len(self._resources)
 
     def __getitem__(self, index):
+        """
+        Delegate integer indexing or slicing directly to the backing list.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :param index: Integer index or slice accepted by list indexing.
+        :return: Resource reference for an index, or a list for a slice; normal list errors
+            propagate.
+        """
         return self._resources[index]
 
     def __bool__(self):
+        """
+        Test whether at least one entry is stored.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :return: True for a nonempty collection, otherwise False.
+        """
         return len(self._resources) > 0
 
     def __str__(self):
+        """
+        Join the repr of each stored resource inside list-style brackets.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :return: Display string; resource representation errors propagate.
+        """
         resources = map(repr, self)
         return "[%s]" % ", ".join(resources)
 
     def __repr__(self):
+        """
+        Return the collection’s string representation.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :return: List-style representation of stored resources.
+        """
         return str(self)
 
     def append(self, resource):
+        """
+        Append a Resource reference after checking isinstance, permitting duplicates and subclasses.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :param resource: Resource instance retained without copying.
+        :return: None; raises ValueError for other objects.
+        """
         if not isinstance(resource, Resource):
             raise ValueError("Can only append objects of type Resource")
         self._resources.append(resource)
 
     def remove(self, resource: Resource) -> None:
         """
-        Remove a resource from the collection.
+        Remove the first list entry equal to the supplied object.
 
-        :param resource:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :param resource: Entry to remove; Resource normally uses object identity equality.
+        :return: None; raises ValueError when no matching entry exists.
         """
         self._resources.remove(resource)
 
     def replace(self, start: int, end: int, items: list[Resource]) -> None:
         """
-        Same as list[start:end] = items.
+        Assign the supplied items into the backing list’s start:end slice without checking element types.
 
-        :param start:
-        :param end:
-        :param items:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :param start: Slice start, including negative positions.
+        :param end: Exclusive slice end.
+        :param items: Replacement iterable; entries are retained without copying or type
+            validation.
+        :return: None; normal list slice-assignment semantics apply.
         """
         self._resources[start:end] = items
 
     @staticmethod
     def from_directory_contents(top: str, topdown: bool = True) -> "ResourceCollection":
         """
-        Initialize a collection of resources from a directory.
+        Walk a directory tree and append path resources for every filename yielded by os.walk.
 
-        :param top:
-        :param topdown:
-        :return:
+        Use top as each resource’s base and make discovered file paths absolute. Preserve
+        filesystem traversal order without sorting; default os.walk handling ignores
+        directory scan errors and does not follow directory symlinks. No file contents are
+        read.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :param top: Directory tree root and base used for relative hrefs.
+        :param topdown: Traversal direction forwarded to os.walk.
+        :return: New ResourceCollection; a missing or unreadable root can produce an empty
+            collection.
         """
         collection = ResourceCollection()
         for dirpath, _dirnames, filenames in os.walk(top, topdown=topdown):
@@ -521,17 +781,35 @@ class ResourceCollection:
         return collection
 
     def set_basedir(self, path):
+        """
+        Assign the supplied base to every stored resource in iteration order.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+        :param path: New base directory forwarded unchanged to each resource.
+        :return: None; mutates shared Resource objects, potentially also visible through
+            other collections.
+        """
         for res in self:
             res.set_basedir(path)
 
 
 def validate_identifier(typ: str, val: str) -> None:
     """
-    Preform validation checks on the given identifier - raises InputIntegrityError if the id is not valid.
+    Validate only an exact lowercase isbn type using the uncleaned candidate’s ten- or thirteen-character checksum.
 
-    :param typ:
-    :param val:
-    :return:
+    Example:
+        >>> validate_identifier('isbn', '0261103571')
+
+
+    :param typ: Identifier type; only isbn is supported with this exact spelling.
+    :param val: Candidate string, checked without separator removal or case conversion.
+    :return: None for a valid candidate; InputIntegrityError for bad length/checksum and
+        NotImplementedError for any other type.
     """
     status = False
 
@@ -549,10 +827,18 @@ def validate_identifier(typ: str, val: str) -> None:
 
 def check_isbn10(isbn: str) -> Optional[str]:
     """
-    Checks to see if the first ten digits of a string is a valid ISBN-10 string.
+    Check the first ten characters for an ISBN-10 checksum, allowing uppercase X as the final checked character.
 
-    :param isbn:
-    :return:
+    No exact-length or cleanup pass occurs; suffix characters are retained on success.
+    Ordinary checksum exceptions are logged and then return None unless logging raises.
+
+    Example:
+        >>> check_isbn10('0261103571')
+        '0261103571'
+
+
+    :param isbn: Candidate whose first ten positions are checked.
+    :return: Original input on success, otherwise None.
     """
     try:
         digits = [_ for _ in map(int, isbn[:9])]
@@ -568,11 +854,17 @@ def check_isbn10(isbn: str) -> Optional[str]:
 
 def check_isbn13(isbn: str) -> Optional[str]:
     """
-    Checks to see if the first thirteen digits of a string is a valid ISBN-13 string.
+    Check the first thirteen characters with alternating ISBN-13 weights without validating a prefix or exact length.
 
-    By the point this function is called filtering is assumed to have been done to remove any illegal characters.
-    :param isbn:
-    :return:
+    Ordinary checksum exceptions are logged and yield None unless logging raises.
+
+    Example:
+        >>> check_isbn13('9780261103573')
+        '9780261103573'
+
+
+    :param isbn: Candidate whose first thirteen positions are checked.
+    :return: Original input on success, including any unchecked suffix, otherwise None.
     """
     try:
         digits = [_ for _ in map(int, isbn[:12])]
@@ -590,10 +882,16 @@ def check_isbn13(isbn: str) -> Optional[str]:
 
 def check_isbn(isbn: str) -> Optional[str]:
     """
-    Ids the type of ISBN we're dealing with - checks to see if it's valid.
+    Uppercase and remove non-digit/non-X characters, reject repeated-digit candidates, and dispatch by exact cleaned length.
 
-    :param isbn:
-    :return:
+    Example:
+        >>> check_isbn('0-261-10357-1')
+        '0261103571'
+
+
+    :param isbn: Candidate string; falsy input returns None.
+    :return: Cleaned valid ten- or thirteen-character ISBN, otherwise None; unsupported
+        truthy input types can raise during cleanup.
     """
     if not isbn:
         return None
@@ -611,10 +909,18 @@ def check_isbn(isbn: str) -> Optional[str]:
 # Todo: Was an actual bug in calibre
 def check_issn(issn: str) -> Optional[str]:
     """
-    Checks to make sure that the given issn string is valid - returns None if it isn't.
+    Clean to digits/X and check the first eight characters with the ISSN checksum, retaining any cleaned suffix.
 
-    :param issn: The issn string to check
-    :return:
+    There is no exact-length check. Ordinary checksum exceptions are logged and yield
+    None unless logging raises; cleanup errors propagate.
+
+    Example:
+        >>> check_issn('2049-3630')
+        '20493630'
+
+
+    :param issn: Candidate string; falsy values return None.
+    :return: Cleaned candidate on success, otherwise None.
     """
     if not issn:
         return None
@@ -633,10 +939,16 @@ def check_issn(issn: str) -> Optional[str]:
 
 def format_isbn(isbn: str) -> str:
     """
-    Render an isbn into a more easily readable format.
+    Validate an ISBN and insert hyphens at fixed slice positions for its cleaned length.
 
-    :param isbn:
-    :return:
+    Example:
+        >>> format_isbn('0261103571')
+        '02-6110-357-1'
+
+
+    :param isbn: Candidate passed to check_isbn.
+    :return: Formatted valid ISBN or the original invalid input; this is not
+        registration-group-aware hyphenation.
     """
     cisbn = check_isbn(isbn)
     if not cisbn:
@@ -649,10 +961,15 @@ def format_isbn(isbn: str) -> str:
 
 def check_doi(doi: str) -> Optional[str]:
     """
-    Check if something that looks like a DOI (Digital Object Identifier) is present anywhere in the string.
+    Find the first substring containing 10., exactly four digits, a slash, and non-whitespace suffix text.
 
-    :param doi:
-    :return:
+    Example:
+        >>> check_doi('See 10.1234/example')
+        '10.1234/example'
+
+
+    :param doi: Candidate string; falsy values return None.
+    :return: Matching substring, including attached non-whitespace punctuation, or None.
     """
     if not doi:
         return None
@@ -669,12 +986,20 @@ def check_doi(doi: str) -> Optional[str]:
 
 def calibreMetaInformation(title, authors=(_("Unknown"),)):
     """
-    Convenient encapsulation of book metadata, needed for compatibility
+    Construct core Calibre metadata from a title/authors pair or an object exposing both attributes.
 
-    :param title: title or ``_('Unknown')`` or a MetaInformation object (or something with a similar interface that
-                  can be read from)
-    :param authors: List of strings or []
-    :return:
+    A metadata-like first argument overrides the authors argument and is supplied as
+    other to the constructor. The default Unknown author was translated when this
+    function was defined.
+
+    Example:
+        >>> calibreMetaInformation('Example', ['Ada']).title
+        'Example'
+
+
+    :param title: Title value or metadata-like object with title and authors attributes.
+    :param authors: Author sequence used only when title is not metadata-like.
+    :return: New core calibreMetadata instance.
     """
     from LiuXin_alpha.metadata.book.base import calibreMetadata
 
@@ -691,10 +1016,18 @@ def calibreMetaInformation(title, authors=(_("Unknown"),)):
 
 def parse_opf_version(raw: str) -> OPFVersion:
     """
-    Returns the opf version from an opf string.
+    Parse dotted integer version components, pad to three, and discard extras.
 
-    :param raw:
-    :return:
+    An unparseable major defaults to 2.0.0; a later malformed component preserves the
+    major and zeroes minor/patch. Negative components are accepted.
+
+    Example:
+        >>> parse_opf_version('4.bad')
+        OPFVersion(major=4, minor=0, patch=0)
+
+
+    :param raw: Dotted version string; falsy input uses the default major.
+    :return: OPFVersion namedtuple with major, minor, and patch integers.
     """
     parts = (raw or "").split(".")
     try:
@@ -713,10 +1046,23 @@ def parse_opf_version(raw: str) -> OPFVersion:
 
 def parse_opf(stream_or_path):
     """
-    Take an opf file as a stream, string or path. Tries to guess which is which and then parses the
+    Read XML from the current stream position, an existing short filesystem path, or a raw payload, then parse its root.
 
-    :param stream_or_path:
-    :return:
+    Treat non-stream inputs shorter than 4096 as paths only when they exist. Close files
+    opened here, but leave caller streams open and consumed without position
+    restoration. Decode XML, discard text before the first opening angle bracket, and
+    parse with the module parser; lxml enables recovery. The helper does not validate
+    OPF namespace or schema.
+
+    Example:
+        >>> parse_opf('<package/>').tag
+        'package'
+
+
+    :param stream_or_path: Readable stream, path-like object, or raw XML bytes/string
+        accepted by the decoder.
+    :return: Parsed XML root; empty data raises ValueError, parser errors propagate, and
+        a None parser result raises ValueError.
     """
     stream = stream_or_path
     if not hasattr(stream, "read"):
@@ -740,10 +1086,22 @@ def parse_opf(stream_or_path):
 
 def normalize_languages(opf_languages, mi_languages):
     """
-    Preserve original country codes and use 2-letter lang codes where possible
-    :param opf_languages:
-    :param mi_languages:
-    :return:
+    Normalize metadata languages while retaining matching OPF regions.
+
+    Blank inputs are dropped, underscores become hyphens, and known languages prefer
+    two-letter codes. A supplied metadata region wins over the OPF region. This is a
+    compact language/region round-trip helper: script and private-use subtags are not
+    preserved as a full BCP-47 tag, and unknown language names remain lower-cased.
+
+    Example:
+        >>> normalize_languages(['en-US', 'zh-Hant-TW'], ['eng', 'zho'])
+        ['en-US', 'zh-TW']
+
+
+    :param opf_languages: Iterable of original OPF language strings used for region
+        fallback.
+    :param mi_languages: Iterable of replacement language strings or empty values.
+    :return: New list in metadata-language order, including duplicates.
     """
     from LiuXin_alpha.utils.libraries.iso639.iso639_tools import (
         lang_as_iso639_1 as fallback_lang_as_iso639_1,
@@ -753,6 +1111,21 @@ def normalize_languages(opf_languages, mi_languages):
     LocaleCode = namedtuple("LocaleCode", "langcode countrycode")
 
     def parse(x):
+        """
+        Split one language token into the local language/region pair.
+
+        Canonicalize the primary language when known. Prefer a two-character or numeric
+        three-character tail part as the region; otherwise use the first tail part,
+        upper-cased. Ignore the other tail parts.
+
+        Example:
+            >>> normalize_languages(['en-US', 'zh-Hant-TW'], ['eng', 'zho'])
+            ['en-US', 'zh-TW']
+
+
+        :param x: Language string or false value; underscores are accepted as separators.
+        :return: LocaleCode pair, or None for a blank or missing primary language.
+        """
         raw = (x or "").strip()
         if not raw:
             return None
@@ -780,6 +1153,17 @@ def normalize_languages(opf_languages, mi_languages):
         return LocaleCode(langcode=langcode, countrycode=(country or None))
 
     def iso2(lc):
+        """
+        Resolve a language code through the localization helper and ISO table fallback.
+
+        Example:
+            >>> normalize_languages(['en-US', 'zh-Hant-TW'], ['eng', 'zho'])
+            ['en-US', 'zh-TW']
+
+
+        :param lc: Primary language code to look up.
+        :return: Preferred two-letter code when available, otherwise the lookup result.
+        """
         lc2 = lang_as_iso639_1(lc)
         if not lc2 or len(lc2) != 2:
             lc2 = fallback_lang_as_iso639_1(lc) or lc2
@@ -795,6 +1179,17 @@ def normalize_languages(opf_languages, mi_languages):
     mi_languages = filter(None, map(parse, mi_languages))
 
     def norm(x):
+        """
+        Format a parsed metadata language using its region or the captured OPF fallback.
+
+        Example:
+            >>> normalize_languages(['en-US', 'zh-Hant-TW'], ['eng', 'zho'])
+            ['en-US', 'zh-TW']
+
+
+        :param x: LocaleCode pair produced by the enclosing parser.
+        :return: Language code optionally followed by a hyphen and region.
+        """
         lc = x.langcode
         cc = x.countrycode or cc_map.get(lc, None)
         lc2 = iso2(lc)
@@ -809,6 +1204,21 @@ def normalize_languages(opf_languages, mi_languages):
 
 
 def ensure_unique(template, existing):
+    """
+    Find an unused name by inserting numbered suffixes before the final extension.
+
+    The original name is returned when available. The membership collection is read
+    only; the chosen name is not reserved.
+
+    Example:
+        >>> ensure_unique('cover.jpg', {'cover.jpg', 'cover-1.jpg'})
+        'cover-2.jpg'
+
+
+    :param template: Preferred file name or identifier string.
+    :param existing: Collection supporting membership checks against existing names.
+    :return: Original name or first available name with a -1, -2, or later suffix.
+    """
     b, e = template.rpartition(".")[::2]
     if b and e:
         e = "." + e
@@ -823,6 +1233,29 @@ def ensure_unique(template, existing):
 
 
 def create_manifest_item(root, href_template, id_template, media_type=None):
+    """
+    Append an OPF manifest item with unique href and id attributes.
+
+    Collect existing attributes across the root using lxml XPath or the ElementTree
+    fallback. Infer the media type from the original href when it is not supplied,
+    falling back to application/octet-stream. A missing direct manifest child is left
+    missing.
+
+    Example:
+        >>> from xml.etree import ElementTree as ET
+        >>> root = ET.Element(OPF('package'))
+        >>> manifest = ET.SubElement(root, OPF('manifest'))
+        >>> create_manifest_item(root, 'cover.jpg', 'cover').get('media-type')
+        'image/jpeg'
+
+
+    :param root: Package root to inspect and mutate.
+    :param href_template: Preferred relative resource href; collisions receive numbered
+        suffixes.
+    :param id_template: Preferred item id; collisions receive numbered suffixes.
+    :param media_type: Explicit media type, or a false value to infer it.
+    :return: Appended element, or None if the root has no OPF manifest.
+    """
     if hasattr(root, "xpath"):
         all_ids = frozenset(root.xpath("//*/@id"))
         all_hrefs = frozenset(root.xpath("//*/@href"))
@@ -847,6 +1280,25 @@ def create_manifest_item(root, href_template, id_template, media_type=None):
 
 
 def pretty_print_opf(root):
+    """
+    Reorder OPF sections and apply XML indentation in place.
+
+    The polishing helpers sort metadata and manifest entries, then adjust text and tails
+    for pretty serialization. The root must support lxml XPath; this helper does not
+    write a file.
+
+    Example:
+        >>> from lxml import etree
+        >>> root = etree.Element(OPF('package'))
+        >>> manifest = etree.SubElement(root, OPF('manifest'))
+        >>> pretty_print_opf(root)
+        >>> root.text.isspace()
+        True
+
+
+    :param root: Mutable lxml OPF package element.
+    :return: None.
+    """
     from LiuXin_alpha.file_formats.oeb.polish.pretty import pretty_opf, pretty_xml_tree
 
     pretty_opf(root)

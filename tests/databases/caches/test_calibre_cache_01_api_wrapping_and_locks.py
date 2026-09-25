@@ -1,21 +1,15 @@
 """
-Step 01: CalibreCache API wrapping + locking (single drop-in file)
+Check opt-in legacy cache wrapper aliases, read/write lock counters, and safe read acquisition.
 
-Drop this file into: tests/databases/caches/test_calibre_cache_01_api_wrapping_and_locks.py
+These tests require LIUXIN_ENABLE_LEGACY_CALIBRE_CACHE_TESTS to be truthy and retain
+assumptions about the deprecated Calibre-shaped schema. They skip at module import
+by default under the FRBR-first schema. Enabling the gate does not make the fixture
+schema compatible.
 
-What it checks:
-- BaseCache's @read_api / @write_api wrapping happens:
-    * original methods preserved as cache._method
-    * unlocked aliases exposed as cache.unlock.method
-    * public methods are wrapped and acquire the correct lock
-- safe_read_lock suppresses DowngradeLockError when inside write lock
+Example:
+    Run with pytest::
 
-Assumptions:
-- Your repo provides a fixture that provisions a named test database copy.
-  Historically this has been either:
-    - provision_test_database(name=..., dst_dir=...)
-    - provision_named_test_database(name=..., dst_dir=...)
-  This file supports either (via request.getfixturevalue()).
+        python -m pytest -q tests/databases/caches/test_calibre_cache_01_api_wrapping_and_locks.py
 """
 
 from __future__ import annotations
@@ -57,13 +51,43 @@ from LiuXin_alpha.databases.locking import DowngradeLockError
 
 
 class TestPrefs(dict):
-    """Tiny prefs shim used by CalibreCache during init()."""
+    """
+    Provide explicit dictionary preferences with a separate fallback defaults mapping.
+
+    Example:
+        >>> prefs = TestPrefs({'flag': False})
+        >>> (prefs['flag'], 'flag' in prefs)
+        (False, False)
+    """
 
     def __init__(self, defaults: dict | None = None):
+        """
+        Start with empty explicit storage and retain a truthy defaults mapping by reference.
+
+        Example:
+            >>> defaults = {'flag': False}
+            >>> TestPrefs(defaults).defaults is defaults
+            True
+
+
+        :param defaults: Fallback mapping; not copied when nonempty.
+        :return: None; false or absent defaults are replaced by a new empty dictionary.
+        """
         super().__init__()
         self.defaults = defaults or {}
 
     def __getitem__(self, key):
+        """
+        Read explicit storage first, then defaults, raising KeyError if both lack the key.
+
+        Example:
+            >>> TestPrefs({'x': 2})['x']
+            2
+
+
+        :param key: Preference key to look up or store.
+        :return: Stored or default preference value.
+        """
         if key in self:
             return super().__getitem__(key)
         if key in self.defaults:
@@ -71,21 +95,85 @@ class TestPrefs(dict):
         raise KeyError(key)
 
     def get(self, key, default=None):
+        """
+        Read explicit storage or defaults, otherwise return the supplied fallback.
+
+        Example:
+            >>> TestPrefs().get('missing', 3)
+            3
+
+
+        :param key: Preference key to look up or store.
+        :param default: Fallback returned when neither explicit storage nor defaults
+            contains the key.
+        :return: Preference value or fallback; missing keys do not raise KeyError.
+        """
         if key in self:
             return super().get(key)
         return self.defaults.get(key, default)
 
     def set(self, key, value) -> None:
+        """
+        Assign a preference into explicit dictionary storage.
+
+        Example:
+            >>> prefs = TestPrefs({'x': 2})
+            >>> prefs.set('x', 4)
+            >>> prefs['x']
+            4
+
+
+        :param key: Preference key to look up or store.
+        :param value: Preference value to store without conversion.
+        :return: None; does not persist outside this in-memory shim.
+        """
         self[key] = value
 
 
 class DummyFSM:
-    """Minimal fsm used by formats/covers/path tables during init()."""
+    """
+    Produce deterministic dummy path strings without reading or creating assets.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_01_api_wrapping_and_locks.py
+    """
 
     def __init__(self, root: Path):
+        """
+        Convert and retain the root as a Path without creating it.
+
+        Example:
+            >>> DummyFSM('root').root == Path('root')
+            True
+
+
+        :param root: Base path for synthesized dummy locations.
+        :return: None.
+        """
         self.root = Path(root)
 
     def get_loc(self, *args, **kwargs):
+        """
+        Select a row from arguments and synthesize a location from its first recognized ID.
+
+        book_folder_row overrides asset_row, which overrides the first positional argument,
+        including explicit None values. For dictionaries try file_id, cover_id, folder_id,
+        then id; unrecognized rows use unknown.
+
+        Example:
+            >>> DummyFSM('root').get_loc({'file_id': 7}) == str(Path('root') / 'file_id_7')
+            True
+            >>> DummyFSM('root').get_loc() is None
+            True
+
+
+        :param args: Optional positional values; only the first supplies a candidate row.
+        :param kwargs: Optional asset_row or book_folder_row values; other keywords are
+            ignored.
+        :return: Path string, or None when the selected row is None.
+        """
         row = None
         if args:
             row = args[0]
@@ -102,7 +190,20 @@ class DummyFSM:
 
 def _get_provision_fixture(request) -> Any:
     """
-    Support both fixture spellings used across the repo, without asking you to rename anything.
+    Try the named database provisioner before the older provisioning fixture name.
+
+    Only FixtureLookupError from a lookup triggers the fallback. If both lookups fail,
+    attempt to construct a final FixtureLookupError with the diagnostic message; other
+    errors propagate.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_01_api_wrapping_and_locks.py
+
+
+    :param request: Pytest request used to resolve a provisioning fixture by name.
+    :return: First resolved fixture value; does not return when both lookups fail.
     """
     for name in ("provision_named_test_database", "provision_test_database"):
         try:
@@ -118,8 +219,20 @@ def _get_provision_fixture(request) -> Any:
 @pytest.fixture()
 def calibre_backend_db(tmp_path: Path, request):
     """
-    A Database instance with the minimum shims CalibreCache expects.
-    Uses test_db_0 by default (non-empty).
+    Provision test_db_0 and attach the legacy cache tables, lock, filesystem, preferences, and metadata shims.
+
+    Return an open Database without a local cleanup finalizer.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_01_api_wrapping_and_locks.py
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :param request: Pytest request used to resolve a provisioning fixture by name.
+    :return: Database configured as a legacy CalibreCache backend.
     """
     provision = _get_provision_fixture(request)
     prov = provision(name="test_db_0", dst_dir=tmp_path)
@@ -146,6 +259,23 @@ def calibre_backend_db(tmp_path: Path, request):
     db.restore_all_prefs = False
 
     def _init_prefs(default_prefs=None, restore_all_prefs=False, progress_callback=None):
+        """
+        Merge truthy defaults, materialize missing explicit keys, and optionally report the defaults count.
+
+        Existing explicit preferences remain unchanged. For any non-None defaults, call a
+        callable progress callback with (None, len(default_prefs)); ignore the restore flag.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/caches/test_calibre_cache_01_api_wrapping_and_locks.py
+
+
+        :param default_prefs: Optional mapping of fallback preferences to merge.
+        :param restore_all_prefs: Accepted for legacy call compatibility; unused.
+        :param progress_callback: Optional callable receiving the defaults count.
+        :return: None; mutates the enclosing database preferences.
+        """
         if default_prefs:
             db.prefs.defaults.update(default_prefs)
             # Materialize defaults into storage if missing (matches legacy behaviour)
@@ -167,7 +297,19 @@ def calibre_backend_db(tmp_path: Path, request):
 
 @pytest.fixture()
 def live_calibre_cache(calibre_backend_db):
-    """A fully initialized CalibreCache instance."""
+    """
+    Construct the legacy cache, call init, and return it without a local close finalizer.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_01_api_wrapping_and_locks.py
+
+
+    :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
+        shims; the local fixture has no close finalizer.
+    :return: Initialized CalibreCache; setup errors propagate.
+    """
     cache = CalibreCache(backend=calibre_backend_db)
     cache.init()
     return cache
@@ -175,7 +317,13 @@ def live_calibre_cache(calibre_backend_db):
 
 @dataclass
 class SpyLock:
-    """A minimal context-manager lock that records acquisitions/releases."""
+    """
+    Record context acquisitions, releases, and depth without synchronization or ownership checks.
+
+    Example:
+        >>> SpyLock('read').depth
+        0
+    """
 
     name: str
     acquisitions: int = 0
@@ -183,19 +331,72 @@ class SpyLock:
     depth: int = 0
 
     def acquire(self):
+        """
+        Increment acquisition count and nesting depth without blocking.
+
+        Example:
+            >>> lock = SpyLock('read')
+            >>> lock.acquire()
+            True
+            >>> (lock.acquisitions, lock.depth)
+            (1, 1)
+
+
+        :return: True.
+        """
         self.acquisitions += 1
         self.depth += 1
         return True
 
     def release(self, *args):
+        """
+        Increment releases and decrement depth without validating prior acquisition.
+
+        Example:
+            >>> lock = SpyLock('read')
+            >>> lock.release()
+            >>> (lock.releases, lock.depth)
+            (1, -1)
+
+
+        :param args: Unused positional arguments accepted for lock compatibility.
+        :return: None; depth can become negative.
+        """
         self.releases += 1
         self.depth -= 1
 
     def __enter__(self):
+        """
+        Record an acquisition and return this spy.
+
+        Example:
+            >>> lock = SpyLock('read')
+            >>> lock.__enter__() is lock
+            True
+
+
+        :return: The same SpyLock instance.
+        """
         self.acquire()
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        """
+        Record a release and leave any context-body exception unsuppressed.
+
+        Example:
+            >>> lock = SpyLock('read')
+            >>> with lock:
+            ...     pass
+            >>> (lock.acquisitions, lock.releases, lock.depth)
+            (1, 1, 0)
+
+
+        :param exc_type: Exception type from the context body, ignored.
+        :param exc: Exception instance, ignored.
+        :param tb: Traceback, ignored.
+        :return: False.
+        """
         self.release()
         return False
 
@@ -203,8 +404,20 @@ class SpyLock:
 @pytest.fixture()
 def cache_with_spy_locks(monkeypatch, calibre_backend_db) -> Tuple[CalibreCache, SpyLock, SpyLock]:
     """
-    Construct a CalibreCache with spy locks (without calling init()).
-    We patch BaseCache's create_locks() symbol so @read_api/@write_api wrappers use our spies.
+    Patch BaseCache lock creation, construct a cache, and reset acquisition/release counters after checking zero depth.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_01_api_wrapping_and_locks.py
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced generator or lookup
+        attributes after the test.
+    :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
+        shims; the local fixture has no close finalizer.
+    :return: Tuple of (uninitialized cache, read spy, write spy); monkeypatch restores
+        the lock factory.
     """
     import LiuXin_alpha.customize.cache.base_cache as base_cache
 
@@ -225,13 +438,43 @@ def cache_with_spy_locks(monkeypatch, calibre_backend_db) -> Tuple[CalibreCache,
 
 
 def _same_bound_method(a, b) -> bool:
-    """Compare two bound methods for identity (instance + underlying function)."""
+    """
+    Compare receiver and function attributes by identity, defaulting missing attributes to None.
+
+    Objects lacking both attributes compare equal under this helper, so it is intended
+    for bound-method assertions.
+
+    Example:
+        >>> prefs = TestPrefs()
+        >>> _same_bound_method(prefs.set, prefs.set)
+        True
+        >>> _same_bound_method(prefs.set, TestPrefs().set)
+        False
+
+
+    :param a: First candidate bound method.
+    :param b: Second candidate bound method.
+    :return: True when both attribute identities match.
+    """
     return getattr(a, "__self__", None) is getattr(b, "__self__", None) and getattr(a, "__func__", None) is getattr(
         b, "__func__", None
     )
 
 
 def test_read_write_api_methods_are_wrapped_and_aliased(cache_with_spy_locks):
+    """
+    Check pref/set_pref wrapper identities and lock counts, unlocked aliases, and the absence of an auto-wrapped init alias.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_01_api_wrapping_and_locks.py::test_read_write_api_methods_are_wrapped_and_aliased
+
+
+    :param cache_with_spy_locks: Uninitialized legacy cache plus read/write SpyLock
+        instances from the patched fixture.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache, spy_read, spy_write = cache_with_spy_locks
 
     # read_api: pref
@@ -277,6 +520,19 @@ def test_read_write_api_methods_are_wrapped_and_aliased(cache_with_spy_locks):
 
 
 def test_safe_read_lock_suppresses_downgrade_error(live_calibre_cache):
+    """
+    Check safe-read objects are fresh and usable inside a write lock where ordinary read acquisition raises DowngradeLockError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_01_api_wrapping_and_locks.py::test_safe_read_lock_suppresses_downgrade_error
+
+
+    :param live_calibre_cache: CalibreCache initialized by the module fixture, available
+        only when legacy tests are enabled.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = live_calibre_cache
 
     # Access should return a new SafeReadLock each time.

@@ -1,3 +1,16 @@
+"""
+Normalize genre text and classify it through ordered regex mappings and fiction branch/leaf tables.
+
+The broad-label mapping and fiction hierarchy are separate resources. Branch and
+leaf caches are compiled at import. First-match results depend on mapping order;
+multi-leaf representative choice follows frozenset iteration and is not stable
+across processes.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/test_genre_tree_wiring.py
+"""
 from __future__ import annotations
 
 import re
@@ -13,12 +26,19 @@ _WS_RE = re.compile(r"\s+", flags=re.UNICODE)
 
 def normalize_genre_text(text: str) -> str:
     """
-    Normalize input for genre matching:
-      - ensure str
-      - unicode NFKD + strip combining marks (accent-insensitive)
-      - lowercase
-      - replace common separators with spaces
-      - collapse whitespace
+    Stringify non-string input, apply NFKD, remove combining marks, lowercase, and normalize selected separators.
+
+    Expand ampersands to and, replace slashes, vertical bars, dots, commas, semicolons,
+    colons, and round/square/curly brackets with spaces, then collapse whitespace.
+    Hyphens and underscores remain.
+
+    Example:
+        >>> normalize_genre_text(' Fantásy & SCI/FI ')
+        'fantasy and sci fi'
+
+
+    :param text: Genre input; non-string objects are stringified rather than decoded.
+    :return: Normalized text, or empty string for None.
     """
     if text is None:
         return ""
@@ -45,7 +65,19 @@ def compile_genre_mapping(
     flags: int = re.IGNORECASE | re.UNICODE,
 ) -> Dict[str, Tuple[Pattern[str], ...]]:
     """
-    Compile all regex patterns once. Keep dict insertion order (most-specific-first).
+    Compile each label’s regex sequence while preserving mapping insertion order and pattern order.
+
+    Example:
+        >>> patterns = compile_genre_mapping({'Example': ('example',)})
+        >>> bool(patterns['Example'][0].search('EXAMPLE'))
+        True
+
+
+    :param mapping: Ordered label-to-pattern-sequence mapping.
+    :param flags: Flags passed to every re.compile call; defaults to IGNORECASE and
+        UNICODE.
+    :return: Fresh dictionary mapping labels to compiled-pattern tuples; regex errors
+        propagate.
     """
     compiled: Dict[str, Tuple[Pattern[str], ...]] = {}
     for genre, patterns in mapping.items():
@@ -60,7 +92,18 @@ def standardize_genre(
     default: Optional[str] = None,
 ) -> Optional[str]:
     """
-    First-match-wins standardizer. Assumes mapping is ordered most-specific-first.
+    Normalize raw input and return the first label whose compiled pattern searches successfully.
+
+    Example:
+        >>> standardize_genre('SCI FI', compile_genre_mapping({'SF': ('sci fi',)}))
+        'SF'
+
+
+    :param raw: Genre input passed to normalize_genre_text.
+    :param compiled_mapping: Ordered labels and pattern tuples, searched in their
+        supplied order.
+    :param default: Value returned when no label is selected.
+    :return: First matching label, or default for empty input or no match.
     """
     s = normalize_genre_text(raw)
     if not s:
@@ -1208,7 +1251,17 @@ FICTION_LEAF_MAPS: Dict[str, Dict[str, Tuple[str, ...]]] = {
 
 @dataclass(frozen=True)
 class FictionGenreClassification:
-    """Result of branch->leaf classification for fiction."""
+    """
+    Hold frozen classification fields for the branch, representative leaf, leaf set, and normalized input.
+
+    A fallback leaf can be present while leaves is empty for blank input, an unknown
+    branch, or an unmatched multi-leaf query.
+
+    Example:
+        >>> result = classify_fiction_genre('space opera')
+        >>> (result.branch, result.leaf)
+        ('Science Fiction', 'Space Opera')
+    """
 
     branch: Optional[str]
     leaf: Optional[str]
@@ -1228,6 +1281,18 @@ def _first_match(
     normalized: str,
     compiled_mapping: Dict[str, Tuple[Pattern[str], ...]],
 ) -> Optional[str]:
+    """
+    Search already-normalized text and return the first matching mapping key in iteration order.
+
+    Example:
+        >>> _first_match('example', compile_genre_mapping({'A': ('example',)}))
+        'A'
+
+
+    :param normalized: Text already normalized for the configured regexes.
+    :param compiled_mapping: Ordered key-to-compiled-pattern-tuples mapping.
+    :return: First matching key or None.
+    """
     for key, patterns in compiled_mapping.items():
         for pat in patterns:
             if pat.search(normalized):
@@ -1239,6 +1304,19 @@ def _all_matches(
     normalized: str,
     compiled_mapping: Dict[str, Tuple[Pattern[str], ...]],
 ) -> FrozenSet[str]:
+    """
+    Collect each mapping key whose pattern sequence contains at least one match.
+
+    Example:
+        >>> _all_matches('example', compile_genre_mapping({'A': ('example',)})) == frozenset({'A'})
+        True
+
+
+    :param normalized: Already-normalized text to search.
+    :param compiled_mapping: Key-to-compiled-pattern-tuples mapping.
+    :return: Frozenset of matching keys; no ordering or specificity pruning is applied
+        here.
+    """
     hits: set[str] = set()
     for key, patterns in compiled_mapping.items():
         for pat in patterns:
@@ -1255,21 +1333,28 @@ def classify_fiction_genre(
     default_branch: Optional[str] = None,
     default_leaf: Optional[str] = None,
 ) -> FictionGenreClassification:
-    """Classify a raw genre-ish string into (branch, leaf).
+    """
+    Normalize input, choose the first matching fiction branch, and search only that branch’s leaf mapping.
 
-    This is a convenience wrapper intended for metadata cleanup:
-      - Normalize once
-      - Pick the broad fiction branch (first-match-wins)
-      - Run only that branch's leaf mapping
+    Use supplied defaults for empty input or missing matches. In multi-leaf mode, remove
+    generic labels when specific matches remain and choose a representative by frozenset
+    iteration. Single-leaf mode uses mapping order and includes a truthy fallback leaf
+    in leaves; multi-leaf mode leaves an unmatched leaf set empty.
 
-    Args:
-        raw: input string (or anything stringify-able)
-        multi_leaf: if True, return *all* matching leaves (as a set)
-        default_branch: branch to use if nothing matches
-        default_leaf: leaf to use if nothing matches within the chosen branch
+    Example:
+        >>> result = classify_fiction_genre('', default_branch='Unknown', default_leaf='Other')
+        >>> (result.branch, result.leaf, len(result.leaves))
+        ('Unknown', 'Other', 0)
 
-    Returns:
-        FictionGenreClassification
+
+    :param raw: Genre input, stringified unless None.
+    :param multi_leaf: Whether to collect and prune all leaves in the selected branch
+        instead of taking its first match.
+    :param default_branch: Fallback branch used when no branch matches; its leaf map is
+        searched if known.
+    :param default_leaf: Fallback representative leaf when no leaf is selected.
+    :return: Frozen FictionGenreClassification with normalized text and selected/default
+        labels.
     """
 
     normalized = normalize_genre_text("" if raw is None else str(raw))

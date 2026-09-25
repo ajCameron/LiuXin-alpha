@@ -1,22 +1,10 @@
 """
-Driver contract: tree helpers (series/subjects).
+Check root traversal and deterministic tree IDs using three-generation subject and series chains.
 
-This module exercises the driver's generic "tree" helper behaviour:
+Example:
+    Run with pytest::
 
-* ``direct_get_root_series(start_row)``
-* ``direct_set_tree_ids(table)``
-
-Despite the method name referencing "series", the implementation is table-
-agnostic and works for any table that has exactly one ``*_parent`` or
-``*_parent_id`` column.
-
-We test against two real schema tables:
-
-* subjects: TEXT display column -> good unicode coverage
-* series: historically used as a tree, plus it has a required id=0 null row
-
-These tests are intentionally strict ("fail" mode): if these helpers behave
-differently across drivers, we want loud, actionable failures.
+        python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_tree_series_helpers.py
 """
 
 from __future__ import annotations
@@ -29,6 +17,24 @@ from LiuXin_alpha.errors import InputIntegrityError
 
 
 def _insert_and_get_id(driver, table: str, row_dict: dict) -> int:
+    """
+    Insert a row mapping and infer its ID from the highest ID in the supplied table.
+
+    Require a non-None ID and assume no competing inserts.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_tree_series_helpers.py
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :param row_dict: Column/value mapping passed through to the driver; column names
+        identify the target.
+    :return: Highest ID converted to int.
+    """
     driver.direct_add_simple_row_dict(row_dict)
     row_id = driver.direct_get_highest_id(table)
     assert row_id is not None
@@ -36,6 +42,21 @@ def _insert_and_get_id(driver, table: str, row_dict: dict) -> int:
 
 
 def _fetch_row(driver, table: str, row_id: int) -> dict:
+    """
+    Fetch a row by ID and require a present dictionary result.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_tree_series_helpers.py
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :param row_id: Requested ID in the trusted table.
+    :return: Driver-returned row dictionary.
+    """
     row = driver.direct_get_row_dict_from_id(table, row_id)
     assert row is not False
     assert isinstance(row, dict)
@@ -45,6 +66,23 @@ def _fetch_row(driver, table: str, row_id: int) -> dict:
 def _make_subjects_chain(
     driver, *, root_value: str, child_value: str, grand_value: str
 ) -> Tuple[int, int, int]:
+    """
+    Discover the subjects parent column and insert root, child, and grandchild rows in sequence.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_tree_series_helpers.py
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param root_value: Display value for the root row, whose parent is None.
+    :param child_value: Display value for the child linked to the root.
+    :param grand_value: Display value for the grandchild linked to the child.
+    :return: Tuple of inferred root, child, and grandchild IDs; existing rows are
+        retained.
+    """
     parent_col = driver.direct_get_parent_column_name("subjects")
     root_id = _insert_and_get_id(driver, "subjects", {"subject": root_value, parent_col: None})
     child_id = _insert_and_get_id(driver, "subjects", {"subject": child_value, parent_col: root_id})
@@ -53,6 +91,23 @@ def _make_subjects_chain(
 
 
 def _make_series_chain(driver, *, root_value, child_value, grand_value) -> Tuple[int, int, int]:
+    """
+    Discover the series parent column and insert root, child, and grandchild rows in sequence.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_tree_series_helpers.py
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param root_value: Display value for the root row, whose parent is None.
+    :param child_value: Display value for the child linked to the root.
+    :param grand_value: Display value for the grandchild linked to the child.
+    :return: Tuple of inferred root, child, and grandchild IDs; existing sentinel rows
+        are retained.
+    """
     parent_col = driver.direct_get_parent_column_name("series")
     root_id = _insert_and_get_id(driver, "series", {"series": root_value, parent_col: None})
     child_id = _insert_and_get_id(driver, "series", {"series": child_value, parent_col: root_id})
@@ -61,6 +116,21 @@ def _make_series_chain(driver, *, root_value, child_value, grand_value) -> Tuple
 
 
 def test_direct_get_root_series_finds_root_in_subjects(driver, pick_payload):
+    """
+    Require all three subject generations to resolve to the root ID and preserve its display value.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_tree_series_helpers.py::test_direct_get_root_series_finds_root_in_subjects
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param pick_payload: Fixture callable selecting payload strings by a wrapping
+        integer index.
+    :return: None; failed expectations raise AssertionError.
+    """
     root_val = pick_payload(10)   # emoji 😀🤖🧠
     child_val = pick_payload(12)  # rtl עברית العربية
     grand_val = pick_payload(18)  # injection-shaped is fine as inert data
@@ -90,6 +160,23 @@ def test_direct_get_root_series_finds_root_in_subjects(driver, pick_payload):
 
 def test_direct_set_tree_ids_subjects_is_deterministic(driver, pick_payload, assert_integrity):
     # Build two separate trees so we can assert tree_id differs by root.
+    """
+    Build two subject trees, assign tree IDs twice, and require each tree’s exact root-ID/display string plus integrity.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_tree_series_helpers.py::test_direct_set_tree_ids_subjects_is_deterministic
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param pick_payload: Fixture callable selecting payload strings by a wrapping
+        integer index.
+    :param assert_integrity: Fixture callable requiring the first retained
+        integrity_check result to be ok.
+    :return: None; failed expectations raise AssertionError.
+    """
     r1, c1, g1 = _make_subjects_chain(
         driver,
         root_value=pick_payload(10),
@@ -127,6 +214,23 @@ def test_direct_set_tree_ids_subjects_is_deterministic(driver, pick_payload, ass
 
 def test_direct_get_root_series_and_set_tree_ids_on_series(driver, pick_payload, assert_integrity):
     # series has a required null row at id=0 in test_db_13; our inserts should not collide.
+    """
+    Traverse a series chain to its root and require exact tree IDs for all generations and the ID-zero sentinel.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_tree_series_helpers.py::test_direct_get_root_series_and_set_tree_ids_on_series
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param pick_payload: Fixture callable selecting payload strings by a wrapping
+        integer index.
+    :param assert_integrity: Fixture callable requiring the first retained
+        integrity_check result to be ok.
+    :return: None; failed expectations raise AssertionError.
+    """
     root_value = pick_payload(0)   # plain-ascii
     child_value = pick_payload(1)
     grand_value = pick_payload(2)
@@ -155,5 +259,18 @@ def test_direct_get_root_series_and_set_tree_ids_on_series(driver, pick_payload,
 
 def test_direct_set_tree_ids_rejects_non_tree_table(driver):
     # titles has no *_tree_id column in the default schema.
+    """
+    Require InputIntegrityError when tree-ID assignment targets titles.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_tree_series_helpers.py::test_direct_set_tree_ids_rejects_non_tree_table
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     with pytest.raises(InputIntegrityError):
         driver.direct_set_tree_ids("titles")

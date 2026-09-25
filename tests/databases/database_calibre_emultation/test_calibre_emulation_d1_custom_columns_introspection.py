@@ -1,3 +1,11 @@
+"""
+Check dynamic custom-column schema metadata and best-effort issues for missing value tables.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_d1_custom_columns_introspection.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -7,6 +15,19 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generat
 
 
 def test_custom_column_introspection_flags_and_tables(provision_calibre_library) -> None:
+    """
+    Create series and integer columns and check their IDs, normalization flags, expected table names, table presence, and series link-extra support.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_d1_custom_columns_introspection.py::test_custom_column_introspection_flags_and_tables
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_d1_flags")
 
     b = CalibreLibraryBuilder(lib.root)
@@ -42,6 +63,19 @@ def test_custom_column_introspection_flags_and_tables(provision_calibre_library)
 
 
 def test_schema_info_records_missing_custom_tables_in_best_effort(provision_calibre_library) -> None:
+    """
+    Drop a series custom-value table and check best-effort schema inspection reports missing_custom_value_table.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_d1_custom_columns_introspection.py::test_schema_info_records_missing_custom_tables_in_best_effort
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_d1_missing_tables")
     b = CalibreLibraryBuilder(lib.root)
     num_series = b.create_custom_column(label="cc_series", name="Series", datatype="series")

@@ -1,11 +1,9 @@
-"""Database maintenance subsystem.
+"""
+Expose the plugin maintenance engine and retained compatibility helpers.
 
-This is the new top-level home for maintenance work inside ``databases``.
-It separates:
-- the background engine
-- the plugin primitives
-- builtin maintenance plugins
-- legacy helper functions that still need disentangling
+Importing the namespace loads event, plugin, service and legacy definitions but
+starts no worker. MaintenanceBot is an alias of MaintenanceEngine; constructing
+Maintainer starts its engine.
 """
 
 from __future__ import annotations

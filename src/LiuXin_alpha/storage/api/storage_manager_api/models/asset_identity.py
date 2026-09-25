@@ -18,6 +18,7 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
 )
 
 
+# Todo: Should also store the id?
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetMetadata:
     """

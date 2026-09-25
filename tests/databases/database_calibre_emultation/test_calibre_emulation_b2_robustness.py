@@ -1,3 +1,11 @@
+"""
+Check best-effort reporting for incomplete Calibre schemas and strict refusal of unsupported version metadata.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b2_robustness.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -14,6 +22,19 @@ from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import (
 
 
 def test_iter_book_payloads_best_effort_survives_missing_author_tables(provision_calibre_library) -> None:
+    """
+    Rename both author tables away and check best-effort reading preserves the title, returns no authors, and reports missing author tables.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b2_robustness.py::test_iter_book_payloads_best_effort_survives_missing_author_tables
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_b2_missing_authors")
 
     from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import CalibreLibraryBuilder
@@ -44,6 +65,19 @@ def test_iter_book_payloads_best_effort_survives_missing_author_tables(provision
 
 
 def test_schema_info_best_effort_records_missing_core_tables(tmp_path: Path) -> None:
+    """
+    Build a books-only SQLite database and check best-effort schema inspection records a missing-core-tables issue.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b2_robustness.py::test_schema_info_best_effort_records_missing_core_tables
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :return: None; failed expectations raise AssertionError.
+    """
     root = tmp_path / "badlib_missing_core"
     root.mkdir(parents=True, exist_ok=True)
     db_path = root / "metadata.db"
@@ -64,6 +98,19 @@ def test_schema_info_best_effort_records_missing_core_tables(tmp_path: Path) -> 
 
 
 def test_schema_info_strict_version_policy_can_refuse(tmp_path: Path) -> None:
+    """
+    Build core tables with mismatched application ID and a newer user version, then require strict inspection to raise CalibreUnsupportedVersionError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b2_robustness.py::test_schema_info_strict_version_policy_can_refuse
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator import (
         calibre_metadata_application_id,
         calibre_metadata_user_version,

@@ -1,17 +1,14 @@
-"""Database contract: Row round-trips + identity semantics (chunk 05).
+"""
+Check Row insertion, updates, deletion, duplication, equality, hashing, and shared database identity after deepcopy.
 
-This slice focuses on the core Row workflow exposed by
-:class:`~LiuXin_alpha.databases.database.Database`:
+Use discovered schema tables and payload-column name heuristics. Duplication tests
+accept integrity rejection with cleanup, and Unicode update cases explicitly skip
+embedded NUL payloads.
 
-* Creating writable rows via Database.get_blank_row().
-* Updating via Row.__setitem__ + Row.sync().
-* Reading back via Database.get_row_from_id().
-* Deleting via Database.delete().
-* Duplicating via Database.dupe_row() (including the cleanup path).
-* Row identity semantics: hash/equality/deepcopy and read-only mode.
+Example:
+    Run with pytest::
 
-These tests intentionally exercise *real* schema tables (e.g. titles/creators)
-to validate the conventions used by DriverWrapper (id/scratch/base columns).
+        python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py
 """
 
 from __future__ import annotations
@@ -33,6 +30,14 @@ from LiuXin_alpha.errors import (
 
 @dataclass(frozen=True)
 class TableShape:
+    """
+    Hold immutable table, ID, scratch, base, and selected payload-column names.
+
+    Example:
+        >>> shape = TableShape('works', 'work_id', 'work_scratch', 'work', 'work_title')
+        >>> shape.text_col
+        'work_title'
+    """
     table: str
     id_col: str
     scratch_col: str
@@ -62,16 +67,27 @@ PREFERRED_MAIN_TABLES: tuple[str, ...] = (
 
 
 def _pick_text_like_column(cols: Iterable[str], *, base: str, exclude: set[str]) -> str:
-    """Pick a column suitable for stuffing an arbitrary unicode payload.
+    """
+    Choose a payload column by name, preferring the exact base name before keyword matches.
 
-    Contract tests need to be able to create "distinct" rows in arbitrary tables.
-    Some tables begin with FK/id columns (e.g. folder_store_id), so a naive "first
-    non-excluded" choice will violate foreign keys when we write text into it.
+    After exclusions, avoid ID and time-like names when alternatives exist. Fall back
+    through other safe names, non-ID names, then any remaining name. If all names are
+    excluded, re-read cols and take its first item, which may be excluded or raise
+    IndexError for an empty or exhausted iterable. No SQL type or constraint check
+    occurs.
 
-    Heuristics:
-    - never pick *_id / *_fk columns unless there is no alternative
-    - avoid timestamp-ish columns
-    - prefer name/title/text/payload/comment/json/path/value-like columns
+    Example:
+        >>> _pick_text_like_column(['item_id', 'item_title', 'item'], base='item', exclude=set())
+        'item'
+        >>> _pick_text_like_column(['item_id', 'item_title'], base='item', exclude=set())
+        'item_title'
+
+
+    :param cols: Column names in schema order; use a reusable sequence for the
+        all-excluded fallback.
+    :param base: Preferred exact column name and prefix for suffix candidates.
+    :param exclude: Names removed from the main candidate list.
+    :return: Chosen column name.
     """
     cols_list = [c for c in cols if c not in exclude]
     if not cols_list:
@@ -79,10 +95,34 @@ def _pick_text_like_column(cols: Iterable[str], *, base: str, exclude: set[str])
         return list(cols)[0]
 
     def is_id_like(c: str) -> bool:
+        """
+        Recognize id itself and names ending in _id or _fk, ignoring case.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py
+
+
+        :param c: Column name to classify.
+        :return: Whether the name resembles an ID or foreign-key column.
+        """
         cl = c.lower()
         return cl.endswith('_id') or cl.endswith('_fk') or cl == 'id'
 
     def is_time_like(c: str) -> bool:
+        """
+        Recognize timestamp/datestamp substrings and supported epoch suffixes, ignoring case.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py
+
+
+        :param c: Column name to classify.
+        :return: Whether the name resembles a time column.
+        """
         cl = c.lower()
         return (
             'timestamp' in cl
@@ -122,6 +162,20 @@ def _pick_text_like_column(cols: Iterable[str], *, base: str, exclude: set[str])
 
 
 def _shape_for_table(db, table: str) -> TableShape:
+    """
+    Resolve table conventions and choose a payload column excluding ID, scratch, datestamp, and phash names.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py
+
+
+    :param db: Caller-owned Database used for schema inspection or SQL operations.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :return: TableShape containing the wrapper lookups and heuristic payload-column
+        choice.
+    """
     id_col = db.driver_wrapper.get_id_column(table)
     scratch_col = db.driver_wrapper.get_scratch_column(table)
     base_col = db.driver_wrapper.get_column_base(table)
@@ -139,6 +193,18 @@ def _shape_for_table(db, table: str) -> TableShape:
 @pytest.fixture(scope="session")
 def _table_names_expected() -> set[str]:
     # Keep in sync with TestDB13Properties.theo_main_tables (but this is a soft expectation).
+    """
+    Provide the session-scoped soft expectation of twenty-one main-table names.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py
+
+
+    :return: Set of expected names used by primary-table discovery; not a requirement
+        that every name exist.
+    """
     return {
         "files",
         "publishers",
@@ -166,7 +232,24 @@ def _table_names_expected() -> set[str]:
 
 @pytest.fixture
 def primary_table_shape(open_db, _table_names_expected) -> TableShape:
-    """Select a stable main table to run row-roundtrip tests against."""
+    """
+    Fail if over ten expected names are missing, then select a preferred non-view relation or the first sorted non-view fallback.
+
+    Fail when all relations are views; non-view selection alone does not prove every
+    write will satisfy schema constraints.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param _table_names_expected: Session fixture containing the soft expected
+        main-table names.
+    :return: TableShape for the selected relation.
+    """
     tables = set(open_db.get_tables())
 
     # Soft sanity: if these disappear, schema changed dramatically.
@@ -188,7 +271,22 @@ def primary_table_shape(open_db, _table_names_expected) -> TableShape:
 
 @pytest.fixture
 def secondary_table_shape(open_db) -> TableShape:
-    """Pick a second table (different from the primary) to avoid single-table blind spots."""
+    """
+    Select the first available preferred duplication table, falling back to the first listed relation.
+
+    Do not exclude views or compare with the primary-table fixture. An empty relation
+    list raises IndexError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: TableShape selected independently of primary_table_shape.
+    """
     tables = list(open_db.get_tables())
     for name in ("creators", "series", "publishers", "tags", "subjects", "genres"):
         if name in tables:
@@ -202,6 +300,21 @@ def secondary_table_shape(open_db) -> TableShape:
 
 
 def test_get_blank_row_returns_row_with_table_and_id(open_db, primary_table_shape: TableShape):
+    """
+    Check a blank Row has a persisted ID, matching ID field, cleared scratch value, and a reloadable table/ID identity.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_get_blank_row_returns_row_with_table_and_id
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param primary_table_shape: Fixture descriptor of the selected non-view table and
+        payload columns.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = primary_table_shape
     row = open_db.get_blank_row(t.table)
 
@@ -225,6 +338,21 @@ def test_get_blank_row_returns_row_with_table_and_id(open_db, primary_table_shap
 
 
 def test_get_blank_row_ids_are_distinct(open_db, primary_table_shape: TableShape):
+    """
+    Create two blank Rows and check both their row_id properties and ID-column values differ.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_get_blank_row_ids_are_distinct
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param primary_table_shape: Fixture descriptor of the selected non-view table and
+        payload columns.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = primary_table_shape
     r1 = open_db.get_blank_row(t.table)
     r2 = open_db.get_blank_row(t.table)
@@ -234,6 +362,22 @@ def test_get_blank_row_ids_are_distinct(open_db, primary_table_shape: TableShape
 
 
 def test_delete_requires_row_id(open_db, primary_table_shape: TableShape, pick_payload):
+    """
+    Construct an unsynced Row and check Database.delete raises InputIntegrityError for its missing ID.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_delete_requires_row_id
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param primary_table_shape: Fixture descriptor of the selected non-view table and
+        payload columns.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = primary_table_shape
     payload = pick_payload(3)
 
@@ -246,6 +390,22 @@ def test_delete_requires_row_id(open_db, primary_table_shape: TableShape, pick_p
 
 
 def test_delete_removes_row_from_database(open_db, primary_table_shape: TableShape, pick_payload):
+    """
+    Persist a payload, delete its Row, and check the count drops by one and lookup returns None.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_delete_removes_row_from_database
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param primary_table_shape: Fixture descriptor of the selected non-view table and
+        payload columns.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = primary_table_shape
     payload = pick_payload(10)  # avoid embedded NUL
 
@@ -265,6 +425,21 @@ def test_delete_removes_row_from_database(open_db, primary_table_shape: TableSha
 
 
 def test_get_row_from_id_missing_returns_none(open_db, primary_table_shape: TableShape):
+    """
+    Look up an ID well above the current high-water mark and check the result is None.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_get_row_from_id_missing_returns_none
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param primary_table_shape: Fixture descriptor of the selected non-view table and
+        payload columns.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = primary_table_shape
     # Choose an ID far above the current high-water mark.
     hi = open_db.driver_wrapper.get_highest_id(t.table) or 0
@@ -285,6 +460,23 @@ def test_blank_row_update_roundtrips_unicode_payloads(
     pick_payload,
     payload_i: int,
 ):
+    """
+    Update a blank Row and check exact Unicode payload equality after reload; skip payloads containing NUL.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_blank_row_update_roundtrips_unicode_payloads
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param primary_table_shape: Fixture descriptor of the selected non-view table and
+        payload columns.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :param payload_i: Parametrized corpus index used to select the Unicode payload.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = primary_table_shape
     payload = pick_payload(payload_i)
 
@@ -302,6 +494,22 @@ def test_blank_row_update_roundtrips_unicode_payloads(
 
 
 def test_row_sync_inserts_when_missing_id(open_db, primary_table_shape: TableShape, pick_payload):
+    """
+    Sync an ID-less Row and check an assigned ID, inferred table, and exact reloaded payload.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_row_sync_inserts_when_missing_id
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param primary_table_shape: Fixture descriptor of the selected non-view table and
+        payload columns.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = primary_table_shape
     payload = pick_payload(12)  # rtl/hebrew/arabic
 
@@ -318,6 +526,19 @@ def test_row_sync_inserts_when_missing_id(open_db, primary_table_shape: TableSha
 
 
 def test_row_properties_refresh_for_empty_row_dict(open_db):
+    """
+    Check an empty Row has no table, exposes an allowed-table set, and raises InputIntegrityError on row_id access.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_row_properties_refresh_for_empty_row_dict
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     row = Row(database=open_db, row_dict={})
     assert row.table is None
     assert row.allowed_tables is not None
@@ -327,6 +548,22 @@ def test_row_properties_refresh_for_empty_row_dict(open_db):
 
 
 def test_row_setitem_on_empty_row_dict_infers_table(open_db, primary_table_shape: TableShape, pick_payload):
+    """
+    Assign a known payload column to an empty Row and check it infers the selected table.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_row_setitem_on_empty_row_dict_infers_table
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param primary_table_shape: Fixture descriptor of the selected non-view table and
+        payload columns.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = primary_table_shape
     payload = pick_payload(0)
 
@@ -338,6 +575,22 @@ def test_row_setitem_on_empty_row_dict_infers_table(open_db, primary_table_shape
 
 
 def test_row_make_read_only_disallows_sync(open_db, primary_table_shape: TableShape, pick_payload):
+    """
+    Modify a Row, mark it read-only, and check sync raises RowReadOnlyError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_row_make_read_only_disallows_sync
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param primary_table_shape: Fixture descriptor of the selected non-view table and
+        payload columns.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = primary_table_shape
     payload = pick_payload(1)
 
@@ -355,6 +608,22 @@ def test_row_make_read_only_disallows_sync(open_db, primary_table_shape: TableSh
 
 
 def test_dupe_row_creates_copy_or_cleans_up(open_db, secondary_table_shape: TableShape, pick_payload):
+    """
+    Check duplication either creates one new Row with the same payload or preserves count and original-row existence after DatabaseIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_dupe_row_creates_copy_or_cleans_up
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param secondary_table_shape: Fixture descriptor selected independently for
+        duplication tests; not necessarily different from the primary table.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = secondary_table_shape
     payload = pick_payload(4)
 
@@ -390,6 +659,22 @@ def test_dupe_row_creates_copy_or_cleans_up(open_db, secondary_table_shape: Tabl
 
 
 def test_dupe_row_does_not_mutate_original(open_db, secondary_table_shape: TableShape, pick_payload):
+    """
+    Check duplication leaves the original in-memory row_dict unchanged, whether it succeeds or raises DatabaseIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_dupe_row_does_not_mutate_original
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param secondary_table_shape: Fixture descriptor selected independently for
+        duplication tests; not necessarily different from the primary table.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = secondary_table_shape
     payload = pick_payload(13)  # cjk
 
@@ -413,6 +698,22 @@ def test_dupe_row_does_not_mutate_original(open_db, secondary_table_shape: Table
 
 
 def test_rows_with_same_db_table_id_compare_equal(open_db, primary_table_shape: TableShape, pick_payload):
+    """
+    Check reloading the same Row preserves equality and hash while producing a separate row_dict snapshot.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_rows_with_same_db_table_id_compare_equal
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param primary_table_shape: Fixture descriptor of the selected non-view table and
+        payload columns.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = primary_table_shape
     payload = pick_payload(2)
 
@@ -431,6 +732,22 @@ def test_rows_with_same_db_table_id_compare_equal(open_db, primary_table_shape: 
 
 
 def test_row_can_be_dict_key(open_db, primary_table_shape: TableShape, pick_payload):
+    """
+    Use a persisted Row as a dictionary key and check a freshly loaded equal Row retrieves the same value.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_row_can_be_dict_key
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param primary_table_shape: Fixture descriptor of the selected non-view table and
+        payload columns.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = primary_table_shape
     payload = pick_payload(15)  # mixed symbols / zero-width joiners etc
 
@@ -446,6 +763,22 @@ def test_row_can_be_dict_key(open_db, primary_table_shape: TableShape, pick_payl
 
 
 def test_row_deepcopy_preserves_identity(open_db, primary_table_shape: TableShape, pick_payload):
+    """
+    Check deepcopy preserves Row identity and syncing the copy updates the same underlying database record.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_row_deepcopy_preserves_identity
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param primary_table_shape: Fixture descriptor of the selected non-view table and
+        payload columns.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = primary_table_shape
     payload = pick_payload(3)
 
@@ -470,6 +803,22 @@ def test_row_deepcopy_preserves_identity(open_db, primary_table_shape: TableShap
 
 
 def test_row_contains_and_getitem_semantics(open_db, primary_table_shape: TableShape, pick_payload):
+    """
+    Check payload-column membership and exact indexed value retrieval before and after persistence.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_roundtrips.py::test_row_contains_and_getitem_semantics
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param primary_table_shape: Fixture descriptor of the selected non-view table and
+        payload columns.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = primary_table_shape
     payload = pick_payload(0)
 

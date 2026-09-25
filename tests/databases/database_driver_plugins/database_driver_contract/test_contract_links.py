@@ -1,7 +1,10 @@
-"""Driver contract: inter-table linking (interlink tables).
+"""
+Check many-to-many link creation, endpoint uniqueness, cascade deletion, unlinking, and unsupported link types.
 
-This module validates ``direct_link_main_tables`` and the basic integrity of the
-resulting link tables.
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links.py
 """
 
 from __future__ import annotations
@@ -12,7 +15,20 @@ from LiuXin_alpha.errors import DatabaseIntegrityError
 
 
 def _create_contract_tables(driver) -> tuple[str, str, str, str]:
-    """Create two deterministic main tables used for linking tests."""
+    """
+    Create fixed left and right main tables and discover their base value columns.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links.py
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :return: Tuple of left table, right table, left value column, and right value
+        column.
+    """
 
     left_table = "contract_link_lefts"
     right_table = "contract_link_rights"
@@ -26,14 +42,50 @@ def _create_contract_tables(driver) -> tuple[str, str, str, str]:
 
 
 def _insert_one(driver, table: str, value_col: str, value: str) -> int:
-    """Insert a single row and return its id."""
+    """
+    Insert one value and infer the row ID from the highest ID in the supplied table.
+
+    Assume column-based table identification and no competing insert.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links.py
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :param value_col: Concrete value column identifying the insertion target.
+    :param value: Payload passed through the driver’s row-dictionary insert.
+    :return: Highest ID converted to int.
+    """
 
     driver.direct_add_simple_row_dict({value_col: value})
     return int(driver.direct_get_highest_id(table))
 
 
 def _create_link_table(driver, driver_wrapper, left_table: str, right_table: str, *, requested_cols="all") -> str:
-    """Create an interlink table and return its name."""
+    """
+    Create a many-to-many link with the requested optional columns and compare driver and wrapper names.
+
+    Require a truthy wrapper result and equal string representations.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links.py
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param driver_wrapper: Wrapper attached to the fixture database and selected driver.
+    :param left_table: Trusted left main-table name.
+    :param right_table: Trusted right main-table name.
+    :param requested_cols: Optional-column selector forwarded unchanged; defaults to
+        all.
+    :return: Driver-reported link-table name converted to str.
+    """
 
     link_table_name = driver.direct_link_main_tables(
         primary_table=left_table,
@@ -51,7 +103,20 @@ def _create_link_table(driver, driver_wrapper, left_table: str, right_table: str
 
 
 def _link_columns(driver_wrapper, left_table: str, right_table: str) -> dict[str, str]:
-    """Return common column names in the interlink table."""
+    """
+    Resolve both endpoint foreign keys and the priority, type, and index metadata columns through the wrapper.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links.py
+
+
+    :param driver_wrapper: Wrapper attached to the fixture database and selected driver.
+    :param left_table: Trusted left main-table name.
+    :param right_table: Trusted right main-table name.
+    :return: Mapping with left_fk, right_fk, priority, type, and index entries.
+    """
 
     left_id_col = driver_wrapper.get_id_column(left_table)
     right_id_col = driver_wrapper.get_id_column(right_table)
@@ -70,6 +135,25 @@ def test_direct_link_main_tables_creates_link_table_and_enforces_uniqueness(
     driver_wrapper,
     pick_payload,
 ) -> None:
+    """
+    Insert two distinct links, reject a duplicate endpoint pair, and require count two plus a valid fetched endpoint pair.
+
+    Also require titles to survive an SQL-shaped type value; the fetched row’s metadata
+    values are not compared.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links.py::test_direct_link_main_tables_creates_link_table_and_enforces_uniqueness
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param driver_wrapper: Wrapper attached to the fixture database and selected driver.
+    :param pick_payload: Fixture callable selecting corpus strings by a wrapping integer
+        index.
+    :return: None; failed expectations raise AssertionError.
+    """
     left_table, right_table, left_col, right_col = _create_contract_tables(driver)
 
     link_table = _create_link_table(driver, driver_wrapper, left_table, right_table, requested_cols="all")
@@ -131,6 +215,22 @@ def test_direct_link_main_tables_creates_link_table_and_enforces_uniqueness(
 
 
 def test_link_rows_are_cascade_deleted_when_main_row_deleted(driver, driver_wrapper, pick_payload) -> None:
+    """
+    Delete a linked left-side main row and require its single link row to disappear.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links.py::test_link_rows_are_cascade_deleted_when_main_row_deleted
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param driver_wrapper: Wrapper attached to the fixture database and selected driver.
+    :param pick_payload: Fixture callable selecting corpus strings by a wrapping integer
+        index.
+    :return: None; failed expectations raise AssertionError.
+    """
     left_table, right_table, left_col, right_col = _create_contract_tables(driver)
 
     link_table = _create_link_table(driver, driver_wrapper, left_table, right_table, requested_cols="all")
@@ -157,6 +257,20 @@ def test_link_rows_are_cascade_deleted_when_main_row_deleted(driver, driver_wrap
 
 
 def test_direct_unlink_main_tables_drops_link_table(driver, driver_wrapper) -> None:
+    """
+    Unlink two main tables and require the link relation to disappear and wrapper discovery to return False.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links.py::test_direct_unlink_main_tables_drops_link_table
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param driver_wrapper: Wrapper attached to the fixture database and selected driver.
+    :return: None; failed expectations raise AssertionError.
+    """
     left_table, right_table, _, _ = _create_contract_tables(driver)
 
     link_table = _create_link_table(driver, driver_wrapper, left_table, right_table, requested_cols="all")
@@ -172,6 +286,19 @@ def test_direct_unlink_main_tables_drops_link_table(driver, driver_wrapper) -> N
 
 
 def test_direct_link_main_tables_rejects_unknown_link_type(driver) -> None:
+    """
+    Require NotImplementedError when creating a link with an unrecognized link type.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links.py::test_direct_link_main_tables_rejects_unknown_link_type
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     left_table, right_table, _, _ = _create_contract_tables(driver)
 
     with pytest.raises(NotImplementedError):

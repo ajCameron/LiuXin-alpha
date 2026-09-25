@@ -32,6 +32,9 @@ class CompositeDigitalAssetAPI(abc.ABC):
         >>> members = manager.resolve_composite_digital_asset(composite_id)  # doctest: +SKIP
     """
 
+    # Todo: Add the ability to make a compositie digital asset from a series of digital assets - it might be in convenience
+
+    # Todo: Again, less than elegant to have to declare and then call "declare_composite_digital_asset_from_declaration" can also exist
     @abc.abstractmethod
     def declare_composite_digital_asset(
         self,
@@ -50,6 +53,8 @@ class CompositeDigitalAssetAPI(abc.ABC):
         """
         ...
 
+    # Todo: Also be good to get from a composite digital asset hash - which should exist
+    # Todo: That's a good idea! A composite digital asset hash - stores the file names and hashes for all the files
     @abc.abstractmethod
     def get_composite_digital_asset_record(
         self,
@@ -68,6 +73,7 @@ class CompositeDigitalAssetAPI(abc.ABC):
         """
         ...
 
+    # Todo: Also be good to have methods to update individual asset properties
     @abc.abstractmethod
     def replace_composite_digital_asset(
         self,
@@ -105,7 +111,6 @@ class CompositeDigitalAssetAPI(abc.ABC):
         Example:
             >>> composites = tuple(manager.iter_composite_digital_asset_records())  # doctest: +SKIP
 
-
         :return: Iterator of known Composite catalogue records.
         """
         ...
@@ -136,6 +141,7 @@ class CompositeDigitalAssetAPI(abc.ABC):
         """
         ...
 
+    # Todo: There should be a better container for an entire composite digit asset....
     @abc.abstractmethod
     def resolve_composite_digital_asset(
         self,

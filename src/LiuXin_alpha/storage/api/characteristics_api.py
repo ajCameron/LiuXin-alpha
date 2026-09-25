@@ -35,6 +35,7 @@ class StoragePublicationModel(StrEnum):
     WHOLE_STORE_REBUILD = "whole_store_rebuild"
 
 
+# Todo: I think this means "bytes claimed before compression"
 class StorageTemporarySpaceRequirement(StrEnum):
     """
     Classify ordinary private-space requirements beyond the final published bytes.
@@ -58,9 +59,12 @@ class StorageWriteUsage(StrEnum):
     """
     Describe the write workload recommended for a backend's mechanics.
 
-    UNKNOWN leaves guidance unspecified; NOT_APPLICABLE covers no writes, GENERAL ordinary mutation,
-    OCCASIONAL infrequent mutation, and ARCHIVAL_SNAPSHOT finite packs or snapshots. This
-    recommendation does not enable operations or enforce scheduling.
+    UNKNOWN leaves guidance unspecified;
+    NOT_APPLICABLE covers no writes,
+    GENERAL ordinary mutation,
+    OCCASIONAL infrequent mutation, and
+    ARCHIVAL_SNAPSHOT finite packs or snapshots.
+    This recommendation does not enable operations or enforce scheduling.
 
     Example:
         >>> StorageWriteUsage.ARCHIVAL_SNAPSHOT.value
@@ -119,6 +123,7 @@ class StorageLimitation:
         object.__setattr__(self, "message", message)
 
 
+# Todo: Check all storage characteristics are taken into account before writing to a store
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageCharacteristics:
     """

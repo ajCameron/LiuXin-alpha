@@ -19,12 +19,13 @@ from LiuXin_alpha.storage.api.models import (
 )
 
 
-
+# Todo: This could be public?
 class _StorageRouterLike(Protocol):
     """
-    Describe only the manager operations needed by BoundLocation. This structural typing seam avoids
-    importing the full manager facade. It supplies signatures rather than routing, validation, or
-    runtime protocol checks.
+    Describe only the manager operations needed by BoundLocation.
+
+    This structural typing seam avoids importing the full manager facade.
+    It supplies signatures rather than routing, validation, or runtime protocol checks.
 
     Example:
         >>> router: _StorageRouterLike = manager  # doctest: +SKIP
@@ -195,8 +196,9 @@ class _StorageRouterLike(Protocol):
 @dataclass(slots=True, frozen=True, eq=False)
 class BoundLocation:
     """
-    Pair a live router with an opaque Location for short-lived operational use. Frozen fields retain
-    both references without validating their types; eq=False preserves object-identity equality
+    Pair a live router with an opaque Location for short-lived operational use.
+
+    Frozen fields retain both references without validating their types; eq=False preserves object-identity equality
     rather than comparing addresses. The manager is omitted from the generated representation.
 
     The handle stores no size, digest, version, connection, or routing snapshot. Operations delegate

@@ -13,6 +13,9 @@ cleanup, and partial-publication limits are described at those operations.
 Private helpers document their exact validation and coercion boundaries.
 """
 
+# Todo: This is a kitchien sink module - split it down into convenience sub-classes which can live in the same modules as
+#  the regular parts - e.g. the derivations part should live in the derivations_api class
+
 from __future__ import annotations
 
 import os
@@ -121,6 +124,8 @@ _StorableSource: TypeAlias = (
 )
 
 
+# Todo: These are good! But we need extension - to handle more things the StorageManager can do
+# Todo: This module is already too long
 class StorageConvenienceAPI:
     """
     Convert ordinary caller values into explicit manager operations without owning state.
@@ -1243,6 +1248,7 @@ class StorageConvenienceAPI:
             output.close()
             raise
 
+    # Todo: Do we have the granular control to define a specific replicaiton policy for any given ID
     def define_replication_policy(
         self,
         name: str,
@@ -1507,6 +1513,7 @@ class StorageConvenienceAPI:
     )
 
 
+# Todo: This remain NOT API concerns
 def _file_asset_id(
     manager: object,
     identifier: DigitalAssetFileIdentifier,
@@ -1809,6 +1816,8 @@ def _placement_hints(
     return None if metadata is None else derive_storage_hints(metadata)
 
 
+# Todo: Should not be here in the API
+# Todo: As a general rule, these helpers should also not be private functions...
 def _digests(value: _DigestInput) -> tuple[Digest, ...]:
     """
     Convert mapping entries to Digest objects in mapping order, or tuple-collect an iterable and

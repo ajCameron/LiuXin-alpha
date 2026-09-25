@@ -1,9 +1,15 @@
-"""FRBR generator: WEMI aggregate views.
+"""
+Check WEMI and compatibility views using small generated SQLite catalogues.
 
-These tests ensure the generator ships a small set of "read-model" views that
-project book-ish surfaces out of the WEMI graph.
+Each test creates its own file database, enables foreign keys and closes the
+connection in finally. Fixture rows model works, expressions, manifestations, items
+and storage metadata; they do not create physical asset files. Views intentionally
+project selected, sometimes lossy, graph data.
 
-The views are intended as a UI/compatibility layer and are deliberately lossy.
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py
 """
 
 from __future__ import annotations
@@ -16,6 +22,20 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import Co
 
 
 def _views(conn: sqlite3.Connection) -> set[str]:
+    """
+    Read the set of SQLite view names without including ordinary tables.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _ = conn.execute('CREATE VIEW sample AS SELECT 1')
+        >>> _views(conn)
+        {'sample'}
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :return: Set of names returned from sqlite_master.
+    """
     return {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='view';")}
 
 
@@ -31,6 +51,31 @@ def _insert_atomic_asset_bundle(
     folder_id: int | None = None,
     name: str | None = None,
 ) -> tuple[int, int]:
+    """
+    Insert a digital asset, its item link and one active replica without committing.
+
+    Uses priority zero and origin test; only primary_payload links get the primary flag.
+    A false name falls back to the last slash-delimited storage-key component. Earlier
+    inserts remain pending if a later statement fails.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py
+
+
+    :param cur: Caller-owned SQLite cursor used for insertion; this helper does not
+        commit or close it.
+    :param item_id: Existing item ID receiving the asset relationship.
+    :param store_id: Existing store ID owning the replica.
+    :param storage_key: Replica storage key; also supplies the fallback asset name.
+    :param link_type: Asset/item relationship type; defaults to primary_payload.
+    :param size_bytes: Recorded logical asset size or None.
+    :param media_category: Stored media category or None.
+    :param folder_id: Optional replica folder ID.
+    :param name: Asset name override; false values use the storage-key basename.
+    :return: Pair of integer IDs: digital asset followed by asset replica.
+    """
     cur.execute(
         "INSERT INTO digital_assets (digital_asset_name, digital_asset_size_bytes, digital_asset_media_category) VALUES (?, ?, ?);",
         (name or storage_key.rsplit('/', 1)[-1], size_bytes, media_category),
@@ -57,6 +102,26 @@ def _insert_composite_asset_bundle(
     composite_name: str,
     member_asset_ids: list[int],
 ) -> int:
+    """
+    Insert an audiobook composite, a primary item link and ordered required chapters.
+
+    Chapter sequence numbers start at one in member_asset_ids order. Uses origin test
+    and leaves transaction ownership with the caller; failures can leave earlier inserts
+    pending.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py
+
+
+    :param cur: Caller-owned SQLite cursor used for insertion; this helper does not
+        commit or close it.
+    :param item_id: Existing item ID linked to the composite as primary_payload.
+    :param composite_name: Name stored on the audiobook composite.
+    :param member_asset_ids: Ordered asset IDs to attach as required chapter members.
+    :return: Integer composite digital asset ID.
+    """
     cur.execute(
         "INSERT INTO composite_digital_assets (composite_digital_asset_name, composite_digital_asset_media_category) VALUES (?, ?);",
         (composite_name, 'audiobook'),
@@ -78,6 +143,21 @@ def _insert_composite_asset_bundle(
 
 
 def test_frbr_generator_creates_wemi_views(tmp_path: pathlib.Path) -> None:
+    """
+    Require the listed WEMI and compatibility names to be views and check empty ray results.
+
+    The expected view set is a required subset; additional views are allowed.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_frbr_generator_creates_wemi_views
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     db_path = tmp_path / "frbr_views_smoke.db"
     conn = sqlite3.connect(str(db_path))
     try:
@@ -130,7 +210,21 @@ def test_frbr_generator_creates_wemi_views(tmp_path: pathlib.Path) -> None:
 
 
 def test_identifiers_v_unifies_entity_and_item_identifiers(tmp_path: pathlib.Path) -> None:
-    """Identifiers: a single view should expose curated (entity) + raw (item) identifiers."""
+    """
+    Project one curated work UUID and one observed item ASIN with provenance and display text.
+
+    Checks exact rows and matching identifier fields through the alias view.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_identifiers_v_unifies_entity_and_item_identifiers
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db_path = tmp_path / "frbr_identifiers_view.db"
     conn = sqlite3.connect(str(db_path))
@@ -205,7 +299,21 @@ def test_identifiers_v_unifies_entity_and_item_identifiers(tmp_path: pathlib.Pat
 
 
 def test_file_inventory_v_projects_assets_with_ray_context(tmp_path: pathlib.Path) -> None:
-    """Inventory: files should be projected with (ray/book) context."""
+    """
+    Project payload and cover replicas with WEMI context, storage keys, URIs and sizes.
+
+    Checks two ordered rows, content/cover role flags and recorded sizes 100 and 10.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_file_inventory_v_projects_assets_with_ray_context
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db_path = tmp_path / "frbr_file_inventory_view.db"
     conn = sqlite3.connect(str(db_path))
@@ -318,7 +426,21 @@ def test_file_inventory_v_projects_assets_with_ray_context(tmp_path: pathlib.Pat
 
 
 def test_ingest_audit_v_unifies_item_and_file_events(tmp_path: pathlib.Path) -> None:
-    """Audit: unified workflow events should project with ray/book context."""
+    """
+    Project item and digital-asset workflow events with shared ray and step context.
+
+    Checks exact transition/audit fields, the asset URI and the ingest_audit alias.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_ingest_audit_v_unifies_item_and_file_events
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db_path = tmp_path / "frbr_ingest_audit_view.db"
     conn = sqlite3.connect(str(db_path))
@@ -417,7 +539,21 @@ def test_ingest_audit_v_unifies_item_and_file_events(tmp_path: pathlib.Path) -> 
 
 
 def test_books_v_compatibility_projection(tmp_path: pathlib.Path) -> None:
-    """Book-ish: the FRBR DB should expose a `books`-shaped view (per ray)."""
+    """
+    Project WEMI IDs, year-derived dates, cover presence and total asset size into books.
+
+    Checks January-first dates, a combined size of 110 and matching alias fields.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_books_v_compatibility_projection
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db_path = tmp_path / "frbr_books_view.db"
     conn = sqlite3.connect(str(db_path))
@@ -525,7 +661,22 @@ def test_books_v_compatibility_projection(tmp_path: pathlib.Path) -> None:
 
 
 def test_books_v_and_inventory_expand_composite_item_assets(tmp_path: pathlib.Path) -> None:
-    """Composite item links should expand through to atomic asset inventory and book size."""
+    """
+    Expand a composite-only item attachment into two ordered atomic inventory members.
+
+    Removes direct item links, checks member/replica IDs and sequence numbers, and
+    requires book size 120.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_books_v_and_inventory_expand_composite_item_assets
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db_path = tmp_path / "frbr_composite_inventory_view.db"
     conn = sqlite3.connect(str(db_path))
@@ -592,7 +743,22 @@ def test_books_v_and_inventory_expand_composite_item_assets(tmp_path: pathlib.Pa
         conn.close()
 
 def test_wemi_rays_v_projects_expected_fields(tmp_path: pathlib.Path) -> None:
-    """Insert a minimal WEMI chain and confirm the ray view returns one row."""
+    """
+    Project one WEM chain into readable title components and select its primary ray.
+
+    Accepts either the expression label or year for the expression display field. The
+    first fetched row and primary lookup are checked; total row count is not asserted.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_wemi_rays_v_projects_expected_fields
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db_path = tmp_path / "frbr_views_roundtrip.db"
     conn = sqlite3.connect(str(db_path))
@@ -660,7 +826,22 @@ def test_wemi_rays_v_projects_expected_fields(tmp_path: pathlib.Path) -> None:
 
 
 def test_titles_v_compatibility_projection(tmp_path: pathlib.Path) -> None:
-    """Legacy-compat: the FRBR DB should expose a `titles`-shaped view."""
+    """
+    Project work title metadata and primary-manifestation publication year through titles.
+
+    Checks selected alias fields and permits either link origin or discovery note as
+    source.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_titles_v_compatibility_projection
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db_path = tmp_path / "frbr_titles_view.db"
     conn = sqlite3.connect(str(db_path))
@@ -740,7 +921,19 @@ def test_titles_v_compatibility_projection(tmp_path: pathlib.Path) -> None:
 
 
 def test_agent_credits_v_flattens_credits_per_ray(tmp_path: pathlib.Path) -> None:
-    """UI helper: credits flattened onto rays, so book-ish screens can show authors/roles easily."""
+    """
+    Project work-author and expression-translator credits with scope ranks one and two.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_agent_credits_v_flattens_credits_per_ray
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db_path = tmp_path / "frbr_agent_credits_view.db"
     conn = sqlite3.connect(str(db_path))
@@ -818,7 +1011,22 @@ def test_agent_credits_v_flattens_credits_per_ray(tmp_path: pathlib.Path) -> Non
 
 
 def test_publishers_v_selects_best_publisher_per_book(tmp_path: pathlib.Path) -> None:
-    """Publisher projection: select a deterministic publisher (MARC relator 'pbl') per ray."""
+    """
+    Project a single manifestation publisher into summary and credit views.
+
+    Only one publisher is inserted, so this case does not test tie-breaking among
+    competing credits.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_publishers_v_selects_best_publisher_per_book
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db_path = tmp_path / "frbr_publishers_view.db"
     conn = sqlite3.connect(str(db_path))
@@ -888,7 +1096,19 @@ def test_publishers_v_selects_best_publisher_per_book(tmp_path: pathlib.Path) ->
         conn.close()
 
 def test_subjects_tags_v_unifies_subjects_genres_and_tags(tmp_path: pathlib.Path) -> None:
-    """Facets: subject/genre/tag projections should appear per book(ray)."""
+    """
+    Combine work subjects and genres with work, expression and item tags in one facet view.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_subjects_tags_v_unifies_subjects_genres_and_tags
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db_path = tmp_path / "frbr_subjects_tags_view.db"
     conn = sqlite3.connect(str(db_path))
@@ -1021,7 +1241,22 @@ def test_subjects_tags_v_unifies_subjects_genres_and_tags(tmp_path: pathlib.Path
     finally:
         conn.close()
 def test_duplicate_candidates_v_groups_isbn_and_title_author_year(tmp_path: pathlib.Path) -> None:
-    """Dedup helper: should emit candidate groups for obvious ISBN matches and TYA matches."""
+    """
+    Group two ISBN-equivalent rays and two title/author/year-equivalent rays.
+
+    Checks two-member groups and membership in their CSV output without imposing member
+    order.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_duplicate_candidates_v_groups_isbn_and_title_author_year
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db_path = tmp_path / "frbr_duplicate_candidates_view.db"
     conn = sqlite3.connect(str(db_path))
@@ -1032,6 +1267,25 @@ def test_duplicate_candidates_v_groups_isbn_and_title_author_year(tmp_path: path
 
         # Two distinct rays with the same ISBN on the manifestation.
         def make_ray(work_title: str, expr_label: str, pub_year: int, isbn: str) -> tuple[int, int, int, str]:
+            """
+            Insert a WEM chain and primary manifestation ISBN using the enclosing cursor.
+
+            Marks both structural links primary with origin test and leaves committing to the
+            outer test.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_duplicate_candidates_v_groups_isbn_and_title_author_year
+
+
+            :param work_title: Work title and canonical title.
+            :param expr_label: Expression label.
+            :param pub_year: Year used for the expression and manifestation.
+            :param isbn: Raw isbn_13 value stored on the manifestation.
+            :return: Work, expression and manifestation IDs followed by their colon-separated
+                ray ID.
+            """
             cur.execute("INSERT INTO works (work_title, work_canonical_title) VALUES (?, ?);", (work_title, work_title))
             work_id = cur.lastrowid
             cur.execute("INSERT INTO expressions (expression_label, expression_year) VALUES (?, ?);", (expr_label, pub_year))
@@ -1069,6 +1323,22 @@ def test_duplicate_candidates_v_groups_isbn_and_title_author_year(tmp_path: path
         # Two more rays with same title+author+year but no ISBN.
 
         def make_tya_ray(work_title: str, year: int) -> str:
+            """
+            Insert a WEM chain whose display title is Foundation and credit Isaac Asimov.
+
+            Uses the supplied work title, a fixed expression title override, matching years and
+            a work-author credit; leaves committing to the outer test.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_duplicate_candidates_v_groups_isbn_and_title_author_year
+
+
+            :param work_title: Distinct stored work title and canonical title.
+            :param year: Work original year and expression/manifestation year.
+            :return: Colon-separated work/expression/manifestation ray ID.
+            """
             cur.execute("INSERT INTO works (work_title, work_canonical_title, work_original_year) VALUES (?, ?, ?);", (work_title, work_title, year))
             work_id = cur.lastrowid
             cur.execute("INSERT INTO expressions (expression_label, expression_year, expression_title_override) VALUES (?, ?, ?);", ("orig", year, "Foundation"))
@@ -1130,7 +1400,22 @@ def test_duplicate_candidates_v_groups_isbn_and_title_author_year(tmp_path: path
 
 
 def test_search_seed_v_produces_seed_text(tmp_path: pathlib.Path) -> None:
-    """Search helper: seed row should contain title/authors/publisher/identifiers in a single text field."""
+    """
+    Check nonempty seed title and author, publisher and identifier content.
+
+    The combined seed text must contain the author, publisher and identifier strings;
+    the assertion does not require the title to appear in that combined field.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_aggregate_views_wemi.py::test_search_seed_v_produces_seed_text
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db_path = tmp_path / "frbr_search_seed_view.db"
     conn = sqlite3.connect(str(db_path))

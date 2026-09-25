@@ -1,3 +1,15 @@
+"""
+Compare declared API and concrete method surfaces by parsing source ASTs without importing the implementations.
+
+Resolution covers top-level classes and supported import aliases. Cached module
+records are mutable and do not refresh automatically when source files change;
+inheritance traversal is a test approximation rather than Python MRO evaluation.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/api/test_macros_api_signature_parity.py
+"""
 from __future__ import annotations
 
 import ast
@@ -12,12 +24,34 @@ SRC_ROOT = REPO_ROOT / "src"
 
 @dataclass(frozen=True)
 class MethodSpec:
+    """
+    Store an immutable method kind, rendered arguments, and return annotation for exact signature comparisons.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_macros_api_signature_parity.py
+    """
     kind: str
     args: str
     returns: str | None
 
 
 def path_from_module(module: str) -> Path | None:
+    """
+    Find a source module file before trying its package __init__.py.
+
+    Check existence beneath SRC_ROOT; this helper does not validate module identifiers
+    or import code.
+
+    Example:
+        >>> path_from_module('missing_docstring_test_module') is None
+        True
+
+
+    :param module: Dotted module name whose components are joined beneath SRC_ROOT.
+    :return: First existing candidate Path, or None.
+    """
     module_path = SRC_ROOT.joinpath(*module.split("."))
     file_path = module_path.with_suffix(".py")
     if file_path.exists():
@@ -29,6 +63,24 @@ def path_from_module(module: str) -> Path | None:
 
 
 def resolve_relative_module(current_module: str, level: int, imported_module: str | None) -> str:
+    """
+    Resolve an import name by slicing the current module or package components.
+
+    For level zero return the imported name or an empty string. A known non-package file
+    loses its final component before relative slicing; unresolved current paths are
+    treated as packages. Levels are not validated.
+
+    Example:
+        >>> resolve_relative_module('any.module', 0, 'collections')
+        'collections'
+
+
+    :param current_module: Dotted name containing the import statement.
+    :param level: AST import level: zero is absolute, positive values select relative
+        parents.
+    :param imported_module: Imported suffix, or None for a bare relative import.
+    :return: Resolved dotted name; may be empty.
+    """
     if level == 0:
         return imported_module or ""
 
@@ -45,6 +97,14 @@ def resolve_relative_module(current_module: str, level: int, imported_module: st
 
 @dataclass
 class ModuleInfo:
+    """
+    Hold a mutable index of top-level class nodes and import aliases for one parsed module.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_macros_api_signature_parity.py
+    """
     module: str
     classes: dict[str, ast.ClassDef]
     imports: dict[str, str]
@@ -53,6 +113,21 @@ class ModuleInfo:
 
 @lru_cache(maxsize=None)
 def load_module(module: str) -> ModuleInfo | None:
+    """
+    Parse and cache top-level classes, imports, and non-star from-import aliases.
+
+    Read UTF-8 source when a path exists. Filesystem and parse errors propagate. The
+    unbounded cache retains missing-module results and returns the same mutable
+    ModuleInfo on repeated calls.
+
+    Example:
+        >>> load_module('missing_docstring_test_module') is None
+        True
+
+
+    :param module: Dotted source module name to resolve.
+    :return: Cached ModuleInfo, or None when no source path exists.
+    """
     path = path_from_module(module)
     if path is None:
         return None
@@ -81,6 +156,17 @@ def load_module(module: str) -> ModuleInfo | None:
 
 
 def decorator_name(dec: ast.AST) -> str | None:
+    """
+    Extract a decorator name, terminal attribute, or recursively unwrapped call target.
+
+    Example:
+        >>> decorator_name(ast.parse('factory()', mode='eval').body)
+        'factory'
+
+
+    :param dec: Decorator expression AST node.
+    :return: Name string, or None for unsupported AST forms; aliases are not resolved.
+    """
     if isinstance(dec, ast.Name):
         return dec.id
     if isinstance(dec, ast.Attribute):
@@ -91,6 +177,20 @@ def decorator_name(dec: ast.AST) -> str | None:
 
 
 def classify_method(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
+    """
+    Classify decorators with property precedence over classmethod and staticmethod.
+
+    Recognize terminal decorator names and direct getter/setter/deleter attributes;
+    unresolved or unrecognized decorators leave the ordinary-method classification.
+
+    Example:
+        >>> classify_method(ast.parse('def f(): pass').body[0])
+        'method'
+
+
+    :param node: Synchronous or asynchronous function AST node.
+    :return: One of property, classmethod, staticmethod, or method.
+    """
     names = {decorator_name(d) for d in node.decorator_list}
     if "property" in names:
         return "property"
@@ -105,6 +205,19 @@ def classify_method(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
 
 
 def resolve_base(base: ast.expr, module: ModuleInfo) -> tuple[str, str] | None:
+    """
+    Resolve a simple base name or one-level attribute through the module class/import index.
+
+    Example:
+        >>> resolve_base(ast.parse('Unknown', mode='eval').body, ModuleInfo('x', {}, {}, {})) is None
+        True
+
+
+    :param base: Base-class expression from a ClassDef.
+    :param module: ModuleInfo providing local classes and import alias mappings.
+    :return: Tuple of (module_name, class_name), or None for an unsupported or
+        unresolved expression.
+    """
     if isinstance(base, ast.Name):
         if base.id in module.classes:
             return module.module, base.id
@@ -130,6 +243,31 @@ def collect_methods(
     *,
     strict: bool = False,
 ) -> dict[str, MethodSpec]:
+    """
+    Collect inherited and directly declared method specifications from cached source ASTs.
+
+    Ignore underscore-prefixed methods except __init__. Preserve rendered argument and
+    return annotations exactly. Later direct definitions replace earlier ones, including
+    property accessors.
+
+    Visit bases in source order, allowing later bases to overwrite earlier entries; this
+    is not Python MRO resolution. A shared visited set suppresses repeats. Missing
+    recursive bases are tolerated even when the initial lookup is strict.
+
+    Example:
+        >>> collect_methods('missing_docstring_test_module', 'Missing')
+        {}
+
+
+    :param module_name: Dotted module name containing the requested class.
+    :param class_name: Top-level class name to inspect.
+    :param seen: Visited (module, class) pairs; a nonempty supplied set is mutated,
+        while None or an empty set is replaced.
+    :param strict: Raise AssertionError for an unresolved initial module or class;
+        defaults to False and is not passed to recursive calls.
+    :return: Mapping from method name to MethodSpec; empty for visited or unresolved
+        non-strict lookups.
+    """
     seen = seen or set()
     key = (module_name, class_name)
     if key in seen:
@@ -172,6 +310,19 @@ def collect_methods(
 
 
 def test_macros_api_matches_sqlite_macros_full_signature_surface() -> None:
+    """
+    Check the macros API covers every SQLite macro method with identical kind, arguments, and return text.
+
+    The selected surface includes __init__ and permits additional API methods.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_macros_api_signature_parity.py::test_macros_api_matches_sqlite_macros_full_signature_surface
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     api_methods = collect_methods("LiuXin_alpha.databases.api.macros_api", "MacrosAPI", strict=True)
     concrete_methods = collect_methods(
         "LiuXin_alpha.databases.database_driver_plugins.SQL.macros",
@@ -214,6 +365,20 @@ def test_macros_api_matches_sqlite_macros_full_signature_surface() -> None:
 
 
 def test_portable_macros_api_is_concrete_on_every_sql_backend() -> None:
+    """
+    Check SQLite and PostgreSQL macro classes cover the portable API with identical method kinds and arguments.
+
+    This AST check does not compare return annotations, instantiate backends, or
+    evaluate abstractness.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_macros_api_signature_parity.py::test_portable_macros_api_is_concrete_on_every_sql_backend
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     portable_methods = collect_methods(
         "LiuXin_alpha.databases.api.portable_macros_api",
         "PortableMacrosAPI",

@@ -1,20 +1,14 @@
-"""FRBR schema conformance suite (01): requested columns exist.
+"""
+Compare requested link metadata columns with the generated SQLite schema.
 
-This suite is intentionally exhaustive.
+Iterates usable shipped TOML entries, resolves table names and checks required
+column subsets. Nullable is configuration, not a physical column; allowed types
+imply a type column. Cardinality and trigger behavior are handled by later suites.
 
-Goal (part 01): For every `[[interlinks]]` and `[[intralinks]]` entry in the FRBR generator TOML specs,
-assert that every requested metadata column is actually materialised in the generated SQLite schema.
+Example:
+    Run with pytest::
 
-Why this matters:
-  - The TOML spec is the source of truth.
-  - Silent drift (spec says a column exists, schema does not) is an ingestion-time footgun.
-  - Regressions here are easy to introduce when refactoring link-table builders.
-
-Notes:
-  - We treat "nullable" as a sentinel/config option (no physical column expected).
-  - If a `types`/`allowed_types` list is present, we expect a `type` column to exist even if omitted
-    from requested_columns (the generator auto-adds it).
-  - We do *not* validate cardinality, triggers, or allowed type enforcement here (those are later parts).
+        python -m pytest -q tests/databases/test_frbr_schema_conformance_01_requested_columns.py
 """
 
 from __future__ import annotations
@@ -58,10 +52,34 @@ STANDARD_LINK_COLS: frozenset[str] = frozenset(
 
 
 def _frbr_pkg_root() -> pathlib.Path:
+    """
+    Resolve the directory containing the imported FRBR generator module.
+
+    Example:
+        >>> _frbr_pkg_root().is_dir()
+        True
+
+
+    :return: Resolved generator package Path.
+    """
     return pathlib.Path(frbr_gen.__file__).resolve().parent
 
 
 def _load_toml(name: str) -> dict[str, Any]:
+    """
+    Read one package-relative TOML resource as UTF-8 with replacement decoding.
+
+    Filesystem and TOML parsing errors propagate; no schema validation is performed
+    here.
+
+    Example:
+        >>> isinstance(_load_toml('interlink_table_requests.toml'), dict)
+        True
+
+
+    :param name: Resource path joined to the generator package directory.
+    :return: Parsed TOML mapping.
+    """
     path = _frbr_pkg_root() / name
     return tomllib.loads(path.read_text(encoding="utf-8", errors="replace"))
 
@@ -72,11 +90,27 @@ def _normalize_requested_columns(
     default: set[str],
     allowed_types_present: bool,
 ) -> tuple[Union[str, set[str]], bool]:
-    """Return (requested_cols, has_nullable_sentinel).
+    """
+    Normalize requested-column aliases into all or a column set plus a nullable flag.
 
-    requested_cols is either:
-      - "all" (string), or
-      - a set of normalized column names.
+    Uses requested_columns first, then requested_cols or columns, with a copied default
+    when absent. Lists are stringified, stripped and lowercased; all overrides
+    individual names. Nullable tokens and any non-None nullable setting mark
+    configuration presence without Boolean validation. Adds type when an allowed-types
+    list is present. Other input shapes or non-all strings raise TypeError.
+
+    Example:
+        >>> cols, nullable = _normalize_requested_columns(entry={'requested_columns': [' Origin ', 'nullable']}, default={'priority'}, allowed_types_present=True)
+        >>> cols == {'origin', 'type'}, nullable
+        (True, True)
+
+
+    :param entry: TOML entry with requested-column aliases and optional nullable
+        setting.
+    :param default: Column set copied when no request value is found.
+    :param allowed_types_present: Whether to add type to an explicit/default set.
+    :return: Pair of normalized requested columns and whether nullable configuration was
+        present.
     """
 
     requested = entry.get("requested_columns")
@@ -122,6 +156,18 @@ def _normalize_requested_columns(
 
 @dataclass(frozen=True)
 class _InterlinkSpec:
+    """
+    Carry a normalized interlink request and its original TOML mapping.
+
+    Fields hold the zero-based source index, endpoint names, all or a requested-column
+    set, nullable presence and raw entry. Frozen attributes do not make nested sets or
+    mappings immutable.
+
+    Example:
+        >>> spec = _InterlinkSpec(0, 'works', 'expressions', {'priority'}, False, {})
+        >>> spec.left, spec.nullable_config
+        ('works', False)
+    """
     idx: int
     left: str
     right: str
@@ -132,6 +178,16 @@ class _InterlinkSpec:
 
 @dataclass(frozen=True)
 class _IntralinkSpec:
+    """
+    Carry a normalized intralink request and its original TOML mapping.
+
+    Fields hold the source index, target table, requested columns, nullable presence and
+    raw entry. Nested values remain mutable despite frozen attributes.
+
+    Example:
+        >>> _IntralinkSpec(0, 'works', {'type'}, False, {}).table
+        'works'
+    """
     idx: int
     table: str
     requested_cols: Union[str, set[str]]
@@ -140,6 +196,20 @@ class _IntralinkSpec:
 
 
 def _iter_interlink_specs() -> list[_InterlinkSpec]:
+    """
+    Parse usable interlink entries, preserving their source indices and raw mappings.
+
+    Requires a list root; skips non-dicts and missing endpoints. Accepts
+    left_table/left/a and right_table/right/b aliases, defaults to priority, and infers
+    type from a nonblank allowed-types list.
+
+    Example:
+        >>> bool(_iter_interlink_specs())
+        True
+
+
+    :return: Ordered list of normalized interlink specifications.
+    """
     data = _load_toml("interlink_table_requests.toml")
     interlinks = data.get("interlinks", [])
     assert isinstance(interlinks, list)
@@ -177,6 +247,20 @@ def _iter_interlink_specs() -> list[_InterlinkSpec]:
 
 
 def _iter_intralink_specs() -> list[_IntralinkSpec]:
+    """
+    Parse usable intralink entries, accepting a table-name string shorthand.
+
+    Requires a list root, skips malformed or unnamed entries and accepts
+    table/table_name/name aliases. Defaults to type; nonblank allowed-types lists also
+    require type.
+
+    Example:
+        >>> bool(_iter_intralink_specs())
+        True
+
+
+    :return: Ordered list of normalized intralink specifications.
+    """
     data = _load_toml("intralink_table_requests.toml")
     intralinks = data.get("intralinks", [])
     assert isinstance(intralinks, list)
@@ -214,15 +298,45 @@ def _iter_intralink_specs() -> list[_IntralinkSpec]:
 
 
 def _pragma_cols(conn: sqlite3.Connection, table_name: str) -> set[str]:
+    """
+    Collect column names from PRAGMA table_info for a trusted table.
+
+    The name is interpolated in backticks without escaping; an absent table produces an
+    empty set.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _ = conn.execute('CREATE TABLE demo (id INTEGER, value TEXT)')
+        >>> _pragma_cols(conn, 'demo') == {'id', 'value'}
+        True
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param table_name: Trusted schema table name used in PRAGMA inspection.
+    :return: Set of column-name strings.
+    """
     return {row[1] for row in conn.execute(f"PRAGMA table_info(`{table_name}`);")}
 
 
 def _canonicalize_table_name(conn: sqlite3.Connection, candidate: str) -> str:
-    """Mirror the generator's fuzzy singular/plural matching (best-effort).
+    """
+    Strip the candidate, try an exact name, then one singular/plural mapping.
 
-    The FRBR generator's `match_to_table_name()` uses `singular_plural_mapper()` against the set of
-    known tables. In tests, we have the built schema available, so we can perform a lightweight
-    version of the same resolution.
+    Preserves case and returns the stripped candidate if neither spelling exists; does
+    not create or validate a table.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _ = conn.execute('CREATE TABLE works (work_id INTEGER)')
+        >>> _canonicalize_table_name(conn, ' works ')
+        'works'
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param candidate: Candidate table name to normalize and match against the schema.
+    :return: Matched table name or normalized fallback candidate.
     """
 
     cand = str(candidate).strip()
@@ -246,11 +360,22 @@ def _expected_link_table_cols(
     right: str,
     requested_cols: Union[str, set[str]],
 ) -> tuple[str, str, set[str]]:
-    """Return (table_name, col_base, expected_cols_subset).
+    """
+    Derive a conventional interlink name, prefix and required column subset.
 
-    expected_cols_subset includes:
-      - required structural columns (id + FKs + datestamp + scratch)
-      - all requested metadata columns (expanded by requested_cols/all)
+    Includes ID, both endpoints, source, datestamp and scratch. Expands all through
+    STANDARD_LINK_COLS; other requested names are prefixed without validation.
+
+    Example:
+        >>> table, base, cols = _expected_link_table_cols(left='works', right='expressions', requested_cols={'priority'})
+        >>> base + '_priority' in cols and base + '_source' in cols
+        True
+
+
+    :param left: Resolved left table name.
+    :param right: Resolved right table name.
+    :param requested_cols: Normalized metadata-column set or the string all.
+    :return: Table name, column prefix and expected column-name set.
     """
 
     table_name, col_base = ColumnNameMixin.get_interlink_table_name(left, right)
@@ -283,6 +408,22 @@ def _expected_intralink_table_cols(
     table: str,
     requested_cols: Union[str, set[str]],
 ) -> tuple[str, str, set[str]]:
+    """
+    Derive an intralink name, prefix and required structural/metadata column subset.
+
+    Singularizes the table name, includes primary/secondary endpoint IDs and expands all
+    through STANDARD_LINK_COLS.
+
+    Example:
+        >>> table, base, cols = _expected_intralink_table_cols(table='works', requested_cols={'type'})
+        >>> table, base + '_type' in cols
+        ('work_work_intralinks', True)
+
+
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :param requested_cols: Normalized metadata-column set or the string all.
+    :return: Table name, column prefix and expected column-name set.
+    """
     target_row = plural_singular_mapper(table)
     col_base = f"{target_row}_{target_row}_intralink"
     table_name = f"{col_base}s"
@@ -309,7 +450,18 @@ def _expected_intralink_table_cols(
 
 @pytest.fixture(scope="module")
 def frbr_schema_conn() -> sqlite3.Connection:
-    """Build a fresh FRBR schema once for this module and reuse for introspection."""
+    """
+    Build and return a module-scoped in-memory FRBR schema.
+
+    Enables foreign keys before generation. The fixture shares one mutable connection
+    and supplies no explicit close, rollback or per-test reset.
+
+    Example:
+        Request frbr_schema_conn as a pytest test argument; do not call the decorated fixture directly.
+
+
+    :return: Open SQLite connection shared by tests in this module.
+    """
     conn = sqlite3.connect(":memory:")
     conn.execute("PRAGMA foreign_keys = ON;")
     frbr_gen.create_new_database(conn)
@@ -322,6 +474,22 @@ def frbr_schema_conn() -> sqlite3.Connection:
 
 
 def test_frbr_schema_conformance_interlinks_requested_columns_exist(frbr_schema_conn: sqlite3.Connection) -> None:
+    """
+    Require structural and requested columns for every usable non-self interlink spec.
+
+    Accumulates missing-table/column diagnostics and rejects a materialized nullable
+    sentinel when nullable configuration is present.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_01_requested_columns.py::test_frbr_schema_conformance_interlinks_requested_columns_exist
+
+
+    :param frbr_schema_conn: Module-scoped in-memory FRBR connection used for schema
+        inspection.
+    :return: None; failed expectations raise AssertionError.
+    """
     specs = _iter_interlink_specs()
     assert specs, "Expected interlink specs in interlink_table_requests.toml"
 
@@ -404,6 +572,22 @@ def test_frbr_schema_conformance_interlinks_requested_columns_exist(frbr_schema_
 
 
 def test_frbr_schema_conformance_intralinks_requested_columns_exist(frbr_schema_conn: sqlite3.Connection) -> None:
+    """
+    Require structural and requested columns for every usable intralink spec.
+
+    Accumulates diagnostics and rejects a physical nullable column when nullable
+    configuration is present.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_01_requested_columns.py::test_frbr_schema_conformance_intralinks_requested_columns_exist
+
+
+    :param frbr_schema_conn: Module-scoped in-memory FRBR connection used for schema
+        inspection.
+    :return: None; failed expectations raise AssertionError.
+    """
     specs = _iter_intralink_specs()
     assert specs, "Expected intralink specs in intralink_table_requests.toml"
 
@@ -478,7 +662,22 @@ def test_frbr_schema_conformance_intralinks_requested_columns_exist(frbr_schema_
 
 
 def test_frbr_schema_conformance_all_implies_standard_surface(frbr_schema_conn: sqlite3.Connection) -> None:
-    """A targeted, easy-to-read test that exercises the 'all' code path explicitly."""
+    """
+    Check all standard metadata columns on every request normalized to all.
+
+    Skips when neither link-spec family currently uses all; otherwise aggregates
+    missing-column diagnostics.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_01_requested_columns.py::test_frbr_schema_conformance_all_implies_standard_surface
+
+
+    :param frbr_schema_conn: Module-scoped in-memory FRBR connection used for schema
+        inspection.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     inter_all = [s for s in _iter_interlink_specs() if s.requested_cols == "all"]
     intra_all = [s for s in _iter_intralink_specs() if s.requested_cols == "all"]

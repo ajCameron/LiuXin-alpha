@@ -1,6 +1,12 @@
 
 """
-Mostly converters to and from text form
+Adapt SQL values and provide aggregate, collation and Calibre sorting callbacks.
+
+SQLite driver connection setup registers these helpers; importing this module does not
+register them. JSON adapters preserve supported JSON values, while the legacy set format
+has limited quoting and round-trip behavior. Aggregate classes own their state; legacy
+factory functions return explicit state/step/finalize triples. Title article patterns
+are cached against language keys and depend on preferences.
 """
 
 # Todo: Consider not having this here?
@@ -33,10 +39,20 @@ from LiuXin_alpha.utils.language_tools.icu import sort_key
 # Todo: Actually, perhaps, write this
 def py_date_converter(date_string):
     """
-    The standard datetime adaptor chokes when it's fed a None value.
+    Return the supplied date payload unchanged.
 
-    :param date_string:
-    :return:
+    This placeholder performs no date parsing or null conversion; SQLite byte payloads
+    remain bytes.
+
+    Example:
+        >>> py_date_converter(b"2026-09-19")
+        b'2026-09-19'
+        >>> py_date_converter(None) is None
+        True
+
+
+    :param date_string: Date payload or other value to pass through unchanged.
+    :return: The original object.
     """
     return date_string
 
@@ -45,11 +61,24 @@ def py_date_converter(date_string):
 # Todo: Replace with enhanced json?
 def py_set_converter(py_set_string):
     """
-    Converted intended to be used with set fields from the database - turns them into sets of unicode strings.
+    Parse the legacy comma-separated, single-quoted set format from bytes.
 
-    Takes a string from the database and returns it as a set.
-    :param py_set_string:
-    :return py_set:
+    Decode bytes as UTF-8 with replacement, collapse doubled apostrophes and scan quoted
+    fragments. Empty elements disappear and duplicates collapse. The shared byte-string
+    predicate also matches str, whose bytes conversion here raises TypeError; pass
+    encoded bytes. Unexpected unquoted characters or escaped apostrophes outside an
+    element raise DatabaseDriverError, but unmatched trailing quotes are not fully
+    validated. Apostrophes in values do not reliably round-trip.
+
+    Example:
+        >>> py_set_converter(b"'a','b','a'") == {"a", "b"}
+        True
+        >>> py_set_converter(b"''")
+        set()
+
+
+    :param py_set_string: Legacy serialized set, normally the bytes supplied by an SQLite converter.
+    :return: A set of nonempty decoded string fragments.
     """
     from LiuXin_alpha.errors import DatabaseDriverError
 
@@ -103,10 +132,20 @@ def py_set_converter(py_set_string):
 
 def py_set_adapter(py_set):
     """
-    Takes a set - turning it into a string suitable for storing within an SQLite databaase, which can be parsed back out
-    by the py_set_converted function.
-    :param py_set:
-    :return:
+    Serialize copied set elements as quoted, comma-separated text.
+
+    Coerce values to Unicode, double apostrophes and backslash-escape double quotes.
+    Iteration order is unspecified; an empty set produces two apostrophes. This legacy
+    format is lossy for empty elements and some quoted values; use bound parameters when
+    storing it.
+
+    Example:
+        >>> py_set_converter(py_set_adapter({"a", "b"}).encode("utf-8")) == {"a", "b"}
+        True
+
+
+    :param py_set: Iterable of values, conventionally a set, copied before serialization.
+    :return: Legacy serialized text, without surrounding set braces.
     """
 
     py_set = deepcopy(py_set)
@@ -123,32 +162,50 @@ def py_set_adapter(py_set):
 # Todo: Make safe - can currently be used to execute arbitrary code
 def py_list_converter(py_list_string):
     """
-    Converter intended to be used with list fields from the database - turns them into a list of unicode strings.
+    Decode JSON without enforcing a list result or converting elements to text.
 
-    Takes a string from the database and returns it as a list of unicode strings.
-    :param py_list_string:
-    :return py_list:
+    JSON parsing errors propagate; input is data, not executable Python.
+
+    Example:
+        >>> py_list_converter('[1, null, "a"]')
+        [1, None, 'a']
+
+
+    :param py_list_string: JSON text, bytes or bytearray accepted by json.loads.
+    :return: The decoded JSON value, which need not be a list.
     """
     return json.loads(py_list_string)
 
 
 def py_list_adapter(py_list):
     """
-    Takes a list and turns it into a string suitable for inserting into the database.
+    Encode a value using the default JSON serializer.
 
-    :param py_list:
-    :return:
+    Unsupported values raise TypeError; list elements retain their JSON-compatible
+    types.
+
+    Example:
+        >>> py_list_adapter([1, None, "a"])
+        '[1, null, "a"]'
+
+
+    :param py_list: JSON-serializable value, conventionally a list.
+    :return: JSON text.
     """
     return json.dumps(py_list)
 
 
 def py_dict_converter(py_dict_string: str) -> dict[str, str]:
     """
-    Converter intended to be used to store dictionaries on the database.
+    Decode JSON without enforcing dictionary or string-value types.
 
-    Takes a string from the database and returns it as a dictionary
-    :param py_dict_string:
-    :return:
+    Example:
+        >>> py_dict_converter('{"count": 2}')
+        {'count': 2}
+
+
+    :param py_dict_string: JSON input accepted by json.loads; malformed input raises its decoding errors.
+    :return: The decoded JSON value, despite the narrower dictionary annotation.
     """
     import json
 
@@ -157,10 +214,18 @@ def py_dict_converter(py_dict_string: str) -> dict[str, str]:
 
 def py_dict_adapter(py_dict: dict[str, str]) -> str:
     """
-    Takes a dictionary and turns it into a string suitable for storing on the database.
+    Encode a mapping with the default JSON serializer.
 
-    :param py_dict:
-    :return:
+    Supported key types follow JSON rules and become text; non-string values are allowed
+    when JSON-serializable.
+
+    Example:
+        >>> py_dict_adapter({"count": 2})
+        '{"count": 2}'
+
+
+    :param py_dict: JSON-serializable mapping; no string-only validation is applied.
+    :return: JSON text.
     """
     import json
 
@@ -170,65 +235,116 @@ def py_dict_adapter(py_dict: dict[str, str]) -> str:
 
 class PyListAggregate:
     """
-    Aggregation function intended to be used with SQLite.
+    Accumulate SQL values in arrival order and serialize them as JSON.
 
-    Preserves order and builds a list from the given elements.
-    Called this to keep with the PySet convention and for clarity.
+    Duplicates and None values are retained. The same instance retains its state after
+    finalization.
+
+    Example:
+        >>> import sqlite3
+        >>> conn = sqlite3.connect(":memory:")
+        >>> conn.create_aggregate("pylist", 1, PyListAggregate)
+        >>> conn.execute("SELECT pylist(value) FROM (SELECT 2 AS value UNION ALL SELECT 1)").fetchone()[0]
+        '[2, 1]'
+        >>> conn.close()
     """
 
     def __init__(self) -> None:
         """
-        Constructor.
+        Create an empty list accumulator.
+
+        Example:
+            ``aggregate = PyListAggregate()`` starts a fresh SQL group.
+
+
+        :return: ``None``.
         """
         self.py_list = []
 
     def step(self, value: Any) -> None:
         """
-        Add to the accumulator.
+        Append one value without copying, coercion or filtering.
 
-        :param value:
-        :return:
+        Example:
+            >>> aggregate = PyListAggregate()
+            >>> aggregate.step(None)
+            >>> aggregate.finalize()
+            '[null]'
+
+
+        :param value: Value to retain; it must be JSON-serializable by finalization time.
+        :return: ``None``.
         """
         self.py_list.append(value)
 
     def finalize(self) -> str:
         """
-        Finalize the object.
+        Serialize the accumulated values as JSON without clearing the list.
 
-        :return:
+        Example:
+            >>> PyListAggregate().finalize()
+            '[]'
+
+
+        :return: JSON array text; serialization errors propagate.
         """
         return py_list_adapter(self.py_list)
 
 
 class PySetAggregate:
     """
-    Aggregation function intended to be used with SQLite. Does not preserve order.
+    Deduplicate values and join them in the unescaped legacy set format.
 
-    So named as to not conflict with the SQL/SQLite SET keyword.
+    Steps require hashable values, but finalization requires strings. Ordering is
+    unspecified and quoting is not escaped.
+
+    Example:
+        >>> aggregate = PySetAggregate()
+        >>> aggregate.step("a")
+        >>> aggregate.step("a")
+        >>> aggregate.finalize() == "'a'"
+        True
     """
 
     def __init__(self) -> None:
         """
-        Constructor.
+        Create an empty set accumulator.
 
+        Example:
+            ``aggregate = PySetAggregate()`` starts a group without values.
+
+
+        :return: ``None``.
         """
         self.py_set = set()
 
     def step(self, value: Any) -> None:
         """
-        Add to the accumulator.
+        Add a hashable value to the set, collapsing duplicates.
 
-        :param value:
-        :return:
+        No string conversion occurs; a non-string may be accepted here but fail during
+        finalization.
+
+        Example:
+            ``aggregate.step("a")`` retains one copy of the string.
+
+
+        :param value: Hashable value to accumulate; use strings for successful finalization.
+        :return: ``None``.
         """
         self.py_set.add(value)
 
     # Todo: replace with json
     def finalize(self) -> str:
         """
-        Finalize the object.
+        Join stored strings between apostrophes without escaping or clearing them.
 
-        :return:
+        Example:
+            >>> PySetAggregate().finalize() == "''"
+            True
+
+
+        :return: Quoted comma-separated text; empty state yields two apostrophes.
         """
         return "'" + "','".join(self.py_set) + "'"
 
@@ -236,22 +352,43 @@ class PySetAggregate:
 # Helper functions used to make aggregate short strings (for example makes the creators_sort field for a title.
 class SortAggregate:
     """
-    Aggregation function intended to be used with SQLite.
-    Takes strings. Concatinates them separated by a '&'. Preserving order.
+    Join arrival-ordered strings with space-ampersand-space after trimming quote edges.
+
+    Unlike indexed sort aggregates, this class does not reorder values.
+
+    Example:
+        >>> aggregate = SortAggregate()
+        >>> aggregate.step("'Alice'")
+        >>> aggregate.step("Bob")
+        >>> aggregate.finalize()
+        'Alice & Bob'
     """
 
     def __init__(self) -> None:
         """
-        Constructor.
+        Create an empty ordered string accumulator.
+
+        Example:
+            ``aggregate = SortAggregate()`` starts a new group.
+
+
+        :return: ``None``.
         """
         self.py_list = []
 
     def step(self, value: Any) -> None:
         """
-        Add to the accumulator.
+        Remove at most one leading and one trailing apostrophe, then append.
 
-        :param value:
-        :return:
+        Whitespace, duplicate values and empty strings are retained. None and non-string
+        inputs are not specially handled.
+
+        Example:
+            ``aggregate.step("'Alice'")`` appends ``Alice``.
+
+
+        :param value: String to strip at its quote edges and accumulate.
+        :return: ``None``.
         """
         if value.startswith("'"):
             value = value[1:]
@@ -263,42 +400,81 @@ class SortAggregate:
 
     def finalize(self) -> str:
         """
-        Finalize the object.
+        Join stored strings with space-ampersand-space, retaining the accumulator.
 
-        :return:
+        Example:
+            >>> SortAggregate().finalize()
+            ''
+
+
+        :return: Joined text, or the empty string for no values.
         """
         return " & ".join(self.py_list)
 
 
 class SqliteAumSortedConcatenate:
     """
-    String concatenation aggregator for the author sort map
+    Serialize author/sort/link triples by index for a Calibre author map.
+
+    Join fields with ::: and entries with :#:. Duplicate indexes replace earlier
+    entries; None authors are ignored. Delimiter characters are not escaped.
+
+    Example:
+        >>> aggregate = SqliteAumSortedConcatenate()
+        >>> aggregate.step(2, "Bob", "Bob", "")
+        >>> aggregate.step(1, "Alice", "Alice", "")
+        >>> aggregate.finalize()
+        'Alice:::Alice::::#:Bob:::Bob:::'
     """
 
     def __init__(self) -> None:
         """
-        Constructor.
+        Create an empty index-to-author-entry mapping.
+
+        Example:
+            ``aggregate = SqliteAumSortedConcatenate()`` starts a fresh author map.
+
+
+        :return: ``None``.
         """
         self.ctxt = dict()
 
     def step(self, ndx: int, author: Optional[str], sort: Optional[str], link: Optional[str]) -> None:
         """
-        Add to the accumulator.
+        Replace the entry at an index when author is not None.
 
-        :param ndx:
-        :param author:
-        :param sort:
-        :param link:
-        :return:
+        Convert all three fields through six_unicode, including None sort/link values,
+        which become the text None.
+
+        Example:
+            >>> aggregate = SqliteAumSortedConcatenate()
+            >>> aggregate.step(1, "Alice", None, None)
+            >>> aggregate.finalize()
+            'Alice:::None:::None'
+
+
+        :param ndx: Hashable ordering key; all retained keys must be mutually sortable.
+        :param author: Author name; ``None`` skips this entry without removing a prior value at the same index.
+        :param sort: Author-sort text included in the serialized entry.
+        :param link: Author-link text included in the serialized entry.
+        :return: ``None``.
         """
         if author is not None:
             self.ctxt[ndx] = ":::".join((six_unicode(author), six_unicode(sort), six_unicode(link)))
 
     def finalize(self) -> Optional[str]:
         """
-        Finalize the accumulator.
+        Join retained author entries in key order without clearing the mapping.
 
-        :return:
+        A single entry is returned directly; sorting is needed only for multiple
+        entries.
+
+        Example:
+            >>> SqliteAumSortedConcatenate().finalize() is None
+            True
+
+
+        :return: Serialized author entries, or ``None`` for empty state.
         """
         ctxt = self.ctxt
         keys = list(iterkeys(ctxt))
@@ -312,33 +488,60 @@ class SqliteAumSortedConcatenate:
 
 class SqliteSortedConcatenate:
     """
-    Construct a sorted object.
+    Join non-null strings in index order, retaining only the last value per index.
+
+    Example:
+        >>> aggregate = SqliteSortedConcatenate("|")
+        >>> aggregate.step(2, "B")
+        >>> aggregate.step(1, "A")
+        >>> aggregate.step(2, "C")
+        >>> aggregate.finalize()
+        'A|C'
     """
     def __init__(self, sep: str = ",") -> None:
         """
-        Constructor.
+        Store the separator and create an empty index/value mapping.
 
-        :param sep: Separator to use.
+        Example:
+            ``aggregate = SqliteSortedConcatenate("|")`` uses vertical bars between values.
+
+
+        :param sep: String separator inserted between accumulated values.
+        :return: ``None``.
         """
         self.sep = sep
         self.ctxt = dict()
 
     def step(self, ndx: int, value: Any) -> None:
         """
-        Add to the accumulator.
+        Store a non-null value at its index, replacing an earlier value.
 
-        :param ndx: The position to add the value to in the accumulator.
-        :param value: Value to add
-        :return:
+        None is ignored and does not remove a prior entry. Values are not coerced to
+        strings.
+
+        Example:
+            ``aggregate.step(1, "A")`` sets the value at index one.
+
+
+        :param ndx: Hashable ordering key; all retained keys must be mutually sortable.
+        :param value: Value to store, normally a string; ``None`` is skipped.
+        :return: ``None``.
         """
         if value is not None:
             self.ctxt[ndx] = value
 
     def finalize(self) -> Optional[str]:
         """
-        Finalize the accumulator.
+        Sort the keys and join their values without clearing accumulated state.
 
-        :return:
+        Incomparable keys or non-string retained values raise TypeError.
+
+        Example:
+            >>> SqliteSortedConcatenate().finalize() is None
+            True
+
+
+        :return: Joined string, or ``None`` for no retained entries.
         """
         ctxt = self.ctxt
         if len(ctxt) == 0:
@@ -348,30 +551,75 @@ class SqliteSortedConcatenate:
 
 class SqliteIdentifiersConcat:
     """
-    Concatenation for identifiers.
+    Join key/value identifier pairs in arrival order, without deduplication or escaping.
+
+    Example:
+        >>> aggregate = SqliteIdentifiersConcat()
+        >>> aggregate.step("isbn", "123")
+        >>> aggregate.step("other", None)
+        >>> aggregate.finalize()
+        'isbn:123,other:None'
     """
     def __init__(self) -> None:
         """
-        Constructor.
+        Create an empty list of formatted identifier pairs.
+
+        Example:
+            ``aggregate = SqliteIdentifiersConcat()`` starts a new identifier map.
+
+
+        :return: ``None``.
         """
         self.ctxt = []
 
     def step(self, key, val):
+        """
+        Append a colon-separated pair using string formatting for both values.
+
+        Example:
+            ``aggregate.step("isbn", 123)`` appends ``isbn:123``.
+
+
+        :param key: Identifier type converted with percent-s formatting.
+        :param val: Identifier value converted with percent-s formatting, including None.
+        :return: ``None``.
+        """
         self.ctxt.append("%s:%s" % (key, val))
 
     def finalize(self):
+        """
+        Join formatted identifier pairs with commas without clearing the list.
+
+        Example:
+            >>> SqliteIdentifiersConcat().finalize()
+            ''
+
+
+        :return: Comma-separated identifiers, or the empty string.
+        """
         return ",".join(self.ctxt)
 
 
 # Extra collators {{{
 def pynocase(one: Any, two: Any, encoding: str = "utf-8") -> bool:
     """
-    Force comparison between two objects.
+    Compare lowercased operands using three-way ordering.
 
-    :param one:
-    :param two:
-    :param encoding:
-    :return:
+    Try decoding byte-string inputs with replacement; decoding errors are suppressed
+    before lower() is called. This uses lowercase conversion, not Unicode case folding,
+    and requires comparable lowered values.
+
+    Example:
+        >>> pynocase(b"ALPHA", "alpha")
+        0
+        >>> pynocase("a", "b")
+        -1
+
+
+    :param one: Left string or byte-string operand.
+    :param two: Right string or byte-string operand.
+    :param encoding: Codec used for attempted byte decoding.
+    :return: Integer -1, 0 or 1, despite the bool annotation.
     """
 
     if isbytestring(one):
@@ -391,10 +639,18 @@ def pynocase(one: Any, two: Any, encoding: str = "utf-8") -> bool:
 
 def _author_to_author_sort(x: str) -> str:
     """
-    Construct an author sort string from an author string.
+    Replace vertical bars with commas and delegate author sorting to metadata tooling.
 
-    :param x:
-    :return:
+    Falsy names return the empty string. Nonempty names follow the metadata helper's
+    configured author-sort rules.
+
+    Example:
+        >>> _author_to_author_sort("")
+        ''
+
+
+    :param x: Author name using vertical bars for embedded commas, or an empty value.
+    :return: The delegated author-sort string, or empty text.
     """
     from LiuXin_alpha.metadata.ebook_metadata_tools import author_to_author_sort
     if not x:
@@ -404,11 +660,20 @@ def _author_to_author_sort(x: str) -> str:
 
 def icu_collator(s1: Any, s2: Aby) -> bool:
     """
-    Use icu to force a comparison between two strings.
+    Compare Unicode sort keys from the shared ICU-facing helper.
 
-    :param s1:
-    :param s2:
-    :return:
+    The current helper returns lowercased text. Operands are passed to str with an
+    explicit UTF-8 encoding, so byte inputs are supported but Python str inputs raise
+    TypeError. This wrapper does not itself implement locale-specific collation.
+
+    Example:
+        >>> icu_collator(b"Book", b"book")
+        0
+
+
+    :param s1: Left byte-like value decoded as UTF-8; Python str is rejected.
+    :param s2: Right byte-like value decoded as UTF-8; Python str is rejected.
+    :return: Integer -1, 0 or 1 from comparing sort keys, despite the bool annotation.
     """
     return force_cmp(sort_key(force_unicode(s1, "utf-8")), sort_key(force_unicode(s2, "utf-8")))
 
@@ -419,16 +684,50 @@ def icu_collator(s1: Any, s2: Aby) -> bool:
 # Unused aggregators {{{
 def Concatenate(sep: str = ","):
     """
-    String concatenation aggregator for sqlite
-    :param sep:
-    :return:
+    Create a legacy state/step/finalize triple for arrival-ordered concatenation.
+
+    Skip None values, retain duplicates and return None for empty state. The result is a
+    callback triple, not an SQLite aggregate instance with methods.
+
+    Example:
+        >>> state, step, finish = Concatenate("|")
+        >>> step(state, "A")
+        >>> step(state, None)
+        >>> step(state, "B")
+        >>> finish(state)
+        'A|B'
+
+
+    :param sep: String separator inserted between accumulated values.
+    :return: A fresh list, its two-argument step callback and its one-argument finalizer.
     """
 
     def step(ctxt, value):
+        """
+        Append a non-null value to the supplied state without coercion.
+
+        Example:
+            The callback returned by ``Concatenate()`` accepts ``step(state, "A")``.
+
+
+        :param ctxt: Mutable list returned by the factory.
+        :param value: String to append; ``None`` is ignored.
+        :return: ``None``.
+        """
         if value is not None:
             ctxt.append(value)
 
     def finalize(ctxt):
+        """
+        Join nonempty state using the factory separator without clearing it.
+
+        Example:
+            For a fresh factory state, ``finish(state)`` returns ``None``.
+
+
+        :param ctxt: List of strings accumulated by the step callback.
+        :return: Joined text, or ``None`` for empty state.
+        """
         if not ctxt:
             return None
         return sep.join(ctxt)
@@ -438,17 +737,53 @@ def Concatenate(sep: str = ","):
 
 def StupidConcatenate(sep=","):
     """
-    String concatenation aggregator for sqlite
+    Create a diagnostic concatenation triple whose finalizer deliberately asserts.
 
-    :param sep:
-    :return:
+    The assertion message is the joined state. With Python optimization disabling
+    assertions, the finalizer returns None instead.
+
+    Example:
+        >>> state, step, finish = StupidConcatenate("|")
+        >>> step(state, "diagnostic")
+        >>> finish(state)
+        Traceback (most recent call last):
+        ...
+        AssertionError: diagnostic
+
+
+    :param sep: String separator inserted between accumulated values.
+    :return: A fresh list, an append callback and a deliberately failing finalizer.
     """
 
     def step(ctxt, value):
+        """
+        Append non-null values for the finalizer's diagnostic message.
+
+        Example:
+            ``step(state, "diagnostic")`` stores text for the eventual assertion.
+
+
+        :param ctxt: Mutable list returned by StupidConcatenate.
+        :param value: String to append; ``None`` is skipped.
+        :return: ``None``.
+        """
         if value is not None:
             ctxt.append(value)
 
     def finalize(ctxt):
+        """
+        Raise AssertionError with joined state when assertions are enabled.
+
+        Non-string values can fail while building the message. Under optimized Python
+        the assert is removed.
+
+        Example:
+            ``finish(["diagnostic"])`` raises ``AssertionError: diagnostic`` in normal execution.
+
+
+        :param ctxt: List of strings used to build the assertion message.
+        :return: No normal result with assertions enabled; ``None`` when optimized away.
+        """
         assert True is False, sep.join(ctxt)
 
     return [], step, finalize
@@ -456,17 +791,51 @@ def StupidConcatenate(sep=","):
 
 def SortedConcatenate(sep=","):
     """
-    String concatenation aggregator for sqlite, sorted by supplied index
+    Create an indexed concatenation triple with the last non-null value per key.
 
-    :param sep:
-    :return:
+    Values must be strings and keys mutually sortable by finalization time.
+
+    Example:
+        >>> state, step, finish = SortedConcatenate("|")
+        >>> step(state, 2, "B")
+        >>> step(state, 1, "A")
+        >>> finish(state)
+        'A|B'
+
+
+    :param sep: String separator inserted between accumulated values.
+    :return: A fresh dictionary, its three-argument step callback and its finalizer.
     """
 
     def step(ctxt, ndx, value):
+        """
+        Store a non-null value at a key, replacing its prior value.
+
+        None leaves any existing value untouched.
+
+        Example:
+            ``step(state, 2, "B")`` stores a value for indexed finalization.
+
+
+        :param ctxt: Mutable index/value mapping returned by the factory.
+        :param ndx: Hashable ordering key; all retained keys must be mutually sortable.
+        :param value: String value to retain, or ``None`` to ignore.
+        :return: ``None``.
+        """
         if value is not None:
             ctxt[ndx] = value
 
     def finalize(ctxt):
+        """
+        Join values by sorted keys using the factory separator.
+
+        Example:
+            The finalizer returned by ``SortedConcatenate()`` returns ``None`` for an empty mapping.
+
+
+        :param ctxt: Index/string mapping; sorting and join errors propagate.
+        :return: Joined text, or ``None`` for empty state.
+        """
         if len(ctxt) == 0:
             return None
         return sep.join(map(ctxt.get, sorted(iterkeys(ctxt))))
@@ -476,15 +845,49 @@ def SortedConcatenate(sep=","):
 
 def IdentifiersConcat() -> tuple[list[str], Callable[[list[str], Any, Any], None], Callable[[list[str], ], str]]:
     """
-    String concatenation aggregator for the identifiers map
+    Create a callback triple that serializes identifier pairs in arrival order.
 
-    :return:
+    Fields are string-formatted, with no escaping or deduplication.
+
+    Example:
+        >>> state, step, finish = IdentifiersConcat()
+        >>> step(state, "isbn", 123)
+        >>> step(state, "other", None)
+        >>> finish(state)
+        'isbn:123,other:None'
+
+
+    :return: A fresh list, a key/value append callback and a comma-joining finalizer.
     """
 
     def step(ctxt: list[str], key: Any, val: Any) -> None:
+        """
+        Append a colon-separated, string-formatted identifier pair.
+
+        Example:
+            ``step(state, "isbn", 123)`` appends ``isbn:123``.
+
+
+        :param ctxt: Mutable list of serialized identifier pairs.
+        :param key: Identifier type formatted as text.
+        :param val: Identifier value formatted as text, including None.
+        :return: ``None``.
+        """
         ctxt.append("%s:%s" % (key, val))
 
     def finalize(ctxt: list[str]) -> str:
+        """
+        Join serialized identifier pairs with commas, leaving state intact.
+
+        Example:
+            >>> state, step, finish = IdentifiersConcat()
+            >>> finish(state)
+            ''
+
+
+        :param ctxt: List of formatted identifier strings.
+        :return: Comma-separated text, or the empty string.
+        """
         return ",".join(ctxt)
 
     return [], step, finalize
@@ -496,9 +899,20 @@ def AumSortedConcatenate() -> tuple[
     Callable[[dict[int, str]], Optional[str]]
 ]:
     """
-    String concatenation aggregator for the author sort map
+    Create callbacks for an indexed author/sort/link map.
 
-    :return:
+    Skip None authors and replace duplicate indexes. Unlike the class-based counterpart,
+    this factory joins fields directly: all three must be strings for a retained entry.
+    Field and entry delimiters are not escaped.
+
+    Example:
+        >>> state, step, finish = AumSortedConcatenate()
+        >>> step(state, 1, "Alice", "Alice", "")
+        >>> finish(state)
+        'Alice:::Alice:::'
+
+
+    :return: A fresh dictionary, a five-argument step callback and an ordered finalizer.
     """
 
     def step(
@@ -508,24 +922,38 @@ def AumSortedConcatenate() -> tuple[
             sort: Optional[str],
             link: Optional[str]) -> None:
         """
-        Add to the concatenator.
+        Join non-null-author fields with ::: and store the result at its index.
 
-        :param ctxt:
-        :param ndx:
-        :param author:
-        :param sort:
-        :param link:
-        :return:
+        Sort and link must also be strings despite their Optional annotations.
+
+        Example:
+            ``step(state, 1, "Alice", "Alice", "")`` stores one formatted author entry.
+
+
+        :param ctxt: Mutable index-to-formatted-entry mapping.
+        :param ndx: Hashable ordering key; all retained keys must be mutually sortable.
+        :param author: Author name; ``None`` skips this entry without removing a prior value at the same index.
+        :param sort: String author-sort value; None raises TypeError for a retained author.
+        :param link: String link value; None raises TypeError for a retained author.
+        :return: ``None``.
         """
         if author is not None:
             ctxt[ndx] = ":::".join((author, sort, link))
 
     def finalize(ctxt: dict[int, str]) -> Optional[str]:
         """
-        Finalize the concatenator.
+        Join retained author entries by index using :#: between entries.
 
-        :param ctxt:
-        :return:
+        A single entry is returned directly; state is not cleared.
+
+        Example:
+            >>> state, step, finish = AumSortedConcatenate()
+            >>> finish(state) is None
+            True
+
+
+        :param ctxt: Index-to-formatted-entry mapping accumulated by the step callback.
+        :return: Serialized author map, or ``None`` for no entries.
         """
         keys = list(iterkeys(ctxt))
         l = len(keys)
@@ -543,28 +971,64 @@ def AumSortedConcatenate() -> tuple[
 
 class DynamicFilter:
     """
-    Calibre filter - no longer used - present for legacy compatibility with older calibre databases.
+    Hold replaceable allowed IDs behind a named integer-valued membership callback.
+
+    Construction starts with no allowed IDs; the name is stored for callers and does not
+    register an SQL function.
+
+    Example:
+        >>> allowed = DynamicFilter("books_filter")
+        >>> allowed.change([1, 3])
+        >>> (allowed(1), allowed(2))
+        (1, 0)
     """
 
     def __init__(self, name: str) -> None:
         """
-        Constructor.
+        Store the filter name and initialize an empty immutable ID set.
 
-        :param name:
+        Example:
+            ``allowed = DynamicFilter("books_filter")`` initially rejects every ID.
+
+
+        :param name: Label retained on the filter; no SQL registration is performed.
+        :return: ``None``.
         """
         self.name = name
         self.ids = frozenset([])
 
     def __call__(self, id_: Any) -> int:
         """
-        Check to see if the object is in the filter.
+        Return integer membership in the current allowed-ID set.
 
-        :param id_:
-        :return:
+        Example:
+            >>> DynamicFilter("empty")(1)
+            0
+
+
+        :param id_: ID tested using Python frozenset membership semantics.
+        :return: One when the ID is present, otherwise zero.
         """
         return int(id_ in self.ids)
 
     def change(self, ids):
+        """
+        Replace all allowed IDs with a frozenset built from the iterable.
+
+        Duplicates collapse; invalid/unhashable elements raise before the old set is
+        replaced.
+
+        Example:
+            >>> allowed = DynamicFilter("books_filter")
+            >>> allowed.change([1, 1])
+            >>> allowed.change([2])
+            >>> (allowed(1), allowed(2))
+            (0, 1)
+
+
+        :param ids: Iterable of hashable IDs; an empty iterable clears the filter.
+        :return: ``None``.
+        """
         self.ids = frozenset(ids)
 
 
@@ -574,6 +1038,23 @@ _ignore_starts = "'\"" + "".join([chr(x) for x in range(0x2018, 0x201E)] + [chr(
 
 
 def _get_title_sort_pat(lang=None):
+    """
+    Build and cache a leading-article regex for the requested language key.
+
+    For None, consult the default-language preference. Missing language patterns fall
+    back to configured English patterns, then built-in English articles; invalid regex
+    compilation also uses the built-in fallback. Pattern alternatives come from a
+    frozenset, with no precedence guarantee. Cache entries, including the None key, are
+    not invalidated when preferences change.
+
+    Example:
+        >>> _get_title_sort_pat("eng") is _get_title_sort_pat("eng")
+        True
+
+
+    :param lang: Hashable language key, or ``None`` to consult the default-language preference.
+    :return: Cached case-insensitive compiled regex matching an initial article.
+    """
     ans = _title_pats.get(lang, None)
     if ans is not None:
         return ans
@@ -601,6 +1082,26 @@ def _get_title_sort_pat(lang=None):
 
 
 def title_sort(title, order=None, lang=None):
+    """
+    Create a title sort string using strict or article-moving library order.
+
+    Falsy input gives empty text. Convert other input with str and trim whitespace.
+    Strictly alphabetic order stops there; all other orders remove at most one opening
+    quote character and move a matched leading article to a comma-separated suffix.
+    Article matching uses the preference-backed language cache.
+
+    Example:
+        >>> title_sort("  The Book  ", order="strictly_alphabetic")
+        'The Book'
+        >>> title_sort(None)
+        ''
+
+
+    :param title: Title coerced with str after the initial falsy check.
+    :param order: ``strictly_alphabetic`` preserves article order; ``None`` reads the sorting preference.
+    :param lang: Language key passed to the cached article-pattern helper.
+    :return: The stripped or article-reordered title string.
+    """
     if not title:
         return ""
     if order is None:

@@ -119,6 +119,7 @@ def migrate_storage_schema(db: Any) -> StorageMigrationReport:
     return StorageMigrationReport(applied_migrations=tuple(applied))
 
 
+# Todo: Not clear what this does from doc string
 def record_envelope_migration(db: Any, upgraded_rows: int) -> None:
     """
     Record the envelope-v1 migration identity without changing any envelope rows. Pass

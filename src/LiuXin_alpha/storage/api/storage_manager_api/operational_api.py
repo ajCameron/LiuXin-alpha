@@ -19,6 +19,7 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import (
 )
 
 
+# Todo: This makes sense to be larger, if it's all operational matters
 class StorageOperationalStatusAPI(abc.ABC):
     """
     Separate health/journal inspection from explicit recovery and retry operations. Health
@@ -54,8 +55,9 @@ class StorageOperationalStatusAPI(abc.ABC):
     @abc.abstractmethod
     def list_ingest_operations(self) -> tuple[Mapping[str, object], ...]:
         """
-        Expose operator-facing summaries of journalled ingest operations when available. Entries are
-        observation mappings rather than database row objects; field availability and durable versus
+        Expose operator-facing summaries of journalled ingest operations when available.
+
+        Entries are observation mappings rather than database row objects; field availability and durable versus
         transient behavior belong to the implementation.
 
         Example:

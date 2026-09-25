@@ -1,3 +1,14 @@
+"""
+Check storage operational roles and backup workflow columns from selected SQL resources.
+
+Tests build isolated file databases, close connections in finally and inspect schema
+or bound inserts without accessing physical storage assets.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_frbr_storage_backup_workflow_schema.py
+"""
 from __future__ import annotations
 
 import pathlib
@@ -7,6 +18,18 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr 
 
 
 def _storage_sql_root() -> pathlib.Path:
+    """
+    Locate FRBR SQL resources from this test file's checkout layout.
+
+    Builds the source-tree path without checking that the directory exists.
+
+    Example:
+        >>> _storage_sql_root().is_dir()
+        True
+
+
+    :return: Path to the checkout's FRBR generator resource directory.
+    """
     return (
         pathlib.Path(__file__).resolve().parents[2]
         / "src"
@@ -19,12 +42,47 @@ def _storage_sql_root() -> pathlib.Path:
 
 
 def _read_sql_script(path: pathlib.Path) -> str:
+    """
+    Read a UTF-8 SQL file and remove lines beginning exactly with -- BREAK.
+
+    Invalid bytes are replaced, other comments remain and one trailing newline is added.
+    Indented markers are not removed; filesystem errors propagate.
+
+    Example:
+        >>> from tempfile import TemporaryDirectory
+        >>> with TemporaryDirectory() as tmp:
+        ...     source = pathlib.Path(tmp) / 'sample.sql'
+        ...     _ = source.write_text('-- BREAK' + chr(10) + 'SELECT 1;', encoding='utf-8')
+        ...     print(_read_sql_script(source).strip())
+        SELECT 1;
+
+
+    :param path: SQL file to read.
+    :return: SQL script text with unindented BREAK-marker lines removed.
+    """
     text = path.read_text(encoding="utf-8", errors="replace")
     lines = [line for line in text.splitlines() if not line.startswith("-- BREAK")]
     return "\n".join(lines) + "\n"
 
 
 def _create_storage_schema(tmp_path: pathlib.Path) -> sqlite3.Connection:
+    """
+    Open a temporary file database and execute the selected storage SQL resources.
+
+    Enables foreign keys and loads policy, store, backup-workflow, folder, asset,
+    presence-link and asset-trigger scripts. Uses executescript boundaries; no cleanup
+    is provided if setup fails before returning.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_storage_backup_workflow_schema.py
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: Open SQLite connection; the caller must close it.
+    """
     db_path = tmp_path / "storage_backup_workflow_schema.db"
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA foreign_keys = ON;")
@@ -45,10 +103,42 @@ def _create_storage_schema(tmp_path: pathlib.Path) -> sqlite3.Connection:
 
 
 def _pragma_cols(conn: sqlite3.Connection, table_name: str) -> set[str]:
+    """
+    Read the column-name set for a trusted table via PRAGMA table_info.
+
+    Interpolates the identifier in backticks without escaping; an absent table yields an
+    empty set.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _pragma_cols(conn, 'missing')
+        set()
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param table_name: Trusted schema table name used in PRAGMA inspection.
+    :return: Set of stored column names.
+    """
     return {row[1] for row in conn.execute(f"PRAGMA table_info(`{table_name}`);")}
 
 
 def test_storage_schema_contains_store_operational_role_and_backup_workflow_tables(tmp_path: pathlib.Path) -> None:
+    """
+    Require the listed store role, workflow, source, state, output and presence-link columns.
+
+    Checks representative column presence rather than every workflow constraint.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_storage_backup_workflow_schema.py::test_storage_schema_contains_store_operational_role_and_backup_workflow_tables
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     conn = _create_storage_schema(tmp_path)
     try:
         store_cols = _pragma_cols(conn, "stores")
@@ -74,6 +164,22 @@ def test_storage_schema_contains_store_operational_role_and_backup_workflow_tabl
 
 
 def test_store_operational_role_check_allows_known_roles_only(tmp_path: pathlib.Path) -> None:
+    """
+    Accept cache and reject banana as store operational roles.
+
+    Requires the invalid insert to raise IntegrityError mentioning
+    store_operational_role; other valid roles are not exercised.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_storage_backup_workflow_schema.py::test_store_operational_role_check_allows_known_roles_only
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     conn = _create_storage_schema(tmp_path)
     try:
         conn.execute(

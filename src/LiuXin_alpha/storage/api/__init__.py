@@ -13,6 +13,8 @@ belongs to the shared API hierarchy, distinct from the legacy storage package
 export of the same name. The explicit export list preserves those public objects.
 """
 
+# Todo: Mixing dataclasses into the API does make some sense... might be better if everything imported out the API
+#       ended in API, and the dataclasses where stored elsewhere - probably as thin facades
 from __future__ import annotations
 
 from LiuXin_alpha.storage.api.errors import (

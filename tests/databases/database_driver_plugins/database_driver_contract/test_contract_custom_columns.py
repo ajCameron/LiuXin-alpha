@@ -1,17 +1,13 @@
-"""Driver contract: custom columns.
+"""
+Check custom-column cardinality, uniqueness, cascade cleanup, and returned table names.
 
-The SQLite drivers implement "custom columns" by creating a dedicated storage table and (for multi-valued
-columns) linking it to a target table via an interlink table.
+The tests insert Unicode and SQL-shaped values as data while exercising one-to-one,
+one-to-many, many-to-one, and many-to-many mappings.
 
-This module focuses on:
+Example:
+    Run with pytest::
 
-* One-to-one custom columns: uniqueness + ON DELETE CASCADE.
-* One-to-many custom columns: secondary exclusivity + cleanup trigger behaviour.
-* Many-to-one custom columns: shared secondary values + primary exclusivity.
-* Many-to-many custom columns: full M:N semantics.
-
-The suite intentionally uses unicode + SQL-injection-shaped *data* payloads to ensure parameter binding is
-consistently used and that dangerous-looking strings remain inert.
+        python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_custom_columns.py
 """
 
 from __future__ import annotations
@@ -22,7 +18,19 @@ from LiuXin_alpha.errors import DatabaseIntegrityError
 
 
 def _create_root_table(driver) -> tuple[str, str]:
-    """Create a deterministic main table used as the custom-column target."""
+    """
+    Create the fixed contract custom-root main table and discover its value column.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_custom_columns.py
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :return: Pair of root table name and driver-reported base column.
+    """
 
     root_table = "contract_custom_roots"
     driver.direct_create_main_table(table_name=root_table)
@@ -31,14 +39,47 @@ def _create_root_table(driver) -> tuple[str, str]:
 
 
 def _insert_one(driver, table: str, value_col: str, value: str) -> int:
-    """Insert a single row and return its id."""
+    """
+    Insert a single value and infer the row ID from the highest ID in the supplied table.
+
+    Assume the value column identifies that table and no competing insert occurs.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_custom_columns.py
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :param value_col: Concrete value column identifying the insert target.
+    :param value: Value passed through the row-dictionary helper.
+    :return: Highest ID converted to int.
+    """
 
     driver.direct_add_simple_row_dict({value_col: value})
     return int(driver.direct_get_highest_id(table))
 
 
 def _one_one_columns(driver, custom_col_table: str) -> tuple[str, str, str]:
-    """Return (id_col, fk_col, value_col) for a one-to-one custom column table."""
+    """
+    Find the ID, first other _id column, and first _value column in a custom storage table.
+
+    Assert that both candidate lists are nonempty; this naming heuristic does not
+    inspect foreign-key declarations.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_custom_columns.py
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :param custom_col_table: One-to-one custom storage table to inspect.
+    :return: Tuple of ID, inferred foreign-key, and value column names.
+    """
 
     headings = list(driver.direct_get_column_headings(custom_col_table))
     id_col = str(driver.direct_get_id_column(custom_col_table))
@@ -55,10 +96,21 @@ def _one_one_columns(driver, custom_col_table: str) -> tuple[str, str, str]:
 
 
 def _link_columns(driver_wrapper, table1: str, table2: str) -> dict[str, str]:
-    """Return the FK columns in the interlink table connecting table1<->table2.
+    """
+    Ask the wrapper for both foreign-key column names in the link between two tables.
 
-    Custom-column link tables are frequently created with ``requested_cols=None`` (i.e. no optional metadata
-    columns like ``priority``/``type``). For contract coverage we stick to the guaranteed FK columns.
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_custom_columns.py
+
+
+    :param driver_wrapper: Wrapper associated with the fixture database and its selected
+        driver.
+    :param table1: Left table whose ID column is mapped into the link.
+    :param table2: Right table whose ID column is mapped into the link.
+    :return: Mapping with left_fk and right_fk entries; optional link metadata is not
+        requested.
     """
 
     left_id_col = driver_wrapper.get_id_column(table1)
@@ -71,6 +123,21 @@ def _link_columns(driver_wrapper, table1: str, table2: str) -> dict[str, str]:
 
 
 def test_one_to_one_custom_column_uniqueness_and_cascade(driver, pick_payload) -> None:
+    """
+    Require one value per root, cascade deletion of that value, and survival of titles after an SQL-shaped insert.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_custom_columns.py::test_one_to_one_custom_column_uniqueness_and_cascade
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :param pick_payload: Fixture callable selecting corpus strings by a wrapping integer
+        index.
+    :return: None; failed expectations raise AssertionError.
+    """
     root_table, root_col = _create_root_table(driver)
 
     custom_table = driver.direct_create_custom_column(
@@ -108,6 +175,23 @@ def test_one_many_custom_column_enforces_secondary_exclusivity_and_cleanup(
     driver_wrapper,
     pick_payload,
 ) -> None:
+    """
+    Reject sharing a secondary value between roots and require orphan cleanup after link and root deletion.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_custom_columns.py::test_one_many_custom_column_enforces_secondary_exclusivity_and_cleanup
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :param driver_wrapper: Wrapper associated with the fixture database and its selected
+        driver.
+    :param pick_payload: Fixture callable selecting corpus strings by a wrapping integer
+        index.
+    :return: None; failed expectations raise AssertionError.
+    """
     root_table, root_col = _create_root_table(driver)
 
     custom_table = driver.direct_create_custom_column(
@@ -154,6 +238,23 @@ def test_one_many_custom_column_enforces_secondary_exclusivity_and_cleanup(
 
 
 def test_many_one_custom_column_allows_shared_secondary_but_limits_primary(driver, driver_wrapper, pick_payload) -> None:
+    """
+    Allow two roots to share one value and reject a second value for an already-linked root.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_custom_columns.py::test_many_one_custom_column_allows_shared_secondary_but_limits_primary
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :param driver_wrapper: Wrapper associated with the fixture database and its selected
+        driver.
+    :param pick_payload: Fixture callable selecting corpus strings by a wrapping integer
+        index.
+    :return: None; failed expectations raise AssertionError.
+    """
     root_table, root_col = _create_root_table(driver)
 
     custom_table = driver.direct_create_custom_column(
@@ -185,6 +286,23 @@ def test_many_one_custom_column_allows_shared_secondary_but_limits_primary(drive
 
 
 def test_many_many_custom_column_via_direct_method_roundtrips(driver, driver_wrapper, pick_payload) -> None:
+    """
+    Create three many-to-many links with shared endpoints and reject a duplicate endpoint pair.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_custom_columns.py::test_many_many_custom_column_via_direct_method_roundtrips
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :param driver_wrapper: Wrapper associated with the fixture database and its selected
+        driver.
+    :param pick_payload: Fixture callable selecting corpus strings by a wrapping integer
+        index.
+    :return: None; failed expectations raise AssertionError.
+    """
     root_table, root_col = _create_root_table(driver)
 
     custom_table = driver.direct_create_many_many_custom_column(
@@ -217,10 +335,18 @@ def test_many_many_custom_column_via_direct_method_roundtrips(driver, driver_wra
 
 
 def test_direct_create_custom_column_many_many_returns_table_name(driver) -> None:
-    """Front-door API should return the created custom-column table name for many_many.
+    """
+    Require the front-door many_many custom-column API to return a nonempty table-name string.
 
-    NOTE: The current SQLite implementation calls direct_create_many_many_custom_column(...) but forgets to return
-    its result. This test intentionally fails until that is fixed.
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_custom_columns.py::test_direct_create_custom_column_many_many_returns_table_name
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :return: None; failed expectations raise AssertionError.
     """
 
     root_table, _ = _create_root_table(driver)

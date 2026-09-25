@@ -134,6 +134,7 @@ from LiuXin_alpha.storage.api.storage_manager_api.router_api import StorageRoute
 from LiuXin_alpha.storage.api.storage_manager_api.stores_api import StoreAdministrationAPI
 
 
+# Todo: Would be clearer to have an explicit __init__ method
 class StorageManagerAPI(
     StorageConvenienceAPI,
     StoreAdministrationAPI,
@@ -171,6 +172,7 @@ class StorageManagerAPI(
         True
     """
 
+    # Todo: Given the constraints... why does this method exist?
     def __enter__(self) -> StorageManagerAPI:
         """
         Return this manager without starting Stores or opening a transaction.

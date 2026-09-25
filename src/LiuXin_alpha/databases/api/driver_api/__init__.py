@@ -1,4 +1,9 @@
-"""Low-level database driver API contract exports."""
+"""
+Export the composite low-level database driver contract.
+
+DatabaseDriverAPI composes the driver mixin contracts. Importing this namespace does
+not load a concrete backend or open a database.
+"""
 
 from __future__ import annotations
 

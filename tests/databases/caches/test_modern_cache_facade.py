@@ -1,3 +1,14 @@
+"""
+Check facade lookup, queries, writes, invalidation, recovery, and lifecycle across three storage plugins.
+
+Use fresh in-memory fake databases. Snapshot-specific checks skip live storage, and
+the bounded row-refresh check selects only schema-backed storage.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/caches/test_modern_cache_facade.py
+"""
 from __future__ import annotations
 
 import unicodedata
@@ -34,6 +45,19 @@ from tests.support.storage_cache_test_harness import (
 
 @pytest.fixture(params=("schema_backed", "database_backed", "numpy_vectorized"))
 def modern_cache(request):
+    """
+    Build and load a facade over fake Unicode books, tags, and priority-bearing links.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_modern_cache_facade.py
+
+
+    :param request: Pytest request selecting schema_backed, database_backed, or
+        numpy_vectorized storage.
+    :return: Tuple of (Cache, FakeDB); this fixture has no local close finalizer.
+    """
     books = make_table(
         "books",
         ("id", "title", "rating"),
@@ -99,6 +123,19 @@ def modern_cache(request):
 
 
 def test_modern_cache_exact_lookup_and_known_miss(modern_cache) -> None:
+    """
+    Check immutable table-column metadata, complete hit/miss statuses, and the expected stored rating.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_modern_cache_exact_lookup_and_known_miss
+
+
+    :param modern_cache: Pair of loaded Cache facade and FakeDB for the selected storage
+        plugin.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache, _database = modern_cache
 
     schema = cache.table_columns()
@@ -118,6 +155,19 @@ def test_modern_cache_exact_lookup_and_known_miss(modern_cache) -> None:
 
 
 def test_modern_cache_structured_query_sort_page_and_unicode_text(modern_cache) -> None:
+    """
+    Check exact NFC/NFD distinctions, normalized text search, descending rating pagination, and immutable returned values.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_modern_cache_structured_query_sort_page_and_unicode_text
+
+
+    :param modern_cache: Pair of loaded Cache facade and FakeDB for the selected storage
+        plugin.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache, _database = modern_cache
 
     exact_nfd = cache.query(
@@ -171,6 +221,19 @@ def test_modern_cache_structured_query_sort_page_and_unicode_text(modern_cache) 
 
 
 def test_modern_cache_relation_constraint_and_ordered_traversal(modern_cache) -> None:
+    """
+    Check relation filtering and the observed tag/link-record iteration order for the seeded links.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_modern_cache_relation_constraint_and_ordered_traversal
+
+
+    :param modern_cache: Pair of loaded Cache facade and FakeDB for the selected storage
+        plugin.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache, _database = modern_cache
 
     fiction_books = cache.query(
@@ -188,6 +251,19 @@ def test_modern_cache_relation_constraint_and_ordered_traversal(modern_cache) ->
 
 
 def test_modern_cache_write_reconciles_and_advances_generation(modern_cache) -> None:
+    """
+    Check a scalar write is visible, advances generation, and leaves the facade READY.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_modern_cache_write_reconciles_and_advances_generation
+
+
+    :param modern_cache: Pair of loaded Cache facade and FakeDB for the selected storage
+        plugin.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache, _database = modern_cache
     before = cache.generation
 
@@ -199,6 +275,19 @@ def test_modern_cache_write_reconciles_and_advances_generation(modern_cache) -> 
 
 
 def test_modern_cache_external_write_requires_explicit_invalidation(modern_cache) -> None:
+    """
+    Check snapshot storage sees an external edit after explicit invalidation and a DIRTY-to-READY read; skip live storage.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_modern_cache_external_write_requires_explicit_invalidation
+
+
+    :param modern_cache: Pair of loaded Cache facade and FakeDB for the selected storage
+        plugin.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache, database = modern_cache
     if cache.capabilities.consistency.value == "live":
         pytest.skip("live backend observes the external change directly")
@@ -217,6 +306,21 @@ def test_schema_cache_external_id_write_uses_bounded_refresh(
     modern_cache,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Check schema-backed ID invalidation reads only the changed row, preserves another row, and avoids a table scan; skip other plugins.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_schema_cache_external_id_write_uses_bounded_refresh
+
+
+    :param modern_cache: Pair of loaded Cache facade and FakeDB for the selected storage
+        plugin.
+    :param monkeypatch: Pytest patch fixture that restores replaced methods after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache, database = modern_cache
     if cache.storage.cache_type != "schema_backed":
         pytest.skip("bounded row refresh is provided by the schema-backed plugin")
@@ -226,10 +330,36 @@ def test_schema_cache_external_id_write_uses_bounded_refresh(
     row_reads: list[tuple[str, int]] = []
 
     def tracked_get_row(table: str, row_id: int):
+        """
+        Record a normalized lookup pair, then delegate to the original fake-database row getter.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_schema_cache_external_id_write_uses_bounded_refresh
+
+
+        :param table: Trusted test table name, interpolated into SQL where needed.
+        :param row_id: Row ID passed through to the original lookup.
+        :return: Original lookup result; errors propagate.
+        """
         row_reads.append((str(table), int(row_id)))
         return original_get_row(table, row_id)
 
     def reject_full_read(*_args, **_kwargs):
+        """
+        Raise if bounded invalidation attempts a full-table read.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_schema_cache_external_id_write_uses_bounded_refresh
+
+
+        :param _args: Unused positional arguments accepted by the failure double.
+        :param _kwargs: Unused keyword arguments accepted by the failure double.
+        :return: Never returns normally; raises AssertionError with the scan diagnostic.
+        """
         raise AssertionError("ID invalidation must not scan a whole table")
 
     monkeypatch.setattr(database, "get_row_from_id", tracked_get_row)
@@ -247,6 +377,19 @@ def test_schema_cache_external_id_write_uses_bounded_refresh(
 def test_cache_bound_writer_preserves_preexisting_dirty_dependencies(
     modern_cache,
 ) -> None:
+    """
+    Check a bound writer preserves a pending tag refresh while reconciling its title write; skip live storage.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_cache_bound_writer_preserves_preexisting_dirty_dependencies
+
+
+    :param modern_cache: Pair of loaded Cache facade and FakeDB for the selected storage
+        plugin.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache, database = modern_cache
     if cache.capabilities.consistency.value == "live":
         pytest.skip("live backend has no pending snapshot dependencies")
@@ -265,6 +408,21 @@ def test_modern_cache_reconciliation_failure_preserves_receipt_and_recovers(
     modern_cache,
     monkeypatch,
 ) -> None:
+    """
+    Inject snapshot reload failure and check the committed receipt, dirty dependencies, and successful recovery after restoring reload.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_modern_cache_reconciliation_failure_preserves_receipt_and_recovers
+
+
+    :param modern_cache: Pair of loaded Cache facade and FakeDB for the selected storage
+        plugin.
+    :param monkeypatch: Pytest patch fixture that restores replaced methods after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache, _database = modern_cache
     if cache.capabilities.consistency.value == "live":
         pytest.skip("live backend has no snapshot reconciliation step")
@@ -272,6 +430,19 @@ def test_modern_cache_reconciliation_failure_preserves_receipt_and_recovers(
     original_reload = cache.storage.reload_main_table
 
     def fail_reload(*_args, **_kwargs):
+        """
+        Raise the injected reload failure after a snapshot write.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_modern_cache_reconciliation_failure_preserves_receipt_and_recovers
+
+
+        :param _args: Unused positional arguments accepted by the failure double.
+        :param _kwargs: Unused keyword arguments accepted by the failure double.
+        :return: Never returns normally; raises RuntimeError.
+        """
         raise RuntimeError("injected reconciliation failure")
 
     monkeypatch.setattr(cache.storage, "reload_main_table", fail_reload)
@@ -290,6 +461,19 @@ def test_modern_cache_reconciliation_failure_preserves_receipt_and_recovers(
 def test_snapshot_cache_defers_dirty_reads_until_outer_transaction_closes(
     modern_cache,
 ) -> None:
+    """
+    Simulate macro transaction depth and check snapshot reads reject dirty data until the depth returns to zero.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_snapshot_cache_defers_dirty_reads_until_outer_transaction_closes
+
+
+    :param modern_cache: Pair of loaded Cache facade and FakeDB for the selected storage
+        plugin.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache, database = modern_cache
     if cache.capabilities.consistency.value == "live":
         pytest.skip("live backend does not require deferred snapshot refresh")
@@ -307,6 +491,19 @@ def test_snapshot_cache_defers_dirty_reads_until_outer_transaction_closes(
 
 
 def test_closed_cache_rejects_reads(modern_cache) -> None:
+    """
+    Check closing the facade sets CLOSED and subsequent reads raise CacheClosedError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_closed_cache_rejects_reads
+
+
+    :param modern_cache: Pair of loaded Cache facade and FakeDB for the selected storage
+        plugin.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache, _database = modern_cache
     cache.close()
 
@@ -319,6 +516,21 @@ def test_complete_cache_miss_does_not_use_adapter_database_fallback(
     modern_cache,
     monkeypatch,
 ) -> None:
+    """
+    Check a complete cache miss returns None through the metadata adapter without invoking database fallback.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_complete_cache_miss_does_not_use_adapter_database_fallback
+
+
+    :param modern_cache: Pair of loaded Cache facade and FakeDB for the selected storage
+        plugin.
+    :param monkeypatch: Pytest patch fixture that restores replaced methods after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache, database = modern_cache
     source = CacheMetadataReadSource(
         cache,
@@ -327,6 +539,19 @@ def test_complete_cache_miss_does_not_use_adapter_database_fallback(
     )
 
     def forbidden(*_args, **_kwargs):
+        """
+        Raise if the known cache miss reaches the database fallback.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/caches/test_modern_cache_facade.py::test_complete_cache_miss_does_not_use_adapter_database_fallback
+
+
+        :param _args: Unused positional arguments accepted by the failure double.
+        :param _kwargs: Unused keyword arguments accepted by the failure double.
+        :return: Never returns normally; raises AssertionError.
+        """
         raise AssertionError("known cache miss must not hit the database")
 
     monkeypatch.setattr(database, "get_row_from_id", forbidden)

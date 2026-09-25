@@ -1,6 +1,9 @@
 
 """
-API for the bits of the driver connected with CRUD triggers on the database.
+Specify discovery and removal of persistent database triggers.
+
+Shared SQLite operations inspect sqlite_master, exclude TEMP triggers and drop named
+triggers with individual commits. A later failure need not undo earlier removals.
 """
 
 import abc
@@ -10,23 +13,53 @@ from typing import Iterable, Any
 
 class DriverTriggersMixinAPI(abc.ABC):
     """
-    Mixin methods to add to the database.
+    Specify discovery and removal of persistent database triggers.
+
+    Shared SQLite operations inspect sqlite_master, exclude TEMP triggers and drop named
+    triggers with individual commits. A later failure need not undo earlier removals.
+    Abstract members must be implemented by a backend; their empty bodies return None
+    when called directly.
+
+    Example:
+        >>> import inspect
+        >>> inspect.isabstract(DriverTriggersMixinAPI)
+        True
     """
 
     @abc.abstractmethod
     def direct_drop_triggers(self, triggers: Iterable[str]) -> bool:
         """
-        Drop triggers directly from the database.
+        Drop each named trigger and commit after each removal.
 
-        :param triggers:
-        :return:
+        Abstract backend hook. The behavior below describes the shared SQL/SQLite
+        implementation; this declaration itself has no operational body.
+
+        Names become SQL syntax and must be trusted. A missing trigger raises
+        OperationalError; earlier removals stay committed. Close on success or that error.
+
+        Example:
+            >>> driver.direct_drop_triggers(["sample_audit"])  # doctest: +SKIP
+
+
+        :param triggers: Iterable of trusted trigger identifiers inserted into DROP TRIGGER
+            statements.
+        :return: ``True`` after all removals, including an empty input.
         """
 
 
     @abc.abstractmethod
     def direct_get_triggers(self) -> list[str]:
         """
-        Directly get all the triggers off the database.
+        Read trigger names from sqlite_master and close on success or OperationalError.
 
-        :return:
+        Abstract backend hook. The behavior below describes the shared SQL/SQLite
+        implementation; this declaration itself has no operational body.
+
+        TEMP triggers are not included and no ordering is specified.
+
+        Example:
+            >>> driver.direct_get_triggers()  # doctest: +SKIP
+
+
+        :return: A list of trigger names.
         """

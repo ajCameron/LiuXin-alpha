@@ -6,6 +6,8 @@ Concrete implementations own ranking, observation limits, and publication behavi
 the default helpers only bind or delegate through this interface.
 """
 
+from __future__ import annotations
+
 import abc
 
 from collections.abc import Iterable
@@ -37,7 +39,7 @@ class DigitalAssetRetrievalAPI(abc.ABC):
     """
 
     @property
-    def location_factory(self) -> LocationFactory:
+    def location_factory(self) -> "LocationFactory":
         """
         Create a fresh catalogue-aware LocationFactory retaining this manager reference.
 

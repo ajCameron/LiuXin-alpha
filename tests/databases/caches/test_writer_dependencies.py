@@ -1,4 +1,11 @@
-"""Writer implementation imports preserve package exports and field dispatch."""
+"""
+Check isolated writer import order, package export identity, and field-to-writer dispatch.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/caches/test_writer_dependencies.py
+"""
 
 import importlib
 import subprocess
@@ -31,6 +38,21 @@ WRITER_OWNERS = {
 
 @pytest.mark.parametrize("first", tuple(WRITER_OWNERS.values()))
 def test_writer_imports_are_safe_from_each_entry_point(first: str) -> None:
+    """
+    Start an isolated Python subprocess from each writer module and check all package exports match their owners.
+
+    The subprocess receives an explicit source path and a sixty-second timeout; nonzero
+    exit status includes captured output in the assertion.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_writer_dependencies.py::test_writer_imports_are_safe_from_each_entry_point
+
+
+    :param first: Relative writer module imported before the package/export checks.
+    :return: None; failed expectations raise AssertionError.
+    """
     source = f"""
 import importlib
 import sys
@@ -71,6 +93,20 @@ for name, owner in {WRITER_OWNERS!r}.items():
 def test_field_dispatch_constructs_original_writer_classes(
     name: str, table_type: object, expected: str
 ) -> None:
+    """
+    Check a minimal field dispatches to the exact expected writer class and is retained by reference.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_writer_dependencies.py::test_field_dispatch_constructs_original_writer_classes
+
+
+    :param name: Field name controlling special writer selection.
+    :param table_type: Relation cardinality marker or None for the default shape.
+    :param expected: Expected public writer class name and ownership-map key.
+    :return: None; failed expectations raise AssertionError.
+    """
     field = SimpleNamespace(
         name=name,
         metadata={

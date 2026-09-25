@@ -1,24 +1,15 @@
 """
-Step 02: CalibreCache init invariants (single drop-in file)
+Check initialized legacy cache tables, fields, metadata, backend aliases, and ID maps.
 
-Drop this file into:
-    tests/databases/caches/test_calibre_cache_02_init_invariants.py
+These tests require LIUXIN_ENABLE_LEGACY_CALIBRE_CACHE_TESTS to be truthy and retain
+assumptions about the deprecated Calibre-shaped schema. They skip at module import
+by default under the FRBR-first schema. Enabling the gate does not make the fixture
+schema compatible.
 
-What it checks (post-init structural invariants):
-- cache.init_called True; tables/fields dicts exist and contain expected builtins
-- builtin tables created with expected specialized classes for a few key columns
-- fields created for every table and point at the same table objects
-- virtual 'ondevice' field exists and is not a DB-backed table
-- cross-linking invariants (authors->author_sort, title->sort, series<->series_index)
-- FIELD_MAP is sane (contains id=0, unique integer positions)
-- all_book_ids() is consistent with uuid table cache (no assumptions about non-empty DB)
-- backend has legacy-compat methods patched to cache methods (read_tables etc.)
+Example:
+    Run with pytest::
 
-Assumptions:
-- Repo provides one of:
-    provision_named_test_database(name=..., dst_dir=...)
-    provision_test_database(name=..., dst_dir=...)  (or provision_test_database(name=...) depending on harness)
-  This file supports either via request.getfixturevalue().
+        python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py
 """
 
 from __future__ import annotations
@@ -70,13 +61,43 @@ from LiuXin_alpha.library.caches.calibre.tables.base import CalibreVirtualTable
 
 
 class TestPrefs(dict):
-    """Tiny prefs shim used by CalibreCache during init()."""
+    """
+    Provide explicit dictionary preferences with a separate fallback defaults mapping.
+
+    Example:
+        >>> prefs = TestPrefs({'flag': False})
+        >>> (prefs['flag'], 'flag' in prefs)
+        (False, False)
+    """
 
     def __init__(self, defaults: dict | None = None):
+        """
+        Start with empty explicit storage and retain a truthy defaults mapping by reference.
+
+        Example:
+            >>> defaults = {'flag': False}
+            >>> TestPrefs(defaults).defaults is defaults
+            True
+
+
+        :param defaults: Fallback mapping; not copied when nonempty.
+        :return: None; false or absent defaults are replaced by a new empty dictionary.
+        """
         super().__init__()
         self.defaults = defaults or {}
 
     def __getitem__(self, key):
+        """
+        Read explicit storage first, then defaults, raising KeyError if both lack the key.
+
+        Example:
+            >>> TestPrefs({'x': 2})['x']
+            2
+
+
+        :param key: Preference key to look up or store.
+        :return: Stored or default preference value.
+        """
         if key in self:
             return super().__getitem__(key)
         if key in self.defaults:
@@ -84,21 +105,85 @@ class TestPrefs(dict):
         raise KeyError(key)
 
     def get(self, key, default=None):
+        """
+        Read explicit storage or defaults, otherwise return the supplied fallback.
+
+        Example:
+            >>> TestPrefs().get('missing', 3)
+            3
+
+
+        :param key: Preference key to look up or store.
+        :param default: Fallback returned when neither explicit storage nor defaults
+            contains the key.
+        :return: Preference value or fallback; missing keys do not raise KeyError.
+        """
         if key in self:
             return super().get(key)
         return self.defaults.get(key, default)
 
     def set(self, key, value) -> None:
+        """
+        Assign a preference into explicit dictionary storage.
+
+        Example:
+            >>> prefs = TestPrefs({'x': 2})
+            >>> prefs.set('x', 4)
+            >>> prefs['x']
+            4
+
+
+        :param key: Preference key to look up or store.
+        :param value: Preference value to store without conversion.
+        :return: None; does not persist outside this in-memory shim.
+        """
         self[key] = value
 
 
 class DummyFSM:
-    """Minimal fsm used by formats/covers/path tables during init()."""
+    """
+    Produce deterministic dummy path strings without reading or creating assets.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py
+    """
 
     def __init__(self, root: Path):
+        """
+        Convert and retain the root as a Path without creating it.
+
+        Example:
+            >>> DummyFSM('root').root == Path('root')
+            True
+
+
+        :param root: Base path for synthesized dummy locations.
+        :return: None.
+        """
         self.root = Path(root)
 
     def get_loc(self, *args, **kwargs):
+        """
+        Select a row from arguments and synthesize a location from its first recognized ID.
+
+        book_folder_row overrides asset_row, which overrides the first positional argument,
+        including explicit None values. For dictionaries try file_id, cover_id, folder_id,
+        then id; unrecognized rows use unknown.
+
+        Example:
+            >>> DummyFSM('root').get_loc({'file_id': 7}) == str(Path('root') / 'file_id_7')
+            True
+            >>> DummyFSM('root').get_loc() is None
+            True
+
+
+        :param args: Optional positional values; only the first supplies a candidate row.
+        :param kwargs: Optional asset_row or book_folder_row values; other keywords are
+            ignored.
+        :return: Path string, or None when the selected row is None.
+        """
         row = None
         if args:
             row = args[0]
@@ -114,7 +199,22 @@ class DummyFSM:
 
 
 def _get_provision_fixture(request) -> Any:
-    """Support both fixture spellings used across the repo."""
+    """
+    Try the named database provisioner before the older provisioning fixture name.
+
+    Only FixtureLookupError from a lookup triggers the fallback. If both lookups fail,
+    attempt to construct a final FixtureLookupError with the diagnostic message; other
+    errors propagate.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py
+
+
+    :param request: Pytest request used to resolve a provisioning fixture by name.
+    :return: First resolved fixture value; does not return when both lookups fail.
+    """
     for name in ("provision_named_test_database", "provision_test_database"):
         try:
             return request.getfixturevalue(name)
@@ -128,8 +228,21 @@ def _get_provision_fixture(request) -> Any:
 @pytest.fixture()
 def calibre_backend_db(tmp_path: Path, request):
     """
-    A Database instance with the minimum shims CalibreCache expects.
-    Uses test_db_0 by default.
+    Provision test_db_0 and attach the legacy cache tables, lock, filesystem, preferences, and metadata shims.
+
+    Return an open Database without a local cleanup finalizer. On TypeError, retry
+    provisioning without dst_dir.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :param request: Pytest request used to resolve a provisioning fixture by name.
+    :return: Database configured as a legacy CalibreCache backend.
     """
     provision = _get_provision_fixture(request)
 
@@ -163,6 +276,23 @@ def calibre_backend_db(tmp_path: Path, request):
     db.restore_all_prefs = False
 
     def _init_prefs(default_prefs=None, restore_all_prefs=False, progress_callback=None):
+        """
+        Merge truthy defaults, materialize missing explicit keys, and optionally report the defaults count.
+
+        Existing explicit preferences remain unchanged. For any non-None defaults, call a
+        callable progress callback with (None, len(default_prefs)); ignore the restore flag.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py
+
+
+        :param default_prefs: Optional mapping of fallback preferences to merge.
+        :param restore_all_prefs: Accepted for legacy call compatibility; unused.
+        :param progress_callback: Optional callable receiving the defaults count.
+        :return: None; mutates the enclosing database preferences.
+        """
         if default_prefs:
             db.prefs.defaults.update(default_prefs)
             for k, v in default_prefs.items():
@@ -183,13 +313,43 @@ def calibre_backend_db(tmp_path: Path, request):
 
 @pytest.fixture()
 def live_calibre_cache(calibre_backend_db):
+    """
+    Construct the legacy cache, call init, and return it without a local close finalizer.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py
+
+
+    :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
+        shims; the local fixture has no close finalizer.
+    :return: Initialized CalibreCache; setup errors propagate.
+    """
     cache = CalibreCache(backend=calibre_backend_db)
     cache.init()
     return cache
 
 
 def _same_bound_method(a, b) -> bool:
-    """Compare two bound methods for identity (instance + underlying function)."""
+    """
+    Compare receiver and function attributes by identity, defaulting missing attributes to None.
+
+    Objects lacking both attributes compare equal under this helper, so it is intended
+    for bound-method assertions.
+
+    Example:
+        >>> prefs = TestPrefs()
+        >>> _same_bound_method(prefs.set, prefs.set)
+        True
+        >>> _same_bound_method(prefs.set, TestPrefs().set)
+        False
+
+
+    :param a: First candidate bound method.
+    :param b: Second candidate bound method.
+    :return: True when both attribute identities match.
+    """
     return getattr(a, "__self__", None) is getattr(b, "__self__", None) and getattr(a, "__func__", None) is getattr(
         b, "__func__", None
     )
@@ -200,6 +360,19 @@ def _same_bound_method(a, b) -> bool:
 
 
 def test_init_sets_expected_flags_and_backend_methods(live_calibre_cache):
+    """
+    Check init_called and that the three compatibility methods are bound to this cache on the backend.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py::test_init_sets_expected_flags_and_backend_methods
+
+
+    :param live_calibre_cache: CalibreCache initialized by the module fixture, available
+        only when legacy tests are enabled.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = live_calibre_cache
     assert getattr(cache, "init_called", False) is True
 
@@ -215,6 +388,19 @@ def test_init_sets_expected_flags_and_backend_methods(live_calibre_cache):
 
 
 def test_tables_include_expected_builtin_subset(live_calibre_cache):
+    """
+    Check a nonempty table dictionary includes the required built-in subset, allowing additional tables.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py::test_tables_include_expected_builtin_subset
+
+
+    :param live_calibre_cache: CalibreCache initialized by the module fixture, available
+        only when legacy tests are enabled.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = live_calibre_cache
     assert isinstance(cache.tables, dict)
     assert cache.tables, "tables should not be empty after init()"
@@ -255,7 +441,17 @@ def test_tables_include_expected_builtin_subset(live_calibre_cache):
 
 def test_some_tables_are_specialized_classes(live_calibre_cache):
     """
-    Keep this minimal: we only sanity-check a few “special” ones that should remain stable.
+    Check eight selected built-in tables use the expected specialized classes.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py::test_some_tables_are_specialized_classes
+
+
+    :param live_calibre_cache: CalibreCache initialized by the module fixture, available
+        only when legacy tests are enabled.
+    :return: None; failed expectations raise AssertionError.
     """
     cache = live_calibre_cache
     assert isinstance(cache.tables["title"], CalibreOneToOneTable)
@@ -270,6 +466,19 @@ def test_some_tables_are_specialized_classes(live_calibre_cache):
 
 
 def test_fields_created_for_tables_and_point_to_table_objects(live_calibre_cache):
+    """
+    Check table fields retain exact table identities and ondevice is a separate virtual field.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py::test_fields_created_for_tables_and_point_to_table_objects
+
+
+    :param live_calibre_cache: CalibreCache initialized by the module fixture, available
+        only when legacy tests are enabled.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = live_calibre_cache
     assert isinstance(cache.fields, dict)
     assert cache.fields, "fields should not be empty after init()"
@@ -290,6 +499,19 @@ def test_fields_created_for_tables_and_point_to_table_objects(live_calibre_cache
 
 
 def test_cross_linking_invariants(live_calibre_cache):
+    """
+    Check author/title sort links, reciprocal series-index links, and the series internal-update flag.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py::test_cross_linking_invariants
+
+
+    :param live_calibre_cache: CalibreCache initialized by the module fixture, available
+        only when legacy tests are enabled.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = live_calibre_cache
 
     # authors should have author_sort_field
@@ -311,6 +533,19 @@ def test_cross_linking_invariants(live_calibre_cache):
 
 
 def test_field_metadata_contains_minimum_contract(live_calibre_cache):
+    """
+    Check the selected built-in metadata entries are dictionaries containing datatype.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py::test_field_metadata_contains_minimum_contract
+
+
+    :param live_calibre_cache: CalibreCache initialized by the module fixture, available
+        only when legacy tests are enabled.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = live_calibre_cache
     fm = cache.field_metadata
 
@@ -323,6 +558,19 @@ def test_field_metadata_contains_minimum_contract(live_calibre_cache):
 
 
 def test_field_map_has_unique_integer_positions(live_calibre_cache):
+    """
+    Check id maps to zero, positions are unique integer instances, and required field keys exist.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py::test_field_map_has_unique_integer_positions
+
+
+    :param live_calibre_cache: CalibreCache initialized by the module fixture, available
+        only when legacy tests are enabled.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = live_calibre_cache
     fm = cache.FIELD_MAP
     assert isinstance(fm, dict)
@@ -338,6 +586,19 @@ def test_field_map_has_unique_integer_positions(live_calibre_cache):
 
 
 def test_all_book_ids_consistent_with_uuid_table(live_calibre_cache):
+    """
+    Check all_book_ids is a frozenset of integer instances equal to the UUID table key set.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_02_init_invariants.py::test_all_book_ids_consistent_with_uuid_table
+
+
+    :param live_calibre_cache: CalibreCache initialized by the module fixture, available
+        only when legacy tests are enabled.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = live_calibre_cache
     book_ids = cache.all_book_ids()
     assert isinstance(book_ids, frozenset)

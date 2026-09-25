@@ -1,3 +1,11 @@
+"""
+Check folder-store path replacement against an isolated in-memory SQLite table.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/api/test_macros_folder_store_path.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -7,6 +15,18 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import SQLiteData
 
 
 def test_replace_in_folder_store_path_updates_all_matching_rows() -> None:
+    """
+    Check replacement changes both matching folder-store paths and preserves the unmatched path.
+
+    Use a minimal namespace-backed SQLite macro host and close its connection in
+    finally. This checks stored strings, without moving filesystem assets.
+
+    Example:
+        >>> test_replace_in_folder_store_path_updates_all_matching_rows()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     conn = sqlite3.connect(":memory:")
     try:
         conn.execute(

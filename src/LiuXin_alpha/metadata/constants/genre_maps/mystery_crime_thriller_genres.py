@@ -2,6 +2,22 @@
 # Run this ONLY after you've classified the top-level branch as Mystery/Crime/Thriller.
 # Most-specific-first (so e.g. "Legal Thriller" beats "Thriller").
 
+"""
+Provide leaf-label patterns for the combined Mystery / Crime / Thriller branch.
+
+Specific mystery forms and thriller specialisms precede broad Thriller, Mystery, and
+Crime fallbacks. The table includes True Crime; choosing whether a work belongs in
+this branch is a caller policy.
+
+Map canonical labels to tuples of uncompiled regular-expression strings. Consumers
+choose regex flags, normalization, and first-match or multi-match policy; importing
+the module performs no classification.
+
+Example:
+    >>> import re
+    >>> any(re.search(pattern, 'legal thriller', re.IGNORECASE) for pattern in MYSTERY_CRIME_THRILLER_LEAF_MAPPING['Legal Thriller']) is not False
+    True
+"""
 MYSTERY_CRIME_THRILLER_LEAF_MAPPING = {
     # --- Cozy & structured mystery forms ---
     "Cozy Mystery": (

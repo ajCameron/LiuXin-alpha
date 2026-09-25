@@ -1,7 +1,13 @@
-"""Language token -> language_id lookup.
+"""
+Check language alias resolution, index reuse and repair of an empty locked language table.
 
-These helpers are intended for import/metadata tooling where language identifiers
-may come in many formats (ISO-639-1/2, BCP-47 tags, human names).
+Each test creates and closes its own SQLite database; cache tests temporarily
+replace internal lookup functions through pytest.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_frbr_language_id_lookup.py
 """
 
 from __future__ import annotations
@@ -13,6 +19,19 @@ import pytest
 
 
 def test_best_effort_language_id_matches_common_tokens(tmp_path):
+    """
+    Resolve English and French codes, region tags and the French language name to seeded IDs.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_language_id_lookup.py::test_best_effort_language_id_matches_common_tokens
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
         database_generator as frbr_gen,
     )
@@ -48,6 +67,21 @@ def test_best_effort_language_id_matches_common_tokens(tmp_path):
 
 
 def test_lookup_uses_cached_index(monkeypatch, tmp_path):
+    """
+    Resolve an English region tag after replacing index construction with a failing sentinel.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_language_id_lookup.py::test_lookup_uses_cached_index
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced generator or lookup
+        attributes after the test.
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
         database_generator as frbr_gen,
     )
@@ -63,6 +97,18 @@ def test_lookup_uses_cached_index(monkeypatch, tmp_path):
 
         # If caching works, subsequent lookups should not rebuild the index.
         def boom(_conn):  # pragma: no cover
+            """
+            Fail immediately if a supposedly cached lookup tries to rebuild its index.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/test_frbr_language_id_lookup.py::test_lookup_uses_cached_index
+
+
+            :param _conn: Ignored connection passed by the replaced index builder.
+            :return: Never returns; always raises AssertionError.
+            """
             raise AssertionError("Index rebuild should not be needed")
 
         monkeypatch.setattr(lk, "_build_index", boom)
@@ -72,7 +118,23 @@ def test_lookup_uses_cached_index(monkeypatch, tmp_path):
 
 
 def test_ensure_seeded_repairs_locked_empty_languages_table(tmp_path):
-    """If a DB somehow has an empty-but-locked languages table, repair it."""
+    """
+    Repair an empty language table protected by write-blocking triggers.
+
+    Requires a True repair result, at least 100 rows and insert/update/delete
+    lock-trigger names. Trigger existence is inspected rather than probing all three
+    write operations.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_language_id_lookup.py::test_ensure_seeded_repairs_locked_empty_languages_table
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
         database_generator as frbr_gen,

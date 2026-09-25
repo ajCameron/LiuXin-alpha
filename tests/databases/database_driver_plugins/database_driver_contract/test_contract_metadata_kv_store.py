@@ -1,23 +1,10 @@
-"""Driver contract: metadata key/value store.
+"""
+Check optional metadata values, prefixed field aliases, UUID accessors, and invalid-field rejection.
 
-This module exercises the database_metadata helpers exposed by drivers.
+Example:
+    Run with pytest::
 
-Covered
--------
-- direct_write_metadata
-- direct_read_metadata
-- direct_get_db_unique_id
-- direct_set_db_unique_id
-
-Contract expectations
----------------------
-- Field names may be provided with or without the ``database_metadata_`` prefix.
-- Unset optional metadata fields should read back as ``None``.
-- ``unique_id`` is expected to be present in provisioned databases.
-- Unicode and SQL-injection-shaped payloads must be treated as inert data.
-- Invalid field names must raise ``ValueError``.
-
-These tests are intentionally strict; failures indicate driver contract drift.
+        python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_metadata_kv_store.py
 """
 
 from __future__ import annotations
@@ -29,7 +16,20 @@ import uuid
 
 
 def _safe_read(driver, field: str):
-    """Read metadata and convert unexpected exceptions into a clear assertion."""
+    """
+    Read a metadata field and translate any ordinary exception into an AssertionError retaining its cause.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_metadata_kv_store.py
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param field: Field name forwarded unchanged to direct_read_metadata.
+    :return: Driver-returned metadata value, including None.
+    """
 
     try:
         return driver.direct_read_metadata(field)
@@ -49,13 +49,36 @@ def _safe_read(driver, field: str):
 )
 def test_metadata_unset_fields_read_as_none(driver, field: str):
     # A freshly provisioned contract DB should treat unset fields as None.
+    """
+    Require each parametrized optional field to read as None in a freshly provisioned database.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_metadata_kv_store.py::test_metadata_unset_fields_read_as_none
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param field: Unset parent-instance, database-name, or scratch metadata field.
+    :return: None; failed expectations raise AssertionError.
+    """
     assert _safe_read(driver, field) is None
 
 
 def test_metadata_unique_id_is_present_and_uuid4(driver):
     """
-    A provisioned contract DB should have a stable unique_id.
-    This should be a non-empty UUID4 string, and should match direct_get_db_unique_id().
+    Require a nonempty UUID4 metadata string equal to the dedicated unique-ID getter.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_metadata_kv_store.py::test_metadata_unique_id_is_present_and_uuid4
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
     """
     val = _safe_read(driver, "unique_id")
     assert isinstance(val, str) and val, f"Expected non-empty unique_id string; got: {val!r}"
@@ -79,6 +102,23 @@ def test_metadata_roundtrip_write_and_read_with_unprefixed_and_prefixed_names(
     idx: int,
     pick_payload,
 ):
+    """
+    Write and overwrite a metadata field through both name forms and require exact matching reads through either alias.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_metadata_kv_store.py::test_metadata_roundtrip_write_and_read_with_unprefixed_and_prefixed_names
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param field: Unprefixed metadata field to exercise.
+    :param idx: Payload offset distinguishing each parametrized field.
+    :param pick_payload: Fixture callable selecting payload strings by a wrapping
+        integer index.
+    :return: None; failed expectations raise AssertionError.
+    """
     value = pick_payload(100 + idx)
 
     # Unprefixed write, unprefixed read.
@@ -100,6 +140,21 @@ def test_metadata_roundtrip_accepts_injection_shaped_values(
     driver,
     sql_injection_payloads: Sequence[str],
 ):
+    """
+    Store an SQL-shaped database name, require exact readback, and confirm titles survives.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_metadata_kv_store.py::test_metadata_roundtrip_accepts_injection_shaped_values
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param sql_injection_payloads: Ordered corpus of SQL-shaped strings intended as test
+        data.
+    :return: None; failed expectations raise AssertionError.
+    """
     payload = sql_injection_payloads[3]
     driver.direct_write_metadata("db_name", payload)
 
@@ -111,11 +166,39 @@ def test_metadata_roundtrip_accepts_injection_shaped_values(
 
 def test_metadata_writing_none_reads_back_as_none(driver):
     # Contract: writing None should not crash reads.
+    """
+    Write None to the parent-instance field and require None on readback.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_metadata_kv_store.py::test_metadata_writing_none_reads_back_as_none
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     driver.direct_write_metadata("parent_LiuXin_instance", None)
     assert _safe_read(driver, "parent_LiuXin_instance") is None
 
 
 def test_metadata_invalid_field_raises_valueerror(driver, pick_payload):
+    """
+    Require ValueError from both read and write when the metadata field is unknown.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_metadata_kv_store.py::test_metadata_invalid_field_raises_valueerror
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param pick_payload: Fixture callable selecting payload strings by a wrapping
+        integer index.
+    :return: None; failed expectations raise AssertionError.
+    """
     bad = "definitely_not_a_real_metadata_field"
 
     with pytest.raises(ValueError):
@@ -126,6 +209,19 @@ def test_metadata_invalid_field_raises_valueerror(driver, pick_payload):
 
 
 def test_db_unique_id_set_and_get_roundtrip(driver):
+    """
+    Force a fixed identifier, require a True setter result, and compare both getter paths exactly.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_metadata_kv_store.py::test_db_unique_id_set_and_get_roundtrip
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     forced = "00000000-0000-0000-0000-000000000009"
     assert driver.direct_set_db_unique_id(force_value=forced) is True
 
@@ -134,6 +230,19 @@ def test_db_unique_id_set_and_get_roundtrip(driver):
 
 
 def test_db_unique_id_multiple_sets_last_write_wins(driver):
+    """
+    Set two identifiers in succession and require both read paths to return the second.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_metadata_kv_store.py::test_db_unique_id_multiple_sets_last_write_wins
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     v1 = "00000000-0000-0000-0000-0000000000a1"
     v2 = "00000000-0000-0000-0000-0000000000a2"
 

@@ -1,3 +1,11 @@
+"""
+Check custom-field category visibility and scalar update prechecks without initializing a legacy database cache.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/caches/test_calibre_cache_06_custom_column_semantics.py
+"""
 from __future__ import annotations
 
 import pytest
@@ -20,6 +28,26 @@ def _add_custom_field(
     in_table: str = "books",
     is_multiple: dict | None = None,
 ) -> None:
+    """
+    Register an editable custom value field on the supplied FieldMetadata object.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_06_custom_column_semantics.py
+
+
+    :param fm: FieldMetadata to update.
+    :param label: Internal label used for the hash-prefixed custom key.
+    :param datatype: Datatype supplied to field registration.
+    :param colnum: Custom-column number used in the generated table name.
+    :param is_category: Category flag passed to registration.
+    :param display: Display mapping, or a new empty dictionary for false values.
+    :param in_table: Owning relation, defaulting to books.
+    :param is_multiple: Multi-value separator mapping, or a new empty dictionary for
+        false values.
+    :return: None; mutates fm.
+    """
     fm.add_custom_field(
         label=label,
         table=f"custom_column_{colnum}",
@@ -36,6 +64,15 @@ def _add_custom_field(
 
 
 def test_find_categories_custom_field_visibility_rules() -> None:
+    """
+    Check books custom categories and enabled composites are exposed while titles-owned and disabled composite fields are excluded.
+
+    Example:
+        >>> test_find_categories_custom_field_visibility_rules()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     fm = FieldMetadata()
 
     _add_custom_field(
@@ -93,6 +130,15 @@ def test_find_categories_custom_field_visibility_rules() -> None:
 
 
 def test_custom_one_to_one_update_precheck_accepts_scalars_and_none() -> None:
+    """
+    Check a custom integer table accepts a scalar and None for known books.
+
+    Example:
+        >>> test_custom_one_to_one_update_precheck_accepts_scalars_and_none()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     table = CalibreCustomColumnsOneToOneTable(
         "custom_column_1",
         metadata={"datatype": "int", "display": {}, "is_multiple": {}},
@@ -105,6 +151,18 @@ def test_custom_one_to_one_update_precheck_accepts_scalars_and_none() -> None:
 
 @pytest.mark.parametrize("bad_value", ([1, 2], {1, 2}, {"v": 1}, ("ordered",)))
 def test_custom_one_to_one_update_precheck_rejects_container_values(bad_value) -> None:
+    """
+    Check list, set, mapping, and tuple inputs are rejected for a scalar custom integer column.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_06_custom_column_semantics.py::test_custom_one_to_one_update_precheck_rejects_container_values
+
+
+    :param bad_value: Container value selected by pytest for this rejection case.
+    :return: None; failed expectations raise AssertionError.
+    """
     table = CalibreCustomColumnsOneToOneTable(
         "custom_column_1",
         metadata={"datatype": "int", "display": {}, "is_multiple": {}},
@@ -117,6 +175,15 @@ def test_custom_one_to_one_update_precheck_rejects_container_values(bad_value) -
 
 
 def test_custom_one_to_one_update_precheck_rejects_unknown_books_and_bad_scalars() -> None:
+    """
+    Check unknown book IDs and values rejected by an acceptance callback raise InvalidCacheUpdate.
+
+    Example:
+        >>> test_custom_one_to_one_update_precheck_rejects_unknown_books_and_bad_scalars()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     table = CalibreCustomColumnsOneToOneTable(
         "custom_column_1",
         metadata={"datatype": "int", "display": {}, "is_multiple": {}},
@@ -128,6 +195,18 @@ def test_custom_one_to_one_update_precheck_rejects_unknown_books_and_bad_scalars
         table.update_precheck({9: 42}, id_map_update={})
 
     def _must_be_positive(value):
+        """
+        Reject negative values for the scalar-acceptance probe, while allowing zero.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/caches/test_calibre_cache_06_custom_column_semantics.py::test_custom_one_to_one_update_precheck_rejects_unknown_books_and_bad_scalars
+
+
+        :param value: Scalar compared with zero.
+        :return: None for nonnegative input; raises ValueError for negative input.
+        """
         if value < 0:
             raise ValueError("value must be positive")
 

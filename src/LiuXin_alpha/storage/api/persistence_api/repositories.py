@@ -57,6 +57,7 @@ class DigitalAssetRepositoryAPI(Protocol):
         True
     """
 
+    # Todo: Explain why this exists in the doc string
     def add(self, declaration: DigitalAssetDeclaration) -> DigitalAssetRecord:
         """
         Persist the supplied content identity and metadata with an assigned Asset ID.
@@ -75,6 +76,7 @@ class DigitalAssetRepositoryAPI(Protocol):
         """
         ...
 
+    # Todo: The digital asset repository does not return digital assets... it returns records. Rename.
     def get(self, digital_asset_id: DigitalAssetID) -> DigitalAssetRecord:
         """
         Load an Asset record using its manager-assigned identity.
@@ -185,6 +187,7 @@ class DigitalAssetRepositoryAPI(Protocol):
         ...
 
 
+# Todo: Again, this repo is about replica claims - not the replicas themselves
 @runtime_checkable
 class ReplicaRepositoryAPI(Protocol):
     """
@@ -321,6 +324,8 @@ class ReplicaRepositoryAPI(Protocol):
         ...
 
 
+# Todo: Name of the class is also bad
+# Todo: Where are domain records stored?
 @runtime_checkable
 class CompositeDigitalAssetRepositoryAPI(Protocol):
     """
@@ -482,6 +487,7 @@ class DigitalAssetDerivationRepositoryAPI(Protocol):
         """
         ...
 
+    # Todo: Be good to have a means of getting the recreation id from the digital asset id
     def get(
         self,
         digital_asset_derivation_id: DigitalAssetDerivationID,

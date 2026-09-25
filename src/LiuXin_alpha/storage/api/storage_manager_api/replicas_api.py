@@ -6,6 +6,8 @@ Each operation exposes its selection and safety controls without promising an
 atomic transaction across backend bytes and manager metadata.
 """
 
+from __future__ import annotations
+
 import abc
 
 from collections.abc import Iterable, Iterator
@@ -44,12 +46,13 @@ class ReplicaLifecycleAPI(abc.ABC):
         Example:
             >>> replica = manager.get_replica_record(ReplicaID(12))  # doctest: +SKIP
 
-
         :param replica_id: Manager-assigned Replica ID to resolve.
+
         :return: Replica domain record for the requested identity.
         """
         ...
 
+    # Todo: A method to just get all the replicas?
     @abc.abstractmethod
     def iter_replica_records(
         self,
@@ -75,6 +78,8 @@ class ReplicaLifecycleAPI(abc.ABC):
         :return: Iterator of Replica records satisfying the selected filters.
         """
         ...
+
+    # Todo: Some form of composite digital asset methods? Check all elements of a compositie digital asset at once.
 
     @abc.abstractmethod
     def replicate_digital_asset(
@@ -134,6 +139,7 @@ class ReplicaLifecycleAPI(abc.ABC):
         """
         ...
 
+    # Todo: verify_composite_digital_asset
     @abc.abstractmethod
     def verify_digital_asset(
         self,
@@ -216,5 +222,6 @@ class ReplicaLifecycleAPI(abc.ABC):
         """
         ...
 
+    # Todo: We seem to have good options for regular digital assets - but not composite digital assets
 
 __all__ = ["ReplicaLifecycleAPI"]

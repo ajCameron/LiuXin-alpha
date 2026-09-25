@@ -1,16 +1,14 @@
-"""Comprehensive tests for the SQLite database driver.
+"""
+Check pure sqlite3 driver introspection, CRUD, adapters, Unicode handling, SQL input boundaries, metadata, and legacy utility contracts.
 
-These tests aim to lock down behaviour that should remain stable even if the
-underlying backend changes (optimisations, different SQL library, moving away
-from sqlite, etc.).
+Tests adapt title writes to works when titles is a compatibility view. Existing
+conditional skips and the restricted PYSET expected-failure marker remain part of
+the suite.
 
-The focus is on:
-* schema introspection
-* core CRUD operations
-* foreign keys / constraints
-* type adapters (PYSET/PYLIST/PYDICT)
-* unicode edge cases
-* basic SQL injection hardening expectations
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
 """
 
 from __future__ import annotations
@@ -32,6 +30,19 @@ import pytest
 
 
 def _relation_type(conn: sqlite3.Connection, name: str) -> str | None:
+    """
+    Read sqlite_master for the exact bound table/view name.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param name: Exact table or view name passed as a bound query value.
+    :return: Relation type string, or None if absent; the caller retains the connection.
+    """
     row = conn.execute(
         "SELECT type FROM sqlite_master WHERE (type='table' OR type='view') AND name=? LIMIT 1;",
         (name,),
@@ -40,14 +51,54 @@ def _relation_type(conn: sqlite3.Connection, name: str) -> str | None:
 
 
 def _relation_exists(conn: sqlite3.Connection, name: str) -> bool:
+    """
+    Check whether the exact name resolves to a table or view.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param name: Exact table or view name passed as a bound query value.
+    :return: True when _relation_type returns a type.
+    """
     return _relation_type(conn, name) is not None
 
 
 def _table_info(conn: sqlite3.Connection, table: str):
+    """
+    Fetch SQLite table_info rows using the trusted relation name in a quoted PRAGMA.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :return: Fetched metadata rows; the caller retains the connection.
+    """
     return conn.execute(f"PRAGMA table_info(`{table}`);").fetchall()
 
 
 def _detect_pk_column(conn: sqlite3.Connection, table: str) -> str | None:
+    """
+    Return the name whose table_info primary-key ordinal equals one.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :return: First primary-key component name, or None; composite keys are not returned
+        as a group.
+    """
     for _cid, name, _t, _notnull, _dflt, pk in _table_info(conn, table):
         if int(pk) == 1:
             return str(name)
@@ -55,6 +106,29 @@ def _detect_pk_column(conn: sqlite3.Connection, table: str) -> str | None:
 
 
 def _default_value_for_type(col_name: str, col_type: str, preferred_text_value: str):
+    """
+    Choose UUID, numeric, blob, or text placeholders from column-name/type heuristics.
+
+    Preferred text is used only for selected exact names. The DATE/TIME name branch
+    compares uppercase substrings with an already lowercased name, so it does not
+    recognize those names. This helper does not validate foreign keys or other
+    constraints.
+
+    Example:
+        >>> _default_value_for_type('title', 'TEXT', 'Sample')
+        'Sample'
+        >>> _default_value_for_type('created_date', 'TEXT', 'Sample')
+        ''
+        >>> _default_value_for_type('pages', 'INTEGER', 'Sample')
+        0
+
+
+    :param col_name: Column name used for UUID or preferred-text heuristics.
+    :param col_type: Declared type string inspected by substring.
+    :param preferred_text_value: Text returned for title, series, publisher, name, or
+        creator text columns.
+    :return: Placeholder scalar or empty string.
+    """
     n = col_name.lower()
     t = (col_type or "").upper()
 
@@ -81,6 +155,14 @@ def _default_value_for_type(col_name: str, col_type: str, preferred_text_value: 
 
 @dataclass(frozen=True)
 class _TitleContract:
+    """
+    Hold frozen read/write relation and column names for titles backed by a table or works compatibility view.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+    """
     read_table: str
     read_id_col: str
     read_title_col: str
@@ -92,9 +174,20 @@ class _TitleContract:
 
 
 def _title_contract(driver) -> _TitleContract:
-    """Resolve how to read 'titles' while writing to the underlying storage.
+    """
+    Inspect titles through a fresh connection and map view-backed writes to works.
 
-    In WEMI schema variants, `titles` is a read-only compatibility view.
+    Close the inspection connection in finally. Any result other than view, including a
+    missing relation, selects direct titles writes without further validation.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+    :param driver: Caller-owned SQLite driver supplying fresh connections.
+    :return: _TitleContract describing read and write names.
     """
     conn = driver.get_connection()
     try:
@@ -128,10 +221,20 @@ def _title_contract(driver) -> _TitleContract:
 
 
 def _insert_minimal_title_row(driver, *, title: str, title_sort: str | None = None) -> int:
-    """Insert a row that will be visible through the `titles` relation.
+    """
+    Insert a title through the selected writable relation, optionally overriding its sort column.
 
-    If `titles` is a view, insert into `works` with the appropriate columns.
-    Returns the row id (work_id/title_id).
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+    :param driver: Caller-owned SQLite driver supplying fresh connections.
+    :param title: Text assigned to the title column.
+    :param title_sort: Optional sort value; None leaves the helper/default behavior in
+        place.
+    :return: Integer lastrowid from the insertion helper.
     """
     c = _title_contract(driver)
     override = {
@@ -147,9 +250,27 @@ def _insert_minimal_row(
     preferred_text_value: str = "Test",
     override: dict[str, Any] | None = None,
 ) -> int:
-    """Insert a single row into *table* satisfying NOT NULL constraints.
+    """
+    Insert known overrides and placeholders for non-key NOT NULL columns lacking defaults through a fresh connection.
 
-    Returns the inserted row's integer primary key.
+    Skip the first primary-key component and ignore unknown override names. Use DEFAULT
+    VALUES when no columns are needed. Commit before returning and close in finally. The
+    explicit-column path raises for an undetected key after committing; the
+    default-values path omits that check. Placeholder selection does not guarantee all
+    constraints are satisfied.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+    :param driver: Caller-owned SQLite driver supplying fresh connections.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :param preferred_text_value: Preferred text passed to the placeholder helper.
+    :param override: Optional values for known non-primary-key columns; unknown names
+        are ignored.
+    :return: Integer lastrowid, not a separately queried declared-key value.
     """
 
     override = dict(override or {})
@@ -195,6 +316,22 @@ def _insert_minimal_row(
 
 
 def _random_unicode_string(seed: int, *, max_len: int = 64) -> str:
+    """
+    Use a private seeded RNG to combine one Unicode fragment with ASCII letters, then slice the result.
+
+    Example:
+        >>> _random_unicode_string(7) == _random_unicode_string(7)
+        True
+        >>> _random_unicode_string(7, max_len=0)
+        ''
+
+
+    :param seed: Seed for a new local random.Random instance.
+    :param max_len: Slice endpoint applied after fragment construction and hyphen
+        trimming.
+    :return: Deterministic string; max_len follows Python slicing, including negative
+        values.
+    """
     rng = random.Random(seed)
     parts = [
         "Cafe\u0301",  # combining mark
@@ -215,13 +352,36 @@ def _random_unicode_string(seed: int, *, max_len: int = 64) -> str:
 
 @dataclass(frozen=True)
 class _DriverBundle:
+    """
+    Hold a frozen driver reference and database Path without owning their cleanup.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+    """
     driver: Any
     db_path: Path
 
 
 @pytest.fixture
 def sqlite_driver_bundle(provision_test_database):
-    """Provision a schema-only DB and return a ready-to-use DatabaseDriver."""
+    """
+    Provision test_db_13, create the pure SQLite driver, and yield its bundle.
+
+    Attempt driver.close in finally and suppress ordinary close errors. Do not assert
+    that the provisioned database is empty.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+    :param provision_test_database: Fixture factory provisioning a named test database
+        into isolated storage.
+    :return: Iterator yielding one _DriverBundle.
+    """
 
     from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import DatabaseDriver
 
@@ -244,7 +404,28 @@ def sqlite_driver_bundle(provision_test_database):
 
 
 class TestSQLiteDriverIntrospection:
+    """
+    Group relation discovery, name validation, connection PRAGMA, and registered-function checks.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+    """
     def test_driver_exists_and_can_open(self, sqlite_driver_bundle):
+        """
+        Check driver existence, its primary connection, and three expected relation names.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
 
         assert drv.exists() is True
@@ -256,6 +437,21 @@ class TestSQLiteDriverIntrospection:
         assert "database_metadata" in tables
 
     def test_get_tables_is_cached_and_refreshable(self, sqlite_driver_bundle):
+        """
+        Check repeated relation discovery is identical or equal and refreshed results still include titles.
+
+        The test does not measure query counts or require shared object identity.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
 
         t1 = drv.direct_get_tables()
@@ -266,6 +462,19 @@ class TestSQLiteDriverIntrospection:
         assert "titles" in t3
 
     def test_get_tables_and_columns_contains_titles(self, sqlite_driver_bundle):
+        """
+        Check titles introspection includes title_id and title columns.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         tc = drv.direct_get_tables_and_columns()
 
@@ -274,6 +483,19 @@ class TestSQLiteDriverIntrospection:
         assert "title" in tc["titles"]
 
     def test_validate_existing_table_name_hardening(self, sqlite_driver_bundle):
+        """
+        Check plain, backtick-quoted, and padded titles names are accepted while semicolon-bearing names are rejected.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
 
         assert drv.direct_validate_existing_table_name("titles") is True
@@ -283,6 +505,22 @@ class TestSQLiteDriverIntrospection:
         assert drv.direct_validate_existing_table_name("titles; DROP TABLE titles") is False
 
     def test_connection_has_expected_pragmas_and_functions(self, sqlite_driver_bundle):
+        """
+        Check foreign keys are enabled, uuid4/title_sort return rows, and REGEXP returns zero or one.
+
+        Treat title_sort OperationalError as an expected failure; close the fresh connection
+        in finally.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         conn = drv.get_connection()
         try:
@@ -311,7 +549,28 @@ class TestSQLiteDriverIntrospection:
 
 
 class TestSQLiteDriverCRUD:
+    """
+    Group title persistence, row iteration, cascading deletion, counts, and custom-type adapter checks.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+    """
     def test_insert_and_fetch_title_row(self, sqlite_driver_bundle):
+        """
+        Insert through the writable title relation and check one exact title match through the read relation.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         c = _title_contract(drv)
 
@@ -330,6 +589,19 @@ class TestSQLiteDriverCRUD:
         assert len(rows) == 1
         assert rows[0][c.read_title_col] == title_value
     def test_update_row_dict_round_trip(self, sqlite_driver_bundle):
+        """
+        Update a stored title and check both storage and compatibility read paths show the new text.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         c = _title_contract(drv)
 
@@ -351,6 +623,19 @@ class TestSQLiteDriverCRUD:
         assert row3 is not False
         assert row3[c.read_title_col] == "After"
     def test_delete_row_by_id(self, sqlite_driver_bundle):
+        """
+        Delete a stored title and check its read-relation lookup becomes False.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         c = _title_contract(drv)
 
@@ -360,6 +645,21 @@ class TestSQLiteDriverCRUD:
         drv.direct_delete_row_by_id(c.write_table, row_id)
         assert drv.direct_get_row_dict_from_id(c.read_table, row_id) is False
     def test_get_all_rows_and_iterator_consistency(self, sqlite_driver_bundle):
+        """
+        Insert five titles and compare row counts and sorted ID sequences from list and iterator retrieval.
+
+        Payload dictionaries are not compared in full.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         c = _title_contract(drv)
 
@@ -373,6 +673,19 @@ class TestSQLiteDriverCRUD:
         assert len(all_rows) == len(it_rows)
         assert [r[c.read_id_col] for r in all_rows] == [r[c.read_id_col] for r in it_rows]
     def test_unique_values_set_includes_inserted(self, sqlite_driver_bundle):
+        """
+        Insert three titles and check their values are a subset of the returned unique-value set.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         values = {"Alpha", "Beta", "Gamma"}
         for v in values:
@@ -381,6 +694,19 @@ class TestSQLiteDriverCRUD:
         found = drv.direct_get_unique_values_set("title")
         assert values.issubset(set(found))
     def test_foreign_key_cascade_manifestation_to_item(self, sqlite_driver_bundle):
+        """
+        Insert a manifestation and linked item, delete the manifestation, and check the item lookup becomes False.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
 
         # items.item_manifestation_id -> manifestations.manifestation_id has ON DELETE CASCADE
@@ -399,6 +725,21 @@ class TestSQLiteDriverCRUD:
         # Should cascade.
         assert drv.direct_get_row_dict_from_id("items", item_id) is False
     def test_direct_get_row_count_matches_select(self, sqlite_driver_bundle):
+        """
+        Insert three titles and check the reported count increases by at least three.
+
+        Despite its name, this test does not compare with an independent SELECT count.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         c = _title_contract(drv)
 
@@ -412,6 +753,21 @@ class TestSQLiteDriverCRUD:
         raises=TypeError,
     )
     def test_pyset_round_trip_on_books_paths(self, sqlite_driver_bundle):
+        """
+        Check a legacy books-table PYSET field preserves its set under the existing TypeError-restricted xfail marker.
+
+        Skip when books is a compatibility view.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
 
         conn = drv.get_connection()
@@ -441,6 +797,19 @@ class TestSQLiteDriverCRUD:
         assert isinstance(by_id[title_id]["book_paths"], set)
         assert by_id[title_id]["book_paths"] == paths
     def test_custom_type_adapters_for_list_and_dict(self, sqlite_driver_bundle):
+        """
+        Persist PYSET, PYLIST, and PYDICT values in a dedicated table and check exact restored types and values.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
 
         # Create a small ad-hoc table to exercise the adapters.
@@ -479,11 +848,33 @@ class TestSQLiteDriverCRUD:
 
 
 class TestSQLiteDriverUnicodeAndEdges:
+    """
+    Group seeded Unicode, whitespace, NUL, and large-text input checks.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+    """
     @pytest.mark.parametrize(
         "seed",
         [0, 1, 2, 3, 4, 5, 42, 99],
     )
     def test_insert_and_search_unicode_titles(self, sqlite_driver_bundle, seed):
+        """
+        Insert a deterministic Unicode title and require exact text membership in search results.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :param seed: Parametrized seed for the local Unicode payload generator.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         s = _random_unicode_string(seed)
         _insert_minimal_title_row(drv, title=s)
@@ -492,6 +883,19 @@ class TestSQLiteDriverUnicodeAndEdges:
         assert any(r["title"] == s for r in rows)
 
     def test_control_chars_and_whitespace(self, sqlite_driver_bundle):
+        """
+        Insert control characters and whitespace and require a singleton search result, without separately comparing its payload.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         s = "  \t\n\r\x0b\x0c  "
         _insert_minimal_title_row(drv, title=s)
@@ -499,6 +903,21 @@ class TestSQLiteDriverUnicodeAndEdges:
         assert len(rows) == 1
 
     def test_embedded_null_byte_value_is_rejected_or_preserved_safely(self, sqlite_driver_bundle):
+        """
+        Accept any ordinary insertion exception for embedded NUL; otherwise require one search result with the exact original text.
+
+        The accepted error path does not require a particular exception class or message.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         s = "abc\x00def"
 
@@ -516,6 +935,19 @@ class TestSQLiteDriverUnicodeAndEdges:
         assert rows[0]["title"] == s
 
     def test_very_large_text_payload(self, sqlite_driver_bundle):
+        """
+        Insert 200,000 Z characters and require a singleton search result; no separate result-text equality is asserted.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         s = "Z" * 200_000  # big enough to matter, small enough for tests
         _insert_minimal_title_row(drv, title=s)
@@ -529,7 +961,28 @@ class TestSQLiteDriverUnicodeAndEdges:
 
 
 class TestSQLiteDriverSecurity:
+    """
+    Group SQL-looking value and identifier checks with schema-survival assertions.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+    """
     def test_value_sql_injection_payload_is_not_executed(self, sqlite_driver_bundle):
+        """
+        Store SQL-looking title text and check the titles relation survives and direct bound lookup returns the exact payload.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         conn = drv.get_connection()
         try:
@@ -550,6 +1003,19 @@ class TestSQLiteDriverSecurity:
             conn2.close()
 
     def test_table_name_injection_is_rejected_by_validation_helpers(self, sqlite_driver_bundle):
+        """
+        Reject an SQL-looking relation name, require get_all_rows to raise an exception, and check titles/books survive.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         bad = "titles; DROP TABLE titles;--"
         assert drv.direct_validate_existing_table_name(bad) is False
@@ -566,6 +1032,19 @@ class TestSQLiteDriverSecurity:
             conn.close()
 
     def test_search_table_with_weird_inputs_does_not_execute_multiple_statements(self, sqlite_driver_bundle):
+        """
+        Require an exception for an SQL-looking table name and check the books relation survives.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
 
         # `sqlite3` should reject stacked statements; the important part is that
@@ -581,12 +1060,38 @@ class TestSQLiteDriverSecurity:
             conn.close()
 
     def test_direct_execute_rejects_multiple_statements(self, sqlite_driver_bundle):
+        """
+        Require an exception when direct_execute receives two statements; no specific exception class is asserted.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
 
         with pytest.raises(Exception):
             drv.direct_execute("SELECT 1; SELECT 2;")
 
     def test_direct_execute_parameter_binding_blocks_injection(self, sqlite_driver_bundle):
+        """
+        Bind SQL-looking text in SELECT, check exact returned text, and verify titles still exists.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         payload = "1; DROP TABLE titles; --"
 
@@ -613,7 +1118,28 @@ class TestSQLiteDriverSecurity:
 
 
 class TestSQLiteDriverMetadata:
+    """
+    Group exact metadata value round trips and the fixture’s unset unique-ID expectation.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+    """
     def test_write_and_read_metadata_round_trip(self, sqlite_driver_bundle):
+        """
+        Write a database name and seeded Unicode parent-instance value and check exact metadata readback.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
 
         drv.direct_write_metadata("db_name", "Test DB")
@@ -624,6 +1150,19 @@ class TestSQLiteDriverMetadata:
         assert drv.direct_read_metadata("parent_LiuXin_instance") == uni
 
     def test_read_unset_metadata_returns_none(self, sqlite_driver_bundle):
+        """
+        Check unique_id reads as None in the provisioned database.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         # On a freshly created DB, most metadata columns are NULL.
         assert drv.direct_read_metadata("unique_id") is None
@@ -635,19 +1174,69 @@ class TestSQLiteDriverMetadata:
 
 
 class TestSQLiteDriverKnownIssues:
+    """
+    Group active regressions for extrema, multi-row updates, and parameterized search.
+
+    These methods currently have no xfail decorators despite the historical section
+    name.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+    """
     def test_direct_get_max_works_on_py3(self, sqlite_driver_bundle):
+        """
+        Insert two titles and require a non-None maximum ID without asserting its exact value.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         _insert_minimal_title_row(drv, title="A")
         _insert_minimal_title_row(drv, title="B")
         assert drv.direct_get_max("title_id") is not None
 
     def test_direct_get_min_works_on_py3(self, sqlite_driver_bundle):
+        """
+        Insert two titles and require a non-None minimum ID without asserting its exact value.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         _insert_minimal_title_row(drv, title="A")
         _insert_minimal_title_row(drv, title="B")
         assert drv.direct_get_min("title_id") is not None
 
     def test_direct_update_columns_simple_mode(self, sqlite_driver_bundle):
+        """
+        Update two title values by ID and check exact readback through the title read relation.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         c = _title_contract(drv)
 
@@ -665,6 +1254,19 @@ class TestSQLiteDriverKnownIssues:
         assert r1[c.read_title_col] == "New1"
         assert r2[c.read_title_col] == "New2"
     def test_direct_multi_column_search_is_parameterized(self, sqlite_driver_bundle):
+        """
+        Search SQL-looking title text and require no matches against the two inserted ordinary titles.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py
+
+
+        :param sqlite_driver_bundle: Fixture bundle containing the pure sqlite3 driver and
+            provisioned test_db_13 path.
+        :return: None; failed expectations raise AssertionError.
+        """
         drv = sqlite_driver_bundle.driver
         _insert_minimal_title_row(drv, title="Safe")
         _insert_minimal_title_row(drv, title="Other")

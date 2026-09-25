@@ -1,20 +1,142 @@
 # Working Memory Index
 
-Current status: D106–D115 documentation complete: 257 declarations in 25 files.
-[Latest checkpoint](project-docstrings-d106-d115-2026-09-17.md). Coverage:
-**839/2,671 files**. **D116 is next only on a new request**; earlier broad
-authorizations remain paused. The completed shim cleanup is preserved separately.
+Current status: **M007–M016 complete**; 132 new declarations across 21 complete
+files, including promotion of the prior 40-declaration utility slice.
+[Latest checkpoint](project-docstrings-m007-m016-2026-09-25.md).
+Metadata progress: **16/274 units, 316 declarations, 32 complete files**.
+**M017 is next**; all three files are unchanged. D remains archived complete.
+Project coverage: **1,092/2,671 complete-file records**, plus **37 partial-file
+declarations**. All 152 regressions, 98 runnable examples, and full quality checks
+passed. Discovery flags 28 storage hash changes outside this batch.
 
-Updated: 2026-09-17
+Updated: 2026-09-25
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [project-docstrings-m007-m016-2026-09-25.md](project-docstrings-m007-m016-2026-09-25.md)
+  Metadata utilities/workflows, book containers/codecs, vocabularies and genre
+  maps: 132 new declarations, 21 complete files. 152 regressions and 98 examples
+  passed; full quality passed. M017 is next.
+
+- [project-docstrings-d229-m006-2026-09-25.md](project-docstrings-d229-m006-2026-09-25.md)
+  Final database contracts and first metadata units: 275 declarations, 22 complete
+  files and a 40-declaration utility slice. D complete; historical M007 boundary.
+  215 regressions and 140 examples passed, two existing skips; full quality passed.
+
+- [project-docstrings-d219-d228-2026-09-25.md](project-docstrings-d219-d228-2026-09-25.md)
+  PostgreSQL, SQLite and driver contracts: 249 new declarations, 21 complete files.
+  182 regressions and 40 runnable examples passed, three existing skips;
+  full quality checks passed. Historical checkpoint before D229–D232/M001–M006.
+
+- [project-docstrings-d209-d218-2026-09-25.md](project-docstrings-d209-d218-2026-09-25.md)
+  Unicode, Calibre and PostgreSQL tests: 212 declarations, 24 complete files and
+  a 77-declaration partial file. 209 regressions and 39 runnable examples passed,
+  two optional skips; full quality checks passed. Historical checkpoint before D219–D228.
+
+- [project-docstrings-d199-d208-2026-09-25.md](project-docstrings-d199-d208-2026-09-25.md)
+  Database contracts: 270 declarations, 12 complete files.
+  402 regressions and 50 example statements passed; 40 skips,
+  12 expected failures, 0 non-strict unexpected passes.
+  Historical checkpoint before D209–D218 completed.
+
+- [project-docstrings-d189-d198-2026-09-25.md](project-docstrings-d189-d198-2026-09-25.md)
+  Cache and Database contracts: 290 declarations, 24 complete files.
+  331 regressions and 119 example statements passed; 12 skips,
+  including six gated legacy modules. Historical checkpoint before D199–D208 completed.
+
+- [project-docstrings-d179-d188-2026-09-25.md](project-docstrings-d179-d188-2026-09-25.md)
+  Database/API/cache tests: 271 new declarations, 16 complete files. 309 regressions
+  and 139 runnable example statements passed, two environment skips; full quality
+  checks passed. Historical checkpoint before D189–D198 completed.
+
+- [project-docstrings-d169-d178-2026-09-24.md](project-docstrings-d169-d178-2026-09-24.md)
+  Database-test batch complete: 256 declarations, 24 complete files and a 35-declaration
+  locking slice. 141 regressions and 180 runnable example statements passed, one
+  conditional skip, full quality checks passed. Historical checkpoint before D179–D188 completed.
+
+- [project-docstrings-d149-d168-2026-09-24.md](project-docstrings-d149-d168-2026-09-24.md)
+  Maintenance, metadata SQL and database-test batch complete: 477 declarations,
+  311 passing regressions, 2 skips, 2 expected failures; 339 runnable examples and
+  full quality checks passed. 211 integration statements explicitly skipped.
+  Historical checkpoint before the D169–D178 batch.
+
+- [project-docstrings-d139-d148-2026-09-24.md](project-docstrings-d139-d148-2026-09-24.md)
+  Driver wrapper/API batch complete: 241 declarations, 638 passing regressions, 2 skips, 12 expected failures,
+  103 runnable examples and full quality checks passed. 199 integration statements
+  explicitly skipped. Historical checkpoint before the D149–D168 batch.
+
+- [project-docstrings-d129-d138-2026-09-24.md](project-docstrings-d129-d138-2026-09-24.md)
+  APSW backend and driver API batch complete: 208 declarations, 185 passing regressions, 4 skips,
+  109 runnable examples and full quality checks passed. 157 integration examples
+  explicitly skipped. Historical checkpoint before the D139–D148 batch.
+
+- [project-docstrings-d128-2026-09-24.md](project-docstrings-d128-2026-09-24.md)
+  SQLite concrete driver complete: 15 declarations, seven regression checks,
+  44 runnable example statements and full quality checks passed; six integration
+  examples explicitly skipped. Historical checkpoint before the D129–D138 batch.
+
+- [project-docstrings-d127-2026-09-22.md](project-docstrings-d127-2026-09-22.md)
+  SQLite initializer complete: two declarations, one import regression,
+  nine runnable example statements and full quality checks passed.
+  Historical checkpoint before D128 completed the SQLite concrete driver.
+
+- [project-docstrings-d126-2026-09-22.md](project-docstrings-d126-2026-09-22.md)
+  Custom-column management macro file complete: 11 declarations, 15 regression
+  checks, 64 runnable example statements and full quality checks passed.
+  Historical checkpoint before D127 completed the SQLite plugin initializer.
+
+- [project-docstrings-d125-2026-09-22.md](project-docstrings-d125-2026-09-22.md)
+  Custom-column macro facade and ensure-value mixin complete: 39 declarations,
+  two API contract checks, 81 runnable example statements and full quality checks
+  passed. Historical checkpoint before D126 completed the management macro file.
+
+- [project-docstrings-d124-2026-09-21.md](project-docstrings-d124-2026-09-21.md)
+  Legacy temporary-table macro file complete: five declarations, one focused
+  regression, 37 runnable example statements and full quality checks passed.
+  Historical checkpoint before D125 completed the custom-column macro facade
+  and ensure-value mixin.
+
+- [project-docstrings-d123-2026-09-21.md](project-docstrings-d123-2026-09-21.md)
+  Remaining 36 portable SQL macro declarations verified; all 76 now reviewed and
+  the file promoted. 21 regressions passed, one expected skip; 92 runnable example
+  statements and full quality checks passed. Historical checkpoint before D124
+  completed the legacy temporary-table macro file.
+
+- [project-docstrings-d122-2026-09-21.md](project-docstrings-d122-2026-09-21.md)
+  First 40 portable SQL macro declarations verified; seven focused regressions,
+  47 runnable example statements and full quality checks passed. Historical partial
+  checkpoint before D123 completed and promoted the file.
+
+- [project-docstrings-d121-2026-09-20.md](project-docstrings-d121-2026-09-20.md)
+  SQL macros package and hash-table mixin complete: 32 declarations, three focused
+  regressions, 28 runnable example statements and full quality checks passed.
+  Historical checkpoint before D122 completed the first portable macro selection.
+
+- [project-docstrings-d120-2026-09-20.md](project-docstrings-d120-2026-09-20.md)
+  SQL view helpers complete: four declarations, one SQLite regression and nine
+  runnable example statements passed, full quality checks passed. Historical
+  checkpoint before D121 completed the SQL macros package and hash-table mixin.
+
+- [project-docstrings-d119-2026-09-20.md](project-docstrings-d119-2026-09-20.md)
+  Four value-casting methods verified; all 44 declarations in the file now reviewed.
+  Two SQLite regressions, 36 runnable examples and full quality checks passed.
+  Historical checkpoint before D120 completed the SQL view helpers.
+
+- [project-docstrings-d118-2026-09-20.md](project-docstrings-d118-2026-09-20.md)
+  SQL column policy: 40 declarations verified, 12 SQLite regressions and ten
+  runnable examples passed, configured quality gates passed. Historical partial-file
+  checkpoint before D119 completed the file.
+
+- [project-docstrings-d116-d117-2026-09-20.md](project-docstrings-d116-d117-2026-09-20.md)
+  SQL utilities complete: 56 declarations, two SQLite regressions and 85 runnable
+  examples passed, configured quality gates passed. Historical checkpoint before D118.
+
 - [project-docstrings-d106-d115-2026-09-17.md](project-docstrings-d106-d115-2026-09-17.md)
   D106–D115 verified: shared SQL support, Calibre/FRBR builders and driver mixins.
   139 regressions passed, three skipped; 35 examples and full quality gates passed.
-  D116 is next only on request.
+  Historical checkpoint before D116–D117.
 
 - [project-docstrings-ten-2026-09-17.md](project-docstrings-ten-2026-09-17.md)
   D096–D105 verified: driver registry/macros and PostgreSQL backend. 35 focused
@@ -32,8 +154,8 @@ Start here for active handoff notes. This index should stay short.
 
 - [project-docstrings-d-2026-09-14.md](project-docstrings-d-2026-09-14.md)
   Historical D001–D095 record and [shutdown checkpoint](project-docstrings-hundred-paused-2026-09-15.md).
-  Current continuation, maintenance-adjusted coverage and D116 resume point are
-  in the latest ten-unit checkpoint above.
+  Current continuation, maintenance-adjusted coverage and M017 resume point are
+  in the latest documentation batch checkpoint above.
 
 - [project-docstrings-thirty-2026-09-13.md](project-docstrings-thirty-2026-09-13.md)
   Authorized thirty-module batch C03–C032 complete: 566 declarations, 54 complete

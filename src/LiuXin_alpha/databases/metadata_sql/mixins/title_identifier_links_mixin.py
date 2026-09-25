@@ -1,19 +1,48 @@
-"""Metadata SQL macros for title-to-identifier relationships."""
+"""
+Provide metadata SQL operations for title identifier links.
+
+These helpers target the stored schema named in their SQL. The host supplies db
+and/or execution methods. Per-method notes distinguish explicit live-connection
+commits from delegated transaction handling; filesystem assets are never moved by
+these helpers.
+"""
 
 
 
 
 class CMIdentifierTitleLinks:
-    """Implement title-to-identifier relationship macros."""
+    """
+    Implement the title identifier links operations used by MetadataSQL.
+
+    Requires a compatible owner database or host query methods. Backend/schema errors
+    propagate except where a method explicitly documents suppression.
+
+    Example:
+        >>> metadata_sql.delete_title_identifiers(1, "isbn")  # doctest: +SKIP
+    """
 
 
 
     def delete_title_identifiers(self, title_id, id_type=None):
         """
-        Delete all the identifiers associated with a given title.
-        :param title_id:
-        :param id_type: If id_type is not None, then all the identifiers of this type for the title will be removed
-        :return:
+        Delete identifier value rows linked to a title, optionally filtering identifier_type.
+
+        This deletes shared value rows, not merely title links; foreign-key effects belong
+        to the schema. The unfiltered path forwards a scalar title binding, while the
+        filtered path binds title and type together.
+
+        Transaction and cache behavior for delegated SQL follows the host
+        execute/executemany implementation; this method adds no separate transaction guard.
+
+        Example:
+            >>> metadata_sql.delete_title_identifiers(1)  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :param id_type: Identifier scheme/type; normalization and validation depend on this
+            method.
+        :return: None.
         """
         if id_type is None:
             del_stmt = """
@@ -40,11 +69,22 @@ class CMIdentifierTitleLinks:
 
     def add_title_identifier(self, title_id, id_type, id_val):
         """
-        Add an new identifier to a title specified by the title id
-        :param title_id: The id of the book to add the identifier to
-        :param id_type: The type of the identifier to add
-        :param id_val: The value of the identifier to add
-        :return:
+        Reserve an identifier row, set type/value, sync it and link it to the title.
+
+        Does not normalize or deduplicate values. Creation and linking are separate
+        operations, so linking failure can leave the new identifier row behind.
+
+        Example:
+            >>> metadata_sql.add_title_identifier(1, "isbn", "9780306406157")  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :param id_type: Identifier scheme/type; normalization and validation depend on this
+            method.
+        :param id_val: Identifier value; false-value clearing applies only to
+            set_title_identifier.
+        :return: None.
         """
         title_row = self.db.get_row_from_id("titles", row_id=title_id)
 

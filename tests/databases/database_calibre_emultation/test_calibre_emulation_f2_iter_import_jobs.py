@@ -1,9 +1,30 @@
+"""
+Check import-job actions and reasons for clean books, missing folders/formats, and unsafe book paths.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_f2_iter_import_jobs.py
+"""
 from __future__ import annotations
 
 import shutil
 
 
 def test_iter_import_jobs_full_for_clean_books(provision_populated_calibre_library):
+    """
+    Check the first clean-book job requests full import and includes its title and one EPUB reference.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_f2_iter_import_jobs.py::test_iter_import_jobs_full_for_clean_books
+
+
+    :param provision_populated_calibre_library: Fixture factory returning an isolated
+        blank library and a builder for adding books; requires FTS5.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib, builder = provision_populated_calibre_library(name="calibre_jobs_clean")
 
     builder.add_book(
@@ -29,6 +50,19 @@ def test_iter_import_jobs_full_for_clean_books(provision_populated_calibre_libra
 
 
 def test_iter_import_jobs_metadata_only_when_book_folder_missing(provision_populated_calibre_library):
+    """
+    Delete the book folder and check the first job requests metadata-only import, strips file references, and reports the missing-folder error.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_f2_iter_import_jobs.py::test_iter_import_jobs_metadata_only_when_book_folder_missing
+
+
+    :param provision_populated_calibre_library: Fixture factory returning an isolated
+        blank library and a builder for adding books; requires FTS5.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib, builder = provision_populated_calibre_library(name="calibre_jobs_missing_folder")
 
     added = builder.add_book(
@@ -55,6 +89,19 @@ def test_iter_import_jobs_metadata_only_when_book_folder_missing(provision_popul
 
 
 def test_iter_import_jobs_full_when_one_of_multiple_formats_missing(provision_populated_calibre_library):
+    """
+    Delete one of two formats and check full import retains EPUB, excludes PDF, and reports a missing-format warning.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_f2_iter_import_jobs.py::test_iter_import_jobs_full_when_one_of_multiple_formats_missing
+
+
+    :param provision_populated_calibre_library: Fixture factory returning an isolated
+        blank library and a builder for adding books; requires FTS5.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib, builder = provision_populated_calibre_library(name="calibre_jobs_missing_one_format")
 
     added = builder.add_book(
@@ -80,6 +127,21 @@ def test_iter_import_jobs_full_when_one_of_multiple_formats_missing(provision_po
 
 
 def test_iter_import_jobs_metadata_only_on_unsafe_book_path(provision_populated_calibre_library):
+    """
+    Store an escaping book path and check non-strict job iteration requests metadata-only import with an unsafe-path error reason.
+
+    This case does not separately assert that file references were stripped.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_f2_iter_import_jobs.py::test_iter_import_jobs_metadata_only_on_unsafe_book_path
+
+
+    :param provision_populated_calibre_library: Fixture factory returning an isolated
+        blank library and a builder for adding books; requires FTS5.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib, builder = provision_populated_calibre_library(name="calibre_jobs_unsafe_path")
 
     added = builder.add_book(

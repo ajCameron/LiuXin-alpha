@@ -1,4 +1,11 @@
-"""Metadata SQL macros for creator-to-title relationships."""
+"""
+Provide metadata SQL operations for creator title links.
+
+These helpers target the stored schema named in their SQL. The host supplies db
+and/or execution methods. Per-method notes distinguish explicit live-connection
+commits from delegated transaction handling; filesystem assets are never moved by
+these helpers.
+"""
 
 
 
@@ -9,16 +16,36 @@ from LiuXin_alpha.errors import DatabaseDriverError
 
 class CreatorTitleLinkMacros:
     """
+    Implement the creator title links operations used by MetadataSQL.
 
+    Requires a compatible owner database or host query methods. Backend/schema errors
+    propagate except where a method explicitly documents suppression.
+
+    Example:
+        >>> metadata_sql.break_creator_title_links(1)  # doctest: +SKIP
     """
 
     def break_creator_title_links(self, title_id, creator_type=("author", "authors")):
         """
-        Remove links of a certain type between titles and creators
+        Delete creator links of the requested types for one title or a title batch.
 
-        :param title_id: The title to remove all the creators for
-        :param creator_type:
-        :return:
+        Interpolates creator_type directly into IN; callers must provide trusted,
+        SQL-compatible tuple syntax. Integer titles use one execution; iterables become
+        one-cell binding tuples. Batch exceptions are logged and translated to
+        DatabaseDriverError.
+
+        Transaction and cache behavior for delegated SQL follows the host
+        execute/executemany implementation; this method adds no separate transaction guard.
+
+        Example:
+            >>> metadata_sql.break_creator_title_links(1)  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :param creator_type: Trusted type tuple interpolated into the IN expression; not
+            parameter-bound.
+        :return: None.
         """
         del_stmt = (
             "DELETE FROM creator_title_links "
@@ -37,12 +64,26 @@ class CreatorTitleLinkMacros:
 
     def make_creator_title_links(self, title_id=None, creator_id=None, id_pairs=None, creator_type="authors"):
         """
-        Construct a link between a title and a creator.
+        Insert creator/title links with a globally computed minimum priority minus one.
 
-        :param title_id:
-        :param creator_id:
-        :param creator_type:
-        :return:
+        The SQL always stores authors, ignoring creator_type. id_pairs takes precedence over
+        individual IDs. On an empty link table MIN yields NULL; priorities are not scoped to
+        the title.
+
+        Transaction and cache behavior for delegated SQL follows the host
+        execute/executemany implementation; this method adds no separate transaction guard.
+
+        Example:
+            >>> metadata_sql.make_creator_title_links(title_id=1, creator_id=2)  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :param creator_id: Creator identifier bound to the query or relationship.
+        :param id_pairs: Optional iterable of (title_id, creator_id) bindings; takes
+            precedence over individual IDs.
+        :param creator_type: Ignored compatibility argument; SQL always stores authors.
+        :return: None.
         """
         insert_stmt = (
             "INSERT INTO creator_title_links "
@@ -67,10 +108,17 @@ class CreatorTitleLinkMacros:
             self,
             title_id: str) -> None:
         """
-        Clear the links between a certain title and all creators with a certain link type.
+        Delete authors-type creator links for one title and commit.
 
-        :param title_id: All creator links to this title will be cleared
-        :return:
+        The type is fixed to plural authors; other link types remain.
+
+        Example:
+            >>> metadata_sql.clear_title_creator_links_for_given_type_and_title(1)  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :return: None.
         """
         stmt = (
             "DELETE FROM creator_title_links "
@@ -85,11 +133,17 @@ class CreatorTitleLinkMacros:
             title_id: int,
             creator_id: int) -> bool:
         """
-        Check to see that there is an author type link between the title and the creator
+        Read an authors-type link ID for the supplied creator/title pair.
 
-        :param title_id:
-        :param creator_id:
-        :return:
+        Example:
+            >>> metadata_sql.check_for_title_author_link(1, 1)  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :param creator_id: Creator identifier bound to the query or relationship.
+        :return: Connection.get(all=False) result, normally link ID or None despite the bool
+            annotation.
         """
         stmt = (
             "SELECT creator_title_link_id FROM creator_title_links "
@@ -101,12 +155,17 @@ class CreatorTitleLinkMacros:
 
     def update_title_author_link_priority(self, title_id: int, creator_id: int, new_priority: int) -> None:
         """
-        Update the link between the title and the creator - of author type
+        Update priority on every matching authors-type creator/title link and commit.
 
-        :param title_id:
-        :param creator_id:
-        :param new_priority:
-        :return:
+        Example:
+            >>> metadata_sql.update_title_author_link_priority(1, 1, 3)  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :param creator_id: Creator identifier bound to the query or relationship.
+        :param new_priority: Replacement relationship priority, bound as supplied.
+        :return: None.
         """
         stmt = (
             "UPDATE creator_title_links "

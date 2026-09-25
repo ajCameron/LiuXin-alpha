@@ -1,3 +1,15 @@
+"""
+Check version-policy decisions on a fixed generated schema and optional external Calibre fixtures.
+
+Changing PRAGMA versions simulates policy inputs, not historical schema layouts.
+External fixtures are discovered at import; an empty parametrization retains
+pytest’s skip behavior.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b3_compat_matrix.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -22,6 +34,24 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generat
 
 
 def _set_pragmas(*, metadata_db: Path, user_version: int | None = None, application_id: int | None = None) -> None:
+    """
+    Set supplied SQLite user_version/application_id values after int conversion, commit, and close in finally.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b3_compat_matrix.py
+
+
+    :param metadata_db: Database file to open with sqlite3; a missing file may be
+        created.
+    :param user_version: Optional version value converted to int and interpolated into
+        PRAGMA.
+    :param application_id: Optional application ID converted to int and interpolated
+        into PRAGMA.
+    :return: None; omitted values are left unchanged and SQL/conversion errors
+        propagate.
+    """
     conn = sqlite3.connect(str(metadata_db))
     try:
         if user_version is not None:
@@ -34,6 +64,19 @@ def _set_pragmas(*, metadata_db: Path, user_version: int | None = None, applicat
 
 
 def _add_one_book_with_custom_column(lib_root: Path) -> None:
+    """
+    Add a compatibility-canary book and a single text custom column with the value laconic.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b3_compat_matrix.py
+
+
+    :param lib_root: Existing generated library root to mutate.
+    :return: None; writes schema, book metadata, and an EPUB file under the supplied
+        library.
+    """
     b = CalibreLibraryBuilder(lib_root)
     b.create_custom_column(label="mood", name="Mood", datatype="text", is_multiple=False)
     added = b.add_book(
@@ -65,6 +108,25 @@ def test_b3_compat_matrix_smoke_on_generated_library(
     expect_action: str,
     expect_warning_substr: str | None,
 ) -> None:
+    """
+    Set a simulated schema version and check policy status/action/warnings, custom-column discovery, and a readable canary title.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b3_compat_matrix.py::test_b3_compat_matrix_smoke_on_generated_library
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :param sim_user_version: Parametrized PRAGMA version written to the unchanged
+        generated schema.
+    :param expect_status: Expected version-plan status string.
+    :param expect_action: Expected version-plan action string.
+    :param expect_warning_substr: Warning substring to require, or None to require no
+        warnings.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name=f"lib_b3_{sim_user_version}")
     _add_one_book_with_custom_column(lib.root)
 
@@ -105,6 +167,19 @@ def test_b3_compat_matrix_smoke_on_generated_library(
 
 
 def test_b3_strict_policy_refuses_newer_user_version_but_best_effort_can_still_report(provision_calibre_library) -> None:
+    """
+    Check a strict newer-version policy raises normally while best-effort inspection reports a refusal plan and the actual version.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b3_compat_matrix.py::test_b3_strict_policy_refuses_newer_user_version_but_best_effort_can_still_report
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_b3_strict_refuse")
     _add_one_book_with_custom_column(lib.root)
 
@@ -130,14 +205,20 @@ def test_b3_strict_policy_refuses_newer_user_version_but_best_effort_can_still_r
 
 
 def _discover_external_compat_fixtures() -> list[Path]:
-    """Return a list of external compat fixtures (dirs or zips).
+    """
+    List sorted non-hidden library directories and ZIP files under the module-relative compatibility fixture directory.
 
-    Drop fixtures into:
-        tests/fixtures/calibre_libraries/compat/
+    Resolve the root as __file__.parents[1]/fixtures/calibre_libraries/compat, which is
+    under tests/databases in this layout. Accept directories with metadata.db and ZIP
+    suffixes without inspecting archive contents.
 
-    Supported shapes:
-        - directory that contains metadata.db at its root (and book folders)
-        - zip file containing a directory with metadata.db at its root
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b3_compat_matrix.py
+
+
+    :return: List of Paths, or an empty list when the fixture root does not exist.
     """
     here = Path(__file__).resolve()
     fixtures_root = here.parents[1] / "fixtures" / "calibre_libraries" / "compat"
@@ -156,10 +237,24 @@ def _discover_external_compat_fixtures() -> list[Path]:
 
 @pytest.mark.parametrize("fixture_path", _discover_external_compat_fixtures())
 def test_b3_external_fixture_opens_and_iterates_best_effort(tmp_path: Path, fixture_path: Path) -> None:
-    """Compat harness for real-world fixture libraries (older Calibre versions etc).
+    """
+    Inspect an external library directory or extract a ZIP, then require nonnegative PRAGMAs and a first payload with a string title.
 
-    These are optional: if you haven't added any fixtures yet, no cases are
-    collected and the test is effectively skipped.
+    For ZIPs, use the first discovered directory containing metadata.db; directories are
+    read in place. No cases run when fixture discovery produces an empty
+    parametrization.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b3_compat_matrix.py::test_b3_external_fixture_opens_and_iterates_best_effort
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :param fixture_path: Trusted optional directory or ZIP selected by
+        compatibility-fixture discovery.
+    :return: None; failed expectations raise AssertionError.
     """
     if fixture_path.is_dir():
         root = fixture_path

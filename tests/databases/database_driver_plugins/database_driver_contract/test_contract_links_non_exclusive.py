@@ -1,10 +1,10 @@
-"""Driver contract: many_many_non_exclusive link tables.
+"""
+Check typed non-exclusive links, including repeated NULL roles and priority uniqueness within a role.
 
-The intent of many_many_non_exclusive is to support role-style mappings where the
-same (A,B) pair may appear multiple times as long as the `type` value differs.
+Example:
+    Run with pytest::
 
-SQLite UNIQUE semantics allow multiple NULLs, so repeated NULL `type` values are
-also permitted.
+        python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links_non_exclusive.py
 """
 
 from __future__ import annotations
@@ -15,6 +15,20 @@ from LiuXin_alpha.errors import DatabaseIntegrityError
 
 
 def _create_contract_tables(driver) -> tuple[str, str, str, str]:
+    """
+    Create fixed left and right main tables and discover their base value columns.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links_non_exclusive.py
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: Tuple of left table, right table, left value column, and right value
+        column.
+    """
     left_table = "contract_link_ne_lefts"
     right_table = "contract_link_ne_rights"
 
@@ -27,11 +41,47 @@ def _create_contract_tables(driver) -> tuple[str, str, str, str]:
 
 
 def _insert_one(driver, table: str, value_col: str, value: str) -> int:
+    """
+    Insert one payload and infer its ID from the highest ID in the supplied table.
+
+    Assume column-based target identification and no competing inserts.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links_non_exclusive.py
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :param value_col: Concrete value column identifying the target table.
+    :param value: Payload passed through the row-dictionary insertion helper.
+    :return: Highest ID converted to int.
+    """
     driver.direct_add_simple_row_dict({value_col: value})
     return int(driver.direct_get_highest_id(table))
 
 
 def _create_link_table(driver, driver_wrapper, left_table: str, right_table: str, *, requested_cols="all") -> str:
+    """
+    Create a many_many_non_exclusive link and require matching driver and wrapper table names.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links_non_exclusive.py
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param driver_wrapper: Wrapper attached to the fixture Database and selected driver.
+    :param left_table: Trusted left main-table name.
+    :param right_table: Trusted right main-table name.
+    :param requested_cols: Optional-column selector forwarded unchanged; defaults to
+        all.
+    :return: Driver-reported link name converted to str.
+    """
     link_table_name = driver.direct_link_main_tables(
         primary_table=left_table,
         secondary_table=right_table,
@@ -47,6 +97,20 @@ def _create_link_table(driver, driver_wrapper, left_table: str, right_table: str
 
 
 def _link_columns(driver_wrapper, left_table: str, right_table: str) -> dict[str, str]:
+    """
+    Resolve both endpoint foreign keys plus priority, type, and index columns through the wrapper.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links_non_exclusive.py
+
+
+    :param driver_wrapper: Wrapper attached to the fixture Database and selected driver.
+    :param left_table: Trusted left main-table name.
+    :param right_table: Trusted right main-table name.
+    :return: Mapping containing left_fk, right_fk, priority, type, and index entries.
+    """
     left_id_col = driver_wrapper.get_id_column(left_table)
     right_id_col = driver_wrapper.get_id_column(right_table)
 
@@ -60,6 +124,22 @@ def _link_columns(driver_wrapper, left_table: str, right_table: str) -> dict[str
 
 
 def test_many_many_non_exclusive_allows_multiple_types_and_nulls(driver, driver_wrapper, pick_payload) -> None:
+    """
+    Allow two distinct roles and two NULL roles for one endpoint pair, reject a repeated non-NULL role, and require count four.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links_non_exclusive.py::test_many_many_non_exclusive_allows_multiple_types_and_nulls
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param driver_wrapper: Wrapper attached to the fixture Database and selected driver.
+    :param pick_payload: Fixture callable selecting payload strings by a wrapping
+        integer index.
+    :return: None; failed expectations raise AssertionError.
+    """
     left_table, right_table, left_col, right_col = _create_contract_tables(driver)
 
     link_table = _create_link_table(driver, driver_wrapper, left_table, right_table, requested_cols="all")
@@ -94,6 +174,22 @@ def test_many_many_non_exclusive_allows_multiple_types_and_nulls(driver, driver_
 
 
 def test_many_many_non_exclusive_priority_is_unique_per_type(driver, driver_wrapper, pick_payload) -> None:
+    """
+    Allow equal priorities across roles but reject a repeated priority within one left endpoint’s role, leaving count two.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_links_non_exclusive.py::test_many_many_non_exclusive_priority_is_unique_per_type
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param driver_wrapper: Wrapper attached to the fixture Database and selected driver.
+    :param pick_payload: Fixture callable selecting payload strings by a wrapping
+        integer index.
+    :return: None; failed expectations raise AssertionError.
+    """
     left_table, right_table, left_col, right_col = _create_contract_tables(driver)
 
     link_table = _create_link_table(driver, driver_wrapper, left_table, right_table, requested_cols="all")

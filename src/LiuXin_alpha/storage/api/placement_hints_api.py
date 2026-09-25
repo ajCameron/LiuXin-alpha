@@ -577,6 +577,8 @@ def _derive_work_storage_hints(metadata: object) -> WorkStorageHints:
     )
 
 
+# Todo: Perhaps a method on metadata? Though that does mix concerns perhaps too much
+# Todo: Definitely SHOULD NOT be in the API tho...
 def _derive_item_storage_hints(metadata: object) -> ItemStorageHints:
     """
     Combine Item provenance with selected Work, Expression, and Manifestation targets. Each WEMI
@@ -853,6 +855,7 @@ def _relation_links(metadata: object, relation: str) -> list[object]:
         return []
 
 
+# Todo: These feel like utility objects which should be in utils somewhere
 def _target(link: object) -> object:
     """
     Read a link target with None as the missing-attribute fallback. The target is neither copied nor

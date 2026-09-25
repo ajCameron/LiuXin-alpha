@@ -1,10 +1,11 @@
-"""Driver contract suite conftest.
+"""
+Mark the driver contract fixture boundary.
 
-Intentionally empty.
+The top-level tests/conftest.py registers fixture_plugin once for the driver and
+database contract suites; this module registers no additional plugin.
 
-Shared fixtures are loaded from the *top-level* ``tests/conftest.py`` via
-``tests.databases.database_driver_plugins.database_driver_contract.fixture_plugin``.
+Example:
+    Run the shared fixtures through a contract test::
 
-Modern pytest versions deprecate defining ``pytest_plugins`` in nested conftest
-files, so this file must not register plugins.
+        python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_basic_crud_roundtrips.py
 """

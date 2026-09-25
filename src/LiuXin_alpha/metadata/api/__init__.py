@@ -1,7 +1,13 @@
-"""Public metadata API surface.
+"""
+Re-export abstract metadata contracts and concatenate their published export lists.
 
-Only abstract metadata contracts are exported here. Import concrete containers
-from ``LiuXin_alpha.metadata.containers``.
+Concrete containers live in metadata.containers; the __all__ assembly preserves the
+imported list ordering and any duplicate names.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/test_metadata_top_level_facade.py
 """
 
 from __future__ import annotations

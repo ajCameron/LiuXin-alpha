@@ -1,3 +1,16 @@
+"""
+Check PostgreSQL driver registration, configuration, SQL generation, metadata policies, schema setup, and checker behavior with test doubles.
+
+Connections and query results are simulated; passing these unit checks does not
+establish behavior against a live PostgreSQL server. Fakes often accept unsupported
+SQL and return fixed rows, and context-manager exits do not implement transaction
+semantics.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -19,6 +32,17 @@ from LiuXin_alpha.errors import InputIntegrityError
 
 
 def test_postgresql_driver_is_registered() -> None:
+    """
+    Check PostgreSQL is registered, pg resolves to the same driver class, and postgres resolves to a DatabaseDriver class.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_driver_is_registered
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.registry import (
         get_registered_database_driver_names,
         load_database_driver,
@@ -30,6 +54,17 @@ def test_postgresql_driver_is_registered() -> None:
 
 
 def test_postgresql_driver_exposes_shared_column_base_contract() -> None:
+    """
+    Check ratings and digital_assets use the expected singular column bases.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_driver_exposes_shared_column_base_contract
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.databasedriver import (
         DatabaseDriver,
     )
@@ -41,12 +76,37 @@ def test_postgresql_driver_exposes_shared_column_base_contract() -> None:
 
 
 def test_postgresql_driver_import_does_not_require_psycopg2() -> None:
+    """
+    Import the PostgreSQL driver module and check DatabaseDriver exists.
+
+    This test does not itself remove or block psycopg2, so it does not independently
+    prove optional-driver absence behavior.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_driver_import_does_not_require_psycopg2
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     mod = importlib.import_module("LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.databasedriver")
 
     assert mod.DatabaseDriver is not None
 
 
 def test_postgresql_url_redaction() -> None:
+    """
+    Check URL redaction hides the password and sslpassword while preserving the username and application_name parameter.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_url_redaction
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import redact_postgres_url
 
     url = "postgresql://liuxin:secret@example.invalid:5432/library?sslpassword=hidden&application_name=lx"
@@ -61,6 +121,19 @@ def test_postgresql_url_redaction() -> None:
 
 
 def test_postgresql_schema_configuration_prefers_explicit_metadata_env(monkeypatch) -> None:
+    """
+    Check schema selection uses explicit input before metadata and metadata before the environment.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_schema_configuration_prefers_explicit_metadata_env
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import configured_postgres_schema
 
     monkeypatch.setenv("LIUXIN_POSTGRES_SCHEMA", "env_schema")
@@ -71,6 +144,21 @@ def test_postgresql_schema_configuration_prefers_explicit_metadata_env(monkeypat
 
 
 def test_postgresql_service_target_configuration_prefers_explicit_metadata_env(monkeypatch) -> None:
+    """
+    Check service selection precedence and the kind, value, and label of a metadata-selected service target.
+
+    Set both service environment variables and clear URL overrides for this test.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_service_target_configuration_prefers_explicit_metadata_env
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
         configured_postgres_service,
         configured_postgres_target,
@@ -92,6 +180,19 @@ def test_postgresql_service_target_configuration_prefers_explicit_metadata_env(m
 
 
 def test_postgresql_connect_uses_native_service_profile(monkeypatch) -> None:
+    """
+    Substitute a recording psycopg2 connector and check the exact service, password, timeout, and application-name arguments.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_connect_uses_native_service_profile
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import connect_postgres
 
     calls: list[dict[str, object]] = []
@@ -118,6 +219,19 @@ def test_postgresql_connect_uses_native_service_profile(monkeypatch) -> None:
 
 
 def test_postgresql_connect_hints_when_python_driver_is_missing(monkeypatch) -> None:
+    """
+    Block psycopg2 import and check connection setup raises PostgresConnectionError with installation guidance.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_connect_hints_when_python_driver_is_missing
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
         PostgresConnectionError,
         connect_postgres,
@@ -138,6 +252,17 @@ def test_postgresql_connect_hints_when_python_driver_is_missing(monkeypatch) -> 
 
 
 def test_postgresql_errors_hint_for_missing_database_and_unavailable_server() -> None:
+    """
+    Check formatted errors hide a URL password and include targeted guidance for a missing database, unavailable server, and missing service profile.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_errors_hint_for_missing_database_and_unavailable_server
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
         redact_postgres_error,
     )
@@ -169,37 +294,173 @@ def test_postgresql_errors_hint_for_missing_database_and_unavailable_server() ->
 
 
 def test_postgresql_shared_connection_helper_uses_configured_schema(monkeypatch) -> None:
+    """
+    Use fake connection/cursor objects to check operation return, connection closure, configured search_path, and schema-qualified table lookup.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_shared_connection_helper_uses_configured_schema
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import connection as pg_connection
 
     class FakeCursor:
+        """
+        Record SQL calls and always report a successful table-existence result.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_shared_connection_helper_uses_configured_schema
+        """
         def __init__(self) -> None:
+            """
+            Initialize an empty per-cursor SQL/bindings call log.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_shared_connection_helper_uses_configured_schema
+
+
+            :return: None.
+            """
             self.calls: list[tuple[str, tuple[Any, ...] | None]] = []
 
         def execute(self, sql: str, values=None):
+            """
+            Append SQL and bindings to the call log without copying or executing them.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_shared_connection_helper_uses_configured_schema
+
+
+            :param sql: SQL string recorded by the fake; no database executes it.
+            :param values: Bindings recorded without SQL validation.
+            :return: This FakeCursor for chained calls.
+            """
             self.calls.append((sql, values))
             return self
 
         def fetchone(self):
+            """
+            Return the fixed exists=True mapping regardless of recorded SQL.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_shared_connection_helper_uses_configured_schema
+
+
+            :return: Fresh dictionary reporting existence; no cursor position is maintained.
+            """
             return {"exists": True}
 
         def __enter__(self):
+            """
+            Return the fake cursor on context entry without acquiring resources.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_shared_connection_helper_uses_configured_schema
+
+
+            :return: This FakeCursor.
+            """
             return self
 
         def __exit__(self, exc_type, exc, tb):
+            """
+            Leave fake cursor state unchanged and allow any context-body exception to propagate.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_shared_connection_helper_uses_configured_schema
+
+
+            :param exc_type: Exception type supplied by context-manager exit, ignored here.
+            :param exc: Exception instance supplied by context-manager exit, ignored here.
+            :param tb: Traceback supplied by context-manager exit, ignored here.
+            :return: False; no cleanup is performed.
+            """
             return False
 
     class FakeConnection:
+        """
+        Expose a fixed cursor attribute and a close flag for the shared-connection helper test.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_shared_connection_helper_uses_configured_schema
+        """
         def __init__(self) -> None:
+            """
+            Initialize an open-state flag and one FakeCursor stored as an attribute.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_shared_connection_helper_uses_configured_schema
+
+
+            :return: None; cursor is an object, not a cursor factory.
+            """
             self.closed = False
             self.cursor = FakeCursor()
 
         def __enter__(self):
+            """
+            Return the fake connection on context entry without changing state.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_shared_connection_helper_uses_configured_schema
+
+
+            :return: This FakeConnection.
+            """
             return self
 
         def __exit__(self, exc_type, exc, tb):
+            """
+            Allow context-body exceptions to propagate without closing or transacting.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_shared_connection_helper_uses_configured_schema
+
+
+            :param exc_type: Exception type supplied by context-manager exit, ignored here.
+            :param exc: Exception instance supplied by context-manager exit, ignored here.
+            :param tb: Traceback supplied by context-manager exit, ignored here.
+            :return: False; the closed flag is unchanged.
+            """
             return False
 
         def close(self) -> None:
+            """
+            Set the fake closed flag without enforcing it on later operations.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_shared_connection_helper_uses_configured_schema
+
+
+            :return: None; sets closed to True.
+            """
             self.closed = True
 
     conn = FakeConnection()
@@ -227,6 +488,17 @@ def test_postgresql_shared_connection_helper_uses_configured_schema(monkeypatch)
 
 
 def test_postgresql_sql_translation_is_small_and_explicit() -> None:
+    """
+    Check backtick identifiers and an unquoted question-mark placeholder are translated while a quoted question mark remains literal.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_sql_translation_is_small_and_explicit
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import translate_sql_for_postgres
 
     translated = translate_sql_for_postgres("insert into `asset_replicas` (`asset_replica_storage_key`) values (?, '?')")
@@ -235,6 +507,17 @@ def test_postgresql_sql_translation_is_small_and_explicit() -> None:
 
 
 def test_database_init_classifies_postgres_as_server_backend() -> None:
+    """
+    Check PostgreSQL URL/service metadata is recognized as server-backed and selected SQLite/local metadata remains classified as local.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_database_init_classifies_postgres_as_server_backend
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database import _metadata_uses_server_database
 
     assert _metadata_uses_server_database({"database_path": "postgresql://liuxin@example.invalid/library"}, "SQLite")
@@ -247,6 +530,17 @@ def test_database_init_classifies_postgres_as_server_backend() -> None:
 
 
 def test_postgresql_schema_catalog_satisfies_checker_contract() -> None:
+    """
+    Check the schema catalog includes required checker tables/columns, custom-column labels, metadata policy/options fields, and workflow step codes.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_schema_catalog_satisfies_checker_contract
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.checker import (
         LIUXIN_POSTGRES_REQUIRED_COLUMNS,
         LIUXIN_POSTGRES_REQUIRED_TABLES,
@@ -276,21 +570,93 @@ def test_postgresql_schema_catalog_satisfies_checker_contract() -> None:
 
 
 class _RecordingSchemaConnection:
+    """
+    Record schema-builder SQL strings and return a fixed one-row cursor without applying DDL.
+
+    Example:
+        >>> connection = _RecordingSchemaConnection()
+        >>> connection.execute('DDL').fetchone()
+        (1,)
+        >>> connection.statements
+        ['DDL']
+    """
     def __init__(self) -> None:
+        """
+        Initialize an empty SQL-statement list.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: None.
+        """
         self.statements: list[str] = []
 
     def execute(self, sql: str, values=None):
+        """
+        Record the SQL string, ignore bindings, and create a cursor containing the tuple (1,).
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param sql: SQL string recorded by the fake; no database executes it.
+        :param values: Ignored bindings accepted for connection-call compatibility.
+        :return: New _ResultCursor with one fixed row.
+        """
         self.statements.append(sql)
         return _ResultCursor([(1,)])
 
     def __enter__(self):
+        """
+        Return the recorder on context entry without transaction setup.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: This _RecordingSchemaConnection.
+        """
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        """
+        Propagate context-body exceptions without transaction or cleanup behavior.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param exc_type: Exception type supplied by context-manager exit, ignored here.
+        :param exc: Exception instance supplied by context-manager exit, ignored here.
+        :param tb: Traceback supplied by context-manager exit, ignored here.
+        :return: False; recorder state remains unchanged.
+        """
         return False
 
 
 def test_postgresql_schema_builder_executes_core_and_storage_tables() -> None:
+    """
+    Record generated DDL and check selected core/storage tables, dependency ordering, foreign-key policy, seeded metadata values, and one metadata insert per catalog column.
+
+    Statements are recorded by a fake connection and are not executed on PostgreSQL.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_schema_builder_executes_core_and_storage_tables
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.schema import (
         create_postgres_schema,
         schema_table_catalog,
@@ -335,13 +701,56 @@ def test_postgresql_schema_builder_executes_core_and_storage_tables() -> None:
 
 
 def test_postgresql_schema_builder_entrypoint_uses_metadata_schema(monkeypatch) -> None:
+    """
+    Patch connection/schema creation and check the entrypoint forwards the configured schema and closes the raw connection.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_schema_builder_entrypoint_uses_metadata_schema
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import schema as pg_schema
 
     class FakeRawConnection:
+        """
+        Track whether the schema-creation entrypoint closes its fake raw connection.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_schema_builder_entrypoint_uses_metadata_schema
+        """
         def __init__(self) -> None:
+            """
+            Initialize the fake connection as not closed.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_schema_builder_entrypoint_uses_metadata_schema
+
+
+            :return: None.
+            """
             self.closed = False
 
         def close(self) -> None:
+            """
+            Mark the fake raw connection closed.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_schema_builder_entrypoint_uses_metadata_schema
+
+
+            :return: None; sets closed to True.
+            """
             self.closed = True
 
     raw = FakeRawConnection()
@@ -350,6 +759,19 @@ def test_postgresql_schema_builder_entrypoint_uses_metadata_schema(monkeypatch) 
     monkeypatch.setattr(pg_schema, "connect_postgres", lambda metadata, url: raw)
 
     def fake_create(conn, *, schema: str):
+        """
+        Record the connection and requested schema instead of creating database objects.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_schema_builder_entrypoint_uses_metadata_schema
+
+
+        :param conn: Connection wrapper supplied by the schema entrypoint.
+        :param schema: Schema string forwarded by the entrypoint.
+        :return: None; appends one tuple to the enclosing calls list.
+        """
         calls.append((conn, schema))
 
     monkeypatch.setattr(pg_schema, "create_postgres_schema", fake_create)
@@ -366,6 +788,19 @@ def test_postgresql_schema_builder_entrypoint_uses_metadata_schema(monkeypatch) 
 
 
 def test_postgresql_runtime_grant_statements_validate_identifiers() -> None:
+    """
+    Check generated grants/setup sections include expected statements and reject selected invalid role names and section values.
+
+    Inspect SQL strings only; no roles, databases, schemas, or privileges are changed.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_runtime_grant_statements_validate_identifiers
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.runtime_privileges import (
         PostgresRuntimePrivilegeError,
         build_postgres_setup_statements,
@@ -452,21 +887,83 @@ def test_postgresql_runtime_grant_statements_validate_identifiers() -> None:
 
 
 class _FakeDriverCursor:
+    """
+    Remember the last SQL call and return fixed introspection rows selected by substring checks.
+
+    The fake does not execute SQL, advance a result position, or enforce closure.
+
+    Example:
+        >>> cursor = _FakeDriverCursor()
+        >>> cursor.execute('SELECT 1').fetchone()
+        (1,)
+        >>> cursor.fetchone()
+        (1,)
+    """
     def __init__(self) -> None:
+        """
+        Initialize empty SQL text and None bindings.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: None.
+        """
         self.sql = ""
         self.values: tuple[Any, ...] | None = None
 
     def execute(self, sql: str, values: tuple[Any, ...] | None = None):
+        """
+        Replace the remembered SQL and bindings without executing or copying the bindings.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param sql: SQL string recorded by the fake; no database executes it.
+        :param values: Bindings recorded without SQL validation.
+        :return: This cursor for chained calls.
+        """
         self.sql = sql
         self.values = values
         return self
 
     def executemany(self, sql: str, values):
+        """
+        Replace remembered SQL and materialize the outer bindings iterable as a tuple.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param sql: SQL string recorded by the fake; no database executes it.
+        :param values: Iterable consumed once into the recorded tuple.
+        :return: This cursor; inner binding objects are not copied.
+        """
         self.sql = sql
         self.values = tuple(values)
         return self
 
     def fetchone(self):
+        """
+        Return a fixed SELECT 1 or schema-fingerprint row based on the last SQL string.
+
+        SELECT 1 matching takes precedence; repeated fetches do not consume the result.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: Tuple (1,), tuple containing fingerprint, or None for other SQL.
+        """
         lowered = self.sql.lower()
         if "select 1" in lowered:
             return (1,)
@@ -475,6 +972,20 @@ class _FakeDriverCursor:
         return None
 
     def fetchall(self):
+        """
+        Return fixed index, table, column, or datatype rows based on the last SQL string.
+
+        Datatype lookup expects the table name in values[1] and only supplies digital_assets
+        types. Unsupported SQL returns an empty list; malformed expected bindings can raise.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: Fresh list of simulated introspection rows; no result position is advanced.
+        """
         lowered = self.sql.lower()
         if "from pg_catalog.pg_index" in lowered:
             return [(["digital_asset_id", "digital_asset_size_bytes"],)]
@@ -500,58 +1011,272 @@ class _FakeDriverCursor:
         return []
 
     def close(self) -> None:
+        """
+        Accept a close call without changing state or disabling later operations.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: None.
+        """
         pass
 
     def __iter__(self):
+        """
+        Iterate a newly generated fetchall result for the last SQL string.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: New iterator over the simulated rows; repeated iteration starts again.
+        """
         return iter(self.fetchall())
 
 
 class _FakeDriverConnection:
+    """
+    Create independent recording cursors and track explicit close calls without real connection or transaction behavior.
+
+    Example:
+        >>> connection = _FakeDriverConnection()
+        >>> cursor = connection.cursor()
+        >>> len(connection.cursors), connection.closed
+        (1, False)
+        >>> connection.close()
+        >>> connection.closed
+        True
+    """
     def __init__(self) -> None:
+        """
+        Initialize a false closed flag and an empty list of created cursors.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: None.
+        """
         self.closed = False
         self.cursors: list[_FakeDriverCursor] = []
 
     def cursor(self, *args, **kwargs):
+        """
+        Create and record a new fake cursor, ignoring factory options and the closed flag.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param args: Ignored positional cursor-factory options.
+        :param kwargs: Ignored keyword cursor-factory options.
+        :return: New _FakeDriverCursor.
+        """
         cur = _FakeDriverCursor()
         self.cursors.append(cur)
         return cur
 
     def commit(self) -> None:
+        """
+        Accept commit without changing fake state or persisting anything.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: None.
+        """
         pass
 
     def rollback(self) -> None:
+        """
+        Accept rollback without undoing recorded calls or changing fake state.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: None.
+        """
         pass
 
     def close(self) -> None:
+        """
+        Set the closed flag while leaving existing cursors and later factory calls usable.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: None.
+        """
         self.closed = True
 
     def __enter__(self):
+        """
+        Return the fake connection without changing its closed flag.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: This _FakeDriverConnection.
+        """
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        """
+        Allow context-body exceptions to propagate without commit, rollback, or close.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param exc_type: Exception type supplied by context-manager exit, ignored here.
+        :param exc: Exception instance supplied by context-manager exit, ignored here.
+        :param tb: Traceback supplied by context-manager exit, ignored here.
+        :return: False; connection state is unchanged.
+        """
         return False
 
 
 class _ResultCursor:
+    """
+    Provide repeatable, non-consuming access to a materialized row list and a None lastrowid.
+
+    Example:
+        >>> cursor = _ResultCursor([(1,), (2,)])
+        >>> cursor.fetchone(), cursor.fetchone()
+        ((1,), (1,))
+        >>> cursor.fetchall()
+        [(1,), (2,)]
+    """
     def __init__(self, rows):
+        """
+        Materialize the supplied rows as a list and initialize lastrowid to None.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param rows: Iterable of rows consumed once into the cursor’s list.
+        :return: None; nested row objects are retained by reference.
+        """
         self.rows = list(rows)
         self.lastrowid = None
 
     def fetchone(self):
+        """
+        Return the first stored row without removing it or advancing a position.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: First row object, or None when the row list is empty.
+        """
         return self.rows[0] if self.rows else None
 
     def fetchall(self):
+        """
+        Return a shallow list copy of all stored rows on every call.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: New list retaining references to the stored row objects.
+        """
         return list(self.rows)
 
     def __iter__(self):
+        """
+        Start a new iterator over the stored row list.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: Iterator beginning at the first row; independent of previous fetches.
+        """
         return iter(self.rows)
 
 
 class _RecordingDriverConnection:
+    """
+    Record SQL calls and return fixed cursors for recognized metadata, trigger, query, and write patterns.
+
+    Responses are substring-driven and do not model stored state, SQL validation,
+    transactions, or resource closure.
+
+    Example:
+        >>> connection = _RecordingDriverConnection()
+        >>> connection.execute('select count(*) from ratings').fetchone()
+        (0,)
+        >>> connection.calls
+        [('select count(*) from ratings', None)]
+    """
     def __init__(self) -> None:
+        """
+        Initialize an empty SQL/bindings call log.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: None.
+        """
         self.calls: list[tuple[str, tuple[Any, ...] | None]] = []
 
     def execute(self, sql: str, values=None):
+        """
+        Log a SQL call and dispatch fixed rows by ordered lowercase substring checks.
+
+        Metadata, view-column, and trigger patterns precede RETURNING,
+        count/random/distinct/extrema, ID pagination, and generic WHERE handling. Pagination
+        reads the first binding and ends at a starting ID of two; unrecognized SQL gets the
+        tuple (1,). No statement is executed.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param sql: SQL string recorded by the fake; no database executes it.
+        :param values: Bindings recorded without SQL validation.
+        :return: New _ResultCursor for the matched branch; original bindings are retained in
+            the call log.
+        """
         self.calls.append((sql, values))
         lowered = sql.lower()
         if (
@@ -601,25 +1326,104 @@ class _RecordingDriverConnection:
         return _ResultCursor([(1,)])
 
     def executemany(self, sql: str, values):
+        """
+        Record SQL with an outer tuple copy of all binding groups and return an empty result cursor.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param sql: SQL string recorded by the fake; no database executes it.
+        :param values: Iterable of binding groups consumed once; inner objects are retained.
+        :return: New _ResultCursor with no rows; no database writes occur.
+        """
         self.calls.append((sql, tuple(values)))
         return _ResultCursor([])
 
     def close(self) -> None:
+        """
+        Accept close without changing state or clearing the call log.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: None.
+        """
         pass
 
     def __enter__(self):
+        """
+        Return the recorder on context entry without acquiring resources.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: This _RecordingDriverConnection.
+        """
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        """
+        Propagate context-body exceptions without commit, rollback, or cleanup.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param exc_type: Exception type supplied by context-manager exit, ignored here.
+        :param exc: Exception instance supplied by context-manager exit, ignored here.
+        :param tb: Traceback supplied by context-manager exit, ignored here.
+        :return: False; the call log is retained.
+        """
         return False
 
 
 def test_postgresql_driver_connects_and_introspects(monkeypatch) -> None:
+    """
+    Use fake connections to check redaction, existence, table/column/type/index introspection, invalid-name errors, schema setup, and first-connection closure.
+
+    Also require index-query filters excluding partial and expression indexes; no real
+    server is contacted.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_driver_connects_and_introspects
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import databasedriver as pg_driver
 
     raw_connections: list[_FakeDriverConnection] = []
 
     def fake_connect(metadata=None, url=None, **kwargs):
+        """
+        Create and retain a fake raw connection while ignoring all requested connection settings.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_driver_connects_and_introspects
+
+
+        :param metadata: Ignored optional connection metadata.
+        :param url: Ignored optional PostgreSQL URL.
+        :param kwargs: Ignored additional connector keyword arguments.
+        :return: New _FakeDriverConnection appended to the enclosing raw_connections list.
+        """
         conn = _FakeDriverConnection()
         raw_connections.append(conn)
         return conn
@@ -653,6 +1457,19 @@ def test_postgresql_driver_connects_and_introspects(monkeypatch) -> None:
 
 
 def test_postgresql_driver_inherits_link_capability_introspection(monkeypatch) -> None:
+    """
+    Supply a small synthetic catalog and check the inherited agent/work relation reports typed-priority capabilities.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_driver_inherits_link_capability_introspection
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import (
         databasedriver as pg_driver,
     )
@@ -687,6 +1504,21 @@ def test_postgresql_driver_inherits_link_capability_introspection(monkeypatch) -
 
 
 def test_postgresql_driver_basic_insert_and_update_sql(monkeypatch) -> None:
+    """
+    Use a recording connection to check insert ID, update success, and schema-qualified INSERT/UPDATE SQL text.
+
+    This case does not separately assert recorded binding values.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_driver_basic_insert_and_update_sql
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import databasedriver as pg_driver
 
     drv = pg_driver.DatabaseDriver(
@@ -712,6 +1544,19 @@ def test_postgresql_driver_basic_insert_and_update_sql(monkeypatch) -> None:
 
 
 def test_postgresql_driver_delete_sql_is_native_and_schema_qualified(monkeypatch) -> None:
+    """
+    Check recorded schema-qualified delete SQL and bindings for IDs, scalar/NULL values, batches, and table clearing.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_driver_delete_sql_is_native_and_schema_qualified
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import databasedriver as pg_driver
 
     drv = pg_driver.DatabaseDriver(
@@ -757,6 +1602,19 @@ def test_postgresql_driver_delete_sql_is_native_and_schema_qualified(monkeypatch
 
 
 def test_postgresql_driver_query_helpers_are_native_and_schema_qualified(monkeypatch) -> None:
+    """
+    Check fake-backed random/distinct/extrema/multi-column/paged query results and their schema-qualified SQL and selected bindings.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_driver_query_helpers_are_native_and_schema_qualified
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import databasedriver as pg_driver
 
     drv = pg_driver.DatabaseDriver(
@@ -813,6 +1671,19 @@ def test_postgresql_driver_query_helpers_are_native_and_schema_qualified(monkeyp
 
 
 def test_postgresql_column_case_sensitivity_uses_schema_catalog(monkeypatch) -> None:
+    """
+    Check decoding of fixed metadata policy/options fields and recorded schema-qualified full-record and case-only writes.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_column_case_sensitivity_uses_schema_catalog
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import databasedriver as pg_driver
 
     drv = pg_driver.DatabaseDriver(
@@ -906,6 +1777,22 @@ def test_postgresql_column_case_sensitivity_uses_schema_catalog(monkeypatch) -> 
 def test_postgresql_individual_column_metadata_setters_use_full_record_upsert(
     monkeypatch,
 ) -> None:
+    """
+    Call eight individual metadata setters and check each records the full baseline tuple with the selected field replaced.
+
+    Formatting and display options are checked as compact JSON strings; the fake does
+    not persist earlier updates.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_individual_column_metadata_setters_use_full_record_upsert
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import databasedriver as pg_driver
 
     drv = pg_driver.DatabaseDriver(
@@ -999,6 +1886,19 @@ def test_postgresql_individual_column_metadata_setters_use_full_record_upsert(
 
 
 def test_postgresql_driver_creates_main_tables_with_native_ddl(monkeypatch) -> None:
+    """
+    Record main-table creation and check schema-qualified names, identity/text/integer/timestamp columns, and the requested index.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_driver_creates_main_tables_with_native_ddl
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import databasedriver as pg_driver
 
     drv = pg_driver.DatabaseDriver(
@@ -1029,6 +1929,22 @@ def test_postgresql_driver_creates_main_tables_with_native_ddl(monkeypatch) -> N
 
 
 def test_postgresql_driver_links_and_unlinks_main_tables_with_native_ddl(monkeypatch) -> None:
+    """
+    Record link-table creation/removal and check generated identity/endpoint columns, cascading references, a uniqueness clause, an index, and DROP TABLE.
+
+    The uniqueness assertion checks the presence of the keyword, not its complete
+    definition.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_driver_links_and_unlinks_main_tables_with_native_ddl
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import databasedriver as pg_driver
 
     drv = pg_driver.DatabaseDriver(
@@ -1072,6 +1988,19 @@ def test_postgresql_driver_links_and_unlinks_main_tables_with_native_ddl(monkeyp
 
 
 def test_postgresql_driver_view_helpers_are_native_and_schema_qualified(monkeypatch) -> None:
+    """
+    Check view headings and row decoding from fake results plus configured-schema introspection and bound ID lookup.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_driver_view_helpers_are_native_and_schema_qualified
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import databasedriver as pg_driver
 
     drv = pg_driver.DatabaseDriver(
@@ -1105,6 +2034,19 @@ def test_postgresql_driver_view_helpers_are_native_and_schema_qualified(monkeypa
 
 
 def test_postgresql_driver_trigger_helpers_are_native_and_schema_qualified(monkeypatch) -> None:
+    """
+    Check fake trigger discovery/removal results and the exact schema/table lookup bindings and DROP TRIGGER statement.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_driver_trigger_helpers_are_native_and_schema_qualified
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import databasedriver as pg_driver
 
     drv = pg_driver.DatabaseDriver(
@@ -1140,6 +2082,22 @@ def test_postgresql_driver_trigger_helpers_are_native_and_schema_qualified(monke
 
 
 def _complete_catalog() -> dict[str, dict[str, str]]:
+    """
+    Build the checker’s required-column catalog with text defaults, helper-table IDs, and two bigint size fields.
+
+    This synthetic catalog supplies the checker’s expected names; its default types do
+    not model the complete production schema.
+
+    Example:
+        >>> catalog = _complete_catalog()
+        >>> catalog['digital_assets']['digital_asset_size_bytes']
+        'bigint'
+        >>> catalog['asset_replicas']['asset_replica_observed_size_bytes']
+        'bigint'
+
+
+    :return: Fresh nested table/column/type mapping.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.checker import (
         HELPER_REQUIRED_TABLES,
         LIUXIN_POSTGRES_REQUIRED_COLUMNS,
@@ -1156,7 +2114,34 @@ def _complete_catalog() -> dict[str, dict[str, str]]:
 
 
 class _FakeCheckerCursor:
+    """
+    Simulate catalog, privilege, identity, and count queries while recording schema-qualified lookup arguments.
+
+    Example:
+        >>> cursor = _FakeCheckerCursor({})
+        >>> cursor.execute('SELECT current_user').fetchone()
+        {'current_user': 'liuxin_runtime'}
+        >>> cursor.fetchone()
+        {'current_user': 'liuxin_runtime'}
+    """
     def __init__(self, catalog: dict[str, dict[str, str]], missing_privileges: dict[str, set[str]] | None = None):
+        """
+        Retain the catalog and a truthy privilege mapping, and initialize result and query-record lists.
+
+        A falsy privilege mapping is replaced by a new empty dictionary; no input is deeply
+        copied.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param catalog: Table/column/type mapping consulted on each simulated query.
+        :param missing_privileges: Optional table-to-uppercase-privilege-set mapping;
+            omitted or empty values mean no missing privileges.
+        :return: None.
+        """
         self.catalog = catalog
         self.missing_privileges = missing_privileges or {}
         self.rows: list[dict[str, Any]] = []
@@ -1166,6 +2151,25 @@ class _FakeCheckerCursor:
         self.table_regclasses: list[str] = []
 
     def execute(self, sql: str, values: tuple[Any, ...] | None = None):
+        """
+        Normalize SQL case/whitespace and choose fixed or catalog-derived result dictionaries by ordered pattern checks.
+
+        Record privilege relations, regclass targets, information-schema schemas, and count
+        SQL in their respective lists. Falsy bindings become an empty tuple; branches
+        expecting missing bindings can raise. Unsupported SQL clears rows.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param sql: Query text used for substring matching and count-query recording.
+        :param values: Optional positional bindings interpreted according to the recognized
+            query pattern.
+        :return: This fake cursor; no SQL is executed and each call replaces the current
+            result list.
+        """
         lowered = " ".join(sql.lower().split())
         values = values or ()
         if lowered.startswith("set local"):
@@ -1204,38 +2208,167 @@ class _FakeCheckerCursor:
         return self
 
     def fetchone(self):
+        """
+        Return the first current result dictionary without consuming it.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: First row object, or None when no rows are stored.
+        """
         return self.rows[0] if self.rows else None
 
     def fetchall(self):
+        """
+        Return a shallow copy of all current result rows without advancing a cursor position.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: New list containing the same row dictionaries.
+        """
         return list(self.rows)
 
     def __enter__(self):
+        """
+        Return this cursor without acquiring or resetting resources.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: This _FakeCheckerCursor.
+        """
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        """
+        Propagate context-body exceptions without changing cursor state.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param exc_type: Context-body exception type, ignored by this fake.
+        :param exc: Context-body exception instance, ignored by this fake.
+        :param tb: Context-body traceback, ignored by this fake.
+        :return: False; no cleanup occurs.
+        """
         return False
 
 
 def _fake_relation_table_name(relation: str) -> str:
+    """
+    Take the final dot-separated relation component and strip double quotes from its ends.
+
+    This is a test helper, not a parser for quoted SQL identifiers containing dots.
+
+    Example:
+        >>> _fake_relation_table_name('"schema"."stores"')
+        'stores'
+
+
+    :param relation: Relation string to split and trim.
+    :return: Final component string, possibly empty.
+    """
     return relation.split(".")[-1].strip('"')
 
 
 class _FakeCheckerConnection:
+    """
+    Wrap a caller-supplied checker cursor and track explicit close calls without transaction behavior.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+    """
     def __init__(self, cursor: _FakeCheckerCursor):
+        """
+        Store the cursor object and initialize closed to False.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param cursor: Fake checker cursor retained by reference as cursor_obj.
+        :return: None.
+        """
         self.cursor_obj = cursor
         self.closed = False
 
     def close(self) -> None:
+        """
+        Set the closed flag without disabling the retained cursor.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: None.
+        """
         self.closed = True
 
     def __enter__(self):
+        """
+        Return the fake connection without changing its closed flag.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :return: This _FakeCheckerConnection.
+        """
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        """
+        Propagate context-body exceptions without closing or transacting.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py
+
+
+        :param exc_type: Context-body exception type, ignored by this fake.
+        :param exc: Context-body exception instance, ignored by this fake.
+        :param tb: Context-body traceback, ignored by this fake.
+        :return: False; state remains unchanged.
+        """
         return False
 
 
 def test_postgresql_checker_passes_complete_schema(monkeypatch) -> None:
+    """
+    Provide a synthetic complete catalog and check self-test success, password redaction, and explicit connection closure.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_checker_passes_complete_schema
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import checker
 
     cursor = _FakeCheckerCursor(_complete_catalog())
@@ -1253,6 +2386,19 @@ def test_postgresql_checker_passes_complete_schema(monkeypatch) -> None:
 
 
 def test_postgresql_checker_honors_configured_schema(monkeypatch) -> None:
+    """
+    Check a configured schema appears in the result/report and every recorded regclass, column, privilege, and count lookup uses it.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_checker_honors_configured_schema
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import checker
 
     cursor = _FakeCheckerCursor(_complete_catalog())
@@ -1282,6 +2428,19 @@ def test_postgresql_checker_honors_configured_schema(monkeypatch) -> None:
 
 
 def test_postgresql_checker_reports_missing_driver(monkeypatch) -> None:
+    """
+    Simulate missing Python driver discovery and check the failed driver result, installation hint, and password-free report.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_checker_reports_missing_driver
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import checker
 
     monkeypatch.setattr(checker.importlib.util, "find_spec", lambda name: None)
@@ -1295,6 +2454,19 @@ def test_postgresql_checker_reports_missing_driver(monkeypatch) -> None:
 
 
 def test_postgresql_checker_reports_schema_type_and_privilege_failures(monkeypatch) -> None:
+    """
+    Simulate a missing storage-key column, a non-bigint size field, and missing UPDATE privilege, then check each appears in a password-free failure report.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_checker_reports_schema_type_and_privilege_failures
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import checker
 
     catalog = _complete_catalog()
@@ -1318,11 +2490,37 @@ def test_postgresql_checker_reports_schema_type_and_privilege_failures(monkeypat
 
 
 def test_postgresql_checker_reports_missing_role(monkeypatch) -> None:
+    """
+    Simulate a connection error naming a missing role and check failure reporting preserves the role name while removing the URL password.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_checker_reports_missing_role
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import checker
 
     monkeypatch.setattr(checker.importlib.util, "find_spec", lambda name: object())
 
     def fail_connect(*args, **kwargs):
+        """
+        Raise the fixed missing-role RuntimeError instead of opening a connection.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/PostgreSQL_database_driver/test_postgresql_backend.py::test_postgresql_checker_reports_missing_role
+
+
+        :param args: Ignored positional connection arguments.
+        :param kwargs: Ignored keyword connection arguments.
+        :return: Never returns normally.
+        """
         raise RuntimeError('connection failed for postgresql://liuxin:secret@example.invalid/library: role "liuxin_missing" does not exist')
 
     monkeypatch.setattr(checker, "connect_postgres", fail_connect)

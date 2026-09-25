@@ -1,26 +1,10 @@
-"""Driver contract: basic CRUD round-trips.
+"""
+Check driver CRUD helpers with a controlled table and verify tag identity-key derivation.
 
-This module creates a small contract-specific table inside the provisioned test
-DB and then exercises the core CRUD primitives using the driver's *own* helper
-methods.
+Example:
+    Run with pytest::
 
-Why a contract table?
----------------------
-The project schema contains many NOT NULL / FK / trigger interactions that can
-make "minimal valid rows" drift over time. For round-trip semantics we want a
-stable target where we fully control constraints, while still exercising:
-
-* direct_executescript
-* direct_add_simple_row_dict
-* direct_get_highest_id
-* direct_get_id_column / direct_get_datestamp_column
-* direct_get_row_dict_from_id
-* direct_update_row_dict
-* direct_delete_row_by_id
-* direct_get_record_count
-
-Other modules will hammer schema-specific tables (links, custom columns, views,
-book groups, etc.).
+        python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_basic_crud_roundtrips.py
 """
 
 from __future__ import annotations
@@ -38,7 +22,22 @@ _CONTRACT_TABLE = "contract_crud_roundtrips"
 
 @pytest.fixture
 def crud_table(driver) -> str:
-    """Create (or recreate) the contract CRUD table."""
+    """
+    Drop and recreate the isolated CRUD table with two text fields, a number, and a default timestamp.
+
+    Refresh the driver table cache and assert the new table is visible. The database
+    fixture owns cleanup.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_basic_crud_roundtrips.py
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :return: Trusted contract table name.
+    """
 
     table = _CONTRACT_TABLE
 
@@ -65,7 +64,18 @@ def crud_table(driver) -> str:
 
 @pytest.fixture
 def crud_cols(crud_table: str) -> Dict[str, str]:
-    """Return the column names used by the contract CRUD table."""
+    """
+    Map CRUD field roles to columns prefixed by the supplied table name.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_basic_crud_roundtrips.py
+
+
+    :param crud_table: Freshly recreated contract CRUD table name.
+    :return: Fresh id/text/text2/num/datestamp name mapping.
+    """
 
     t = crud_table
     return {
@@ -78,6 +88,17 @@ def crud_cols(crud_table: str) -> Dict[str, str]:
 
 
 def _coerce_datestamp(x) -> str:
+    """
+    Convert a non-None value to text without validating its timestamp format.
+
+    Example:
+        >>> (_coerce_datestamp(None), _coerce_datestamp(42))
+        ('', '42')
+
+
+    :param x: Value retrieved from the timestamp field.
+    :return: Empty string for None; otherwise str(x).
+    """
     if x is None:
         return ""
     # sqlite3 commonly returns str; keep it tolerant.
@@ -85,7 +106,28 @@ def _coerce_datestamp(x) -> str:
 
 
 def test_insert_and_fetch_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], pick_payload, assert_integrity):
-    """A single inserted row should read back byte-for-byte for TEXT fields."""
+    """
+    Insert two payload fields and forty-two, then compare the fetched ID and values exactly.
+
+    Select the inserted row through the highest ID in the isolated table; also require a
+    nonempty timestamp, surviving titles relation, and passing integrity helper.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_basic_crud_roundtrips.py::test_insert_and_fetch_roundtrip
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :param crud_table: Freshly recreated contract CRUD table name.
+    :param crud_cols: Mapping of CRUD field roles to concrete column names.
+    :param pick_payload: Fixture callable selecting corpus strings by a wrapping integer
+        index.
+    :param assert_integrity: Fixture callable requiring the first retained
+        integrity_check result to be ok.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     payload_a = pick_payload(0)
     payload_b = pick_payload(9)
@@ -119,7 +161,22 @@ def test_insert_and_fetch_roundtrip(driver, crud_table: str, crud_cols: Dict[str
 
 
 def test_insert_many_and_record_count_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], all_torture_payloads):
-    """Bulk-ish inserts via repeated add_simple_row_dict should match record_count."""
+    """
+    Insert ten mixed-payload rows, require a count of ten, and confirm the highest ID resolves to a row.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_basic_crud_roundtrips.py::test_insert_many_and_record_count_roundtrip
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :param crud_table: Freshly recreated contract CRUD table name.
+    :param crud_cols: Mapping of CRUD field roles to concrete column names.
+    :param all_torture_payloads: Ordered combined text and SQL-shaped payload corpus.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     # Insert a handful of rows with varied payloads (including long unicode).
     for i in range(10):
@@ -139,7 +196,26 @@ def test_insert_many_and_record_count_roundtrip(driver, crud_table: str, crud_co
 
 
 def test_update_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], pick_payload):
-    """Updating a row should persist, and unrelated columns should remain stable."""
+    """
+    Update text and numeric fields and require their new values on readback.
+
+    Also require the other text field to differ from the original text; the test does
+    not compare that field with its pre-update value.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_basic_crud_roundtrips.py::test_update_roundtrip
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :param crud_table: Freshly recreated contract CRUD table name.
+    :param crud_cols: Mapping of CRUD field roles to concrete column names.
+    :param pick_payload: Fixture callable selecting corpus strings by a wrapping integer
+        index.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     original_text = pick_payload(1)
     driver.direct_add_simple_row_dict({crud_cols["text"]: original_text, crud_cols["num"]: 1})
@@ -171,6 +247,19 @@ def test_update_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], pi
 
 
 def test_identity_key_is_derived_on_direct_insert_and_update(driver) -> None:
+    """
+    Require tag_phash to match the shared normalizer after insertion, row update, and bulk column update.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_basic_crud_roundtrips.py::test_identity_key_is_derived_on_direct_insert_and_update
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :return: None; failed expectations raise AssertionError.
+    """
     original = f"Driver Identity {uuid.uuid4().hex}"
     row_id = driver.direct_add_simple_row_dict({"tag": original})
     row = driver.direct_get_row_dict_from_id("tags", row_id)
@@ -190,7 +279,23 @@ def test_identity_key_is_derived_on_direct_insert_and_update(driver) -> None:
 
 
 def test_delete_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], pick_payload) -> None:
-    """Deleting by id should remove the row and not disturb other rows."""
+    """
+    Delete the middle of three distinct inserted IDs and require its absence, count two, and surviving rows.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_basic_crud_roundtrips.py::test_delete_roundtrip
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :param crud_table: Freshly recreated contract CRUD table name.
+    :param crud_cols: Mapping of CRUD field roles to concrete column names.
+    :param pick_payload: Fixture callable selecting corpus strings by a wrapping integer
+        index.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     # Insert three rows.
     ids: list[int] = []
@@ -215,7 +320,20 @@ def test_delete_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], pi
 
 
 def test_id_and_datestamp_helpers_work_on_contract_table(driver, crud_table: str) -> None:
-    """direct_get_id_column/direct_get_datestamp_column should handle new tables."""
+    """
+    Require discovered ID and timestamp column names to end with their expected suffixes.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_basic_crud_roundtrips.py::test_id_and_datestamp_helpers_work_on_contract_table
+
+
+    :param driver: Backend driver supplied by the isolated database fixture; its
+        teardown attempts to close the driver.
+    :param crud_table: Freshly recreated contract CRUD table name.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     assert driver.direct_get_id_column(crud_table).endswith("_id")
     assert driver.direct_get_datestamp_column(crud_table).endswith("_datestamp")

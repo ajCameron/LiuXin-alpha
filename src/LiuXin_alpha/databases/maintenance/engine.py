@@ -1,5 +1,9 @@
 """
-Plugin-driven background maintenance engine.
+Dispatch queued maintenance events to plugins on demand or in a daemon thread.
+
+Manual requests are drained before row callbacks and interlink callbacks. Each
+plugin receives its own filtered/coalesced view of the batch; events are broadcast,
+not consumed by the first handler.
 """
 
 from __future__ import annotations
@@ -33,34 +37,63 @@ if TYPE_CHECKING:
 
 class MaintenanceCallbackSink:
     """
-    Compatibility adapter exposing the callback methods drivers already call.
+    Adapt legacy callbacks to the engine's compatibility queues.
+
+    The sink retains the engine strongly. Queue insertion and integer conversion
+    failures propagate to callers.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> engine = MaintenanceEngine(SimpleNamespace(), [])
+        >>> engine.callback_sink.dirty_record("creators", 1)
+        >>> engine.main_table_dirtied_queue.get_nowait()
+        ('creators', 1)
     """
 
     def __init__(self, engine: "MaintenanceEngine") -> None:
         """
-        Constructor.
+        Retain the engine receiving subsequent callbacks.
 
-        :param engine:
+        Example:
+            >>> MaintenanceCallbackSink(engine)  # doctest: +SKIP
+
+
+        :param engine: Maintenance engine whose queues receive callback notifications.
+        :return: None.
         """
         self._engine = engine
 
     def dirty_record(self, table: str, row_id: int) -> None:  # noqa: ANN001 - callback compatibility
         """
-        Record a record in the given table as dirtied.
+        Enqueue a normalized (table, row_id) tuple without blocking.
 
-        :param table:
-        :param row_id:
-        :return:
+        False table values become empty text; row_id is converted to int. Does not construct
+        the event until the engine drains this queue.
+
+        Example:
+            >>> worker.dirty_record("creators", 1)  # doctest: +SKIP
+
+
+        :param table: Table associated with the row or operation.
+        :param row_id: Row identifier converted to int by event/callback construction.
+        :return: None.
         """
         self._engine.main_table_dirtied_queue.put((str(table or ""), int(row_id)), block=False)
 
     def new_dirty_record(self, table: str, row_id: int) -> None:  # noqa: ANN001 - callback compatibility
         """
-        Dirty a record in the given table.
+        Enqueue a DirtyRowEvent tagged new_dirty_row on the manual queue.
 
-        :param table:
-        :param row_id:
-        :return:
+        Converts table and ID before insertion; this queue is drained ahead of compatibility
+        queues.
+
+        Example:
+            >>> worker.new_dirty_record("creators", 1)  # doctest: +SKIP
+
+
+        :param table: Table associated with the row or operation.
+        :param row_id: Row identifier converted to int by event/callback construction.
+        :return: None.
         """
         self._engine._manual_events.put(DirtyRowEvent(str(table or ""), int(row_id), kind="new_dirty_row"))
 
@@ -72,14 +105,20 @@ class MaintenanceCallbackSink:
             table1_id: int,
             table2_id: int) -> None:  # noqa: ANN001
         """
-        Record that an interlink row has been dirited.
+        Enqueue a normalized five-field relationship tuple without blocking.
 
-        :param update_type:
-        :param table1:
-        :param table2:
-        :param table1_id:
-        :param table2_id:
-        :return:
+        Text labels use str(value or "") and IDs use int(); failures propagate.
+
+        Example:
+            >>> worker.dirty_interlink_record("UPDATE", "creators", "titles", 1, 1)  # doctest: +SKIP
+
+
+        :param update_type: Relationship change label; false values become empty text.
+        :param table1: First relationship endpoint table.
+        :param table2: Second relationship endpoint table.
+        :param table1_id: First endpoint identifier, converted to int.
+        :param table2_id: Second endpoint identifier, converted to int.
+        :return: None.
         """
         self._engine.interlink_dirtied_queue.put(
             (str(update_type or ""), str(table1 or ""), str(table2 or ""), int(table1_id), int(table2_id)),
@@ -89,7 +128,17 @@ class MaintenanceCallbackSink:
 
 class MaintenanceEngine(threading.Thread):
     """
-    Background dispatcher that routes maintenance events to registered plugins.
+    Own maintenance queues and dispatch plugin batches in priority order.
+
+    Construction does not start the daemon thread. start() enables periodic dispatch;
+    run_once() dispatches in the caller. No lock serializes manual and background
+    dispatch. stop() requests exit without joining or promising a queue drain.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> engine = MaintenanceEngine(SimpleNamespace(), [])
+        >>> engine.is_alive(), engine.run_once()
+        (False, {})
     """
 
     def __init__(
@@ -101,12 +150,23 @@ class MaintenanceEngine(threading.Thread):
         scheduling_interval: float = 0.25,
     ) -> None:
         """
-        Constructor for the maintenance engine.
+        Initialize an unstarted daemon thread, sorted plugins and unbounded queues.
 
-        :param db:
-        :param plugins:
-        :param interval:
-        :param scheduling_interval:
+        Retains db weakly when possible, otherwise through a closure. Sorts descending
+        integer priorities and converts timing options to float; no positivity validation or
+        enabled_by_default filtering occurs.
+
+        Example:
+            >>> MaintenanceEngine(database, [])  # doctest: +SKIP
+
+
+        :param db: Database whose rows, driver and schema helpers are used.
+        :param plugins: Iterable of plugins, sorted by descending integer priority.
+        :param interval: Seconds between dispatch passes; converted to float without range
+            validation.
+        :param scheduling_interval: Maximum sleep between scheduling checks, in seconds; not
+            range-validated.
+        :return: None.
         """
         super().__init__(name="liuxin-maintenance-engine", daemon=True)
         try:
@@ -127,9 +187,15 @@ class MaintenanceEngine(threading.Thread):
     @property
     def db(self) -> "DatabaseAPI":
         """
-        Gets a weak ref to the database.
+        Resolve the live database object from the retained reference.
 
-        :return:
+        Raises RuntimeError if a weakly referenced database has been collected.
+
+        Example:
+            >>> engine.db  # doctest: +SKIP
+
+
+        :return: Database object itself, not a weakref.
         """
         db = self._db_ref()
         if db is None:
@@ -139,18 +205,32 @@ class MaintenanceEngine(threading.Thread):
     @property
     def context(self) -> "MaintenancePluginContext":
         """
-        Return the context to run the plugin with.
+        Construct a fresh plugin context using the live database and default logger.
 
-        :return:
+        Example:
+            >>> engine.context  # doctest: +SKIP
+
+
+        :return: New MaintenancePluginContext; an expired database reference raises
+            RuntimeError.
         """
         return MaintenancePluginContext(db=self.db, logger=default_log)
 
     def register_plugin(self, plugin: "MaintenancePluginAPI") -> None:#
         """
-        Register the given plugin.
+        Append a plugin and restore descending priority order.
 
-        :param plugin:
-        :return:
+        If the thread is alive, immediately calls startup in the registering thread and logs
+        ordinary startup exceptions. Registration has no duplicate check or synchronization
+        with dispatch; integer-priority conversion errors propagate.
+
+        Example:
+            >>> engine.register_plugin(plugin)  # doctest: +SKIP
+
+
+        :param plugin: Plugin instance to register without duplicate or enabled-flag
+            filtering.
+        :return: None.
         """
         self._plugins.append(plugin)
         self._plugins.sort(key=lambda item: int(getattr(item, "priority", 0)), reverse=True)
@@ -162,39 +242,65 @@ class MaintenanceEngine(threading.Thread):
 
     def iter_plugins(self) -> Iterable["MaintenancePluginAPI"]:
         """
-        Iterate over all registered plugins.
+        Snapshot the registered plugins in their current priority order.
 
-        :return:
+        Example:
+            >>> from types import SimpleNamespace
+            >>> MaintenanceEngine(SimpleNamespace(), []).iter_plugins()
+            ()
+
+
+        :return: Tuple of plugin instances.
         """
         return tuple(self._plugins)
 
     def enqueue(self, event: "MaintenanceEvent") -> None:
         """
-        Put a maintenance event into the queue.
+        Place an event on the manual queue without validating its class or kind.
 
-        :param event:
-        :return:
+        Example:
+            >>> engine.enqueue(event)  # doctest: +SKIP
+
+
+        :param event: Maintenance event to inspect or enqueue.
+        :return: None.
         """
         self._manual_events.put(event)
 
     def stop(self) -> None:
         """
-        Call stop and shutdown the maintenance thread.
+        Clear the run flag and enqueue a shutdown-context event.
 
-        :return:
+        Does not join the worker or guarantee that queued events, including shutdown, will
+        be dispatched. A ShutdownEvent enqueued through enqueue() alone does not clear the
+        flag.
+
+        Example:
+            >>> engine.stop()  # doctest: +SKIP
+
+
+        :return: None.
         """
         self._keep_running = False
         self._manual_events.put(ShutdownEvent("explicit-stop"))
 
     def rename_item(self, item_id: int, table: str, value: str, now: bool = True) -> None:
         """
-        Trigger a rename of an item from the given table.
+        Create a rename request and dispatch it immediately or enqueue it.
 
-        :param item_id:
-        :param table:
-        :param value:
-        :param now:
-        :return:
+        Synchronous dispatch does not run startup/shutdown hooks and can overlap the worker
+        thread. Plugin result telemetry is discarded.
+
+        Example:
+            >>> engine.rename_item(1, "creators", "New name")  # doctest: +SKIP
+
+
+        :param item_id: Identifier of the row to rename.
+        :param table: Table associated with the row or operation.
+        :param value: Requested new name; event construction converts false values to empty
+            text.
+        :param now: Whether to dispatch synchronously; False enqueues work.
+        :return: None.
         """
         event = RenameRequestEvent(item_id=item_id, table=table, value=value)
         if now:
@@ -204,10 +310,21 @@ class MaintenanceEngine(threading.Thread):
 
     def _drain_pending_events(self, *, max_events: int = 128) -> list[MaintenanceEvent]:
         """
-        Drain and process the given number of events from the queue.
+        Drain a bounded batch in manual, row, then interlink queue order.
 
-        :param max_events:
-        :return:
+        The shared limit is at least one. Converts compatibility tuples to typed events;
+        malformed tuples or ID conversions propagate after removal. Does not call
+        task_done(). If no events are available, returns one TickEvent.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> engine = MaintenanceEngine(SimpleNamespace(), [])
+            >>> engine._drain_pending_events()[0].kind
+            'tick'
+
+
+        :param max_events: Combined drain limit, coerced to int and clamped to at least one.
+        :return: List of drained typed events, or a single idle tick.
         """
         batch: list[MaintenanceEvent] = []
 
@@ -246,19 +363,34 @@ class MaintenanceEngine(threading.Thread):
 
     def run_once(self, *, max_events: int = 128) -> dict[str, MaintenancePluginResult]:
         """
-        Execute a single, limited run of the maintenance thread.
+        Drain pending work and dispatch one batch in the calling thread.
 
-        :param max_events:
-        :return:
+        Does not check the stop flag or run lifecycle hooks; idle queues produce a tick.
+
+        Example:
+            >>> engine.run_once()  # doctest: +SKIP
+
+
+        :param max_events: Combined drain limit, coerced to int and clamped to at least one.
+        :return: Mapping from participating plugin names to their results.
         """
         return self._dispatch(self._drain_pending_events(max_events=max_events))
 
     def _dispatch(self, batch: Iterable["MaintenanceEvent"]) -> dict[str, "MaintenancePluginResult"]:
         """
-        Dispatch a batch of maintenance events.
+        Filter, coalesce and broadcast a materialized batch to every registered plugin.
 
-        :param batch:
-        :return:
+        Selection or handler exceptions are logged and recorded as errors=1. A coalesce_key
+        exception makes that event passthrough; an unhashable returned key is not caught.
+        Passthrough events come first, then the last event for each key in first-key order.
+        Plugins with no interest are omitted; duplicate names overwrite earlier results.
+
+        Example:
+            >>> engine._dispatch(events)  # doctest: +SKIP
+
+
+        :param batch: Iterable of events materialized once for every plugin to inspect.
+        :return: Result mapping keyed by stringified plugin name.
         """
         context = self.context
         events = list(batch)
@@ -311,9 +443,18 @@ class MaintenanceEngine(threading.Thread):
 
     def run(self) -> None:
         """
-        Start and run the maintenance thread.
+        Run plugin startup hooks, periodic dispatch and reverse-order shutdown hooks.
 
-        :return:
+        start() invokes this in the daemon thread; direct calls block the caller. Ordinary
+        lifecycle exceptions are logged. Dispatch-loop exceptions still run shutdown hooks
+        but terminate the worker; stop() is observed between scheduling checks. No final
+        queue drain is performed.
+
+        Example:
+            >>> engine.run()  # doctest: +SKIP
+
+
+        :return: None.
         """
         context = self.context
         for plugin in self._plugins:

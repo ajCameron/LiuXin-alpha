@@ -5,6 +5,8 @@ Links select at most one target for each exact Item-role pair. These metadata
 operations do not select Replicas, publish bytes, or control Item lifecycle.
 """
 
+from __future__ import annotations
+
 import abc
 
 from LiuXin_alpha.storage.api.storage_manager_api.models import (
@@ -29,8 +31,8 @@ class ItemDigitalAssetLinkAPI(abc.ABC):
     @abc.abstractmethod
     def link_item_to_digital_asset(
         self,
-        item_id: ItemID,
-        digital_asset_id: DigitalAssetID,
+        item_id: "ItemID",
+        digital_asset_id: "DigitalAssetID",
         *,
         role: str = "primary_payload",
     ) -> None:
@@ -41,10 +43,10 @@ class ItemDigitalAssetLinkAPI(abc.ABC):
         Example:
             >>> manager.link_item_to_digital_asset(item_id, asset_id, role="cover")  # doctest: +SKIP
 
-
         :param item_id: Library Item identity whose role association is updated.
         :param digital_asset_id: Registered atomic Asset selected by this role.
         :param role: Exact Item-role key, defaulting to primary_payload; spelling and whitespace are significant.
+
         :return: None after the association is stored.
         """
         ...

@@ -1,30 +1,15 @@
-"""FRBR schema conformance suite (02): link-table cardinality constraints.
+"""
+Probe representative generated link tables for cardinality and ordering constraints.
 
-This suite performs *behavioral* verification of generated link tables by inserting rows and
-asserting that SQLite constraints reject (or allow) specific patterns.
+Uses one mutable in-memory schema and requests foreign keys off to avoid creating
+referenced rows. Allowed-type tables supply valid probe values. Tests cover
+representative entries rather than every TOML pair, and do not reset shared state
+between cases.
 
-Scope (part 02):
-  1) Interlinks: verify the core cardinality contracts for the three TOML link types in use:
-       - many_to_many           -> internal many_many OR many_many_non_exclusive
-       - one_to_many            -> internal one_many
-       - many_to_one            -> internal many_one
-     We do this by selecting representative pairs from interlink_table_requests.toml.
+Example:
+    Run with pytest::
 
-  2) Intralinks: verify pair-uniqueness and the "no self link" CHECK constraint.
-
-Design notes:
-  - We intentionally run the insertion probes with PRAGMA foreign_keys=OFF so we don't need
-    to create referenced rows in the main tables. This suite is about *link-table* constraints,
-    not referential integrity.
-  - Allowed-type guards ("__types" + triggers) may still be active even when foreign keys are
-    disabled. Where present, we read a valid type value from the relevant `{table}__types`
-    table so our inserts focus on cardinality rather than type validation.
-  - Where a link table has a role-style `type` column (many_many_non_exclusive), we verify:
-       * same (A,B) with different type -> allowed
-       * same (A,B) with same type      -> rejected (UNIQUE)
-       * same (primary,type,priority)   -> rejected when priority exists
-    If we cannot obtain two distinct allowed type values, we skip only the "different type"
-    assertion (the duplicate-same-type checks still run).
+        python -m pytest -q tests/databases/test_frbr_schema_conformance_02_cardinality_constraints.py
 """
 
 from __future__ import annotations
@@ -54,18 +39,56 @@ from LiuXin_alpha.utils.language_tools import plural_singular_mapper, singular_p
 
 
 def _frbr_pkg_root() -> pathlib.Path:
+    """
+    Resolve the directory containing the imported FRBR generator module.
+
+    Example:
+        >>> _frbr_pkg_root().is_dir()
+        True
+
+
+    :return: Resolved generator package Path.
+    """
     return pathlib.Path(frbr_gen.__file__).resolve().parent
 
 
 def _load_toml(name: str) -> dict[str, Any]:
+    """
+    Read one package-relative TOML resource as UTF-8 with replacement decoding.
+
+    Filesystem and TOML parsing errors propagate; no schema validation is performed
+    here.
+
+    Example:
+        >>> isinstance(_load_toml('interlink_table_requests.toml'), dict)
+        True
+
+
+    :param name: Resource path joined to the generator package directory.
+    :return: Parsed TOML mapping.
+    """
     path = _frbr_pkg_root() / name
     return tomllib.loads(path.read_text(encoding="utf-8", errors="replace"))
 
 
 def _normalize_requested_columns(entry: dict[str, Any]) -> Any:
-    """Return requested_cols as either 'all' or set[str].
+    """
+    Normalize requested-column aliases into all or a lowercase set.
 
-    This intentionally mirrors the permissive TOML parsing in the generator.
+    Absent requests default to priority; lists stringify and trim values, remove
+    nullable and collapse to all if present. Other shapes and non-all strings raise
+    TypeError. This helper does not validate individual column names or add type from
+    allowed types.
+
+    Example:
+        >>> _normalize_requested_columns({'requested_columns': [' Type ', 'nullable']})
+        {'type'}
+        >>> _normalize_requested_columns({})
+        {'priority'}
+
+
+    :param entry: TOML entry mapping to interpret.
+    :return: The string all or a normalized set of requested names.
     """
 
     requested = entry.get("requested_columns")
@@ -90,6 +113,17 @@ def _normalize_requested_columns(entry: dict[str, Any]) -> Any:
 
 @dataclass(frozen=True)
 class _InterlinkPick:
+    """
+    Record an interlink candidate with source index, endpoints, cardinality and raw settings.
+
+    Requested columns are normalized; allowed types and raw mapping are retained without
+    deep copying. Frozen attributes do not freeze nested values.
+
+    Example:
+        >>> pick = _InterlinkPick(0, 'works', 'expressions', 'many_to_many', {'priority'}, None, {})
+        >>> pick.link_type
+        'many_to_many'
+    """
     idx: int
     left: str
     right: str
@@ -101,6 +135,15 @@ class _InterlinkPick:
 
 @dataclass(frozen=True)
 class _IntralinkPick:
+    """
+    Record an intralink candidate with table, requested columns and symmetry settings.
+
+    Keeps source index, raw mapping and allowed types; nested data remains mutable.
+
+    Example:
+        >>> _IntralinkPick(0, 'works', {'type'}, ['same_as'], False, {}).table
+        'works'
+    """
     idx: int
     table: str
     requested_cols: Any
@@ -110,6 +153,20 @@ class _IntralinkPick:
 
 
 def _iter_interlinks() -> list[_InterlinkPick]:
+    """
+    Read usable interlink candidates from the shipped TOML in source order.
+
+    Requires a list root; skips non-dicts and entries without left_table/left or
+    right_table/right. Cardinality defaults from the file then to many_to_many; only
+    surrounding whitespace is stripped.
+
+    Example:
+        >>> bool(_iter_interlinks())
+        True
+
+
+    :return: List of candidate records with original zero-based indices.
+    """
     data = _load_toml("interlink_table_requests.toml")
     interlinks = data.get("interlinks", [])
     assert isinstance(interlinks, list)
@@ -142,6 +199,19 @@ def _iter_interlinks() -> list[_InterlinkPick]:
 
 
 def _iter_intralinks() -> list[_IntralinkPick]:
+    """
+    Read usable intralink candidates, including string table-name shorthand.
+
+    Uses table/table_name/name aliases, priority as the normalizer default and ordinary
+    bool conversion for symmetric. Skips malformed or unnamed entries.
+
+    Example:
+        >>> bool(_iter_intralinks())
+        True
+
+
+    :return: List of candidate records in source order.
+    """
     data = _load_toml("intralink_table_requests.toml")
     intralinks = data.get("intralinks", [])
     assert isinstance(intralinks, list)
@@ -178,17 +248,62 @@ def _iter_intralinks() -> list[_IntralinkPick]:
 
 
 def _pragma_cols(conn: sqlite3.Connection, table_name: str) -> set[str]:
+    """
+    Collect column names from PRAGMA table_info for a trusted table.
+
+    The name is interpolated in backticks without escaping; an absent table produces an
+    empty set.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _ = conn.execute('CREATE TABLE demo (id INTEGER, value TEXT)')
+        >>> _pragma_cols(conn, 'demo') == {'id', 'value'}
+        True
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param table_name: Trusted schema table name used in PRAGMA inspection.
+    :return: Set of column-name strings.
+    """
     return {row[1] for row in conn.execute(f"PRAGMA table_info(`{table_name}`);")}
 
 
 def _existing_tables(conn: sqlite3.Connection) -> set[str]:
+    """
+    Read all SQLite table names, excluding views.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _ = conn.execute('CREATE TABLE demo (id INTEGER)')
+        >>> 'demo' in _existing_tables(conn)
+        True
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :return: Set of table names from sqlite_master.
+    """
     return {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table';")}
 
 
 def _canonicalize_table_name(conn: sqlite3.Connection, candidate: str) -> str:
-    """Best-effort match for a main-table name.
+    """
+    Strip the candidate and try exact, plural-mapped and singular-mapped table names.
 
-    Mirrors the generator's fuzzy singular/plural mapping.
+    Preserves case and returns the stripped candidate if none exists.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _ = conn.execute('CREATE TABLE works (work_id INTEGER)')
+        >>> _canonicalize_table_name(conn, ' works ')
+        'works'
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param candidate: Candidate table name to normalize and match against the schema.
+    :return: Matched table name or normalized fallback candidate.
     """
 
     candidate = str(candidate).strip()
@@ -209,11 +324,26 @@ def _canonicalize_table_name(conn: sqlite3.Connection, candidate: str) -> str:
 
 
 def _pick_allowed_types(conn: sqlite3.Connection, link_table_name: str) -> list[str]:
-    """Return up to a handful of allowed type values for a link table.
+    """
+    Read at most twenty ordered type values from the preferred reference table.
 
-    Preference order:
-      1) FRBR reference table `{link_table}__types`
-      2) legacy allowed-types table `allowed_types__{link_table}`
+    Prefers link_table__types even when empty; otherwise tries allowed_types__link_table
+    with its conventionally derived column. Returns an empty list if neither exists.
+    Names are trusted SQL identifiers.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _ = conn.execute('CREATE TABLE links__types (type TEXT)')
+        >>> _ = conn.executemany('INSERT INTO links__types VALUES (?)', [('b',), ('a',)])
+        >>> _pick_allowed_types(conn, 'links')
+        ['a', 'b']
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param link_table_name: Link table whose modern or legacy type registry should be
+        inspected.
+    :return: List of stored type values ordered by the type column.
     """
 
     tables = _existing_tables(conn)
@@ -247,6 +377,29 @@ def _insert_interlink_row(
     type_val: Optional[str] = None,
     priority: Optional[int] = None,
 ) -> None:
+    """
+    Insert bound endpoint IDs and supported optional type/priority values without committing.
+
+    Asserts endpoint columns exist. Optional values are omitted when None or when their
+    column is absent; trusted table and column identifiers are interpolated.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_02_cardinality_constraints.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param link_table: Trusted destination interlink table name.
+    :param col_base: Conventional column prefix for that table.
+    :param left_table: Main-table name used to derive the left endpoint column.
+    :param right_table: Main-table name used to derive the right endpoint column.
+    :param left_id: Bound left endpoint ID.
+    :param right_id: Bound right endpoint ID.
+    :param type_val: Optional type value included only when the type column exists.
+    :param priority: Optional priority included only when the priority column exists.
+    :return: None; adds a pending row or propagates the insertion error.
+    """
     cols = _pragma_cols(conn, link_table)
 
     left_row = plural_singular_mapper(left_table)
@@ -279,7 +432,21 @@ def _insert_interlink_row(
 
 
 def _intralink_table_and_base(conn: sqlite3.Connection, target_table: str) -> tuple[str, str]:
-    """Return (intralink_table_name, intralink_col_base) for a target table."""
+    """
+    Resolve a target table and derive its conventional intralink name and prefix.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _intralink_table_and_base(conn, 'works')
+        ('work_work_intralinks', 'work_work_intralink')
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param target_table: Main-table candidate passed through best-effort schema
+        matching.
+    :return: Intralink table name followed by its column prefix.
+    """
 
     target_table_name = _canonicalize_table_name(conn, target_table)
     row = plural_singular_mapper(target_table_name)
@@ -296,6 +463,26 @@ def _insert_intralink_row(
     secondary_id: int,
     type_val: str,
 ) -> None:
+    """
+    Assert required endpoint/type columns and insert a bound intralink row.
+
+    Trusted identifiers are interpolated; insertion errors propagate and no commit is
+    issued.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_02_cardinality_constraints.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param intralink_table: Trusted destination intralink table name.
+    :param col_base: Conventional intralink column prefix.
+    :param primary_id: Bound primary endpoint ID.
+    :param secondary_id: Bound secondary endpoint ID.
+    :param type_val: Bound relationship type value.
+    :return: None; inserts a pending row on success.
+    """
     cols = _pragma_cols(conn, intralink_table)
 
     p_col = f"{col_base}_primary_id"
@@ -321,7 +508,18 @@ def _insert_intralink_row(
 
 @pytest.fixture(scope="module")
 def frbr_conn() -> sqlite3.Connection:
-    """Build a fresh FRBR schema once for this module."""
+    """
+    Build and return a module-scoped in-memory FRBR schema.
+
+    Enables foreign keys before generation. The fixture shares one mutable connection
+    and supplies no explicit close, rollback or per-test reset.
+
+    Example:
+        Request frbr_conn as a pytest test argument; do not call the decorated fixture directly.
+
+
+    :return: Open SQLite connection shared by tests in this module.
+    """
     conn = sqlite3.connect(":memory:")
     conn.execute("PRAGMA foreign_keys = ON;")
     frbr_gen.create_new_database(conn)
@@ -339,6 +537,23 @@ def _find_first(
     want_type: str,
     pred,
 ) -> _InterlinkPick:
+    """
+    Return the first candidate matching a normalized cardinality and predicate.
+
+    Lowercases and strips each candidate link_type, but uses want_type unchanged. Stops
+    iteration on a match and raises AssertionError if no match exists.
+
+    Example:
+        >>> item = _InterlinkPick(0, 'a', 'b', ' MANY_TO_MANY ', set(), None, {})
+        >>> _find_first([item], want_type='many_to_many', pred=lambda value: True) is item
+        True
+
+
+    :param items: Iterable of interlink candidates, consumed until a match.
+    :param want_type: Already-normalized cardinality string to match.
+    :param pred: Predicate called only for candidates with the requested cardinality.
+    :return: First matching candidate object.
+    """
     for it in items:
         if str(it.link_type).strip().lower() != want_type:
             continue
@@ -348,6 +563,19 @@ def _find_first(
 
 
 def _requested_has_type(req: Any) -> bool:
+    """
+    Recognize a type request only in all or a set containing type.
+
+    Lists, frozensets and other representations are not accepted by the set branch.
+
+    Example:
+        >>> [_requested_has_type(x) for x in ('all', {'type'}, ['type'])]
+        [True, True, False]
+
+
+    :param req: Normalized requested-column value to inspect.
+    :return: True for all or a set containing type; otherwise False.
+    """
     if req == "all":
         return True
     if isinstance(req, set):
@@ -356,7 +584,22 @@ def _requested_has_type(req: Any) -> bool:
 
 
 def test_frbr_schema_conformance_02_many_many_rejects_duplicate_pairs(frbr_conn: sqlite3.Connection) -> None:
-    """Pick a plain many-to-many interlink (no type column requested) and assert pair uniqueness."""
+    """
+    Reject a duplicate endpoint pair on the first plain many-to-many candidate.
+
+    Uses different priorities to isolate pair uniqueness; leaves the initial probe row
+    in the shared connection.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_02_cardinality_constraints.py::test_frbr_schema_conformance_02_many_many_rejects_duplicate_pairs
+
+
+    :param frbr_conn: Module-scoped in-memory FRBR connection shared by the insertion
+        probes.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     interlinks = _iter_interlinks()
     plain = _find_first(
@@ -397,7 +640,23 @@ def test_frbr_schema_conformance_02_many_many_rejects_duplicate_pairs(frbr_conn:
 
 
 def test_frbr_schema_conformance_02_many_many_non_exclusive_allows_multiple_types(frbr_conn: sqlite3.Connection) -> None:
-    """Pick a role-style many-to-many and assert (A,B,type) uniqueness behaviour."""
+    """
+    Probe same-type rejection, different-type acceptance and role-scoped priority uniqueness.
+
+    If only one allowed type is available, pytest.skip ends the case after duplicate
+    rejection, so later priority checks also do not run. Priority checks otherwise run
+    only when both relevant columns exist.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_02_cardinality_constraints.py::test_frbr_schema_conformance_02_many_many_non_exclusive_allows_multiple_types
+
+
+    :param frbr_conn: Module-scoped in-memory FRBR connection shared by the insertion
+        probes.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     interlinks = _iter_interlinks()
     role = _find_first(
@@ -493,7 +752,21 @@ def test_frbr_schema_conformance_02_many_many_non_exclusive_allows_multiple_type
 
 
 def test_frbr_schema_conformance_02_one_to_many_rejects_secondary_reuse(frbr_conn: sqlite3.Connection) -> None:
-    """Pick a one-to-many and assert the secondary side cannot be linked to multiple primaries."""
+    """
+    Reject reuse of a secondary ID across primaries in a representative one-to-many table.
+
+    Also checks primary/priority uniqueness when the priority column exists.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_02_cardinality_constraints.py::test_frbr_schema_conformance_02_one_to_many_rejects_secondary_reuse
+
+
+    :param frbr_conn: Module-scoped in-memory FRBR connection shared by the insertion
+        probes.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     interlinks = _iter_interlinks()
     pick = _find_first(interlinks, want_type="one_to_many", pred=lambda e: True)
@@ -556,7 +829,21 @@ def test_frbr_schema_conformance_02_one_to_many_rejects_secondary_reuse(frbr_con
 
 
 def test_frbr_schema_conformance_02_many_to_one_rejects_primary_reuse(frbr_conn: sqlite3.Connection) -> None:
-    """Pick a many-to-one and assert the primary side cannot be linked to multiple secondaries."""
+    """
+    Reject reuse of a primary ID across secondaries in a representative many-to-one table.
+
+    Also checks secondary/priority uniqueness when the priority column exists.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_02_cardinality_constraints.py::test_frbr_schema_conformance_02_many_to_one_rejects_primary_reuse
+
+
+    :param frbr_conn: Module-scoped in-memory FRBR connection shared by the insertion
+        probes.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     interlinks = _iter_interlinks()
     pick = _find_first(interlinks, want_type="many_to_one", pred=lambda e: True)
@@ -624,7 +911,22 @@ def test_frbr_schema_conformance_02_many_to_one_rejects_primary_reuse(frbr_conn:
 
 
 def test_frbr_schema_conformance_02_intralinks_pair_unique_and_no_self_link(frbr_conn: sqlite3.Connection) -> None:
-    """Pick a representative intralink table and verify uniqueness + no-self-link constraints."""
+    """
+    Reject a duplicate same-type intralink and a self-link on the first intralink spec.
+
+    Uses an ascending pair and a registry type when available to avoid unrelated
+    ordering/type errors.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_02_cardinality_constraints.py::test_frbr_schema_conformance_02_intralinks_pair_unique_and_no_self_link
+
+
+    :param frbr_conn: Module-scoped in-memory FRBR connection shared by the insertion
+        probes.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     intralinks = _iter_intralinks()
     assert intralinks, "Expected intralink specs in intralink_table_requests.toml"

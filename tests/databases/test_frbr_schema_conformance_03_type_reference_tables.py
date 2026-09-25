@@ -1,23 +1,14 @@
-"""FRBR schema conformance suite (03): strict type enumerations.
+"""
+Compare generated type registries with expanded TOML values and probe insert guards.
 
-This suite validates that TOML-declared `types` / `allowed_types` enumerations are:
+Requires expected registry sets and checks both insert/update trigger names.
+Behavioral probes execute inserts only; update rejection is not directly tested.
+Uses one shared connection without per-test rollback.
 
-  1) Materialised as `{link_table}__types` reference tables.
-  2) Seeded with *exactly* the expanded values from TOML (strict equality).
-  3) Enforced by the generated `__type_guard_{insert,update}` triggers.
+Example:
+    Run with pytest::
 
-Design notes:
-  - The FRBR generator supports two special placeholders inside `types`:
-       * insert_marc_roles
-       * insert_known_hash_types
-    We mirror the generator's expansion logic so the tests remain deterministic.
-
-  - Where we probe trigger behaviour, we run with `PRAGMA foreign_keys=OFF`.
-    That keeps these tests focused on type enforcement rather than referential integrity.
-
-If strict equality ever fails, it indicates drift between:
-  - the TOML spec (source of truth), and
-  - the generated schema's seeded reference tables.
+        python -m pytest -q tests/databases/test_frbr_schema_conformance_03_type_reference_tables.py
 """
 
 from __future__ import annotations
@@ -47,16 +38,56 @@ from LiuXin_alpha.utils.language_tools import plural_singular_mapper, singular_p
 
 
 def _frbr_pkg_root() -> pathlib.Path:
+    """
+    Resolve the directory containing the imported FRBR generator module.
+
+    Example:
+        >>> _frbr_pkg_root().is_dir()
+        True
+
+
+    :return: Resolved generator package Path.
+    """
     return pathlib.Path(frbr_gen.__file__).resolve().parent
 
 
 def _load_toml(name: str) -> dict[str, Any]:
+    """
+    Read one package-relative TOML resource as UTF-8 with replacement decoding.
+
+    Filesystem and TOML parsing errors propagate; no schema validation is performed
+    here.
+
+    Example:
+        >>> isinstance(_load_toml('interlink_table_requests.toml'), dict)
+        True
+
+
+    :param name: Resource path joined to the generator package directory.
+    :return: Parsed TOML mapping.
+    """
     path = _frbr_pkg_root() / name
     return tomllib.loads(path.read_text(encoding="utf-8", errors="replace"))
 
 
 def _expand_types(items: list[Any], *, idx: int, kind: str) -> list[str]:
-    """Expand TOML `types` items exactly as the FRBR generator does."""
+    """
+    Expand MARC-role and guaranteed-hash placeholders, then deduplicate in first-seen order.
+
+    Stringifies and strips nonblank items, recognizes placeholders case-insensitively,
+    and retains literal value case. Unknown insert_ placeholders or an empty expanded
+    result raise TypeError with source context.
+
+    Example:
+        >>> _expand_types([' a ', 'a', 'B'], idx=0, kind='interlinks')
+        ['a', 'B']
+
+
+    :param items: Raw TOML type items to stringify and expand.
+    :param idx: Source entry index included in errors.
+    :param kind: Spec family label included in errors.
+    :return: Ordered list of unique expanded type strings.
+    """
 
     raw_items = [str(x).strip() for x in items if str(x).strip()]
 
@@ -91,7 +122,24 @@ def _expand_types(items: list[Any], *, idx: int, kind: str) -> list[str]:
 
 
 def _canonicalize_table_name(conn: sqlite3.Connection, candidate: str) -> str:
-    """Best-effort mirror of generator plural/singular matching."""
+    """
+    Lowercase and strip the candidate, then try exact and singular/plural mapped names.
+
+    Returns the normalized candidate if neither exists; does not create or validate a
+    table.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _ = conn.execute('CREATE TABLE works (work_id INTEGER)')
+        >>> _canonicalize_table_name(conn, ' works ')
+        'works'
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param candidate: Candidate table name to normalize and match against the schema.
+    :return: Matched table name or normalized fallback candidate.
+    """
 
     cand = str(candidate).strip().lower()
     existing = {
@@ -108,6 +156,15 @@ def _canonicalize_table_name(conn: sqlite3.Connection, candidate: str) -> str:
 
 @dataclass(frozen=True)
 class _InterlinkTypesSpec:
+    """
+    Store an interlink source index, endpoint names and expanded type list.
+
+    Frozen attributes retain a mutable list of type strings.
+
+    Example:
+        >>> _InterlinkTypesSpec(0, 'works', 'agents', ['aut']).types
+        ['aut']
+    """
     idx: int
     left: str
     right: str
@@ -116,6 +173,15 @@ class _InterlinkTypesSpec:
 
 @dataclass(frozen=True)
 class _IntralinkTypesSpec:
+    """
+    Store an intralink source index, table, expanded types and symmetry settings.
+
+    The optional symmetric-type list and expanded-type list remain mutable.
+
+    Example:
+        >>> _IntralinkTypesSpec(0, 'works', ['same_as'], True, None).symmetric
+        True
+    """
     idx: int
     table: str
     types: list[str]
@@ -124,6 +190,20 @@ class _IntralinkTypesSpec:
 
 
 def _iter_interlink_type_specs() -> list[_InterlinkTypesSpec]:
+    """
+    Read interlink entries that declare allowed types and expand their values.
+
+    Accepts long, short, table1/table2 and a/b endpoint aliases. Skips malformed,
+    unnamed or untyped entries; a present non-list type declaration raises TypeError.
+    Retains original indices.
+
+    Example:
+        >>> bool(_iter_interlink_type_specs())
+        True
+
+
+    :return: List of expanded interlink type specifications.
+    """
     data = _load_toml("interlink_table_requests.toml")
     interlinks = data.get("interlinks", [])
     assert isinstance(interlinks, list)
@@ -157,6 +237,20 @@ def _iter_interlink_type_specs() -> list[_InterlinkTypesSpec]:
 
 
 def _iter_intralink_type_specs() -> list[_IntralinkTypesSpec]:
+    """
+    Read intralink type declarations, string shorthand and optional symmetric-type lists.
+
+    Skips malformed, unnamed or untyped entries; rejects non-list type declarations.
+    Ordinary bool conversion sets symmetric. Symmetric-type strings are stripped and
+    blank entries removed without placeholder expansion.
+
+    Example:
+        >>> bool(_iter_intralink_type_specs())
+        True
+
+
+    :return: List of expanded intralink type specifications.
+    """
     data = _load_toml("intralink_table_requests.toml")
     intralinks = data.get("intralinks", [])
     assert isinstance(intralinks, list)
@@ -206,6 +300,18 @@ def _iter_intralink_type_specs() -> list[_IntralinkTypesSpec]:
 
 @pytest.fixture(scope="module")
 def frbr_schema_conn() -> sqlite3.Connection:
+    """
+    Build and return a module-scoped in-memory FRBR schema.
+
+    Enables foreign keys before generation. The fixture shares one mutable connection
+    and supplies no explicit close, rollback or per-test reset.
+
+    Example:
+        Request frbr_schema_conn as a pytest test argument; do not call the decorated fixture directly.
+
+
+    :return: Open SQLite connection shared by tests in this module.
+    """
     conn = sqlite3.connect(":memory:")
     conn.execute("PRAGMA foreign_keys = ON;")
     frbr_gen.create_new_database(conn)
@@ -218,7 +324,21 @@ def frbr_schema_conn() -> sqlite3.Connection:
 
 
 def _expected_types_tables(conn: sqlite3.Connection) -> dict[str, set[str]]:
-    """Return mapping of types_table_name -> expected set of type values (strict)."""
+    """
+    Build expected registry-name sets from resolved interlink and intralink specifications.
+
+    Skips interlinks resolving to the same endpoint table and unions values when
+    multiple entries map to one registry name.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_03_type_reference_tables.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :return: Mapping from expected __types table names to sets of expanded type values.
+    """
 
     expected: dict[str, set[str]] = {}
 
@@ -248,6 +368,22 @@ def _expected_types_tables(conn: sqlite3.Connection) -> dict[str, set[str]]:
 
 
 def test_frbr_schema_conformance_types_tables_set_is_strict(frbr_schema_conn: sqlite3.Connection) -> None:
+    """
+    Compare registry table names selected by SQLite LIKE with the expected mapping keys.
+
+    The query uses an unescaped %__types pattern, so underscores retain SQL wildcard
+    meaning.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_03_type_reference_tables.py::test_frbr_schema_conformance_types_tables_set_is_strict
+
+
+    :param frbr_schema_conn: Module-scoped in-memory FRBR connection used for schema
+        inspection.
+    :return: None; failed expectations raise AssertionError.
+    """
     expected = _expected_types_tables(frbr_schema_conn)
 
     actual_tables = {
@@ -274,6 +410,24 @@ def test_frbr_schema_conformance_types_tables_contents_strict(
     frbr_schema_conn: sqlite3.Connection, types_table: str
 ) -> None:
     # Param trick keeps pytest output tidy while still running a single cohesive test.
+    """
+    Compare every expected registry with its exact set of expanded TOML values.
+
+    Accumulates missing/extra value diagnostics. The single __ALL__ parameter groups all
+    registries into one pytest case; duplicates and row order are discarded by set
+    comparison.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_03_type_reference_tables.py::test_frbr_schema_conformance_types_tables_contents_strict
+
+
+    :param frbr_schema_conn: Module-scoped in-memory FRBR connection used for schema
+        inspection.
+    :param types_table: The fixed __ALL__ sentinel used by the parameter table.
+    :return: None; failed expectations raise AssertionError.
+    """
     assert types_table == "__ALL__"
 
     expected = _expected_types_tables(frbr_schema_conn)
@@ -303,6 +457,20 @@ def test_frbr_schema_conformance_types_tables_contents_strict(
 
 
 def _trigger_exists(conn: sqlite3.Connection, name: str) -> bool:
+    """
+    Check for an exact trigger name using a bound sqlite_master lookup.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _trigger_exists(conn, 'missing')
+        False
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param name: Trigger name bound to the lookup.
+    :return: True when any matching trigger row exists.
+    """
     row = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='trigger' AND name=?;",
         (name,),
@@ -311,12 +479,43 @@ def _trigger_exists(conn: sqlite3.Connection, name: str) -> bool:
 
 
 def _pick_one(values: set[str]) -> str:
+    """
+    Select the lexically first value and assert it is a nonempty string.
+
+    An empty set raises IndexError before the assertion; sorting incompatible values can
+    raise TypeError.
+
+    Example:
+        >>> _pick_one({'b', 'a'})
+        'a'
+
+
+    :param values: Nonempty comparable set expected to contain valid type strings.
+    :return: First sorted nonempty string.
+    """
     v = sorted(values)[0]
     assert isinstance(v, str) and v
     return v
 
 
 def test_frbr_schema_conformance_type_guards_reject_unknown_values(frbr_schema_conn: sqlite3.Connection) -> None:
+    """
+    Require insert/update guard names and reject unknown types in every expected link table.
+
+    Inspects exactly one type column, synthesizes required fields, and confirms a valid
+    type inserts successfully. Requests foreign keys off and leaves accepted rows
+    pending; update guards are checked for existence only.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_schema_conformance_03_type_reference_tables.py::test_frbr_schema_conformance_type_guards_reject_unknown_values
+
+
+    :param frbr_schema_conn: Module-scoped in-memory FRBR connection used for schema
+        inspection.
+    :return: None; failed expectations raise AssertionError.
+    """
     expected = _expected_types_tables(frbr_schema_conn)
 
     # Focus on type guard triggers rather than referential integrity.

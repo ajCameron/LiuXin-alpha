@@ -1,6 +1,20 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Define Calibre-style metadata field groups and serialization/update policies.
+
+The immutable sets group social, publication, structural, device, custom, and
+Calibre fields. Simple null values use None, collections use empty containers, and
+cover_data uses (None, None). SERIALIZABLE_FIELDS excludes device collections,
+formats, and cover bytes; serializers handle cover_data separately.
+
+Example:
+    >>> 'title' in SERIALIZABLE_FIELDS
+    True
+    >>> 'cover_data' in SERIALIZABLE_FIELDS
+    False
+"""
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"

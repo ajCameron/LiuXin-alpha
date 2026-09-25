@@ -31,6 +31,9 @@ class DigitalAssetRegistryAPI(abc.ABC):
         >>> asset = registry.get_digital_asset_record(asset_id)  # doctest: +SKIP
     """
 
+    # Todo: As a general design principle, "create declare, then add it" is one necessary step.
+    #  Just make the signature of the function the sig of the dataclass?
+    #  Use the declaration internally if it's needed
     @abc.abstractmethod
     def declare_digital_asset(
         self,
@@ -70,6 +73,7 @@ class DigitalAssetRegistryAPI(abc.ABC):
         """
         ...
 
+    # Todo: Methods to update all the metadata individually
     @abc.abstractmethod
     def update_digital_asset_metadata(
         self,
@@ -96,11 +100,13 @@ class DigitalAssetRegistryAPI(abc.ABC):
         """
         ...
 
+    # Todo: Add itterators with different ordering requirements
     @abc.abstractmethod
     def iter_digital_asset_records(self) -> Iterator[DigitalAssetRecord]:
         """
-        Iterate known Asset domain records without discovering physical Store contents. Ordering and
-        snapshot guarantees belong to the implementation.
+        Iterate known Asset domain records without discovering physical Store contents.
+
+        Ordering and snapshot guarantees belong to the implementation.
 
         Example:
             >>> assets = tuple(registry.iter_digital_asset_records())  # doctest: +SKIP

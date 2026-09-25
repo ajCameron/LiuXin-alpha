@@ -2,6 +2,22 @@
 # Run this ONLY if you've classified the work as Genre Fiction (general commercial).
 # Most-specific-first.
 
+"""
+Provide leaf-label patterns for the general Genre / Commercial Fiction branch.
+
+War, spy, western, adventure and comic labels precede general Fiction fallbacks.
+Apply after choosing the branch; broad terms such as journey or novel need that
+context.
+
+Map canonical labels to tuples of uncompiled regular-expression strings. Consumers
+choose regex flags, normalization, and first-match or multi-match policy; importing
+the module performs no classification.
+
+Example:
+    >>> import re
+    >>> any(re.search(pattern, 'lost treasure', re.IGNORECASE) for pattern in GENRE_FICTION_LEAF_MAPPING['Treasure Hunt']) is not False
+    True
+"""
 GENRE_FICTION_LEAF_MAPPING = {
     # --- War / military (fiction) ---
     "War Fiction": (

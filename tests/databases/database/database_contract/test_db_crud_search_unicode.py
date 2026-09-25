@@ -1,17 +1,14 @@
-"""Database contract: CRUD + search + unicode nightmares (chunk 03).
+"""
+Check Database row CRUD, search, Unicode payloads, constraints, and iterator surfaces on a dedicated per-test table.
 
-This slice focuses on *behavioral* correctness of the high-level
-:class:`~LiuXin_alpha.databases.database.Database` API:
+The table uses unique column names to avoid ambiguous driver table inference.
+SQL-looking strings remain fixture data; the assertions cover the listed payloads
+and observed row/table effects.
 
-* Creating a writable blank row via Database.get_blank_row().
-* Updating rows via Row.sync() and round-tripping via Database.get_row_from_id().
-* Searching via Database.search() across a torture corpus of multilingual strings.
-* Ensuring SQL-injection-shaped inputs remain inert data.
-* Delete and duplicate semantics (including unique-constraint cleanup).
-* Light sanity checks for iterator surfaces (get_all_rows, get_values_set, chunk_iterator).
+Example:
+    Run with pytest::
 
-These tests intentionally create a dedicated per-test contract table with
-*unique* column names to avoid ambiguity in driver-side table detection.
+        python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py
 """
 
 from __future__ import annotations
@@ -26,6 +23,14 @@ from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 
 @dataclass(frozen=True)
 class ContractTable:
+    """
+    Hold immutable table and column names for the isolated CRUD contract table.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py
+    """
     name: str
     id_col: str
     scratch_col: str
@@ -37,11 +42,25 @@ class ContractTable:
 
 
 def _exec_sql(db, stmt: str, bindings: tuple | None = None) -> None:
-    """Execute SQL in a backend-tolerant way.
+    """
+    Execute SQL on a fresh driver connection and attempt to commit it for cross-connection visibility.
 
-    Important: Database.get_tables()/introspection may force-refresh the driver's primary
-    connection. To avoid stale connection aliases on Database objects, this helper prefers a
-    short-lived *new* driver connection for DDL/DML.
+    Require a driver with get_connection. If commit raises, try SQL COMMIT and suppress
+    its failure; always attempt close and suppress close exceptions. Statement execution
+    errors propagate.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py
+
+
+    :param db: Open Database supplied by the shared fixture or caller; this helper does
+        not close the Database.
+    :param stmt: SQL statement passed directly to a new cursor.
+    :param bindings: Optional parameter tuple; None calls execute without a bindings
+        argument.
+    :return: None; may mutate database schema or rows.
     """
 
     driver = getattr(db, "driver", None)
@@ -73,7 +92,22 @@ def _exec_sql(db, stmt: str, bindings: tuple | None = None) -> None:
 
 @pytest.fixture
 def contract_table(open_db) -> ContractTable:
-    """Create a dedicated contract table for this test DB instance."""
+    """
+    Create the permissive CRUD table if absent and attempt to refresh driver/database schema metadata.
+
+    Refresh failures are suppressed. The table remains in the provisioned database for
+    fixture cleanup.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: ContractTable naming the table and its principal columns.
+    """
 
     t = ContractTable(
         name="db_contract_l3",
@@ -120,10 +154,38 @@ def contract_table(open_db) -> ContractTable:
 
 def _subset(payloads: Sequence[str], *, take: int) -> list[str]:
     # Deterministically sample from the start; the corpus is already curated.
+    """
+    Copy the requested leading slice of the ordered corpus into a list.
+
+    Example:
+        >>> _subset(['a', 'b', 'c'], take=2)
+        ['a', 'b']
+
+
+    :param payloads: Sliceable sequence of text payloads.
+    :param take: Slice stop index, not independently validated.
+    :return: List from payloads[:take]; ordinary slice behavior applies for negative or
+        oversized counts.
+    """
     return list(payloads[:take])
 
 
 def test_contract_table_visible_in_introspection(open_db, contract_table: ContractTable):
+    """
+    Check the dedicated table and its ID, scratch, and text columns appear in introspection.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_contract_table_visible_in_introspection
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :return: None; failed expectations raise AssertionError.
+    """
     tables = set(open_db.get_tables())
     assert contract_table.name in tables
 
@@ -134,6 +196,23 @@ def test_contract_table_visible_in_introspection(open_db, contract_table: Contra
 
 
 def test_get_blank_row_creates_real_row(open_db, contract_table: ContractTable, assert_integrity):
+    """
+    Check blank-row creation supplies table/ID/scratch metadata, increases the count by one, and preserves integrity.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_get_blank_row_creates_real_row
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :param assert_integrity: Fixture callable that checks the driver database for
+        integrity violations.
+    :return: None; failed expectations raise AssertionError.
+    """
     before = open_db.get_record_count(contract_table.name)
 
     row = open_db.get_blank_row(contract_table.name)
@@ -170,6 +249,24 @@ def test_get_blank_row_creates_real_row(open_db, contract_table: ContractTable, 
     ],
 )
 def test_row_sync_roundtrips_text_payloads(open_db, contract_table: ContractTable, payload: str, assert_integrity):
+    """
+    Sync a parametrized string and group value, then check exact retrieved values and database integrity.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_row_sync_roundtrips_text_payloads
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :param payload: Parametrized text payload stored and searched as data.
+    :param assert_integrity: Fixture callable that checks the driver database for
+        integrity violations.
+    :return: None; failed expectations raise AssertionError.
+    """
     row = open_db.get_blank_row(contract_table.name)
     row[contract_table.text_col] = payload
     row[contract_table.group_col] = "grp"
@@ -183,10 +280,22 @@ def test_row_sync_roundtrips_text_payloads(open_db, contract_table: ContractTabl
 
 
 def test_row_sync_nul_payload_is_handled_safely(open_db, contract_table: ContractTable, assert_integrity):
-    """NUL bytes are a common SQLite edge case.
+    """
+    Accept exact NUL-text round-trip or, after a sync exception, attempt deletion and check the original row count and database integrity.
 
-    Some stacks accept them, others reject them. Either is fine, but we must
-    not corrupt the DB or leak half-written rows.
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_row_sync_nul_payload_is_handled_safely
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :param assert_integrity: Fixture callable that checks the driver database for
+        integrity violations.
+    :return: None; failed expectations raise AssertionError.
     """
 
     payload = "nul\x00byte\x00inside"
@@ -224,6 +333,28 @@ def test_search_finds_inserted_rows_for_multilingual_terms(
     assert_integrity,
 ):
     # Insert a small set and ensure each can be retrieved using Database.search().
+    """
+    Search the first ten corpus strings and check every search finds at least one ID from the inserted set.
+
+    The membership assertion does not pair each search term with its specific inserted
+    row ID.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_search_finds_inserted_rows_for_multilingual_terms
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :param torture_strings: Ordered multilingual test corpus from the shared driver
+        fixtures.
+    :param assert_integrity: Fixture callable that checks the driver database for
+        integrity violations.
+    :return: None; failed expectations raise AssertionError.
+    """
     values = _subset(torture_strings, take=10)
     ids: list[int] = []
     for v in values:
@@ -264,6 +395,24 @@ def test_sql_injection_shaped_payloads_are_inert_data(
     payload: str,
     assert_integrity,
 ):
+    """
+    Store and search SQL-looking strings, checking the inserted ID is found, table names stay unchanged, and the row count grows by one.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_sql_injection_shaped_payloads_are_inert_data
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :param payload: Parametrized text payload stored and searched as data.
+    :param assert_integrity: Fixture callable that checks the driver database for
+        integrity violations.
+    :return: None; failed expectations raise AssertionError.
+    """
     before_tables = set(open_db.get_tables())
     before_count = open_db.get_record_count(contract_table.name)
 
@@ -282,6 +431,21 @@ def test_sql_injection_shaped_payloads_are_inert_data(
 
 
 def test_get_values_set_and_iterator_agree(open_db, contract_table: ContractTable):
+    """
+    Check set and iterator value surfaces agree and include the three inserted non-None group values.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_get_values_set_and_iterator_agree
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :return: None; failed expectations raise AssertionError.
+    """
     values = ["alpha", "beta", "gamma", "alpha", None]
     for v in values:
         r = open_db.get_blank_row(contract_table.name)
@@ -299,6 +463,21 @@ def test_get_values_set_and_iterator_agree(open_db, contract_table: ContractTabl
 
 def test_get_all_rows_list_and_iterator_surfaces(open_db, contract_table: ContractTable):
     # Seed a few rows.
+    """
+    Check list and iterator row surfaces are populated and each contains at least one inserted ID.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_get_all_rows_list_and_iterator_surfaces
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :return: None; failed expectations raise AssertionError.
+    """
     ids = []
     for i in range(15):
         r = open_db.get_blank_row(contract_table.name)
@@ -317,6 +496,21 @@ def test_get_all_rows_list_and_iterator_surfaces(open_db, contract_table: Contra
 
 
 def test_get_random_row_returns_existing_id(open_db, contract_table: ContractTable):
+    """
+    Probe five random rows and check each belongs to the ten seeded IDs and the expected table.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_get_random_row_returns_existing_id
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :return: None; failed expectations raise AssertionError.
+    """
     ids = set()
     for i in range(10):
         r = open_db.get_blank_row(contract_table.name)
@@ -333,6 +527,21 @@ def test_get_random_row_returns_existing_id(open_db, contract_table: ContractTab
 
 
 def test_delete_removes_row_and_get_row_from_id_returns_none(open_db, contract_table: ContractTable):
+    """
+    Delete a persisted row and check subsequent ID lookup returns None.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_delete_removes_row_and_get_row_from_id_returns_none
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :return: None; failed expectations raise AssertionError.
+    """
     r = open_db.get_blank_row(contract_table.name)
     r[contract_table.text_col] = "to-delete"
     r.sync()
@@ -346,6 +555,19 @@ def test_delete_removes_row_and_get_row_from_id_returns_none(open_db, contract_t
 
 
 def test_delete_errors_on_row_without_id(open_db):
+    """
+    Check deleting an empty Row without an ID raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_delete_errors_on_row_without_id
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.row import Row
 
     bad = Row(database=open_db, row_dict={})
@@ -354,6 +576,21 @@ def test_delete_errors_on_row_without_id(open_db):
 
 
 def test_dupe_row_success_allows_duplicate_when_unique_is_null(open_db, contract_table: ContractTable):
+    """
+    Check duplication with a null unique value yields a distinct ID and matching text/null fields.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_dupe_row_success_allows_duplicate_when_unique_is_null
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :return: None; failed expectations raise AssertionError.
+    """
     base = open_db.get_blank_row(contract_table.name)
     base[contract_table.text_col] = "dupe-me"
     base[contract_table.unique_col] = None  # UNIQUE permits multiple NULLs
@@ -368,6 +605,21 @@ def test_dupe_row_success_allows_duplicate_when_unique_is_null(open_db, contract
 
 
 def test_dupe_row_unique_violation_cleans_up_blank_row(open_db, contract_table: ContractTable):
+    """
+    Check duplicating a populated unique value raises DatabaseIntegrityError without increasing the row count.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_dupe_row_unique_violation_cleans_up_blank_row
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.errors import DatabaseIntegrityError
 
     base = open_db.get_blank_row(contract_table.name)
@@ -386,6 +638,21 @@ def test_dupe_row_unique_violation_cleans_up_blank_row(open_db, contract_table: 
 
 def test_chunk_iterator_groups_by_unique_values(open_db, contract_table: ContractTable):
     # Create rows with 3 distinct group values (including unicode).
+    """
+    Check chunked rows reconstruct the expected text sets for three group values without requiring chunk order.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_chunk_iterator_groups_by_unique_values
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :return: None; failed expectations raise AssertionError.
+    """
     groups = ["A", "B", "漢字"]
     expected: dict[str, set[str]] = {g: set() for g in groups}
 
@@ -415,6 +682,21 @@ def test_chunk_iterator_groups_by_unique_values(open_db, contract_table: Contrac
 
 
 def test_row_hash_and_equality_use_db_uuid_and_id(open_db, contract_table: ContractTable):
+    """
+    Retrieve the same row again and check equality, equal hashes, and set membership within one database.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_row_hash_and_equality_use_db_uuid_and_id
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :return: None; failed expectations raise AssertionError.
+    """
     r1 = open_db.get_blank_row(contract_table.name)
     r1[contract_table.text_col] = "hash-me"
     r1.sync()
@@ -429,6 +711,21 @@ def test_row_hash_and_equality_use_db_uuid_and_id(open_db, contract_table: Contr
 
 
 def test_row_setitem_rejects_column_from_other_table(open_db, contract_table: ContractTable):
+    """
+    Check assignment of an available foreign-table column raises KeyError; skip if no such column can be found.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_row_setitem_rejects_column_from_other_table
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Descriptor for the dedicated writable table created in this
+        fixture database.
+    :return: None; failed expectations raise AssertionError.
+    """
     row = open_db.get_blank_row(contract_table.name)
 
     # Pick a column from *some other* table if possible.
@@ -453,6 +750,19 @@ def test_row_setitem_rejects_column_from_other_table(open_db, contract_table: Co
 
 def test_get_blank_row_errors_if_table_has_no_scratch_column(open_db):
     # Create a minimal table with an id but no scratch column.
+    """
+    Create a table without a scratch column and check blank-row creation raises DatabaseIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_crud_search_unicode.py::test_get_blank_row_errors_if_table_has_no_scratch_column
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     _exec_sql(open_db, "CREATE TABLE IF NOT EXISTS db_contract_l3_noscratch (db_contract_l3_noscratch_id INTEGER);")
     try:
         open_db.driver.call_after_table_changes()

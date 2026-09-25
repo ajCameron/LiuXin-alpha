@@ -1,6 +1,10 @@
 
 """
-Tree access and update methods.
+Traverse parent-linked rows and delegate persisted tree updates.
+
+The host supplies table/column discovery, search and row lookup. Traversal assumes
+an acyclic tree: these helpers have no visited-node guard, and sibling iteration
+order is unspecified.
 """
 
 from __future__ import annotations
@@ -16,7 +20,14 @@ from LiuXin_alpha.errors import InputIntegrityError
 
 class DriverWrapperTreeMixin:
     """
-    Methods to handle tree like structures in the database.
+    Traverse parent-linked rows and delegate persisted tree updates.
+
+    The host supplies table/column discovery, search and row lookup. Traversal assumes
+    an acyclic tree: these helpers have no visited-node guard, and sibling iteration
+    order is unspecified.
+
+    Example:
+        >>> list(wrapper.walk(series_row))  # doctest: +SKIP
     """
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -25,12 +36,25 @@ class DriverWrapperTreeMixin:
     # Todo: Needs to throw an error when used on a table without a tree structure
     def get_linear_row_list(self, start_row: dict[str, Any]) -> list[dict[str, Any]]:
         """
-        Takes a starting row. Iterates up the tree, making an index of rows as it goes.
+        Follow parent references and return the chain from ancestor to starting row.
 
-        Starts from the highest entry, then proceeds down.
-        .......... -> grandparent_series -> parent_series -> series
-        :param start_row:
-        :return tree_row_index:
+        Infers table and parent heading from the starting mapping. Missing parent keys, None
+        and case-insensitive text none terminate the chain; the starting mapping is retained
+        as-is. Parent rows are fetched through get_row_from_id(). No cycle detection or
+        sibling traversal occurs, and missing ancestor rows can cause lookup/type errors.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> row = {"series_id": 1, "series_parent": None}
+            >>> host = SimpleNamespace(identify_table_from_row_dict=lambda row: "series", get_parent_column=lambda table: "series_parent")
+            >>> DriverWrapperTreeMixin.get_linear_row_list(host, row) == [row]
+            True
+
+
+        :param start_row: Starting row dictionary containing its identifier and any required
+            parent value.
+        :return: List of row dictionaries ordered from highest reached ancestor to
+            start_row.
         """
         table = self.identify_table_from_row_dict(start_row)
         table_parent_column = self.get_parent_column(table)
@@ -69,32 +93,61 @@ class DriverWrapperTreeMixin:
     # Todo: Again, should error when called on a table which does not have a tree structure
     def set_tree_ids(self, table: str) -> None:
         """
-        Every tree should have a unique tree id -
+        Write each positive-ID row's root ID and display value as a tree identifier.
 
-        This goes through and makes sure it's been set for every tree in the
-        given table.
-        :param table:
-        :return:
+        Delegates to the driver's direct_set_tree_ids hook. The following backend details
+        describe the shared SQL/SQLite implementation; backend errors propagate.
+
+        Use ``<root_id>_<root_display>``; an existing ID-zero sentinel receives
+        ``0_<display>`` separately. Commit each update, with no atomic batch or explicit
+        connection close. Missing tree-ID columns raise InputIntegrityError.
+
+        Example:
+            >>> wrapper.set_tree_ids("series")  # doctest: +SKIP
+
+
+        :param table: Existing table name used for schema lookup.
+        :return: ``True`` after the updates complete.
         """
         return self.driver.direct_set_tree_ids(table)
 
     def set_full_column(self, table: str) -> None:
         """
-        Rows which are part of a tree structure have a _full column.
+        Write ancestor display paths for positive-ID rows, committing each row separately.
 
-        This is a string representation of their place in the tree structure.
-        This method populates the full column for the target table.
-        :param table:
-        :return:
+        Delegates to the driver's direct_set_full_column hook. The following backend details
+        describe the shared SQL/SQLite implementation; backend errors propagate.
+
+        Require the host's ``get_full_column_name`` helper and the aggregation helper's
+        dependencies. A missing full column raises InputIntegrityError; SQLite operational
+        failures become DatabaseDriverError. Sentinel rows are skipped and the acquired
+        write connection is not explicitly closed.
+
+        Example:
+            >>> wrapper.set_full_column("series")  # doctest: +SKIP
+
+
+        :param table: Existing table whose derived column is required.
+        :return: ``True`` after all selected rows have been processed.
         """
         return self.driver.direct_set_full_column(target_table=table)
 
     def walk(self, start_row: dict[str, Any]) -> Iterator[dict[str, Any]]:
         """
-        Walk the tree yielding all the rows in it, starting with the start_row itself.
+        Resolve a row's tree columns and return an iterator over its descendants.
 
-        :param start_row: Walk starts here.
-        :return:
+        Infers the table and ID heading. A missing parent heading (None or False) raises
+        InputIntegrityError before iteration. Returns _walk() without consuming it;
+        traversal starts with the supplied row and has neither a defined sibling order nor
+        cycle protection.
+
+        Example:
+            >>> wrapper.walk(series_row)  # doctest: +SKIP
+
+
+        :param start_row: Starting row dictionary containing its identifier and any required
+            parent value.
+        :return: Iterator of row dictionaries beginning with start_row.
         """
         table = self.identify_table_from_row_dict(start_row)
         table_id_col = self.get_id_column(table)
@@ -123,6 +176,30 @@ class DriverWrapperTreeMixin:
         # Load the ids pool with the ids of parent rows - search for them in the parent column and yield those rows
         # If a row has no children (not referenced in any parent column) then it's a leaf row and we're done for that
         # branch
+        """
+        Yield a starting row and descendants selected through parent-column searches.
+
+        Converts IDs to integers and keeps pending IDs in a set. Yields the original
+        starting mapping first, then children returned by search(), scheduling each child
+        ID. The pending set is not a visited set: cycles can yield forever and sibling order
+        is unspecified.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> root = {"series_id": 1, "series_parent": None}
+            >>> child = {"series_id": 2, "series_parent": 1}
+            >>> host = SimpleNamespace(search=lambda **kw: [child] if kw["search_term"] == 1 else [])
+            >>> list(DriverWrapperTreeMixin._walk(host, root, "series", "series_id", "series_parent")) == [root, child]
+            True
+
+
+        :param start_row: Starting row dictionary containing its identifier and any required
+            parent value.
+        :param table: Table name in the current schema.
+        :param table_id_col: Identifier column in the traversed table.
+        :param table_parent_col: Parent-reference column in the traversed table.
+        :return: Iterator yielding the starting row and discovered descendants.
+        """
         ids_pool = set()
         ids_pool.add(int(start_row[table_id_col]))
 

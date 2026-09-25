@@ -1,3 +1,8 @@
+
+# Todo: The existence of store_manager and storage_manager is understaable, but we do need different names for them
+# Todo: This module is too long
+
+
 """
 Bind application storage orchestration to catalogue metadata and configured backends.
 

@@ -1,18 +1,14 @@
-"""Database contract: search + values-set + chunking + random rows (chunk 07).
+"""
+Check Database exact searches, distinct values, grouped iteration, and random-row behavior.
 
-This slice focuses on mid-level convenience surfaces on Database:
+Dedicated per-test tables use hashed column names to reduce table-inference
+ambiguity. Short-lived SQL connections have best-effort commit/close handling.
+Strict xfail cases retain desired NULL search and grouping behavior.
 
-* Database.search(): exact-match semantics, error surfaces, and "injection-shaped" payload inertness.
-* Database.get_values_set(): DISTINCT extraction (set + iterator forms).
-* Database.chunk_iterator(): grouping by a unique column (same-table grouping).
-* Database.get_random_row(): returns only real rows for non-empty tables; defines behavior for empty tables.
+Example:
+    Run with pytest::
 
-Design notes
-------------
-- We create a dedicated per-test contract table with UNIQUE column names. This avoids ambiguity in
-  driver-side "identify table from column/row" logic.
-- We execute DDL/DML via a short-lived driver connection, because some Database introspection calls
-  may force-refresh the driver's primary connection.
+        python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py
 """
 
 from __future__ import annotations
@@ -29,6 +25,14 @@ from LiuXin_alpha.databases.row import Row
 
 @dataclass(frozen=True)
 class ContractTable:
+    """
+    Hold immutable table and column names for one search/set contract fixture.
+
+    Example:
+        >>> table = ContractTable('sample', 'id', 'scratch', 'text', 'group', 'num')
+        >>> table.text_col
+        'text'
+    """
     name: str
     id_col: str
     scratch_col: str
@@ -39,11 +43,41 @@ class ContractTable:
 
 def _stable_suffix(nodeid: str) -> str:
     # Deterministic across runs (unlike hash()).
+    """
+    Hash a strict UTF-8 node ID to a ten-character SHA-1 suffix.
+
+    Example:
+        >>> _stable_suffix('abc')
+        'a9993e3647'
+
+
+    :param nodeid: Pytest node ID used to distinguish test objects.
+    :return: First ten lowercase hexadecimal digest characters; encoding errors
+        propagate.
+    """
     return hashlib.sha1(nodeid.encode("utf-8")).hexdigest()[:10]
 
 
 def _exec_sql(db, stmt: str, bindings: tuple | None = None) -> None:
-    """Execute SQL using a short-lived driver connection (SQLite/APSW tolerant)."""
+    """
+    Execute a statement on a fresh driver connection and attempt to commit.
+
+    Require get_connection. If commit fails, try SQL COMMIT and suppress its ordinary
+    errors. Always attempt close, suppressing ordinary close errors; execution errors
+    propagate.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py
+
+
+    :param db: Caller-owned Database used for schema inspection or SQL operations.
+    :param stmt: SQL statement executed on a fresh driver connection.
+    :param bindings: Optional bound parameters; None calls execute without a bindings
+        argument.
+    :return: None; successful return does not independently establish commit success.
+    """
     driver = getattr(db, "driver", None)
     if driver is None or not hasattr(driver, "get_connection"):
         raise RuntimeError("Database has no driver with get_connection()")
@@ -71,6 +105,24 @@ def _exec_sql(db, stmt: str, bindings: tuple | None = None) -> None:
 
 
 def _fetch_all(db, stmt: str, bindings: tuple | None = None) -> list[tuple]:
+    """
+    Execute a query on a fresh driver connection, materialize its rows, and attempt close in finally.
+
+    Require get_connection; query errors propagate and ordinary close errors are
+    suppressed.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py
+
+
+    :param db: Caller-owned Database used for schema inspection or SQL operations.
+    :param stmt: SQL statement executed on a fresh driver connection.
+    :param bindings: Optional bound parameters; None calls execute without a bindings
+        argument.
+    :return: List of fetched rows; no explicit commit occurs.
+    """
     driver = getattr(db, "driver", None)
     if driver is None or not hasattr(driver, "get_connection"):
         raise RuntimeError("Database has no driver with get_connection()")
@@ -92,7 +144,24 @@ def _fetch_all(db, stmt: str, bindings: tuple | None = None) -> list[tuple]:
 
 @pytest.fixture
 def contract_table(open_db, request) -> ContractTable:
-    """Create a dedicated contract table for this test (unique columns)."""
+    """
+    Create a node-specific contract table and attempt driver and Database metadata refreshes.
+
+    Suppress ordinary refresh errors. The database fixture owns the table’s lifetime;
+    this fixture performs no explicit drop.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param request: Pytest request whose node ID supplies the naming suffix.
+    :return: ContractTable with a generic id column and hashed scratch/text/group/number
+        names.
+    """
     suf = _stable_suffix(request.node.nodeid)
 
     table = ContractTable(
@@ -135,7 +204,21 @@ def _insert_rows(
     table: ContractTable,
     rows: Sequence[tuple[str, str | None, str | None, int | None]],
 ) -> None:
-    """Insert rows as (scratch, text, group, num)."""
+    """
+    Insert each scratch/text/group/number tuple through a separate fresh-connection SQL call.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py
+
+
+    :param db: Caller-owned Database used for schema inspection or SQL operations.
+    :param table: ContractTable descriptor supplying trusted SQL identifiers.
+    :param rows: Ordered sequence of four-value tuples, bound separately for each
+        insert.
+    :return: None; earlier inserts can remain if a later insert fails.
+    """
     for scratch, txt, grp, num in rows:
         _exec_sql(
             db,
@@ -146,11 +229,39 @@ def _insert_rows(
 
 
 def _all_row_ids(db, table: ContractTable) -> set[int]:
+    """
+    Fetch every ID from the dedicated table and convert the values to integers.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py
+
+
+    :param db: Caller-owned Database used for schema inspection or SQL operations.
+    :param table: ContractTable descriptor supplying trusted table and ID-column names.
+    :return: Set of persisted integer IDs.
+    """
     got = _fetch_all(db, f"SELECT {table.id_col} FROM {table.name};")
     return {int(r[0]) for r in got}
 
 
 def _find_id_by_scratch(db, table: ContractTable, scratch: str) -> int:
+    """
+    Query the scratch key and require a non-None ID in the first result.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py
+
+
+    :param db: Caller-owned Database used for schema inspection or SQL operations.
+    :param table: ContractTable descriptor supplying trusted SQL identifiers.
+    :param scratch: Exact scratch key passed as a bound value.
+    :return: First matching ID converted to int; missing or malformed results raise
+        AssertionError.
+    """
     got = _fetch_all(
         db,
         f"SELECT {table.id_col} FROM {table.name} WHERE {table.scratch_col} = ?;",
@@ -161,6 +272,20 @@ def _find_id_by_scratch(db, table: ContractTable, scratch: str) -> int:
 
 
 def _pick_non_nul_payloads(pick_payload, n: int = 32) -> list[str]:
+    """
+    Collect the first n indexed corpus values without embedded NUL, preserving duplicates and order.
+
+    Require at least one retained value; nonpositive n therefore raises AssertionError.
+
+    Example:
+        >>> _pick_non_nul_payloads(lambda i: ['a', chr(0), 'b'][i], n=3)
+        ['a', 'b']
+
+
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :param n: Number of payload indices to inspect.
+    :return: Nonempty list of retained strings.
+    """
     payloads: list[str] = []
     for i in range(n):
         p = pick_payload(i)
@@ -178,6 +303,22 @@ def _pick_non_nul_payloads(pick_payload, n: int = 32) -> list[str]:
 
 
 def test_search_returns_rows_and_is_exact_match(open_db, contract_table: ContractTable, pick_payload):
+    """
+    Check searching a seeded payload returns exactly its Row and that a three-character prefix finds nothing when the payload is long enough.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_search_returns_rows_and_is_exact_match
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Fixture descriptor of the test-specific table and its
+        columns.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     payloads = _pick_non_nul_payloads(pick_payload, n=48)
     needle = payloads[7]
 
@@ -203,12 +344,44 @@ def test_search_returns_rows_and_is_exact_match(open_db, contract_table: Contrac
 
 
 def test_search_empty_on_no_match(open_db, contract_table: ContractTable):
+    """
+    Seed alpha and check searching beta returns an empty list.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_search_empty_on_no_match
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Fixture descriptor of the test-specific table and its
+        columns.
+    :return: None; failed expectations raise AssertionError.
+    """
     _insert_rows(open_db, contract_table, [("s7_x", "alpha", "G0", 1)])
     got = open_db.search(table=contract_table.name, column=contract_table.text_col, search_term="beta")
     assert got == []
 
 
 def test_search_non_string_terms_do_not_crash(open_db, contract_table: ContractTable):
+    """
+    Search with bytes, numbers, a boolean, a mapping, and an object, requiring lists containing only Rows.
+
+    No particular match count or coercion result is asserted.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_search_non_string_terms_do_not_crash
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Fixture descriptor of the test-specific table and its
+        columns.
+    :return: None; failed expectations raise AssertionError.
+    """
     _insert_rows(open_db, contract_table, [("s7_x", "alpha", "G0", 1)])
 
     weird_terms = [
@@ -226,11 +399,39 @@ def test_search_non_string_terms_do_not_crash(open_db, contract_table: ContractT
 
 
 def test_search_invalid_table_raises(open_db):
+    """
+    Check searching a nonexistent table raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_search_invalid_table_raises
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     with pytest.raises(InputIntegrityError):
         open_db.search(table="definitely_not_a_table", column="nope", search_term="x")
 
 
 def test_search_invalid_column_raises(open_db, contract_table: ContractTable):
+    """
+    Check searching an unknown column of an existing table raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_search_invalid_column_raises
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Fixture descriptor of the test-specific table and its
+        columns.
+    :return: None; failed expectations raise AssertionError.
+    """
     _insert_rows(open_db, contract_table, [("s7_x", "alpha", "G0", 1)])
     with pytest.raises(InputIntegrityError):
         open_db.search(table=contract_table.name, column="definitely_not_a_column", search_term="alpha")
@@ -238,6 +439,21 @@ def test_search_invalid_column_raises(open_db, contract_table: ContractTable):
 
 @pytest.mark.xfail(strict=True, reason="Current driver uses '=' so NULL is not matched; consider 'IS NULL' semantics.")
 def test_search_none_should_match_null_rows_desired_behavior(open_db, contract_table: ContractTable):
+    """
+    Express a one-row NULL search result under the existing strict xfail marker.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_search_none_should_match_null_rows_desired_behavior
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Fixture descriptor of the test-specific table and its
+        columns.
+    :return: None; failed expectations raise AssertionError.
+    """
     _insert_rows(open_db, contract_table, [("s7_n", None, "G0", 1)])
     got = open_db.search(table=contract_table.name, column=contract_table.text_col, search_term=None)
     assert len(got) == 1
@@ -249,6 +465,21 @@ def test_search_none_should_match_null_rows_desired_behavior(open_db, contract_t
 
 
 def test_get_values_set_returns_unique_values(open_db, contract_table: ContractTable):
+    """
+    Check set retrieval deduplicates group values while retaining None.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_get_values_set_returns_unique_values
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Fixture descriptor of the test-specific table and its
+        columns.
+    :return: None; failed expectations raise AssertionError.
+    """
     _insert_rows(
         open_db,
         contract_table,
@@ -266,6 +497,21 @@ def test_get_values_set_returns_unique_values(open_db, contract_table: ContractT
 
 
 def test_get_values_set_iterator_matches_set(open_db, contract_table: ContractTable):
+    """
+    Materialize the distinct-value iterator and check it equals the set-returning form.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_get_values_set_iterator_matches_set
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Fixture descriptor of the test-specific table and its
+        columns.
+    :return: None; failed expectations raise AssertionError.
+    """
     _insert_rows(
         open_db,
         contract_table,
@@ -283,6 +529,19 @@ def test_get_values_set_iterator_matches_set(open_db, contract_table: ContractTa
 
 
 def test_get_values_set_unknown_column_raises(open_db):
+    """
+    Check distinct-value retrieval for an unknown column raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_get_values_set_unknown_column_raises
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     with pytest.raises(InputIntegrityError):
         open_db.get_values_set(target_column="column_that_does_not_exist_anywhere", iterator_return=False)
 
@@ -294,6 +553,23 @@ def test_get_values_set_unknown_column_raises(open_db):
 
 def test_chunk_iterator_groups_rows_by_column(open_db, contract_table: ContractTable):
     # Avoid NULL group values here; see xfail test below.
+    """
+    Check three non-NULL groups produce nonempty Row lists with uniform group values and complete ID coverage.
+
+    Assert the chunk count but do not require a particular chunk order.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_chunk_iterator_groups_rows_by_column
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Fixture descriptor of the test-specific table and its
+        columns.
+    :return: None; failed expectations raise AssertionError.
+    """
     _insert_rows(
         open_db,
         contract_table,
@@ -330,6 +606,21 @@ def test_chunk_iterator_groups_rows_by_column(open_db, contract_table: ContractT
 
 @pytest.mark.xfail(strict=True, reason="chunk_iterator relies on '=' search; NULL group values yield empty chunks today.")
 def test_chunk_iterator_should_group_null_values_desired_behavior(open_db, contract_table: ContractTable):
+    """
+    Express the desired presence of a two-row NULL group under the existing strict xfail marker.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_chunk_iterator_should_group_null_values_desired_behavior
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Fixture descriptor of the test-specific table and its
+        columns.
+    :return: None; failed expectations raise AssertionError.
+    """
     _insert_rows(
         open_db,
         contract_table,
@@ -344,6 +635,19 @@ def test_chunk_iterator_should_group_null_values_desired_behavior(open_db, contr
 
 
 def test_chunk_iterator_unknown_column_raises(open_db):
+    """
+    Consume the chunk iterator and check an unknown column raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_chunk_iterator_unknown_column_raises
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     with pytest.raises(InputIntegrityError):
         list(open_db.chunk_iterator(column="definitely_not_a_column", target_table=None))
 
@@ -354,6 +658,23 @@ def test_chunk_iterator_unknown_column_raises(open_db):
 
 
 def test_get_random_row_returns_existing_row(open_db, contract_table: ContractTable):
+    """
+    Request twenty-five random Rows and check each belongs to the seeded table and its known ID set.
+
+    The test does not measure distribution or require every seeded ID to appear.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_get_random_row_returns_existing_row
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Fixture descriptor of the test-specific table and its
+        columns.
+    :return: None; failed expectations raise AssertionError.
+    """
     _insert_rows(
         open_db,
         contract_table,
@@ -378,6 +699,21 @@ def test_get_random_row_returns_existing_row(open_db, contract_table: ContractTa
 
 def test_get_random_row_empty_table_current_behavior(open_db, contract_table: ContractTable):
     # No inserts. Current driver returns an empty Row shell with no resolved table.
+    """
+    Check an empty-table random lookup returns an unresolved Row shell whose row_id access raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_get_random_row_empty_table_current_behavior
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param contract_table: Fixture descriptor of the test-specific table and its
+        columns.
+    :return: None; failed expectations raise AssertionError.
+    """
     row = open_db.get_random_row(table=contract_table.name)
     assert isinstance(row, Row)
     assert row.table is None
@@ -386,5 +722,18 @@ def test_get_random_row_empty_table_current_behavior(open_db, contract_table: Co
 
 
 def test_get_random_row_invalid_table_raises(open_db):
+    """
+    Check a random-row lookup for a nonexistent table raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_search_and_sets.py::test_get_random_row_invalid_table_raises
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     with pytest.raises(InputIntegrityError):
         open_db.get_random_row(table="definitely_not_a_table")

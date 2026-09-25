@@ -1,8 +1,13 @@
-"""Database contract: defensive error handling + 'bad input' surfaces (chunk 06).
+"""
+Check invalid identifiers, unsupported iterator options, and Row access/read-only errors.
 
-These tests assert that malformed identifiers and awkward values fail loudly
-with LiuXin errors (primarily InputIntegrityError / DatabaseIntegrityError),
-and that Row enforces basic invariants (unknown columns, read-only sync).
+Use a discovered non-view relation for writable-row cases. Tests check specific
+exceptions and selected side effects; they do not probe every schema constraint.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py
 """
 
 from __future__ import annotations
@@ -15,7 +20,22 @@ from LiuXin_alpha.errors import InputIntegrityError, RowReadOnlyError
 
 
 def _choose_table_and_column(db) -> Tuple[str, str]:
-    """Pick a real table and a non-id column we can safely interact with."""
+    """
+    Choose a preferred non-view table and its first non-ID heading.
+
+    Fall back to the first non-view relation, and to the first heading when no non-ID
+    heading exists. Raise RuntimeError when there are no relations or all are views. No
+    column-type or constraint validation is performed.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py
+
+
+    :param db: Caller-owned Database used for schema inspection or SQL operations.
+    :return: Table/column tuple; a relation with no headings raises IndexError.
+    """
 
     relations = list(db.get_tables())
     if not relations:
@@ -42,6 +62,17 @@ def _choose_table_and_column(db) -> Tuple[str, str]:
 
 def _weird_identifiers() -> Iterable[str]:
     # A small curated list: SQL-ish, unicode-ish, and just plain wrong.
+    """
+    Return ten invalid table-name probes, including SQL-like text, Unicode, an actual NUL, and a long name.
+
+    Example:
+        >>> names = list(_weird_identifiers())
+        >>> len(names), any(chr(0) in name for name in names)
+        (10, True)
+
+
+    :return: Fresh list of probe strings in fixed order.
+    """
     return [
         "definitely_not_a_table",
         "titles__does_not_exist__42",
@@ -58,17 +89,58 @@ def _weird_identifiers() -> Iterable[str]:
 
 @pytest.mark.parametrize("bad_table", list(_weird_identifiers()))
 def test_get_column_headings_invalid_table_raises_input_integrityerror(open_db, bad_table: str):
+    """
+    Check each malformed table identifier is rejected by get_column_headings with InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py::test_get_column_headings_invalid_table_raises_input_integrityerror
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param bad_table: Parametrized malformed or nonexistent table identifier.
+    :return: None; failed expectations raise AssertionError.
+    """
     with pytest.raises(InputIntegrityError):
         open_db.get_column_headings(bad_table)
 
 
 @pytest.mark.parametrize("bad_table", list(_weird_identifiers()))
 def test_get_record_count_invalid_table_raises_input_integrityerror(open_db, bad_table: str):
+    """
+    Check each malformed table identifier is rejected by get_record_count with InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py::test_get_record_count_invalid_table_raises_input_integrityerror
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param bad_table: Parametrized malformed or nonexistent table identifier.
+    :return: None; failed expectations raise AssertionError.
+    """
     with pytest.raises(InputIntegrityError):
         open_db.get_record_count(bad_table)
 
 
 def test_get_blank_row_invalid_table_raises_input_integrityerror(open_db):
+    """
+    Check blank-row creation for a nonexistent table raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py::test_get_blank_row_invalid_table_raises_input_integrityerror
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     with pytest.raises(InputIntegrityError):
         open_db.get_blank_row("no_such_table")
 
@@ -76,6 +148,21 @@ def test_get_blank_row_invalid_table_raises_input_integrityerror(open_db):
 
 def test_get_blank_row_view_raises_clear_input_error(open_db):
     # Some schemas expose compatibility surfaces as read-only views (e.g. FRBR/WEMI `titles`).
+    """
+    Check blank-row creation for a discovered view raises InputIntegrityError mentioning the view and its name.
+
+    Skip when none of the candidate relations is a view.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py::test_get_blank_row_view_raises_clear_input_error
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     candidates = ["titles", "books", "identifiers", "authors", "series", "creators"]
     view_name = next(
         (t for t in candidates if t in open_db.get_tables() and open_db.driver_wrapper.is_view(t)),
@@ -103,6 +190,21 @@ def test_get_blank_row_view_raises_clear_input_error(open_db):
     ],
 )
 def test_search_invalid_column_raises_input_integrityerror(open_db, bad_column: str):
+    """
+    Check an invalid search column raises InputIntegrityError and leaves the selected table’s row count unchanged.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py::test_search_invalid_column_raises_input_integrityerror
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param bad_column: Parametrized nonexistent, quoted, or expression-like column
+        identifier.
+    :return: None; failed expectations raise AssertionError.
+    """
     table, good_col = _choose_table_and_column(open_db)
 
     # Also ensure failures don't mutate the DB.
@@ -114,6 +216,19 @@ def test_search_invalid_column_raises_input_integrityerror(open_db, bad_column: 
 
 
 def test_search_missing_search_term_raises_input_integrityerror(open_db):
+    """
+    Check a None search term raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py::test_search_missing_search_term_raises_input_integrityerror
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     table, good_col = _choose_table_and_column(open_db)
     with pytest.raises(InputIntegrityError):
         open_db.search(table, good_col, None)
@@ -127,17 +242,58 @@ def test_search_missing_search_term_raises_input_integrityerror(open_db):
     ],
 )
 def test_get_all_rows_iterator_mode_disallows_reverse_and_sort(open_db, kwargs):
+    """
+    Check iterator mode raises NotImplementedError for reverse or sort-column options.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py::test_get_all_rows_iterator_mode_disallows_reverse_and_sort
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param kwargs: Parametrized reverse or sort_column option passed with
+        iterator_return=True.
+    :return: None; failed expectations raise AssertionError.
+    """
     table, _ = _choose_table_and_column(open_db)
     with pytest.raises(NotImplementedError):
         open_db.get_all_rows(table, iterator_return=True, **kwargs)
 
 
 def test_chunk_iterator_invalid_column_raises_input_integrityerror(open_db):
+    """
+    Consume the chunk iterator and check an unknown column raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py::test_chunk_iterator_invalid_column_raises_input_integrityerror
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     with pytest.raises(InputIntegrityError):
         list(open_db.chunk_iterator(column="definitely_not_a_column"))
 
 
 def test_row_unknown_column_setitem_raises_keyerror(open_db):
+    """
+    Check assigning an unknown Row column raises KeyError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py::test_row_unknown_column_setitem_raises_keyerror
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     table, good_col = _choose_table_and_column(open_db)
     row = open_db.get_blank_row(table)
     row[good_col] = "ok"
@@ -146,6 +302,19 @@ def test_row_unknown_column_setitem_raises_keyerror(open_db):
 
 
 def test_row_unknown_column_getitem_raises_keyerror(open_db):
+    """
+    Check reading an unknown Row column raises KeyError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py::test_row_unknown_column_getitem_raises_keyerror
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     table, _ = _choose_table_and_column(open_db)
     row = open_db.get_blank_row(table)
     with pytest.raises(KeyError):
@@ -153,6 +322,19 @@ def test_row_unknown_column_getitem_raises_keyerror(open_db):
 
 
 def test_row_read_only_sync_raises(open_db):
+    """
+    Mark a modified Row read-only and check sync raises RowReadOnlyError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py::test_row_read_only_sync_raises
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     table, good_col = _choose_table_and_column(open_db)
     row = open_db.get_blank_row(table)
     row[good_col] = "hello"

@@ -1,5 +1,9 @@
 """
-Compatibility maintainer façade backed by the new maintenance engine.
+Expose the legacy maintainer interface over the plugin engine.
+
+The facade starts background work immediately and retains a database reference.
+Dirty callbacks delegate to the engine; cleanup and merge helpers retain their
+legacy limitations.
 """
 
 from __future__ import annotations
@@ -19,11 +23,14 @@ if TYPE_CHECKING:
 
 class Maintainer(DatabaseMaintainerAPI):
     """
-    Compatibility façade between the database and the maintenance engine.
+    Start and expose a database maintenance engine with compatibility helpers.
 
-    The old maintainer combined callback sink, service lifecycle, and merge
-    helpers. That public shape still exists for compatibility, but the actual
-    background work now goes through :class:`MaintenanceEngine` and plugins.
+    Use stop() to request shutdown; joining requires the underlying maintainer thread.
+    Manual dispatch can overlap background work.
+
+    Example:
+        >>> maintenance = Maintainer(database, plugins=[])  # doctest: +SKIP
+        >>> maintenance.stop()  # doctest: +SKIP
     """
 
     db: "DatabaseAPI"
@@ -37,12 +44,23 @@ class Maintainer(DatabaseMaintainerAPI):
         scheduling_interval: float = 0.25,
     ) -> None:
         """
-        Constructor.
+        Bind the database, build the engine, alias its queues and start its thread.
 
-        :param db:
-        :param plugins:
-        :param interval:
-        :param scheduling_interval:
+        None plugins selects fresh builtins; an empty iterable explicitly selects no
+        plugins. Construction starts background work immediately.
+
+        Example:
+            >>> Maintainer(database)  # doctest: +SKIP
+
+
+        :param db: Database whose rows, driver and schema helpers are used.
+        :param plugins: Optional plugin iterable; None selects builtins, while an empty
+            iterable selects none.
+        :param interval: Seconds between dispatch passes; converted to float without range
+            validation.
+        :param scheduling_interval: Maximum sleep between scheduling checks, in seconds; not
+            range-validated.
+        :return: None.
         """
         super().__init__(db=db)
 
@@ -61,35 +79,54 @@ class Maintainer(DatabaseMaintainerAPI):
 
     def register_plugin(self, plugin) -> None:  # noqa: ANN001 - plugin base is intentionally duck-typed
         """
-        Register a plugin to do work through the maintenance engine.
+        Delegate registration and possible immediate startup to the engine.
 
-        :param plugin:
-        :return:
+        Example:
+            >>> worker.register_plugin(plugin)  # doctest: +SKIP
+
+
+        :param plugin: Plugin instance to register without duplicate or enabled-flag
+            filtering.
+        :return: None.
         """
         self.maintainer.register_plugin(plugin)
 
     def iter_plugins(self) -> None:
         """
-        Iterate over the available plugins.
+        Return the engine's priority-ordered plugin snapshot.
 
-        :return:
+        Example:
+            >>> worker.iter_plugins()  # doctest: +SKIP
+
+
+        :return: Tuple of plugin instances, despite the None annotation.
         """
         return self.maintainer.iter_plugins()
 
     def run_once(self, *, max_events: int = 128) -> dict[str, "MaintenancePluginResult"]:
         """
-        Preform a single run of the maintenance plugin.
+        Dispatch one bounded event batch synchronously through the engine.
 
-        :param max_events:
-        :return:
+        The background worker remains active; this method adds no synchronization.
+
+        Example:
+            >>> worker.run_once()  # doctest: +SKIP
+
+
+        :param max_events: Combined drain limit, coerced to int and clamped to at least one.
+        :return: Mapping of participating plugin names to MaintenancePluginResult objects.
         """
         return self.maintainer.run_once(max_events=max_events)
 
     def stop(self) -> None:
         """
-        Call stop to shut down the maintenance engine.
+        Request engine shutdown without joining or draining its queues.
 
-        :return:
+        Example:
+            >>> worker.stop()  # doctest: +SKIP
+
+
+        :return: None.
         """
         self.maintainer.stop()
 
@@ -102,14 +139,23 @@ class Maintainer(DatabaseMaintainerAPI):
         db: Optional["DatabaseAPI"] = None,
     ) -> None:
         """
-        Indicate a rename has occurred in a particular table.
+        Dispatch or queue a rename through the bound database's engine.
 
-        :param item_id:
-        :param table:
-        :param value:
-        :param now:
-        :param db:
-        :return:
+        A different db creates a temporary Maintainer, starts it, forwards the request and
+        stops it in finally without joining. With now=False that temporary engine may stop
+        before processing the queued rename.
+
+        Example:
+            >>> worker.rename_item(1, "creators", "New name")  # doctest: +SKIP
+
+
+        :param item_id: Identifier of the row to rename.
+        :param table: Table associated with the row or operation.
+        :param value: Requested new name; event construction converts false values to empty
+            text.
+        :param now: Whether to dispatch synchronously; False enqueues work.
+        :param db: Optional target database; None uses the bound database.
+        :return: None.
         """
         target_db = db if db is not None else self.db
         if target_db is not self.db:
@@ -124,21 +170,35 @@ class Maintainer(DatabaseMaintainerAPI):
 
     def dirty_record(self, table: str, row_id: int) -> None:
         """
-        Note that a record in a table has been dirtied - so metadata can be updated.
+        Forward a changed-row notification to the compatibility queue.
 
-        :param table:
-        :param row_id:
-        :return:
+        The callback sink converts IDs to integers and false text fields to empty strings;
+        errors propagate.
+
+        Example:
+            >>> worker.dirty_record("creators", 1)  # doctest: +SKIP
+
+
+        :param table: Table associated with the row or operation.
+        :param row_id: Row identifier converted to int by event/callback construction.
+        :return: None.
         """
         self.maintainer.callback_sink.dirty_record(table, row_id)
 
     def new_dirty_record(self, table: str, row_id: int) -> None:
         """
-        Proxy which calls new_dirty_record directly on the maintainer.
+        Forward a new-row notification to the manual event queue.
 
-        :param table:
-        :param row_id:
-        :return:
+        The callback sink converts IDs to integers and false text fields to empty strings;
+        errors propagate.
+
+        Example:
+            >>> worker.new_dirty_record("creators", 1)  # doctest: +SKIP
+
+
+        :param table: Table associated with the row or operation.
+        :param row_id: Row identifier converted to int by event/callback construction.
+        :return: None.
         """
         self.maintainer.callback_sink.new_dirty_record(table, row_id)
 
@@ -151,35 +211,58 @@ class Maintainer(DatabaseMaintainerAPI):
         table2_id: int,
     ) -> None:
         """
-        Indicate that an interlink record has been dirtied in a particular table.
+        Forward a relationship notification to the compatibility queue.
 
-        :param update_type:
-        :param table1:
-        :param table2:
-        :param table1_id:
-        :param table2_id:
-        :return:
+        The callback sink converts IDs to integers and false text fields to empty strings;
+        errors propagate.
+
+        Example:
+            >>> worker.dirty_interlink_record("UPDATE", "creators", "titles", 1, 1)  # doctest: +SKIP
+
+
+        :param update_type: Relationship change label; false values become empty text.
+        :param table1: First relationship endpoint table.
+        :param table2: Second relationship endpoint table.
+        :param table1_id: First endpoint identifier, converted to int.
+        :param table2_id: Second endpoint identifier, converted to int.
+        :return: None.
         """
         self.maintainer.callback_sink.dirty_interlink_record(update_type, table1, table2, table1_id, table2_id)
 
     def clean(self, table: str, item_ids: Iterable[int]) -> None:
         """
-        Note that the given item ids should be cleaned from the given table.
+        Call the unfinished legacy cleanup helper with a required ID iterable.
 
-        :param table:
-        :param item_ids:
-        :return:
+        Any non-None item_ids currently reaches raise NotImplemented, which produces
+        TypeError rather than NotImplementedError. This path performs no deletion.
+
+        Example:
+            >>> worker.clean("creators", [1])  # doctest: +SKIP
+
+
+        :param table: Table associated with the row or operation.
+        :param item_ids: Optional restricted ID iterable; this legacy mode is unfinished.
+        :return: None only when the legacy helper returns; ordinary ID iterables raise
+            TypeError.
         """
         legacy_clean(self.db, table, item_ids=item_ids)
 
     def merge(self, table: str, item_1_id: int, item_2_id: int) -> None:
         """
-        Combined the given two items into one, repointing links as required.
+        Repoint registered interlinks from the second row to the first, then delete it.
 
-        :param table:
-        :param item_1_id:
-        :param item_2_id:
-        :return:
+        Iterates other main tables, skipping absent or unregistered link tables. Does not
+        merge scalar row values, intralinks or tree parents. Earlier updates are not rolled
+        back here if a later operation fails.
+
+        Example:
+            >>> worker.merge("creators", 1, 1)  # doctest: +SKIP
+
+
+        :param table: Table associated with the row or operation.
+        :param item_1_id: Surviving row identifier.
+        :param item_2_id: Row identifier to delete after attempting to repoint links.
+        :return: None.
         """
         for main_table in self.db.main_tables:
             if main_table == table:
@@ -210,6 +293,23 @@ class Maintainer(DatabaseMaintainerAPI):
         item_1_id: int,
         item_2_id: int,
     ) -> None:
+        """
+        Replace one endpoint ID in each matching link row and sync it.
+
+        On any sync exception, deletes that link row, assuming a duplicate; unrelated write
+        failures can therefore also trigger deletion. No transaction boundary is added.
+
+        Example:
+            >>> worker._do_merge_one_table("creators", "titles", "creator_title_links", 1, 1)  # doctest: +SKIP
+
+
+        :param src_table: Other endpoint table.
+        :param dst_table: Table containing the surviving and removed IDs.
+        :param link_table: Physical interlink table whose rows are repointed.
+        :param item_1_id: Surviving row identifier.
+        :param item_2_id: Row identifier to delete after attempting to repoint links.
+        :return: None.
+        """
         dst_table_id_col = self.db.driver_wrapper.get_id_column(dst_table)
         link_table_tag_id_col = self.db.driver_wrapper.get_link_column(
             table1=dst_table,

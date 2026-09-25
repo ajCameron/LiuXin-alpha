@@ -1,21 +1,14 @@
-"""Database contract: interlink read methods (chunk 08).
+"""
+Check interlink retrieval, type filtering, priority ordering, and projected values across database backends.
 
-This slice focuses on the *read* surface for many-to-many (interlink) tables:
+Discover schema-dependent shapes and skip unsupported cases. Helper fallbacks may
+choose conventional type labels absent from an empty registry; their names do not
+establish schema validity.
 
-* Database.get_interlink_row()
-* Database.get_interlink_rows()
-* Database.get_interlinked_rows()
-* Database.get_interlink_values()
+Example:
+    Run with pytest::
 
-The contract DB used for these tests is intentionally sparse (test_db_13). We
-therefore create fresh rows + links during each test, so the behaviour is
-deterministic and works across different driver backends.
-
-These tests intentionally exercise DriverWrapper conventions around:
-
-* link table naming / column naming
-* optional priority columns (some links have them, some do not)
-* optional type columns (ditto)
+        python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py
 """
 
 from __future__ import annotations
@@ -46,6 +39,14 @@ PREFERRED_INTERLINK_PAIRS: tuple[tuple[str, str], ...] = (
 
 @dataclass(frozen=True)
 class InterlinkShape:
+    """
+    Hold immutable table, endpoint, and optional priority/type column names for an interlink.
+
+    Example:
+        >>> sh = InterlinkShape('a', 'b', 'a_b', 'a_id', 'b_id', 'a_fk', 'b_fk', None, None)
+        >>> (sh.primary_table, sh.type_link_col)
+        ('a', None)
+    """
     primary_table: str
     secondary_table: str
     link_table: str
@@ -59,16 +60,26 @@ class InterlinkShape:
 
 
 def _pick_text_like_column(cols: Iterable[str], *, base: str, exclude: set[str]) -> str:
-    """Pick a column suitable for stuffing an arbitrary unicode payload.
+    """
+    Choose a payload column using name heuristics, without validating SQL types or constraints.
 
-    Contract tests need to be able to create "distinct" rows in arbitrary tables.
-    Some tables begin with FK/id columns (e.g. folder_store_id), so a naive "first
-    non-excluded" choice will violate foreign keys when we write text into it.
+    Prefer keyword-bearing non-ID, non-time names, then base-name candidates, other safe
+    names, non-ID names, and finally any remaining column. If exclusion removes
+    everything, re-read cols and take its first element: this can select an excluded
+    column or raise IndexError for an empty or exhausted iterable.
 
-    Heuristics:
-    - never pick *_id / *_fk columns unless there is no alternative
-    - avoid timestamp-ish columns
-    - prefer name/title/text/payload/comment/json/path/value-like columns
+    Example:
+        >>> _pick_text_like_column(['book_id', 'book_timestamp', 'book_title'], base='book', exclude=set())
+        'book_title'
+        >>> _pick_text_like_column(['book_id'], base='book', exclude={'book_id'})
+        'book_id'
+
+
+    :param cols: Column names in schema order; a reusable sequence is needed for the
+        all-excluded fallback.
+    :param base: Table base name used to construct candidate payload column names.
+    :param exclude: Column names to exclude from the main candidate list.
+    :return: Chosen column name.
     """
     cols_list = [c for c in cols if c not in exclude]
     if not cols_list:
@@ -76,10 +87,34 @@ def _pick_text_like_column(cols: Iterable[str], *, base: str, exclude: set[str])
         return list(cols)[0]
 
     def is_id_like(c: str) -> bool:
+        """
+        Recognize id itself and names ending in _id or _fk.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py
+
+
+        :param c: Column name to classify case-insensitively.
+        :return: True when the lowercased name matches one of the ID conventions.
+        """
         cl = c.lower()
         return cl.endswith('_id') or cl.endswith('_fk') or cl == 'id'
 
     def is_time_like(c: str) -> bool:
+        """
+        Recognize timestamp/datestamp substrings and the supported epoch suffixes.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py
+
+
+        :param c: Column name to classify case-insensitively.
+        :return: True when the lowercased name resembles a timestamp column.
+        """
         cl = c.lower()
         return (
             'timestamp' in cl
@@ -120,25 +155,43 @@ def _pick_interlink_shape(
     *,
     writable_secondary: bool = False,
 ) -> InterlinkShape:
-    """Pick an interlinkable (primary, secondary) table pair that exists.
+    """
+    Find a preferred or discovered interlink shape, favoring typed links and a permissive uniqueness heuristic.
 
-    Prefer a shape whose link table supports a `type` column if possible, since many contract
-    tests exercise type-aware paths.
+    Try both directions of preferred pairs, then main-table pairs, retaining the first
+    untyped fallback. With writable_secondary, reject languages as the secondary table.
+    If no shape survives, attempt the legacy pytest.SkipTest fallback.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param writable_secondary: Whether to exclude the read-only languages table from the
+        secondary role.
+    :return: First accepted typed shape, otherwise the saved untyped shape.
     """
     dw = open_db.driver_wrapper
 
     def supports_multiple_links_per_primary(sh: InterlinkShape) -> bool:
-        """Return True if the link table can hold multiple secondary links for one primary.
+        """
+        Inspect SQLite unique indexes for restrictions on multiple secondaries per primary.
 
-        The FRBR schema uses *link tables* for several cardinalities (many-many, many-one,
-        one-many, one-one). These contract tests assume a many-many-style table (or
-        many-many-non-exclusive) where a single primary row can link to multiple secondaries.
+        Reject an index containing the primary endpoint but not the secondary when its
+        columns are limited to primary, type, and priority. Missing query support or
+        index-list errors allow the shape; individual index-info failures are ignored.
 
-        We detect "not many-many" by looking for UNIQUE indexes that constrain the primary
-        link column without also including the secondary link column.
+        Example:
+            Run the owning tests with pytest::
 
-        This is intentionally SQLite-specific (PRAGMA index_list / index_info), but these
-        contract suites currently run against SQLite-backed drivers (sqlite3 / apsw).
+                python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py
+
+
+        :param sh: Discovered table pair and its interlink column names.
+        :return: Whether this heuristic permits the shape; not a proof of link cardinality.
         """
 
         # If direct SQL isn't available, fail open (other backends may not expose PRAGMA).
@@ -181,6 +234,22 @@ def _pick_interlink_shape(
         return True
 
     def resolve_pair(a: str, b: str) -> Optional[InterlinkShape]:
+        """
+        Resolve one directed table pair into endpoint and link columns.
+
+        Return None without a link-table name. Required ID/endpoint lookup errors propagate;
+        optional priority/type lookup errors become None.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py
+
+
+        :param a: Candidate primary table name.
+        :param b: Candidate secondary table name.
+        :return: InterlinkShape for the pair, or None when no link table is found.
+        """
         link_table = dw.get_link_table_name(a, b)
         if not link_table:
             return None
@@ -257,14 +326,25 @@ def _pick_interlink_shape(
 
 
 def _pick_allowed_type_for_shape(open_db, sh: "InterlinkShape", *, preferred: str = "authors") -> Optional[str]:
-    """Pick an allowed link `type` for the chosen interlink shape.
+    """
+    Choose a registered type, preferring the requested label and modern registry.
 
-    The FRBR generator may enforce allowed types via either:
+    Use the preferred label if the chosen registry is empty or absent; this does not
+    ensure it satisfies an empty registry’s restrictions.
 
-    * `{link_table}__types` (single column: `type`)
-    * `allowed_types__{link_table}` (legacy pattern; type column ends with `_type`)
+    Example:
+        Run the owning tests with pytest::
 
-    If the shape has no type column, return None.
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param sh: Discovered table pair and its interlink column names.
+    :param preferred: Preferred type label, also used when no nonempty registry supplies
+        a choice.
+    :return: None for an untyped shape, otherwise the preferred or first sorted registry
+        value.
     """
 
     if sh.type_link_col is None:
@@ -273,6 +353,20 @@ def _pick_allowed_type_for_shape(open_db, sh: "InterlinkShape", *, preferred: st
     existing = set(open_db.get_tables(force_refresh=True))
 
     def fresh_get(stmt: str):
+        """
+        Query through a fresh connection and attempt to close it in finally.
+
+        Query errors propagate; ordinary close errors are suppressed.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py
+
+
+        :param stmt: Read statement executed on a fresh driver connection.
+        :return: Driver get result requested with all=True.
+        """
         conn = open_db.driver.get_connection()
         try:
             return conn.get(stmt, all=True)
@@ -317,12 +411,26 @@ def _pick_two_allowed_types_for_shape(
     *,
     preferred: str = "authors",
 ) -> Optional[Tuple[str, str]]:
-    """Pick two distinct allowed link `type` values for the chosen interlink shape.
+    """
+    Choose two distinct registry labels, trying the legacy registry if modern values are empty.
 
-    When an explicit registry exists, we only return values present in that registry.
-    If no registry exists, we return two conventional strings (preferred + a fallback).
+    If neither registry supplies values, return preferred plus editors or roles, even
+    when an empty registry exists. Otherwise deduplicate in order, prefer the requested
+    first label, and require a different second label.
 
-    If we cannot produce two distinct values, return None.
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param sh: Discovered table pair and its interlink column names.
+    :param preferred: Preferred type label, also used when no nonempty registry supplies
+        a choice.
+    :return: Two labels, or None for an untyped shape or a registry with only one
+        distinct value.
     """
 
     if sh.type_link_col is None:
@@ -331,6 +439,20 @@ def _pick_two_allowed_types_for_shape(
     existing = set(open_db.get_tables(force_refresh=True))
 
     def fresh_get(stmt: str):
+        """
+        Query through a fresh connection and attempt to close it in finally.
+
+        Query errors propagate; ordinary close errors are suppressed.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py
+
+
+        :param stmt: Read statement executed on a fresh driver connection.
+        :return: Driver get result requested with all=True.
+        """
         conn = open_db.driver.get_connection()
         try:
             return conn.get(stmt, all=True)
@@ -386,7 +508,27 @@ def _pick_two_allowed_types_for_shape(
 
 
 def _create_distinct_row(open_db, table: str, *, payload: str) -> Row:
-    """Create a writable row and set a stable 'text-like' column to payload."""
+    """
+    Create a payload-bearing row, or select a seeded languages row by CRC32 offset.
+
+    For writable tables, prefer an available scratch column; otherwise exclude the ID
+    and any discoverable foreign-key columns and use a name heuristic. Scratch and
+    foreign-key discovery errors are tolerated. The languages branch performs no write,
+    and different payloads can select the same row.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :param payload: Unicode text used to distinguish test rows; languages uses it as a
+        deterministic selection key.
+    :return: Synced Row, or the existing Row selected from the nonempty languages table.
+    """
     dw = open_db.driver_wrapper
 
     # Some tables are intentionally read-only constants (e.g. `languages`).
@@ -449,7 +591,24 @@ def _create_distinct_row(open_db, table: str, *, payload: str) -> Row:
 
 
 def _interlink(open_db, sh: InterlinkShape, *, primary: Row, secondary: Row, priority, link_type: Optional[str] = None) -> Row:
-    """Create an interlink row, using type only if the schema supports it."""
+    """
+    Create an interlink with priority and, when supported and supplied, a type.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param sh: Discovered table pair and its interlink column names.
+    :param primary: Saved primary Row.
+    :param secondary: Saved secondary Row.
+    :param priority: Priority value forwarded unchanged to Database.interlink_rows.
+    :param link_type: Type label to register or pass to the link operation.
+    :return: Result returned by Database.interlink_rows.
+    """
     kwargs = {"priority": priority}
     if sh.type_link_col is not None and link_type is not None:
         kwargs["type"] = link_type
@@ -457,7 +616,23 @@ def _interlink(open_db, sh: InterlinkShape, *, primary: Row, secondary: Row, pri
 
 
 def _pick_unique_column_for_table(open_db, table: str) -> Optional[str]:
-    """Pick a column name that occurs only in the given table (helps identify_table_from_column)."""
+    """
+    Find a non-generic column name that occurs in only one table’s headings.
+
+    Exclude ID, UUID, path, sort, and date/time-style suffixes. Uniqueness concerns
+    column names across tables, not SQL UNIQUE constraints.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :return: First acceptable column name in table order, or None.
+    """
     toc = open_db.driver.direct_get_tables_and_columns()
     occurrences: dict[str, int] = {}
     for cols in toc.values():
@@ -505,6 +680,19 @@ UNICODE_TORTURE_PAYLOADS: tuple[str, ...] = (
 
 
 def test_get_interlink_row_returns_none_if_unlinked(open_db):
+    """
+    Check an unlinked pair returns None.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py::test_get_interlink_row_returns_none_if_unlinked
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
 
     p = _create_distinct_row(open_db, sh.primary_table, payload="p-unlinked")
@@ -516,6 +704,21 @@ def test_get_interlink_row_returns_none_if_unlinked(open_db):
 
 @pytest.mark.parametrize("payload", UNICODE_TORTURE_PAYLOADS)
 def test_get_interlink_row_roundtrips_one_link(open_db, payload: str):
+    """
+    Create one link and check its table, endpoint IDs, singleton-list form, and available type/priority fields.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py::test_get_interlink_row_roundtrips_one_link
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param payload: Unicode text used to distinguish test rows; languages uses it as a
+        deterministic selection key.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
 
     p = _create_distinct_row(open_db, sh.primary_table, payload=f"p:{payload}")
@@ -549,6 +752,22 @@ def test_get_interlink_row_roundtrips_one_link(open_db, payload: str):
 
 
 def test_get_interlink_row_errors_on_multiple_links_when_possible(open_db):
+    """
+    Check singular retrieval rejects multiple typed links while list retrieval retains them.
+
+    Skip absent type support, insufficient labels, or a second insertion rejected by
+    uniqueness constraints.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py::test_get_interlink_row_errors_on_multiple_links_when_possible
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
 
     p = _create_distinct_row(open_db, sh.primary_table, payload="p-multi")
@@ -581,6 +800,19 @@ def test_get_interlink_row_errors_on_multiple_links_when_possible(open_db):
 
 
 def test_get_interlink_rows_returns_all_links_and_sorts_by_priority_if_present(open_db):
+    """
+    Create three links, check their count and primary IDs, and check ascending priorities when all returned links expose that field.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py::test_get_interlink_rows_returns_all_links_and_sorts_by_priority_if_present
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     link_type = _pick_allowed_type_for_shape(open_db, sh, preferred="authors")
 
@@ -610,6 +842,22 @@ def test_get_interlink_rows_returns_all_links_and_sorts_by_priority_if_present(o
 
 
 def test_get_interlinked_rows_returns_secondary_rows_in_priority_order_when_present(open_db):
+    """
+    Check three retrieved Rows belong to the secondary table and exercise descending priority order when available.
+
+    If secondary IDs are not in the expected order, inspect link-row priorities and
+    assert their descending order when that field is exposed.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py::test_get_interlinked_rows_returns_secondary_rows_in_priority_order_when_present
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     link_type = _pick_allowed_type_for_shape(open_db, sh, preferred="authors")
 
@@ -644,6 +892,19 @@ def test_get_interlinked_rows_returns_secondary_rows_in_priority_order_when_pres
 
 
 def test_get_interlinked_rows_type_filter_when_available(open_db):
+    """
+    Check two type filters return the exact secondary-ID sets assigned to their labels; skip missing type support or labels.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py::test_get_interlinked_rows_type_filter_when_available
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     if sh.type_link_col is None:
         pytest.skip("Link table has no type column; cannot test type_filter")
@@ -673,6 +934,22 @@ def test_get_interlinked_rows_type_filter_when_available(open_db):
 def test_get_interlink_values_returns_set_when_unique_column_available(open_db):
     # This contract writes distinct sentinel values into the secondary rows, so
     # seeded reference tables such as ``languages`` are not valid candidates.
+    """
+    Write two Greek values and check projection returns their exact set.
+
+    Skip when no eligible column name exists; select a shape whose secondary table is
+    not languages.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_read.py::test_get_interlink_values_returns_set_when_unique_column_available
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db, writable_secondary=True)
     link_type = _pick_allowed_type_for_shape(open_db, sh, preferred="authors")
 

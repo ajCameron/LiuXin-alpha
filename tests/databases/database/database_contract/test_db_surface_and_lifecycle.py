@@ -1,14 +1,15 @@
-"""Database contract: surface + lifecycle.
+"""
+Check Database construction, metadata delegation, resource cleanup, driver replacement, and schema-cache refresh.
 
-This module is the first slice of Database-level tests. It focuses on:
+Connection probes accept any ordinary SQL-operation error as evidence of closure.
+File-renaming checks are useful for handle release on Windows but do not establish
+absence of open handles on every platform. Maintainer checks cover object presence
+and stop requests.
 
-* Construction surface: driver/wrapper/macros/queues are wired.
-* Deterministic shutdown: Database.close() + context manager behavior.
-* Handle release: the on-disk DB file can be renamed after close (Windows-meaningful).
-* Driver reload hygiene: Database.set_driver() tears down old wrapper + driver resources.
+Example:
+    Run with pytest::
 
-These tests are intentionally *light* on heavy queries. Their job is to catch
-resource leaks, thread leaks, and reference-cycle bugs early.
+        python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py
 """
 
 from __future__ import annotations
@@ -34,10 +35,22 @@ from LiuXin_alpha.errors import DatabaseIntegrityError
 
 
 def _assert_any_operation_fails(conn) -> None:
-    """Assert that *conn* appears to be closed.
+    """
+    Require at least one available execute or cursor-execute probe to raise an ordinary exception.
 
-    We intentionally accept *any* exception type here, because different
-    backends (sqlite3 / APSW / wrappers) raise different errors.
+    Return without probing when neither operation exists. Passing is best-effort
+    evidence of closure, not proof that every operation fails or that closure caused the
+    exception.
+
+    Example:
+        >>> connection = sqlite3.connect(':memory:')
+        >>> connection.close()
+        >>> _assert_any_operation_fails(connection)
+
+
+    :param conn: Connection-like object to probe; ownership and closure remain with the
+        caller.
+    :return: None; raises AssertionError when every available probe succeeds.
     """
 
     # Some connections expose .execute, some prefer cursor().execute.
@@ -62,9 +75,20 @@ def _assert_any_operation_fails(conn) -> None:
 
 
 def _rename_db_file(db_path: Path) -> Path:
-    """Rename the db file, returning the new path.
+    """
+    Replace a sibling .renamed path with the database file and require the destination to exist.
 
-    This is a reliable proxy for "no open SQLite handles" on Windows.
+    Remove any pre-existing destination first. Filesystem errors propagate; successful
+    renaming is platform-dependent evidence of handle release.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py
+
+
+    :param db_path: Isolated provisioned database file used by this test.
+    :return: New Path; the original pathname has been moved.
     """
 
     new_path = db_path.with_name(db_path.name + ".renamed")
@@ -76,7 +100,19 @@ def _rename_db_file(db_path: Path) -> Path:
 
 
 def test_database_construction_surface(open_db):
-    """Database should expose the key surfaces and wire them consistently."""
+    """
+    Check driver, wrapper, macros, convenience aliases, and a distinct shared lock connection are wired.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_database_construction_surface
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
 
@@ -96,6 +132,19 @@ def test_database_construction_surface(open_db):
 
 
 def test_declared_column_datatype_propagates_through_database_layers(open_db):
+    """
+    Check the metadata unique-ID column reports TEXT through driver, wrapper, and Database APIs.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_declared_column_datatype_propagates_through_database_layers
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     table = "database_metadata"
     column = "database_metadata_unique_id"
 
@@ -105,6 +154,19 @@ def test_declared_column_datatype_propagates_through_database_layers(open_db):
 
 
 def test_link_capabilities_propagate_through_database_layers(open_db):
+    """
+    Check agents-to-works link capabilities agree across layers and match the wrapper’s typed-priority link specification.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_link_capabilities_propagate_through_database_layers
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     table1 = "agents"
     table2 = "works"
 
@@ -136,6 +198,19 @@ def test_link_capabilities_propagate_through_database_layers(open_db):
 
 
 def test_column_case_sensitivity_propagates_through_database_layers(open_db):
+    """
+    Change merge policy and case sensitivity, check metadata agreement across layers, and restore the original metadata in finally.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_column_case_sensitivity_propagates_through_database_layers
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     table = "works"
     column = "work_title"
 
@@ -165,6 +240,21 @@ def test_column_case_sensitivity_propagates_through_database_layers(open_db):
 
 
 def test_column_metadata_field_accessors_propagate_through_database_layers(open_db):
+    """
+    Check metadata field getters across layers, apply all field setters through Database, and compare the resulting metadata.
+
+    Restore the original metadata in finally, including presentation options.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_column_metadata_field_accessors_propagate_through_database_layers
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     table = "works"
     column = "work_title"
     original = open_db.get_column_metadata(table, column)
@@ -235,6 +325,21 @@ def test_column_metadata_field_accessors_propagate_through_database_layers(open_
 def test_normalized_identity_and_canonical_query_propagate_through_database_layers(
     open_db,
 ):
+    """
+    Check tag identity specifications across layers and resolve a unique canonical tag through case/whitespace variants.
+
+    Also require no normalized-identity specification for work_title.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_normalized_identity_and_canonical_query_propagate_through_database_layers
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     table = "tags"
     column = "tag"
     driver_spec = open_db.driver.direct_get_normalized_identity_spec(table, column)
@@ -269,6 +374,21 @@ def test_legacy_database_without_column_metadata_uses_inferred_read_policy(
     db_metadata: dict,
     driver_spec,
 ):
+    """
+    Remove column_metadata from an isolated fixture and check inferred title policy remains readable while metadata writes raise DatabaseIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_legacy_database_without_column_metadata_uses_inferred_read_policy
+
+
+    :param db_path: Isolated provisioned database file used by this test.
+    :param db_metadata: Constructor metadata identifying the isolated database file.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :return: None; failed expectations raise AssertionError.
+    """
     with sqlite3.connect(str(db_path)) as conn:
         conn.execute("DROP TABLE column_metadata")
 
@@ -301,6 +421,21 @@ def test_legacy_column_metadata_without_presentation_options_reads_neutral_defau
     db_metadata: dict,
     driver_spec,
 ):
+    """
+    Remove legacy presentation-option columns and check empty option defaults plus a clear DatabaseIntegrityError on a formatting write.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_legacy_column_metadata_without_presentation_options_reads_neutral_defaults
+
+
+    :param db_path: Isolated provisioned database file used by this test.
+    :param db_metadata: Constructor metadata identifying the isolated database file.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :return: None; failed expectations raise AssertionError.
+    """
     with sqlite3.connect(str(db_path)) as conn:
         conn.execute(
             "ALTER TABLE column_metadata "
@@ -333,7 +468,19 @@ def test_legacy_column_metadata_without_presentation_options_reads_neutral_defau
 
 
 def test_dirty_records_queue_is_shared(open_db):
-    """Database should provide a single shared dirty-record queue."""
+    """
+    Check Database, driver, and wrapper expose the same non-None dirty-record queue.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_dirty_records_queue_is_shared
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     q = getattr(db, "dirty_records_queue", None)
@@ -343,7 +490,19 @@ def test_dirty_records_queue_is_shared(open_db):
 
 
 def test_maintenance_thread_is_started(open_db):
-    """The Maintainer should spawn the background thread on startup."""
+    """
+    Check a maintainer thread object exists and exposes stop, without asserting that it is alive.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_maintenance_thread_is_started
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     maint = getattr(db, "maintenance", None)
@@ -356,7 +515,21 @@ def test_maintenance_thread_is_started(open_db):
 
 
 def test_close_stops_maintenance_thread(open_db):
-    """close() should request the maintainer thread to stop."""
+    """
+    Check close changes the retained maintainer’s keep_running flag from true to false.
+
+    This verifies the stop request, not that thread termination has completed.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_close_stops_maintenance_thread
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     thread = db.maintenance.maintainer
@@ -370,7 +543,19 @@ def test_close_stops_maintenance_thread(open_db):
 
 
 def test_close_is_idempotent(open_db):
-    """Calling close() multiple times should not raise."""
+    """
+    Call Database.close three times and require all calls to complete without raising.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_close_is_idempotent
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     db.close()
@@ -379,7 +564,19 @@ def test_close_is_idempotent(open_db):
 
 
 def test_close_clears_convenience_aliases(open_db):
-    """close() should clear the legacy convenience aliases that keep handles alive."""
+    """
+    Check close clears previously populated conn, get, and lock convenience aliases.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_close_clears_convenience_aliases
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     assert getattr(db, "conn", None) is not None
@@ -394,7 +591,19 @@ def test_close_clears_convenience_aliases(open_db):
 
 
 def test_close_releases_driver_and_wrapper_connections(open_db):
-    """close() should close both the primary and lock connections."""
+    """
+    Check close clears the driver and wrapper connection references and the captured handles satisfy the best-effort closed-resource probe.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_close_releases_driver_and_wrapper_connections
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     driver = db.driver
@@ -417,9 +626,20 @@ def test_close_releases_driver_and_wrapper_connections(open_db):
 
 
 def test_close_allows_renaming_db_file(db_path: Path, driver_spec, db_metadata: dict):
-    """After Database.close(), the database file should be renamable.
+    """
+    Open and close a Database in try/finally, then require its file to be renamable.
 
-    This is a strong proxy for "no open SQLite handles" on Windows.
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_close_allows_renaming_db_file
+
+
+    :param db_path: Isolated provisioned database file used by this test.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :param db_metadata: Constructor metadata identifying the isolated database file.
+    :return: None; failed expectations raise AssertionError.
     """
 
     from LiuXin_alpha.databases.database import Database
@@ -435,7 +655,21 @@ def test_close_allows_renaming_db_file(db_path: Path, driver_spec, db_metadata: 
 
 
 def test_context_manager_closes_on_normal_exit(db_path: Path, driver_spec, db_metadata: dict):
-    """Using Database as a context manager should always close resources."""
+    """
+    Check live connections inside a Database context and require the file to be renamable after normal exit.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_context_manager_closes_on_normal_exit
+
+
+    :param db_path: Isolated provisioned database file used by this test.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :param db_metadata: Constructor metadata identifying the isolated database file.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     from LiuXin_alpha.databases.database import Database
 
@@ -447,7 +681,21 @@ def test_context_manager_closes_on_normal_exit(db_path: Path, driver_spec, db_me
 
 
 def test_database_can_open_without_maintenance_service(db_path: Path, driver_spec, db_metadata: dict):
-    """Read-only callers can skip the background maintainer for faster startup."""
+    """
+    Open with maintenance disabled, check both maintainer references are None and a count query works, then rename the file after exit.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_database_can_open_without_maintenance_service
+
+
+    :param db_path: Isolated provisioned database file used by this test.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :param db_metadata: Constructor metadata identifying the isolated database file.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     from LiuXin_alpha.databases.database import Database
 
@@ -466,11 +714,33 @@ def test_database_can_open_without_maintenance_service(db_path: Path, driver_spe
 
 
 def test_context_manager_closes_and_propagates_exceptions(db_path: Path, driver_spec, db_metadata: dict):
-    """__exit__ should close resources and not swallow exceptions."""
+    """
+    Raise a sentinel inside a Database context, require it to propagate, and rename the file afterward.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_context_manager_closes_and_propagates_exceptions
+
+
+    :param db_path: Isolated provisioned database file used by this test.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :param db_metadata: Constructor metadata identifying the isolated database file.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     from LiuXin_alpha.databases.database import Database
 
     class _Sentinel(Exception):
+        """
+        Identify the intentional context-body exception used to verify propagation and cleanup.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_context_manager_closes_and_propagates_exceptions
+        """
         pass
 
     with pytest.raises(_Sentinel):
@@ -481,7 +751,19 @@ def test_context_manager_closes_and_propagates_exceptions(db_path: Path, driver_
 
 
 def test_break_cycles_then_close_is_safe(open_db):
-    """Even if break_cycles() runs early, close() should not explode."""
+    """
+    Call break_cycles before close and require both calls to complete without raising.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_break_cycles_then_close_is_safe
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     db.break_cycles()
@@ -489,7 +771,19 @@ def test_break_cycles_then_close_is_safe(open_db):
 
 
 def test_wrapper_close_then_database_close_is_safe(open_db):
-    """If the wrapper is closed early, Database.close() should remain safe."""
+    """
+    Close the wrapper first, then require Database.close to complete without raising.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_wrapper_close_then_database_close_is_safe
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     wrapper = db.driver_wrapper
@@ -498,7 +792,22 @@ def test_wrapper_close_then_database_close_is_safe(open_db):
 
 
 def test_existing_driver_init_requires_metadata_none(db_metadata: dict, driver_spec):
-    """existing_driver init path should enforce metadata=None (by design)."""
+    """
+    Check combining constructor metadata with an existing driver raises AssertionError.
+
+    Attempt driver closure in finally and suppress ordinary cleanup errors.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_existing_driver_init_requires_metadata_none
+
+
+    :param db_metadata: Constructor metadata identifying the isolated database file.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     from LiuXin_alpha.databases.database import Database
     from LiuXin_alpha.databases.database_driver_plugins.registry import (
@@ -518,7 +827,20 @@ def test_existing_driver_init_requires_metadata_none(db_metadata: dict, driver_s
 
 
 def test_existing_driver_init_wires_db_refs(db_metadata: dict, driver_spec):
-    """Database(existing_driver=...) should backfill db refs on driver + macros."""
+    """
+    Wrap an existing driver and check Database references on the driver, wrapper, and macros; close the Database in finally.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_existing_driver_init_wires_db_refs
+
+
+    :param db_metadata: Constructor metadata identifying the isolated database file.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     from LiuXin_alpha.databases.database import Database
     from LiuXin_alpha.databases.database_driver_plugins.registry import (
@@ -540,7 +862,21 @@ def test_existing_driver_init_wires_db_refs(db_metadata: dict, driver_spec):
 
 
 def test_existing_driver_init_close_releases_handles(db_path: Path, db_metadata: dict, driver_spec):
-    """Database(existing_driver=...) should still release file handles on close."""
+    """
+    Construct from an existing driver, close the Database, and require its file to be renamable.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_existing_driver_init_close_releases_handles
+
+
+    :param db_path: Isolated provisioned database file used by this test.
+    :param db_metadata: Constructor metadata identifying the isolated database file.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     from LiuXin_alpha.databases.database import Database
     from LiuXin_alpha.databases.database_driver_plugins.registry import (
@@ -556,7 +892,22 @@ def test_existing_driver_init_close_releases_handles(db_path: Path, db_metadata:
 
 
 def test_set_driver_replaces_wrapper_and_closes_old_resources(open_db, db_metadata: dict, driver_spec):
-    """set_driver() should close the previous wrapper lock connection and driver conn."""
+    """
+    Replace the driver, check old connection references are cleared and fail closure probes, and check new connection objects exist.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_set_driver_replaces_wrapper_and_closes_old_resources
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param db_metadata: Constructor metadata identifying the isolated database file.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     from LiuXin_alpha.databases.database_driver_plugins.registry import (
         load_database_driver,
@@ -592,7 +943,21 @@ def test_set_driver_replaces_wrapper_and_closes_old_resources(open_db, db_metada
 
 
 def test_set_driver_with_same_driver_keeps_primary_conn(open_db):
-    """Calling set_driver with the same driver should not close the primary conn."""
+    """
+    Reinstall the same driver and check primary-connection identity is retained while the wrapper and lock are replaced.
+
+    Probe the old lock for closure; the retained primary connection is not queried here.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_set_driver_with_same_driver_keeps_primary_conn
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     driver = db.driver
@@ -615,7 +980,22 @@ def test_set_driver_with_same_driver_keeps_primary_conn(open_db):
 
 
 def test_set_driver_then_close_cleans_new_driver(open_db, db_metadata: dict, driver_spec):
-    """If we swap drivers, a subsequent close() should clean the new resources too."""
+    """
+    Replace the driver, close the Database, and check the new connection references clear and retained handles satisfy closure probes.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_set_driver_then_close_cleans_new_driver
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param db_metadata: Constructor metadata identifying the isolated database file.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     from LiuXin_alpha.databases.database_driver_plugins.registry import (
         load_database_driver,
@@ -639,7 +1019,23 @@ def test_set_driver_then_close_cleans_new_driver(open_db, db_metadata: dict, dri
 
 
 def test_wrapper_derived_schema_caches_reset_on_force_refresh(open_db, monkeypatch):
-    """Wrapper-level derived schema caches should avoid redundant recompute and reset on refresh."""
+    """
+    Count base-column lookups to check repeated link-table discovery is cached and forced table refresh causes recomputation.
+
+    Skip when no linkable table pair can be discovered.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_wrapper_derived_schema_caches_reset_on_force_refresh
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     wrapper = open_db.driver_wrapper
 
@@ -666,6 +1062,18 @@ def test_wrapper_derived_schema_caches_reset_on_force_refresh(open_db, monkeypat
     original = wrapper.driver.direct_get_column_base
 
     def counted(table_name):
+        """
+        Increment the enclosing call counter and delegate to the original base-column lookup.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_surface_and_lifecycle.py::test_wrapper_derived_schema_caches_reset_on_force_refresh
+
+
+        :param table_name: Table name forwarded to direct_get_column_base.
+        :return: Original lookup result; its errors propagate.
+        """
         calls["count"] += 1
         return original(table_name)
 

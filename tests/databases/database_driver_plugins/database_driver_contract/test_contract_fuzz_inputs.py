@@ -1,22 +1,16 @@
-"""Driver contract: fuzzed unicode/whitespace/control-char handling.
+"""
+Exercise exact text preservation, search, update, unique-value, random-row, and deletion contracts with seeded Unicode data.
 
-This module is intentionally "long": it generates a deterministic corpus of
-"random-ish" unicode strings and repeatedly round-trips them through a handful
-of core driver methods.
+LIUXIN_CONTRACT_FUZZ_CASES, LIUXIN_CONTRACT_FUZZ_MAXLEN, and
+LIUXIN_CONTRACT_FUZZ_SEED are parsed as integers at import, defaulting to 320,
+12000, and 0xC0FFEE. Fixed test indices require at least 214 rows for the complete
+suite. Length clipping applies only to generated combinations, not the nineteen
+explicit edge cases.
 
-Why?
-- Unicode handling tends to fail in subtle ways (normalization, trimming,
-  lossy conversions, control characters, bidi marks).
-- Many drivers accidentally coerce/strip/normalize values during insert/read.
+Example:
+    Run with pytest::
 
-Contract expectations (strict):
-- Values inserted into TEXT columns must be retrieved *exactly* (byte-for-byte
-  at the Python str level).
-- The driver must not apply unicode normalization implicitly.
-- Odd whitespace and control characters must remain intact.
-
-We keep this deterministic so failures are reproducible across platforms and
-future drivers.
+        python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_fuzz_inputs.py
 """
 
 from __future__ import annotations
@@ -40,6 +34,14 @@ _FUZZ_SEED = int(os.environ.get("LIUXIN_CONTRACT_FUZZ_SEED", str(0xC0FFEE)))
 
 @dataclass(frozen=True)
 class FuzzRow:
+    """
+    Hold frozen raw text, its independently prepared NFC text, and grouping tag/kind fields.
+
+    Example:
+        >>> row = FuzzRow('plain', 'plain', 'tag', 'edge')
+        >>> (row.raw, row.kind)
+        ('plain', 'edge')
+    """
     raw: str
     nfc: str
     tag: str
@@ -48,6 +50,18 @@ class FuzzRow:
 
 def _interesting_atoms() -> List[str]:
     # A curated set of atoms that, when combined, produce lots of edge cases.
+    """
+    Build an ordered pool of whitespace, bidi, script, emoji, punctuation, SQL-shaped, combining, and control fragments.
+
+    Example:
+        >>> atoms = _interesting_atoms()
+        >>> ('ASCII' in atoms, '😀' in atoms, chr(0) in ''.join(atoms))
+        (True, True, False)
+
+
+    :return: Fresh list; an atom can contain multiple characters and no random state is
+        consumed.
+    """
     whitespace = [
         " ",
         "\t",
@@ -146,6 +160,17 @@ def _interesting_atoms() -> List[str]:
 
 def _explicit_edge_cases() -> List[str]:
     # Strings we always want, regardless of RNG.
+    """
+    Build nineteen unconditional cases covering empty text, whitespace, NUL, normalization, scripts, and emoji.
+
+    Example:
+        >>> cases = _explicit_edge_cases()
+        >>> (len(cases), cases[0], chr(0) in cases[6])
+        (19, '', True)
+
+
+    :return: Fresh ordered list independent of the seed or maximum generated length.
+    """
     return [
         "",  # empty
         " ",
@@ -170,6 +195,27 @@ def _explicit_edge_cases() -> List[str]:
 
 
 def _make_fuzz_rows(n: int, *, seed: int, maxlen: int) -> List[FuzzRow]:
+    """
+    Start with all nineteen edge rows and append seeded combinations until the requested count is reached.
+
+    Use a private Random instance, preserving global random state. Generated strings may
+    gain whitespace, combining marks, and repetition before slicing when longer than
+    maxlen. Explicit cases are never clipped. Compute NFC separately and assign
+    deterministic cycling tags and kinds.
+
+    Example:
+        >>> rows = _make_fuzz_rows(0, seed=7, maxlen=0)
+        >>> (len(rows), rows[10].raw == rows[10].nfc, rows[10].kind)
+        (19, False, 'edge')
+
+
+    :param n: Requested minimum row count; values below nineteen retain every explicit
+        edge.
+    :param seed: Seed for the private pseudo-random generator.
+    :param maxlen: Slice limit for generated text; negative values retain Python slicing
+        semantics.
+    :return: List of max(n, 19) FuzzRow values; inputs are not range-validated.
+    """
     rng = random.Random(seed)
     atoms = _interesting_atoms()
 
@@ -230,11 +276,37 @@ def _make_fuzz_rows(n: int, *, seed: int, maxlen: int) -> List[FuzzRow]:
 @pytest.fixture(scope="session")
 def fuzz_rows() -> Sequence[FuzzRow]:
     # Ensure determinism even if global random is used elsewhere.
+    """
+    Freeze one seeded corpus for all session fixture consumers using the import-time settings.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_fuzz_inputs.py
+
+
+    :return: Tuple of generated FuzzRow values, including every explicit edge case.
+    """
     return tuple(_make_fuzz_rows(_DEFAULT_CASES, seed=_FUZZ_SEED, maxlen=_DEFAULT_MAXLEN))
 
 
 @pytest.fixture
 def fuzz_table(driver) -> str:
+    """
+    Drop and recreate the fuzz table with four required text fields and a default timestamp.
+
+    Refresh the table-name cache and assert the table is visible.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_fuzz_inputs.py
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :return: Trusted table name; the isolated database fixture owns cleanup.
+    """
     table = _CONTRACT_TABLE
     sql = f"""
     DROP TABLE IF EXISTS `{table}`;
@@ -254,6 +326,19 @@ def fuzz_table(driver) -> str:
 
 @pytest.fixture
 def fuzz_cols(fuzz_table: str) -> dict:
+    """
+    Map fuzz field roles to concrete columns prefixed by the supplied table name.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_fuzz_inputs.py
+
+
+    :param fuzz_table: Freshly recreated contract table for raw, normalized, tag, and
+        kind fields.
+    :return: Fresh id/raw/nfc/tag/kind/datestamp mapping.
+    """
     t = fuzz_table
     return {
         "id": f"{t}_id",
@@ -266,6 +351,23 @@ def fuzz_cols(fuzz_table: str) -> dict:
 
 
 def _insert_row(driver, cols: dict, row: FuzzRow) -> int:
+    """
+    Insert all four FuzzRow text fields and infer the ID from the highest contract-table ID.
+
+    Require a non-None ID and assume no competing insert into the fixed contract table.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_fuzz_inputs.py
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param cols: Column mapping supplying raw, nfc, tag, and kind names.
+    :param row: FuzzRow whose four fields are passed through unchanged.
+    :return: Highest ID converted to int.
+    """
     driver.direct_add_simple_row_dict(
         {
             cols["raw"]: row.raw,
@@ -280,7 +382,26 @@ def _insert_row(driver, cols: dict, row: FuzzRow) -> int:
 
 
 def test_fuzz_insert_fetch_exact_roundtrip(driver, fuzz_table: str, fuzz_cols: dict, fuzz_rows: Sequence[FuzzRow], assert_integrity):
-    """Insert many fuzz rows; each must read back exactly."""
+    """
+    Read each inserted corpus row immediately and compare all four text fields exactly, then require a timestamp and integrity.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_fuzz_inputs.py::test_fuzz_insert_fetch_exact_roundtrip
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param fuzz_table: Freshly recreated contract table for raw, normalized, tag, and
+        kind fields.
+    :param fuzz_cols: Mapping from fuzz field roles to concrete column names.
+    :param fuzz_rows: Session corpus built from the configured deterministic seed and
+        size.
+    :param assert_integrity: Fixture callable checking the first retained
+        integrity_check result for ok.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     # Insert and immediately round-trip (catches encoding issues early).
     for row in fuzz_rows:
@@ -302,7 +423,22 @@ def test_fuzz_insert_fetch_exact_roundtrip(driver, fuzz_table: str, fuzz_cols: d
 
 
 def test_fuzz_no_implicit_unicode_normalization(driver, fuzz_table: str, fuzz_cols: dict):
-    """The driver must not normalize unicode strings implicitly."""
+    """
+    Store decomposed and precomposed acute-accent text and require their distinct raw forms to survive.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_fuzz_inputs.py::test_fuzz_no_implicit_unicode_normalization
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param fuzz_table: Freshly recreated contract table for raw, normalized, tag, and
+        kind fields.
+    :param fuzz_cols: Mapping from fuzz field roles to concrete column names.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     decomposed = "e\u0301"  # e + combining acute
     composed = "\u00e9"     # é
@@ -324,7 +460,22 @@ def test_fuzz_no_implicit_unicode_normalization(driver, fuzz_table: str, fuzz_co
 
 
 def test_fuzz_whitespace_and_controls_survive(driver, fuzz_table: str, fuzz_cols: dict):
-    """Leading/trailing whitespace, bidi marks, and NUL/control chars must persist."""
+    """
+    Round-trip eight whitespace, bidi, NUL, and control payloads with exact text and length equality.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_fuzz_inputs.py::test_fuzz_whitespace_and_controls_survive
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param fuzz_table: Freshly recreated contract table for raw, normalized, tag, and
+        kind fields.
+    :param fuzz_cols: Mapping from fuzz field roles to concrete column names.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     payloads = [
         "  both  ",
@@ -350,7 +501,27 @@ def test_fuzz_whitespace_and_controls_survive(driver, fuzz_table: str, fuzz_cols
 
 
 def test_fuzz_exact_match_search_is_safe_and_correct(driver, fuzz_table: str, fuzz_cols: dict, fuzz_rows: Sequence[FuzzRow]):
-    """direct_search_table should round-trip exact matches even for weird strings."""
+    """
+    Insert the first eighty and last twenty-five corpus rows, then sample distinct texts for exact-match search.
+
+    Each result must be a list containing at least one exact raw value; unrelated extra
+    results are not rejected.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_fuzz_inputs.py::test_fuzz_exact_match_search_is_safe_and_correct
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param fuzz_table: Freshly recreated contract table for raw, normalized, tag, and
+        kind fields.
+    :param fuzz_cols: Mapping from fuzz field roles to concrete column names.
+    :param fuzz_rows: Session corpus built from the configured deterministic seed and
+        size.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     # Insert a smaller subset to keep this test faster.
     subset = list(fuzz_rows[:80]) + list(fuzz_rows[-25:])
@@ -372,7 +543,29 @@ def test_fuzz_exact_match_search_is_safe_and_correct(driver, fuzz_table: str, fu
 
 
 def test_fuzz_update_roundtrip(driver, fuzz_table: str, fuzz_cols: dict, fuzz_rows: Sequence[FuzzRow], assert_integrity):
-    """Updating fuzz rows must preserve exact values."""
+    """
+    Update every third row from corpus positions ten through forty-nine using later payloads and compare all updated fields.
+
+    The fixed update slice starts at position two hundred; an undersized configured
+    corpus can raise IndexError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_fuzz_inputs.py::test_fuzz_update_roundtrip
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param fuzz_table: Freshly recreated contract table for raw, normalized, tag, and
+        kind fields.
+    :param fuzz_cols: Mapping from fuzz field roles to concrete column names.
+    :param fuzz_rows: Session corpus built from the configured deterministic seed and
+        size.
+    :param assert_integrity: Fixture callable checking the first retained
+        integrity_check result for ok.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     # Seed a handful of rows.
     base_rows = list(fuzz_rows[10:50])
@@ -407,7 +600,24 @@ def test_fuzz_update_roundtrip(driver, fuzz_table: str, fuzz_cols: dict, fuzz_ro
 
 
 def test_fuzz_unique_values_set_and_iterator_agree(driver, fuzz_table: str, fuzz_cols: dict, fuzz_rows: Sequence[FuzzRow]):
-    """Unique-value helpers must behave consistently under unicode pressure."""
+    """
+    Insert 140 rows with seven Unicode tags and require both unique-value helpers to agree and include every tag.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_fuzz_inputs.py::test_fuzz_unique_values_set_and_iterator_agree
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param fuzz_table: Freshly recreated contract table for raw, normalized, tag, and
+        kind fields.
+    :param fuzz_cols: Mapping from fuzz field roles to concrete column names.
+    :param fuzz_rows: Session corpus built from the configured deterministic seed and
+        size.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     # Insert rows with a controlled (but unicode-rich) set of tags.
     tags = [
@@ -434,7 +644,24 @@ def test_fuzz_unique_values_set_and_iterator_agree(driver, fuzz_table: str, fuzz
 
 
 def test_fuzz_random_row_does_not_crash(driver, fuzz_table: str, fuzz_cols: dict, fuzz_rows: Sequence[FuzzRow]):
-    """Random-row retrieval should always return a sane dict with fuzzed content."""
+    """
+    Seed sixty rows and require twenty-five random selections to be dictionaries containing a string raw field.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_fuzz_inputs.py::test_fuzz_random_row_does_not_crash
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param fuzz_table: Freshly recreated contract table for raw, normalized, tag, and
+        kind fields.
+    :param fuzz_cols: Mapping from fuzz field roles to concrete column names.
+    :param fuzz_rows: Session corpus built from the configured deterministic seed and
+        size.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     # Seed enough rows for randomness to be meaningful.
     for i in range(60):
@@ -448,7 +675,26 @@ def test_fuzz_random_row_does_not_crash(driver, fuzz_table: str, fuzz_cols: dict
 
 
 def test_fuzz_delete_rows_and_recheck_integrity(driver, fuzz_table: str, fuzz_cols: dict, fuzz_rows: Sequence[FuzzRow], assert_integrity):
-    """Deletes should work even when ids were created by heavy unicode inserts."""
+    """
+    Delete every fourth ID from ninety rows, require all victims absent and the first fifteen survivors present, then check integrity.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_fuzz_inputs.py::test_fuzz_delete_rows_and_recheck_integrity
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param fuzz_table: Freshly recreated contract table for raw, normalized, tag, and
+        kind fields.
+    :param fuzz_cols: Mapping from fuzz field roles to concrete column names.
+    :param fuzz_rows: Session corpus built from the configured deterministic seed and
+        size.
+    :param assert_integrity: Fixture callable checking the first retained
+        integrity_check result for ok.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     ids: List[int] = []
     for i in range(90):

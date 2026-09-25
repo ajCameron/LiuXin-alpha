@@ -78,9 +78,9 @@ class ReplicationPolicy:
         >>> policy.effective_target_copies
         3
 
-
     :ivar name: Policy label retained without constructor-level nonblank validation.
-    :ivar min_copies: Required minimum copy count; numeric comparisons are checked without integer coercion.
+    :ivar min_copies: Required minimum copy count;
+                      numeric comparisons are checked without integer coercion.
     :ivar target_copies: Desired copy count, or None to use min_copies.
     :ivar distinct_by: Nonempty sequence of separation dimensions; entries are not normalized or validated here.
     :ivar max_copies_per_bucket: Maximum counted copies sharing each declared dimension bucket; must compare at least one.
@@ -266,6 +266,8 @@ class BackupPolicy:
         return self.min_copies if self.target_copies is None else self.target_copies
 
 
+# Todo: This ... should be a subclasses row? Or give the option to sync back to the database
+# Todo: This may be true for all record holder classes
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicationPolicyRecord:
     """
@@ -293,6 +295,7 @@ class ReplicationPolicyRecord:
     revision: str | None = None
 
 
+# Todo: See above comments on records
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupPolicyRecord:
     """
@@ -318,6 +321,7 @@ class BackupPolicyRecord:
     revision: str | None = None
 
 
+# Todo: Still not clear why they want this?
 @dataclasses.dataclass(slots=True, frozen=True)
 class ResolvedStoragePolicies:
     """
@@ -414,6 +418,7 @@ class StoragePolicyAssessment:
             raise ValueError("meeting a target implies meeting its minimum.")
 
 
+# Todo: Be good to include "can_be_replaced" details.
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetStorageAssessment:
     """
@@ -604,13 +609,14 @@ class DigitalAssetStorageAssessment:
         return not self.recoverable
 
 
+# Todo: How do we tell if this plan can be implemented.
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetReplicationPlan:
     """
     Carry proposed destination, verification, removal, and exact-recreation work for an Asset.
 
-    Construction adds no validation of IDs, Store UUIDs, conflicts, or current feasibility. The
-    value reserves no destination and executes no action; callers must apply current execution
+    Construction adds no validation of IDs, Store UUIDs, conflicts, or current feasibility.
+    The value reserves no destination and executes no action; callers must apply current execution
     preconditions before acting.
 
     Example:
@@ -640,6 +646,7 @@ class DigitalAssetReplicationPlan:
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetBackupPlan:
     """
+    # Todo: This seems to be too many things for one object
     Carry proposed backup destinations, source claims, verification, and removal work.
 
     The frozen value does not validate identities, enforce retention locks, reserve Stores, or

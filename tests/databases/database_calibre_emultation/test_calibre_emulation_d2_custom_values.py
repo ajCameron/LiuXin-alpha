@@ -1,3 +1,11 @@
+"""
+Check Calibre custom-value decoding through direct reads and streamed book payloads for scalar, multi-text, series, and datetime inputs.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_d2_custom_values.py
+"""
 from __future__ import annotations
 
 import pytest
@@ -7,6 +15,23 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generat
 
 
 def _payload_by_id(reader: CalibreReader, book_id: int, **kwargs):
+    """
+    Return the first streamed payload whose calibre_book_id matches the requested ID.
+
+    Use batch_size=50; kwargs must not supply a second batch_size value.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_d2_custom_values.py
+
+
+    :param reader: Reader whose payload iterator is searched.
+    :param book_id: Calibre book ID to match exactly.
+    :param kwargs: Keyword options forwarded to iter_book_payloads.
+    :return: Matching payload; raises AssertionError after exhaustion if the ID is
+        absent.
+    """
     for p in reader.iter_book_payloads(batch_size=50, **kwargs):
         if p.calibre_book_id == book_id:
             return p
@@ -14,6 +39,20 @@ def _payload_by_id(reader: CalibreReader, book_id: int, **kwargs):
 
 
 def _assert_roundtrip_value(*, datatype: str, actual, expected) -> None:
+    """
+    Compare float values with absolute error below 1e-9 and all other datatypes with equality.
+
+    Example:
+        >>> _assert_roundtrip_value(datatype='float', actual=3.25, expected=3.25)
+        >>> _assert_roundtrip_value(datatype='text', actual='café', expected='café')
+
+
+    :param datatype: Parametrized custom-column datatype.
+    :param actual: Decoded value to compare.
+    :param expected: Expected decoded value.
+    :return: None; failed comparisons raise AssertionError and incompatible arithmetic
+        errors propagate.
+    """
     if datatype == "float":
         assert abs(actual - expected) < 1e-9
         return
@@ -39,6 +78,22 @@ def test_d2_roundtrips_single_custom_value_matrix(
     value,
     expected,
 ) -> None:
+    """
+    Check eight scalar custom datatypes decode to the expected values through both read_custom_values and payload iteration.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_d2_custom_values.py::test_d2_roundtrips_single_custom_value_matrix
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :param datatype: Parametrized custom-column datatype.
+    :param value: Builder input value for the custom column.
+    :param expected: Expected decoded value.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name=f"lib_d2_{datatype}")
     b = CalibreLibraryBuilder(lib.root)
 
@@ -61,6 +116,19 @@ def test_d2_roundtrips_single_custom_value_matrix(
 
 
 def test_d2_reads_text_multi_values_with_stable_order_and_dedupe(provision_calibre_library) -> None:
+    """
+    Write repeated text values and check both read paths return the exact first-seen sequence a, b, c.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_d2_custom_values.py::test_d2_reads_text_multi_values_with_stable_order_and_dedupe
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_d2_text_multi")
     b = CalibreLibraryBuilder(lib.root)
 
@@ -99,6 +167,23 @@ def test_d2_series_custom_column_accepts_supported_input_shapes(
     expected_name: str,
     expected_index: float,
 ) -> None:
+    """
+    Check tuple, mapping, and plain series inputs produce the expected name/index through both read paths.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_d2_custom_values.py::test_d2_series_custom_column_accepts_supported_input_shapes
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :param value: Builder input value for the custom column.
+    :param extra: Optional explicit series index passed alongside the builder value.
+    :param expected_name: Expected decoded series name.
+    :param expected_index: Expected decoded numeric series index.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name=f"lib_d2_series_{expected_index}".replace(".", "_"))
     b = CalibreLibraryBuilder(lib.root)
 
@@ -134,6 +219,25 @@ def test_d2_normalizes_datetime_custom_column_values(
     raw_value,
     mode: str,
 ) -> None:
+    """
+    Insert raw datetime values directly and check string-shaped normalized output through both read paths.
+
+    The epoch branch accepts a UTC suffix or any string containing 2023; the ISO branch
+    checks the timestamp prefix and a UTC marker rather than whole-string equality.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_d2_custom_values.py::test_d2_normalizes_datetime_custom_column_values
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :param raw_value: Parametrized epoch integer or ISO timestamp inserted into the
+        dynamic value table.
+    :param mode: Parametrized epoch or iso-z branch selecting the output assertions.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name=f"lib_d2_datetime_{mode}")
     b = CalibreLibraryBuilder(lib.root)
 

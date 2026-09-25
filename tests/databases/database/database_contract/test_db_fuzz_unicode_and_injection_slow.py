@@ -1,22 +1,15 @@
-"""Database contract: slow fuzz for unicode + injection-shaped data (chunk 15).
+"""
+Stress Database search and CRUD with Unicode and SQL-looking payloads under the slow marker.
 
-These tests are intentionally heavier than the rest of the contract suite.
-They aim to stress Database-level surfaces while acting as proxy coverage for
-the underlying driver/wrapper layers.
+Bulk helpers use fresh driver connections with best-effort commit/close behavior.
+Random choices use the module-wide random state; this module does not seed it.
+Assertions cover schema names, sentinel text/group fields, sampled retrieval
+consistency, and integrity.
 
-Run explicitly with:
-    pytest -m slow
+Example:
+    Run with pytest::
 
-Design notes
-------------
-* We operate through the Database instance (search, get_values_set, get_row_from_id)
-  while performing bulk DDL/DML using short-lived driver connections to avoid any
-  stale-connection issues during metadata refresh.
-* We treat SQL-injection-shaped strings strictly as inert data and verify that
-  schema and sentinel rows are not modified as a consequence of inserts/searches.
-* We include a small set of "hazard" unicode payloads (e.g. unpaired surrogates).
-  Drivers may reasonably reject these; if so, we assert that the database remains
-  consistent and continue.
+        python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py
 """
 
 from __future__ import annotations
@@ -35,6 +28,14 @@ from LiuXin_alpha.databases.row import Row
 
 @dataclass(frozen=True)
 class ContractTable:
+    """
+    Hold immutable table and column names for one node-specific fuzz fixture.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py
+    """
     name: str
     id_col: str
     scratch_col: str
@@ -44,17 +45,54 @@ class ContractTable:
 
 
 def _stable_suffix(nodeid: str) -> str:
+    """
+    Hash a UTF-8 pytest node ID to a ten-character SHA-1 suffix.
+
+    Example:
+        >>> _stable_suffix('abc')
+        'a9993e3647'
+
+
+    :param nodeid: Node ID encoded with strict UTF-8.
+    :return: First ten lowercase hexadecimal digest characters; encoding failures
+        propagate.
+    """
     return hashlib.sha1(nodeid.encode("utf-8")).hexdigest()[:10]
 
 
 def _stable_hash_text(s: str) -> str:
-    """Stable hash even for strings that don't encode cleanly."""
+    """
+    Hash text with UTF-8 backslash replacement for otherwise unencodable characters.
+
+    Example:
+        >>> _stable_hash_text('abc')
+        'a9993e364706'
+        >>> len(_stable_hash_text(chr(0xD800)))
+        12
+
+
+    :param s: Text payload to encode and hash.
+    :return: First twelve lowercase SHA-1 hexadecimal characters; a test key, not a
+        uniqueness guarantee.
+    """
 
     b = s.encode("utf-8", errors="backslashreplace")
     return hashlib.sha1(b).hexdigest()[:12]
 
 
 def _commit(conn) -> None:
+    """
+    Try connection.commit, then SQL COMMIT on failure, suppressing failure of the fallback.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py
+
+
+    :param conn: Caller-owned connection, left open.
+    :return: None; does not guarantee that a commit succeeded.
+    """
     try:
         conn.commit()
     except Exception:
@@ -65,6 +103,24 @@ def _commit(conn) -> None:
 
 
 def _exec_sql(db, stmt: str, bindings: tuple | None = None) -> None:
+    """
+    Execute a statement on a fresh driver connection and request a best-effort commit.
+
+    Require get_connection, propagate statement errors, and attempt close in finally
+    while suppressing ordinary close errors.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py
+
+
+    :param db: Caller-owned Database; this helper does not close the Database itself.
+    :param stmt: SQL statement passed directly to a fresh driver cursor.
+    :param bindings: Optional bound parameter tuple; None executes without a bindings
+        argument.
+    :return: None; may mutate database contents.
+    """
     driver = getattr(db, "driver", None)
     if driver is None or not hasattr(driver, "get_connection"):
         raise RuntimeError("Database has no driver with get_connection()")
@@ -85,6 +141,24 @@ def _exec_sql(db, stmt: str, bindings: tuple | None = None) -> None:
 
 
 def _exec_many(db, stmt: str, seq: Sequence[tuple]) -> None:
+    """
+    Try cursor executemany, connection executemany, then per-row execution on a fresh connection.
+
+    Any ordinary error triggers the next batch fallback without rollback, so partially
+    applied rows can be retried. Request best-effort commit and attempt close in
+    finally; final execution errors propagate.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py
+
+
+    :param db: Caller-owned Database; this helper does not close the Database itself.
+    :param stmt: SQL statement passed directly to a fresh driver cursor.
+    :param seq: Reiterable sequence of binding tuples passed through each fallback.
+    :return: None; no atomicity or successful-commit guarantee.
+    """
     driver = getattr(db, "driver", None)
     if driver is None or not hasattr(driver, "get_connection"):
         raise RuntimeError("Database has no driver with get_connection()")
@@ -111,6 +185,24 @@ def _exec_many(db, stmt: str, seq: Sequence[tuple]) -> None:
 
 
 def _fetch_all(db, stmt: str, bindings: tuple | None = None) -> list[tuple]:
+    """
+    Execute a query on a fresh driver connection and materialize all fetched rows.
+
+    Require get_connection; propagate query errors and suppress ordinary close errors in
+    finally.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py
+
+
+    :param db: Caller-owned Database; this helper does not close the Database itself.
+    :param stmt: SQL statement passed directly to a fresh driver cursor.
+    :param bindings: Optional bound parameter tuple; None executes without a bindings
+        argument.
+    :return: List of rows returned by fetchall; no explicit commit occurs.
+    """
     driver = getattr(db, "driver", None)
     if driver is None or not hasattr(driver, "get_connection"):
         raise RuntimeError("Database has no driver with get_connection()")
@@ -131,15 +223,49 @@ def _fetch_all(db, stmt: str, bindings: tuple | None = None) -> list[tuple]:
 
 
 def _list_tables(db) -> set[str]:
+    """
+    Read SQLite physical-table names through the fresh-connection query helper.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py
+
+
+    :param db: Caller-owned Database; this helper does not close the Database itself.
+    :return: Set of non-None table names converted to strings, including SQLite internal
+        tables.
+    """
     rows = _fetch_all(db, "SELECT name FROM sqlite_master WHERE type='table'")
     return {str(r[0]) for r in rows if r and r[0] is not None}
 
 
 def _pick_non_nul_payloads(payloads: Sequence[str]) -> list[str]:
+    """
+    Copy payloads lacking embedded NUL characters while preserving order and duplicates.
+
+    Example:
+        >>> _pick_non_nul_payloads(['a', 'bad' + chr(0), 'a'])
+        ['a', 'a']
+
+
+    :param payloads: Sequence of strings to filter.
+    :return: New list of retained strings.
+    """
     return [p for p in payloads if "\x00" not in p]
 
 
 def _extra_unicode_snippets() -> list[str]:
+    """
+    Build a fresh list of multilingual, combining, bidirectional, and emoji snippets.
+
+    Example:
+        >>> len(_extra_unicode_snippets())
+        17
+
+
+    :return: Seventeen fixed strings used by the randomized payload builder.
+    """
     return [
         "Καλημέρα κόσμε",  # Greek
         "Привет мир",  # Russian
@@ -162,7 +288,22 @@ def _extra_unicode_snippets() -> list[str]:
 
 
 def _random_payloads(n: int) -> list[str]:
-    """Generate deterministic random-ish strings from multiple alphabets."""
+    """
+    Build strings from Unicode snippets, punctuation, ASCII noise, and whitespace using global random state.
+
+    Append 8192 x characters at indices divisible by thirty-one, including zero, then
+    remove duplicate strings in first-seen order. Repeatability depends on the caller’s
+    random state.
+
+    Example:
+        >>> _random_payloads(0)
+        []
+
+
+    :param n: Number of generation attempts.
+    :return: List containing at most n generated strings; nonpositive n yields an empty
+        list.
+    """
 
     snippets = _extra_unicode_snippets()
     punct = "'\"`~!@#$%^&*()-_=+[]{}|;:,.<>/?\\"
@@ -193,7 +334,16 @@ def _random_payloads(n: int) -> list[str]:
 
 
 def _hazard_payloads() -> list[str]:
-    """Strings that may be rejected by backends (acceptable)."""
+    """
+    Build the two payloads containing unpaired high and low surrogate characters.
+
+    Example:
+        >>> [hex(ord(s[-1])) for s in _hazard_payloads()]
+        ['0xd800', '0xdfff']
+
+
+    :return: Fresh list of strings that a backend may reject during encoding.
+    """
 
     # Unpaired surrogates are legal in Python str but often illegal to encode as UTF-8.
     return [
@@ -204,6 +354,22 @@ def _hazard_payloads() -> list[str]:
 
 @pytest.fixture
 def fuzz_table(open_db, request) -> ContractTable:
+    """
+    Create a node-specific table, seed or replace its sentinel row, and attempt schema-cache refreshes.
+
+    Ignore ordinary refresh failures; the database fixture owns persisted test objects.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param request: Pytest request whose node ID determines the hashed table suffix.
+    :return: ContractTable describing the created table.
+    """
     suf = _stable_suffix(request.node.nodeid)
 
     table = ContractTable(
@@ -258,7 +424,31 @@ def test_slow_fuzz_bulk_insert_roundtrip_and_no_schema_damage(
     sql_injection_payloads: Sequence[str],
     assert_integrity,
 ):
-    """Bulk insert many unicode + injection-shaped payloads and validate invariants."""
+    """
+    Bulk-insert corpus and random strings, permit surrogate rejection, and check table names, sentinel presence, group values, sampled lookup agreement, and integrity.
+
+    Sampled text equality compares two retrieved values after NFC normalization.
+    SQL-looking searches may return no matches; nonempty matches must include the exact
+    payload. The sentinel numeric field and the unused alternate-suffix lookup are not
+    asserted.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py::test_slow_fuzz_bulk_insert_roundtrip_and_no_schema_damage
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param fuzz_table: Descriptor of the provisioned fuzz table and its sentinel row.
+    :param all_torture_payloads: Combined ordered Unicode and SQL-looking fixture
+        corpus.
+    :param sql_injection_payloads: Fixture sequence of SQL-looking strings used as bound
+        data.
+    :param assert_integrity: Fixture callable checking SQLite integrity through the
+        supplied database or driver.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     safe_payloads = _pick_non_nul_payloads(all_torture_payloads)
     safe_payloads = list(dict.fromkeys(safe_payloads))  # preserve order, dedupe
@@ -357,9 +547,40 @@ def test_slow_fuzz_random_crud_sequences_do_not_corrupt(
     pick_payload,
     assert_integrity,
 ):
-    """Perform randomized insert/update/delete cycles and ensure the DB stays consistent."""
+    """
+    Seed twenty-five rows and perform 220 randomized CRUD/search actions with periodic integrity checks.
+
+    Finish by sampling tracked IDs and checking their scratch keys. Updates check
+    scratch-key retrieval rather than exact new payload content.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py::test_slow_fuzz_random_crud_sequences_do_not_corrupt
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param fuzz_table: Descriptor of the provisioned fuzz table and its sentinel row.
+    :param pick_payload: Fixture callable selecting a corpus payload by index.
+    :param assert_integrity: Fixture callable checking SQLite integrity through the
+        supplied database or driver.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     def _safe_payload(i: int) -> str:
+        """
+        Read a corpus payload and remove any embedded NUL characters.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py::test_slow_fuzz_random_crud_sequences_do_not_corrupt
+
+
+        :param i: Index passed to the enclosing pick_payload fixture.
+        :return: Filtered string; other Unicode characters are retained.
+        """
         p = pick_payload(i)
         if "\x00" in p:
             p = p.replace("\x00", "")
@@ -368,6 +589,19 @@ def test_slow_fuzz_random_crud_sequences_do_not_corrupt(
     live: dict[str, int] = {}  # scratch -> id
 
     def _insert(i: int) -> None:
+        """
+        Insert a uniquely keyed sequence row, query its ID, and add it to the live tracking map.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py::test_slow_fuzz_random_crud_sequences_do_not_corrupt
+
+
+        :param i: Sequence number used in payload selection, scratch key, group, and numeric
+            value.
+        :return: None; writes the database and mutates the enclosing live mapping.
+        """
         payload = _safe_payload(i)
         scratch = f"seq_{i}_{_stable_hash_text(payload)}"
         grp = f"S{(i % 5)}"
@@ -386,6 +620,17 @@ def test_slow_fuzz_random_crud_sequences_do_not_corrupt(
         live[scratch] = int(rid[0][0])
 
     def _update() -> None:
+        """
+        Update one randomly chosen live row and check it remains searchable by scratch key.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py::test_slow_fuzz_random_crud_sequences_do_not_corrupt
+
+
+        :return: None; returns immediately when no rows are tracked.
+        """
         if not live:
             return
         scratch = random.choice(list(live.keys()))
@@ -401,6 +646,17 @@ def test_slow_fuzz_random_crud_sequences_do_not_corrupt(
         assert got and got[0][fuzz_table.scratch_col] == scratch
 
     def _delete() -> None:
+        """
+        Delete one randomly chosen live row, remove its tracking entry, and check search returns no rows.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py::test_slow_fuzz_random_crud_sequences_do_not_corrupt
+
+
+        :return: None; returns immediately when no rows are tracked.
+        """
         if not live:
             return
         scratch = random.choice(list(live.keys()))
@@ -415,6 +671,18 @@ def test_slow_fuzz_random_crud_sequences_do_not_corrupt(
 
     def _search_noise(i: int) -> None:
         # Search for values that may or may not exist.
+        """
+        Search a corpus payload and check the result is a list containing only Row instances.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_fuzz_unicode_and_injection_slow.py::test_slow_fuzz_random_crud_sequences_do_not_corrupt
+
+
+        :param i: Index used to select and NUL-filter the search payload.
+        :return: None; does not require any match.
+        """
         needle = _safe_payload(i)
         got = open_db.search(table=fuzz_table.name, column=fuzz_table.text_col, search_term=needle)
         assert isinstance(got, list)

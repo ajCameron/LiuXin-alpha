@@ -1,3 +1,11 @@
+"""
+Check schema inspection and catalog-writer behavior using provisioned test_db_13 databases.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/caches/test_storage_cache_real_db_regressions.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -12,6 +20,23 @@ def test_storage_cache_schema_spec_tolerates_scratchless_helper_tables(
     provision_named_test_database,
     tmp_path,
 ) -> None:
+    """
+    Check two helper tables lack scratch columns and the optional-NumPy cache still loads works.
+
+    The Database context closes after the assertion.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_real_db_regressions.py::test_storage_cache_schema_spec_tolerates_scratchless_helper_tables
+
+
+    :param provision_named_test_database: Fixture factory that copies a named test
+        database into an isolated location.
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_named_test_database(name="test_db_13", dst_dir=tmp_path)
 
     with Database(metadata={"database_path": str(provisioned.db_path)}) as db:
@@ -31,6 +56,24 @@ def test_storage_cache_catalog_writer_round_trips_through_real_database(
     provision_named_test_database,
     tmp_path,
 ) -> None:
+    """
+    Seed typed-link tables and check scalar writes, rejected live role types without value creation, and accepted author links.
+
+    The SQLite connection context manages the schema-seeding transaction; the later
+    Database context manages Database cleanup.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_real_db_regressions.py::test_storage_cache_catalog_writer_round_trips_through_real_database
+
+
+    :param provision_named_test_database: Fixture factory that copies a named test
+        database into an isolated location.
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_named_test_database(name="test_db_13", dst_dir=tmp_path)
     with sqlite3.connect(provisioned.db_path) as connection:
         connection.executescript(

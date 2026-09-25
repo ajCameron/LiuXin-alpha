@@ -1,7 +1,13 @@
-"""FRBR generator: languages constant table.
+"""
+Check language reference columns, representative seed data and write-lock triggers.
 
-The FRBR-first schema treats `languages` as a seeded, locked reference table.
-This makes language identifiers stable across imports and link-table usage.
+Builds and closes a fresh SQLite catalogue; requires a substantial language corpus
+without pinning its entire contents.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_frbr_languages_constants_table.py
 """
 
 from __future__ import annotations
@@ -12,6 +18,22 @@ import pytest
 
 
 def test_languages_table_seeded_and_locked(tmp_path):
+    """
+    Require language metadata columns, at least 100 rows and English/French spot checks.
+
+    Checks rejection of an insert and the existence of insert/update/delete lock
+    triggers. It does not directly exercise update or delete rejection.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_languages_constants_table.py::test_languages_table_seeded_and_locked
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
         database_generator as frbr_gen,
     )

@@ -23,10 +23,12 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.stores import (
 )
 
 
+# Todo: "error" might be recoverable or not... worth making the distinction
 class StorageOperationalSeverity(StrEnum):
     """
-    Classify an operator-visible condition as information, warning, or error. The enum does not
-    itself schedule recovery or determine whether a particular Store can be read.
+    Classify an operator-visible condition as information, warning, or error.
+
+    The enum does not itself schedule recovery or determine whether a particular Store can be read.
 
     Example:
         >>> StorageOperationalSeverity.ERROR.value
@@ -38,6 +40,8 @@ class StorageOperationalSeverity(StrEnum):
     ERROR = "error"
 
 
+# Todo: Add the capacity to pull the store log table?
+# Todo: Need to build out the logger
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageOperationalIssue:
     """
@@ -140,11 +144,13 @@ class StorageRecoveryAction:
             raise ValueError("recovery action reason must not be empty.")
 
 
+# Todo: It'd be good if we could store a history of status in this class
 @dataclasses.dataclass(slots=True, frozen=True)
 class StorageOperationalStatus:
     """
-    Retain a timestamp, Store observations, issues, and suggested recovery actions. The timestamp
-    must be aware; supplied collections are not copied, coerced, or cross-validated. healthy derives
+    Retain a timestamp, Store observations, issues, and suggested recovery actions.
+
+    The timestamp must be aware; supplied collections are not copied, coerced, or cross-validated. healthy derives
     only from issue severities and does not independently inspect Store status or execute suggested
     actions.
 

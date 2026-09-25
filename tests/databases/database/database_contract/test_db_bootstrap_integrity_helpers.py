@@ -1,16 +1,10 @@
-"""Database contract: bootstrap integrity helpers.
+"""
+Check bootstrap rating and sentinel rows, repair opt-out, and direct repair helpers across selected drivers.
 
-This chunk validates the Database startup invariants enforced by:
+Example:
+    Run with pytest::
 
-* :meth:`LiuXin_alpha.databases.database.Database.check_rating_table`
-* :meth:`LiuXin_alpha.databases.database.Database.ensure_null_rows`
-
-These methods are called during Database initialization, but we also exercise
-them directly to ensure they remain:
-
-* correct
-* idempotent
-* able to repair mild corruption
+        python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py
 """
 
 from __future__ import annotations
@@ -24,19 +18,39 @@ from LiuXin_alpha.databases.bootstrap_constants import AGENTS_NULL_CANONICAL_NAM
 
 def _expected_rating_value(rating_id: int) -> float:
     # rating_id 1..11 => 0.0..5.0 step 0.5
+    """
+    Map a rating ID to the half-step value (ID minus one) divided by two.
+
+    Example:
+        >>> [_expected_rating_value(i) for i in (1, 3, 11)]
+        [0.0, 1.0, 5.0]
+
+
+    :param rating_id: Numeric rating ID used in the arithmetic.
+    :return: Floating-point expected rating; the helper does not restrict the input to
+        IDs one through eleven.
+    """
     return float(rating_id - 1) / 2.0
 
 
 def _fresh_get(db, stmt: str, *, all: bool = True):
-    """Run a query on a fresh short-lived driver connection.
+    """
+    Query through a new driver connection to avoid stale aliases on Database.
 
-    The Database object exposes convenience aliases (db.get/db.conn). Those are
-    deliberately treated as *best-effort* conveniences: drivers may refresh or
-    replace their long-lived `driver.conn` during cache invalidation or
-    introspection, and the bound method alias can become stale.
+    Attempt to close the connection in finally and suppress ordinary close exceptions.
+    Connection creation and query failures propagate.
 
-    Using a fresh connection here keeps these tests deterministic while still
-    validating database contents.
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py
+
+
+    :param db: Open Database supplied by the shared fixture or caller; this helper does
+        not close the Database.
+    :param stmt: SQL query forwarded without bound parameters.
+    :param all: Result-shape flag passed to conn.get; defaults to True.
+    :return: Result returned by conn.get with the requested all flag.
     """
 
     conn = db.driver.get_connection()
@@ -50,6 +64,20 @@ def _fresh_get(db, stmt: str, *, all: bool = True):
 
 
 def _fetch_ratings(db) -> list[tuple[int, float]]:
+    """
+    Read ratings by ID through a fresh connection and convert ID/value pairs to int and float.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py
+
+
+    :param db: Open Database supplied by the shared fixture or caller; this helper does
+        not close the Database.
+    :return: List of ordered (rating_id, rating_value) tuples; query/conversion errors
+        propagate.
+    """
     rows = _fresh_get(db, "SELECT rating_id, rating FROM ratings ORDER BY rating_id")
     out: list[tuple[int, float]] = []
     for rid, rating in rows:
@@ -58,7 +86,21 @@ def _fetch_ratings(db) -> list[tuple[int, float]]:
 
 
 def test_fresh_database_bootstrap_creates_ratings_and_null_rows(tmp_path: Path, driver_spec):
-    """A brand-new DB should end up with ratings + null rows after init."""
+    """
+    Open a new database path and check eleven half-step ratings, the null series, and the canonical organisation sentinel; close in finally.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_fresh_database_bootstrap_creates_ratings_and_null_rows
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     from LiuXin_alpha.databases.database import Database
 
@@ -88,7 +130,21 @@ def test_fresh_database_bootstrap_creates_ratings_and_null_rows(tmp_path: Path, 
 
 
 def test_database_init_can_skip_bootstrap_repairs(tmp_path: Path, driver_spec):
-    """Read-only probes can opt out of startup helpers that repair rows."""
+    """
+    Corrupt a rating and null-series value, reopen with bootstrap repair disabled, and check both values remain changed; close both Database instances.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_database_init_can_skip_bootstrap_repairs
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     from LiuXin_alpha.databases.database import Database
 
@@ -131,7 +187,19 @@ def test_database_init_can_skip_bootstrap_repairs(tmp_path: Path, driver_spec):
 
 
 def test_check_rating_table_is_idempotent(open_db):
-    """Calling check_rating_table repeatedly should not change correct data."""
+    """
+    Call rating repair once and check the complete ordered rating snapshot is unchanged.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_check_rating_table_is_idempotent
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     before = _fetch_ratings(db)
@@ -142,7 +210,20 @@ def test_check_rating_table_is_idempotent(open_db):
 
 @pytest.mark.parametrize("rating_id", [1, 2, 3, 6, 11])
 def test_check_rating_table_repairs_corrupt_rating_value(open_db, rating_id: int):
-    """If a rating row's value is wrong, check_rating_table should correct it."""
+    """
+    Replace a selected rating with an incorrect value and check repair restores its expected half-step value.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_check_rating_table_repairs_corrupt_rating_value
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param rating_id: Selected existing rating ID whose value is deliberately corrupted.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     row = db.get_row_from_id("ratings", rating_id)
@@ -161,7 +242,20 @@ def test_check_rating_table_repairs_corrupt_rating_value(open_db, rating_id: int
 
 @pytest.mark.parametrize("missing_id", [1, 5, 10, 11])
 def test_check_rating_table_reinserts_missing_rows(open_db, missing_id: int):
-    """If a rating row is missing, check_rating_table should recreate it."""
+    """
+    Delete a selected rating row and check repair recreates it with the expected value.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_check_rating_table_reinserts_missing_rows
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param missing_id: Selected rating ID deleted before testing reinsertion.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     row = db.get_row_from_id("ratings", missing_id)
@@ -178,7 +272,19 @@ def test_check_rating_table_reinserts_missing_rows(open_db, missing_id: int):
 
 
 def test_check_rating_table_accepts_string_ids(open_db):
-    """The ratings helper historically used string ids; ensure it still works."""
+    """
+    Check the wrapper accepts string ID three and returns rating row three.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_check_rating_table_accepts_string_ids
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     # We use the underlying wrapper call, because it returns raw dicts.
@@ -188,7 +294,19 @@ def test_check_rating_table_accepts_string_ids(open_db):
 
 
 def test_ensure_null_rows_is_idempotent(open_db):
-    """ensure_null_rows should be safe to call repeatedly."""
+    """
+    Call sentinel repair three times and check the expected series and agent sentinel fields.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_ensure_null_rows_is_idempotent
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     db.ensure_null_rows()
@@ -206,7 +324,19 @@ def test_ensure_null_rows_is_idempotent(open_db):
 
 
 def test_ensure_null_rows_repairs_series_null_value(open_db):
-    """If the series null row has a value, ensure_null_rows should reset it to None."""
+    """
+    Change the null series to text and check sentinel repair restores None.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_ensure_null_rows_repairs_series_null_value
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     row = db.get_row_from_id("series", 0)
@@ -223,7 +353,19 @@ def test_ensure_null_rows_repairs_series_null_value(open_db):
 
 
 def test_ensure_null_rows_repairs_agents_null_value(open_db):
-    """If the agents null row is missing required values, ensure_null_rows should repair it."""
+    """
+    Change the agent sentinel type/name and check repair restores the canonical organisation fields.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_ensure_null_rows_repairs_agents_null_value
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     row = db.get_row_from_id("agents", 0)
@@ -243,7 +385,19 @@ def test_ensure_null_rows_repairs_agents_null_value(open_db):
 
 
 def test_rating_table_expected_shape(open_db):
-    """Sanity: ratings table should contain exactly the expected ids + values."""
+    """
+    Check the complete rating list equals IDs one through eleven with their expected half-step values.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_rating_table_expected_shape
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     db = open_db
     ratings = _fetch_ratings(db)

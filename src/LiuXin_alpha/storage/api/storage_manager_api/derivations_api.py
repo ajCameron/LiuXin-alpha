@@ -24,6 +24,7 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 )
 
 
+# Todo: More examples as to what this is for - pulling an image from online? (I don't know)
 @runtime_checkable
 class ReproductionRecipeArtifactResolverAPI(Protocol):
     """
@@ -73,6 +74,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         >>> record = manager.record_digital_asset_derivation(declaration)  # doctest: +SKIP
     """
 
+    # Todo: Again, we need a convenience method for this
     @abc.abstractmethod
     def record_digital_asset_derivation(
         self,
@@ -150,6 +152,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         """
         ...
 
+    # Todo: Let's have some examples of this
     def iter_derivation_ancestors(
         self,
         digital_asset_id: DigitalAssetID,
@@ -227,6 +230,8 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         )
         return iter(graph.derivation_records)
 
+    # Todo: Some way of displaying the graph should be included in surfaces
+    # Todo: Be good to be able to get the graph between the two assets
     @abc.abstractmethod
     def get_derivation_graph(
         self,
@@ -269,6 +274,7 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
         """
         ...
 
+    # Todo: If we've also stored intermediate steps, then we can recreate from those...
     @abc.abstractmethod
     def plan_digital_asset_recreation(
         self,
@@ -287,7 +293,6 @@ class DigitalAssetDerivationRegistryAPI(abc.ABC):
             >>> plan = manager.plan_digital_asset_recreation(DigitalAssetID(9))  # doctest: +SKIP
             >>> plan.can_recreate_exactly  # doctest: +SKIP
             True
-
 
         :param digital_asset_id: Registered atomic result whose availability or exact recreation route should be assessed.
         :return: Plan containing selected steps, availability evidence, alternatives, and warnings; an unavailable plan is a valid result.

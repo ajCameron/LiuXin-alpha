@@ -1,3 +1,9 @@
+
+# Todo: I think this is more useful than a legacy shim - should be noted
+# Todo: If we have SingleFileStatus, we should also have SingleFile - which lets us get at the bytes (I know we don't like File, preferring asset - so perhals this should be renamed - we need an easily understood public surface)
+# Todo: SingleFile/SingleAsset should be able to
+#       - Check the replication/backup status of the file
+
 """
 Retain legacy per-file status and backend callbacks without metadata ownership.
 
@@ -13,6 +19,7 @@ from typing import Callable, Optional
 import time
 
 
+# Todo: Rename to SingleAssetStatus
 class SingleFileStatus:
     """
     Cache backend-supplied file status behind read-only public properties. Initialization obtains

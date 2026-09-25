@@ -6,6 +6,8 @@ distinct boundaries. Source readers are closed by wrappers that open them;
 caller-provided stream ownership remains with the caller. Concrete managers supply
 publication/recovery behavior and may override identified or native transfer paths.
 """
+# Todo: Add this to all files - and switch to using annotations primarily as type hinting
+from __future__ import annotations
 
 import abc
 import dataclasses
@@ -39,6 +41,7 @@ from LiuXin_alpha.storage.api.store_api.ingest_source_api import (
 )
 
 
+# Todo: Formatting wise, we have some run on lines in the docstrings
 class DigitalAssetIngestAPI(abc.ABC):
     """
     Define streamed publication, source-Store transfer, and adoption of existing bytes.
@@ -93,13 +96,16 @@ class DigitalAssetIngestAPI(abc.ABC):
         :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
         :param expected_size: Optional exact remaining byte count checked after consumption; it is not a read limit.
         :param expected_digests: Expected digests to compare with computed input bytes; ordinary ingest also computes SHA-256.
+        # Todo: We should probably record that an injest event has occured somewhere "what are the unregistered file on an injested store" is a good question to ask
         :param item_id: Optional Item identity to link after registration; None omits linking.
+        # Todo: This should, probably, be an enumerate list
         :param role: Optional link role; None selects primary_payload when item_id is supplied.
         :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
         :param placement_hints: Advisory destination placement metadata, retained in retry identity and forwarded during publication.
         :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
         :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
         :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+
         :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
         """
         ...
@@ -146,6 +152,7 @@ class DigitalAssetIngestAPI(abc.ABC):
         :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
         :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
         :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+
         :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
         """
         return self.ingest_stream(
@@ -163,7 +170,9 @@ class DigitalAssetIngestAPI(abc.ABC):
         )
 
     def ingest_bytes(
-        self, data: bytes, *, operation_id: UUID | None = None,
+        self, data: bytes,
+        *,
+        operation_id: UUID | None = None,
         expected_digests: tuple[Digest, ...] = (),
         item_id: ItemID | None = None, role: str | None = None,
         metadata: DigitalAssetMetadata | None = None,
@@ -172,6 +181,7 @@ class DigitalAssetIngestAPI(abc.ABC):
         replica_mode: ReplicaMode = ReplicaMode.ACTIVE, verify: bool = True,
     ) -> DigitalAssetIngestResult:
         """
+        # Todo: Check - just call this to add bytes to the system?
         Wrap an in-memory payload in BytesIO and delegate with its exact length as the size
         expectation.
 
@@ -181,7 +191,6 @@ class DigitalAssetIngestAPI(abc.ABC):
 
         Example:
             >>> result = manager.ingest_bytes(b"cover", item_id=ItemID(9), role="cover")  # doctest: +SKIP
-
 
         :param data: In-memory bytes copied into a new BytesIO reader.
         :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
@@ -193,6 +202,7 @@ class DigitalAssetIngestAPI(abc.ABC):
         :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
         :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
         :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+
         :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
         """
 
@@ -244,6 +254,7 @@ class DigitalAssetIngestAPI(abc.ABC):
         :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
         :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
         :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+
         :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
         """
 
@@ -279,6 +290,7 @@ class DigitalAssetIngestAPI(abc.ABC):
                 verify=verify,
             )
 
+    # Todo: Clearer name - ingest_object_from_store - but keep this as an alias
     def ingest_store_object(
         self,
         source: StoreAPI,
@@ -309,7 +321,6 @@ class DigitalAssetIngestAPI(abc.ABC):
         Example:
             >>> result = manager.ingest_store_object(source_store, source_store.stat(location))  # doctest: +SKIP
 
-
         :param source: Configured source Store supplying inventory/stat metadata and readable bytes.
         :param info: Source Location, size, digest, and optional version evidence; no fresh stat is implicit here.
         :param operation_id: Optional logical-operation UUID; None allocates a new one. Completed retries require an equal normalized request.
@@ -320,6 +331,7 @@ class DigitalAssetIngestAPI(abc.ABC):
         :param preferred_store_ref: Optional destination Store UUID; None selects the manager default.
         :param replica_mode: Requested mode for a new or selected destination Replica; default ACTIVE.
         :param verify: Whether to inspect the registered Replica after publication/reuse; False still permits identity hashing and Store commit checks.
+
         :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
         """
 
@@ -390,10 +402,11 @@ class DigitalAssetIngestAPI(abc.ABC):
                 verify=verify,
             )
 
+    # Todo: Bad naming - it's doesn't have to be a prepared object in a store? Just prepared_object? Or clarify the doc string.
     def ingest_prepared_store_object(
         self,
         source: StoreAPI,
-        prepared: PreparedIngestObject,
+        prepared: "PreparedIngestObject",
         *,
         operation_id: UUID | None = None,
         item_id: ItemID | None = None,
@@ -474,9 +487,13 @@ class DigitalAssetIngestAPI(abc.ABC):
                 verify=verify,
             )
 
+    # Todo: If we have a location... why do we need to adopt it? Spec use case
     @abc.abstractmethod
     def adopt_location(
-        self, location: Location, *, operation_id: UUID | None = None,
+        self,
+        location: Location,
+        *,
+        operation_id: UUID | None = None,
         digital_asset_id: DigitalAssetID | None = None,
         item_id: ItemID | None = None, role: str | None = None,
         metadata: DigitalAssetMetadata | None = None,
@@ -506,7 +523,9 @@ class DigitalAssetIngestAPI(abc.ABC):
         :param metadata: Optional Asset description used for a new identity; existing deduplicated Asset metadata is retained.
         :param replica_mode: Mode for a newly created claim, default UNMANAGED; a reused claim retains its mode.
         :param verify: Request another Replica verification after registration; False still hashes bytes for adoption identity.
-        :return: Completed ingest result, including creation/deduplication flags and reported verification; failures may follow publication or earlier metadata writes.
+
+        :return: Completed ingest result, including creation/deduplication flags and reported verification;
+                 failures may follow publication or earlier metadata writes.
         """
         ...
 

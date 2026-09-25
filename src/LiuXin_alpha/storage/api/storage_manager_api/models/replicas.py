@@ -130,6 +130,7 @@ class ReplicaObservation:
             raise ValueError("failure_reason must not be empty when supplied.")
 
 
+# Todo: Should this include a callback function so we can recheck the existence of the replica later?
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaDeclaration:
     """
@@ -146,7 +147,6 @@ class ReplicaDeclaration:
         ... )
         >>> declaration.mode is ReplicaMode.ACTIVE
         True
-
 
     :ivar digital_asset_id: Asset ID rejected when it compares at or below zero, without integer-type or repository checks.
     :ivar location: Claimed concrete Store Location; this constructor does not inspect it.
@@ -363,7 +363,6 @@ class ReplicaVerificationReport:
         >>> report.healthy
         True
 
-
     :ivar replica_id: Attributed Replica ID, without positivity or repository validation here.
     :ivar digital_asset_id: Attributed Asset ID, without ownership verification here.
     :ivar state: Reported Replica state used by the healthy predicate.
@@ -450,7 +449,6 @@ class DigitalAssetVerificationReport:
         >>> report.readable
         False
 
-
     :ivar digital_asset_id: Asset attributed to the aggregate without constructor validation.
     :ivar replica_reports: Ordered retained reports, potentially representing only part of the Asset population.
     """
@@ -495,7 +493,6 @@ class ReplicaRemovalReport:
         >>> report.tombstone_retained
         True
 
-
     :ivar replica_id: Replica identity attributed to the removal.
     :ivar bytes_deleted: Whether the workflow reports executing its byte-deletion step.
     :ivar replica_forgotten: Whether the workflow reports removing the record.
@@ -510,6 +507,7 @@ class ReplicaRemovalReport:
     warnings: tuple[str, ...] = ()
 
 
+# Todo: Again, not an API thing...
 def _require_aware_datetime(value: datetime | None, field_name: str) -> None:
     """
     Accept None or require both a timezone attribute and a non-None UTC offset.

@@ -85,6 +85,8 @@ class CompositeDigitalAssetMembership:
                 raise ValueError(f"{field_name} must not contain NUL characters.")
 
 
+
+# Todo: Just to check - you use a declaration to get a record? Does this really need to be two classes?
 @dataclasses.dataclass(slots=True, frozen=True)
 class CompositeDigitalAssetDeclaration:
     """
@@ -193,6 +195,7 @@ class CompositeDigitalAssetRecord:
             raise ValueError("revision must not be empty when supplied.")
 
 
+# Todo: Be good to check the values for the individual elements of the composite assets
 @dataclasses.dataclass(slots=True, frozen=True)
 class CompositeDigitalAssetAvailabilityAssessment:
     """
@@ -254,6 +257,7 @@ class CompositeDigitalAssetAvailabilityAssessment:
         )
 
 
+# Todo: Should not be here...
 def _validate_composite_members(
     members: tuple[CompositeDigitalAssetMembership, ...],
 ) -> None:

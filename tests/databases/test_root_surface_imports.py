@@ -1,7 +1,24 @@
+"""
+Check database owner imports and built-in driver registry names.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_root_surface_imports.py
+"""
 from __future__ import annotations
 
 
 def test_database_owners_expose_expected_helpers() -> None:
+    """
+    Check callable utility helpers and nonempty custom-column constants on their owning modules.
+
+    Example:
+        >>> test_database_owners_expose_expected_helpers()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     import LiuXin_alpha.databases.constants as database_constants
     import LiuXin_alpha.databases.utils as database_utils
 
@@ -13,6 +30,15 @@ def test_database_owners_expose_expected_helpers() -> None:
 
 
 def test_database_owners_expose_concrete_types() -> None:
+    """
+    Check imported database types are present and link policy enums retain expected string values.
+
+    Example:
+        >>> test_database_owners_expose_concrete_types()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.column_metadata import (
         ColumnMergePolicy,
         ColumnMetadata,
@@ -38,6 +64,15 @@ def test_database_owners_expose_concrete_types() -> None:
 
 
 def test_database_driver_registry_lists_builtins() -> None:
+    """
+    Check that SQLite, SQLite_apsw, and PostgreSQL are registered, allowing additional drivers.
+
+    Example:
+        >>> test_database_driver_registry_lists_builtins()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.registry import (
         get_registered_database_driver_names,
     )

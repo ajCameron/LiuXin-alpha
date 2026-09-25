@@ -1,8 +1,14 @@
 
 """
-Tools for metadata handling.
+Provide timestamp conversion, author/title sort helpers, identifier checks, and legacy name/title heuristics.
 
-Very generic. Probably needs a better name.
+Sorting reads preference tweaks and caches article patterns. Name recognition loads
+the configured name lists; score_title currently returns zero after preprocessing.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/test_utils_coverage.py
 """
 
 from __future__ import annotations
@@ -20,19 +26,30 @@ def to_epoch_ms(
     clamp_range: bool = False,
 ) -> int:
     """
-    Convert "timestamp-like" inputs into an integer epoch milliseconds.
+    Convert date/time objects, finite numbers, or supported text into rounded integer Unix milliseconds.
 
-    Accepted inputs:
-      - datetime / date
-      - int / float: epoch seconds, milliseconds, microseconds, nanoseconds (auto-guessed)
-      - str / bytes: numeric, ISO-8601-ish, and a few common datetime formats
-      - also supports extracting a long integer from strings like "/Date(1609459200000)/"
+    Guess numeric units from absolute magnitude: at least 1e17 means nanoseconds, 1e14
+    microseconds, 1e11 milliseconds, otherwise seconds. Numbers pass through float, so
+    large integers may lose precision. Decode bytes as UTF-8 with replacement fallback;
+    try numeric text, Date wrappers, ISO text, then fixed formats with day-first slash
+    dates before month-first. Reject None/bool with TypeError and nonfinite or
+    unrecognized values with ValueError.
 
-    Heuristic for numeric magnitude (abs):
-      - >= 1e17  -> nanoseconds
-      - >= 1e14  -> microseconds
-      - >= 1e11  -> milliseconds
-      - else     -> seconds
+    Example:
+        >>> to_epoch_ms('1970-01-01T00:00:01Z')
+        1000
+        >>> to_epoch_ms('/Date(1609459200000)/')
+        1609459200000
+
+
+    :param value: Datetime/date, int/float, bytes/bytearray, or supported timestamp
+        string.
+    :param assume_tz: Timezone attached to naive datetime/date inputs; defaults to UTC.
+    :param now: Reference datetime for clamping; defaults to current UTC time even when
+        clamping is disabled.
+    :param clamp_range: Whether to clamp to 73000 days before or after now.
+    :return: Rounded epoch milliseconds, optionally clipped to the configured time
+        window.
     """
     if value is None:
         raise TypeError("None is not a timestamp")
@@ -43,6 +60,17 @@ def to_epoch_ms(
         now = datetime.now(timezone.utc)
 
     def dt_to_ms(dt: datetime) -> int:
+        """
+        Attach the enclosing assumed timezone to naive datetimes, convert to UTC, and round milliseconds.
+
+        Example:
+            >>> to_epoch_ms(datetime(1970, 1, 1, tzinfo=timezone.utc))
+            0
+
+
+        :param dt: Datetime being converted; aware inputs retain their represented instant.
+        :return: Integer milliseconds before optional clamping.
+        """
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=assume_tz)
         dt_utc = dt.astimezone(timezone.utc)
@@ -139,6 +167,20 @@ def to_epoch_ms(
 
 
 def _clamp_ms(ms: int, now: datetime, clamp_range: bool) -> int:
+    """
+    Return milliseconds unchanged unless clamping is enabled, then constrain them to now plus or minus 73000 days.
+
+    Example:
+        >>> _clamp_ms(42, datetime(2020, 1, 1, tzinfo=timezone.utc), False)
+        42
+
+
+    :param ms: Epoch millisecond value to constrain.
+    :param now: Reference datetime used directly for both boundaries.
+    :param clamp_range: Falsy to return immediately without computing boundaries.
+    :return: Input value or nearest rounded boundary; datetime arithmetic and timestamp
+        errors propagate.
+    """
     if not clamp_range:
         return ms
     # clamp to +/- 200 years around 'now' to defuse wildly-wrong unit guesses
@@ -167,6 +209,17 @@ from LiuXin_alpha.metadata.utils import string_to_authors
 
 
 def authors_to_string(authors):
+    """
+    Join truthy author strings with spaced ampersands after doubling each embedded ampersand.
+
+    Example:
+        >>> authors_to_string(['Ada & Bob', '', 'Grace'])
+        'Ada && Bob & Grace'
+
+
+    :param authors: Optional iterable of author strings; falsy elements are omitted.
+    :return: Joined string, or empty string for None.
+    """
     if authors is not None:
         return " & ".join([a.replace("&", "&&") for a in authors if a])
     else:
@@ -174,6 +227,25 @@ def authors_to_string(authors):
 
 
 def author_to_author_sort(author, method=None):
+    """
+    Build a surname-first author sort string according to the requested method and preference tweaks.
+
+    Strip bracketed text for tokenization, remove configured prefixes/suffixes, rotate
+    the final name token, and append suffixes. Falsy input becomes empty; short names,
+    copy mode, matching copywords, exhausted name tokens, and comma-mode names already
+    containing commas return the original author.
+
+    Example:
+        >>> author_to_author_sort('Ada Lovelace', method='copy')
+        'Ada Lovelace'
+
+
+    :param author: Author string to tokenize and reorder.
+    :param method: Optional sorting method; None reads author_sort_copy_method. copy
+        preserves, nocomma omits the inserted comma, and comma preserves
+        already-comma-separated names.
+    :return: Derived sort string or unchanged original author.
+    """
     if not author:
         return ""
     sauthor = remove_bracketed_text(author).strip()
@@ -232,12 +304,37 @@ def author_to_author_sort(author, method=None):
 
 
 def authors_to_sort_string(authors):
+    """
+    Apply preference-driven author sorting to each supplied name and join results with spaced ampersands.
+
+    Example:
+        >>> authors_to_sort_string(['Plato'])
+        'Plato'
+
+
+    :param authors: Iterable of author names; None is not accepted.
+    :return: Combined sort string; embedded ampersands are not separately escaped.
+    """
     return " & ".join(map(author_to_author_sort, authors))
 
 
 # imported from calibre
 # Todo: Remove spaces, "-" e.t.c - common ways of breakup up an isbn10
 def check_isbn10(isbn: str) -> Optional[str]:
+    """
+    Check the first ten characters using the ISBN-10 checksum and uppercase X convention.
+
+    No cleanup or exact-length check occurs; a valid prefix can return an input with
+    trailing characters. All exceptions raised within the checksum block are suppressed.
+
+    Example:
+        >>> check_isbn10('0261103571')
+        '0261103571'
+
+
+    :param isbn: Indexable digit string with an optional uppercase X check character.
+    :return: Original input on a matching checksum, otherwise None.
+    """
     try:
         digits = [_ for _ in map(int, isbn[:9])]
         products = [(i + 1) * digits[i] for i in range(9)]
@@ -251,6 +348,20 @@ def check_isbn10(isbn: str) -> Optional[str]:
 
 # imported from calibre
 def check_isbn13(isbn):
+    """
+    Check the first thirteen characters using alternating ISBN-13 checksum weights.
+
+    No prefix or exact-length validation occurs; suffix characters are retained when the
+    checked prefix succeeds. Exceptions inside the checksum block are suppressed.
+
+    Example:
+        >>> check_isbn13('9780261103573')
+        '9780261103573'
+
+
+    :param isbn: Indexable string whose first thirteen characters form the candidate.
+    :return: Original input on a matching checksum, otherwise None.
+    """
     try:
         digits = list(map(int, isbn[:12]))
         products = [(1 if i % 2 == 0 else 3) * digits[i] for i in range(12)]
@@ -266,6 +377,18 @@ def check_isbn13(isbn):
 
 # imported from calibre
 def check_isbn(isbn):
+    """
+    Uppercase and remove characters except digits/X, reject repeated-digit values, then validate ten or thirteen characters.
+
+    Example:
+        >>> check_isbn('978-0-261-10357-3')
+        '9780261103573'
+
+
+    :param isbn: Candidate string; falsy values return None.
+    :return: Cleaned ISBN on success, otherwise None; truthy unsupported input types can
+        raise before validation.
+    """
     if not isbn:
         return None
     isbn = re.sub(r"[^0-9X]", "", isbn.upper())
@@ -281,6 +404,20 @@ def check_isbn(isbn):
 
 # imported from calibre
 def check_issn(issn):
+    """
+    Clean a candidate to digits/X and validate the first eight characters with the ISSN checksum.
+
+    No exact-length check occurs; trailing cleaned characters can survive a successful
+    prefix check. Ordinary checksum errors become None; cleanup errors propagate.
+
+    Example:
+        >>> check_issn('0000-0000')
+        '00000000'
+
+
+    :param issn: Candidate string; falsy values return None.
+    :return: Cleaned candidate when the checksum succeeds, otherwise None.
+    """
     if not issn:
         return None
     issn = re.sub(r"[^0-9X]", "", issn.upper())
@@ -297,6 +434,19 @@ def check_issn(issn):
 
 # imported from calibre
 def format_isbn(isbn):
+    """
+    Validate an ISBN and insert separators at fixed positions for its cleaned length.
+
+    These positions are fixed slices, not registration-group-aware hyphenation.
+
+    Example:
+        >>> format_isbn('0261103571')
+        '02-6110-357-1'
+
+
+    :param isbn: ISBN candidate passed to check_isbn.
+    :return: Hyphenated valid ISBN, or the original input when validation fails.
+    """
     cisbn = check_isbn(isbn)
     if not cisbn:
         return isbn
@@ -308,7 +458,18 @@ def format_isbn(isbn):
 
 # imported from calibre
 def check_doi(doi):
-    "Check if something that looks like a DOI is present anywhere in the string"
+    """
+    Search anywhere for 10. followed by exactly four digits, a slash, and non-whitespace characters.
+
+    Example:
+        >>> check_doi('See 10.1234/example')
+        '10.1234/example'
+
+
+    :param doi: Candidate string; falsy input returns None.
+    :return: First matching substring, including any non-whitespace trailing
+        punctuation, or None.
+    """
     if not doi:
         return None
     doi_check = re.search(r"10\.\d{4}/\S+", doi)
@@ -321,6 +482,22 @@ _title_pats = {}
 
 
 def get_title_sort_pat(lang=None):
+    """
+    Cache a leading-article regular expression under the original language argument.
+
+    Resolve an absent language from preferences or locale, canonicalize it, then use
+    configured articles with English and built-in fallbacks. Invalid expressions fall
+    back to A/The/An. Existing cached entries do not reflect later preference changes.
+
+    Example:
+        >>> bool(get_title_sort_pat('eng').match('The Book'))
+        True
+
+
+    :param lang: Optional language selector used as the cache key and localization
+        input.
+    :return: Compiled case-insensitive pattern; this call may populate the module cache.
+    """
     ans = _title_pats.get(lang, None)
     if ans is not None:
         return ans
@@ -356,6 +533,23 @@ _ignore_starts = "'\"" + "".join(chr(x) for x in [_ for _ in range(0x2018, 0x201
 
 
 def title_sort(title, order=None, lang=None):
+    """
+    Strip a title and, unless strictly alphabetic, remove a leading quote and move a matching article to the end.
+
+    Article patterns come from the language cache; a matching article is followed by a
+    comma in the resulting sort string.
+
+    Example:
+        >>> title_sort(' The Book ', order='strictly_alphabetic')
+        'The Book'
+
+
+    :param title: Title string to normalize for sorting.
+    :param order: Optional mode; None reads title_series_sorting, and
+        strictly_alphabetic only strips outer whitespace.
+    :param lang: Language selector passed to the article-pattern helper.
+    :return: Stripped title sort string.
+    """
     if order is None:
         order = tweaks["title_series_sorting"]
     title = title.strip()
@@ -378,11 +572,21 @@ def title_sort(title, order=None, lang=None):
 
 def check_name(candidate_name):
     """
-    Uses the cv file in calibre names to try and test to see if the candidate name is, in fact, a name.
-    Only works for English at the moment - a False doesn't indicate that it is certainly false.
-    Just that it doesn't appear in the given (English) name lists.
-    :param candidate_name:
-    :return True/False:
+    Classify cleaned multi-character tokens against first-name, last-name, and prefix/suffix lists.
+
+    Reject unknown tokens and prefix/suffix-only candidates. A surname is not required,
+    and a candidate with no retained tokens succeeds. First-name membership takes
+    precedence over last-name membership. Name-list loading errors propagate.
+
+    Example:
+        Exercise the owning behavior with pytest::
+
+            python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+    :param candidate_name: String split into whitespace tokens, lowercased and stripped
+        of non-word characters; tokens shorter than two characters are ignored.
+    :return: Boolean heuristic result; this is not proof that the input names a person.
     """
     candidate_name = deepcopy(candidate_name)
 
@@ -436,11 +640,18 @@ def check_name(candidate_name):
 
 def score_title(title_string):
     """
-    Unlike the names case it is very hard to be sure if something is a title or not.
-    Thus the return is an integer score.
-    Currently only 0 and 1.
-    :param title_string:
-    :return:
+    Preprocess title tokens and return the current constant score of zero.
+
+    The cleaned token list is currently unused, so no ranking or name recognition is
+    performed.
+
+    Example:
+        >>> score_title('Some Title')
+        0
+
+
+    :param title_string: String split, lowercased, and stripped of non-word characters.
+    :return: Zero after successful token preprocessing.
     """
     # Separating the individual names and formatting them ready for checking
     title_string_split = title_string.split()
