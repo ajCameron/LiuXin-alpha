@@ -1,4 +1,15 @@
-"""Canonical public non-WEMI metadata-container API surface."""
+"""
+Export the public contracts for metadata rows and same-table relations.
+
+The surface covers vocabulary, note, annotation, agent and identifier rows outside
+the core WEMI identity stack. Concrete row classes are exported from the metadata
+containers package.
+
+Example:
+    Exercise this contract with pytest::
+
+        python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+"""
 
 from __future__ import annotations
 

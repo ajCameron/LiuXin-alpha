@@ -1,8 +1,14 @@
-"""Read-side participation views for agents across the W/E/M/I graph.
+"""
+Represent joined agent participation results as read-side summaries and snapshots.
 
-Category: read-side snapshot/view.
-These dataclasses model joined query results. They are not editable metadata
-bundles and they are not identity objects.
+These frozen dataclasses are snapshots rather than editable metadata bundles.
+Freezing prevents field reassignment; it does not freeze contained dictionaries or
+credit objects.
+
+Example:
+    >>> snapshot = AgentParticipationSnapshot(agent=AgentProfileSummary(agent_id=7, agent_type='person', display_name='Ada'))
+    >>> snapshot.is_empty()
+    True
 """
 from __future__ import annotations
 
@@ -36,7 +42,14 @@ TargetSummaryT = TypeVar('TargetSummaryT')
 
 @dataclass(slots=True, kw_only=True, frozen=True)
 class AgentProfileSummary:
-    """Lightweight read model for an agent plus intrinsic profile fields."""
+    """
+    Hold an agent identity and optional intrinsic profile fields for a query result.
+
+    Example:
+        >>> agent = AgentProfileSummary(agent_id=7, agent_type='person', display_name='Ada')
+        >>> agent.display_name
+        'Ada'
+    """
 
     agent_id: AgentID
     agent_type: AgentTypes
@@ -52,7 +65,12 @@ class AgentProfileSummary:
 @dataclass(slots=True, kw_only=True, frozen=True)
 class WorkSummary:
     """
-    Provide the read-side Work summary used in Agent participation results.
+    Describe a work using its id, title and optional sort title and primary language.
+
+    Example:
+        >>> work = WorkSummary(work_id=1, title='Notes')
+        >>> work.work_id, work.title
+        (1, 'Notes')
     """
     work_id: WorkID
     title: str
@@ -63,7 +81,12 @@ class WorkSummary:
 @dataclass(slots=True, kw_only=True, frozen=True)
 class ExpressionSummary:
     """
-    Provide the read-side Expression summary used in Agent participation results.
+    Describe an expression together with its parent work, title, language and type.
+
+    Example:
+        >>> expression = ExpressionSummary(expression_id=2, work_id=1, title='Notes')
+        >>> expression.work_id
+        1
     """
     expression_id: ExpressionID
     work_id: WorkID
@@ -75,7 +98,12 @@ class ExpressionSummary:
 @dataclass(slots=True, kw_only=True, frozen=True)
 class ManifestationSummary:
     """
-    Provide the read-side Manifestation summary used in Agent participation results.
+    Describe a manifestation with its parent expression and optional publication details.
+
+    Example:
+        >>> manifestation = ManifestationSummary(manifestation_id=3, expression_id=2, title='Notes')
+        >>> manifestation.publication_year is None
+        True
     """
     manifestation_id: ManifestationID
     expression_id: ExpressionID
@@ -88,7 +116,12 @@ class ManifestationSummary:
 @dataclass(slots=True, kw_only=True, frozen=True)
 class ItemSummary:
     """
-    Provide the read-side copy summary used in Agent participation results.
+    Describe an individual copy with its parent manifestation and optional location identifiers.
+
+    Example:
+        >>> item = ItemSummary(item_id=4, manifestation_id=3, shelfmark='A1')
+        >>> item.shelfmark
+        'A1'
     """
     item_id: ItemID
     manifestation_id: ManifestationID
@@ -100,7 +133,16 @@ class ItemSummary:
 @dataclass(slots=True, kw_only=True, frozen=True)
 class AgentParticipationEntry(Generic[CreditT, TargetSummaryT]):
     """
-    Pair one Agent credit with the summarized WEMI target it describes.
+    Pair a shared credit object with a target summary and optional display/source labels.
+
+    The frozen entry retains the supplied objects; it does not validate their ids or
+    make the credit immutable.
+
+    Example:
+        >>> credit = WorkAgentCredit(work_id=1, role=WorkAgentRole.AUTHOR, credited_as='Ada')
+        >>> entry = AgentParticipationEntry(credit=credit, target=WorkSummary(work_id=1, title='Notes'))
+        >>> entry.credit is credit
+        True
     """
     credit: CreditT
     target: TargetSummaryT
@@ -111,7 +153,15 @@ class AgentParticipationEntry(Generic[CreditT, TargetSummaryT]):
 @dataclass(slots=True, kw_only=True, frozen=True)
 class AgentParticipationsByRole:
     """
-    Group an Agent's WEMI participation entries by entity level and role.
+    Hold separate role-to-entry-tuple dictionaries for works, expressions, manifestations and items.
+
+    Each instance starts with fresh mutable dictionaries. This view does not derive or
+    synchronize entries from a snapshot.
+
+    Example:
+        >>> roles = AgentParticipationsByRole()
+        >>> roles.work_roles == {} and roles.work_roles is not AgentParticipationsByRole().work_roles
+        True
     """
     work_roles: dict[WorkAgentRole, tuple[AgentParticipationEntry[WorkAgentCredit, WorkSummary], ...]] = field(default_factory=dict)
     expression_roles: dict[ExpressionAgentRole, tuple[AgentParticipationEntry[ExpressionAgentCredit, ExpressionSummary], ...]] = field(default_factory=dict)
@@ -121,7 +171,18 @@ class AgentParticipationsByRole:
 
 @dataclass(slots=True, kw_only=True, frozen=True)
 class AgentParticipationSnapshot:
-    """Read-side container for 'this agent, and everything they are involved in'."""
+    """
+    Collect one agent summary and participation entries at each WEMI level.
+
+    Level tuples and the role-grouped view are supplied independently; neither is
+    inferred from the other. Frozen fields still contain shared credit objects and
+    mutable role dictionaries.
+
+    Example:
+        >>> snapshot = AgentParticipationSnapshot(agent=AgentProfileSummary(agent_id=7, agent_type='person', display_name='Ada'))
+        >>> snapshot.counts_by_level()
+        {'works': 0, 'expressions': 0, 'manifestations': 0, 'items': 0}
+    """
 
     agent: AgentProfileSummary
     works: tuple[AgentParticipationEntry[WorkAgentCredit, WorkSummary], ...] = ()
@@ -131,12 +192,49 @@ class AgentParticipationSnapshot:
     participations_by_role: AgentParticipationsByRole = field(default_factory=AgentParticipationsByRole)
 
     def all_entries(self) -> tuple[object, ...]:
+        """
+        Concatenate the four level tuples in work, expression, manifestation and item order.
+
+        Entries are retained by reference and are not deduplicated.
+
+        Example:
+            >>> snapshot = AgentParticipationSnapshot(agent=AgentProfileSummary(agent_id=7, agent_type='person', display_name='Ada'))
+            >>> snapshot.all_entries()
+            ()
+
+
+        :return: Tuple containing every level entry; the role-grouped view is not consulted.
+        """
         return self.works + self.expressions + self.manifestations + self.items
 
     def is_empty(self) -> bool:
+        """
+        Check whether all four level-entry tuples are empty.
+
+        The independently supplied participations_by_role view does not affect this result.
+
+        Example:
+            >>> snapshot = AgentParticipationSnapshot(agent=AgentProfileSummary(agent_id=7, agent_type='person', display_name='Ada'))
+            >>> snapshot.is_empty()
+            True
+
+
+        :return: True when no level tuple contains an entry.
+        """
         return not (self.works or self.expressions or self.manifestations or self.items)
 
     def counts_by_level(self) -> dict[str, int]:
+        """
+        Count entries in each level tuple without consulting the role-grouped view.
+
+        Example:
+            >>> snapshot = AgentParticipationSnapshot(agent=AgentProfileSummary(agent_id=7, agent_type='person', display_name='Ada'))
+            >>> snapshot.counts_by_level()['works']
+            0
+
+
+        :return: New dictionary keyed by works, expressions, manifestations and items.
+        """
         return {
             'works': len(self.works),
             'expressions': len(self.expressions),

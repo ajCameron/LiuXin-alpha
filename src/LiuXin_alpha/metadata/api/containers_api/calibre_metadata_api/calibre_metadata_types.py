@@ -1,3 +1,15 @@
+"""
+Define bounded field, identifier, path, payload, and custom-descriptor types for Calibre APIs.
+
+Aliases describe accepted shapes rather than coercing data. Binary-readable and
+closeable protocols support resource handoff and cleanup; runtime protocol checks
+inspect member presence only.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/api/test_calibre_metadata_api.py
+"""
 from __future__ import annotations
 
 from datetime import datetime
@@ -10,27 +22,58 @@ CalibrePath: TypeAlias = str | PathLike[str]
 @runtime_checkable
 class CalibreBinaryReadableAPI(Protocol):
     """
-    Readable binary payload accepted by Calibre-style file and cover APIs.
+    Describe a binary stream that supports read with an optional byte limit.
+
+    This runtime-checkable protocol does not promise seek or close methods.
+
+    Example:
+        >>> from io import BytesIO
+        >>> isinstance(BytesIO(b'abc'), CalibreBinaryReadableAPI)
+        True
     """
 
     def read(self, n: int = -1) -> bytes:
         """
-        Returns the binary object as bytes.
+        Read binary payload bytes from the resource's current position.
 
-        :param n:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_calibre_metadata_api.py
+
+
+        :param n: Maximum byte count; -1 requests all remaining input.
+        :return: Bytes read, potentially fewer than requested or empty at end of input.
         """
 
 
 @runtime_checkable
 class CalibreCloseableAPI(Protocol):
-    """Closeable resource accepted by Calibre-style cleanup paths."""
+    """
+    Describe a resource with a close method for metadata cleanup paths.
+
+    Runtime conformance does not guarantee idempotent closing or transfer ownership
+    automatically.
+
+    Example:
+        >>> from io import BytesIO
+        >>> stream = BytesIO()
+        >>> isinstance(stream, CalibreCloseableAPI)
+        True
+        >>> stream.close()
+    """
 
     def close(self) -> None:
         """
-        Supports closing the file.
+        Release the resource according to its implementation's close semantics.
 
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_calibre_metadata_api.py
+
+
+        :return: None.
         """
 
 

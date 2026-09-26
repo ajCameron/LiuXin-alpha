@@ -1,9 +1,14 @@
 """
-Pure API contracts for non-WEMI metadata main-table row containers.
+Define structural contracts for non-WEMI metadata main-table rows.
 
-Category: metadata main-table row API.
-This module defines structural contracts for metadata-owned lookup and agent
-rows that sit outside the core W/E/M/I entity stack.
+Column-keyed mappings carry scalar values, while TABLE_NAME and ID_COLUMN identify
+the database table. Runtime protocol checks verify member presence rather than
+validating stored data.
+
+Example:
+    Exercise this contract with pytest::
+
+        python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
 """
 
 from __future__ import annotations
@@ -21,10 +26,15 @@ MetadataRowMapping: TypeAlias = Mapping[str, MetadataRowValue]
 @runtime_checkable
 class MetadataTableRowAPI(Protocol):
     """
-    Structural API for one metadata-owned non-WEMI table row.
+    Describe a row with table/id metadata and a column-keyed mapping round trip.
 
-    Implementations should expose a stable table name, primary-id column, and
-    mapping round-trip for database-bound row payloads.
+    Concrete rows are in-memory values; construction and serialization do not persist
+    database changes.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
 
     TABLE_NAME: ClassVar[str]
@@ -33,32 +43,63 @@ class MetadataTableRowAPI(Protocol):
     @classmethod
     def from_mapping(cls, row: MetadataRowMapping) -> Self:
         """
-        Build a row container from a database-like mapping.
+        Build a row container from database column values.
 
-        :param row:
-        :return:
+        Concrete dataclass rows consume recognized constructor fields, ignore extra keys and
+        leave absent columns at their defaults.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :param row: Mapping-like column values; concrete rows also accept sqlite3.Row
+            objects.
+        :return: New row container.
         """
 
     @property
     def primary_id(self) -> int | None:
         """
-        Primary database id for this row.
+        Read the primary database id from the configured id column.
 
-        :return:
+        Concrete rows accept an exact int value and return None for other types, including
+        bool.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: Integer primary id, or None.
         """
 
     def to_mapping(self) -> dict[str, MetadataRowValue]:
         """
-        Serialize this row container to column-keyed mapping form.
+        Serialize constructor-backed row fields under their database column names.
 
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: New dictionary containing the current field values.
         """
 
     def __str__(self) -> str:
         """
-        Return a compact human-readable row summary.
+        Summarize the row id and selected nonempty column values.
 
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: Compact human-readable row description.
         """
 
 
@@ -66,6 +107,11 @@ class MetadataTableRowAPI(Protocol):
 class LanguageRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a persisted language vocabulary row and its standard codes.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -87,9 +133,15 @@ class LanguageRowAPI(MetadataTableRowAPI, Protocol):
     @property
     def display_name(self) -> str | None:
         """
-        Human-facing language display name.
+        Select the language name, language code or primary BCP 47 code in that order.
 
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: First truthy display value, or None when all candidates are absent.
         """
 
 
@@ -97,6 +149,11 @@ class LanguageRowAPI(MetadataTableRowAPI, Protocol):
 class GenreRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a hierarchical genre vocabulary row.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -120,6 +177,11 @@ class GenreRowAPI(MetadataTableRowAPI, Protocol):
 class SubjectRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a hierarchical subject-heading row.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -143,6 +205,11 @@ class SubjectRowAPI(MetadataTableRowAPI, Protocol):
 class SeriesRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a hierarchical series vocabulary row.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -168,6 +235,11 @@ class SeriesRowAPI(MetadataTableRowAPI, Protocol):
 class LabelRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a descriptive label row with normalized text.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -187,6 +259,11 @@ class LabelRowAPI(MetadataTableRowAPI, Protocol):
 class TagRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a categorical tag vocabulary row.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -206,6 +283,11 @@ class TagRowAPI(MetadataTableRowAPI, Protocol):
 class NoteRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a reusable free-text note row.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -223,6 +305,11 @@ class NoteRowAPI(MetadataTableRowAPI, Protocol):
 class CommentRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a reusable commentary row.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -240,6 +327,11 @@ class CommentRowAPI(MetadataTableRowAPI, Protocol):
 class SynopsisRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a reusable synopsis row.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -257,6 +349,11 @@ class SynopsisRowAPI(MetadataTableRowAPI, Protocol):
 class RatingRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a numeric rating row with its scale and source.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -277,6 +374,11 @@ class RatingRowAPI(MetadataTableRowAPI, Protocol):
 class AnnotationRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a reader annotation anchored to an Item.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -305,6 +407,11 @@ class AnnotationRowAPI(MetadataTableRowAPI, Protocol):
 class HumanAgentRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a human profile row linked to a generic Agent.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -330,6 +437,11 @@ class HumanAgentRowAPI(MetadataTableRowAPI, Protocol):
 class OrgAgentRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for an organisation profile row linked to a generic Agent.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -354,6 +466,11 @@ class OrgAgentRowAPI(MetadataTableRowAPI, Protocol):
 class OrgAgentRelationRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a dated parent-child relationship between organisational Agents.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -376,6 +493,11 @@ class OrgAgentRelationRowAPI(MetadataTableRowAPI, Protocol):
 class EntityIdentifierRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a scheme-qualified identifier attached to any supported entity type.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -398,6 +520,11 @@ class EntityIdentifierRowAPI(MetadataTableRowAPI, Protocol):
 class ObservedItemIdentifierRowAPI(MetadataTableRowAPI, Protocol):
     """
     Structural contract for a source-observed identifier attached to one Item.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]

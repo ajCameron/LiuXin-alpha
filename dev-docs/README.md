@@ -91,8 +91,13 @@ and outstanding work, not as a replacement for the subsystem guides.
 These documents provide context and proposals; check the current owner, tests,
 and dated handoff before treating a sketch as a shipped contract.
 
+- [Target architecture](target-architecture.md): planned target decisions and
+  rationale, starting with lifecycle ownership; not yet implemented.
 - [Top-level architecture review](top-level-architecture-review.md): dated findings
   on subsystem ownership, configuration and plugin naming.
+- [Whole-repository architecture review](architecture-review-2026-09-26.md):
+  dated 2026-09-26 findings on lifecycle, layering, duplicate ownership, safety
+  invariants and legacy containment, with a prioritised action list.
 - [Project motivation](<01 - Introduction.md>), [top-level module notes](top-level-modules-notes.md),
   [earlier separation model](seperation_of_concerns.md),
   [ideas](thoughts.md), and [cross-project TODOs](global_todo.md).

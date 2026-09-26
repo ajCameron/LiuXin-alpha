@@ -1,8 +1,14 @@
-"""Pure API contracts for non-WEMI same-table relation containers.
+"""
+Define contracts for parent-child relations stored on non-WEMI child rows.
 
-Category: metadata main-table relation API.
-This module defines tree/parent-child relation contracts for metadata-owned
-lookup tables such as genres, subjects, and series.
+Genre, subject and series trees expose inline update payloads and editable relation
+collections. Validation checks local link consistency and duplicate child ids; it
+does not promise graph-wide cycle detection.
+
+Example:
+    Exercise this contract with pytest::
+
+        python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
 """
 
 from __future__ import annotations
@@ -25,7 +31,17 @@ RelationAPIT = TypeVar("RelationAPIT", bound="InlineSelfRelationAPI[MetadataTabl
 
 @runtime_checkable
 class InlineSelfRelationAPI(Protocol[RowAPIT]):
-    """Structural API for an inline parent/child link in one table."""
+    """
+    Describe a same-table link with child, optional parent and inline tree metadata.
+
+    The resolved parent id prefers a present parent row id over the direct parent_id
+    hint. Payload construction alone does not validate or write the relation.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+    """
 
     ROW_TYPE: ClassVar[type[MetadataTableRowAPI]]
     TABLE_NAME: ClassVar[str]
@@ -45,45 +61,87 @@ class InlineSelfRelationAPI(Protocol[RowAPIT]):
     @property
     def child_id(self) -> int | None:
         """
-        Primary id of the child row in this relation.
+        Read the child row's primary database id.
 
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: Child id, or None for an unpersisted or invalid id.
         """
 
     @property
     def resolved_parent_id(self) -> int | None:
         """
-        Parent id resolved from the parent row or direct parent-id field.
+        Prefer the parent row's id, falling back to the direct parent_id hint.
 
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: Resolved parent id, or None for a root link.
         """
 
     def validate(self) -> None:
         """
-        Validate that this same-table relation is internally consistent.
+        Check row types, nonnegative position, parent-id consistency and self-parenting.
 
-        :return:
+        Concrete links raise TypeError for the wrong row family and ValueError for invalid
+        relation values. Longer graph cycles are not checked here.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: None when the link is valid.
         """
 
     def as_child_update_payload(self) -> dict[str, MetadataRowValue]:
         """
-        Serialize fields needed to update the child row inline.
+        Build inline parent, position and tree-id column values for the child.
 
-        :return:
+        Only supported optional columns are emitted; this neither validates nor writes the
+        child row.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: New column-to-value update dictionary.
         """
 
     def as_relation_payload(self) -> dict[str, MetadataRowValue]:
         """
-        Serialize this relation as a relation-link payload.
+        Describe the link using relation/table names, ids, position, tree id and source.
 
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: New relation payload dictionary.
         """
 
     def __str__(self) -> str:
         """
-        Return a compact human-readable relation summary.
+        Render a compact description of the child and resolved parent link.
 
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: Human-readable relation summary.
         """
 
 
@@ -91,6 +149,11 @@ class InlineSelfRelationAPI(Protocol[RowAPIT]):
 class GenreTreeRelationAPI(InlineSelfRelationAPI[GenreRowAPI], Protocol):
     """
     Structural contract for an inline Genre parent relation.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     child: GenreRowAPI
     parent: GenreRowAPI | None
@@ -100,6 +163,11 @@ class GenreTreeRelationAPI(InlineSelfRelationAPI[GenreRowAPI], Protocol):
 class SubjectTreeRelationAPI(InlineSelfRelationAPI[SubjectRowAPI], Protocol):
     """
     Structural contract for an inline Subject parent relation.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     child: SubjectRowAPI
     parent: SubjectRowAPI | None
@@ -109,6 +177,11 @@ class SubjectTreeRelationAPI(InlineSelfRelationAPI[SubjectRowAPI], Protocol):
 class SeriesTreeRelationAPI(InlineSelfRelationAPI[SeriesRowAPI], Protocol):
     """
     Structural contract for an inline Series parent relation.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     child: SeriesRowAPI
     parent: SeriesRowAPI | None
@@ -116,64 +189,127 @@ class SeriesTreeRelationAPI(InlineSelfRelationAPI[SeriesRowAPI], Protocol):
 
 @runtime_checkable
 class SelfRelationsContainerAPI(Protocol[RelationAPIT]):
-    """Structural API for a collection of same-table relation links."""
+    """
+    Describe an ordered, editable collection of same-table parent links.
+
+    Tuple access protects collection structure, while contained relation objects remain
+    mutable.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+    """
 
     def __iter__(self) -> Iterator[RelationAPIT]:
         """
-        Iterate over contained relation links.
+        Iterate over stored relation objects in collection order.
 
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: Iterator over the current relation objects.
         """
 
     def __len__(self) -> int:
         """
-        Number of contained relation links.
+        Count stored relation links.
 
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: Number of links in the collection.
         """
 
     def relations(self) -> tuple[RelationAPIT, ...]:
         """
-        Return contained relation links as an immutable tuple.
+        Snapshot the collection order without copying relation objects.
 
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: Tuple containing the current links.
         """
 
     def add_relation(self, relation: RelationAPIT) -> None:
         """
-        Add one relation link to this container.
+        Validate and append one relation link.
 
-        :param relation:
-        :return:
+        Concrete collections reject duplicate non-None child ids with ValueError; multiple
+        id-less children are permitted.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :param relation: Link to validate and append; the existing object is retained.
+        :return: None.
         """
 
     def roots(self) -> tuple[RelationAPIT, ...]:
         """
-        Return root-level relations with no parent.
+        Select links whose resolved parent id is None.
 
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: Tuple of root links in collection order.
         """
 
     def children_of(self, parent_id: int) -> tuple[RelationAPIT, ...]:
         """
-        Return relation links whose parent id matches ``parent_id``.
+        Select links whose resolved parent id equals the requested id.
 
-        :param parent_id:
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :param parent_id: Parent database id to match against each resolved_parent_id.
+        :return: Tuple of matching child links in collection order.
         """
 
     def validate(self) -> None:
         """
-        Validate every relation link in this container.
+        Validate each link and reject duplicate non-None child ids.
 
-        :return:
+        This checks local consistency rather than performing graph-wide cycle detection.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: None when every link and child id is valid.
         """
 
     def __str__(self) -> str:
         """
-        Return a compact human-readable container summary.
+        Render a compact description of the relation collection.
 
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
+
+
+        :return: Human-readable summary including the relation count.
         """
 
 
@@ -184,6 +320,11 @@ class GenreTreeRelationsContainerAPI(
 ):
     """
     Structural contract for an editable forest of Genre parent relations.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
 
 
@@ -194,6 +335,11 @@ class SubjectTreeRelationsContainerAPI(
 ):
     """
     Structural contract for an editable forest of Subject parent relations.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
 
 
@@ -204,6 +350,11 @@ class SeriesTreeRelationsContainerAPI(
 ):
     """
     Structural contract for an editable forest of Series parent relations.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/api/test_non_wemi_container_api.py
     """
     pass
 

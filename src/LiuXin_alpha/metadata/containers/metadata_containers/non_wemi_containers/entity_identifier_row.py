@@ -1,4 +1,15 @@
-"""Concrete row container for the ``entity_identifiers`` main table."""
+"""
+Provide the concrete entity_identifiers row value used by metadata callers.
+
+The EntityIdentifierRow dataclass stores database-shaped fields in memory and
+inherits column mapping and diagnostic-string helpers. Creating or editing it
+performs no database write.
+
+Example:
+    >>> row = EntityIdentifierRow(entity_identifier_value='10/example')
+    >>> row.entity_identifier_value
+    '10/example'
+"""
 
 from __future__ import annotations
 
@@ -13,7 +24,18 @@ from ._row_base import MetadataTableRow
 @dataclass(slots=True, kw_only=True)
 class EntityIdentifierRow(MetadataTableRow):
     """
-    Represent a scheme-qualified identifier attached to any supported entity type.
+    Store a scheme-qualified identifier for a typed entity and its database id.
+
+    The record keeps scheme/value, primary flag and provenance. Enum or string
+    scheme/entity types are retained without resolution or normalization.
+
+    Fields are keyword-only, mutable and default to None. from_mapping ignores unknown
+    columns; to_mapping returns the stored fields without persisting them.
+
+    Example:
+        >>> row = EntityIdentifierRow.from_mapping({'entity_identifier_id': 7, 'entity_identifier_value': '10/example'})
+        >>> row.primary_id, row.to_mapping()['entity_identifier_value']
+        (7, '10/example')
     """
     TABLE_NAME: ClassVar[str] = "entity_identifiers"
     ID_COLUMN: ClassVar[str] = "entity_identifier_id"

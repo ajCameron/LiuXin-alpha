@@ -42,6 +42,7 @@ StoreSource: TypeAlias = (
 StoreFileIdentifier: TypeAlias = str | Location | FileInfo
 
 
+# Todo: split convenience down and include the subclasses in the submodules as appropriate
 class StoreConvenienceAPI:
     """
     Familiar file operations layered over a configured Store's exact API.
@@ -467,6 +468,7 @@ class StoreConvenienceAPI:
             )
 
 
+# Todo: These should not be in the API...
 def _bytes_stream(data: bytes) -> BinaryIO:
     """
     Wrap an in-memory payload as a binary stream.

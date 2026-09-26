@@ -1,4 +1,15 @@
-"""Concrete row container for the ``annotations`` main table."""
+"""
+Provide the concrete annotations row value used by metadata callers.
+
+The AnnotationRow dataclass stores database-shaped fields in memory and inherits
+column mapping and diagnostic-string helpers. Creating or editing it performs no
+database write.
+
+Example:
+    >>> row = AnnotationRow(annotation_item_id=7)
+    >>> row.annotation_item_id
+    7
+"""
 
 from __future__ import annotations
 
@@ -11,7 +22,19 @@ from ._row_base import MetadataTableRow
 @dataclass(slots=True, kw_only=True)
 class AnnotationRow(MetadataTableRow):
     """
-    Represent a reader annotation anchored to an Item.
+    Store a reader annotation anchored to an item and optional user/device.
+
+    Anchor positions, selected/note text, source timestamps and extra JSON remain
+    supplied values; construction does not interpret anchors or decode
+    annotation_extra_json.
+
+    Fields are keyword-only, mutable and default to None. from_mapping ignores unknown
+    columns; to_mapping returns the stored fields without persisting them.
+
+    Example:
+        >>> row = AnnotationRow.from_mapping({'annotation_id': 7, 'annotation_item_id': 7})
+        >>> row.primary_id, row.to_mapping()['annotation_item_id']
+        (7, 7)
     """
     TABLE_NAME: ClassVar[str] = "annotations"
     ID_COLUMN: ClassVar[str] = "annotation_id"

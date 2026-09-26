@@ -1,7 +1,15 @@
-"""Public metadata container implementation surface.
+"""
+Expose the canonical metadata container implementations through one import surface.
 
-The canonical implementation exports are re-exported from
-``metadata_containers`` so callers have a single stable import home.
+Exports include WEMI identities, eager and lazy metadata/hydrators, relation
+containers, row wrappers, controlled enums, and writer reports. Definitions are
+re-exported from metadata_containers; callers retain responsibility for supplying
+database/read sources.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
 """
 
 from LiuXin_alpha.metadata.containers.metadata_containers import WorkIdentity, WorkIdentities, WorkMetadata, WorkMetadataHydrator, ExpressionIdentity, ExpressionMetadata, ExpressionMetadataHydrator, ManifestationIdentity, ManifestationMetadata, ManifestationMetadataHydrator, ItemIdentity, ItemMetadata, ItemMetadataHydrator, AgentIdentity, AgentProfile, HumanAgentProfile, OrganisationAgentProfile, AgentCreditBase, WorkAgentCredit, ExpressionAgentCredit, ManifestationAgentCredit, ItemAgentCredit, RoleCreditsContainer, WorkRoleCreditsContainer, ExpressionRoleCreditsContainer, ManifestationRoleCreditsContainer, ItemRoleCreditsContainer, BaseTargetAgentCreditsContainer, WorkAgentCreditsContainer, ExpressionAgentCreditsContainer, ManifestationAgentCreditsContainer, ItemAgentCreditsContainer, AgentProfileSummary, WorkSummary, ExpressionSummary, ManifestationSummary, ItemSummary, AgentParticipationEntry, AgentParticipationsByRole, AgentParticipationSnapshot, TitleKind, TitleBase, WorkTitle, ExpressionTitle, ManifestationTitle, ItemTitle, KindTitlesContainer, WorkKindTitlesContainer, ExpressionKindTitlesContainer, ManifestationKindTitlesContainer, ItemKindTitlesContainer, BaseTargetTitlesContainer, WorkTitlesContainer, ExpressionTitlesContainer, ManifestationTitlesContainer, ItemTitlesContainer, ItemWemiTitleSlice, NoteKind, NoteFormat, NoteVisibility, NoteBase, WorkNote, ExpressionNote, ManifestationNote, ItemNote, KindNotesContainer, WorkKindNotesContainer, ExpressionKindNotesContainer, ManifestationKindNotesContainer, ItemKindNotesContainer, BaseTargetNotesContainer, WorkNotesContainer, ExpressionNotesContainer, ManifestationNotesContainer, ItemNotesContainer, LabelKind, LabelBase, WorkLabel, ExpressionLabel, ManifestationLabel, ItemLabel, KindLabelsContainer, WorkKindLabelsContainer, ExpressionKindLabelsContainer, ManifestationKindLabelsContainer, ItemKindLabelsContainer, BaseTargetLabelsContainer, WorkLabelsContainer, ExpressionLabelsContainer, ManifestationLabelsContainer, ItemLabelsContainer, GenreKind, GenreBase, WorkGenre, ExpressionGenre, ManifestationGenre, ItemGenre, GenresContainerBase, WorkGenresContainer, ExpressionGenresContainer, ManifestationGenresContainer, ItemGenresContainer, SubjectKind, SubjectBase, WorkSubject, ExpressionSubject, ManifestationSubject, ItemSubject, KindSubjectsContainer, WorkKindSubjectsContainer, ExpressionKindSubjectsContainer, ManifestationKindSubjectsContainer, ItemKindSubjectsContainer, BaseTargetSubjectsContainer, WorkSubjectsContainer, ExpressionSubjectsContainer, ManifestationSubjectsContainer, ItemSubjectsContainer, IdentifierStatus, IdentifierBase, WorkIdentifier, ExpressionIdentifier, ManifestationIdentifier, ItemIdentifier, SchemeIdentifiersContainer, WorkSchemeIdentifiersContainer, ExpressionSchemeIdentifiersContainer, ManifestationSchemeIdentifiersContainer, ItemSchemeIdentifiersContainer, BaseTargetIdentifiersContainer, WorkIdentifiersContainer, ExpressionIdentifiersContainer, ManifestationIdentifiersContainer, ItemIdentifiersContainer

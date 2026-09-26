@@ -82,6 +82,7 @@ from LiuXin_alpha.storage.api.store_api.facade_api import StoreAPI
 from LiuXin_alpha.storage.api.store_api.file_api import WriteSessionAPI
 
 
+# Todo: I think this could be public
 class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
     """
     Translate a raw-driver write session into a routed Store session.
@@ -214,6 +215,8 @@ class _DriverWriteSessionAdapter(Generic[DriverObjectAddressT]):
         self._session.__exit__(exc_type, exc, traceback)
 
 
+# Todo: All stores are backed by drivers? So this doesn't seem a good name
+# Todo: Pure, in memory, transient cache store should be a thing which exists
 class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
     """
     Configured ``StoreAPI`` privately backed by a reusable raw driver.
@@ -399,6 +402,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             metadata_availability=IngestMetadataAvailability.NONE,
         )
 
+    # Todo: Might be a better way to phrase this/name this
     def prepare_ingest(
         self,
         info: FileInfo | StoreInventoryEntry,
@@ -418,9 +422,9 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         Example:
             >>> prepared = store.prepare_ingest(entry)  # doctest: +SKIP
 
-
         :param info: Owned FileInfo or inventory observation; only inventory entries are optionally refreshed.
         :param inspect: Whether to try stat for an inventory entry; an existing FileInfo is retained.
+
         :return: Prepared observations with available consistency, advertised authoritative digest, and optional external provenance.
         """
 

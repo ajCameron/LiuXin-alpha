@@ -1,24 +1,57 @@
 # Working Memory Index
 
-Current status: **M007–M016 complete**; 132 new declarations across 21 complete
-files, including promotion of the prior 40-declaration utility slice.
-[Latest checkpoint](project-docstrings-m007-m016-2026-09-25.md).
-Metadata progress: **16/274 units, 316 declarations, 32 complete files**.
-**M017 is next**; all three files are unchanged. D remains archived complete.
-Project coverage: **1,092/2,671 complete-file records**, plus **37 partial-file
-declarations**. All 152 regressions, 98 runnable examples, and full quality checks
-passed. Discovery flags 28 storage hash changes outside this batch.
+Current status: **M057–M066 complete**; 267 new declarations across six files.
+Five files complete, including the prior 24-date-record slice; identifier containers
+are partial at 86/93 declarations.
+[Latest checkpoint](project-docstrings-m057-m066-2026-09-26.md).
+Metadata progress: **66/274 units, 1,530 declarations, 95 complete files**.
+**M067 is next**; its seven declarations are unchanged. D remains archived complete.
+Project coverage: **1,155/2,671 complete-file records**, plus **123 partial declarations**.
+All 184 regressions, 709 runnable statements and full quality checks passed.
+Discovery records 37 unrelated storage hash differences.
 
-Updated: 2026-09-25
+Updated: 2026-09-26
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [project-docstrings-m057-m066-2026-09-26.md](project-docstrings-m057-m066-2026-09-26.md)
+  Dates, expression identity/bundle/hydrator, genres and identifier containers:
+  267 declarations, five complete files and 86 partial identifier declarations.
+  184 regressions and 709 runnable statements passed; full quality passed. M067 is next.
+
+- [code-review-2026-09-26.md](code-review-2026-09-26.md)
+  Whole-repository architecture and boundaries review (eight subsystem reviewers,
+  pushed `01674d15`). Five themes: no lifecycle owner, aspirational layering
+  (121-module runtime cycle; ratchet covers 12% of modules), duplicate owners
+  with divergent behaviour, convention-only safety invariants (delete, read-only,
+  RPC `invoke`), and live-looking legacy code. Prioritised action list inside.
+
+- [project-docstrings-m047-m056-2026-09-26.md](project-docstrings-m047-m056-2026-09-26.md)
+  Agent credits, identity, participation and profiles, plus the first date records:
+  252 declarations, five complete files and 24 partial date declarations.
+  97 regressions and 625 runnable statements passed; full quality passed. Historical checkpoint before M057–M066.
+
+- [project-docstrings-m037-m046-2026-09-26.md](project-docstrings-m037-m046-2026-09-26.md)
+  WEMI conversion/serialization, eager hydration, writer, concrete row and tree
+  containers: 211 new declarations, all 23 files complete. Prior API claim corrected.
+  162 regressions and 296 examples passed; full quality passed. Historical checkpoint before M047–M056.
+
+- [project-docstrings-m027-m036-2026-09-26.md](project-docstrings-m027-m036-2026-09-26.md)
+  WEMI/row contracts, formatting, lazy containers and hydration: 265 new
+  declarations, ten complete files and a 40-declaration partial WEMI slice.
+  207 regressions and 181 examples passed; full quality passed. Historical checkpoint before M037–M046.
+
+- [project-docstrings-m017-m026-2026-09-26.md](project-docstrings-m017-m026-2026-09-26.md)
+  Container exports, legacy Calibre-style metadata/mixins, and API contracts:
+  219 declarations, 20 complete files and a 40-declaration partial API slice.
+  79 regressions and 78 examples passed; full quality passed. Historical checkpoint before M027–M036.
+
 - [project-docstrings-m007-m016-2026-09-25.md](project-docstrings-m007-m016-2026-09-25.md)
   Metadata utilities/workflows, book containers/codecs, vocabularies and genre
   maps: 132 new declarations, 21 complete files. 152 regressions and 98 examples
-  passed; full quality passed. M017 is next.
+  passed; full quality passed. Historical checkpoint before M017–M026.
 
 - [project-docstrings-d229-m006-2026-09-25.md](project-docstrings-d229-m006-2026-09-25.md)
   Final database contracts and first metadata units: 275 declarations, 22 complete
@@ -154,7 +187,7 @@ Start here for active handoff notes. This index should stay short.
 
 - [project-docstrings-d-2026-09-14.md](project-docstrings-d-2026-09-14.md)
   Historical D001–D095 record and [shutdown checkpoint](project-docstrings-hundred-paused-2026-09-15.md).
-  Current continuation, maintenance-adjusted coverage and M017 resume point are
+  Current continuation, maintenance-adjusted coverage and M067 resume point are
   in the latest documentation batch checkpoint above.
 
 - [project-docstrings-thirty-2026-09-13.md](project-docstrings-thirty-2026-09-13.md)

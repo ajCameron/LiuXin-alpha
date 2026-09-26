@@ -1,4 +1,15 @@
-"""Concrete row container for the ``synopses`` main table."""
+"""
+Provide the concrete synopses row value used by metadata callers.
+
+The SynopsisRow dataclass stores database-shaped fields in memory and inherits
+column mapping and diagnostic-string helpers. Creating or editing it performs no
+database write.
+
+Example:
+    >>> row = SynopsisRow(synopsis='A journey begins.')
+    >>> row.synopsis
+    'A journey begins.'
+"""
 
 from __future__ import annotations
 
@@ -11,7 +22,18 @@ from ._row_base import MetadataTableRow
 @dataclass(slots=True, kw_only=True)
 class SynopsisRow(MetadataTableRow):
     """
-    Represent a reusable synopsis row.
+    Store reusable synopsis text with source and modification timestamps.
+
+    Synopsis and scratch text are retained verbatim without parsing or generating a
+    summary.
+
+    Fields are keyword-only, mutable and default to None. from_mapping ignores unknown
+    columns; to_mapping returns the stored fields without persisting them.
+
+    Example:
+        >>> row = SynopsisRow.from_mapping({'synopsis_id': 7, 'synopsis': 'A journey begins.'})
+        >>> row.primary_id, row.to_mapping()['synopsis']
+        (7, 'A journey begins.')
     """
     TABLE_NAME: ClassVar[str] = "synopses"
     ID_COLUMN: ClassVar[str] = "synopsis_id"

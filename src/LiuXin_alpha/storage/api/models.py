@@ -22,6 +22,7 @@ StoreUUID: TypeAlias = UUID
 
 
 # Todo: Check - do we have factor methods to make these from row_ids on the database?
+# Todo: There seems to be a mismatch between the Location class and the jobs it's expected to do - I'd expect more info - such as is this location allocated
 @dataclasses.dataclass(slots=True, frozen=True)
 class Location:
     """

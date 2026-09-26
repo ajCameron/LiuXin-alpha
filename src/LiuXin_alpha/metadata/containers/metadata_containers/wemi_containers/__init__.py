@@ -1,11 +1,15 @@
-"""Canonical public WEMI container implementation surface.
+"""
+Expose canonical WEMI entity, metadata-family and agent implementation containers.
 
-Placement rule:
-Core WEMI entity containers, WEMI-attached metadata-family containers, and agent
-identity/profile/participation surfaces all live here.
+Identity objects, editable metadata families and agent participation snapshots share
+this import surface. Runtime-installed convenience properties supplement the
+explicit family APIs; the placement and convenience rules remain defined by the
+metadata container policy.
 
-Runtime-installed convenience properties are an accepted temporary ergonomic
-layer in some families. They are convenience sugar, not the canonical core API.
+Example:
+    >>> identity = AgentIdentity(agent_id=7, agent_display_name='Ada')
+    >>> identity.agent_id, identity.display_name
+    (7, 'Ada')
 """
 
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_container import WorkIdentity, WorkIdentities

@@ -1,4 +1,15 @@
-"""Concrete row container for the ``human_agents`` main table."""
+"""
+Provide the concrete human_agents row value used by metadata callers.
+
+The HumanAgentRow dataclass stores database-shaped fields in memory and inherits
+column mapping and diagnostic-string helpers. Creating or editing it performs no
+database write.
+
+Example:
+    >>> row = HumanAgentRow(human_agent_preferred_name='Ada Lovelace')
+    >>> row.human_agent_preferred_name
+    'Ada Lovelace'
+"""
 
 from __future__ import annotations
 
@@ -11,7 +22,18 @@ from ._row_base import MetadataTableRow
 @dataclass(slots=True, kw_only=True)
 class HumanAgentRow(MetadataTableRow):
     """
-    Represent a human profile row linked to a generic Agent.
+    Store a human profile associated with a generic agent id.
+
+    Name components, preferred name, biography, nationality and date strings are
+    retained without parsing or creating the linked agent.
+
+    Fields are keyword-only, mutable and default to None. from_mapping ignores unknown
+    columns; to_mapping returns the stored fields without persisting them.
+
+    Example:
+        >>> row = HumanAgentRow.from_mapping({'human_agent_id': 7, 'human_agent_preferred_name': 'Ada Lovelace'})
+        >>> row.primary_id, row.to_mapping()['human_agent_preferred_name']
+        (7, 'Ada Lovelace')
     """
     TABLE_NAME: ClassVar[str] = "human_agents"
     ID_COLUMN: ClassVar[str] = "human_agent_id"

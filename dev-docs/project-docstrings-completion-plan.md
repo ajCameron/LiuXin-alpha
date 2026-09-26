@@ -1,11 +1,11 @@
 # Complete project docstrings in bounded modules
 
-Status: **M007–M016 complete**, 2026-09-25. All **132 new declarations** across
-**21 complete files** are verified, including promotion of 40 previously reviewed
-utility declarations. All 152 regressions, 98 runnable examples, static checks,
-and full quality checks passed. **M017 is next** on a new request: ten declarations
-across three unchanged containers/API files.
-See the [batch checkpoint](../working-memory/project-docstrings-m007-m016-2026-09-25.md).
+Status: **M057–M066 complete**, 2026-09-26. All **267 new declarations across
+six files** are verified: five complete files (including the prior 24 date records)
+and 86 declarations in the partial identifier file. All 184 regressions, 709 runnable
+statements, static and full quality checks passed. **M067 is next** on a new request;
+its seven identifier installer/closure declarations are unchanged.
+See the [batch checkpoint](../working-memory/project-docstrings-m057-m066-2026-09-26.md).
 D remains archived complete; M is the active bounded campaign.
 
 ## Baseline and navigation
@@ -19,13 +19,14 @@ also need review. These measures are different and must not be added together.
 Since that baseline, G01 and the completed C batches reached 722 complete files.
 After the [shim cleanup](shim-removal-plan.md) and subsequent continuations,
 **D is complete: 232/232 units, 5,685/5,685 declarations, 374/374 files**.
-The active M track has **16/274 verified units**, **316/7,198 declarations**,
-and **32/344 complete files** reviewed.
-Current manifest coverage is **1,092/2,671 file review records**,
-**15,229 declarations in complete files**, plus **37 verified partial-file declarations**.
-Remaining: **1,579 files and 26,895 declarations**. Source discovery found no
-new or missing paths; 28 out-of-scope storage hash changes are recorded in the
-latest checkpoint. D archive, milestones and file/unit records remain unchanged.
+The active M track has **66/274 verified units**, **1,530/7,198 declarations**,
+and **95/344 complete files** reviewed.
+Current manifest coverage is **1,155/2,671 file review records**,
+**16,357 declarations in complete files**, plus **123 verified partial declarations**
+(37 catalog and 86 identifier-container declarations).
+Remaining: **1,516 files and 25,681 declarations**. Discovery found no new or
+missing paths; 37 unrelated storage hash differences are recorded. Historical
+maintenance entries, D archive, milestones and unrelated records are preserved.
 
 The historical D095 checkpoint remains 95/232 units; source removals changed the
 live inventory rather than completing new documentation work. Removed scopes are
@@ -33,7 +34,7 @@ archived in the [reconciliation evidence](../working-memory/test-results/shim-re
 Affected files have new functional baselines in documentation-rebase.after.json;
 their original baseline hashes and historical documentation-only proofs are
 preserved. Do not replay old batch helpers with fixed file/declaration totals.
-The latest ten-unit batch is complete, with M017 next only on request.
+The latest ten-unit batch is complete, with M067 next only on request.
 
 - [Exact work inventory](project-docstrings-work-units.json): stable module IDs,
   source hashes, exact file/declaration selections, prerequisites, and checkpoints.
@@ -50,6 +51,65 @@ examples, inherited code, preferences, and tracked submodule Python. Retain the
 completed native-C checkpoint separately. Ignored artifacts and anonymous lambdas
 are not named Python declarations to document.
 
+## Completed ten-unit date/expression/genre/identifier batch — M057–M066, 2026-09-26
+
+All 267 new declarations across six files are verified: five complete files,
+including the prior 24 date records, and 86 partial identifier declarations. The
+[saved observations](../working-memory/test-results/docstrings-m057-m066-2026-09-26/observations.json)
+record 184 passing regressions, 709 passing runnable statements and clean static
+and full quality checks. Docs cover collection ownership and validation, expression
+identity/graph distinctions, hydration fallbacks, primary selection and scheme
+eligibility. Runtime checks cover 120 generated date accessors. M067 is next;
+its seven installer/closure declarations are unchanged. Historical records are preserved.
+
+## Completed ten-unit agent/date batch — M047–M056, 2026-09-26
+
+All 252 new declarations across six files are verified: five complete files and
+24 partial date-container declarations. The
+[saved observations](../working-memory/test-results/docstrings-m047-m056-2026-09-26/observations.json)
+record 97 passing regressions, 625 passing runnable statements and clean static
+and full quality checks. Agent credits, identity, participation and profile docs
+cover validation, ownership, mapping precedence and generated accessors. Runtime
+checks cover 120 generated credit accessors. All 54 M057–M058 source segments were
+unchanged at that checkpoint; M057–M066 subsequently completed above. Original
+baselines and historical records are preserved.
+
+## Completed ten-unit WEMI writer/row batch — M037–M046, 2026-09-26
+
+All 211 new declarations across 23 files are verified, with all files complete,
+including the prior 40-declaration WEMI slice. The
+[saved observations](../working-memory/test-results/docstrings-m037-m046-2026-09-26/observations.json)
+record 162 passing regressions, 296 passing runnable statements and clean static
+and full quality checks. Conversion, serialization, hydration, writer and concrete
+row/tree docs describe the implemented copy, persistence and validation behavior.
+A separate M029 API correction documents KeyError for unknown id names and adds no
+coverage. M047 was unchanged at that checkpoint; M047–M056 subsequently completed
+above. Historical baselines and the D archive are preserved.
+
+## Completed ten-unit WEMI/lazy metadata batch — M027–M036, 2026-09-26
+
+All 265 new declarations across 11 files are verified. Ten files are complete,
+including the prior 40-declaration title API slice; the concrete WEMI file remains
+partial at 40/92 declarations. The
+[saved observations](../working-memory/test-results/docstrings-m027-m036-2026-09-26/observations.json)
+record 207 passing regressions, 181 passing runnable statements and clean static
+and full quality checks. Docs cover live/copy semantics, lazy loading and failure
+states, title precedence, tree validation and retained database ownership.
+All 52 M037/M038 source segments were unchanged at that checkpoint; M037–M046
+subsequently completed above. Baselines, unrelated records
+and the completed D archive are preserved.
+
+## Completed ten-unit metadata container/API batch — M017–M026, 2026-09-26
+
+All 219 selected declarations across 21 files are verified: 20 complete files and
+40 declarations in the partial title metadata API. The
+[saved observations](../working-memory/test-results/docstrings-m017-m026-2026-09-26/observations.json)
+record 79 passing regressions, 78 passing runnable statements, and clean static
+and full quality checks. Docs distinguish protocol intent from actual legacy
+copy/update/cleanup behavior. All 17 M027 declarations were unchanged at that checkpoint; M027–M036
+subsequently completed above. Original
+baselines, unrelated file/unit records, and the completed D archive are preserved.
+
 ## Completed ten-unit metadata batch — M007–M016, 2026-09-25
 
 All 132 new declarations across 21 files are verified. All files are complete,
@@ -57,8 +117,8 @@ including the prior 40-declaration utility slice. The
 [saved observations](../working-memory/test-results/docstrings-m007-m016-2026-09-25/observations.json)
 record 152 passing regressions, 98 passing runnable statements, and clean static
 and full quality checks. Standalone genre tables are validated through their own
-examples; the active classifier uses separate maps. All three M017 files remain
-unchanged. Inventory reconciliation preserves previous baselines and the D archive.
+examples; the active classifier uses separate maps. All three M017 files were
+unchanged at that checkpoint; M017–M026 subsequently completed above. Inventory reconciliation preserves previous baselines and the D archive.
 
 ## Completed ten-unit database/metadata batch — D229–D232 and M001–M006, 2026-09-25
 

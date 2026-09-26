@@ -1,4 +1,17 @@
-"""Concrete self-relation containers for non-WEMI metadata rows."""
+"""
+Represent inline parent-child links and editable collections for vocabulary trees.
+
+Genre, subject and series relations retain child/parent row objects and expose
+update payloads. Validation checks local consistency and duplicate child ids,
+without querying a database or detecting longer graph cycles.
+
+Example:
+    >>> parent = GenreRow(genre_id=1, genre="Fiction")
+    >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+    >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+    >>> relation.resolved_parent_id
+    1
+"""
 
 from __future__ import annotations
 
@@ -21,7 +34,20 @@ RelationT = TypeVar("RelationT", bound="InlineSelfRelation[MetadataTableRow]")
 
 @dataclass(slots=True, kw_only=True)
 class InlineSelfRelation(Generic[RowT]):
-    """Relation between two rows in the same table, stored on the child row."""
+    """
+    Hold a child row, optional parent and inline parent/position/tree metadata.
+
+    Rows are retained by reference. A present parent row id takes precedence over
+    parent_id; source is descriptive provenance. Construction and serialization do not
+    validate or persist the relation.
+
+    Example:
+        >>> parent = GenreRow(genre_id=1, genre="Fiction")
+        >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+        >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+        >>> relation.child is child, relation.parent is parent
+        (True, True)
+    """
 
     child: RowT
     parent: RowT | None = None
@@ -46,6 +72,25 @@ class InlineSelfRelation(Generic[RowT]):
         parent: RowT | None = None,
         source: str | None = None,
     ) -> "InlineSelfRelation[RowT]":
+        """
+        Capture inline relation fields from a child, retaining optional parent and source.
+
+        Parent/position accept exact ints; tree ids accept exact str or int values.
+        Unsupported stored types become None. This factory does not call validate.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> relation.parent_id
+            1
+
+
+        :param child: Concrete child row exposing this relation class's configured columns.
+        :param parent: Optional parent row retained by reference.
+        :param source: Optional provenance label retained as supplied.
+        :return: New relation holding the supplied row objects.
+        """
         parent_id = cls._int_or_none(getattr(child, cls.PARENT_ID_COLUMN))
         position = (
             cls._int_or_none(getattr(child, cls.POSITION_COLUMN))
@@ -68,15 +113,57 @@ class InlineSelfRelation(Generic[RowT]):
 
     @property
     def child_id(self) -> int | None:
+        """
+        Read the child row's primary_id property.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> relation.child_id
+            2
+
+
+        :return: Integer child id, or None.
+        """
         return self.child.primary_id
 
     @property
     def resolved_parent_id(self) -> int | None:
+        """
+        Prefer a non-None parent row id over the direct parent_id hint.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> relation.resolved_parent_id
+            1
+
+
+        :return: Resolved parent id, or None for a root link.
+        """
         if self.parent is not None and self.parent.primary_id is not None:
             return self.parent.primary_id
         return self.parent_id
 
     def validate(self) -> None:
+        """
+        Check child/parent row types, position and local parent-id consistency.
+
+        Wrong row families raise TypeError. Negative positions, conflicting known parent ids
+        and self-parenting raise ValueError. Id-less rows are allowed; longer graph cycles
+        and missing external parents are not checked.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> relation.validate()
+
+
+        :return: None when the local relation is valid.
+        """
         if not isinstance(self.child, self.ROW_TYPE):
             raise TypeError(f"{self.RELATION_NAME} child must be {self.ROW_TYPE.__name__}")
         if self.parent is not None and not isinstance(self.parent, self.ROW_TYPE):
@@ -99,6 +186,21 @@ class InlineSelfRelation(Generic[RowT]):
                 raise ValueError(f"{self.RELATION_NAME} cannot relate a row to itself")
 
     def as_child_update_payload(self) -> dict[str, MetadataRowValue]:
+        """
+        Build parent, optional position and tree-id column values for the child.
+
+        This does not include the child id, call validate or write to a database.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> relation.as_child_update_payload()["genre_parent_id"]
+            1
+
+
+        :return: New column-keyed update dictionary.
+        """
         payload: dict[str, MetadataRowValue] = {
             self.PARENT_ID_COLUMN: self.resolved_parent_id,
         }
@@ -109,6 +211,21 @@ class InlineSelfRelation(Generic[RowT]):
         return payload
 
     def as_relation_payload(self) -> dict[str, MetadataRowValue]:
+        """
+        Describe relation/table names, child/parent ids, position, tree id and source.
+
+        The payload is constructed without validation or persistence.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> relation.as_relation_payload()["relation_name"]
+            'genre_tree_parent'
+
+
+        :return: New generic relation payload dictionary.
+        """
         return {
             "relation_name": self.RELATION_NAME,
             "table_name": self.TABLE_NAME,
@@ -120,6 +237,19 @@ class InlineSelfRelation(Generic[RowT]):
         }
 
     def __str__(self) -> str:
+        """
+        Summarize the child id, parent id and relation name through the compact formatter.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> str(relation).startswith("GenreTreeRelation(child_id=2, parent_id=1")
+            True
+
+
+        :return: Class-named relation description.
+        """
         return compact_mapping_string(
             self,
             self.as_relation_payload(),
@@ -129,17 +259,52 @@ class InlineSelfRelation(Generic[RowT]):
 
     @staticmethod
     def _int_or_none(value: MetadataRowValue) -> int | None:
+        """
+        Retain exact int values without converting strings or accepting bool.
+
+        Example:
+            >>> InlineSelfRelation._int_or_none(True) is None
+            True
+            >>> InlineSelfRelation._int_or_none(0)
+            0
+
+
+        :param value: Candidate inline parent-id or position value.
+        :return: Supplied integer, or None.
+        """
         return value if type(value) is int else None
 
     @staticmethod
     def _tree_id_or_none(value: MetadataRowValue) -> str | int | None:
+        """
+        Retain exact str or int tree ids without coercion.
+
+        Empty strings and zero are accepted; bool is excluded.
+
+        Example:
+            >>> InlineSelfRelation._tree_id_or_none("")
+            ''
+
+
+        :param value: Candidate tree identifier.
+        :return: Supplied string/integer, or None.
+        """
         return value if type(value) in {str, int} else None
 
 
 @dataclass(slots=True, kw_only=True)
 class GenreTreeRelation(InlineSelfRelation[GenreRow]):
     """
-    Represent the parent, position, and tree identity of one Genre row.
+    Model the inline parent link for a row in genres.
+
+    Parent, position and tree identity use genre_parent_id, genre_position and
+    genre_tree_id. Call validate explicitly or add the relation to a collection to check
+    local consistency.
+
+    Example:
+        >>> row = GenreRow(genre_id=7)
+        >>> GenreTreeRelation.from_child_row(row).resolved_parent_id is None
+        True
     """
     ROW_TYPE: ClassVar[type[MetadataTableRow]] = GenreRow
     TABLE_NAME: ClassVar[str] = "genres"
@@ -153,7 +318,16 @@ class GenreTreeRelation(InlineSelfRelation[GenreRow]):
 @dataclass(slots=True, kw_only=True)
 class SubjectTreeRelation(InlineSelfRelation[SubjectRow]):
     """
-    Represent the parent, position, and tree identity of one Subject row.
+    Model the inline parent link for a row in subjects.
+
+    Parent, position and tree identity use subject_parent_id, subject_parent_position
+    and subject_tree_id. Call validate explicitly or add the relation to a collection to
+    check local consistency.
+
+    Example:
+        >>> row = SubjectRow(subject_id=7)
+        >>> SubjectTreeRelation.from_child_row(row).resolved_parent_id is None
+        True
     """
     ROW_TYPE: ClassVar[type[MetadataTableRow]] = SubjectRow
     TABLE_NAME: ClassVar[str] = "subjects"
@@ -167,7 +341,16 @@ class SubjectTreeRelation(InlineSelfRelation[SubjectRow]):
 @dataclass(slots=True, kw_only=True)
 class SeriesTreeRelation(InlineSelfRelation[SeriesRow]):
     """
-    Represent the parent, position, and tree identity of one Series row.
+    Model the inline parent link for a row in series.
+
+    Parent, position and tree identity use series_parent_id, series_parent_position and
+    series_tree_id. Call validate explicitly or add the relation to a collection to
+    check local consistency.
+
+    Example:
+        >>> row = SeriesRow(series_id=7)
+        >>> SeriesTreeRelation.from_child_row(row).resolved_parent_id is None
+        True
     """
     ROW_TYPE: ClassVar[type[MetadataTableRow]] = SeriesRow
     TABLE_NAME: ClassVar[str] = "series"
@@ -180,20 +363,99 @@ class SeriesTreeRelation(InlineSelfRelation[SeriesRow]):
 
 @dataclass(slots=True, kw_only=True)
 class SelfRelationsContainer(Generic[RelationT]):
-    """Small editable collection for same-table relation links."""
+    """
+    Keep an ordered mutable collection of inline parent links.
+
+    add_relation validates new links and rejects duplicate known child ids. A supplied
+    initial _relations list is retained without automatic validation. Tuple snapshots
+    protect collection order while sharing mutable links.
+
+    Example:
+        >>> parent = GenreRow(genre_id=1, genre="Fiction")
+        >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+        >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+        >>> container = GenreTreeRelationsContainer()
+        >>> container.add_relation(relation)
+        >>> len(container)
+        1
+    """
 
     _relations: list[RelationT] = field(default_factory=list)
 
     def __iter__(self) -> Iterator[RelationT]:
+        """
+        Iterate over the live list of stored relation objects in insertion order.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> container = GenreTreeRelationsContainer()
+            >>> container.add_relation(relation)
+            >>> next(iter(container)) is relation
+            True
+
+
+        :return: Iterator over the current relation list.
+        """
         return iter(self._relations)
 
     def __len__(self) -> int:
+        """
+        Count stored relation links without validating them.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> container = GenreTreeRelationsContainer()
+            >>> container.add_relation(relation)
+            >>> len(container)
+            1
+
+
+        :return: Current relation count.
+        """
         return len(self._relations)
 
     def relations(self) -> tuple[RelationT, ...]:
+        """
+        Snapshot the collection order into a tuple without copying its links.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> container = GenreTreeRelationsContainer()
+            >>> container.add_relation(relation)
+            >>> container.relations()[0] is relation
+            True
+
+
+        :return: Tuple containing the same relation objects.
+        """
         return tuple(self._relations)
 
     def add_relation(self, relation: RelationT) -> None:
+        """
+        Validate and append a link unless its known child id is already present.
+
+        Duplicate non-None child ids raise ValueError. Id-less children may repeat, and
+        existing links are not revalidated during this call.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> container = GenreTreeRelationsContainer()
+            >>> container.add_relation(relation)
+            >>> container.relations() == (relation,)
+            True
+
+
+        :param relation: Relation object to validate and retain in the collection.
+        :return: None.
+        """
         relation.validate()
         child_id = relation.child_id
         if child_id is not None:
@@ -203,6 +465,21 @@ class SelfRelationsContainer(Generic[RelationT]):
         self._relations.append(relation)
 
     def roots(self) -> tuple[RelationT, ...]:
+        """
+        Select links whose resolved parent id is None.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> container = GenreTreeRelationsContainer()
+            >>> container.add_relation(relation)
+            >>> container.roots()
+            ()
+
+
+        :return: Tuple of root links in collection order.
+        """
         return tuple(
             relation
             for relation in self._relations
@@ -210,6 +487,22 @@ class SelfRelationsContainer(Generic[RelationT]):
         )
 
     def children_of(self, parent_id: int) -> tuple[RelationT, ...]:
+        """
+        Select links whose resolved parent id equals the requested id.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> container = GenreTreeRelationsContainer()
+            >>> container.add_relation(relation)
+            >>> container.children_of(1) == (relation,)
+            True
+
+
+        :param parent_id: Parent database id to compare directly without coercion.
+        :return: Tuple of matching links in collection order.
+        """
         return tuple(
             relation
             for relation in self._relations
@@ -217,6 +510,23 @@ class SelfRelationsContainer(Generic[RelationT]):
         )
 
     def validate(self) -> None:
+        """
+        Revalidate every link and reject duplicate non-None child ids.
+
+        This catches local inconsistencies introduced by later mutation, but does not detect
+        multi-node cycles or require parents to appear in the collection.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> container = GenreTreeRelationsContainer()
+            >>> container.add_relation(relation)
+            >>> container.validate()
+
+
+        :return: None when all links and known child ids are valid.
+        """
         seen_child_ids: set[int] = set()
         for relation in self._relations:
             relation.validate()
@@ -228,13 +538,36 @@ class SelfRelationsContainer(Generic[RelationT]):
             seen_child_ids.add(child_id)
 
     def __str__(self) -> str:
+        """
+        Describe the collection with the compact formatter and a relations count.
+
+        Example:
+            >>> parent = GenreRow(genre_id=1, genre="Fiction")
+            >>> child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
+            >>> relation = GenreTreeRelation.from_child_row(child, parent=parent)
+            >>> container = GenreTreeRelationsContainer()
+            >>> container.add_relation(relation)
+            >>> str(container)
+            'GenreTreeRelationsContainer(1 relations)'
+
+
+        :return: Class-named diagnostic string.
+        """
         return compact_container_string(self, count_label="relations")
 
 
 @dataclass(slots=True, kw_only=True)
 class GenreTreeRelationsContainer(SelfRelationsContainer[GenreTreeRelation]):
     """
-    Collect and validate Genre parent links as an editable forest.
+    Collect genre parent links using the shared relation-list operations.
+
+    This dataclass adds no runtime type restriction beyond each link's own validation.
+    Validate an initial list explicitly; later additions are checked by add_relation.
+
+    Example:
+        >>> container = GenreTreeRelationsContainer()
+        >>> container.relations()
+        ()
     """
     pass
 
@@ -242,7 +575,15 @@ class GenreTreeRelationsContainer(SelfRelationsContainer[GenreTreeRelation]):
 @dataclass(slots=True, kw_only=True)
 class SubjectTreeRelationsContainer(SelfRelationsContainer[SubjectTreeRelation]):
     """
-    Collect and validate Subject parent links as an editable forest.
+    Collect subject parent links using the shared relation-list operations.
+
+    This dataclass adds no runtime type restriction beyond each link's own validation.
+    Validate an initial list explicitly; later additions are checked by add_relation.
+
+    Example:
+        >>> container = SubjectTreeRelationsContainer()
+        >>> container.relations()
+        ()
     """
     pass
 
@@ -250,7 +591,15 @@ class SubjectTreeRelationsContainer(SelfRelationsContainer[SubjectTreeRelation])
 @dataclass(slots=True, kw_only=True)
 class SeriesTreeRelationsContainer(SelfRelationsContainer[SeriesTreeRelation]):
     """
-    Collect and validate Series parent links as an editable forest.
+    Collect series parent links using the shared relation-list operations.
+
+    This dataclass adds no runtime type restriction beyond each link's own validation.
+    Validate an initial list explicitly; later additions are checked by add_relation.
+
+    Example:
+        >>> container = SeriesTreeRelationsContainer()
+        >>> container.relations()
+        ()
     """
     pass
 

@@ -1,4 +1,18 @@
-"""Lazy item-centered LiuXin metadata slice."""
+"""
+Provide opt-in lazy legacy fields and WEMI relation buckets for an item slice.
+
+Projection views require explicit dependency loading, while supported legacy reads
+may materialize fields automatically. Backing resources must remain available until
+deferred access completes.
+
+Example:
+    >>> metadata = LazyLiuXinWEMIMetadata()
+    >>> metadata.install_lazy_value_to_id("tags", lambda: {"deferred": 7})
+    >>> metadata.is_lazy_field_loaded("tags")
+    False
+    >>> list(metadata.hydrate_field("tags"))
+    ['deferred']
+"""
 
 from __future__ import annotations
 
@@ -26,11 +40,19 @@ WemiRelationLoader = Callable[[], Iterable[WemiRelationLink]]
 
 class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
     """
-    LiuXin/WEMI metadata slice with opt-in lazy relation-backed fields.
+    Extend an item metadata slice with deferred field and relation loaders.
 
-    This class is intentionally separate from ``LiuXinWEMIMetadata``. The eager
-    hydrator keeps returning the existing concrete object; callers must ask for
-    the lazy class through the lazy hydrator/from-database entry point.
+    The identity stack stays available immediately. Relation loaders are popped before
+    execution, and identifier hydration marks itself started before synchronizing;
+    failures propagate without automatically restoring those pending states.
+
+    Example:
+        >>> metadata = LazyLiuXinWEMIMetadata()
+        >>> metadata.install_lazy_value_to_id("tags", lambda: {"deferred": 7})
+        >>> metadata.load("tags") is metadata
+        True
+        >>> metadata.values.tags
+        ('deferred',)
     """
 
     _LEGACY_FIELD_ALIASES = {
@@ -76,6 +98,21 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Initialize the eager metadata state and empty lazy-loader bookkeeping.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param args: Positional title, authors and other metadata arguments forwarded to the
+            eager constructor.
+        :param kwargs: Keyword arguments, including WEMI bundles, forwarded to the eager
+            constructor.
+        :return: None.
+        """
         super().__init__(*args, **kwargs)
         object.__setattr__(self, "_lazy_relation_loaders", {})
         object.__setattr__(self, "_lazy_identifiers_loaded", False)
@@ -85,6 +122,24 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         field: str,
         loader: LegacyValueToIDLoader,
     ) -> None:
+        """
+        Replace a normalized legacy field with a lazy mapping wrapper.
+
+        The previous field value is discarded; the loader runs on materialization rather
+        than registration.
+
+        Example:
+            >>> metadata = LazyLiuXinWEMIMetadata()
+            >>> metadata.install_lazy_value_to_id("tags", lambda: {"deferred": 7})
+            >>> metadata.is_lazy_field_loaded("tags")
+            False
+
+
+        :param field: Legacy metadata field name; supported aliases are normalized by the
+            implementation.
+        :param loader: Zero-argument callable returning a value-to-id mapping.
+        :return: None.
+        """
         field_key = self._normalize_lazy_legacy_field(field)
         data = object.__getattribute__(self, "_data")
         data[field_key] = LazyValueToID(loader, label=field_key)
@@ -95,6 +150,23 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         relation_key: WemiRelationKey,
         loader: WemiRelationLoader,
     ) -> None:
+        """
+        Register or replace a loader for a validated level/relation pair.
+
+        Unknown levels or relation names raise KeyError before the loader is stored.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :param loader: Zero-argument callable returning the relation links to install.
+        :return: None.
+        """
         level_key = self.normalize_wemi_level(level)
         relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation_key)
         loaders = object.__getattribute__(self, "_lazy_relation_loaders")
@@ -105,6 +177,23 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         level: str,
         relation_key: WemiRelationKey,
     ) -> list[WemiRelationLink]:
+        """
+        Materialize a pending bucket loader, then read its relation links.
+
+        The loader is removed before invocation. Loader or assignment failures propagate and
+        do not restore the pending loader automatically.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :return: List of current links in the requested bucket.
+        """
         level_key = self.normalize_wemi_level(level)
         relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation_key)
         loaders = object.__getattribute__(self, "_lazy_relation_loaders")
@@ -121,13 +210,57 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         level: str,
         relation_key: WemiRelationKey,
     ) -> list[Any]:
+        """
+        Materialize the selected bucket and project its target objects.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :return: New list containing the link targets.
+        """
         return [link.target for link in self.get_wemi_relation_links(level, relation_key)]
 
     def to_calibre(self) -> Any:
+        """
+        Load all pending dependencies before converting a copied slice to Calibre.
+
+        Hydration changes this object's loaded state; the subsequent flat conversion cannot
+        retain all WEMI provenance.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :return: New Calibre-compatible metadata object.
+        """
         self.load()
         return super().to_calibre()
 
     def load(self, *fields: str) -> "LazyLiuXinWEMIMetadata":
+        """
+        Load selected projection dependencies, or every pending dependency with no fields.
+
+        The all-fields form hydrates legacy wrappers and identifiers before draining
+        remaining relation loaders.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param fields: Projection field names whose legacy and relation dependencies should
+            be loaded.
+        :return: This metadata object.
+        """
         if not fields:
             self.force_hydrate()
             self._hydrate_all_relation_loaders()
@@ -138,6 +271,23 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         return self
 
     def hydrate_field(self, field: str) -> OrderedDict[str, Any] | Any:
+        """
+        Materialize a legacy field and replace its lazy wrapper with the live mapping.
+
+        Identifier requests synchronize WEMI identifiers and return the identifier mapping.
+        Other absent fields return None.
+
+        Example:
+            >>> metadata = LazyLiuXinWEMIMetadata()
+            >>> metadata.install_lazy_value_to_id("tags", lambda: {"deferred": 7})
+            >>> list(metadata.hydrate_field("tags").items())
+            [('deferred', 7)]
+
+
+        :param field: Legacy metadata field name; supported aliases are normalized by the
+            implementation.
+        :return: Hydrated field value; ordinary mappings are retained in legacy storage.
+        """
         field_key = self._normalize_lazy_legacy_field(field)
         if field_key == "identifiers":
             self._hydrate_identifiers()
@@ -154,6 +304,23 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         self,
         fields: Iterable[str] | None = None,
     ) -> "LazyLiuXinWEMIMetadata":
+        """
+        Hydrate selected legacy fields, defaulting to wrappers and pending identifiers.
+
+        Unrelated relation loaders may remain pending; use load without arguments to drain
+        them all.
+
+        Example:
+            >>> metadata = LazyLiuXinWEMIMetadata()
+            >>> metadata.install_lazy_value_to_id("tags", lambda: {"deferred": 7})
+            >>> metadata.force_hydrate(["tags"]) is metadata
+            True
+
+
+        :param fields: Iterable of legacy field names; None selects every wrapper and
+            pending identifiers.
+        :return: This metadata object.
+        """
         if fields is None:
             data = object.__getattribute__(self, "_data")
             fields = [
@@ -168,6 +335,21 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         return self
 
     def lazy_fields(self) -> tuple[str, ...]:
+        """
+        List fields retaining lazy wrappers, plus pending identifier synchronization.
+
+        A wrapper whose internal loaded flag is True still appears until hydrate_field
+        replaces it.
+
+        Example:
+            >>> metadata = LazyLiuXinWEMIMetadata()
+            >>> metadata.install_lazy_value_to_id("tags", lambda: {"deferred": 7})
+            >>> "tags" in metadata.lazy_fields()
+            True
+
+
+        :return: Tuple of wrapper field names and, when pending, identifiers.
+        """
         data = object.__getattribute__(self, "_data")
         fields = [
             key
@@ -179,6 +361,22 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         return tuple(fields)
 
     def is_lazy_field_loaded(self, field: str) -> bool:
+        """
+        Inspect a legacy wrapper's flag or the identifier synchronization flag.
+
+        Fields without a wrapper, including absent names, count as loaded.
+
+        Example:
+            >>> metadata = LazyLiuXinWEMIMetadata()
+            >>> metadata.install_lazy_value_to_id("tags", lambda: {"deferred": 7})
+            >>> metadata.is_lazy_field_loaded("unregistered")
+            True
+
+
+        :param field: Legacy metadata field name; supported aliases are normalized by the
+            implementation.
+        :return: Whether the field has no pending legacy materialization.
+        """
         field_key = self._normalize_lazy_legacy_field(field)
         if field_key == "identifiers":
             return bool(object.__getattribute__(self, "_lazy_identifiers_loaded"))
@@ -189,16 +387,54 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         return True
 
     def get_identifiers(self):
+        """
+        Synchronize pending WEMI identifiers before reading the legacy identifier view.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :return: Grouped identifier values returned by the inherited identifier accessor.
+        """
         self._hydrate_identifiers()
         return super().get_identifiers()
 
     def _hydrate_identifiers(self) -> None:
+        """
+        Mark identifiers loaded, then synchronize supported WEMI identifier targets.
+
+        Setting the flag first prevents recursive synchronization. A later failure leaves
+        the flag set.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :return: None.
+        """
         if object.__getattribute__(self, "_lazy_identifiers_loaded"):
             return
         object.__setattr__(self, "_lazy_identifiers_loaded", True)
         self.sync_legacy_identifiers_from_wemi()
 
     def _hydrate_projection_dependencies(self, field: str) -> None:
+        """
+        Hydrate a field wrapper or identifiers, then matching relation buckets.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param field: Legacy metadata field name; supported aliases are normalized by the
+            implementation.
+        :return: None.
+        """
         field_key = self._normalize_lazy_legacy_field(field)
         data = object.__getattribute__(self, "_data")
         if field_key == "identifiers" or isinstance(data.get(field_key), LazyValueToID):
@@ -208,11 +444,38 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         self._hydrate_relation_loaders_for_relation(relation_key)
 
     def _hydrate_all_relation_loaders(self) -> None:
+        """
+        Drain a snapshot of currently registered relation loader keys.
+
+        Each bucket read removes its loader before running it; failures stop the loop.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :return: None.
+        """
         loaders = object.__getattribute__(self, "_lazy_relation_loaders")
         for level_key, relation_key in list(loaders):
             self.get_wemi_relation_links(level_key, relation_key)
 
     def _hydrate_relation_loaders_for_relation(self, relation_key: str) -> None:
+        """
+        Read a relation bucket on every WEMI level that supports its name.
+
+        Unsupported relation names are skipped; loader failures propagate.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param relation_key: Relation name to validate against each level before loading.
+        :return: None.
+        """
         for level in self._LEVELS:
             metadata = self.get_wemi_metadata(level)
             try:
@@ -223,10 +486,39 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
 
     @classmethod
     def _normalize_projection_relation_key(cls, field: str) -> str:
+        """
+        Normalize case/whitespace and expand supported projection aliases.
+
+        Unrecognized names pass through after string normalization.
+
+        Example:
+            >>> LazyLiuXinWEMIMetadata._normalize_projection_relation_key(" Authors ")
+            'agents'
+
+
+        :param field: Legacy metadata field name; supported aliases are normalized by the
+            implementation.
+        :return: Normalized relation name.
+        """
         normalized = str(field).strip().lower()
         return cls._PROJECTION_RELATION_ALIASES.get(normalized, normalized)
 
     def direct_get(self, item: str) -> Any:
+        """
+        Hydrate supported lazy aliases before the inherited direct field lookup.
+
+        After a wrapper has been replaced, ordinary lookups use the original exact key.
+        Identifier requests always use the grouped accessor.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param item: Legacy field lookup key; supported aliases apply while lazy.
+        :return: Hydrated value or inherited direct field value.
+        """
         data = object.__getattribute__(self, "_data")
         field_key = self._LEGACY_FIELD_ALIASES.get(str(item).strip().lower())
         if field_key == "identifiers":
@@ -236,6 +528,21 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         return super().direct_get(item)
 
     def __getattr__(self, item: str) -> Any:
+        """
+        Hydrate supported legacy fields and recognized identifier schemes on attribute reads.
+
+        A newly hydrated ordinary field returns its live mapping; later inherited attribute
+        reads retain the base class copy behavior.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param item: Attribute name requested through the legacy metadata interface.
+        :return: Hydrated value or the inherited attribute result.
+        """
         data = object.__getattribute__(self, "_data")
         field_key = self._LEGACY_FIELD_ALIASES.get(str(item).strip().lower())
         if field_key == "identifiers" or standardize_id_name(str(item)) is not None:
@@ -245,6 +552,21 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         return super().__getattr__(item)
 
     def __getitem__(self, item: str) -> Any:
+        """
+        Hydrate supported lazy aliases before an exact inherited mapping lookup.
+
+        Identifier requests use the grouped accessor; other missing exact keys raise
+        KeyError.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param item: Legacy field lookup key; supported aliases apply while lazy.
+        :return: Hydrated value or stored field value.
+        """
         data = object.__getattribute__(self, "_data")
         field_key = self._LEGACY_FIELD_ALIASES.get(str(item).strip().lower())
         if field_key == "identifiers":
@@ -255,6 +577,18 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
 
     @classmethod
     def _is_empty_pretty_value(cls, value: Any) -> bool:
+        """
+        Keep an unloaded lazy mapping visible without materializing it.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param value: Value being considered for diagnostic omission.
+        :return: False for an unloaded wrapper; otherwise the eager emptiness result.
+        """
         if isinstance(value, LazyValueToID) and not value.loaded:
             return False
         return super()._is_empty_pretty_value(value)
@@ -267,6 +601,22 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         max_items: int = 5,
         max_chars: int = 160,
     ) -> str:
+        """
+        Render unloaded lazy mappings as placeholders without running their loaders.
+
+        Loaded wrappers and ordinary values use the eager bounded formatter.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param value: Value to render.
+        :param max_items: Maximum entries included by the eager formatter.
+        :param max_chars: Maximum text length requested from the eager formatter.
+        :return: Diagnostic value text.
+        """
         if isinstance(value, LazyValueToID) and not value.loaded:
             return repr(value)
         return super()._format_pretty_value(
@@ -277,11 +627,39 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
 
     @classmethod
     def _normalize_lazy_legacy_field(cls, field: str) -> str:
+        """
+        Normalize whitespace/case and map recognized legacy field aliases.
+
+        Example:
+            >>> LazyLiuXinWEMIMetadata._normalize_lazy_legacy_field(" Genres ")
+            'genre'
+
+
+        :param field: Legacy metadata field name; supported aliases are normalized by the
+            implementation.
+        :return: Canonical legacy key, or the normalized original name.
+        """
         field_key = cls._LEGACY_FIELD_ALIASES.get(str(field).strip().lower())
         return field_key if field_key is not None else str(field).strip().lower()
 
     @staticmethod
     def relation_target_text(target: Any, relation_key: WemiRelationKey) -> str | None:
+        """
+        Extract a nonblank display value using relation-specific column priorities.
+
+        Rows use row_dict; mappings use keys; strings are stripped directly. Attribute
+        fallback is used only when the extracted mapping is empty.
+
+        Example:
+            >>> LazyLiuXinWEMIMetadata.relation_target_text({"tag": " example "}, "tags")
+            'example'
+
+
+        :param target: Row, mapping, string or attribute-bearing relation target.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :return: First usable stripped text, or None.
+        """
         mapping: Mapping[str, Any]
         if isinstance(target, Row):
             mapping = target.row_dict
@@ -328,6 +706,22 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
 
     @staticmethod
     def relation_target_id(target: Any, relation_key: WemiRelationKey) -> int | None:
+        """
+        Extract an integer target id using relation-specific id keys.
+
+        Invalid candidate conversions are skipped; a database Row's own row_id is the final
+        fallback.
+
+        Example:
+            >>> LazyLiuXinWEMIMetadata.relation_target_id({"tag_id": "7"}, "tags")
+            7
+
+
+        :param target: Row, mapping or attribute-bearing relation target.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :return: Converted id, or None.
+        """
         mapping: Mapping[str, Any]
         if isinstance(target, Row):
             mapping = target.row_dict
@@ -369,6 +763,25 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         field: str,
         relation_key: WemiRelationKey,
     ) -> OrderedDict[str, Any]:
+        """
+        Read a relation across levels into an ordered legacy field mapping.
+
+        Ordinary terms use first-wins case-insensitive deduplication with target row ids.
+        Ratings map source labels to values and later entries overwrite the same label.
+        Unsupported level buckets are skipped.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param field: Legacy metadata field name; supported aliases are normalized by the
+            implementation.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :return: Ordered term-to-id or rating-source-to-value mapping.
+        """
         terms: OrderedDict[str, Any] = OrderedDict()
         seen: set[str] = set()
         for level in self._LEVELS:
@@ -395,6 +808,20 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
 
     @staticmethod
     def _rating_key_value(target: Any) -> tuple[str | None, Any]:
+        """
+        Extract a rating source key and value from a Row or mapping.
+
+        A present Calibre-viewer rating wins, including zero. Otherwise use rating and the
+        source label, falling back to rating as the key.
+
+        Example:
+            >>> LazyLiuXinWEMIMetadata._rating_key_value({"rating": 0})
+            ('rating', 0)
+
+
+        :param target: Rating Row or mapping; other objects provide no rating fields.
+        :return: Source/value pair, or (None, None) when no rating is available.
+        """
         if isinstance(target, Row):
             mapping = target.row_dict
         elif isinstance(target, Mapping):
@@ -424,6 +851,26 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         item_id: int | None = None,
         source_row: Mapping[str, Any] | Row | None = None,
     ) -> "LazyLiuXinWEMIMetadata":
+        """
+        Build a lazy slice using the dedicated database hydrator.
+
+        Provide item_id or source_row. The returned loaders retain the caller-owned
+        database, which must remain usable for later reads.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param database: Caller-owned database/read source retained for metadata access; it
+            is not closed here.
+        :param item_id: Optional item row id; overrides an item id extracted from
+            source_row.
+        :param source_row: Database Row or source mapping supplying identity fields and
+            row-id hints.
+        :return: New lazy metadata slice.
+        """
         from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_lazy_metadata_hydrator import (
             LazyLiuXinWEMIMetadataHydrator,
         )
@@ -435,6 +882,21 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         )
 
     def __deepcopy__(self, memo: dict[int, Any]) -> "LazyLiuXinWEMIMetadata":
+        """
+        Hydrate legacy fields before copying bundles, field data and pending loaders.
+
+        This mutates the source's hydration state. Unrelated relation loader callables may
+        remain deferred and retain their original captured resources.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param memo: Deepcopy identity memo reused for nested bundles and stored values.
+        :return: Memoized or newly copied lazy metadata object.
+        """
         existing = memo.get(id(self))
         if existing is not None:
             return existing
@@ -465,6 +927,18 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         return clone
 
     def deepcopy_metadata(self) -> "LazyLiuXinWEMIMetadata":
+        """
+        Deep-copy this slice, including the hydration side effects of __deepcopy__.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :return: Independent stored metadata with any still-pending loader callables
+            retained.
+        """
         return deepcopy(self)
 
 

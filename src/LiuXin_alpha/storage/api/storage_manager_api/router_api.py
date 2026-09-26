@@ -6,6 +6,8 @@ those operations with explicit stream lifetimes and failure boundaries; they
 do not create catalogue records or atomic transactions across Stores.
 """
 
+# Todo: Not very clear why this is called router, or what it does in this context
+
 from __future__ import annotations
 
 import abc
@@ -143,10 +145,13 @@ class StorageRouterAPI(abc.ABC):
         """
         ...
 
+    # Todo: Add the capacity - or another method - to call by store id
     @abc.abstractmethod
     def capabilities(self, store_ref: StoreUUID) -> StoreCapabilities:
         """
-        Report the operation capabilities of a configured Store. Capability claims describe support
+        Report the operation capabilities of a configured Store.
+
+        Capability claims describe support
         rather than proving current availability or successful execution.
 
         Example:
@@ -158,6 +163,8 @@ class StorageRouterAPI(abc.ABC):
         """
         ...
 
+    # Todo: This does... not seem to a router method
+    # Todo: It would be good if we could check the status via store id
     def characteristics(self, store_ref: StoreUUID) -> StorageCharacteristics:
         """
         Return a new all-unknown characteristics profile without looking up the Store. This
@@ -175,6 +182,8 @@ class StorageRouterAPI(abc.ABC):
         del store_ref
         return StorageCharacteristics()
 
+    # Todo: Would be good to be able to get the status for all stores at once
+    # Todo: Some kinda method - is the manager happy or not?
     @abc.abstractmethod
     def status(self, store_ref: StoreUUID) -> StoreStatus:
         """
@@ -190,6 +199,7 @@ class StorageRouterAPI(abc.ABC):
         """
         ...
 
+    # Todo: Do we need both Location and BoundLocation?
     def bind(self, location: Location) -> BoundLocation:
         """
         Create a fresh operational handle retaining this router and the exact Location. Construction
@@ -208,6 +218,8 @@ class StorageRouterAPI(abc.ABC):
 
         return BoundLocation(self, location)
 
+    # Todo: safe_stat better name - likewise for the rest of these types of methods
+    # Todo: safe_* method for quite a lot of the rest of this interface would be good
     def try_stat(self, location: Location) -> FileInfo | None:
         """
         Call stat and suppress only StoreNotFound. Unknown configuration, unavailable Stores,
@@ -276,7 +288,9 @@ class StorageRouterAPI(abc.ABC):
             return source.read()
 
     def write_bytes(
-        self, location: Location, data: bytes, *,
+        self, location: Location,
+        data: bytes,
+        *,
         mode: WriteMode = WriteMode.CREATE_ONLY,
         expected_digest: Digest | None = None,
     ) -> FileInfo:
@@ -390,16 +404,17 @@ class StorageRouterAPI(abc.ABC):
         prefix: Location | None = None,
     ) -> Iterator[FileInfo]:
         """
-        Lazily stat each Location yielded by iter_locations with the same selection filters. There
-        is no snapshot, extra deduplication, or suppression of changes/disappearance between
+        Lazily stat each Location yielded by iter_locations with the same selection filters.
+
+        There is no snapshot, extra deduplication, or suppression of changes/disappearance between
         enumeration and stat. Errors may follow already yielded records.
 
         Example:
             >>> infos = list(manager.iter_file_infos(store_ref=store_uuid))  # doctest: +SKIP
 
-
         :param store_ref: Optional configured Store UUID restricting enumeration; None requests all routes.
         :param prefix: Optional Store-owned prefix address interpreted by the implementing router/Store.
+
         :return: Iterator yielding one current FileInfo per successfully described enumerated Location.
         """
 

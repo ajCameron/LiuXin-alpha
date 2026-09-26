@@ -36,8 +36,9 @@ if TYPE_CHECKING:
 
 class StoreAdministrationAPI(abc.ABC):
     """
-    Define configuration and lifecycle operations for manager-owned Store facades. UUIDs identify
-    durable routing destinations while live Store instances are replaceable process resources.
+    Define configuration and lifecycle operations for manager-owned Store facades.
+
+    UUIDs identify durable routing destinations while live Store instances are replaceable process resources.
     Concrete managers own factories, persistence, startup/close behavior, and partial-failure
     handling; this interface exposes configured Store facades rather than raw driver or database row
     objects.
@@ -65,6 +66,9 @@ class StoreAdministrationAPI(abc.ABC):
         """
         ...
 
+    # Todo: As a dual to remove_store, a way to add an initialized store
+    # Todo: This style of function is clear and better than having to create a spec first, then use it
+    # Todo: Probably the best way to refer to stores is EITHER by UUID or ID
     @abc.abstractmethod
     def add_store(
         self,

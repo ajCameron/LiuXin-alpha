@@ -1,4 +1,15 @@
-"""Concrete row container for the ``ratings`` main table."""
+"""
+Provide the concrete ratings row value used by metadata callers.
+
+The RatingRow dataclass stores database-shaped fields in memory and inherits column
+mapping and diagnostic-string helpers. Creating or editing it performs no database
+write.
+
+Example:
+    >>> row = RatingRow(rating=4.5)
+    >>> row.rating
+    4.5
+"""
 
 from __future__ import annotations
 
@@ -11,7 +22,18 @@ from ._row_base import MetadataTableRow
 @dataclass(slots=True, kw_only=True)
 class RatingRow(MetadataTableRow):
     """
-    Represent a numeric rating row with its scale and source.
+    Store a numeric rating together with scale, source and optional Calibre-viewer value.
+
+    No scale conversion or range validation is performed; rating_for_calibre_tag_viewer
+    is supplied independently from rating and rating_out_of.
+
+    Fields are keyword-only, mutable and default to None. from_mapping ignores unknown
+    columns; to_mapping returns the stored fields without persisting them.
+
+    Example:
+        >>> row = RatingRow.from_mapping({'rating_id': 7, 'rating': 4.5})
+        >>> row.primary_id, row.to_mapping()['rating']
+        (7, 4.5)
     """
     TABLE_NAME: ClassVar[str] = "ratings"
     ID_COLUMN: ClassVar[str] = "rating_id"

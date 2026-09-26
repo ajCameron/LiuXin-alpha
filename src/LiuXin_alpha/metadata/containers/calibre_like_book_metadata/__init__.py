@@ -2,25 +2,17 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:a
 
 """
-Metadata container for a book.
+Store legacy LiuXin book metadata with Calibre-style writes and value-to-row mappings.
 
-Intended to store all the data from the databases about an individual book.
-Including the ids of the associated entities on the databases (if needed).
+Most collection fields use ordered mappings from values to optional database row
+information. Creator roles and identifier schemes have separate top-level stores,
+with mixins providing grouped views and conversion. This container keeps legacy
+behavior, including asymmetric copy and update rules.
 
-This object is intended to store any data which might be added to the databases about an object. Including the ids of
-the corresponding rows on the databases.
-The standard container is an ordered dictionary - keyed by the item value and valued with the item id
-- for example, say the title had the tags 'cyberpunk' & 'alternative-reality'. The tag-container might have the form
-{'cyberpunk':238, 'alternative-reality':None}
+Example:
+    Exercise the owning behavior with pytest::
 
-There are classes of object where type is relevant as well as the raw information.
-For example, creators, which can have various sub-types (author, illustrator e.t.c).
-These are stored are the top level in their own container and each has their own ordered dictionary
-- but can be accessed as one block by some methods.
-MD.authors will produce the authors dict.
-and MD.creators will throw back an dict of OrderDicts, keyed with the role and values with that role's OrderedDict.
-Similarly, for identifiers and internal identifiers.
-
+        python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
 """
 
 
@@ -107,24 +99,40 @@ class CalibreLikeLiuXinBookMetaData(
     CalibreMetadataLike
 ):
     """
-    A class representing the MetaData of an object - calibre like write interface, but not read.
+    Represent a book with normalized field assignment, typed relation collections, and Calibre adapters.
 
-    The standard metadata fields are available as attributes of this object. You can also hang arbitrary attributes on
-    it.
-    Though this is often a bad idea.
+    Assignments generally append to collection fields; nullify clears a supported field
+    first. Direct access exposes internal storage while ordinary reads usually copy it,
+    except creator and identifier stores. Metadata copying does not copy the cleanup
+    registry. This legacy container is distinct from the simpler Calibre book.base
+    container.
 
-    The :method is_null: cam be used to checks and see if the field is null.
+    Example:
+        >>> book = CalibreLikeLiuXinBookMetaData('Example', ['Writer'])
+        >>> book.tags = ['history']
+        >>> list(book.tags), book.get_authors_copy()
+        (['history'], ['Writer'])
     """
 
     def __init__(self, title: Optional[str] = None, authors: Union[str, list[str], tuple[str, ...]]=None, other=None):
         """
-        If the rest MetaData object is passed in, it's values will be overwritten by the given title and authors.
+        Create independent defaults, merge other metadata, then apply explicit title and authors.
 
-        If you want to pass in creators who are not authors, use the add_creator methods
-        :param title:
-        :param authors:
-        :param other:
-        :return:
+        A string of authors is first split on ampersands; lists/tuples are assigned entry by
+        entry. Those assignments use creator parsing and accumulate with merged authors.
+        Dictionaries and unsupported author shapes produce NotImplementedError.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param title: Optional title override; None retains the default or merged title.
+        :param authors: Optional author string, list, or tuple.
+        :param other: Optional instance of this metadata family to merge before explicit
+            values.
+        :return: None.
         """
         _data = deepcopy(METADATA_NULL_VALUES)
 
@@ -162,16 +170,38 @@ class CalibreLikeLiuXinBookMetaData(
 
     def setattr(self, key, value):
         """
-        External wrapper for the __setattr__ method.
+        Assign a field through the public normalization and collection-dispatch path.
 
-        :param key:
-        :param value:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param key: Metadata storage key.
+        :param value: Value to store using the operation's field rules.
+        :return: None.
         """
         self.__setattr__(key, value)
 
     @classmethod
     def from_opf(cls, source):
+        """
+        Read OPF using the shared LiuXin adapter and return this metadata class.
+
+        An adapter result already satisfying cls is returned directly; otherwise the class
+        is constructed with other set to that result.
+
+        Example:
+            Exercise OPF adapters with pytest::
+
+                python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+        :param source: OPF path, bytes, XML text, or readable stream; the adapter retains
+            caller-owned streams.
+        :return: Metadata instance populated from the OPF.
+        """
         from LiuXin_alpha.metadata.opf_tools import liuxin_metadata_from_opf
 
         metadata = liuxin_metadata_from_opf(source)
@@ -180,11 +210,37 @@ class CalibreLikeLiuXinBookMetaData(
         return cls(None, None, other=metadata)
 
     def to_opf_bytes(self, *, default_lang=None):
+        """
+        Serialize this metadata through the shared OPF adapter.
+
+        Example:
+            Exercise OPF adapters with pytest::
+
+                python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+        :param default_lang: Optional default language forwarded to OPF serialization.
+        :return: UTF-8 OPF bytes.
+        """
         from LiuXin_alpha.metadata.opf_tools import metadata_to_opf_bytes
 
         return metadata_to_opf_bytes(self, default_lang=default_lang)
 
     def write_to_opf(self, path, *, default_lang=None):
+        """
+        Write this metadata to an OPF file through the shared adapter.
+
+        Example:
+            Exercise OPF adapters with pytest::
+
+                python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+        :param path: Destination OPF path; the shared adapter creates parents and overwrites
+            the file.
+        :param default_lang: Optional default language forwarded to OPF serialization.
+        :return: Destination Path returned by the adapter.
+        """
         from LiuXin_alpha.metadata.opf_tools import metadata_to_opf_file
 
         return metadata_to_opf_file(self, path, default_lang=default_lang)
@@ -201,11 +257,27 @@ class CalibreLikeLiuXinBookMetaData(
         mark_dirty=True,
     ):
         """
-        Persist supported relation-backed fields through the WEMI metadata writer.
+        Persist supported relation fields through LiuXinWEMIMetadataWriter.
 
-        Plain LiuXin/Calibre-like metadata does not carry WEMI database ids, so
-        callers should pass ``item_id`` or ``target_row`` unless the object was
-        enriched with database id fields elsewhere.
+        Supply item_id or target_row unless the object has been enriched with database-id
+        fields. The writer owns target resolution, validation, and error/skip reporting;
+        this facade does not manage a transaction.
+
+        Example:
+            Exercise persistence with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
+
+
+        :param database: Caller-owned database used by the WEMI writer for persistence; this
+            method does not close it.
+        :param fields: Optional relation-field iterable; None selects writer defaults.
+        :param target_level: WEMI level for the target relations, defaulting to work.
+        :param item_id: Optional LiuXin item id used to resolve the write target.
+        :param target_row: Optional explicit row or mapping identifying the write target.
+        :param replace: Whether to replace selected existing relations.
+        :param mark_dirty: Whether the writer should mark changed metadata dirty.
+        :return: Metadata write report describing row/link changes, skips, and errors.
         """
         from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
             LiuXinWEMIMetadataWriter,
@@ -223,17 +295,24 @@ class CalibreLikeLiuXinBookMetaData(
 
     def __setattr__(self, key: str, value):
         """
-        Writes data into the internal _data dictionary - allows for a dot interface.
+        Normalize a field name and dispatch its value to the legacy metadata stores.
 
-        Arbitrary attributes can be hung on this class. Use with care.
-        When you use __setattr__ for a category which can have multiple entries (common - except titles),
-        by default the value is added to the end of the collection.
-        To overwrite, set it null and then add.
-        key is transformed with key.lower().strip() before anything else is done - thus keys which are only different
-        up to capitalization and surrounding whitespace will end up the same.
-        :param key:
-        :param value:
-        :return:
+        Names are lower-cased and trimmed; string values are trimmed. Creator and identifier
+        aliases dispatch to their mixins. Collection fields usually accumulate values;
+        unknown fields replace an entry in _data. Special grouped/custom fields may reject
+        assignment. Series indices support (series, index) pairs or a cached scalar;
+        assigning a scalar after one series uses a legacy keys-view indexing path that fails
+        on Python 3. Direct storage access can bypass these rules.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param key: Metadata storage key.
+        :param value: Value to store using the operation's field rules.
+        :return: None.
         """
         _data = object.__getattribute__(self, "_data")
         key = key.lower().strip()
@@ -491,12 +570,16 @@ class CalibreLikeLiuXinBookMetaData(
 
     def get(self, field, default=None):
         """
-        Interface to the __getattr__ method, with a default for if the attribute doesn't exist.
+        Read a field through __getattr__, returning the default only for AttributeError.
 
-        calibre emulation.
-        :param field:
-        :param default:
-        :return:
+        Example:
+            >>> CalibreLikeLiuXinBookMetaData('Example').get('missing', 'fallback')
+            'fallback'
+
+
+        :param field: Metadata field name.
+        :param default: Fallback used by the implementation for a missing value.
+        :return: Resolved value or default; ownership follows __getattr__.
         """
         try:
             return self.__getattr__(field)
@@ -505,12 +588,21 @@ class CalibreLikeLiuXinBookMetaData(
 
     def get_extra(self, field, default=None):
         """
-        Tries to return the field from the user metadata, with a default in case it doesn't succeed.
+        Read the whole stored user-metadata entry for a defined field.
 
-        calibre emulation.
-        :param field:
-        :param default:
-        :return:
+        This legacy helper does not extract a #extra# slot. Undefined fields produce
+        AttributeError; the default is only used if the indexed read itself raises
+        AttributeError.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param field: Metadata field name.
+        :param default: Fallback used by the implementation for a missing value.
+        :return: Stored user-metadata entry or the narrow fallback; the entry is shared.
         """
         _data = object.__getattribute__(self, "_data")
         if field in iterkeys(_data["user_metadata"]):
@@ -522,10 +614,18 @@ class CalibreLikeLiuXinBookMetaData(
 
     def direct_get(self, item: str):
         """
-        Directed access the data _dict.
+        Return an exact internal storage entry without copying or alias normalization.
 
-        :param item:
-        :return:
+        A missing key produces AttributeError.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param item: Exact field or column lookup name.
+        :return: Stored value, including its mutable references.
         """
         _data = object.__getattribute__(self, "_data")
 
@@ -536,18 +636,20 @@ class CalibreLikeLiuXinBookMetaData(
 
     def __getattr__(self, item: str):
         """
-        Adds support for dynamically adding categories to the class.
+        Resolve creator/identifier aliases or copy a named metadata value.
 
-        Many attributes are stored as an OrderedDict
-        This method returns the KEYS to
+        Creator and identifier stores are returned by reference and initialized if missing.
+        Comments, title-sort aliases, genre aliases, and ordinary stored fields are
+        deep-copied. Unknown attributes are logged and produce AttributeError.
 
-        Modifying this list won't do anything.
-        Calling creators will get a dictionary keyed with the role of the creators and valued with a list of their
-        names.
-        This is for calibre compatibility reasons.
-        If you want all the data available call :meth get_dict:
-        :param item:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param item: Exact field or column lookup name.
+        :return: Live creator/identifier store or deep-copied ordinary value.
         """
         _data = object.__getattribute__(self, "_data")
 
@@ -601,11 +703,19 @@ class CalibreLikeLiuXinBookMetaData(
 
     def __getitem__(self, item):
         """
-        Allows a dictionary like interface, directly to the _data dictionary.
-        Use with care - direct access bypasses the usual set methods, so you should make sure to leave the MetaData in
-        a consistent state when you finish.
-        :param item:
-        :return:
+        Read an exact key directly from internal storage.
+
+        Unknown keys produce KeyError with a metadata-specific message; mutable results
+        remain shared.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param item: Exact field or column lookup name.
+        :return: Stored value without copying.
         """
         try:
             _data = object.__getattribute__(self, "_data")
@@ -615,12 +725,20 @@ class CalibreLikeLiuXinBookMetaData(
 
     def nullify(self, field: str) -> None:
         """
-        Resets a value to its null value from :param METADATA_NULL_VALUES;
+        Reset grouped creator/identifier stores or a known field to its default.
 
-        Calling any of the three quantity collections (creators, identifiers, internal_identifiers) will result in all
-        elements of that type being nullified.
-        :param field:
-        :return:
+        Group names are trimmed and lower-cased; ordinary field reset uses the original
+        exact spelling and requires a METADATA_NULL_VALUES entry. Unknown or nondefault
+        custom fields produce KeyError.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param field: Metadata field name.
+        :return: None.
         """
         field_key = field.lower().strip()
         _data = object.__getattribute__(self, "_data")
@@ -662,15 +780,20 @@ class CalibreLikeLiuXinBookMetaData(
 
     def direct_add(self, key, value, key_check: bool = True) -> None:
         """
-        Directly add a value to the underlying _data dict.
+        Replace an internal value without normalization, copying, or merging.
 
-        Allows bypassing all setattr data normalization - used when copying data in wholesale e.g. from the databases.
-        Do not use unless you know EXACTLY what you're doing.
-        By default will raise a KeyError unless the key is already in _data. This is to add checking to a fairly
-        dangerous method.
-        :param value:
-        :param key_check:
-        :return:
+        With key_check enabled, unknown keys are logged and rejected with KeyError.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param key: Metadata storage key.
+        :param value: Value to store using the operation's field rules.
+        :param key_check: Whether the key must already exist in _data.
+        :return: None.
         """
         _data = object.__getattribute__(self, "_data")
         if key_check and key not in _data.keys():
@@ -681,9 +804,19 @@ class CalibreLikeLiuXinBookMetaData(
 
     def set_doc_type(self, doc_type):
         """
-        Method that should be used to set the document type
-        :param doc_type:
-        :return:
+        Store a document type after converting to text and checking ALLOWED_DOC_TYPES.
+
+        Unrecognized types produce InputIntegrityError; direct doc_type assignment bypasses
+        this check.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param doc_type: Document type value to validate and store.
+        :return: None.
         """
         doc_type = six_unicode(doc_type)
         if doc_type not in ALLOWED_DOC_TYPES:
@@ -703,32 +836,60 @@ class CalibreLikeLiuXinBookMetaData(
 
     def __unicode__(self) -> str:
         """
-        Uses pretty print to provide a unicode representation of this class.
-        :return:
+        Pretty-print the raw metadata dictionary for inspection.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :return: Text representation of internal storage.
         """
         _data = object.__getattribute__(self, "_data")
         return pprint.pformat(_data)
 
     def __str__(self) -> str:
         """
-        Calls unicode, and then safely encodes the result.
-        :return:
+        Return the pretty-printed metadata dictionary via __unicode__.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :return: Unicode string.
         """
         return self.__unicode__()
 
     def __repr__(self) -> str:
         """
-        Returns a safe representation of this object.
-        :return:
+        Return pprint's safe representation of the raw metadata dictionary.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :return: Diagnostic representation string.
         """
         _data = object.__getattribute__(self, "_data")
         return pprint.saferepr(_data)
 
     def __nonzero__(self) -> bool:
         """
-        Does this metadata count as having any content set?
+        Implement the legacy truth hook from title, author, comments, or tags.
 
-        :return:
+        Python 3 does not use this method as __bool__.
+
+        Example:
+            >>> CalibreLikeLiuXinBookMetaData('Example').__nonzero__()
+            True
+
+
+        :return: True if one of those values is truthy.
         """
         return bool(self.title or self.author or self.comments or self.tags)
 
@@ -740,28 +901,60 @@ class CalibreLikeLiuXinBookMetaData(
 
     def __iter__(self):
         """
-        Iterates over the _data keys.
+        Iterate the internal top-level metadata keys without expanding user metadata.
 
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :return: Iterator over stored keys.
         """
         return iterkeys(object.__getattribute__(self, "_data"))
 
     @staticmethod
     def standard_field_keys():
         """
-        Returns a frozenset of the keys of METADATA_NULL_VALUES
+        Return the names present in the shared null-value template.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :return: Frozenset of standard storage keys.
         """
         return frozenset(iterkeys(METADATA_NULL_VALUES))
 
     def user_metadata_keys(self):
         """
-        Returns a set of the names of all user set metadata fields.
+        Return lookup names from this instance's user_metadata dictionary.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :return: Frozenset of custom metadata keys.
         """
         return frozenset(iterkeys(object.__getattribute__(self, "_data")["user_metadata"]))
 
     def all_field_keys(self):
         """
-        All field keys known by this instance, even if their value is None
+        Collect top-level keys plus recognized creator roles and identifier schemes.
+
+        Nested user_metadata keys are not expanded by this implementation.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :return: Frozenset of recognized field names.
         """
         _data = object.__getattribute__(self, "_data")
 
@@ -778,16 +971,37 @@ class CalibreLikeLiuXinBookMetaData(
 
     def all_set_fields(self):
         """
-        Pass through method for all_non_none_fields.
-        :return set_fields: A set of fields which have been set.
+        Delegate to the legacy all_non_none_fields selector.
+
+        Despite this method's name, the current selector retains fields for which is_null is
+        true.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :return: Dictionary of null/default fields produced by all_non_none_fields.
         """
         return self.all_non_none_fields()
 
     def all_non_none_fields(self):
         """
-        Return a dictionary containing all non-None metadata fields, including
-        the custom ones.
-        :return set_fields: A set of fields which have been set.
+        Collect fields for which the legacy is_null predicate returns true.
+
+        The implementation currently selects unset/default fields despite its name;
+        populated fields are omitted. Values are obtained through get, with its
+        field-specific copy behavior.
+
+        Example:
+            >>> book = CalibreLikeLiuXinBookMetaData('Example')
+            >>> fields = book.all_non_none_fields()
+            >>> 'title' in fields, 'tags' in fields
+            (False, True)
+
+
+        :return: Dictionary mapping null/default field names to their read values.
         """
         set_fields = {}
         all_keys = self.all_field_keys()
@@ -799,10 +1013,18 @@ class CalibreLikeLiuXinBookMetaData(
 
     def is_null(self, field):
         """
-        Checks against the default field value to see if the value is null.
-        Returns True if the value isn't set, and False if it is.
-        :param field:
-        :return True/False:
+        Treat false, default-valued, missing, or unreadable fields as null.
+
+        Zero counts as null, and lookup exceptions are contained.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param field: Metadata field name.
+        :return: Whether the field is considered unset.
         """
         try:
             null_val = METADATA_NULL_VALUES.get(field, None)
@@ -820,10 +1042,19 @@ class CalibreLikeLiuXinBookMetaData(
 
     def dict_add(self, more_metadata):
         """
-        Takes the _data from another MetaData class. Adds it to the current _data.
-        Nothing fancy, and no collision detection.
-        :param more_metadata: MetaData to be added to the current object.
-        :return None: Chnages are purely internal
+        Copy only keys absent from this instance using another metadata object's data snapshot.
+
+        Existing keys are left unchanged; this helper does not merge their contents.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param more_metadata: Source exposing get_data with the normal copied-dictionary
+            behavior.
+        :return: None.
         """
         # Just a case of adding fields together, creating them where there don't exist
         _data = object.__getattribute__(self, "_data")
@@ -835,23 +1066,32 @@ class CalibreLikeLiuXinBookMetaData(
 
     def get_all_attr(self, copy=True):
         """
-        Compatibility wrapper for the get_data function.
+        Expose the raw metadata dictionary through get_data, optionally copying it.
 
-        Returns the raw _data dictionary for the MetaData object.
-        By default returns a copy - can be overridden to return the actual _data.
-        Use with care
-        :param copy:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param copy: Whether to deep-copy internal data.
+        :return: Deep copy by default, or the live dictionary.
         """
         return self.get_data(rtn_deepcopy=copy)
 
     def get_data(self, rtn_deepcopy=True):
         """
-        Returns the raw _data dictionary for the MetaData object.
-        By default returns a copy - can be overridden to return the actual _data.
-        Use with care
-        :param rtn_deepcopy: Boolean - should a copy be returned
-        :return _data/deepcopy(_data):
+        Return the internal metadata dictionary or its deep copy.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param rtn_deepcopy: Whether to return independent copied data.
+        :return: Copied storage by default; a live mutable mapping when rtn_deepcopy is
+            false.
         """
         _data = object.__getattribute__(self, "_data")
         if rtn_deepcopy:
@@ -861,8 +1101,16 @@ class CalibreLikeLiuXinBookMetaData(
 
     def deepcopy_metadata(self):
         """
-        Provides an unlinked copy of the current MetaData object.
-        :return:
+        Construct the same class with deep-copied data and an empty cleanup registry.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :return: Independent metadata instance; arbitrary non-data attributes are not
+            copied.
         """
         m = type(self)(None, None, None)
         object.__setattr__(m, "_data", deepcopy(object.__getattribute__(self, "_data")))
@@ -870,7 +1118,19 @@ class CalibreLikeLiuXinBookMetaData(
 
     def __deepcopy__(self, memo):
         """
-        Hook for copy.deepcopy; stdlib calls this as __deepcopy__(memo).
+        Copy the metadata data dictionary while honoring the stdlib memo for shared references and cycles.
+
+        Reuse an existing memoized result or register the new same-class instance before
+        copying its data. The cleanup registry is recreated empty.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param memo: Mutable id-to-copy dictionary supplied by copy.deepcopy.
+        :return: Memoized or newly copied metadata instance.
         """
         existing = memo.get(id(self))
         if existing is not None:
@@ -883,13 +1143,24 @@ class CalibreLikeLiuXinBookMetaData(
 
     def smart_update(self, other, replace_metadata=False):
         """
-        Smart merges the MetaData from one object into another.
-        Other overrides the currently given data, unless the data is null.
-        Where possible, data is added.
-        :param other: Another instance of MetaData
-        :param replace_metadata: If the data in other is not null, replace the current MetaData (where adding is
-        possible ignore the option and overwrite - NOT RECOMMENDED).
-        :return:
+        Merge another instance according to each field's default container type.
+
+        Nonstandard fields overwrite existing values. Dictionaries merge or replace;
+        meaningful scalar values replace; lists append distinct values, with nonempty
+        replacement lists taking precedence. Empty lists do not clear old values. The legacy
+        nonreplacement set branch computes a union without assigning it, so that branch
+        leaves the target unchanged. Source data is copied before applying changes.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param other: Instance of CalibreLikeLiuXinBookMetaData; enforced by an assertion.
+        :param replace_metadata: Whether dictionary/set fields replace and nonempty lists
+            start from the source values.
+        :return: None.
         """
         assert isinstance(other, CalibreLikeLiuXinBookMetaData)
 
@@ -973,16 +1244,33 @@ class CalibreLikeLiuXinBookMetaData(
 
     def clean(self):
         """
-        Make sure that the title, creator and tags are in title case.
-        :return:
+        Title-case creator names, title, and tags, and normalize an existing isbn10 mapping.
+
+        Rekeying can collapse duplicates, retaining the last mapped row value. Invalid ISBN
+        keys can become None. This does not invoke finalize.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :return: None.
         """
         from LiuXin_alpha.utils.libraries.titlecase import titlecase
 
         def title_case_rekey(target_dict):
             """
-            Transform all the keys of a dictionary into title case.
-            :param target_dict: Should be an OrderedDict
-            :return:
+            Build a title-cased ordered mapping while retaining the original mapped values.
+
+            Example:
+                Exercise the owning behavior with pytest::
+
+                    python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+            :param target_dict: Creator or tag mapping keyed by text.
+            :return: New OrderedDict; collisions keep the last value.
             """
             new_dict = OrderedDict()
             for k, v in iteritems(target_dict):
@@ -991,9 +1279,16 @@ class CalibreLikeLiuXinBookMetaData(
 
         def isbn_check_rekey(target_dict):
             """
-            Transform the isbn keys of a dictionary,
-            :param target_dict:
-            :return:
+            Rekey a mapping through check_isbn, retaining row values even for a None key.
+
+            Example:
+                Exercise the owning behavior with pytest::
+
+                    python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+            :param target_dict: ISBN-to-row mapping to normalize.
+            :return: New OrderedDict with normalized ISBN or None keys.
             """
             new_dict = OrderedDict()
             for k, v in iteritems(target_dict):
@@ -1021,10 +1316,17 @@ class CalibreLikeLiuXinBookMetaData(
 
     def get_all_user_metadata(self, make_copy):
         """
-        Return a dict containing all the custom field metadata associated with the book.
-        Copied from calibre
-        :param make_copy:
-        :return:
+        Return custom metadata descriptors by reference or as individually deep-copied values.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :param make_copy: True for independent copied metadata; False to expose the stored
+            mapping.
+        :return: Stored dictionary or new dictionary of deep copies.
         """
         _data = object.__getattribute__(self, "_data")
         user_metadata = _data["user_metadata"]
@@ -1044,9 +1346,21 @@ class CalibreLikeLiuXinBookMetaData(
     # Todo: ONce finalize has been called all the public methods of CHANGING the data should go away
     def finalize(self):
         """
-        Method called at the end of adding metadata - preforms cleans functions and tries to standardize the metadata.
-        Note - any id information may be blanked.
-        :return: None - All changes are internal
+        Resolve cached Calibre title/series values, remove Unknown creators, and normalize tags.
+
+        An index cache without a series cache produces NotImplementedError. Splitting
+        semicolon tags drops their row ids; unsplit tags retain ids. Creator deletion occurs
+        during key iteration and may fail on Python 3 when Unknown is present. This mutates
+        the object without freezing later writes.
+
+        Example:
+            >>> book = CalibreLikeLiuXinBookMetaData('Example', ['Writer'])
+            >>> book.tags = ['History']
+            >>> book.finalize() is book
+            True
+
+
+        :return: This same metadata instance after successful normalization.
         """
         _data = object.__getattribute__(self, "_data")
 
@@ -1123,8 +1437,19 @@ class CalibreLikeLiuXinBookMetaData(
 
     def __del__(self):
         """
-        Makes sure that all outstanding objects are properly closed.
-        :return:
+        Close registered cleanup resources and closeable payloads still stored as files or covers.
+
+        AttributeError from a missing close method is ignored; other close failures are not
+        contained here. Handles already consumed to bytes by add_file/add_cover are not
+        automatically retained in the cleanup registry.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_core.py
+
+
+        :return: None.
         """
         self.close_cleanup_files()
 
@@ -1153,4 +1478,15 @@ class CalibreLikeLiuXinBookMetaData(
 
 
 class CalibreLikeLiuXinBookMetaInformation(CalibreLikeLiuXinBookMetaData):
+    """
+    Provide the historical MetaInformation spelling as a subclass of CalibreLikeLiuXinBookMetaData.
+
+    Initialization, storage, conversion, and cleanup behavior are inherited without
+    overrides.
+
+    Example:
+        >>> info = CalibreLikeLiuXinBookMetaInformation('Example', ['Writer'])
+        >>> isinstance(info, CalibreLikeLiuXinBookMetaData)
+        True
+    """
     pass
