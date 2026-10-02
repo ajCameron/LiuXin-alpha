@@ -1,8 +1,13 @@
 """
-Read metadata from HTML files.
+Extract book metadata from tolerant HTML title, meta and comment conventions.
 
-Supports metadata encoded in `<meta>` tags, special HTML comments, and title
-fallback from the document `<title>` element.
+The module keeps binary parsing, optional dependency and stream ownership policy
+explicit for registry callers.
+
+Example:
+    Exercise html with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
 """
 
 from __future__ import annotations
@@ -96,6 +101,19 @@ _RMAP_META = {n: field for field, names in META_NAMES.items() for n in names}
 
 
 def _coerce_text(raw: Any, encoding: str | None = None) -> str:
+    """
+    Normalize text into the representation expected by later parsing or serialization steps.
+
+    Example:
+        Exercise  coerce text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :param encoding: Format or encoding hint used for interpretation.
+    :return: Parsed, normalized or updated value described above.
+    """
     if isinstance(raw, str):
         return raw
     if isinstance(raw, (bytes, bytearray)):
@@ -159,6 +177,18 @@ def _coerce_text(raw: Any, encoding: str | None = None) -> str:
 
 
 def _looks_binaryish(raw: bytes) -> bool:
+    """
+    Perform the format-specific looks binaryish operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  looks binaryish with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if not raw:
         return False
     if raw.startswith((b"\xff\xfe", b"\xfe\xff", b"\xef\xbb\xbf")):
@@ -171,10 +201,33 @@ def _looks_binaryish(raw: bytes) -> bool:
 
 
 def _default_metadata() -> Metadata:
+    """
+    Build a minimally usable metadata object for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :return: Parsed, normalized or updated value described above.
+    """
     return Metadata(_("Unknown"), [_("Unknown")])
 
 
 def _dedupe_stable(values: list[str]) -> list[str]:
+    """
+    Perform the format-specific dedupe stable operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  dedupe stable with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param values: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     seen = set()
     out: list[str] = []
     for val in values:
@@ -187,6 +240,18 @@ def _dedupe_stable(values: list[str]) -> list[str]:
 
 
 def _clean_values(values: list[str] | None) -> list[str]:
+    """
+    Normalize values into the representation expected by later parsing or serialization steps.
+
+    Example:
+        Exercise  clean values with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param values: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if not values:
         return []
     cleaned = [str(v).strip() for v in values if str(v).strip()]
@@ -194,6 +259,18 @@ def _clean_values(values: list[str] | None) -> list[str]:
 
 
 def _safe_rating(raw: str | None) -> float | None:
+    """
+    Convert the supplied value using rating semantics without propagating conversion failures.
+
+    Example:
+        Exercise  safe rating with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if raw is None:
         return None
     try:
@@ -211,6 +288,18 @@ def _safe_rating(raw: str | None) -> float | None:
 
 
 def _parse_date_value(raw: str | None):
+    """
+    Parse date value and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse date value with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if raw is None:
         return None
     text = str(raw).strip()
@@ -254,6 +343,18 @@ def _parse_date_value(raw: str | None):
 
 
 def _extract_comment_pairs(comment_text: str) -> dict[str, list[str]]:
+    """
+    Extract comment pairs using the format-specific ordering and validation rules.
+
+    Example:
+        Exercise  extract comment pairs with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param comment_text: Value supplied for comment text.
+    :return: Parsed, normalized or updated value described above.
+    """
     ans: dict[str, list[str]] = defaultdict(list)
     for match in _COMMENT_PAIR_RE.finditer(comment_text or ""):
         raw_name = match.group("name")
@@ -266,10 +367,26 @@ def _extract_comment_pairs(comment_text: str) -> dict[str, list[str]]:
 
 class _HTMLMetadataParser(HTMLParser):
     """
-    Tolerant parser for metadata-like HTML patterns.
+    Collect metadata-like HTML title, meta, comment and text patterns with tolerant HTMLParser callbacks.
+
+    Example:
+        Exercise  HTMLMetadataParser with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
     """
 
     def __init__(self) -> None:
+        """
+        Implement init for the format helper while retaining caller-owned underlying objects.
+
+        Example:
+            Exercise  HTMLMetadataParser.  init   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :return: None.
+        """
         super().__init__(convert_charrefs=False)
         self.comment_tags: dict[str, list[str]] = defaultdict(list)
         self.meta_tags: dict[str, list[str]] = defaultdict(list)
@@ -279,15 +396,65 @@ class _HTMLMetadataParser(HTMLParser):
 
     @property
     def title_text(self) -> str:
+        """
+        Perform the format-specific title text operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  HTMLMetadataParser.title text with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :return: Parsed, normalized or updated value described above.
+        """
         return "".join(self._title_chunks).strip()
 
     def handle_starttag(self, tag: str, attrs):
+        """
+        Perform the format-specific handle starttag operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  HTMLMetadataParser.handle starttag with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param tag: Value supplied for tag.
+        :param attrs: Value supplied for attrs.
+        :return: Parsed, normalized or updated value described above.
+        """
         self._handle_tag(tag, attrs)
 
     def handle_startendtag(self, tag: str, attrs):
+        """
+        Perform the format-specific handle startendtag operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  HTMLMetadataParser.handle startendtag with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param tag: Value supplied for tag.
+        :param attrs: Value supplied for attrs.
+        :return: Parsed, normalized or updated value described above.
+        """
         self._handle_tag(tag, attrs)
 
     def _handle_tag(self, tag: str, attrs):
+        """
+        Perform the format-specific handle tag operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  HTMLMetadataParser. handle tag with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param tag: Value supplied for tag.
+        :param attrs: Value supplied for attrs.
+        :return: Parsed, normalized or updated value described above.
+        """
         tag = (tag or "").lower()
         if tag == "title":
             self._in_title = True
@@ -320,29 +487,101 @@ class _HTMLMetadataParser(HTMLParser):
             self.meta_tags[field].append(replace_entities(content))
 
     def handle_endtag(self, tag: str):
+        """
+        Perform the format-specific handle endtag operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  HTMLMetadataParser.handle endtag with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param tag: Value supplied for tag.
+        :return: Parsed, normalized or updated value described above.
+        """
         if (tag or "").lower() == "title":
             self._in_title = False
 
     def handle_data(self, data: str):
+        """
+        Perform the format-specific handle data operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  HTMLMetadataParser.handle data with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param data: Raw value or payload to normalize, parse or serialize.
+        :return: Parsed, normalized or updated value described above.
+        """
         if self._in_title and data:
             self._title_chunks.append(data)
 
     def handle_entityref(self, name: str):
+        """
+        Perform the format-specific handle entityref operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  HTMLMetadataParser.handle entityref with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param name: Value supplied for name.
+        :return: Parsed, normalized or updated value described above.
+        """
         if self._in_title and name:
             # Keep entities for later centralized decode via replace_entities().
             self._title_chunks.append(f"&{name};")
 
     def handle_charref(self, name: str):
+        """
+        Perform the format-specific handle charref operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  HTMLMetadataParser.handle charref with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param name: Value supplied for name.
+        :return: Parsed, normalized or updated value described above.
+        """
         if self._in_title and name:
             # Keep charrefs for later centralized decode via replace_entities().
             self._title_chunks.append(f"&#{name};")
 
     def handle_comment(self, data: str):
+        """
+        Perform the format-specific handle comment operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  HTMLMetadataParser.handle comment with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param data: Raw value or payload to normalize, parse or serialize.
+        :return: Parsed, normalized or updated value described above.
+        """
         for field, values in _extract_comment_pairs(data).items():
             self.comment_tags[field].extend(values)
 
 
 def parse_metadata(src: str) -> tuple[dict[str, list[str]], dict[str, list[str]], dict[str, list[str]], str]:
+    """
+    Parse metadata-like HTML structures into normalized field collections.
+
+    Example:
+        Exercise parse metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param src: Value supplied for src.
+    :return: Parsed, normalized or updated value described above.
+    """
     parser = _HTMLMetadataParser()
     try:
         parser.feed(src)
@@ -360,9 +599,16 @@ def parse_metadata(src: str) -> tuple[dict[str, list[str]], dict[str, list[str]]
 
 def parse_meta_tags(src):
     """
-    Parse metadata-like `<meta>` tags.
+    Parse supported HTML meta elements into normalized metadata field collections.
 
-    Returns a dict keyed by canonical metadata field with first observed value.
+    Example:
+        Exercise parse meta tags with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param src: Value supplied for src.
+    :return: Parsed, normalized or updated value described above.
     """
     _comment_tags, meta_tags, _meta_ids, _title = parse_metadata(_coerce_text(src))
     return {k: v[0] for k, v in meta_tags.items() if v}
@@ -370,9 +616,16 @@ def parse_meta_tags(src):
 
 def parse_comment_tags(src):
     """
-    Parse calibre-style metadata comments such as `<!-- TITLE="..." -->`.
+    Parse supported calibre-style HTML comments into normalized metadata field collections.
 
-    Returns a dict keyed by canonical metadata field with first observed value.
+    Example:
+        Exercise parse comment tags with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param src: Value supplied for src.
+    :return: Parsed, normalized or updated value described above.
     """
     comment_tags, _meta_tags, _meta_ids, _title = parse_metadata(_coerce_text(src))
     return {k: v[0] for k, v in comment_tags.items() if v}
@@ -380,7 +633,17 @@ def parse_comment_tags(src):
 
 def get_metadata(target_file):
     """
-    Read metadata from a filesystem path or readable stream.
+    Read metadata from the supported path or stream input while applying the module's ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or updated value described above.
     """
     if isinstance(target_file, (bytes, bytearray, memoryview)):
         return get_metadata_(bytes(target_file))
@@ -416,7 +679,17 @@ def get_metadata(target_file):
 
 def get_metadata_(src, encoding=None):
     """
-    Parse metadata from HTML content as `bytes` or `str`.
+    Return metadata derived from the current parser or container state.
+
+    Example:
+        Exercise get metadata  with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param src: Value supplied for src.
+    :param encoding: Format or encoding hint used for interpretation.
+    :return: Parsed, normalized or updated value described above.
     """
     if isinstance(src, (bytes, bytearray, memoryview)):
         raw = bytes(src)
@@ -431,10 +704,34 @@ def get_metadata_(src, encoding=None):
 
     def get_all(local_field: str) -> list[str]:
         # Preserve legacy precedence: comment tags override meta tags.
+        """
+        Return all derived from the current parser or container state.
+
+        Example:
+            Exercise get metadata .get all with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param local_field: Value supplied for local field.
+        :return: Parsed, normalized or updated value described above.
+        """
         values = comment_tags.get(local_field) or meta_tags.get(local_field) or []
         return _clean_values(values)
 
     def get(local_field: str) -> str | None:
+        """
+        Perform the format-specific get operation used by the metadata reader or writer.
+
+        Example:
+            Exercise get metadata .get with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param local_field: Value supplied for local field.
+        :return: Parsed, normalized or updated value described above.
+        """
         values = get_all(local_field)
         return values[0] if values else None
 

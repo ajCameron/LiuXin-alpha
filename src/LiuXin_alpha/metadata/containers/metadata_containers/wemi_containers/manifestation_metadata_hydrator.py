@@ -1,4 +1,14 @@
-"""Hydrator/factory for concrete :class:`ManifestationMetadata` objects."""
+"""
+Hydrate manifestation metadata with related WEMI rows, descriptive links and assets.
+
+The hydrator adapts a caller-owned read source and builds editable bundles without
+writing or closing that source. Schema snapshots gate optional relation queries.
+
+Example:
+    Exercise this contract with pytest::
+
+        python -m pytest -q tests/metadata/containers/test_manifestation_metadata_hydrator.py
+"""
 
 from __future__ import annotations
 
@@ -21,16 +31,36 @@ from LiuXin_alpha.utils.adaptors import _boolish_to_bool
 
 class ManifestationMetadataHydrator:
     """
-    Build :class:`ManifestationMetadata` instances from database rows or views.
+    Build manifestation bundles from ids, manifestations Rows or identity-shaped mappings.
 
-    Supported entry points:
-    - manifestation id
-    - live ``manifestations`` row
-    - any mapping/row containing ``manifestation_id`` plus optional related WEMI ids
-      such as ``expression_id``, ``work_id``, and ``item_id``.
+    Hydration follows expression, work and item context, gathers descriptive metadata
+    and identifiers, and resolves linked assets and replicas. Optional collectors
+    suppress some query errors; direct row lookups can still raise.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/containers/test_manifestation_metadata_hydrator.py
     """
 
     def __init__(self, database: Any) -> None:
+        """
+        Adapt the caller source and cache its table and column snapshots.
+
+        None raises ValueError. Table-list and column-map snapshot failures are
+        independently replaced with empty collections; source adaptation errors propagate.
+
+        Example:
+            >>> ManifestationMetadataHydrator(None)
+            Traceback (most recent call last):
+            ...
+            ValueError: ManifestationMetadataHydrator requires a database instance.
+
+
+        :param database: Caller-owned database or compatible metadata read source; must not
+            be None.
+        :return: None.
+        """
         if database is None:
             raise ValueError("ManifestationMetadataHydrator requires a database instance.")
         self.db = metadata_read_source_from(database)
@@ -44,12 +74,43 @@ class ManifestationMetadataHydrator:
             self._tables_and_columns = {}
 
     def from_manifestation_id(self, manifestation_id: int) -> ManifestationMetadata:
+        """
+        Resolve a manifestations Row by integer id and hydrate its graph context.
+
+        A missing row raises ValueError; id conversion and source lookup errors propagate.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_manifestation_metadata_hydrator.py
+
+
+        :param manifestation_id: Manifestation row id converted with int before lookup.
+        :return: Concrete ManifestationMetadata bundle.
+        """
         manifestation_row = self.db.get_row_from_id("manifestations", int(manifestation_id))
         if manifestation_row is None:
             raise ValueError(f"No manifestation found for id {int(manifestation_id)}.")
         return self._hydrate(manifestation_row=manifestation_row, source_row=manifestation_row)
 
     def from_source_row(self, source_row: Mapping[str, Any] | Row) -> ManifestationMetadata:
+        """
+        Hydrate a direct manifestations Row, a resolvable id hint or a manifestation-shaped mapping.
+
+        Direct Rows take precedence. Otherwise a manifestation id is looked up, with a
+        mapping fallback when the row is absent. A recognized key can qualify even with a
+        None value. Unresolvable inputs raise ValueError; lookup errors propagate.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_manifestation_hydrator_uses_explicit_work_and_item_ids_from_mapping
+
+
+        :param source_row: Row or mapping with manifestation identity fields and optional
+            expression, work or item hints.
+        :return: Hydrated manifestation bundle.
+        """
         ids = self._extract_known_ids(source_row)
         manifestation_row = None
         if isinstance(source_row, Row) and source_row.table == "manifestations":
@@ -65,6 +126,20 @@ class ManifestationMetadataHydrator:
 
     @staticmethod
     def _mapping_from(value: Mapping[str, Any] | Row | Any) -> Mapping[str, Any]:
+        """
+        Expose Row data or return a Mapping unchanged; use an empty mapping for other inputs.
+
+        Example:
+            >>> source = {'manifestation_id': 2}
+            >>> ManifestationMetadataHydrator._mapping_from(source) is source
+            True
+            >>> ManifestationMetadataHydrator._mapping_from(object())
+            {}
+
+
+        :param value: Row, mapping or unsupported object to inspect.
+        :return: Live source mapping, or a new empty dictionary.
+        """
         if isinstance(value, Row):
             return value.row_dict
         if isinstance(value, Mapping):
@@ -72,12 +147,52 @@ class ManifestationMetadataHydrator:
         return {}
 
     def _has_table(self, table: str) -> bool:
+        """
+        Check either cached table-name or table-column snapshot for a table.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_hydrators_tolerate_schema_snapshot_failures
+
+
+        :param table: Exact schema table name to check.
+        :return: True when either snapshot contains the table name.
+        """
         return table in self._tables or table in self._tables_and_columns
 
     def _has_column(self, table: str, column: str) -> bool:
+        """
+        Check the cached column collection for a table without refreshing schema.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_manifestation_hydrator_direct_fk_item_and_identifier_edge_paths
+
+
+        :param table: Exact schema table name.
+        :param column: Exact column name to find.
+        :return: True when the column occurs in the cached table columns.
+        """
         return column in set(self._tables_and_columns.get(table, []))
 
     def _looks_like_manifestation_mapping(self, value: Mapping[str, Any] | Row | Any) -> bool:
+        """
+        Recognize manifestation identity by key presence in a nonempty Row or mapping.
+
+        Any of manifestation_id, manifestation_format_detail, manifestation_carrier_type or
+        manifestation_expression_id qualifies regardless of its value.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrators_accept_mapping_only_identity_payloads
+
+
+        :param value: Row, mapping or unsupported value to inspect.
+        :return: True for a recognized identity mapping, otherwise False.
+        """
         mapping = self._mapping_from(value)
         return bool(mapping) and bool(
             {"manifestation_id", "manifestation_format_detail", "manifestation_carrier_type", "manifestation_expression_id"} & set(mapping)
@@ -85,9 +200,41 @@ class ManifestationMetadataHydrator:
 
     @staticmethod
     def _extract_known_ids(source_row: Mapping[str, Any] | Row | Any) -> dict[str, Optional[int]]:
+        """
+        Extract manifestation, expression, work and item integer hints using truthy alias fallbacks.
+
+        Manifestation tries manifestation_id, book_manifestation_id then
+        item_manifestation_id. Expression tries expression_id, manifestation_expression_id
+        then book_expression_id. Work tries work_id then title_id; item uses item_id.
+        Invalid conversions become None.
+
+        Example:
+            >>> ids = ManifestationMetadataHydrator._extract_known_ids({'book_manifestation_id': '7', 'manifestation_expression_id': '8', 'title_id': 'bad'})
+            >>> ids['manifestation_id'], ids['expression_id'], ids['work_id']
+            (7, 8, None)
+
+
+        :param source_row: Row or mapping supplying graph hints; unsupported values have no
+            hints.
+        :return: Dictionary containing all four id keys, with None for absent or invalid
+            values.
+        """
         mapping = ManifestationMetadataHydrator._mapping_from(source_row)
 
         def _as_int(value: Any) -> Optional[int]:
+            """
+            Convert a selected id hint to int while suppressing conversion exceptions.
+
+            None and empty text are missing values. This helper is local to _extract_known_ids.
+
+            Example:
+                >>> ManifestationMetadataHydrator._extract_known_ids({'item_id': float('inf')})['item_id'] is None
+                True
+
+
+            :param value: Scalar hint chosen by the outer helper.
+            :return: Integer id, or None for missing or invalid hints.
+            """
             if value in (None, ""):
                 return None
             try:
@@ -108,6 +255,27 @@ class ManifestationMetadataHydrator:
         manifestation_row: Optional[Row],
         source_row: Mapping[str, Any] | Row,
     ) -> ManifestationMetadata:
+        """
+        Assemble manifestation identity, WEMI context, descriptive links, assets and identifiers.
+
+        A resolved Row supplies identity before source mapping fields. Explicit expression
+        hints take precedence over the stored identity hint; the direct expression link is
+        primary. Work hints and expression interlinks supply works; item hints and
+        manifestation foreign keys supply items. Repeated keyed Row links merge non-None
+        incoming metadata. Mapping-only identities do not supply a manifestation Row for
+        interlink queries. Direct lookups and malformed ids can raise.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_manifestation_metadata_hydrator.py
+
+
+        :param manifestation_row: Resolved manifestations Row, or None to build identity
+            from the source mapping.
+        :param source_row: Original Row or mapping supplying identity and graph hints.
+        :return: New concrete ManifestationMetadata bundle.
+        """
         ids = self._extract_known_ids(source_row)
         source_map = self._mapping_from(source_row)
 
@@ -275,6 +443,20 @@ class ManifestationMetadataHydrator:
 
     @staticmethod
     def _row_key(row: Row | Any) -> tuple[str, int] | None:
+        """
+        Identify a concrete Row by table and integer row id.
+
+        Non-Rows and Rows missing either component return None. Invalid row-id conversion
+        propagates.
+
+        Example:
+            >>> ManifestationMetadataHydrator._row_key({'manifestation_id': 2}) is None
+            True
+
+
+        :param row: Candidate Row whose database identity should be extracted.
+        :return: Table/id tuple, or None for an unkeyed value.
+        """
         if not isinstance(row, Row):
             return None
         if row.table is None or row.row_id is None:
@@ -282,6 +464,20 @@ class ManifestationMetadataHydrator:
         return (str(row.table), int(row.row_id))
 
     def _dedupe_rows(self, rows: Iterable[Row]) -> list[Row]:
+        """
+        Retain the first keyed Row for each table/id pair in input order.
+
+        Unkeyed values are discarded and retained Rows remain shared.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrator_row_helpers_cover_skip_and_duplicate_paths
+
+
+        :param rows: Iterable of candidate Rows.
+        :return: New ordered list of unique Row references.
+        """
         ordered: list[Row] = []
         seen: set[tuple[str, int]] = set()
         for row in rows:
@@ -298,6 +494,24 @@ class ManifestationMetadataHydrator:
         relation: str,
         links: Iterable[ManifestationRelationLink],
     ) -> None:
+        """
+        Append links, merging repeated keyed Row targets into the existing live bucket.
+
+        A repeated Row key replaces its existing link with merged metadata. Unkeyed and
+        non-Row targets append without deduplication. Existing duplicates are not removed;
+        incoming matches use the last existing occurrence.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrator_row_helpers_cover_skip_and_duplicate_paths
+
+
+        :param container: Manifestation bundle whose relation list is updated in place.
+        :param relation: Supported relation bucket name or alias.
+        :param links: Incoming links in merge order.
+        :return: None.
+        """
         existing = container.get_relation_links(relation)
         seen_rows = {
             self._row_key(link.target): index
@@ -319,6 +533,24 @@ class ManifestationMetadataHydrator:
         existing: ManifestationRelationLink,
         incoming: ManifestationRelationLink,
     ) -> ManifestationRelationLink:
+        """
+        Merge link metadata with non-None incoming fields taking precedence.
+
+        The existing target is retained. False, zero and empty strings count as supplied
+        values. Extra mappings are shallow-merged, with incoming keys winning.
+
+        Example:
+            >>> old = ManifestationRelationLink(target={'work_id': 1}, primary=True, priority=4, extra={'a': 1})
+            >>> new = ManifestationRelationLink(target={'work_id': 9}, primary=False, priority=0, extra={'b': 2})
+            >>> merged = ManifestationMetadataHydrator._merge_link_metadata(old, new)
+            >>> merged.target is old.target, merged.primary, merged.priority, merged.extra
+            (True, False, 0, {'a': 1, 'b': 2})
+
+
+        :param existing: Link supplying the retained target and fallback metadata.
+        :param incoming: Link supplying non-None overrides and additional extra keys.
+        :return: New ManifestationRelationLink retaining the existing target.
+        """
         extra = dict(existing.extra)
         extra.update(incoming.extra)
         return ManifestationRelationLink(
@@ -350,6 +582,27 @@ class ManifestationMetadataHydrator:
         source_entity_type: str,
         primary: bool | None = None,
     ) -> None:
+        """
+        Append a typed Row link only when its table/id key is absent.
+
+        Rows without a usable key are ignored. Existing links with that key are left
+        unchanged, including their metadata. New links receive the requested primary flag
+        and source entity hint; no source lookup occurs.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrator_row_helpers_cover_skip_and_duplicate_paths
+
+
+        :param container: Bundle whose live relation list receives the link.
+        :param relation: Relation name accepted by the bundle.
+        :param row: Row target with a table and integer-convertible id.
+        :param type_hint: Type assigned to a new link.
+        :param source_entity_type: Source level stored in the extra mapping.
+        :param primary: Primary flag for a newly appended link, or None.
+        :return: None.
+        """
         key = self._row_key(row)
         if key is None:
             return
@@ -376,6 +629,26 @@ class ManifestationMetadataHydrator:
         secondary_table: str,
         source_entity_type: str,
     ) -> list[ManifestationRelationLink]:
+        """
+        Resolve interlink targets and copy link metadata into manifestation relation links.
+
+        Missing source rows, absent tables and query/iterator errors return an empty list.
+        Schema naming failures are tolerated; unresolved target ids are skipped. Known
+        metadata fields are copied and other prefixed fields become extra entries. Primary
+        uses bool-like conversion. Invalid link mappings or later driver column lookups can
+        still raise.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_manifestation_hydrator_collect_interlink_edge_paths
+
+
+        :param source_row: Source Row, or None for no links.
+        :param secondary_table: Related target table to resolve through interlinks.
+        :param source_entity_type: Source level recorded in each extra mapping.
+        :return: New resolved links in interlink query order, without deduplication.
+        """
         if source_row is None:
             return []
         if not self._has_table(secondary_table):
@@ -454,6 +727,23 @@ class ManifestationMetadataHydrator:
         return out
 
     def _collect_item_rows_from_manifestation(self, manifestation_row: Row) -> list[Row]:
+        """
+        Find item rows whose item_manifestation_id matches a manifestation Row id.
+
+        Missing schema or row ids return an empty list. Integer conversion, search and
+        iterator failures are suppressed; successful results retain their order without
+        filtering or deduplication.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_manifestation_hydrator_direct_fk_item_and_identifier_edge_paths
+
+
+        :param manifestation_row: Manifestation Row whose id selects child items.
+        :return: Materialized query results, or an empty list on unsupported or failed
+            lookup.
+        """
         if not self._has_table("items") or not self._has_column("items", "item_manifestation_id"):
             return []
         manifestation_id = manifestation_row.row_id
@@ -472,6 +762,25 @@ class ManifestationMetadataHydrator:
         fk_value: int,
         type_hint: str,
     ) -> list[ManifestationRelationLink]:
+        """
+        Wrap non-None rows matching a direct foreign key in manifestation relation links.
+
+        Missing table/column snapshots, integer conversion errors and query/iterator
+        failures yield an empty list. Search order is preserved; no target type check,
+        deduplication or primary assignment occurs.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_manifestation_hydrator_direct_fk_item_and_identifier_edge_paths
+
+
+        :param table: Table to search.
+        :param fk_column: Foreign-key column to match.
+        :param fk_value: Foreign-key value converted with int inside the guarded query.
+        :param type_hint: Type assigned to each result link.
+        :return: New links with the requested type and table name as source_entity_type.
+        """
         if not self._has_table(table) or not self._has_column(table, fk_column):
             return []
         try:
@@ -496,6 +805,27 @@ class ManifestationMetadataHydrator:
         work_rows: list[Row],
         item_rows: list[Row],
     ) -> list[ManifestationRelationLink]:
+        """
+        Collect item-specific identifiers followed by typed identifiers from WEMI context.
+
+        Entity query order is manifestation, expression, work then item. Entity rows are
+        filtered by entity type and carry primary/provenance metadata. Each query is
+        materialized within its error guard, so iterator failures discard that query.
+        Invalid outer row ids and malformed result mappings can still raise. Duplicates are
+        left for the caller to merge.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_manifestation_hydrator_direct_fk_item_and_identifier_edge_paths
+
+
+        :param manifestation_rows: Manifestation Rows supplying entity ids.
+        :param expression_rows: Expression Rows supplying entity ids.
+        :param work_rows: Work Rows supplying entity ids.
+        :param item_rows: Item Rows supplying item-specific and typed entity ids.
+        :return: New identifier links in query order.
+        """
         links: list[ManifestationRelationLink] = []
         if self._has_table("item_identifiers") and self._has_column("item_identifiers", "item_identifier_item_id"):
             for item_row in item_rows:

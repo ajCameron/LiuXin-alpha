@@ -1,5 +1,13 @@
 """
-Read metadata from IMP files.
+Read IMP header metadata with bounded string reads and explicit malformed-input fallback policy.
+
+The module keeps binary parsing, optional dependency and stream ownership policy
+explicit for registry callers.
+
+Example:
+    Exercise imp with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_imp_metadata_source.py
 """
 
 from __future__ import annotations
@@ -26,14 +34,46 @@ RUN_COST = ["LOW"]
 
 
 class ImpFormatError(Exception):
+    """
+    Signal malformed, truncated or unsupported IMP metadata input.
+
+    Example:
+        Exercise ImpFormatError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_imp_metadata_source.py
+    """
     pass
 
 
 def _default_metadata(_source_name: str = ""):
+    """
+    Build a minimally usable metadata object for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_imp_metadata_source.py
+
+
+    :param _source_name: Source label used for fallback titles and diagnostics.
+    :return: Parsed, normalized or updated value described above.
+    """
     return Metadata(_("Unknown"), [])
 
 
 def _ensure_default_authors(mi) -> None:
+    """
+    Coerce default authors to the required representation or supply its documented fallback.
+
+    Example:
+        Exercise  ensure default authors with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_imp_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
+    """
     try:
         if hasattr(mi, "is_null") and mi.is_null("authors"):
             mi.authors = [_("Unknown")]
@@ -47,12 +87,36 @@ def _ensure_default_authors(mi) -> None:
 
 
 def _warn(msg: str) -> None:
+    """
+    Report a format-specific parsing failure through the project logger with source context.
+
+    Example:
+        Exercise  warn with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_imp_metadata_source.py
+
+
+    :param msg: Value supplied for msg.
+    :return: None.
+    """
     warn = getattr(default_log, "warning", None) or getattr(default_log, "warn", None)
     if warn is not None:
         warn(msg)
 
 
 def _decode_bytes(raw: bytes) -> str:
+    """
+    Perform the format-specific decode bytes operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  decode bytes with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_imp_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if not raw:
         return ""
     for enc in ("utf-8", "cp1252", "latin-1"):
@@ -65,10 +129,19 @@ def _decode_bytes(raw: bytes) -> str:
 
 def _read_cstring(stream: BinaryIO, *, skip: int = 0, max_bytes: int = 128 * 1024) -> str:
     """
-    Read a null-terminated string.
+    Read cstring while enforcing the format's bounds and binary-input expectations.
 
-    `skip` keeps legacy semantics from calibre's IMP parser: skip the first
-    `skip` terminated strings, then return the next one.
+    Example:
+        Exercise  read cstring with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_imp_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param skip: Value supplied for skip.
+    :param max_bytes: Value supplied for max bytes.
+    :return: Parsed, normalized or updated value described above.
     """
     result = bytearray()
     consumed = 0
@@ -90,6 +163,22 @@ def _read_cstring(stream: BinaryIO, *, skip: int = 0, max_bytes: int = 128 * 102
 
 
 def read_metadata_from_stream(stream: BinaryIO, source_name: str = "", *, fallback_on_parse_error: bool = False):
+    """
+    Parse metadata from a caller-owned binary stream and apply the requested malformed-input fallback policy.
+
+    Example:
+        Exercise read metadata from stream with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_imp_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param source_name: Source label used for fallback titles and diagnostics.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
+    """
     mi = _default_metadata(source_name)
     stream.seek(0)
     try:
@@ -130,7 +219,19 @@ def read_metadata_from_stream(stream: BinaryIO, source_name: str = "", *, fallba
 
 def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
     """
-    Return metadata as a calibre-compatible metadata object.
+    Read metadata from the supported path or stream input while applying the module's ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_imp_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
     """
     stream_needs_close = False
     source_name = ""

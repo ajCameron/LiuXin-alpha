@@ -1,3 +1,4 @@
+
 """
 Define routed Store file primitives, staged publication, and optional accelerators.
 
@@ -42,6 +43,7 @@ from LiuXin_alpha.storage.api.models import (
 from LiuXin_alpha.storage.api.placement_hints_api import StoragePlacementHints
 
 
+# Todo: Session should store the location it's writing to and store - so it can be passed into other functions
 @runtime_checkable
 class WriteSessionAPI(Protocol):
     """
@@ -145,6 +147,7 @@ class WriteSessionAPI(Protocol):
         ...
 
 
+# Todo: Why is this in the file api? Why is it called this?
 @runtime_checkable
 class StoreCoreAPI(Protocol):
     """
@@ -176,7 +179,6 @@ class StoreCoreAPI(Protocol):
 
         Example:
             >>> supports_ranges = store.capabilities.range_reads  # doctest: +SKIP
-
 
         :return: Declared Store operation support, distinct from current availability and capacity.
         """
@@ -226,11 +228,11 @@ class StoreCoreAPI(Protocol):
             ...     Location(UUID(int=1), "objects/42"), offset=10, length=20,
             ... )
 
-
         :param location: Routed object Location belonging to this configured Store.
         :param offset: Starting byte offset, zero by default.
         :param length: Optional byte count; None reads through the remaining object.
         :param if_version: Optional opaque stat version used as a read precondition when supported.
+
         :return: Binary read stream owned by the caller, who must close it.
         """
         ...
@@ -322,6 +324,7 @@ class StoreCoreAPI(Protocol):
         """
         ...
 
+    # Todo: Comment to explain this pyright ignores
     @abc.abstractmethod
     def status(  # pyright: ignore[reportInvalidAbstractMethod]
         self,
@@ -354,6 +357,7 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         ...     return store.read_bytes(location, length=16)
     """
 
+    # Todo: try_* for everything -
     def try_stat(self, location: Location) -> FileInfo | None:
         """
         Return ``None`` only when the store reports genuine absence.

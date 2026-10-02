@@ -1,5 +1,13 @@
 """
-Read metadata from LRF files.
+Adapt the LRF metadata reader to paths, streams and pre-opened LRFMetaFile objects with explicit fallback policy.
+
+The module keeps binary parsing, optional dependency and stream ownership policy
+explicit for registry callers.
+
+Example:
+    Exercise lrf with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_lrf_metadata_source.py
 """
 
 from __future__ import annotations
@@ -21,10 +29,31 @@ RUN_COST = ["LOW"]
 
 
 class LrfFormatError(Exception):
+    """
+    Signal an LRF metadata read failure when fallback is disabled.
+
+    Example:
+        Exercise LrfFormatError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrf_metadata_source.py
+    """
     pass
 
 
 def _source_name(target_file) -> str:
+    """
+    Derive the name used for fallback metadata and diagnostics.
+
+    Example:
+        Exercise  source name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrf_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or updated value described above.
+    """
     if isinstance(target_file, LRFMetaFile):
         return getattr(getattr(target_file, "_file", None), "name", "") or ""
     if isinstance(target_file, os.PathLike):
@@ -35,6 +64,19 @@ def _source_name(target_file) -> str:
 
 
 def _source_title(target_file) -> str:
+    """
+    Derive the title used for fallback metadata and diagnostics.
+
+    Example:
+        Exercise  source title with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrf_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or updated value described above.
+    """
     source = _source_name(target_file)
     if source:
         stem = os.path.splitext(os.path.basename(source))[0].strip()
@@ -44,6 +86,20 @@ def _source_title(target_file) -> str:
 
 
 def _default_metadata(target_file, *, calibre_md: bool):
+    """
+    Build a minimally usable metadata object for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrf_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param calibre_md: Value supplied for calibre md.
+    :return: Parsed, normalized or updated value described above.
+    """
     title = _source_title(target_file)
     authors = [_("Unknown")]
     if calibre_md:
@@ -58,6 +114,19 @@ def _default_metadata(target_file, *, calibre_md: bool):
 
 
 def _log_exception(err: Exception, source_name: str) -> None:
+    """
+    Report a format-specific parsing failure through the project logger with source context.
+
+    Example:
+        Exercise  log exception with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrf_metadata_source.py
+
+
+    :param err: Value supplied for err.
+    :param source_name: Source label used for fallback titles and diagnostics.
+    :return: None.
+    """
     default_log.log_exception(
         "Failed to read metadata from LRF file.",
         err,
@@ -68,7 +137,20 @@ def _log_exception(err: Exception, source_name: str) -> None:
 
 def get_metadata(target_file, calibre_md: bool = True, *, fallback_on_parse_error: bool = False):
     """
-    Read metadata from an LRF filesystem path, readable binary stream or LRFMetaFile.
+    Read metadata from the supported path or stream input while applying the module's ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrf_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param calibre_md: Value supplied for calibre md.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
     """
     if isinstance(target_file, LRFMetaFile):
         try:
@@ -115,6 +197,22 @@ def get_metadata(target_file, calibre_md: bool = True, *, fallback_on_parse_erro
 
 
 def get_metadata_inplace(path, calibre_md: bool = True, *, fallback_on_parse_error: bool = False):
+    """
+    Read metadata through the path-oriented adapter used by registry plugins that support in-place access.
+
+    Example:
+        Exercise get metadata inplace with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrf_metadata_source.py
+
+
+    :param path: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param calibre_md: Value supplied for calibre md.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
+    """
     return get_metadata(path, calibre_md=calibre_md, fallback_on_parse_error=fallback_on_parse_error)
 
 

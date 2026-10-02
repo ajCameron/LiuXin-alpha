@@ -1,5 +1,13 @@
 """
-Read/write metadata in archive-based text formats (TXTZ/HTMLZ/EXTZ).
+Read and update OPF metadata and cover resources in TXTZ, HTMLZ and related ZIP-based text archives.
+
+The module keeps binary parsing, optional dependency and stream ownership policy
+explicit for registry callers.
+
+Example:
+    Exercise extz with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
 """
 
 from __future__ import annotations
@@ -30,24 +38,82 @@ _IMAGE_EXTENSIONS = {"jpeg", "jpg", "png", "webp", "gif", "bmp"}
 
 
 class ExtzFormatError(Exception):
+    """
+    Signal malformed or unsupported metadata in a ZIP-based text archive.
+
+    Example:
+        Exercise ExtzFormatError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+    """
     pass
 
 
 def _is_path_like(target: Any) -> bool:
+    """
+    Return whether the supplied value satisfies the path like condition.
+
+    Example:
+        Exercise  is path like with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param target: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: True when the condition is satisfied; otherwise False.
+    """
     return isinstance(target, (str, bytes, os.PathLike))
 
 
 def _source_name(target: Any) -> str:
+    """
+    Derive the name used for fallback metadata and diagnostics.
+
+    Example:
+        Exercise  source name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param target: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: Parsed, normalized or updated value described above.
+    """
     if _is_path_like(target):
         return os.fspath(target)
     return getattr(target, "name", "<stream>")
 
 
 def _fallback_metadata() -> MetaInformation:
+    """
+    Build a minimally usable metadata object for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  fallback metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :return: Parsed, normalized or updated value described above.
+    """
     return MetaInformation(_("Unknown"), [_("Unknown")])
 
 
 def _archive_has_credible_fallback_content(zf, source_name: str) -> bool:
+    """
+    Perform the format-specific archive has credible fallback content operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  archive has credible fallback content with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param zf: Value supplied for zf.
+    :param source_name: Source label used for fallback titles and diagnostics.
+    :return: Parsed, normalized or updated value described above.
+    """
     ext = os.path.splitext(source_name or "")[1].lower().lstrip(".")
     names = [str(name).replace("\\", "/").lstrip("/") for name in zf.namelist()]
     lower_names = [name.lower() for name in names if name and not name.endswith("/")]
@@ -62,6 +128,18 @@ def _archive_has_credible_fallback_content(zf, source_name: str) -> bool:
 
 
 def _as_opf_calibre_metadata(mi: Any) -> OPFCalibreMetadata:
+    """
+    Perform the format-specific as opf calibre metadata operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  as opf calibre metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
+    """
     if isinstance(mi, OPFCalibreMetadata):
         return mi
 
@@ -75,6 +153,19 @@ def _as_opf_calibre_metadata(mi: Any) -> OPFCalibreMetadata:
 
 
 def _serialize_cover_data(new_cdata: bytes, cpath: str) -> bytes:
+    """
+    Serialize cover data into the binary or XML representation required by the container.
+
+    Example:
+        Exercise  serialize cover data with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param new_cdata: Value supplied for new cdata.
+    :param cpath: Value supplied for cpath.
+    :return: Parsed, normalized or updated value described above.
+    """
     try:
         from LiuXin_alpha.utils.image_tools.img import save_cover_data_to
     except Exception:
@@ -94,11 +185,36 @@ def _serialize_cover_data(new_cdata: bytes, cpath: str) -> bytes:
 
 
 def _looks_like_cover_path(raw: str | None) -> bool:
+    """
+    Perform the format-specific looks like cover path operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  looks like cover path with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     ext = os.path.splitext(raw or "")[1].lower().lstrip(".")
     return ext in _IMAGE_EXTENSIONS
 
 
 def _manifest_href_by_id(opf: OPF, item_id: str | None) -> str | None:
+    """
+    Perform the format-specific manifest href by id operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  manifest href by id with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param opf: XML or metadata node used as the operation context.
+    :param item_id: Value supplied for item id.
+    :return: Parsed, normalized or updated value described above.
+    """
     if not item_id:
         return None
     for item in opf.itermanifest():
@@ -110,6 +226,18 @@ def _manifest_href_by_id(opf: OPF, item_id: str | None) -> str | None:
 
 
 def _resolve_cover_href(opf: OPF) -> str | None:
+    """
+    Resolve cover href against the package's normalized member references.
+
+    Example:
+        Exercise  resolve cover href with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param opf: XML or metadata node used as the operation context.
+    :return: Parsed, normalized or updated value described above.
+    """
     cover_href = opf.raster_cover
     if cover_href:
         return cover_href
@@ -156,6 +284,19 @@ def _resolve_cover_href(opf: OPF) -> str | None:
 
 
 def _cover_member_from_opf(opf: OPF, opf_path: str) -> str | None:
+    """
+    Perform the format-specific cover member from opf operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  cover member from opf with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param opf: XML or metadata node used as the operation context.
+    :param opf_path: Value supplied for opf path.
+    :return: Parsed, normalized or updated value described above.
+    """
     cover_href = _resolve_cover_href(opf)
     if not cover_href:
         return None
@@ -166,7 +307,16 @@ def _cover_member_from_opf(opf: OPF, opf_path: str) -> str | None:
 
 def get_first_opf_name(zf) -> str:
     """
-    Return the best OPF candidate from an EXTZ archive.
+    Choose the preferred OPF package member from an archive using basename and path heuristics.
+
+    Example:
+        Exercise get first opf name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param zf: Value supplied for zf.
+    :return: Parsed, normalized or updated value described above.
     """
     names = [str(name) for name in zf.namelist()]
 
@@ -204,11 +354,20 @@ def get_first_opf_name(zf) -> str:
 
 def get_metadata(stream_or_path, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
     """
-    Return metadata from an EXTZ stream/path as a LiuXin metadata object.
+    Read metadata from the supported path or stream input while applying the module's ownership and fallback policy.
 
-    EXTZ/HTMLZ readers reject broken archives or archives without credible
-    fallback content by default. Use `fallback_on_parse_error=True` only from a
-    best-effort facade that deliberately wants shell metadata.
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param stream_or_path: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param extract_cover: Attempt cover discovery and extraction when true.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
     """
     if _is_path_like(stream_or_path):
         with open(stream_or_path, "rb") as stream:
@@ -281,7 +440,18 @@ def get_metadata(stream_or_path, extract_cover: bool = True, *, fallback_on_pars
 
 def set_metadata(stream_or_path, mi):
     """
-    Write metadata into an EXTZ path or read/write stream.
+    Write supported metadata fields to a path or mutable binary stream without taking ownership of caller-supplied streams.
+
+    Example:
+        Exercise set metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param stream_or_path: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: None.
     """
     if _is_path_like(stream_or_path):
         with open(stream_or_path, "r+b") as stream:

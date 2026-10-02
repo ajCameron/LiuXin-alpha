@@ -1727,39 +1727,145 @@ def _install_scheme_convenience_properties(
     schemes: frozenset[IdentifierScheme],
 ) -> None:
     """
-    Install per-scheme convenience properties and methods on a container class.
+    Install six convenience accessors per scheme on an identifier container class.
 
-    This is deliberate runtime sugar, not the load-bearing core API. The
-    explicit generic methods on the container remain the canonical surface. See
-    `metadata_container_dynamic_convenience_policy.md`.
+    Schemes are installed in value order, using each scheme value verbatim as the
+    attribute stem. Hyphenated stems require getattr access. Bucket properties call
+    ensure_scheme and may create a bucket; values, normalized values, text and primary
+    accessors do not create one. Existing attributes with the same names are
+    overwritten. The explicit generic methods remain the canonical surface under
+    metadata_container_dynamic_convenience_policy.md.
 
-    For a scheme stem of 'isbn_13', this creates:
-    - .isbn_13               -> SchemeIdentifiersContainer
-    - .isbn_13_values        -> tuple[str, ...]
-    - .isbn_13_normalized_values -> tuple[str, ...]
-    - .isbn_13_text           -> str   (default " / " separator)
-    - .isbn_13_to_text(sep=" / ") -> str
-    - .isbn_13_primary       -> IdentifierBase | None
+    Example:
+        >>> identifiers = WorkIdentifiersContainer(work_id=1)
+        >>> identifiers.uuid_values, identifiers.schemes()
+        ((), ())
+        >>> bucket = identifiers.uuid
+        >>> identifiers.get_scheme(IdentifierScheme.UUID) is bucket
+        True
+
+
+    :param cls: Container class receiving generated properties and methods.
+    :param schemes: Scheme set to install; eligibility is enforced later by the
+        container methods.
+    :return: None.
     """
     for scheme in sorted(schemes, key=lambda s: s.value):
         stem = scheme.value
 
         def scheme_container_getter(self, _scheme=scheme):
+            """
+            Return the captured scheme bucket through ensure_scheme.
+
+            The target checks scheme eligibility and registers an empty bucket if needed.
+
+            Example:
+                >>> identifiers = WorkIdentifiersContainer(work_id=1)
+                >>> bucket = identifiers.uuid
+                >>> identifiers.get_scheme(IdentifierScheme.UUID) is bucket
+                True
+
+
+            :param self: Target container instance receiving the generated accessor.
+            :param _scheme: Scheme captured as the default argument during installation.
+            :return: Live per-scheme identifier container.
+            """
             return self.ensure_scheme(_scheme)
 
         def scheme_values_getter(self, _scheme=scheme):
+            """
+            Read raw values for the captured scheme without creating a bucket.
+
+            Example:
+                >>> identifiers = WorkIdentifiersContainer(work_id=1)
+                >>> identifier = WorkIdentifier(work_id=1, scheme=IdentifierScheme.UUID, value='local-1')
+                >>> identifiers.add_identifier(identifier)
+                >>> identifiers.uuid_values
+                ('local-1',)
+
+
+            :param self: Target container instance receiving the generated accessor.
+            :param _scheme: Scheme captured as the default argument during installation.
+            :return: Ordered value tuple, or an empty tuple for an absent bucket.
+            """
             return self.scheme_values(_scheme)
 
         def scheme_normalized_values_getter(self, _scheme=scheme):
+            """
+            Read stored normalized values with raw-value fallback for the captured scheme.
+
+            This does not perform normalization or create a missing bucket.
+
+            Example:
+                >>> identifiers = WorkIdentifiersContainer(work_id=1)
+                >>> identifier = WorkIdentifier(work_id=1, scheme=IdentifierScheme.UUID, value='local-1')
+                >>> identifiers.add_identifier(identifier)
+                >>> identifier.normalized_value = 'LOCAL-1'
+                >>> identifiers.uuid_normalized_values
+                ('LOCAL-1',)
+
+
+            :param self: Target container instance receiving the generated accessor.
+            :param _scheme: Scheme captured as the default argument during installation.
+            :return: Ordered selected-value tuple, or an empty tuple.
+            """
             return self.scheme_normalized_values(_scheme)
 
         def scheme_text_getter(self, _scheme=scheme):
+            """
+            Join raw values for the captured scheme with the default separator.
+
+            Example:
+                >>> identifiers = WorkIdentifiersContainer(work_id=1)
+                >>> identifier = WorkIdentifier(work_id=1, scheme=IdentifierScheme.UUID, value='local-1')
+                >>> identifiers.add_identifier(identifier)
+                >>> identifiers.uuid_text
+                'local-1'
+
+
+            :param self: Target container instance receiving the generated accessor.
+            :param _scheme: Scheme captured as the default argument during installation.
+            :return: Rendered text, or an empty string for an absent or empty bucket.
+            """
             return self.scheme_text(_scheme)
 
         def scheme_text_method(self, sep: str = " / ", _scheme=scheme) -> str:
+            """
+            Join raw values for the captured scheme using a caller-selected separator.
+
+            Example:
+                >>> identifiers = WorkIdentifiersContainer(work_id=1)
+                >>> identifier = WorkIdentifier(work_id=1, scheme=IdentifierScheme.UUID, value='local-1')
+                >>> identifiers.add_identifier(identifier)
+                >>> identifiers.uuid_to_text(sep='; ')
+                'local-1'
+
+
+            :param self: Target container instance receiving the generated accessor.
+            :param sep: Separator forwarded to scheme_text.
+            :param _scheme: Scheme captured as the default argument during installation.
+            :return: Rendered text, or an empty string for an absent or empty bucket.
+            """
             return self.scheme_text(_scheme, sep=sep)
 
         def scheme_primary_getter(self, _scheme=scheme):
+            """
+            Select the captured scheme primary identifier, falling back to its first record.
+
+            Selection does not create a bucket, set flags or filter by status.
+
+            Example:
+                >>> identifiers = WorkIdentifiersContainer(work_id=1)
+                >>> identifier = WorkIdentifier(work_id=1, scheme=IdentifierScheme.UUID, value='local-1')
+                >>> identifiers.add_identifier(identifier)
+                >>> identifiers.uuid_primary is identifier, identifier.is_primary
+                (True, False)
+
+
+            :param self: Target container instance receiving the generated accessor.
+            :param _scheme: Scheme captured as the default argument during installation.
+            :return: Shared selected identifier, or None for an absent or empty bucket.
+            """
             return self.primary_identifier_for_scheme(_scheme)
 
         setattr(cls, stem, property(scheme_container_getter))

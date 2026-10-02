@@ -1,10 +1,14 @@
 """
-Core WEMI identity API contract for expression entities.
+Define the core expression identity contract and normalized flag type.
 
-Category: core WEMI identity object.
+The contract covers the expression row itself; related metadata and read-side
+projections live in separate APIs.
 
-This module defines the smallest stable API for the expression entity itself,
-not the editable metadata bundle and not a read-side query result.
+Example:
+    >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+    >>> expression = ExpressionIdentity(expression_id=2, expression_label='English text')
+    >>> expression.WEMI_LEVEL
+    'expression'
 """
 from __future__ import annotations
 
@@ -26,7 +30,18 @@ ExpressionFlags: TypeAlias = tuple[str, ...]
 
 
 class ExpressionIdentityPropertiesAPI(WemiIdentityAPI, metaclass=abc.ABCMeta):
-    """Row-level API for one expression."""
+    """
+    Require the stable row-level surface for one expression identity.
+
+    Concrete implementations define id assignment, flag normalization and mapping
+    ownership. The common id alias delegates directly to expression_id.
+
+    Example:
+        >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+        >>> expression = ExpressionIdentity(expression_id=2, expression_label='English text')
+        >>> expression.id
+        2
+    """
 
     WEMI_LEVEL: ClassVar[str] = "expression"
     SOURCE_TABLE: ClassVar[str] = "expressions"
@@ -35,18 +50,36 @@ class ExpressionIdentityPropertiesAPI(WemiIdentityAPI, metaclass=abc.ABCMeta):
     @property
     def id(self) -> Optional[int]:
         """
-        ID for this expression.
+        Return expression_id through the level-independent WEMI id alias.
 
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity(expression_id=2, expression_label='English text')
+            >>> expression.id
+            2
+
+
+        :return: Current expression id, or None.
         """
         return self.expression_id
 
     @id.setter
     def id(self, value: Optional[int]) -> None:
         """
-        Set the ID for this expression.
+        Assign expression_id through the level-independent WEMI id alias.
 
-        :return:
+        Concrete expression identities may reject reassignment once a non-None id is stored.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity()
+            >>> expression.id = 2
+            >>> expression.expression_id
+            2
+
+
+        :param value: New expression id, or None.
+        :return: None.
         """
         self.expression_id = value
 
@@ -54,174 +87,336 @@ class ExpressionIdentityPropertiesAPI(WemiIdentityAPI, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def expression_id(self) -> Optional[int]:
         """
-        The id of the expression this container represents.
+        Require access to the expression row id for this expression.
 
-        :return:
+        Concrete implementations determine normalization and assignment policy.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity(expression_id=2)
+            >>> expression.expression_id
+            2
+
+
+        :return: Current expression row id, or None where optional.
         """
 
     @expression_id.setter
     @abc.abstractmethod
     def expression_id(self, expression_id: Optional[int]) -> None:
         """
-        Set the id of the expression this container represents.
+        Require assignment of the expression row id under concrete identity policy.
 
-        :param expression_id:
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity()
+            >>> expression.expression_id = 2
+            >>> expression.expression_id
+            2
+
+
+        :param expression_id: New expression row id.
+        :return: None.
         """
 
     @property
     @abc.abstractmethod
     def expression_type(self) -> Optional[str]:
         """
-        The type of the expression.
+        Require access to the expression type for this expression.
 
-        :return:
+        Concrete implementations determine normalization and assignment policy.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity(expression_type='text')
+            >>> expression.expression_type
+            'text'
+
+
+        :return: Current expression type, or None where optional.
         """
 
     @expression_type.setter
     @abc.abstractmethod
     def expression_type(self, expression_type: Optional[str]) -> None:
         """
-        Set the type of the expression.
+        Require assignment of the expression type under concrete identity policy.
 
-        :param expression_type:
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity()
+            >>> expression.expression_type = 'text'
+            >>> expression.expression_type
+            'text'
+
+
+        :param expression_type: New expression type.
+        :return: None.
         """
 
     @property
     @abc.abstractmethod
     def expression_language_id(self) -> Optional[int]:
         """
-        Language ID for this expression.
+        Require access to the language row id for this expression.
 
-        :return:
+        Concrete implementations determine normalization and assignment policy.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity(expression_language_id=3)
+            >>> expression.expression_language_id
+            3
+
+
+        :return: Current language row id, or None where optional.
         """
 
     @expression_language_id.setter
     @abc.abstractmethod
     def expression_language_id(self, expression_language_id: Optional[int]) -> None:
         """
-        Set the Language ID for this expression.
+        Require assignment of the language row id under concrete identity policy.
 
-        :param expression_language_id:
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity()
+            >>> expression.expression_language_id = 3
+            >>> expression.expression_language_id
+            3
+
+
+        :param expression_language_id: New language row id.
+        :return: None.
         """
 
     @property
     @abc.abstractmethod
     def expression_label(self) -> Optional[str]:
         """
-        Get the label of this expression.
+        Require access to the display label for this expression.
 
-        :return:
+        Concrete implementations determine normalization and assignment policy.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity(expression_label='English text')
+            >>> expression.expression_label
+            'English text'
+
+
+        :return: Current display label, or None where optional.
         """
 
     @expression_label.setter
     @abc.abstractmethod
     def expression_label(self, expression_label: Optional[str]) -> None:
         """
-        Set the label for this expression.
+        Require assignment of the display label under concrete identity policy.
 
-        :param expression_label:
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity()
+            >>> expression.expression_label = 'English text'
+            >>> expression.expression_label
+            'English text'
+
+
+        :param expression_label: New display label.
+        :return: None.
         """
 
     @property
     @abc.abstractmethod
     def expression_title_override(self) -> Optional[str]:
         """
-        An expression can provide a title override.
+        Require access to the title override for this expression.
 
-        Otherwise, it's built out of the work title and the expression subtitle.
-        :return:
+        Concrete implementations determine normalization and assignment policy.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity(expression_title_override='Special edition')
+            >>> expression.expression_title_override
+            'Special edition'
+
+
+        :return: Current title override, or None where optional.
         """
 
     @expression_title_override.setter
     @abc.abstractmethod
     def expression_title_override(self, expression_title_override: Optional[str]) -> None:
         """
-        Set the expression title override for the given expression.
+        Require assignment of the title override under concrete identity policy.
 
-        :param expression_title_override:
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity()
+            >>> expression.expression_title_override = 'Special edition'
+            >>> expression.expression_title_override
+            'Special edition'
+
+
+        :param expression_title_override: New title override.
+        :return: None.
         """
 
     @property
     @abc.abstractmethod
     def expression_subtitle(self) -> Optional[str]:
         """
-        Get the expression subtitle for this expression - if there is one.
+        Require access to the subtitle for this expression.
 
-        :return:
+        Concrete implementations determine normalization and assignment policy.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity(expression_subtitle='Annotated')
+            >>> expression.expression_subtitle
+            'Annotated'
+
+
+        :return: Current subtitle, or None where optional.
         """
 
     @expression_subtitle.setter
     @abc.abstractmethod
     def expression_subtitle(self, expression_subtitle: Optional[str]) -> None:
         """
-        Set the expression subtitle for this expression.
+        Require assignment of the subtitle under concrete identity policy.
 
-        :param expression_subtitle:
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity()
+            >>> expression.expression_subtitle = 'Annotated'
+            >>> expression.expression_subtitle
+            'Annotated'
+
+
+        :param expression_subtitle: New subtitle.
+        :return: None.
         """
 
     @property
     @abc.abstractmethod
     def expression_flags(self) -> ExpressionFlags:
         """
-        Normalized flag tokens associated with the expression.
+        Require access to the normalized flag tokens for this expression.
 
-        :return:
+        Concrete implementations determine normalization and assignment policy.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity(expression_flags='draft,reviewed')
+            >>> expression.expression_flags
+            ('draft', 'reviewed')
+
+
+        :return: Current normalized flag tokens, or None where optional.
         """
 
     @expression_flags.setter
     @abc.abstractmethod
     def expression_flags(self, expression_flags: ExpressionFlags | None) -> None:
         """
-        Set normalized flag tokens for the expression.
+        Require assignment of the normalized flag tokens under concrete identity policy.
 
-        :param expression_flags:
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity()
+            >>> expression.expression_flags = ('draft', 'reviewed')
+            >>> expression.expression_flags
+            ('draft', 'reviewed')
+
+
+        :param expression_flags: New normalized flag tokens.
+        :return: None.
         """
 
     @property
     @abc.abstractmethod
     def expression_status(self) -> Optional[str]:
         """
-        Get the status of this expression.
+        Require access to the status for this expression.
 
-        :return:
+        Concrete implementations determine normalization and assignment policy.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity(expression_status='complete')
+            >>> expression.expression_status
+            'complete'
+
+
+        :return: Current status, or None where optional.
         """
 
     @expression_status.setter
     @abc.abstractmethod
     def expression_status(self, expression_status: Optional[str]) -> None:
         """
-        Set the status of the expression.
+        Require assignment of the status under concrete identity policy.
 
-        :param expression_status:
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity()
+            >>> expression.expression_status = 'complete'
+            >>> expression.expression_status
+            'complete'
+
+
+        :param expression_status: New status.
+        :return: None.
         """
 
     @property
     @abc.abstractmethod
     def to_mapping(self) -> MutableMetadataRecord:
         """
-        Transform the record to a mapping.
+        Require serialization to canonical expression-column keys.
 
-        :return:
+        Field inclusion, flag encoding and copy depth belong to the concrete implementation.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity(expression_id=2, expression_label='English text')
+            >>> expression.to_mapping()['expression_id']
+            2
+
+
+        :return: Mutable metadata record describing the expression.
         """
 
     def __str__(self) -> str:
         """
-        String representation of this expression.
+        Return a minimal class-name diagnostic when a concrete identity does not override it.
 
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+            >>> expression = ExpressionIdentity(expression_id=2, expression_label='English text')
+            >>> ExpressionIdentityPropertiesAPI.__str__(expression)
+            'ExpressionIdentity()'
+
+
+        :return: Concrete class name followed by empty parentheses.
         """
         return f"{self.__class__.__name__}()"
 
 
 class ExpressionIdentityAPI(ExpressionIdentityPropertiesAPI, metaclass=abc.ABCMeta):
-    """Marker ABC for a concrete expression identity container."""
+    """
+    Mark a concrete expression identity that provides every row-level property.
+
+    The marker adds no behavior beyond ExpressionIdentityPropertiesAPI and remains
+    useful as the public annotation boundary.
+
+    Example:
+        >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+        >>> expression = ExpressionIdentity(expression_id=2, expression_label='English text')
+        >>> isinstance(expression, ExpressionIdentityAPI)
+        True
+    """
 
 __all__ = ["ExpressionFlags", "ExpressionIdentityPropertiesAPI", "ExpressionIdentityAPI"]

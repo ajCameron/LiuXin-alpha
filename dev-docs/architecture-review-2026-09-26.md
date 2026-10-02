@@ -90,7 +90,7 @@ with evidence and shows each is broader than stated.
 
 | # | Action | Findings |
 |---|---|---|
-| 6 | One lifecycle owner: `Library.open(settings)` built on an `ExitStack`, opening the Database with `enable_storage_manager=False`, then StorageManager, cache and Catalog, and closing in reverse. Route CLI ingest, reconcile and workflow jobs through it. Target and rationale: [target architecture](target-architecture.md#1-lifecycle-ownership) | DB-1, CO-2, CO-7, ST-3 |
+| 6 | Core owns lifecycle: a core `LibraryServices.open(settings)` built on an `ExitStack` opens the Database (without storage or maintenance), then StorageManager, cache and Catalog, builds the `Library`, and closes in reverse. Route CLI ingest, reconcile and workflow jobs through it. Target and rationale: [target architecture](target-architecture.md#1-lifecycle-ownership) | DB-1, CO-2, CO-7, ST-3 |
 | 7 | A whole-package layer-rank check with a checked-in allowlist of today's ~25 backward edges; count `importlib` strings as edges; report SCC size as a ratchet number | RP-1, SU-3 |
 | 8 | One write path: re-implement `metadata.write` on `catalog.write`/`LinkUpdate`; put `admin.row.*` behind an admin mode; one normalisation owner with a per-column parity test, plus a backfill | CM-1, CM-2, SU-2 |
 | 9 | One read model: `core.browse_api` owns catalogue projections; `surfaces/read_model` only maps view data; hydrators move into `catalog/retrieval` | SU-1, CM-3 |

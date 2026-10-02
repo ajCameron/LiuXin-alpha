@@ -1,8 +1,13 @@
 """
-Infer metadata from a filename/string.
+Infer title, authors, identifiers, dates, series, tags and comments from filenames or path-like text.
 
-This module is intentionally heuristic. It should fail soft, return a metadata
-container, and preserve useful leftovers as comments.
+The module keeps binary parsing, optional dependency and stream ownership policy
+explicit for registry callers.
+
+Example:
+    Exercise from string with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
 """
 
 from __future__ import annotations
@@ -81,6 +86,18 @@ _TITLE_HINT_WORDS = {"the", "a", "an", "of", "for", "to", "in", "on", "at", "fro
 
 
 def _coerce_text(raw: Any) -> str:
+    """
+    Normalize text into the representation expected by later parsing or serialization steps.
+
+    Example:
+        Exercise  coerce text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if raw is None:
         return ""
     if isinstance(raw, bytes):
@@ -91,16 +108,52 @@ def _coerce_text(raw: Any) -> str:
 
 
 def _normalize_whitespace(raw: str) -> str:
+    """
+    Normalize whitespace into the representation expected by later parsing or serialization steps.
+
+    Example:
+        Exercise  normalize whitespace with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     return re.sub(r"\s+", " ", raw or "").strip()
 
 
 def _normalize_title_text(raw: str) -> str:
+    """
+    Normalize title text into the representation expected by later parsing or serialization steps.
+
+    Example:
+        Exercise  normalize title text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     text = _coerce_text(raw)
     text = text.replace("_", " ")
     return _normalize_whitespace(text)
 
 
 def _is_bracketed(token: str) -> bool:
+    """
+    Return whether the supplied value satisfies the bracketed condition.
+
+    Example:
+        Exercise  is bracketed with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param token: Value supplied for token.
+    :return: True when the condition is satisfied; otherwise False.
+    """
     token = (token or "").strip()
     if len(token) < 2:
         return False
@@ -108,6 +161,18 @@ def _is_bracketed(token: str) -> bool:
 
 
 def _strip_outer_brackets(token: str) -> str:
+    """
+    Perform the format-specific strip outer brackets operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  strip outer brackets with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param token: Value supplied for token.
+    :return: Parsed, normalized or updated value described above.
+    """
     token = (token or "").strip()
     if _is_bracketed(token):
         return token[1:-1].strip()
@@ -115,6 +180,20 @@ def _strip_outer_brackets(token: str) -> str:
 
 
 def _path_to_parse_text(target: Any, *, full_path_regex: bool = False) -> tuple[str, str]:
+    """
+    Perform the format-specific path to parse text operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  path to parse text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param target: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param full_path_regex: Value supplied for full path regex.
+    :return: Parsed, normalized or updated value described above.
+    """
     raw = _coerce_text(target)
     no_ext = os.path.splitext(raw)[0]
     if full_path_regex:
@@ -126,6 +205,18 @@ def _path_to_parse_text(target: Any, *, full_path_regex: bool = False) -> tuple[
 
 
 def _split_tags(raw: str) -> list[str]:
+    """
+    Perform the format-specific split tags operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  split tags with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     parts = re.split(r"\s*(?:,|;|\||/)\s*", raw)
     out: list[str] = []
     for part in parts:
@@ -136,6 +227,18 @@ def _split_tags(raw: str) -> list[str]:
 
 
 def _split_authors(raw: str) -> list[str]:
+    """
+    Perform the format-specific split authors operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  split authors with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     raw = _normalize_whitespace(raw)
     if not raw:
         return []
@@ -166,6 +269,18 @@ def _split_authors(raw: str) -> list[str]:
 
 
 def _author_score(candidate: str) -> int:
+    """
+    Perform the format-specific author score operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  author score with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param candidate: Value supplied for candidate.
+    :return: Parsed, normalized or updated value described above.
+    """
     text = _normalize_whitespace(candidate)
     if not text:
         return 0
@@ -196,6 +311,18 @@ def _author_score(candidate: str) -> int:
 
 
 def _title_score(candidate: str) -> int:
+    """
+    Perform the format-specific title score operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  title score with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param candidate: Value supplied for candidate.
+    :return: Parsed, normalized or updated value described above.
+    """
     text = _normalize_whitespace(candidate)
     if not text:
         return 0
@@ -224,6 +351,20 @@ def _title_score(candidate: str) -> int:
 
 
 def _set_if_non_empty(mi: MetaData, field: str, value: Any) -> None:
+    """
+    Set if non empty under the supplied null and replacement policy.
+
+    Example:
+        Exercise  set if non empty with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param field: Value supplied for field.
+    :param value: Raw value or payload to normalize, parse or serialize.
+    :return: None.
+    """
     if value is None:
         return
     if isinstance(value, str) and not _normalize_whitespace(value):
@@ -232,6 +373,19 @@ def _set_if_non_empty(mi: MetaData, field: str, value: Any) -> None:
 
 
 def _append_comment(mi: MetaData, value: str) -> None:
+    """
+    Perform the format-specific append comment operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  append comment with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param value: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     value = _normalize_whitespace(value)
     if not value:
         return
@@ -239,6 +393,18 @@ def _append_comment(mi: MetaData, value: str) -> None:
 
 
 def _known_series_names(mi: MetaData) -> list[str]:
+    """
+    Perform the format-specific known series names operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  known series names with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
+    """
     raw = getattr(mi, "series", None)
     if raw is None:
         return []
@@ -254,6 +420,18 @@ def _known_series_names(mi: MetaData) -> list[str]:
 
 
 def _parse_date_value(raw: str | None):
+    """
+    Parse date value and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse date value with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     raw = _normalize_whitespace(raw or "")
     if not raw:
         return None
@@ -274,6 +452,19 @@ def _parse_date_value(raw: str | None):
 
 def _apply_regex_groups_to_metadata(mi: MetaData, groups: dict[str, str]) -> None:
     # Normalize known aliases to one metadata surface.
+    """
+    Perform the format-specific apply regex groups to metadata operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  apply regex groups to metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param groups: Value supplied for groups.
+    :return: Parsed, normalized or updated value described above.
+    """
     title = groups.get("title")
     authors = groups.get("authors") or groups.get("author")
     series = groups.get("series")
@@ -325,6 +516,18 @@ def _apply_regex_groups_to_metadata(mi: MetaData, groups: dict[str, str]) -> Non
 
 
 def _compile_patterns(force_regex: Any) -> list[re.Pattern[str]]:
+    """
+    Perform the format-specific compile patterns operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  compile patterns with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param force_regex: Value supplied for force regex.
+    :return: Parsed, normalized or updated value described above.
+    """
     if not force_regex:
         return []
 
@@ -355,12 +558,36 @@ def _compile_patterns(force_regex: Any) -> list[re.Pattern[str]]:
 
 
 def _consume_parenthesized_tokens(tokens: list[str]) -> tuple[list[str], list[str]]:
+    """
+    Perform the format-specific consume parenthesized tokens operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  consume parenthesized tokens with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param tokens: Value supplied for tokens.
+    :return: Parsed, normalized or updated value described above.
+    """
     parenthesized = [t for t in tokens if _is_bracketed(t)]
     plain = [t for t in tokens if not _is_bracketed(t)]
     return parenthesized, plain
 
 
 def _extract_series_from_parenthesized_tokens(tokens: list[str]) -> tuple[tuple[str, float] | None, list[str]]:
+    """
+    Extract series from parenthesized tokens using the format-specific ordering and validation rules.
+
+    Example:
+        Exercise  extract series from parenthesized tokens with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param tokens: Value supplied for tokens.
+    :return: Parsed, normalized or updated value described above.
+    """
     kept: list[str] = []
     for token_idx, token in enumerate(tokens):
         core = _strip_outer_brackets(token)
@@ -384,6 +611,18 @@ def _extract_series_from_parenthesized_tokens(tokens: list[str]) -> tuple[tuple[
 
 
 def _parse_title_and_authors_heuristic(raw: str) -> tuple[str | None, list[str], list[str]]:
+    """
+    Parse title and authors heuristic and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse title and authors heuristic with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     text = _normalize_whitespace(raw)
     if not text:
         return None, [], []
@@ -438,6 +677,18 @@ def _parse_title_and_authors_heuristic(raw: str) -> tuple[str | None, list[str],
 
 
 def _extract_tags_and_comments_from_parenthesized(tokens: list[str]) -> tuple[list[str], list[str]]:
+    """
+    Extract tags and comments from parenthesized using the format-specific ordering and validation rules.
+
+    Example:
+        Exercise  extract tags and comments from parenthesized with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param tokens: Value supplied for tokens.
+    :return: Parsed, normalized or updated value described above.
+    """
     tags: list[str] = []
     comments: list[str] = []
 
@@ -464,11 +715,18 @@ def _extract_tags_and_comments_from_parenthesized(tokens: list[str]) -> tuple[li
 
 def get_metadata(target_string, force_regex=False, full_path_regex=False):
     """
-    Parse metadata from a filename/path-like string.
+    Read metadata from the supported path or stream input while applying the module's ownership and fallback policy.
 
-    :param target_string: filename/path-like or arbitrary string
-    :param force_regex: bool/regex/string/list of regexes used as explicit parser
-    :param full_path_regex: if True, regex parsing uses the full path (minus extension)
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param target_string: Value supplied for target string.
+    :param force_regex: Value supplied for force regex.
+    :param full_path_regex: Value supplied for full path regex.
+    :return: Parsed, normalized or updated value described above.
     """
     parse_text, fallback_title = _path_to_parse_text(target_string, full_path_regex=full_path_regex)
     working_text = deepcopy(parse_text)
@@ -540,9 +798,16 @@ def get_metadata(target_string, force_regex=False, full_path_regex=False):
 
 def tokenize(target_string):
     """
-    Convert a string into coarse metadata tokens.
+    Split source text into coarse metadata tokens after path and whitespace normalization.
 
-    Parenthesized groups are preserved as individual tokens.
+    Example:
+        Exercise tokenize with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param target_string: Value supplied for target string.
+    :return: Parsed, normalized or updated value described above.
     """
     target_string = _coerce_text(target_string)
     if not target_string:
@@ -578,7 +843,16 @@ def tokenize(target_string):
 
 def split_out_parenthesized_text(string_index):
     """
-    Split a list of strings around recognized bracket pairs.
+    Separate bracketed segments from surrounding tokens while preserving their encounter order.
+
+    Example:
+        Exercise split out parenthesized text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param string_index: Value supplied for string index.
+    :return: Parsed, normalized or updated value described above.
     """
     string_index = [str(s) for s in (string_index or [])]
 
@@ -605,7 +879,17 @@ def split_out_parenthesized_text(string_index):
 
 def extract_by_parenthesis_regex(target_string, regex):
     """
-    Split a string around one parenthesized regex group.
+    Split source text around the first parenthesized segment matched by the supplied expression.
+
+    Example:
+        Exercise extract by parenthesis regex with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param target_string: Value supplied for target string.
+    :param regex: Value supplied for regex.
+    :return: Parsed, normalized or updated value described above.
     """
     target_string = _coerce_text(target_string)
     regex = _coerce_text(regex)
@@ -626,7 +910,16 @@ def extract_by_parenthesis_regex(target_string, regex):
 
 def test_for_parenthesis(target_string):
     """
-    Return True if any recognized opening parenthesis appears in the string.
+    Return whether source text contains any recognized opening bracket.
+
+    Example:
+        Exercise test for parenthesis with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param target_string: Value supplied for target string.
+    :return: True when the condition is satisfied; otherwise False.
     """
     target_string = _coerce_text(target_string)
     for character in target_string:
@@ -637,7 +930,17 @@ def test_for_parenthesis(target_string):
 
 def get_separator_count(target_string, separators=possible_separators):
     """
-    Count separator frequency and return an OrderedDict sorted by count (desc).
+    Count candidate separator occurrences and return them in descending frequency order.
+
+    Example:
+        Exercise get separator count with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param target_string: Value supplied for target string.
+    :param separators: Value supplied for separators.
+    :return: Parsed, normalized or updated value described above.
     """
     target_string = _coerce_text(target_string)
     separators = list(separators)
@@ -654,9 +957,17 @@ def get_separator_count(target_string, separators=possible_separators):
 
 def pop_date(target_string, replacement=_SPLIT_MARKER):
     """
-    Extract a publication-like date from a string and replace it with a split marker.
+    Extract a publication-like date and replace its source span with the requested split marker.
 
-    Returns `(date_or_none, new_string)`.
+    Example:
+        Exercise pop date with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param target_string: Value supplied for target string.
+    :param replacement: Value supplied for replacement.
+    :return: Parsed, normalized or updated value described above.
     """
     target_string = _coerce_text(target_string)
 
@@ -686,7 +997,16 @@ def pop_date(target_string, replacement=_SPLIT_MARKER):
 # Todo - can't find ISBNs embedded in larger blocks of numbers. Might be a good feature. Or not.
 def get_isbn_from_string(target_string):
     """
-    Extract valid ISBNs from a string and return them as a sorted list.
+    Return sorted, validated ISBN values found in source text.
+
+    Example:
+        Exercise get isbn from string with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param target_string: Value supplied for target string.
+    :return: Parsed, normalized or updated value described above.
     """
     target_string = _coerce_text(target_string)
     candidate_set = set()
@@ -719,7 +1039,17 @@ def get_isbn_from_string(target_string):
 
 def drop_isbn_from_string(target_string, replacement=_SPLIT_MARKER):
     """
-    Remove valid ISBN occurrences from a string.
+    Replace valid ISBN occurrences in source text with the requested marker.
+
+    Example:
+        Exercise drop isbn from string with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_from_string_metadata_source.py
+
+
+    :param target_string: Value supplied for target string.
+    :param replacement: Value supplied for replacement.
+    :return: Parsed, normalized or updated value described above.
     """
     target_string = _coerce_text(target_string)
 

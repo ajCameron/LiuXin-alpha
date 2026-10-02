@@ -1,5 +1,13 @@
 """
-Support for reading metadata from LIT files.
+Read LIT metadata and guide-referenced covers through the optional LIT container implementation.
+
+The module keeps binary parsing, optional dependency and stream ownership policy
+explicit for registry callers.
+
+Example:
+    Exercise lit with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
 """
 
 from __future__ import annotations
@@ -24,15 +32,41 @@ RUN_COST = ["LOW"]
 
 
 class LitFormatError(Exception):
+    """
+    Signal a LIT container or OPF metadata parsing failure.
+
+    Example:
+        Exercise LitFormatError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+    """
     pass
 
 
 class _LitLogProxy:
     """
-    Adapter exposing the tiny logger surface LIT reader code expects.
+    Adapt the project logger to the warn, warning, info and debug methods expected by the LIT reader.
+
+    Example:
+        Exercise  LitLogProxy with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
     """
 
     def _emit(self, level: str, *parts: object) -> None:
+        """
+        Perform the format-specific emit operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  LitLogProxy. emit with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+        :param level: Value supplied for level.
+        :param parts: Value supplied for parts.
+        :return: Parsed, normalized or updated value described above.
+        """
         message = " ".join(str(p) for p in parts if p is not None)
         if not message:
             return
@@ -45,25 +79,98 @@ class _LitLogProxy:
             method(message)
 
     def warn(self, *parts: object) -> None:
+        """
+        Perform the format-specific warn operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  LitLogProxy.warn with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+        :param parts: Value supplied for parts.
+        :return: Parsed, normalized or updated value described above.
+        """
         self._emit("warning", *parts)
 
     def warning(self, *parts: object) -> None:
+        """
+        Perform the format-specific warning operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  LitLogProxy.warning with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+        :param parts: Value supplied for parts.
+        :return: Parsed, normalized or updated value described above.
+        """
         self._emit("warning", *parts)
 
     def info(self, *parts: object) -> None:
+        """
+        Perform the format-specific info operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  LitLogProxy.info with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+        :param parts: Value supplied for parts.
+        :return: Parsed, normalized or updated value described above.
+        """
         self._emit("info", *parts)
 
     def debug(self, *parts: object) -> None:
+        """
+        Perform the format-specific debug operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  LitLogProxy.debug with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+        :param parts: Value supplied for parts.
+        :return: Parsed, normalized or updated value described above.
+        """
         self._emit("debug", *parts)
 
 
 def _load_lit_container_class():
+    """
+    Perform the format-specific load lit container class operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  load lit container class with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+    :return: Parsed, normalized or updated value described above.
+    """
     from LiuXin_alpha.file_formats.lit.reader import LitContainer
 
     return LitContainer
 
 
 def _log_exception(base: str, exc: Exception, source_name: str) -> None:
+    """
+    Report a format-specific parsing failure through the project logger with source context.
+
+    Example:
+        Exercise  log exception with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+    :param base: Value supplied for base.
+    :param exc: Value supplied for exc.
+    :param source_name: Source label used for fallback titles and diagnostics.
+    :return: None.
+    """
     if hasattr(default_log, "log_exception"):
         default_log.log_exception(base, exc, "ERROR", ("source", source_name or "<stream>"))
         return
@@ -73,6 +180,18 @@ def _log_exception(base: str, exc: Exception, source_name: str) -> None:
 
 
 def _default_metadata(source_name: str = ""):
+    """
+    Build a minimally usable metadata object for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+    :param source_name: Source label used for fallback titles and diagnostics.
+    :return: Parsed, normalized or updated value described above.
+    """
     title = _("Unknown")
     if source_name:
         stem = os.path.splitext(os.path.basename(source_name))[0].strip()
@@ -82,6 +201,18 @@ def _default_metadata(source_name: str = ""):
 
 
 def _normalize_href(href: str | None) -> str:
+    """
+    Normalize href into the representation expected by later parsing or serialization steps.
+
+    Example:
+        Exercise  normalize href with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+    :param href: Value supplied for href.
+    :return: Parsed, normalized or updated value described above.
+    """
     raw = str(href or "").strip().replace("\\", "/")
     if not raw:
         return ""
@@ -97,6 +228,18 @@ def _normalize_href(href: str | None) -> str:
 
 
 def _href_candidates(href: str | None) -> tuple[str, ...]:
+    """
+    Perform the format-specific href candidates operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  href candidates with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+    :param href: Value supplied for href.
+    :return: Parsed, normalized or updated value described above.
+    """
     raw = str(href or "")
     if not raw:
         return ()
@@ -115,6 +258,20 @@ def _href_candidates(href: str | None) -> tuple[str, ...]:
 
 
 def _guess_cover_format(path: str, data: bytes) -> str:
+    """
+    Perform the format-specific guess cover format operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  guess cover format with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+    :param path: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param data: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     try:
         fmt, _w, _h = identify(data)
         if fmt:
@@ -128,6 +285,19 @@ def _guess_cover_format(path: str, data: bytes) -> str:
 
 
 def _extract_cover_from_guide(opf: OPF, lit_file) -> tuple[str, bytes] | None:
+    """
+    Extract cover from guide using the format-specific ordering and validation rules.
+
+    Example:
+        Exercise  extract cover from guide with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+    :param opf: XML or metadata node used as the operation context.
+    :param lit_file: Value supplied for lit file.
+    :return: Parsed, normalized or updated value described above.
+    """
     manifest = getattr(lit_file, "manifest", {}) or {}
     by_path = {}
     by_path_ci = {}
@@ -177,6 +347,22 @@ def _extract_cover_from_guide(opf: OPF, lit_file) -> tuple[str, bytes] | None:
 
 
 def read_metadata_from_stream(stream, source_name: str = "", *, fallback_on_parse_error: bool = False):
+    """
+    Parse metadata from a caller-owned binary stream and apply the requested malformed-input fallback policy.
+
+    Example:
+        Exercise read metadata from stream with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param source_name: Source label used for fallback titles and diagnostics.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
+    """
     mi = _default_metadata(source_name)
 
     if hasattr(stream, "seek"):
@@ -222,7 +408,19 @@ def read_metadata_from_stream(stream, source_name: str = "", *, fallback_on_pars
 
 def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
     """
-    Read metadata from a LIT filesystem path or a readable binary stream.
+    Read metadata from the supported path or stream input while applying the module's ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lit_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
     """
     stream_needs_close = False
     source_name = ""

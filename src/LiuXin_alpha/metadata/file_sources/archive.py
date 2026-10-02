@@ -1,5 +1,12 @@
 """
-Archive helpers for metadata extraction and on-import archive flattening.
+Recognize comic archives, flatten supported single-member archives and decode embedded ComicBookInfo metadata.
+
+Archive inspection preserves stream position where possible, and metadata failures
+degrade to an Unknown record.
+
+Example:
+    >>> is_comic(['page1.jpg', 'page2.png'])
+    True
 """
 
 from __future__ import annotations
@@ -38,6 +45,19 @@ _SUPPORTED_SINGLE_MEMBER_TYPES = {
 
 
 def _iter_clean_names(list_of_names: Iterable[str]) -> Iterable[str]:
+    """
+    Yield normalized archive member names that look like files, excluding Thumbs.db.
+
+    Backslashes become forward slashes; names without a dot are skipped.
+
+    Example:
+        >>> list(_iter_clean_names(['folder', 'dir/page.JPG', 'Thumbs.db']))
+        ['dir/page.JPG']
+
+
+    :param list_of_names: Archive member-name iterable.
+    :return: Iterator of cleaned member names.
+    """
     for raw_name in list_of_names:
         name = str(raw_name).replace("\\", "/")
         if "." not in name:
@@ -49,7 +69,17 @@ def _iter_clean_names(list_of_names: Iterable[str]) -> Iterable[str]:
 
 def is_comic(list_of_names: Iterable[str]) -> bool:
     """
-    Return True if all relevant files are comic-image formats.
+    Return whether the non-ignored archive members use only supported comic-image extensions.
+
+    An empty relevant-member set is not a comic.
+
+    Example:
+        >>> is_comic(['Page1.JPG', 'nested/page2.png', 'Thumbs.db'])
+        True
+
+
+    :param list_of_names: Archive member-name iterable.
+    :return: True for a non-empty image-only member set.
     """
     extensions = {
         name.rpartition(".")[-1].lower()
@@ -60,7 +90,24 @@ def is_comic(list_of_names: Iterable[str]) -> bool:
 
 def archive_type(stream) -> str | None:
     """
-    Detect archive type from a binary stream header.
+    Detect ZIP or RAR from the first four stream characters.
+
+    The original position is restored when tell and seek work; unrecognized headers
+    return None and read errors propagate.
+
+    Example:
+        >>> import io, zipfile
+        >>> stream = io.BytesIO()
+        >>> with zipfile.ZipFile(stream, 'w') as zf:
+        ...     zf.writestr('book.txt', 'x')
+        >>> stream.seek(0)
+        0
+        >>> archive_type(stream)
+        'zip'
+
+
+    :param stream: Readable binary or text stream positioned anywhere.
+    :return: 'zip', 'rar' or None.
     """
     from LiuXin_alpha.utils.libraries.calibre_zipfile import stringFileHeader
 
@@ -87,6 +134,15 @@ def archive_type(stream) -> str | None:
 
 
 class ArchiveExtract(FileTypePlugin):
+    """
+    Provide an import plugin that identifies comics or extracts a sole supported ebook member.
+
+    Inspection failures and unsupported archive layouts return the original path.
+
+    Example:
+        >>> ArchiveExtract(None).name
+        'Archive Extract'
+    """
     name = "Archive Extract"
     author = "Kovid Goyal"
     description = _(
@@ -99,6 +155,22 @@ class ArchiveExtract(FileTypePlugin):
     on_import = True
 
     def run(self, archive):
+        """
+        Inspect a ZIP or RAR path and return an import-ready path.
+
+        Comic archives are copied with .cbz or .cbr suffixes. A sole supported ebook member
+        is extracted; unsupported, multi-member or unreadable archives return the original
+        path.
+
+        Example:
+            Exercise ZIP, comic, unsupported and damaged archive paths with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_archive_metadata_source.py
+
+
+        :param archive: Filesystem path to a ZIP or RAR archive.
+        :return: Original archive path or temporary extracted-file path.
+        """
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         is_rar = str(archive).lower().endswith(".rar")
@@ -160,6 +232,18 @@ class ArchiveExtract(FileTypePlugin):
 
 
 def _safe_int(raw: Any, default: int | None = None) -> int | None:
+    """
+    Convert a value with int, returning the supplied default after any conversion failure.
+
+    Example:
+        >>> _safe_int('bad', 6)
+        6
+
+
+    :param raw: Value to convert.
+    :param default: Fallback returned on failure.
+    :return: Converted integer or default.
+    """
     try:
         return int(raw)
     except Exception:
@@ -167,6 +251,17 @@ def _safe_int(raw: Any, default: int | None = None) -> int | None:
 
 
 def _safe_float(raw: Any) -> float | None:
+    """
+    Convert a value with float, returning None after any conversion failure.
+
+    Example:
+        >>> _safe_float('2.5')
+        2.5
+
+
+    :param raw: Value to convert.
+    :return: Converted float or None.
+    """
     try:
         return float(raw)
     except Exception:
@@ -175,7 +270,23 @@ def _safe_float(raw: Any) -> float | None:
 
 def get_comic_book_info(d, mi, series_index: str = "volume"):
     """
-    Extract ComicBookInfo fields and apply them to the given metadata object.
+    Apply supported ComicBookInfo fields to a metadata record.
+
+    Series index supports volume/issue fallback; selected credit roles become authors,
+    comma-separated names are reversed, and valid publication years use mid-month dates.
+
+    Example:
+        >>> from LiuXin_alpha.metadata.utils import calibreMetaInformation
+        >>> mi = calibreMetaInformation(None, ['Unknown'])
+        >>> get_comic_book_info({'title': 'Example', 'rating': 4}, mi)
+        >>> mi.title, mi.rating
+        ('Example', 4.0)
+
+
+    :param d: ComicBookInfo mapping; non-mappings are ignored.
+    :param mi: Mutable metadata object to update.
+    :param series_index: Preferred series-index field, normally volume or issue.
+    :return: None.
     """
     if not isinstance(d, Mapping):
         return
@@ -244,6 +355,20 @@ def get_comic_book_info(d, mi, series_index: str = "volume"):
 
 
 def _decode_json_payload(raw_comment: bytes | str) -> Mapping[str, Any] | None:
+    """
+    Decode a JSON object from bytes or text archive comments.
+
+    Bytes try UTF-8 with BOM, UTF-8 and CP1252. If direct parsing fails, the outermost
+    brace-delimited substring is tried; non-object JSON returns None.
+
+    Example:
+        >>> _decode_json_payload(b'prefix {"title": "Example"} suffix')['title']
+        'Example'
+
+
+    :param raw_comment: Raw archive comment bytes or text.
+    :return: Decoded mapping or None.
+    """
     text: str
     if isinstance(raw_comment, bytes):
         for encoding in ("utf-8-sig", "utf-8", "cp1252"):
@@ -280,7 +405,21 @@ def _decode_json_payload(raw_comment: bytes | str) -> Mapping[str, Any] | None:
 
 def get_comic_metadata(stream, stream_type, series_index: str = "volume"):
     """
-    Parse embedded ComicBookInfo metadata from comic archives.
+    Read a CBZ or CBR comment and apply the first ComicBookInfo category.
+
+    The stream position is restored when possible. Archive, comment and parsing failures
+    are logged or ignored and return an Unknown metadata record.
+
+    Example:
+        Exercise CBZ, CBR, malformed-comment and position handling with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_metadata_source.py
+
+
+    :param stream: Readable comic archive stream.
+    :param stream_type: Archive type such as cbz or cbr.
+    :param series_index: Preferred series-index field.
+    :return: Metadata record populated from the archive comment.
     """
     from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 

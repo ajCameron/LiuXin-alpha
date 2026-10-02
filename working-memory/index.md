@@ -1,25 +1,59 @@
 # Working Memory Index
 
-Current status: **M057–M066 complete**; 267 new declarations across six files.
-Five files complete, including the prior 24-date-record slice; identifier containers
-are partial at 86/93 declarations.
-[Latest checkpoint](project-docstrings-m057-m066-2026-09-26.md).
-Metadata progress: **66/274 units, 1,530 declarations, 95 complete files**.
-**M067 is next**; its seven declarations are unchanged. D remains archived complete.
-Project coverage: **1,155/2,671 complete-file records**, plus **123 partial declarations**.
-All 184 regressions, 709 runnable statements and full quality checks passed.
-Discovery records 37 unrelated storage hash differences.
+Current status: **M127–M136 complete**; 280 declarations across twelve files.
+All twelve metadata-source files are complete.
+[Latest checkpoint](project-docstrings-m127-m136-2026-09-29.md).
+Metadata progress: **136/274 units, 3,424 declarations, 149 complete files**.
+**M137 is next**; all 21 declarations in `odt.py` are unchanged. D remains archived complete.
+Project coverage: **1,209/2,671 complete-file records**, plus **37 partial declarations**.
+All 354 focused regressions and full quality checks passed; one optional LRX corpus test skipped.
+Discovery records 39 unrelated review-hash differences.
 
-Updated: 2026-09-26
+Updated: 2026-09-29
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [project-docstrings-m127-m136-2026-09-29.md](project-docstrings-m127-m136-2026-09-29.md)
+  Comic, DOCX, EPUB, EXTZ, FB2, string/HTML inference, IMP, LIT, LRF, LRX and
+  MOBI: 280 declarations and twelve complete files. 354 regressions passed; M137 is next.
+
+- [project-docstrings-m117-m126-2026-09-29.md](project-docstrings-m117-m126-2026-09-29.md)
+  Item, manifestation and work APIs plus metadata-reader dispatch and archive
+  helpers: 268 new declarations and nine complete files. 183 regressions and 915
+  runnable statements passed. Historical checkpoint before M127–M136.
+
+- [project-docstrings-m107-m116-2026-09-28.md](project-docstrings-m107-m116-2026-09-28.md)
+  Agent profiles, expression/item identities, expression metadata and the first
+  item metadata slice: 263 declarations, six complete files and 40 partial
+  declarations. 103 regressions and 1,022 runnable statements passed. Historical
+  checkpoint before M117–M126.
+
+- [project-docstrings-m097-m106-2026-09-27.md](project-docstrings-m097-m106-2026-09-27.md)
+  Titles, work identity/bundle/hydration and shared WEMI/agent identity APIs:
+  256 new declarations, twelve complete files. 195 regressions and 728 runnable
+  statements passed; full quality passed. Historical checkpoint before M107–M116.
+
+- [project-docstrings-m087-m096-2026-09-27.md](project-docstrings-m087-m096-2026-09-27.md)
+  Resources, series, subjects and first title records: 268 new declarations,
+  three complete files and 24 partial title declarations. 96 regressions and
+  748 runnable statements passed; full quality passed. Historical checkpoint before M097–M106.
+
+- [project-docstrings-m077-m086-2026-09-27.md](project-docstrings-m077-m086-2026-09-27.md)
+  Manifestation hydration, notes, bundle/stack projection views and ratings:
+  275 new declarations, all four files complete. 200 regressions and 884 runnable
+  statements passed; full quality passed. Historical checkpoint before M087–M096.
+
+- [project-docstrings-m067-m076-2026-09-26.md](project-docstrings-m067-m076-2026-09-26.md)
+  Identifier accessors, item identity/bundle/hydrator, labels, languages and
+  manifestation identity/bundle: 284 new declarations, all eight files complete.
+  184 regressions and 720 runnable statements passed; full quality passed. Historical checkpoint before M077–M086.
+
 - [project-docstrings-m057-m066-2026-09-26.md](project-docstrings-m057-m066-2026-09-26.md)
   Dates, expression identity/bundle/hydrator, genres and identifier containers:
   267 declarations, five complete files and 86 partial identifier declarations.
-  184 regressions and 709 runnable statements passed; full quality passed. M067 is next.
+  184 regressions and 709 runnable statements passed; full quality passed. Historical checkpoint before M067–M076.
 
 - [code-review-2026-09-26.md](code-review-2026-09-26.md)
   Whole-repository architecture and boundaries review (eight subsystem reviewers,
@@ -187,7 +221,7 @@ Start here for active handoff notes. This index should stay short.
 
 - [project-docstrings-d-2026-09-14.md](project-docstrings-d-2026-09-14.md)
   Historical D001–D095 record and [shutdown checkpoint](project-docstrings-hundred-paused-2026-09-15.md).
-  Current continuation, maintenance-adjusted coverage and M067 resume point are
+  Current continuation, maintenance-adjusted coverage and M107 resume point are
   in the latest documentation batch checkpoint above.
 
 - [project-docstrings-thirty-2026-09-13.md](project-docstrings-thirty-2026-09-13.md)

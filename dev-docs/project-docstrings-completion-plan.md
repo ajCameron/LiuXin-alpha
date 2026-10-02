@@ -1,11 +1,11 @@
 # Complete project docstrings in bounded modules
 
-Status: **M057–M066 complete**, 2026-09-26. All **267 new declarations across
-six files** are verified: five complete files (including the prior 24 date records)
-and 86 declarations in the partial identifier file. All 184 regressions, 709 runnable
-statements, static and full quality checks passed. **M067 is next** on a new request;
-its seven identifier installer/closure declarations are unchanged.
-See the [batch checkpoint](../working-memory/project-docstrings-m057-m066-2026-09-26.md).
+Status: **M127–M136 complete**, 2026-09-29. All **280 declarations across twelve
+files** are verified and every file is complete. All 354 focused regressions,
+280 command-example references, static and full quality checks passed; one
+optional LRX corpus test skipped. **M137 is next** on a new request; all 21
+declarations in `odt.py` are unchanged.
+See the [batch checkpoint](../working-memory/project-docstrings-m127-m136-2026-09-29.md).
 D remains archived complete; M is the active bounded campaign.
 
 ## Baseline and navigation
@@ -19,14 +19,14 @@ also need review. These measures are different and must not be added together.
 Since that baseline, G01 and the completed C batches reached 722 complete files.
 After the [shim cleanup](shim-removal-plan.md) and subsequent continuations,
 **D is complete: 232/232 units, 5,685/5,685 declarations, 374/374 files**.
-The active M track has **66/274 verified units**, **1,530/7,198 declarations**,
-and **95/344 complete files** reviewed.
-Current manifest coverage is **1,155/2,671 file review records**,
-**16,357 declarations in complete files**, plus **123 verified partial declarations**
-(37 catalog and 86 identifier-container declarations).
-Remaining: **1,516 files and 25,681 declarations**. Discovery found no new or
-missing paths; 37 unrelated storage hash differences are recorded. Historical
-maintenance entries, D archive, milestones and unrelated records are preserved.
+The active M track has **136/274 verified units**, **3,424/7,198 declarations**,
+and **149/344 complete files** reviewed.
+Current manifest coverage is **1,209/2,671 file review records**,
+**18,337 declarations in complete files**, plus **37 verified partial catalog
+declarations**. Remaining: **1,462 files and 23,787 declarations**.
+Discovery found no new or missing paths; 39 unrelated review-hash differences
+are recorded. Historical maintenance entries, D archive, milestones and unrelated
+records are preserved.
 
 The historical D095 checkpoint remains 95/232 units; source removals changed the
 live inventory rather than completing new documentation work. Removed scopes are
@@ -34,7 +34,7 @@ archived in the [reconciliation evidence](../working-memory/test-results/shim-re
 Affected files have new functional baselines in documentation-rebase.after.json;
 their original baseline hashes and historical documentation-only proofs are
 preserved. Do not replay old batch helpers with fixed file/declaration totals.
-The latest ten-unit batch is complete, with M067 next only on request.
+The latest ten-unit batch is complete, with M137 next only on request.
 
 - [Exact work inventory](project-docstrings-work-units.json): stable module IDs,
   source hashes, exact file/declaration selections, prerequisites, and checkpoints.
@@ -51,6 +51,90 @@ examples, inherited code, preferences, and tracked submodule Python. Retain the
 completed native-C checkpoint separately. Ignored artifacts and anonymous lambdas
 are not named Python declarations to document.
 
+## Completed ten-unit metadata-source batch — M127–M136, 2026-09-29
+
+All 280 declarations across twelve files are verified, with every file complete.
+The [saved observations](../working-memory/test-results/docstrings-m127-m136-2026-09-29/observations.json)
+record 354 passing regressions, one optional LRX corpus skip, 280 valid command
+examples, and clean static and full quality checks. Docs cover comic/DOCX,
+EPUB/OCF, EXTZ, FB2, filename and HTML inference, IMP, LIT, LRF, LRX and MOBI,
+including binary bounds, strict/fallback parsing, optional dependencies, cover
+selection and path/stream ownership. M137 is next; `odt.py` remains unchanged.
+Historical records are preserved.
+
+## Completed ten-unit item/work/manifestation/file-source batch — M117–M126, 2026-09-29
+
+All 268 new declarations across nine files are verified, and every file is
+complete. The prior 40 item-metadata declarations are promoted unchanged. The
+[saved observations](../working-memory/test-results/docstrings-m117-m126-2026-09-28/observations.json)
+record 183 passing regressions, 915 passing runnable statements and clean static
+and full quality checks. Docs cover complete item, manifestation and work API
+contracts, registry-backed metadata-reader dispatch, archive extraction and
+ComicBookInfo decoding. Initial example and runtime wording failures were
+corrected before final checks. M127 is next; both queued files remain unchanged.
+Historical records are preserved.
+
+## Completed ten-unit agent/expression/item API batch — M107–M116, 2026-09-28
+
+All 263 new declarations across seven files are verified: six files are complete
+and item metadata has a 40-declaration partial slice. The
+[saved observations](../working-memory/test-results/docstrings-m107-m116-2026-09-28/observations.json)
+record 103 passing regressions, 1,022 passing runnable statements and clean static
+and full quality checks. Docs cover agent profile sidecars, expression/item identity
+contracts, relation keys/cardinalities, primary WEMI traversal, projections,
+mapping and writer boundaries. Initial example setup and runtime doc wording
+failures were corrected and archived before final checks. M117 is next; its 27
+declarations remain unchanged. Historical records are preserved.
+
+## Completed ten-unit title/work/shared-API batch — M097–M106, 2026-09-27
+
+All 256 new declarations across twelve files are verified, with every file complete.
+The previous 24 title declarations are promoted unchanged. The
+[saved observations](../working-memory/test-results/docstrings-m097-m106-2026-09-27/observations.json)
+record 195 passing regressions, 728 passing runnable statements and clean static
+and full quality checks. Docs cover title preference, work identity/hydration,
+shared relation and projection policy, target-id extraction and agent identity.
+Three initial example failures were corrected and archived; final hashes match
+verification. Runtime checks cover 144 title accessors and all 18 command examples
+point to executed owning regressions. M107 is next; its whole profile API file is
+unchanged. Historical records are preserved.
+
+## Completed ten-unit resource/series/subject/title batch — M087–M096, 2026-09-27
+
+All 268 new declarations across four files are verified: resources, series and
+subjects are complete, while titles have 24/95 declarations reviewed. The
+[saved observations](../working-memory/test-results/docstrings-m087-m096-2026-09-27/observations.json)
+record 96 passing regressions, 748 passing runnable statements and clean static
+and full quality checks. Docs cover display fallbacks, numbering and authority
+checks, shared ownership, explicit validation and payload fields. Runtime checks
+cover 204 generated accessors. The 71 remaining title declarations were unchanged
+at that checkpoint; M097–M106 subsequently completed above. Historical records
+are preserved.
+
+## Completed ten-unit manifestation/note/projection/rating batch — M077–M086, 2026-09-27
+
+All 275 new declarations across four files are verified, with every file complete.
+The [saved observations](../working-memory/test-results/docstrings-m077-m086-2026-09-27/observations.json)
+record 200 passing regressions, 884 passing runnable statements and clean static
+and full quality checks. Docs cover manifestation graph resolution, note/rating
+validation and ownership, projection precedence, immutable results and lazy guards.
+Three example expectations were corrected for existing legacy storage behavior;
+initial evidence is archived and final checks were rerun. Runtime checks cover
+192 generated note and rating accessors. The resources file was unchanged at that
+checkpoint; M087–M096 subsequently completed above. Historical records are preserved.
+
+## Completed ten-unit identifier/item/label/language/manifestation batch — M067–M076, 2026-09-26
+
+All 284 new declarations across eight files are verified, with every file complete,
+including the prior 86 identifier declarations. The
+[saved observations](../working-memory/test-results/docstrings-m067-m076-2026-09-26/observations.json)
+record 184 passing regressions, 720 passing runnable statements and clean static
+and full quality checks. Docs cover generated accessors, identity guards, bundle
+ownership, hydration fallbacks and collection validation. Runtime checks cover
+372 generated identifier, label and language accessors. The entire M077 file was
+unchanged at that checkpoint; M077–M086 subsequently completed above. Historical
+records are preserved.
+
 ## Completed ten-unit date/expression/genre/identifier batch — M057–M066, 2026-09-26
 
 All 267 new declarations across six files are verified: five complete files,
@@ -59,8 +143,9 @@ including the prior 24 date records, and 86 partial identifier declarations. The
 record 184 passing regressions, 709 passing runnable statements and clean static
 and full quality checks. Docs cover collection ownership and validation, expression
 identity/graph distinctions, hydration fallbacks, primary selection and scheme
-eligibility. Runtime checks cover 120 generated date accessors. M067 is next;
-its seven installer/closure declarations are unchanged. Historical records are preserved.
+eligibility. Runtime checks cover 120 generated date accessors. The seven M067
+installer/closure declarations were unchanged at that checkpoint; M067–M076
+subsequently completed above. Historical records are preserved.
 
 ## Completed ten-unit agent/date batch — M047–M056, 2026-09-26
 

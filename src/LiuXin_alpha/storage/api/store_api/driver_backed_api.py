@@ -249,6 +249,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         """
         ...
 
+    # Todo: Clearly move operational code to the implementation
     @property
     def capabilities(self) -> StoreCapabilities:
         """
@@ -318,6 +319,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             conditional_delete=False,
         )
 
+    # Todo: There seems to be a lot of operational code in this API
     @property
     def characteristics(self) -> StorageCharacteristics:
         """
@@ -403,6 +405,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
         )
 
     # Todo: Might be a better way to phrase this/name this
+    # Todo: There is also a loottt of implementation code in this API
     def prepare_ingest(
         self,
         info: FileInfo | StoreInventoryEntry,
@@ -465,6 +468,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             provenance_uri=self.location_uri(selected.location),
         )
 
+    # Todo: This and the above method should be combined into one convenience one
     def open_prepared_ingest(
         self,
         prepared: PreparedIngestObject,
@@ -1256,6 +1260,8 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             snapshot_token=page.snapshot_token,
         )
 
+    # Todo: What does it mean to be a routed location?
+    # Todo: This should not be part of the API
     def _object_address(self, location: Location) -> DriverObjectAddressT:
         """
         Translate a routed Location into a checked private address.
@@ -1275,6 +1281,7 @@ class DriverBackedStoreAPI(StoreAPI, Generic[DriverObjectAddressT], abc.ABC):
             self._driver.parse_object_address(owned.key)
         )
 
+    # Todo: all this _ methods do not belong in the api... - if they're public, they're public
     def _location(self, object_address: DriverObjectAddressT) -> Location:
         """
         Pair a checked driver address with this Store's UUID.
