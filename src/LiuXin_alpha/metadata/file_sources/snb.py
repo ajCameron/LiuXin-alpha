@@ -1,5 +1,13 @@
 """
-Read metadata from SNB files.
+Read SNB book XML, authors, tags and cover payloads from the container without retaining caller resources.
+
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
+
+Example:
+    Exercise snb with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
 """
 
 from __future__ import annotations
@@ -24,14 +32,46 @@ RUN_COST = ["LOW"]
 
 
 class SnbFormatError(Exception):
+    """
+    Signal malformed or unreadable SNB metadata input.
+
+    Example:
+        Exercise SnbFormatError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+    """
     pass
 
 
 def _default_metadata():
+    """
+    Build minimally usable metadata for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :return: Parsed, normalized or serialized value described above.
+    """
     return calibreMetaInformation(_("Unknown"), [_("Unknown")])
 
 
 def _source_name(target_file) -> str:
+    """
+    Return the best available source label for fallback titles and diagnostics.
+
+    Example:
+        Exercise  source name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if isinstance(target_file, os.PathLike):
         return os.fspath(target_file)
     if isinstance(target_file, str):
@@ -40,6 +80,20 @@ def _source_name(target_file) -> str:
 
 
 def _safe_seek(stream, pos: int | None) -> None:
+    """
+    Perform seek without propagating optional or recovery failures.
+
+    Example:
+        Exercise  safe seek with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param pos: Offset, bound or scalar value used by the operation.
+    :return: None.
+    """
     if pos is None or not hasattr(stream, "seek"):
         return
     try:
@@ -49,6 +103,19 @@ def _safe_seek(stream, pos: int | None) -> None:
 
 
 def _iter_local(root, name: str):
+    """
+    Return local in deterministic source or registry order.
+
+    Example:
+        Exercise  iter local with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :param name: Name, type or encoding selector used for lookup or interpretation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     expected = name.lower()
     for node in root.iter():
         tag = getattr(node, "tag", "")
@@ -60,6 +127,19 @@ def _iter_local(root, name: str):
 
 
 def _first_text(root, *names: str) -> str:
+    """
+    Return the first usable text under fallback policy.
+
+    Example:
+        Exercise  first text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :param names: Value supplied for names.
+    :return: Parsed, normalized or serialized value described above.
+    """
     for name in names:
         node = next(_iter_local(root, name), None)
         if node is None:
@@ -71,6 +151,19 @@ def _first_text(root, *names: str) -> str:
 
 
 def _set_authors(mi, raw_author: str) -> None:
+    """
+    Set authors while preserving unrelated metadata state.
+
+    Example:
+        Exercise  set authors with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :param raw_author: Raw value or payload to normalize, parse or serialize.
+    :return: None.
+    """
     authors = [x.strip() for x in string_to_authors(raw_author) if x and x.strip()]
     if not authors and raw_author.strip():
         authors = [raw_author.strip()]
@@ -86,6 +179,19 @@ def _set_authors(mi, raw_author: str) -> None:
 
 
 def _set_tags(mi, raw: str) -> None:
+    """
+    Set tags while preserving unrelated metadata state.
+
+    Example:
+        Exercise  set tags with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: None.
+    """
     if not raw:
         return
     tags = [x.strip() for x in re.split(r"[;,]", raw) if x and x.strip()]
@@ -94,6 +200,19 @@ def _set_tags(mi, raw: str) -> None:
 
 
 def _cover_candidates(cover_value: str) -> Iterable[str]:
+    """
+    Yield normalized SNB cover paths in preferred container lookup order.
+
+    Example:
+        Exercise  cover candidates with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param cover_value: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :return: Parsed, normalized or serialized value described above.
+    """
     raw = cover_value.strip().replace("\\", "/")
     if not raw:
         return ()
@@ -108,6 +227,21 @@ def _cover_candidates(cover_value: str) -> Iterable[str]:
 
 
 def _read_cover_data(snb_file: SNBFile, cover_value: str) -> tuple[str, bytes] | None:
+    """
+    Return the first readable SNB cover candidate together with its normalized format.
+
+    Example:
+        Exercise  read cover data with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param snb_file: Open container used for member lookup and reads; ownership remains
+        with the caller.
+    :param cover_value: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :return: Parsed, normalized or serialized value described above.
+    """
     for candidate in _cover_candidates(cover_value):
         payload = snb_file.GetFileStream(candidate)
         if not payload:
@@ -122,6 +256,22 @@ def _read_cover_data(snb_file: SNBFile, cover_value: str) -> tuple[str, bytes] |
 
 
 def _parse_book_snbf(meta_blob: bytes, *, mi, snb_file: SNBFile, extract_cover: bool) -> None:
+    """
+    Apply SNB book XML values and optional cover bytes to the destination metadata object.
+
+    Example:
+        Exercise  parse book snbf with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param meta_blob: Raw value or payload to normalize, parse or serialize.
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :param snb_file: Open container used for member lookup and reads; ownership remains
+        with the caller.
+    :param extract_cover: Request cover discovery or cover payload extraction when true.
+    :return: Parsed, normalized or serialized value described above.
+    """
     try:
         parser = etree.XMLParser(recover=True, no_network=True)
         root = etree.fromstring(meta_blob, parser=parser)
@@ -158,7 +308,20 @@ def _parse_book_snbf(meta_blob: bytes, *, mi, snb_file: SNBFile, extract_cover: 
 
 def get_metadata(target_file, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
     """
-    Return metadata for an SNB source (path, bytes payload, or binary stream).
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_snb_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param extract_cover: Request cover discovery or cover payload extraction when true.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
     """
     mi = _default_metadata()
     source_name = _source_name(target_file)

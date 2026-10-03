@@ -1,23 +1,28 @@
 # Working Memory Index
 
-Current status: **M127–M136 complete**; 280 declarations across twelve files.
-All twelve metadata-source files are complete.
-[Latest checkpoint](project-docstrings-m127-m136-2026-09-29.md).
-Metadata progress: **136/274 units, 3,424 declarations, 149 complete files**.
-**M137 is next**; all 21 declarations in `odt.py` are unchanged. D remains archived complete.
-Project coverage: **1,209/2,671 complete-file records**, plus **37 partial declarations**.
-All 354 focused regressions and full quality checks passed; one optional LRX corpus test skipped.
+Current status: **M137–M146 complete**; 290 declarations across sixteen files.
+All sixteen metadata-source files are complete.
+[Latest checkpoint](project-docstrings-m137-m146-2026-10-03.md).
+Metadata progress: **146/274 units, 3,714 declarations, 165 complete files**.
+**M147 is next**; all 27 declarations across four PDB files are unchanged. D remains archived complete.
+Project coverage: **1,225/2,671 complete-file records**, plus **37 partial declarations**.
+All 201 focused regressions and full quality checks passed; three environment-dependent tests skipped.
 Discovery records 39 unrelated review-hash differences.
 
-Updated: 2026-09-29
+Updated: 2026-10-03
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [project-docstrings-m137-m146-2026-10-03.md](project-docstrings-m137-m146-2026-10-03.md)
+  ODT, OPF, PDF, legacy ebook/archive readers, registry, text formats and workers:
+  290 declarations and sixteen complete files. 201 regressions passed; M147 is next.
+
 - [project-docstrings-m127-m136-2026-09-29.md](project-docstrings-m127-m136-2026-09-29.md)
   Comic, DOCX, EPUB, EXTZ, FB2, string/HTML inference, IMP, LIT, LRF, LRX and
-  MOBI: 280 declarations and twelve complete files. 354 regressions passed; M137 is next.
+  MOBI: 280 declarations and twelve complete files. 354 regressions passed.
+  Historical checkpoint before M137–M146.
 
 - [project-docstrings-m117-m126-2026-09-29.md](project-docstrings-m117-m126-2026-09-29.md)
   Item, manifestation and work APIs plus metadata-reader dispatch and archive

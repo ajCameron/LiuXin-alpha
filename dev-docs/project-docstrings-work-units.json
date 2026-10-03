@@ -12737,32 +12737,43 @@
       "review_checkpoint": "working-memory/project-docstrings-m127-m136-2026-09-29.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/odt.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "4f3963fed84aa752f17eae47ffd2f4d07c5a0ab0d9f20af3d4dbdee6252de2d2",
       "declaration_count": 21,
       "unit_ids": [
         "M137"
-      ]
+      ],
+      "current_sha256": "7d95c40f751bc2fcb3ec04dc548265962550cfd506b4907c9cc99efd09455daf",
+      "last_changed_by": "M137",
+      "reviewed_by": "M137",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/odt_beta.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "09ba29841f780b60c7b920cece2da8be35d4aa73351b3fe7de3815a7cc728f92",
       "declaration_count": 23,
       "unit_ids": [
         "M138"
-      ]
+      ],
+      "current_sha256": "5b25d6ec66095bdaaaa689c880ea7afdb2a87dd6c222ee0254010c896c11f787",
+      "last_changed_by": "M138",
+      "reviewed_by": "M138",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/opf.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "180c2eed8f0a548e7a9eb3399dec4e2888a62c8fd3abf7ef78bed1ff740e6adb",
       "declaration_count": 28,
       "unit_ids": [
         "M139"
       ],
-      "current_sha256": "3156f272c66f60c57b3ba1dcb1618505d2c4aec59a4de0bde5479a4efcc63aaa",
+      "current_sha256": "458f3d54390ee0ad35d28367fde6da032d4510440b708eeba6b359f54eeb5cf7",
       "maintenance_baseline_sha256": "3156f272c66f60c57b3ba1dcb1618505d2c4aec59a4de0bde5479a4efcc63aaa",
       "maintenance_baseline_source": "working-memory/test-results/shim-removal-2026-09-15/documentation-rebase.after.json",
-      "last_maintenance": "shim-removal-2026-09-16"
+      "last_maintenance": "shim-removal-2026-09-16",
+      "last_changed_by": "M139",
+      "reviewed_by": "M139",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/pdb/__init__.py": {
       "status": "queued",
@@ -12797,124 +12808,172 @@
       ]
     },
     "src/LiuXin_alpha/metadata/file_sources/pdf.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "0e004b695505344cf8746fc2349d9574e633fa834e45107b3cf26ead6fd62cc8",
       "declaration_count": 39,
       "unit_ids": [
         "M140"
       ],
-      "current_sha256": "d8ba5af877bb592a9a7034685d6cea9ada886d0dd8cbaa82d9ca3ed62e87fe26",
+      "current_sha256": "9b96f614fd0cb5d9918f5f7e9a2bf7e7a950c66727feb17a8381b4d33532b417",
       "maintenance_baseline_sha256": "d8ba5af877bb592a9a7034685d6cea9ada886d0dd8cbaa82d9ca3ed62e87fe26",
       "maintenance_baseline_source": "working-memory/test-results/shim-removal-2026-09-15/documentation-rebase.after.json",
-      "last_maintenance": "shim-removal-2026-09-16"
+      "last_maintenance": "shim-removal-2026-09-16",
+      "last_changed_by": "M140",
+      "reviewed_by": "M140",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/plucker.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "f788c206016c0b853801c1d64218bfb8d9db4072abf411ba16d0827a57dd2529",
       "declaration_count": 2,
       "unit_ids": [
         "M141"
-      ]
+      ],
+      "current_sha256": "511ee021252c285d8845fbd2e240ba6013e20f0af8ce07b39926718333be5a9e",
+      "last_changed_by": "M141",
+      "reviewed_by": "M141",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/pml.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "e5573d06473e93698e9a66e9e98a7817dfa645004ef793f8cf145c52065c6707",
       "declaration_count": 19,
       "unit_ids": [
         "M141"
       ],
-      "current_sha256": "f7b3838f791600d9570f040782d30c4d79455c7940429df3a69d1228ee604031",
+      "current_sha256": "ae2c70e3719bb75920bcb7eb1d70a4e579032ef3eb2708b89d377bb8779f0f3b",
       "maintenance_baseline_sha256": "f7b3838f791600d9570f040782d30c4d79455c7940429df3a69d1228ee604031",
       "maintenance_baseline_source": "working-memory/test-results/shim-removal-2026-09-15/documentation-rebase.after.json",
-      "last_maintenance": "shim-removal-2026-09-16"
+      "last_maintenance": "shim-removal-2026-09-16",
+      "last_changed_by": "M141",
+      "reviewed_by": "M141",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/rar.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "58f600466df921901d4569f21cd0151e35a9c731dffa6196e0e831c20131a4e8",
       "declaration_count": 8,
       "unit_ids": [
         "M141"
-      ]
+      ],
+      "current_sha256": "d6dec22785a1003e92134450b2aeef1eae9ea25b6461150170af9ed79ea806e0",
+      "last_changed_by": "M141",
+      "reviewed_by": "M141",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/rb.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "d910f0c5c0f3c0ca912ab097ccb6482b11368d41bb81532ebd614670c491d376",
       "declaration_count": 8,
       "unit_ids": [
         "M141"
-      ]
+      ],
+      "current_sha256": "e105cd27043e2542cf4472113444f6a1de2d5879c501d5d6d8d5a865f84d9d5f",
+      "last_changed_by": "M141",
+      "reviewed_by": "M141",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/registry.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "9dcf23f3f77a38e5513953eb78ee5917c70a4fb7848dda1910d6d6c0c9161fa1",
       "declaration_count": 20,
       "unit_ids": [
         "M142"
-      ]
+      ],
+      "current_sha256": "811c29e79c064fa53efa759fd6d1072658bae31fc455fee6e15d3c6ccd54fbd3",
+      "last_changed_by": "M142",
+      "reviewed_by": "M142",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/rtf.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "1ac3fcbfc2c038c089454f7db9b47dad90b4af363c6cdec0a93cebaeac0854ce",
       "declaration_count": 23,
       "unit_ids": [
         "M143"
       ],
-      "current_sha256": "83701d6a89e07cb372debd58469156320359b13d61ac282c27f0cb85ca03717d",
+      "current_sha256": "9fdf8e31e0ac2ed9ec39a27c06bc6fd9287d19c3345547ccfc9ef2398ecb686f",
       "maintenance_baseline_sha256": "83701d6a89e07cb372debd58469156320359b13d61ac282c27f0cb85ca03717d",
       "maintenance_baseline_source": "working-memory/test-results/shim-removal-2026-09-15/documentation-rebase.after.json",
-      "last_maintenance": "shim-removal-2026-09-16"
+      "last_maintenance": "shim-removal-2026-09-16",
+      "last_changed_by": "M143",
+      "reviewed_by": "M143",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/snb.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "4115928a630adaa87bdb32d86a792637f9a62e1b55be8386fa7d9ca33b56e5f7",
       "declaration_count": 13,
       "unit_ids": [
         "M143"
-      ]
+      ],
+      "current_sha256": "b485a945452dc9c5ee6c4f0c6e494931ce6901e28c35e2975a92a64add64dac6",
+      "last_changed_by": "M143",
+      "reviewed_by": "M143",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/topaz.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "b19fdcafe89be81fea0aa5aba063e5079bc45b5806ba87827d6b68ec1b61c609",
       "declaration_count": 27,
       "unit_ids": [
         "M144"
-      ]
+      ],
+      "current_sha256": "6531a0dc13811e24da4b5e39232cea41b0670a293a9309fbc7e8f27dac9be73e",
+      "last_changed_by": "M144",
+      "reviewed_by": "M144",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/txt.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "43dc464af0f127d926f6c97c2f7e8594b0a9561c54502bdc9338ba1ceee37c42",
       "declaration_count": 14,
       "unit_ids": [
         "M145"
-      ]
+      ],
+      "current_sha256": "6fc203b2e9ae1bf5d2d1630770629b3c9f6b95bb9e8510e7cd08ad296e9b0693",
+      "last_changed_by": "M145",
+      "reviewed_by": "M145",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/txtz.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "fcf1f5cf0ee59ecc91234743af61f65f13d1238c0b2d2a15bec380c68e037333",
       "declaration_count": 17,
       "unit_ids": [
         "M145"
       ],
-      "current_sha256": "7416b01475c8a648354b3fdfbcafa50950b7bebc9e872ef2cf5b6681f8d41bc5",
+      "current_sha256": "dd459df4468e39642b7dff6c909b6e7f0356b138a661f2586cdddc09e530710d",
       "maintenance_baseline_sha256": "7416b01475c8a648354b3fdfbcafa50950b7bebc9e872ef2cf5b6681f8d41bc5",
       "maintenance_baseline_source": "working-memory/test-results/shim-removal-2026-09-15/documentation-rebase.after.json",
-      "last_maintenance": "shim-removal-2026-09-16"
+      "last_maintenance": "shim-removal-2026-09-16",
+      "last_changed_by": "M145",
+      "reviewed_by": "M145",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/worker.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "fb4727fc95f6a0c0782e47bb8f6479d2313fdf47ed992196a998a920829a725c",
       "declaration_count": 17,
       "unit_ids": [
         "M146"
-      ]
+      ],
+      "current_sha256": "c3d62794ae5ed5173f4d2dad0e6d15d994feed413b04ce6da17b64084b8633fc",
+      "last_changed_by": "M146",
+      "reviewed_by": "M146",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/zip.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "c509b83f621a842a4100c78c79039f0a345a33c9c63ecabe61260c398f9f5d59",
       "declaration_count": 11,
       "unit_ids": [
         "M146"
-      ]
+      ],
+      "current_sha256": "5ae849f1b5511e3eef83c638fa5ffa831d80d79e67e6dd598e5fd924e5117f58",
+      "last_changed_by": "M146",
+      "reviewed_by": "M146",
+      "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/identifiers.py": {
       "status": "reviewed",
@@ -82358,7 +82417,7 @@
       "title": "src/LiuXin_alpha/metadata/file_sources \u2014 odt",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/file_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -82374,7 +82433,11 @@
         }
       ],
       "declaration_count": 21,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m137-m146-2026-10-03/preflight.json",
+        "source_review": "Reviewed the primary ODT reader: namespace/user-defined fields, locale values, strict/fallback XML parsing, ODF/content.xml cover heuristics and caller-owned stream restoration."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -82404,8 +82467,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+        "observations": "working-memory/test-results/docstrings-m137-m146-2026-10-03/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m137-m146-2026-10-03/M137-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/static.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/examples-all.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/M147-boundary.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/metadata.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/quality.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/discovery.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/documentation-checks.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M137-M146 batch. M147 is next on a new request; its four PDB source files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M138",
@@ -82413,7 +82491,7 @@
       "title": "src/LiuXin_alpha/metadata/file_sources \u2014 odt_beta",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/file_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -82429,7 +82507,11 @@
         }
       ],
       "declaration_count": 23,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m137-m146-2026-10-03/preflight.json",
+        "source_review": "Reviewed the independent beta ODT fallback: compatible field extraction, alternate image identification, cover selection and path/stream error policy."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -82457,8 +82539,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+        "observations": "working-memory/test-results/docstrings-m137-m146-2026-10-03/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m137-m146-2026-10-03/M138-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/static.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/examples-all.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/M147-boundary.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/metadata.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/quality.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/discovery.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/documentation-checks.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M137-M146 batch. M147 is next on a new request; its four PDB source files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M139",
@@ -82466,7 +82563,7 @@
       "title": "src/LiuXin_alpha/metadata/file_sources \u2014 opf",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/file_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -82483,7 +82580,11 @@
         }
       ],
       "declaration_count": 28,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m137-m146-2026-10-03/preflight.json",
+        "source_review": "Reviewed OPF input forms, metadata-node selection, generic/full-stack parsing, Calibre override merging, LiuXin conversion and strict/fallback handling."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -82514,8 +82615,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing.",
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+        "observations": "working-memory/test-results/docstrings-m137-m146-2026-10-03/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m137-m146-2026-10-03/M139-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/static.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/examples-all.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/M147-boundary.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/metadata.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/quality.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/discovery.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/documentation-checks.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M137-M146 batch. M147 is next on a new request; its four PDB source files remain unchanged. Executable behavior, annotations, data and comments are preserved.",
       "maintenance_rebase": "shim-removal-2026-09-16"
     },
     {
@@ -82524,7 +82640,7 @@
       "title": "src/LiuXin_alpha/metadata/file_sources \u2014 pdf",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/file_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -82541,7 +82657,11 @@
         }
       ],
       "declaration_count": 39,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m137-m146-2026-10-03/preflight.json",
+        "source_review": "Reviewed PDF token, object, Info and XMP parsing plus metadata rewriting, external tool selection, Unicode sanitization and stream restoration."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -82571,8 +82691,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing.",
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+        "observations": "working-memory/test-results/docstrings-m137-m146-2026-10-03/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m137-m146-2026-10-03/M140-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/static.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/examples-all.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/M147-boundary.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/metadata.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/quality.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/discovery.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/documentation-checks.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M137-M146 batch. M147 is next on a new request; its four PDB source files remain unchanged. Executable behavior, annotations, data and comments are preserved.",
       "maintenance_rebase": "shim-removal-2026-09-16"
     },
     {
@@ -82581,7 +82716,7 @@
       "title": "src/LiuXin_alpha/metadata/file_sources \u2014 plucker, pml, rar, rb",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/file_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -82625,7 +82760,11 @@
         }
       ],
       "declaration_count": 37,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m137-m146-2026-10-03/preflight.json",
+        "source_review": "Reviewed Plucker forwarding, PML/PMLZ comments and covers, RAR member dispatch and Rocket eBook header/INFO parsing with fallback policy."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -82656,8 +82795,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing.",
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+        "observations": "working-memory/test-results/docstrings-m137-m146-2026-10-03/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m137-m146-2026-10-03/M141-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/static.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/examples-all.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/M147-boundary.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/metadata.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/quality.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/discovery.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/documentation-checks.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M137-M146 batch. M147 is next on a new request; its four PDB source files remain unchanged. Executable behavior, annotations, data and comments are preserved.",
       "maintenance_rebase": "shim-removal-2026-09-16"
     },
     {
@@ -82666,7 +82820,7 @@
       "title": "src/LiuXin_alpha/metadata/file_sources \u2014 registry",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/file_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -82682,7 +82836,11 @@
         }
       ],
       "declaration_count": 20,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m137-m146-2026-10-03/preflight.json",
+        "source_review": "Reviewed metadata-reader registry normalization, plugin validation and identity, decorator/replace behavior, revision changes and deterministic extension entries."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -82710,8 +82868,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+        "observations": "working-memory/test-results/docstrings-m137-m146-2026-10-03/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m137-m146-2026-10-03/M142-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/static.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/examples-all.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/M147-boundary.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/metadata.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/quality.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/discovery.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/documentation-checks.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M137-M146 batch. M147 is next on a new request; its four PDB source files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M143",
@@ -82719,7 +82892,7 @@
       "title": "src/LiuXin_alpha/metadata/file_sources \u2014 rtf, snb",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/file_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -82745,7 +82918,11 @@
         }
       ],
       "declaration_count": 36,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m137-m146-2026-10-03/preflight.json",
+        "source_review": "Reviewed RTF group/codepage/Unicode parsing and rewriting plus SNB XML fields, author/tag normalization, cover candidates and caller-owned resources."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -82774,8 +82951,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing.",
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+        "observations": "working-memory/test-results/docstrings-m137-m146-2026-10-03/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m137-m146-2026-10-03/M143-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/static.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/examples-all.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/M147-boundary.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/metadata.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/quality.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/discovery.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/documentation-checks.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M137-M146 batch. M147 is next on a new request; its four PDB source files remain unchanged. Executable behavior, annotations, data and comments are preserved.",
       "maintenance_rebase": "shim-removal-2026-09-16"
     },
     {
@@ -82784,7 +82976,7 @@
       "title": "src/LiuXin_alpha/metadata/file_sources \u2014 topaz",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/file_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -82800,7 +82992,11 @@
         }
       ],
       "declaration_count": 27,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m137-m146-2026-10-03/preflight.json",
+        "source_review": "Reviewed Topaz variable-width integers, header/block offsets, metadata record ordering, in-place resizing and path/stream read/write ownership."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -82828,8 +83024,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+        "observations": "working-memory/test-results/docstrings-m137-m146-2026-10-03/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m137-m146-2026-10-03/M144-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/static.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/examples-all.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/M147-boundary.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/metadata.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/quality.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/discovery.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/documentation-checks.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M137-M146 batch. M147 is next on a new request; its four PDB source files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M145",
@@ -82837,7 +83048,7 @@
       "title": "src/LiuXin_alpha/metadata/file_sources \u2014 txt, txtz",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/file_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -82863,7 +83074,11 @@
         }
       ],
       "declaration_count": 31,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m137-m146-2026-10-03/preflight.json",
+        "source_review": "Reviewed plain-text title/author heuristics, binary rejection, decoding/sanitization and TXTZ OPF/text/cover fallbacks and delegated writes."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -82892,8 +83107,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing.",
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+        "observations": "working-memory/test-results/docstrings-m137-m146-2026-10-03/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m137-m146-2026-10-03/M145-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/static.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/examples-all.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/M147-boundary.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/metadata.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/quality.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/discovery.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/documentation-checks.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M137-M146 batch. M147 is next on a new request; its four PDB source files remain unchanged. Executable behavior, annotations, data and comments are preserved.",
       "maintenance_rebase": "shim-removal-2026-09-16"
     },
     {
@@ -82902,7 +83132,7 @@
       "title": "src/LiuXin_alpha/metadata/file_sources \u2014 worker, zip",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/file_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -82927,7 +83157,11 @@
         }
       ],
       "declaration_count": 28,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m137-m146-2026-10-03/preflight.json",
+        "source_review": "Reviewed multi-format worker priorities and merge behavior, import-plugin relocation, OPF/cover serialization, job adapters and ZIP member/cover dispatch."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -82958,8 +83192,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+        "observations": "working-memory/test-results/docstrings-m137-m146-2026-10-03/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m137-m146-2026-10-03/M146-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/static.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/examples-all.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/M147-boundary.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/metadata.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/quality.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/discovery.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/documentation-checks.json",
+          "working-memory/test-results/docstrings-m137-m146-2026-10-03/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M137-M146 batch. M147 is next on a new request; its four PDB source files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M147",
@@ -127979,29 +128228,29 @@
   ],
   "future_files_policy": "Re-enumerate via audit_project_docstrings.project_paths; assign new paths and revalidate changed hashes before extending coverage. G01 adds new Python files without silently absorbing them into the baseline.",
   "current": {
-    "as_of_module": "M136",
+    "as_of_module": "M146",
     "total_files": 2671,
-    "reviewed_files": 1209,
-    "remaining_files": 1462,
+    "reviewed_files": 1225,
+    "remaining_files": 1446,
     "declarations": {
       "modules": 2671,
       "functions": 35091,
       "classes": 4399
     },
     "reviewed_declarations": {
-      "modules": 1209,
-      "classes": 1802,
-      "functions": 15326
+      "modules": 1225,
+      "classes": 1815,
+      "functions": 15587
     },
-    "remaining_declarations": 23787,
+    "remaining_declarations": 23497,
     "documentation_units": {
       "total": 1372,
-      "verified": 400,
-      "remaining": 972
+      "verified": 410,
+      "remaining": 962
     },
     "partial_reviewed_declarations": 37,
     "as_of_maintenance": "shim-removal-2026-09-16",
-    "updated_date": "2026-09-29"
+    "updated_date": "2026-10-03"
   },
   "active_batch": {
     "id": "m-2026-09-25",
@@ -128282,43 +128531,43 @@
       "M274"
     ],
     "status": "partial",
-    "authorization": "New explicit request for ten more units authorizes M127-M136, 280 declarations across twelve files, in inventory order. Stop after M136; no commit/publication requested.",
-    "checkpoint": "working-memory/project-docstrings-m127-m136-2026-09-29.md",
+    "authorization": "New explicit request for ten more docstring tasks authorizes M137-M146, 290 declarations across sixteen files, in inventory order. Stop after M146; no commit or publication requested.",
+    "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
     "progress": {
-      "verified_units": 136,
+      "verified_units": 146,
       "total_units": 274,
-      "verified_declarations": 3424,
+      "verified_declarations": 3714,
       "total_declarations": 7198,
-      "promoted_files": 149,
+      "promoted_files": 165,
       "total_files": 344,
-      "next_unit": "M137"
+      "next_unit": "M147"
     },
     "paused_by_user": false,
     "resume_requires_user_request": true,
-    "resume_unit": "M137",
-    "resumed_on": "2026-09-29",
+    "resume_unit": "M147",
+    "resumed_on": "2026-10-03",
     "authorized_chunk": {
       "unit_ids": [
-        "M127",
-        "M128",
-        "M129",
-        "M130",
-        "M131",
-        "M132",
-        "M133",
-        "M134",
-        "M135",
-        "M136"
+        "M137",
+        "M138",
+        "M139",
+        "M140",
+        "M141",
+        "M142",
+        "M143",
+        "M144",
+        "M145",
+        "M146"
       ],
       "status": "verified",
-      "checkpoint": "working-memory/project-docstrings-m127-m136-2026-09-29.md",
-      "stop_after": "M136",
+      "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+      "stop_after": "M146",
       "verified_units": 10,
-      "verified_declarations": 280,
-      "promoted_files": 12,
+      "verified_declarations": 290,
+      "promoted_files": 16,
       "previous_partial_declarations_promoted": 0,
       "partial_declarations": 0,
-      "next_unit": "M137",
+      "next_unit": "M147",
       "resume_requires_user_request": true
     },
     "authorization_history": [
@@ -128735,9 +128984,41 @@
         "resume_requires_user_request": true,
         "resumed_on": "2026-09-28",
         "stop_reason": "Completed all ten explicitly requested units; stopped after M126 with 268 new declarations and nine complete files. The previous 40 item-metadata declarations were promoted without edits. M127 requires a new request."
+      },
+      {
+        "authorization": "New explicit request for ten more units authorizes M127-M136, 280 declarations across twelve files, in inventory order. Stop after M136; no commit/publication requested.",
+        "authorized_chunk": {
+          "unit_ids": [
+            "M127",
+            "M128",
+            "M129",
+            "M130",
+            "M131",
+            "M132",
+            "M133",
+            "M134",
+            "M135",
+            "M136"
+          ],
+          "status": "verified",
+          "checkpoint": "working-memory/project-docstrings-m127-m136-2026-09-29.md",
+          "stop_after": "M136",
+          "verified_units": 10,
+          "verified_declarations": 280,
+          "promoted_files": 12,
+          "previous_partial_declarations_promoted": 0,
+          "partial_declarations": 0,
+          "next_unit": "M137",
+          "resume_requires_user_request": true
+        },
+        "checkpoint": "working-memory/project-docstrings-m127-m136-2026-09-29.md",
+        "resume_unit": "M137",
+        "resume_requires_user_request": true,
+        "resumed_on": "2026-09-29",
+        "stop_reason": "Completed all ten explicitly requested units; stopped after M136 with 280 new declarations and twelve complete metadata-source files. M137 requires a new request."
       }
     ],
-    "stop_reason": "Completed all ten explicitly requested units; stopped after M136 with 280 new declarations and twelve complete metadata-source files. M137 requires a new request."
+    "stop_reason": "Completed all ten explicitly requested units; stopped after M146 with 290 new declarations and sixteen complete metadata-source files. M147 requires a new request."
   },
   "completed_batches": [
     {
@@ -130777,6 +131058,36 @@
         "working-memory/test-results/docstrings-m127-m136-2026-09-29/discovery.json",
         "working-memory/test-results/docstrings-m127-m136-2026-09-29/documentation-checks.json",
         "working-memory/test-results/docstrings-m127-m136-2026-09-29/reconciliation.json"
+      ]
+    },
+    {
+      "id": "m137-m146-2026-10-03",
+      "unit_ids": [
+        "M137",
+        "M138",
+        "M139",
+        "M140",
+        "M141",
+        "M142",
+        "M143",
+        "M144",
+        "M145",
+        "M146"
+      ],
+      "authorization": "New explicit request for ten more docstring tasks authorizes M137-M146, 290 declarations across sixteen files, in inventory order. Stop after M146; no commit or publication requested.",
+      "status": "verified",
+      "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+      "next_unit": "M147",
+      "checks": [
+        "working-memory/test-results/docstrings-m137-m146-2026-10-03/static.json",
+        "working-memory/test-results/docstrings-m137-m146-2026-10-03/examples-all.json",
+        "working-memory/test-results/docstrings-m137-m146-2026-10-03/runtime-doc-review.json",
+        "working-memory/test-results/docstrings-m137-m146-2026-10-03/M147-boundary.json",
+        "working-memory/test-results/docstrings-m137-m146-2026-10-03/metadata.json",
+        "working-memory/test-results/docstrings-m137-m146-2026-10-03/quality.json",
+        "working-memory/test-results/docstrings-m137-m146-2026-10-03/discovery.json",
+        "working-memory/test-results/docstrings-m137-m146-2026-10-03/documentation-checks.json",
+        "working-memory/test-results/docstrings-m137-m146-2026-10-03/reconciliation.json"
       ]
     }
   ],

@@ -1,5 +1,13 @@
 """
-Read metadata from PML/PMLZ files.
+Read PML comments and PMLZ archive metadata, including conventional cover locations and tolerant text decoding.
+
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
+
+Example:
+    Exercise pml with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
 """
 
 from __future__ import annotations
@@ -32,10 +40,31 @@ _CONTROL_CHARS_RE = re.compile(r"[\x00-\x1f]")
 
 
 class PmlFormatError(Exception):
+    """
+    Signal malformed PMLZ archive structure or unreadable PML metadata input.
+
+    Example:
+        Exercise PmlFormatError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+    """
     pass
 
 
 def _source_name(target_file) -> str:
+    """
+    Return the best available source label for fallback titles and diagnostics.
+
+    Example:
+        Exercise  source name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if isinstance(target_file, os.PathLike):
         return os.fspath(target_file)
     if isinstance(target_file, str):
@@ -44,6 +73,19 @@ def _source_name(target_file) -> str:
 
 
 def _read_source_bytes(target_file) -> tuple[bytes, str]:
+    """
+    Read the complete source payload from bytes, a path or a stream and restore a caller-owned stream position when available.
+
+    Example:
+        Exercise  read source bytes with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     source_name = _source_name(target_file)
     if isinstance(target_file, os.PathLike):
         target_file = os.fspath(target_file)
@@ -84,10 +126,33 @@ def _read_source_bytes(target_file) -> tuple[bytes, str]:
 
 
 def _default_metadata() -> Metadata:
+    """
+    Build minimally usable metadata for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :return: Parsed, normalized or serialized value described above.
+    """
     return Metadata(_("Unknown"), [_("Unknown")])
 
 
 def _decode_field(raw: bytes) -> str:
+    """
+    Decode field using the format's ordered fallback policy.
+
+    Example:
+        Exercise  decode field with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if not raw:
         return ""
     for enc in ("utf-8", "cp1252", "latin-1"):
@@ -99,6 +164,19 @@ def _decode_field(raw: bytes) -> str:
 
 
 def _sanitize_field(raw: bytes, *, escape_xml: bool = True) -> str:
+    """
+    Perform the format-specific sanitize field operation used by this metadata source.
+
+    Example:
+        Exercise  sanitize field with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :param escape_xml: Policy flag controlling the behavior described above.
+    :return: Parsed, normalized or serialized value described above.
+    """
     text = _decode_field(raw)
     if escape_xml:
         text = prepare_string_for_xml(text)
@@ -107,10 +185,36 @@ def _sanitize_field(raw: bytes, *, escape_xml: bool = True) -> str:
 
 
 def _normalize_zip_name(name: str) -> str:
+    """
+    Perform the format-specific normalize zip name operation used by this metadata source.
+
+    Example:
+        Exercise  normalize zip name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param name: Name, type or encoding selector used for lookup or interpretation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     return name.replace("\\", "/").lstrip("./")
 
 
 def _is_probable_pmlz(source_name: str, payload: bytes) -> bool:
+    """
+    Return whether the source name or ZIP contents identify a PMLZ archive.
+
+    Example:
+        Exercise  is probable pmlz with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param source_name: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :param payload: Raw value or payload to normalize, parse or serialize.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     if source_name.lower().endswith(".pmlz"):
         return True
     if len(payload) < 4 or payload[:2] != b"PK":
@@ -123,6 +227,19 @@ def _is_probable_pmlz(source_name: str, payload: bytes) -> bool:
 
 
 def _zip_lookup(zf: zipfile.ZipFile) -> dict[str, str]:
+    """
+    Perform the format-specific zip lookup operation used by this metadata source.
+
+    Example:
+        Exercise  zip lookup with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param zf: Open container used for member lookup and reads; ownership remains with
+        the caller.
+    :return: Parsed, normalized or serialized value described above.
+    """
     lookup: dict[str, str] = {}
     for name in zf.namelist():
         if name.endswith("/"):
@@ -138,6 +255,22 @@ def _read_cover_from_zip(
     source_name: str,
     pml_entries: list[str],
 ) -> bytes | None:
+    """
+    Return cover bytes from the first conventional PMLZ cover location that exists.
+
+    Example:
+        Exercise  read cover from zip with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param zf: Open container used for member lookup and reads; ownership remains with
+        the caller.
+    :param source_name: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :param pml_entries: Value supplied for pml entries.
+    :return: Parsed, normalized or serialized value described above.
+    """
     lookup = _zip_lookup(zf)
     source_stem = Path(source_name).stem if source_name else ""
     candidates: list[str] = []
@@ -185,6 +318,23 @@ def _extract_pmlz_payload(
     extract_cover: bool,
     fallback_on_parse_error: bool = False,
 ) -> tuple[bytes, bytes | None]:
+    """
+    Concatenate PML members and optionally read a cover from a PMLZ archive.
+
+    Example:
+        Exercise  extract pmlz payload with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param payload: Raw value or payload to normalize, parse or serialize.
+    :param source_name: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :param extract_cover: Request cover discovery or cover payload extraction when true.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
+    """
     pml_data = bytearray()
     cover_data = None
     try:
@@ -222,6 +372,18 @@ def _extract_pmlz_payload(
 
 
 def _clear_default_authors(mi) -> None:
+    """
+    Clear default authors while keeping shared state coherent.
+
+    Example:
+        Exercise  clear default authors with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :return: None.
+    """
     try:
         raw_data = object.__getattribute__(mi, "_data")
     except Exception:
@@ -236,6 +398,19 @@ def _clear_default_authors(mi) -> None:
 
 
 def _set_authors(mi, authors: list[str]) -> None:
+    """
+    Set authors while preserving unrelated metadata state.
+
+    Example:
+        Exercise  set authors with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :param authors: Ordered input values processed by this operation.
+    :return: None.
+    """
     if not authors:
         return
     try:
@@ -255,6 +430,18 @@ def _set_authors(mi, authors: list[str]) -> None:
 
 
 def _extract_comment_fields(comment: bytes) -> dict[str, list[str]]:
+    """
+    Parse key/value fields from one PML metadata comment.
+
+    Example:
+        Exercise  extract comment fields with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param comment: Value supplied for comment.
+    :return: Parsed, normalized or serialized value described above.
+    """
     fields: dict[str, list[str]] = {}
     for match in _FIELD_RE.finditer(comment):
         key = match.group(1).decode("ascii", "ignore").upper()
@@ -266,6 +453,19 @@ def _extract_comment_fields(comment: bytes) -> dict[str, list[str]]:
 
 
 def _parse_pml_metadata(payload: bytes, mi) -> None:
+    """
+    Apply title, publisher, rights, ISBN and author fields from PML comments.
+
+    Example:
+        Exercise  parse pml metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param payload: Raw value or payload to normalize, parse or serialize.
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :return: Parsed, normalized or serialized value described above.
+    """
     authors: list[str] = []
     for comment in _COMMENT_RE.findall(payload):
         fields = _extract_comment_fields(comment)
@@ -291,7 +491,20 @@ def _parse_pml_metadata(payload: bytes, mi) -> None:
 
 def get_metadata(target_file, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
     """
-    Read metadata from a PML or PMLZ stream/path.
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param extract_cover: Request cover discovery or cover payload extraction when true.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
     """
     mi = _default_metadata()
     try:
@@ -337,12 +550,39 @@ def get_metadata(target_file, extract_cover: bool = True, *, fallback_on_parse_e
 
 
 def get_metadata_inplace(target_file, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
+    """
+    Read metadata through the path-oriented adapter exposed to registry plugins.
+
+    Example:
+        Exercise get metadata inplace with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param extract_cover: Request cover discovery or cover payload extraction when true.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
+    """
     return get_metadata(target_file, extract_cover=extract_cover, fallback_on_parse_error=fallback_on_parse_error)
 
 
 def get_cover(name, tdir, top_level: bool = False):
     """
-    Return cover bytes from expected PML folder layouts.
+    Read cover.png from the supported PML directory layouts, returning an empty payload when absent.
+
+    Example:
+        Exercise get cover with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pml_metadata_source.py
+
+
+    :param name: Name, type or encoding selector used for lookup or interpretation.
+    :param tdir: Directory used for temporary or generated output files.
+    :param top_level: Policy flag controlling the behavior described above.
+    :return: Parsed, normalized or serialized value described above.
     """
     cover_path: Path | None = None
     root = Path(tdir)

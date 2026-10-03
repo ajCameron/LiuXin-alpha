@@ -1,5 +1,13 @@
 """
-Read metadata from ZIP archives.
+Select a supported ebook or comic from a ZIP archive and resolve OPF-relative cover data when possible.
+
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
+
+Example:
+    Exercise zip with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
 """
 
 from __future__ import annotations
@@ -43,21 +51,73 @@ _SUPPORTED_MEMBER_EXTENSIONS = {
 
 
 def _normalize_member_name(name: str) -> str:
+    """
+    Perform the format-specific normalize member name operation used by this metadata source.
+
+    Example:
+        Exercise  normalize member name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param name: Name, type or encoding selector used for lookup or interpretation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     return str(name).replace("\\", "/").lstrip("./")
 
 
 def _member_type(member_name: str) -> str:
+    """
+    Return the normalized lowercase extension used to choose an archive member reader.
+
+    Example:
+        Exercise  member type with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param member_name: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :return: Parsed, normalized or serialized value described above.
+    """
     ext = os.path.splitext(_normalize_member_name(member_name))[1].lower()
     return ext[1:] if ext.startswith(".") else ext
 
 
 def _dispatch_metadata(target, *, force_type: str):
+    """
+    Delegate a member or stream to the shared metadata dispatcher with an explicit type.
+
+    Example:
+        Exercise  dispatch metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param target: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param force_type: Name, type or encoding selector used for lookup or
+        interpretation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     from LiuXin_alpha.metadata.file_sources import get_metadata as dispatch_get_metadata
 
     return dispatch_get_metadata(target, force_type=force_type)
 
 
 def _set_timestamp_none(mi) -> None:
+    """
+    Set timestamp none while preserving unrelated metadata state.
+
+    Example:
+        Exercise  set timestamp none with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :return: None.
+    """
     try:
         mi.timestamp = None
     except Exception:
@@ -65,6 +125,18 @@ def _set_timestamp_none(mi) -> None:
 
 
 def _find_first_supported_member(file_names: list[str]) -> tuple[str, str] | None:
+    """
+    Return the first archive member supported by the delegated metadata registry.
+
+    Example:
+        Exercise  find first supported member with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param file_names: Ordered input values processed by this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     for file_name in file_names:
         stream_type = _member_type(file_name)
         if stream_type in _SUPPORTED_MEMBER_EXTENSIONS:
@@ -73,6 +145,19 @@ def _find_first_supported_member(file_names: list[str]) -> tuple[str, str] | Non
 
 
 def _source_label(stream) -> str:
+    """
+    Perform the format-specific source label operation used by this metadata source.
+
+    Example:
+        Exercise  source label with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     name = getattr(stream, "name", "") or ""
     if not name:
         return "<stream>"
@@ -81,7 +166,19 @@ def _source_label(stream) -> str:
 
 def zip_opf_metadata(opf_member_name: str, zf: ZipFile):
     """
-    Parse OPF metadata from a zip member and attempt to resolve cover bytes.
+    Parse an OPF archive member and resolve its cover reference relative to the OPF location.
+
+    Example:
+        Exercise zip opf metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param opf_member_name: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :param zf: Open container used for member lookup and reads; ownership remains with
+        the caller.
+    :return: Parsed, normalized or serialized value described above.
     """
     from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
@@ -131,6 +228,19 @@ def zip_opf_metadata(opf_member_name: str, zf: ZipFile):
 
 
 def _read_metadata_from_zip_stream(stream):
+    """
+    Read comic metadata or the first supported ebook member from an open ZIP stream.
+
+    Example:
+        Exercise  read metadata from zip stream with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     with ZipFile(stream, "r") as zf:
         file_names = [_normalize_member_name(name) for name in zf.namelist()]
         if is_comic(file_names):
@@ -165,7 +275,17 @@ def _read_metadata_from_zip_stream(stream):
 
 def get_metadata(target_file):
     """
-    Read metadata from a ZIP stream or path.
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
     """
     stream_needs_close = False
     if isinstance(target_file, os.PathLike):
@@ -211,6 +331,19 @@ def get_metadata(target_file):
 
 
 def get_metadata_inplace(target_file):
+    """
+    Read metadata through the path-oriented adapter exposed to registry plugins.
+
+    Example:
+        Exercise get metadata inplace with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     return get_metadata(target_file)
 
 

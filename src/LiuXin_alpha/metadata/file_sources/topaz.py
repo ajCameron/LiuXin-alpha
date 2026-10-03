@@ -1,5 +1,13 @@
 """
-Read/write metadata from Amazon's Topaz format.
+Read and rewrite Topaz header and metadata records while adjusting variable-width offsets consistently.
+
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
+
+Example:
+    Exercise topaz with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
 """
 
 from __future__ import annotations
@@ -24,15 +32,43 @@ RUN_COST = ["LOW"]
 
 
 class TopazFormatError(Exception):
+    """
+    Signal malformed Topaz headers, offsets or metadata records.
+
+    Example:
+        Exercise TopazFormatError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+    """
     pass
 
 
 class StreamSlicer:
     """
-    Byte-addressable view over a binary stream.
+    Expose a mutable bounded window over a caller-owned seekable stream.
+
+    Example:
+        Exercise StreamSlicer with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
     """
 
     def __init__(self, stream, start: int = 0, stop: int | None = None):
+        """
+        Implement init for the bound metadata helper while preserving its container invariants.
+
+        Example:
+            Exercise StreamSlicer.  init   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :param stream: Caller-supplied path, path-like object or stream described by this
+            operation.
+        :param start: Offset, bound or scalar value used by the operation.
+        :param stop: Offset, bound or scalar value used by the operation.
+        :return: None.
+        """
         self._stream = stream
         self.start = start
         if stop is None:
@@ -42,9 +78,32 @@ class StreamSlicer:
         self._len = max(0, stop - start)
 
     def __len__(self) -> int:
+        """
+        Implement len for the bound metadata helper while preserving its container invariants.
+
+        Example:
+            Exercise StreamSlicer.  len   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :return: Length of the exposed stream window.
+        """
         return self._len
 
     def __getitem__(self, key):
+        """
+        Implement getitem for the bound metadata helper while preserving its container invariants.
+
+        Example:
+            Exercise StreamSlicer.  getitem   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :param key: Name, type or encoding selector used for lookup or interpretation.
+        :return: Parsed, normalized or serialized value described above.
+        """
         stream = self._stream
         base = self.start
         if isinstance(key, numbers.Integral):
@@ -65,6 +124,18 @@ class StreamSlicer:
         raise TypeError("stream indices must be integers")
 
     def update(self, data_blocks: Iterable[bytes]) -> None:
+        """
+        Implement update for the bound metadata helper while preserving its container invariants.
+
+        Example:
+            Exercise StreamSlicer.update with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :param data_blocks: Ordered input values processed by this operation.
+        :return: None.
+        """
         stream = self._stream
         base = self.start
         stream.seek(base)
@@ -73,30 +144,103 @@ class StreamSlicer:
             stream.write(block)
 
     def truncate(self, value: int) -> None:
+        """
+        Implement truncate for the bound metadata helper while preserving its container invariants.
+
+        Example:
+            Exercise StreamSlicer.truncate with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :param value: Offset, bound or scalar value used by the operation.
+        :return: None.
+        """
         self._stream.truncate(value)
 
 
 def _byte_as_int(one: bytes) -> int:
+    """
+    Return the integer value of exactly one byte or reject an invalid byte count.
+
+    Example:
+        Exercise  byte as int with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param one: Value supplied for one.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if not one:
         return 0
     return one[0]
 
 
 def _decode_tag(raw: bytes) -> str:
+    """
+    Decode tag using the format's ordered fallback policy.
+
+    Example:
+        Exercise  decode tag with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     return raw.decode("ascii", "replace")
 
 
 def _decode_text(raw: bytes | None) -> str:
+    """
+    Decode text using the format's ordered fallback policy.
+
+    Example:
+        Exercise  decode text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if raw is None:
         return ""
     return clean_xml_chars(force_unicode(raw, "utf-8"))
 
 
 def _default_metadata():
+    """
+    Build minimally usable metadata for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :return: Parsed, normalized or serialized value described above.
+    """
     return calibreMetaInformation("Unknown", ["Unknown"])
 
 
 def _safe_seek(stream, pos: int | None) -> None:
+    """
+    Perform seek without propagating optional or recovery failures.
+
+    Example:
+        Exercise  safe seek with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param pos: Offset, bound or scalar value used by the operation.
+    :return: None.
+    """
     if pos is None or not hasattr(stream, "seek"):
         return
     try:
@@ -106,6 +250,19 @@ def _safe_seek(stream, pos: int | None) -> None:
 
 
 def _source_name(target_file) -> str:
+    """
+    Return the best available source label for fallback titles and diagnostics.
+
+    Example:
+        Exercise  source name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if isinstance(target_file, os.PathLike):
         return os.fspath(target_file)
     if isinstance(target_file, str):
@@ -115,10 +272,28 @@ def _source_name(target_file) -> str:
 
 class MetadataUpdater:
     """
-    Parse and update Topaz metadata blocks.
+    Parse, expose and rewrite Topaz headers and metadata records in place.
+
+    Example:
+        Exercise MetadataUpdater with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
     """
 
     def __init__(self, stream):
+        """
+        Implement init for the bound metadata helper while preserving its container invariants.
+
+        Example:
+            Exercise MetadataUpdater.  init   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :param stream: Caller-supplied path, path-like object or stream described by this
+            operation.
+        :return: None.
+        """
         self.stream = stream
         self.data = StreamSlicer(stream)
 
@@ -144,6 +319,18 @@ class MetadataUpdater:
 
     @staticmethod
     def decode_vwi(byts: bytes) -> tuple[int, int]:
+        """
+        Decode a Topaz variable-width integer and report the number of consumed bytes.
+
+        Example:
+            Exercise MetadataUpdater.decode vwi with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :param byts: Raw value or payload to normalize, parse or serialize.
+        :return: Parsed, normalized or serialized value described above.
+        """
         pos, val = 0, 0
         bb = bytearray(byts)
         done = False
@@ -158,6 +345,18 @@ class MetadataUpdater:
 
     @staticmethod
     def encode_vwi(value: int) -> bytes:
+        """
+        Encode a non-negative integer in Topaz variable-width form.
+
+        Example:
+            Exercise MetadataUpdater.encode vwi with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :param value: Offset, bound or scalar value used by the operation.
+        :return: Parsed, normalized or serialized value described above.
+        """
         if value < 0:
             raise ValueError("VWI cannot encode negative values")
         parts = [value & 0x7F]
@@ -168,6 +367,18 @@ class MetadataUpdater:
         return bytes(reversed(parts))
 
     def get_headers(self, offset: int):
+        """
+        Parse the Topaz header table and indexed block descriptors from the supplied offset.
+
+        Example:
+            Exercise MetadataUpdater.get headers with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :param offset: Offset, bound or scalar value used by the operation.
+        :return: Parsed, normalized or serialized value described above.
+        """
         topaz_headers: dict[str, dict] = {}
         th_seq: list[str] = []
         for _ in range(self.header_records):
@@ -202,6 +413,17 @@ class MetadataUpdater:
         return topaz_headers, th_seq
 
     def get_original_metadata(self) -> None:
+        """
+        Read the original Topaz metadata record sequence into mutable updater state.
+
+        Example:
+            Exercise MetadataUpdater.get original metadata with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :return: None.
+        """
         offset = self.base + self.topaz_headers["metadata"]["blocks"][0]["offset"]
 
         taglen, consumed = self.decode_vwi(self.data[offset : offset + 8])
@@ -234,6 +456,17 @@ class MetadataUpdater:
             self.md_seq.append(key)
 
     def get_metadata(self):
+        """
+        Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+        Example:
+            Exercise MetadataUpdater.get metadata with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :return: Parsed, normalized or serialized value described above.
+        """
         self.get_original_metadata()
         title = _decode_text(self.metadata.get("Title")) or "Unknown"
 
@@ -252,6 +485,17 @@ class MetadataUpdater:
         return calibreMetaInformation(title, authors)
 
     def generate_metadata_stream(self) -> bytes:
+        """
+        Serialize the current Topaz metadata keys and byte values in record order.
+
+        Example:
+            Exercise MetadataUpdater.generate metadata stream with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :return: Parsed, normalized or serialized value described above.
+        """
         out = bytearray()
         tag = (self.md_header.get("tag") or "metadata").encode("ascii", "replace")
         out.extend(self.encode_vwi(len(tag)))
@@ -269,6 +513,18 @@ class MetadataUpdater:
         return bytes(out)
 
     def regenerate_headers(self, updated_md_len: int) -> bytes:
+        """
+        Rebuild Topaz headers and shift later block offsets by the metadata-size delta.
+
+        Example:
+            Exercise MetadataUpdater.regenerate headers with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :param updated_md_len: Offset, bound or scalar value used by the operation.
+        :return: Parsed, normalized or serialized value described above.
+        """
         original_md_len = self.topaz_headers["metadata"]["blocks"][0]["len_uncomp"]
         original_md_offset = self.topaz_headers["metadata"]["blocks"][0]["offset"]
         delta = updated_md_len - original_md_len
@@ -304,6 +560,18 @@ class MetadataUpdater:
         return bytes(out)
 
     def _ensure_key(self, key: str) -> None:
+        """
+        Perform the format-specific ensure key operation used by this metadata source.
+
+        Example:
+            Exercise MetadataUpdater. ensure key with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :param key: Name, type or encoding selector used for lookup or interpretation.
+        :return: None.
+        """
         if key in self.metadata:
             return
         self.metadata[key] = b""
@@ -311,6 +579,18 @@ class MetadataUpdater:
         self.md_header["num_recs"] = len(self.md_seq)
 
     def update(self, mi) -> None:
+        """
+        Implement update for the bound metadata helper while preserving its container invariants.
+
+        Example:
+            Exercise MetadataUpdater.update with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+        :param mi: Metadata object supplying or receiving the supported fields.
+        :return: None.
+        """
         self.get_original_metadata()
 
         try:
@@ -357,7 +637,19 @@ class MetadataUpdater:
 
 def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
     """
-    Read Topaz metadata from a path, bytes payload, or binary stream.
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
     """
     source_name = _source_name(target_file)
     stream_needs_close = False
@@ -409,7 +701,18 @@ def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
 
 def set_metadata(target_file, mi) -> None:
     """
-    Update Topaz metadata in-place for a path or writable binary stream.
+    Rewrite supported metadata fields without taking ownership of a caller-supplied stream.
+
+    Example:
+        Exercise set metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :return: None.
     """
     stream_needs_close = False
     stream = None

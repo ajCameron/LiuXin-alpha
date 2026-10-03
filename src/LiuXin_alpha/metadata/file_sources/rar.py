@@ -1,5 +1,13 @@
 """
-Read metadata from RAR archives.
+Select the first supported ebook in a RAR archive and delegate metadata extraction to its registered reader.
+
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
+
+Example:
+    Exercise rar with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_rar_metadata_source.py
 """
 
 from __future__ import annotations
@@ -43,13 +51,38 @@ _SUPPORTED_MEMBER_EXTENSIONS = {
 
 
 def _member_type(member_name: str) -> str:
+    """
+    Return the normalized lowercase extension used to choose an archive member reader.
+
+    Example:
+        Exercise  member type with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rar_metadata_source.py
+
+
+    :param member_name: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :return: Parsed, normalized or serialized value described above.
+    """
     ext = os.path.splitext(member_name.replace("\\", "/"))[1].lower()
     return ext[1:] if ext.startswith(".") else ext
 
 
 def _dispatch_metadata(target, *, force_type: str):
     """
-    Dispatch to the metadata reader registry for the given force type.
+    Delegate a member or stream to the shared metadata dispatcher with an explicit type.
+
+    Example:
+        Exercise  dispatch metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rar_metadata_source.py
+
+
+    :param target: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param force_type: Name, type or encoding selector used for lookup or
+        interpretation.
+    :return: Parsed, normalized or serialized value described above.
     """
     from LiuXin_alpha.metadata.file_sources import get_metadata as dispatch_get_metadata
 
@@ -57,6 +90,18 @@ def _dispatch_metadata(target, *, force_type: str):
 
 
 def _set_timestamp_none(mi) -> None:
+    """
+    Set timestamp none while preserving unrelated metadata state.
+
+    Example:
+        Exercise  set timestamp none with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rar_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :return: None.
+    """
     try:
         mi.timestamp = None
     except Exception:
@@ -64,6 +109,18 @@ def _set_timestamp_none(mi) -> None:
 
 
 def _find_first_supported_member(file_names: list[str]) -> tuple[str, str] | None:
+    """
+    Return the first archive member supported by the delegated metadata registry.
+
+    Example:
+        Exercise  find first supported member with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rar_metadata_source.py
+
+
+    :param file_names: Ordered input values processed by this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     for file_name in file_names:
         stream_type = _member_type(file_name)
         if stream_type in _SUPPORTED_MEMBER_EXTENSIONS:
@@ -72,6 +129,19 @@ def _find_first_supported_member(file_names: list[str]) -> tuple[str, str] | Non
 
 
 def _source_label(stream) -> str:
+    """
+    Perform the format-specific source label operation used by this metadata source.
+
+    Example:
+        Exercise  source label with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rar_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     name = getattr(stream, "name", "") or ""
     if not name:
         return "<stream>"
@@ -79,6 +149,19 @@ def _source_label(stream) -> str:
 
 
 def _read_metadata_from_rar_stream(stream):
+    """
+    Read comic metadata or the first supported ebook member from an open RAR stream.
+
+    Example:
+        Exercise  read metadata from rar stream with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rar_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     file_names = list(names(stream))
     if is_comic(file_names):
         mi = _dispatch_metadata(stream, force_type="cbr")
@@ -104,7 +187,17 @@ def _read_metadata_from_rar_stream(stream):
 
 def get_metadata(target_file):
     """
-    Read metadata from a RAR stream or path.
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rar_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
     """
     stream_needs_close = False
     if isinstance(target_file, os.PathLike):

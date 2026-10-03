@@ -1,5 +1,13 @@
 """
-Read metadata information from RB files.
+Read Rocket eBook INFO records with explicit header validation, decoding fallback and stream ownership.
+
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
+
+Example:
+    Exercise rb with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
 """
 
 from __future__ import annotations
@@ -22,10 +30,31 @@ RUN_COST = ["LOW"]
 
 
 class RbFormatError(Exception):
+    """
+    Signal a malformed or truncated Rocket eBook metadata payload.
+
+    Example:
+        Exercise RbFormatError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+    """
     pass
 
 
 def _default_metadata(source_name: str = ""):
+    """
+    Build minimally usable metadata for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :param source_name: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :return: Parsed, normalized or serialized value described above.
+    """
     title = "Unknown"
     if source_name:
         title = os.path.splitext(os.path.basename(source_name))[0] or "Unknown"
@@ -34,7 +63,19 @@ def _default_metadata(source_name: str = ""):
 
 def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
     """
-    Return metadata as a calibre-compatible metadata object.
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
     """
     stream_needs_close = False
     source_name = ""
@@ -73,12 +114,36 @@ def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
 
 
 def _log_warning(message: str) -> None:
+    """
+    Report a recoverable metadata parsing problem through the project logger.
+
+    Example:
+        Exercise  log warning with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :param message: Value supplied for message.
+    :return: None.
+    """
     logger = getattr(default_log, "warning", None) or getattr(default_log, "warn", None)
     if logger is not None:
         logger(message)
 
 
 def _decode_info_line(raw_line: bytes) -> str:
+    """
+    Decode info line using the format's ordered fallback policy.
+
+    Example:
+        Exercise  decode info line with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :param raw_line: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     try:
         return raw_line.decode("utf-8")
     except Exception:
@@ -86,6 +151,23 @@ def _decode_info_line(raw_line: bytes) -> str:
 
 
 def read_metadata_from_stream(stream, source_name: str = "", *, fallback_on_parse_error: bool = False):
+    """
+    Read metadata from a caller-owned stream under explicit malformed-input fallback policy.
+
+    Example:
+        Exercise read metadata from stream with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param source_name: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
+    """
     mi = _default_metadata(source_name)
     stream.seek(0)
     try:
@@ -97,6 +179,17 @@ def read_metadata_from_stream(stream, source_name: str = "", *, fallback_on_pars
         stream.read(10)
 
         def read_i32():
+            """
+            Read i32 under the format's bounds and ownership policy.
+
+            Example:
+                Exercise read metadata from stream.read i32 with pytest::
+
+                    python -m pytest -q tests/metadata/file_sources/test_rb_metadata_source.py
+
+
+            :return: Parsed, normalized or serialized value described above.
+            """
             return struct.unpack("<I", stream.read(4))[0]
 
         stream.seek(read_i32())
