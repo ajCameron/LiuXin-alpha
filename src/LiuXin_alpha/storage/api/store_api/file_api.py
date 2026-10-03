@@ -357,7 +357,7 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         ...     return store.read_bytes(location, length=16)
     """
 
-    # Todo: try_* for everything -
+    # Todo: try_* for everything - need to be consistent
     def try_stat(self, location: Location) -> FileInfo | None:
         """
         Return ``None`` only when the store reports genuine absence.
@@ -662,10 +662,11 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
             f"{type(self).__name__} does not support resumable inventory pages."
         )
 
+    # Todo: Once again, lotta code in this API
     def compute_digest(
         self,
         location: Location,
-        algorithm: str = "sha256",
+        algorithm: str = "sha256", # Todo: This should be an enum? Or a list of string values. Error message should include available algoriths.
         *,
         chunk_size: int = 1024 * 1024,
     ) -> Digest:
@@ -706,6 +707,7 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
                 digest.update(chunk)
         return Digest(algorithm=algorithm, value=digest.hexdigest())
 
+    # Todo: Lotta code in this API
     def copy(
         self,
         source: Location,
@@ -717,8 +719,10 @@ class StoreFileAPI(StoreCoreAPI, abc.ABC):
         Copy by verified streaming unless a concrete store overrides it.
 
         Stat once, then pass if_version only when conditional_read is advertised and the observed
-        version is non-None. Otherwise read unversioned. Destination verification uses the observed
-        size/digest. The default does not forward placement hints or native metadata, and a close
+        version is non-None.
+        Otherwise read unversioned.
+        Destination verification uses the observed size/digest.
+        The default does not forward placement hints or native metadata, and a close
         failure can occur after destination commit.
 
         Example:
