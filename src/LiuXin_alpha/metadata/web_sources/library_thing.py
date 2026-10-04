@@ -1,8 +1,13 @@
 """
-LibraryThing social metadata helper.
+Retrieve LibraryThing cover availability and optional social metadata with explicit service failures.
 
-This module provides a lightweight compatibility surface for legacy callers
-that used LibraryThing ISBN pages for series/rating enrichment.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise library thing with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
 """
 
 from __future__ import annotations
@@ -46,24 +51,73 @@ HTTP_RETRY_MAX_SECONDS = 6.0
 
 
 class LibraryThingError(Exception):
+    """
+    Signal the LibraryThingError provider failure without hiding its recovery meaning.
+
+    Example:
+        Exercise LibraryThingError with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+    """
     pass
 
 
 class ISBNNotFound(LibraryThingError):
+    """
+    Signal the ISBNNotFound provider failure without hiding its recovery meaning.
+
+    Example:
+        Exercise ISBNNotFound with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+    """
     pass
 
 
 class ServerBusy(LibraryThingError):
+    """
+    Signal the ServerBusy provider failure without hiding its recovery meaning.
+
+    Example:
+        Exercise ServerBusy with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+    """
     pass
 
 
 def _strip_tags(raw: str) -> str:
+    """
+    Normalize strip tags into the provider's canonical safe representation.
+
+    Example:
+        Exercise  strip tags with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = unescape(_TAG_RE.sub(" ", str(raw or "")))
     text = _SPACE_RE.sub(" ", text).strip()
     return text
 
 
 def _retry_policy() -> RetryPolicy:
+    """
+    Build the bounded retry policy used by this provider's HTTP requests.
+
+    Example:
+        Exercise  retry policy with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     return RetryPolicy(
         attempts=int(HTTP_RETRY_ATTEMPTS),
         base_delay=float(HTTP_RETRY_BASE_SECONDS),
@@ -72,6 +126,19 @@ def _retry_policy() -> RetryPolicy:
 
 
 def _retry_backoff(attempt: int) -> float:
+    """
+    Compute the capped delay for one provider retry attempt.
+
+    Example:
+        Exercise  retry backoff with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :param attempt: Zero-based retry attempt used to calculate backoff.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     return compute_backoff_delay(
         attempt=attempt,
         base_delay=float(HTTP_RETRY_BASE_SECONDS),
@@ -80,18 +147,75 @@ def _retry_backoff(attempt: int) -> float:
 
 
 def _wait_for_backoff(abort, delay: float) -> bool:
+    """
+    Wait interruptibly for a retry delay and report whether it completed.
+
+    Example:
+        Exercise  wait for backoff with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :param abort: Event-like cancellation signal checked before and during network work.
+    :param delay: Backoff duration in seconds.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     return wait_for_backoff(abort, delay)
 
 
 def get_browser():
+    """
+    Return browser under this provider's cache and fallback policy.
+
+    Example:
+        Exercise get browser with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     return browser(user_agent=random_user_agent())
 
 
 def _default_open(url: str, timeout: float):
+    """
+    Perform the library thing default open operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  default open with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :param url: Provider URL to normalize, request or associate with cached data.
+    :param timeout: Maximum duration in seconds for the network or worker operation.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     return get_browser().open_novisit(url, timeout=timeout).read()
 
 
 def _open_with_backoff(url: str, timeout: float, opener=None, abort=None, log=None, context="LibraryThing request"):
+    """
+    Run the open operation with bounded retry, diagnostics and cancellation.
+
+    Example:
+        Exercise  open with backoff with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :param url: Provider URL to normalize, request or associate with cached data.
+    :param timeout: Maximum duration in seconds for the network or worker operation.
+    :param opener: Optional request callable replacing the default network opener.
+    :param abort: Event-like cancellation signal checked before and during network work.
+    :param log: Logger receiving structured provider diagnostics.
+    :param context: Short operation label included in retry diagnostics.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     op = opener or _default_open
     return call_with_backoff(
         lambda: op(url, timeout),
@@ -110,6 +234,22 @@ def _open_with_backoff(url: str, timeout: float, opener=None, abort=None, log=No
 
 
 def check_for_cover(isbn, timeout=5.0, opener=None, abort=None, log=None):
+    """
+    Return whether LibraryThing exposes a cover for the supplied ISBN.
+
+    Example:
+        Exercise check for cover with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :param isbn: ISBN value used for direct lookup or related-edition resolution.
+    :param timeout: Maximum duration in seconds for the network or worker operation.
+    :param opener: Optional request callable replacing the default network opener.
+    :param abort: Event-like cancellation signal checked before and during network work.
+    :param log: Logger receiving structured provider diagnostics.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     token = str(isbn or "").strip()
     if not token:
         return False
@@ -134,10 +274,23 @@ def check_for_cover(isbn, timeout=5.0, opener=None, abort=None, log=None):
 
 def login(br, username, password, timeout=30, opener=None, abort=None, log=None):
     """
-    Best-effort compatibility login shim.
+    Perform the compatibility LibraryThing login handshake when credentials are supplied.
 
-    The old mechanize login flow is intentionally not reproduced exactly.
-    This function probes homepage availability and only raises on hard failures.
+    Example:
+        Exercise login with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :param br: Browser-compatible object used to perform provider requests.
+    :param username: Optional LibraryThing account name for compatibility login.
+    :param password: Optional LibraryThing password for compatibility login.
+    :param timeout: Maximum duration in seconds for the network or worker operation.
+    :param opener: Optional request callable replacing the default network opener.
+    :param abort: Event-like cancellation signal checked before and during network work.
+    :param log: Logger receiving structured provider diagnostics.
+    :return: The normalized provider value, metadata result or collection described
+        above.
     """
     del password
     if not username:
@@ -156,16 +309,55 @@ def login(br, username, password, timeout=30, opener=None, abort=None, log=None)
 
 
 def _extract_headsummary(raw_html: str):
+    """
+    Extract headsummary with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract headsummary with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     m = _HEADSUMMARY_RE.search(raw_html)
     return m.group("body") if m else ""
 
 
 def _extract_title(headsummary_html: str):
+    """
+    Extract title with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract title with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :param headsummary_html: Value supplied for headsummary html.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     m = re.search(r"<h1\b[^>]*>(.*?)</h1>", headsummary_html, re.IGNORECASE | re.DOTALL)
     return _strip_tags(m.group(1)) if m else ""
 
 
 def _extract_authors(headsummary_html: str):
+    """
+    Extract authors with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract authors with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :param headsummary_html: Value supplied for headsummary html.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     m = re.search(r"<h2\b[^>]*>(.*?)</h2>", headsummary_html, re.IGNORECASE | re.DOTALL)
     if not m:
         return []
@@ -173,6 +365,19 @@ def _extract_authors(headsummary_html: str):
 
 
 def _extract_series(headsummary_html: str):
+    """
+    Extract series with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract series with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :param headsummary_html: Value supplied for headsummary html.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     m = re.search(r"<h3\b[^>]*>(.*?)</h3>", headsummary_html, re.IGNORECASE | re.DOTALL)
     if not m:
         return None, None
@@ -198,6 +403,19 @@ def _extract_series(headsummary_html: str):
 
 
 def _extract_rating(raw_html: str):
+    """
+    Extract rating with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract rating with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     wm = _WSL_TABLE_RE.search(raw_html)
     block = wm.group(0) if wm else raw_html
     m = re.search(r"([0-9]+(?:\.[0-9]+)?)", _strip_tags(block))
@@ -213,6 +431,28 @@ def _extract_rating(raw_html: str):
 
 
 def get_social_metadata(title, authors, publisher, isbn, username=None, password=None, timeout=30, opener=None, abort=None, log=None):
+    """
+    Fetch and parse optional LibraryThing title, author, series and rating metadata.
+
+    Example:
+        Exercise get social metadata with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_thing.py
+
+
+    :param title: Book title used to construct or rank the provider query.
+    :param authors: Author names used to construct or rank the provider query.
+    :param publisher: Publisher text used by social metadata lookup.
+    :param isbn: ISBN value used for direct lookup or related-edition resolution.
+    :param username: Optional LibraryThing account name for compatibility login.
+    :param password: Optional LibraryThing password for compatibility login.
+    :param timeout: Maximum duration in seconds for the network or worker operation.
+    :param opener: Optional request callable replacing the default network opener.
+    :param abort: Event-like cancellation signal checked before and during network work.
+    :param log: Logger receiving structured provider diagnostics.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     del publisher
     mi = calibreMetaInformation(title, authors)
 

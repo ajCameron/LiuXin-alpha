@@ -1,7 +1,13 @@
 """
-OZON metadata source.
+Identify Russian-language book metadata and covers from OZON search and detail markup.
 
-Dependency-light implementation for metadata/cover lookup against ozon.ru.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise ozon with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
 """
 
 from __future__ import annotations
@@ -32,6 +38,19 @@ __docformat__ = "restructuredtext en"
 
 
 def _as_text(raw) -> str:
+    """
+    Convert optional or hostile input to text without propagating conversion failures.
+
+    Example:
+        Exercise  as text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if isinstance(raw, bytes):
         return raw.decode("utf-8", "replace")
     try:
@@ -41,6 +60,19 @@ def _as_text(raw) -> str:
 
 
 def _first(raw):
+    """
+    Perform the ozon first operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return None
     if isinstance(raw, (str, bytes)):
@@ -56,12 +88,40 @@ def _first(raw):
 
 
 def _first_identifier_value(identifiers, key):
+    """
+    Perform the ozon first identifier value operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first identifier value with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :param key: Value supplied for key.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     return _first(identifiers.get(key))
 
 
 def _extract_ozon_id(raw) -> str | None:
+    """
+    Extract ozon id with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract ozon id with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return None
     text = _as_text(raw).strip()
@@ -82,6 +142,20 @@ def _extract_ozon_id(raw) -> str | None:
 
 
 def _safe_isbn(identifiers) -> str | None:
+    """
+    Return a validated isbn or the documented empty fallback.
+
+    Example:
+        Exercise  safe isbn with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     for key in ("isbn", "isbn13", "isbn10"):
         raw = _first_identifier_value(identifiers or {}, key)
         if raw is None:
@@ -93,6 +167,19 @@ def _safe_isbn(identifiers) -> str | None:
 
 
 def _extract_json_ld_objects(raw_html: str):
+    """
+    Extract json ld objects with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract json ld objects with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     out = []
     for block in re.findall(
         r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
@@ -114,6 +201,20 @@ def _extract_json_ld_objects(raw_html: str):
 
 
 def _extract_meta_content(raw_html: str, key: str):
+    """
+    Extract meta content with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract meta content with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :param key: Value supplied for key.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     for pat in (
         rf'<meta[^>]+property=["\']{re.escape(key)}["\'][^>]+content=["\'](.*?)["\']',
         rf'<meta[^>]+name=["\']{re.escape(key)}["\'][^>]+content=["\'](.*?)["\']',
@@ -125,6 +226,19 @@ def _extract_meta_content(raw_html: str, key: str):
 
 
 def _html_title(raw_html: str) -> str | None:
+    """
+    Perform the ozon html title operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  html title with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     match = re.search(r"<title[^>]*>(.*?)</title>", raw_html, re.IGNORECASE | re.DOTALL)
     if not match:
         return None
@@ -133,6 +247,19 @@ def _html_title(raw_html: str) -> str | None:
 
 
 def _response_markers(raw_html: str) -> dict:
+    """
+    Perform the ozon response markers operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  response markers with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     html = _as_text(raw_html)
     lowered = html.lower()
     return {
@@ -149,6 +276,18 @@ def _response_markers(raw_html: str) -> dict:
 
 
 def _is_rr_redirect_loop(err) -> bool:
+    """
+    Perform the ozon is rr redirect loop operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  is rr redirect loop with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param err: Exception whose status, diagnostics or retry eligibility is inspected.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     if error_diagnostics(err).get("status_code") != 307 and not isinstance(err, HTTPError):
         return False
     meta = error_diagnostics(err)
@@ -158,6 +297,19 @@ def _is_rr_redirect_loop(err) -> bool:
 
 
 def _parse_pubdate(raw) -> datetime | None:
+    """
+    Parse pubdate without inventing absent provider data.
+
+    Example:
+        Exercise  parse pubdate with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return None
@@ -185,6 +337,19 @@ def _parse_pubdate(raw) -> datetime | None:
 
 
 def _parse_series_and_index(raw):
+    """
+    Parse series and index without inventing absent provider data.
+
+    Example:
+        Exercise  parse series and index with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return None, None
@@ -205,6 +370,19 @@ def _parse_series_and_index(raw):
 
 
 def _translate_to_big_cover_url(cover_url: str) -> str:
+    """
+    Perform the ozon translate to big cover url operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  translate to big cover url with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param cover_url: Value supplied for cover url.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(cover_url).strip()
     if not text:
         return ""
@@ -232,6 +410,14 @@ _LANG_MAP = {
 
 
 class Ozon(Source):
+    """
+    Implement the ozon metadata-source integration and its explicit recovery policy.
+
+    Example:
+        Exercise Ozon with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+    """
     name = "OZON.ru"
     version = (2, 0, 0)
     description = _("Downloads metadata and covers from OZON.ru")
@@ -275,6 +461,18 @@ class Ozon(Source):
     HTTP_RETRY_MAX_SECONDS = 6.0
 
     def _retry_policy(self) -> RetryPolicy:
+        """
+        Build the bounded retry policy used by this provider's HTTP requests.
+
+        Example:
+            Exercise Ozon. retry policy with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return RetryPolicy(
             attempts=int(self.HTTP_RETRY_ATTEMPTS),
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -282,6 +480,19 @@ class Ozon(Source):
         )
 
     def _retry_backoff(self, attempt: int) -> float:
+        """
+        Compute the capped delay for one provider retry attempt.
+
+        Example:
+            Exercise Ozon. retry backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param attempt: Zero-based retry attempt used to calculate backoff.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return compute_backoff_delay(
             attempt=attempt,
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -289,9 +500,39 @@ class Ozon(Source):
         )
 
     def _wait_for_backoff(self, abort, delay: float) -> bool:
+        """
+        Wait interruptibly for a retry delay and report whether it completed.
+
+        Example:
+            Exercise Ozon. wait for backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param delay: Backoff duration in seconds.
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return wait_for_backoff(abort, delay)
 
     def _open_bytes_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the open bytes operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise Ozon. open bytes with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return call_with_backoff(
             lambda: self.browser().open_novisit(url, timeout=timeout).read(),
             log=log,
@@ -308,12 +549,46 @@ class Ozon(Source):
         )
 
     def _open_text_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the open text operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise Ozon. open text with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         raw = self._open_bytes_with_backoff(log=log, abort=abort, url=url, timeout=timeout, context=context)
         if not raw:
             return ""
         return decode_http_body(raw)
 
     def _open_text_or_none(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Perform the provider open text or none operation with explicit timeout and response policy.
+
+        Example:
+            Exercise Ozon. open text or none with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             self._last_redirect_loop = False
             return self._open_text_with_backoff(log=log, abort=abort, url=url, timeout=timeout, context=context)
@@ -329,15 +604,55 @@ class Ozon(Source):
             return ""
 
     def _detail_url(self, ozon_id: str):
+        """
+        Perform the ozon detail url operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Ozon. detail url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param ozon_id: Value supplied for ozon id.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return f"{self.OZON_URL}/context/detail/id/{quote(_as_text(ozon_id).strip())}/"
 
     def get_book_url(self, identifiers):
+        """
+        Return canonical provider link tuples for recognized metadata identifiers.
+
+        Example:
+            Exercise Ozon.get book url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         ozon_id = _extract_ozon_id(_first_identifier_value(identifiers or {}, "ozon"))
         if not ozon_id:
             return None
         return ("ozon", ozon_id, self._detail_url(ozon_id))
 
     def id_from_url(self, url):
+        """
+        Extract a normalized provider identifier from a recognized canonical URL.
+
+        Example:
+            Exercise Ozon.id from url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         parsed = urlparse(_as_text(url))
         value = _extract_ozon_id(parsed.path or "")
         if not value:
@@ -345,6 +660,22 @@ class Ozon(Source):
         return ("ozon", value)
 
     def create_query(self, title=None, authors=None, identifiers=None):
+        """
+        Build create query from normalized identifiers and search inputs.
+
+        Example:
+            Exercise Ozon.create query with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         identifiers = identifiers or {}
         ozon_id = _extract_ozon_id(_first_identifier_value(identifiers, "ozon"))
         if ozon_id:
@@ -364,9 +695,33 @@ class Ozon(Source):
         return ("search", self.SEARCH_URL + quote_plus(query), None)
 
     def _redirect_loop_seen(self) -> bool:
+        """
+        Perform the ozon redirect loop seen operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Ozon. redirect loop seen with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return bool(getattr(self, "_last_redirect_loop", False))
 
     def _search_url_variants(self, url: str):
+        """
+        Perform the ozon search url variants operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Ozon. search url variants with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         text = _as_text(url).split("text=", 1)[-1].split("&", 1)[0]
         if not text or text == _as_text(url):
             return (url,)
@@ -382,6 +737,20 @@ class Ozon(Source):
         )
 
     def _extract_ozon_ids_from_search_html(self, raw_html: str, limit: int = 8):
+        """
+        Extract ozon ids from search html with stable ordering and malformed-input tolerance.
+
+        Example:
+            Exercise Ozon. extract ozon ids from search html with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param raw_html: Provider HTML response to parse without executing content.
+        :param limit: Maximum number of unique provider results to retain.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         html = _as_text(raw_html)
         seen = OrderedDict()
         for pat in (
@@ -398,6 +767,21 @@ class Ozon(Source):
         return list(seen.keys())
 
     def _metadata_from_detail_html(self, raw_html: str, ozon_id: str, relevance: int):
+        """
+        Project one provider record into normalized metadata and retain source relevance.
+
+        Example:
+            Exercise Ozon. metadata from detail html with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param raw_html: Provider HTML response to parse without executing content.
+        :param ozon_id: Value supplied for ozon id.
+        :param relevance: Zero-based provider result relevance.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         html = _as_text(raw_html)
 
         title = ""
@@ -555,6 +939,25 @@ class Ozon(Source):
         identifiers=None,
         timeout=90,
     ):
+        """
+        Run provider lookup, honor cancellation, isolate per-result failures and enqueue normalized metadata.
+
+        Example:
+            Exercise Ozon.identify with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: None.
+        """
         identifiers = identifiers or {}
         if abort.is_set():
             return
@@ -635,6 +1038,20 @@ class Ozon(Source):
             result_queue.put(mi)
 
     def get_cached_cover_url(self, identifiers):
+        """
+        Return cached cover url when present without network access.
+
+        Example:
+            Exercise Ozon.get cached cover url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         ozon_id = _extract_ozon_id(_first_identifier_value(identifiers or {}, "ozon"))
         if ozon_id is None:
             isbn = _safe_isbn(identifiers or {})
@@ -655,6 +1072,26 @@ class Ozon(Source):
         timeout=30,
         get_best_cover=False,
     ):
+        """
+        Resolve and download cover candidates, honor cancellation and enqueue valid image bytes.
+
+        Example:
+            Exercise Ozon.download cover with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param get_best_cover: Stop after the best usable cover when true.
+        :return: None.
+        """
         del get_best_cover
         identifiers = identifiers or {}
 

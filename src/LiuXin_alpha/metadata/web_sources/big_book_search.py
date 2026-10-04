@@ -1,8 +1,13 @@
 """
-Big Book Search cover source.
+Discover and download cover candidates from Big Book Search with bounded retries and fallback endpoints.
 
-This source fetches candidate cover image URLs from bigbooksearch.com and then
-downloads one or more covers.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise big book search with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
 """
 
 from __future__ import annotations
@@ -31,6 +36,19 @@ BIG_BOOK_SEARCH_BASE_URLS = (
 
 
 def _as_text(raw) -> str:
+    """
+    Convert optional or hostile input to text without propagating conversion failures.
+
+    Example:
+        Exercise  as text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if isinstance(raw, bytes):
         return raw.decode("utf-8", "replace")
     try:
@@ -40,6 +58,20 @@ def _as_text(raw) -> str:
 
 
 def _normalize_image_url(raw: str, base_url: str) -> str | None:
+    """
+    Normalize normalize image url into the provider's canonical safe representation.
+
+    Example:
+        Exercise  normalize image url with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :param base_url: Base URL used to resolve relative image candidates.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = unescape(_as_text(raw).strip())
     if not text:
         return None
@@ -53,6 +85,20 @@ def _normalize_image_url(raw: str, base_url: str) -> str | None:
 
 
 def parse_image_urls(raw_html: str, base_url: str):
+    """
+    Extract and normalize unique image candidates from cover-search HTML.
+
+    Example:
+        Exercise parse image urls with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :param base_url: Base URL used to resolve relative image candidates.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     html = _as_text(raw_html)
     if not html:
         return []
@@ -71,6 +117,19 @@ def parse_image_urls(raw_html: str, base_url: str):
 
 
 def _html_title(raw_html: str) -> str | None:
+    """
+    Perform the big book search html title operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  html title with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     match = re.search(r"<title[^>]*>(.*?)</title>", raw_html, re.IGNORECASE | re.DOTALL)
     if not match:
         return None
@@ -79,6 +138,19 @@ def _html_title(raw_html: str) -> str | None:
 
 
 def _response_markers(raw_html: str) -> dict:
+    """
+    Perform the big book search response markers operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  response markers with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     html = _as_text(raw_html)
     lowered = html.lower()
     return {
@@ -93,11 +165,37 @@ def _response_markers(raw_html: str) -> dict:
 
 
 def _build_query(tokens) -> str:
+    """
+    Build query from normalized identifiers and search inputs.
+
+    Example:
+        Exercise  build query with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+
+
+    :param tokens: Normalized title and author tokens used for search.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     escaped = [quote_plus(_as_text(x)) for x in tokens if _as_text(x).strip()]
     return "+".join(escaped)
 
 
 def _search_urls_for_query(query: str):
+    """
+    Perform the big book search search urls for query operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  search urls for query with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+
+
+    :param query: Encoded provider search expression.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     urls = []
     for base_url in BIG_BOOK_SEARCH_BASE_URLS:
         urls.extend(
@@ -121,6 +219,27 @@ def get_urls(
     backoff_fn=None,
     wait_for_backoff_fn=None,
 ):
+    """
+    Return urls under this provider's cache and fallback policy.
+
+    Example:
+        Exercise get urls with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+
+
+    :param br: Browser-compatible object used to perform provider requests.
+    :param tokens: Normalized title and author tokens used for search.
+    :param log: Logger receiving structured provider diagnostics.
+    :param abort: Event-like cancellation signal checked before and during network work.
+    :param timeout: Maximum duration in seconds for the network or worker operation.
+    :param retry_policy: Attempt and delay limits for the request.
+    :param backoff_fn: Optional delay-calculation callback used by tests or callers.
+    :param wait_for_backoff_fn: Optional interruptible wait callback used between
+        attempts.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     query = _build_query(tokens)
     if not query:
         return []
@@ -161,6 +280,14 @@ def get_urls(
 
 
 class BigBookSearch(Source):
+    """
+    Implement the big book search metadata-source integration and its explicit recovery policy.
+
+    Example:
+        Exercise BigBookSearch with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+    """
     name = "Big Book Search"
     version = (1, 0, 2)
     description = _("Downloads multiple book covers from Amazon. Useful to find alternate covers.")
@@ -183,6 +310,18 @@ class BigBookSearch(Source):
     HTTP_RETRY_MAX_SECONDS = 6.0
 
     def _retry_policy(self) -> RetryPolicy:
+        """
+        Build the bounded retry policy used by this provider's HTTP requests.
+
+        Example:
+            Exercise BigBookSearch. retry policy with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return RetryPolicy(
             attempts=int(self.HTTP_RETRY_ATTEMPTS),
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -190,6 +329,19 @@ class BigBookSearch(Source):
         )
 
     def _retry_backoff(self, attempt: int) -> float:
+        """
+        Compute the capped delay for one provider retry attempt.
+
+        Example:
+            Exercise BigBookSearch. retry backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+
+
+        :param attempt: Zero-based retry attempt used to calculate backoff.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return compute_backoff_delay(
             attempt=attempt,
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -197,9 +349,39 @@ class BigBookSearch(Source):
         )
 
     def _wait_for_backoff(self, abort, delay: float) -> bool:
+        """
+        Wait interruptibly for a retry delay and report whether it completed.
+
+        Example:
+            Exercise BigBookSearch. wait for backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+
+
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param delay: Backoff duration in seconds.
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return wait_for_backoff(abort, delay)
 
     def get_image_urls(self, title, authors, log, abort, timeout):
+        """
+        Return image urls under this provider's cache and fallback policy.
+
+        Example:
+            Exercise BigBookSearch.get image urls with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         tokens = tuple(self.get_title_tokens(title)) + tuple(self.get_author_tokens(authors))
         if not tokens:
             return []
@@ -226,6 +408,26 @@ class BigBookSearch(Source):
         timeout=30,
         get_best_cover=False,
     ):
+        """
+        Resolve and download cover candidates, honor cancellation and enqueue valid image bytes.
+
+        Example:
+            Exercise BigBookSearch.download cover with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_big_book_search.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param get_best_cover: Stop after the best usable cover when true.
+        :return: None.
+        """
         del identifiers
         if not title:
             return

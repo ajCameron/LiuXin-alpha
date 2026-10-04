@@ -11373,76 +11373,112 @@
       "review_checkpoint": "working-memory/project-docstrings-m117-m126-2026-09-29.md"
     },
     "src/LiuXin_alpha/metadata/api/from_database_api/__init__.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "3f1a815820e7f62acf4513949d91c7c717ba712a7e5c09da6fbfde93799ea7a9",
       "declaration_count": 3,
       "unit_ids": [
         "M148"
-      ]
+      ],
+      "current_sha256": "2c8eaed3626929b785f4b2ad3dc7d8c65e7d48e0a8d1ac98e60c87a917ce2651",
+      "last_changed_by": "M148",
+      "reviewed_by": "M148",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/api/from_database_api/metadata_hydrator_api.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "f07f24cfc7219137947a0d241c3670a2b9834b611387128763f233fb8be93214",
       "declaration_count": 11,
       "unit_ids": [
         "M148"
-      ]
+      ],
+      "current_sha256": "1044e4e00c5eb87d6171a83ae8fd01ebe13252315fa1bf0747997b2a38dbb22f",
+      "last_changed_by": "M148",
+      "reviewed_by": "M148",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/api/from_database_api/metadata_read_source_api.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "d17b4e3b2b7461afe298c43a484050a253409e076a27c9c2af6b99a8e4a9eaee",
       "declaration_count": 21,
       "unit_ids": [
         "M148"
-      ]
+      ],
+      "current_sha256": "3aff073576e7923c1b89f63d120b53a2c58e1587c569a4a14857e0d01f2dd876",
+      "last_changed_by": "M148",
+      "reviewed_by": "M148",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/api/from_database_api/wemi_sources/__init__.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "5657502dcb9de0d6fc23c8707c85dfa7b49a9d15e9ecf91041dac9bd6d3bcf52",
       "declaration_count": 1,
       "unit_ids": [
         "M149"
-      ]
+      ],
+      "current_sha256": "81b7839c6766c06b0532a98dfb0df344b66123b9ad685d5ed853a704a48c0b40",
+      "last_changed_by": "M149",
+      "reviewed_by": "M149",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/api/from_database_api/wemi_sources/agents_sources.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "ec1dc0798cb696d43a93cd5169fda10d46c60cee2650568194cd54d38d1dd159",
       "declaration_count": 9,
       "unit_ids": [
         "M149"
-      ]
+      ],
+      "current_sha256": "7028cf8ab6247db7656b831e6dbc71730fed000dcbc0e6bc18fa922459c24301",
+      "last_changed_by": "M149",
+      "reviewed_by": "M149",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/api/from_database_api/wemi_sources/expression_sources.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "e237814bbcba950e004392fdbb452711c677c0333dc09122b87d40f8ce9e72bd",
       "declaration_count": 5,
       "unit_ids": [
         "M149"
-      ]
+      ],
+      "current_sha256": "249219e95a15f78fcfe82e8fe2b9e663a59033d9686d64bfbdd2968179995a4b",
+      "last_changed_by": "M149",
+      "reviewed_by": "M149",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/api/from_database_api/wemi_sources/items_sources.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "d68c798f629461aa37e4ad661d20ad0f3ca4f50328eb54f0e873c673855a4ec6",
       "declaration_count": 5,
       "unit_ids": [
         "M149"
-      ]
+      ],
+      "current_sha256": "e142eaf4e6807e0ee9eb2da87fe4ce21c1afe171f6bd98ceaf91c7ae11b91a5e",
+      "last_changed_by": "M149",
+      "reviewed_by": "M149",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/api/from_database_api/wemi_sources/manifestation_sources.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "d1e57836a4b5324bef251ac39ca35cfe40b631b8f019bd11c6681ed8a7a38a72",
       "declaration_count": 5,
       "unit_ids": [
         "M150"
-      ]
+      ],
+      "current_sha256": "e2726c2ddf8c2f54a255bab5d138dbae47f6c354286bffb5e1ca41f4faddfc45",
+      "last_changed_by": "M150",
+      "reviewed_by": "M150",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/api/from_database_api/wemi_sources/work_sources.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "2cf6af5e91359a2888605fdbe3961061f7deef0308957a3e334e23709530a566",
       "declaration_count": 5,
       "unit_ids": [
         "M150"
-      ]
+      ],
+      "current_sha256": "9806520c0fc2aa0d48b20d6d7a529a0536a7ca1bf82562c3a64ddfc42b08d410",
+      "last_changed_by": "M150",
+      "reviewed_by": "M150",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/book/__init__.py": {
       "status": "reviewed",
@@ -12776,36 +12812,52 @@
       "review_checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/pdb/__init__.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "98e986b2a3841ab97f3290a4c2c05be99b5b7410c99267bebfef9ab4915adb8a",
       "declaration_count": 11,
       "unit_ids": [
         "M147"
-      ]
+      ],
+      "current_sha256": "ed3a931d0ce53cd75fd42ddc5bb85ee1a2149a07ec621f539275ffcb1fdd092e",
+      "last_changed_by": "M147",
+      "reviewed_by": "M147",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/pdb/ereader.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "6c0776db36496454a93e07f8101414ce8dee12c80adc7034580745587032fd0a",
       "declaration_count": 9,
       "unit_ids": [
         "M147"
-      ]
+      ],
+      "current_sha256": "143d48d9a4de6a7f990c118c54cdc06c645eb51f1c9cbe8fa7b33f7e5084628a",
+      "last_changed_by": "M147",
+      "reviewed_by": "M147",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/pdb/haodoo.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "e3c84b59f9ae5c8e6e3b0bf66a1441816e2b052f21ea580aed8676bbf72b5638",
       "declaration_count": 3,
       "unit_ids": [
         "M147"
-      ]
+      ],
+      "current_sha256": "b2bc880e342df1b66ecb417cea61e62556db387cc325f252c2a0b18af7e6ef8e",
+      "last_changed_by": "M147",
+      "reviewed_by": "M147",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/pdb/plucker.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "a99b2c979e2937a28995e522533ee2fcd059a7e29bbc9bf791b0e69560db9054",
       "declaration_count": 4,
       "unit_ids": [
         "M147"
-      ]
+      ],
+      "current_sha256": "7c03da611dbb76815ed0f3ab9aa3698cc0485b874232c54213d683b57c3093d0",
+      "last_changed_by": "M147",
+      "reviewed_by": "M147",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/file_sources/pdf.py": {
       "status": "reviewed",
@@ -12988,21 +13040,29 @@
       "review_checkpoint": "working-memory/project-docstrings-d229-m006-2026-09-25.md"
     },
     "src/LiuXin_alpha/metadata/local_sources/__init__.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "f67cfa470f433daa083f788997dc141ffaf0fb5b78312881a6595f49cf56d525",
       "declaration_count": 3,
       "unit_ids": [
         "M151"
-      ]
+      ],
+      "current_sha256": "6089b91ff55e302fb0ec77523b129c6a06eee11d7dc091cee8e97c27604f5f1c",
+      "last_changed_by": "M151",
+      "reviewed_by": "M151",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/local_sources/isfdb.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "001a30c3d338ffba8408eb8e7ac47659d0ef93c53dda06cb7325701a22e04b1e",
       "declaration_count": 53,
       "unit_ids": [
         "M152",
         "M153"
-      ]
+      ],
+      "current_sha256": "0ca391ea7ad0bbda31ddf998ec45cd3ade87991b68bb51e18cb5913b8c667b81",
+      "last_changed_by": "M153",
+      "reviewed_by": "M153",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/metadata_types.py": {
       "status": "reviewed",
@@ -13093,201 +13153,297 @@
       "review_checkpoint": "working-memory/project-docstrings-m007-m016-2026-09-25.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/__init__.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "0b713fd136832b67529868505dfccd427191bf3fc2ff099ba0849e2a107fd20f",
       "declaration_count": 3,
       "unit_ids": [
         "M154"
-      ]
+      ],
+      "current_sha256": "bfb5938925f4656bc20ebad91fc8d00feae4e4f1ca0d0bb60814a4690d267c57",
+      "last_changed_by": "M154",
+      "reviewed_by": "M154",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/amazon.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "ae13583d581e8df7b19e9e323e74c3027b0c77fa5fcf4c95108170bdc6654554",
       "declaration_count": 44,
       "unit_ids": [
         "M155",
         "M156"
-      ]
+      ],
+      "current_sha256": "0778ff2929e4329e17ff5d0512300f678fbcaa9fa491897fa1b75a7c66d9c8bb",
+      "last_changed_by": "M156",
+      "reviewed_by": "M156",
+      "review_checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/base.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "2d0c03a0b8b3f5c1cdfe2508a4d9d8fd028b366cea5895b35c13a1cf16674a0a",
       "declaration_count": 80,
       "unit_ids": [
         "M157",
         "M158"
-      ]
+      ],
+      "current_sha256": "8f2c329ac2f8a3a24d8607d83489307068894854caeae5bc02b7893017650780",
+      "last_changed_by": "M158",
+      "reviewed_by": "M158",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/big_book_search.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "3e614a8d9ea1e91cf41d6a59d314264ad2b5c614aa97c9a373c5406c0b00a1e2",
       "declaration_count": 15,
       "unit_ids": [
         "M159"
-      ]
+      ],
+      "current_sha256": "973177fc9bd473d3f4d3c748cc67f4a67a7639b31349669c426a801de8b87aa9",
+      "last_changed_by": "M159",
+      "reviewed_by": "M159",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/cli.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "f88b53d593361c2eb34433c9de97e5df1d62c5269bca2f8edd09c5c4440cda3a",
       "declaration_count": 8,
       "unit_ids": [
         "M159"
-      ]
+      ],
+      "current_sha256": "904cedc15a83db80d6bf68d85b41844cd87e2a6cd55669cf44cd1d74d0bf72c5",
+      "last_changed_by": "M159",
+      "reviewed_by": "M159",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/covers.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "a772b895e3ca7fb5705425bc85e0fde80f996b16f37eb127971e4a4a3a32fdd3",
       "declaration_count": 11,
       "unit_ids": [
         "M159"
-      ]
+      ],
+      "current_sha256": "bbbaa555b837552bd4580ba3f2b6e41f3969f0006e2d08ac6a50131b00bd5b1b",
+      "last_changed_by": "M159",
+      "reviewed_by": "M159",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/douban.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "73504c320a82821cfb00424a2cc46bc9b0b1b516489afd3a14b49116a95c4620",
       "declaration_count": 32,
       "unit_ids": [
         "M160"
-      ]
+      ],
+      "current_sha256": "9a1ea3d12607cd85adc5712b11128b06eab93aaef71999384df388edd784a1cd",
+      "last_changed_by": "M160",
+      "reviewed_by": "M160",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/edelweiss.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "4cf19f7b2740e021b1ca7e0f42b85797eda24f7685f7508c0a40c6d7e97a27f3",
       "declaration_count": 35,
       "unit_ids": [
         "M161"
-      ]
+      ],
+      "current_sha256": "26aeceef61a6bd5c6c9baaa0be1a5dae319f6164134ee93fd6ccf0ab6a3b1995",
+      "last_changed_by": "M161",
+      "reviewed_by": "M161",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/google.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "19019778aa0d2b7749838452a211b9304f970b30178a4d8adba0f72dc606ae73",
       "declaration_count": 40,
       "unit_ids": [
         "M162"
-      ]
+      ],
+      "current_sha256": "8400ab33dfec36688eebe7bd6f114e93af16589984d532baf9b0f19808580308",
+      "last_changed_by": "M162",
+      "reviewed_by": "M162",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/google_images.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "d32415d3ca2fdd40b400c94a4cdd3a6ccda7ada1882318b12bbae6aea0cbb2dc",
       "declaration_count": 32,
       "unit_ids": [
         "M163"
-      ]
+      ],
+      "current_sha256": "2005bbb6136eedd823af128ecf232f6bb89875f90d82807c084cc094b10b6889",
+      "last_changed_by": "M163",
+      "reviewed_by": "M163",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/http_client.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "50b745c512d95fe340ffb2259f58a3a8107f29dee35c4581528e4ef3a44a2e36",
       "declaration_count": 12,
       "unit_ids": [
         "M164"
-      ]
+      ],
+      "current_sha256": "48aabfd4a080dd525d749b69c86e75ff4d5949d434ad80881831f679f2dba9db",
+      "last_changed_by": "M164",
+      "reviewed_by": "M164",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/identify.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "2591f171b1ec4c709ee39104f582de41998b716833634ffa4e6b14708f0d011b",
       "declaration_count": 34,
       "unit_ids": [
         "M165"
-      ]
+      ],
+      "current_sha256": "52ad164ab3eebb1f33f67c0e1750d1b129c0847025a29f32d283c217df1fa80a",
+      "last_changed_by": "M165",
+      "reviewed_by": "M165",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/internet_archive.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "0cfd4823bcd7067f9a778a571f9151742450ce6b6a15f42c238e7b0c60f1581d",
       "declaration_count": 42,
       "unit_ids": [
         "M166",
         "M167"
-      ]
+      ],
+      "current_sha256": "af8c462009ad135b9d38d0abab9cd81d9ed88bee51499550dac3f6c99ce9991e",
+      "last_changed_by": "M167",
+      "reviewed_by": "M167",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/isbndb.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "e689d64fcf815e91870534547069c42ed4dece89338cc4a5b2ad5b5d2570b9d7",
       "declaration_count": 24,
       "unit_ids": [
         "M168"
-      ]
+      ],
+      "current_sha256": "295763d9089d33201872b2958c7fa1b541d252297e1c630baf1039e7499ab35f",
+      "last_changed_by": "M168",
+      "reviewed_by": "M168",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/kdl.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "86cc3d579ad3abfe8016d15f4560036dc98c5945e8e86fc2f19eeebb942e6a5a",
       "declaration_count": 14,
       "unit_ids": [
         "M168"
-      ]
+      ],
+      "current_sha256": "ddc18b41c8b9576aa24957d30e8b9c6505530686792f0459db937f828b4b55dd",
+      "last_changed_by": "M168",
+      "reviewed_by": "M168",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/library_of_congress.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "0c97c0d10a3c6d6ed2deadf4ebf9967ca1c387cb1639f2f0fa1e2daf39e9c3b3",
       "declaration_count": 46,
       "unit_ids": [
         "M169",
         "M170"
-      ]
+      ],
+      "current_sha256": "46a75d2c4abf1b2a91e35534b1d94c0d6d12cd545ec85d98e9f9076c0360132e",
+      "last_changed_by": "M170",
+      "reviewed_by": "M170",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/library_thing.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "ba87fcdfdb86487fd21369dcb11ee1eead60c7c1ea878a7f5de03f85d2391c07",
       "declaration_count": 19,
       "unit_ids": [
         "M171"
-      ]
+      ],
+      "current_sha256": "a89fa125c7dfc4d9067ed9e0eb938a57f9fb3c2914a9e7ad9ad259bee79ce09e",
+      "last_changed_by": "M171",
+      "reviewed_by": "M171",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/openlibrary.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "15812d8d1556f16e633de4b5f25c119bda65dd4a34d03bdfc4d4fff354be7ee5",
       "declaration_count": 14,
       "unit_ids": [
         "M171"
-      ]
+      ],
+      "current_sha256": "048029f81e740eda22f01df0b0ab5690db99ccc91bd85d6697890b6a4a197bed",
+      "last_changed_by": "M171",
+      "reviewed_by": "M171",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/overdrive.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "3783343e2866fd86f1e33d999a697dc4df6891675ecc2641650c2fb89bcaf9a9",
       "declaration_count": 29,
       "unit_ids": [
         "M172"
-      ]
+      ],
+      "current_sha256": "83d6c324e884e3f591ef3ae033e70c37824cb761a295e9bb67f856446c0a5285",
+      "last_changed_by": "M172",
+      "reviewed_by": "M172",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/ozon.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "f988f32e60909bd19bc709a15cdc4b06401fd538c60fb024c439698511c15198",
       "declaration_count": 32,
       "unit_ids": [
         "M173"
-      ]
+      ],
+      "current_sha256": "8048ad974fe2ab8f2fa34512b377d1285f6d9af0bf4878b22bb54d4a81cc3e4d",
+      "last_changed_by": "M173",
+      "reviewed_by": "M173",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/prefs.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "5b0d971ef138a7f63db950428dc44594dc4a15eac7a2eb014951070e0a7bd579",
       "declaration_count": 3,
       "unit_ids": [
         "M173"
-      ]
+      ],
+      "current_sha256": "5ad07d93c822fd82aa0919a8461bb48c6e485b52122c67119753c4bcec8674d8",
+      "last_changed_by": "M173",
+      "reviewed_by": "M173",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/wikidata.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "c0f259df45007ba053962bfb26eb3f12cf9f4346a5fe1bfb43629ffdc82ba468",
       "declaration_count": 47,
       "unit_ids": [
         "M174",
         "M175"
-      ]
+      ],
+      "current_sha256": "0532273dece3fcf7aa096c75ba721368287cd894c514517b0f8d21ad6a5400e1",
+      "last_changed_by": "M175",
+      "reviewed_by": "M175",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/worker.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "bf692620a6751e5a06e1f3336c2b5b9465f6a31c81235dabd61d002af2aa6638",
       "declaration_count": 20,
       "unit_ids": [
         "M176"
-      ]
+      ],
+      "current_sha256": "b68cb5ac9c687df5cd1d8a0ef2fd7adeed99c1ec2e2ad1941e59796f66f1f271",
+      "last_changed_by": "M176",
+      "reviewed_by": "M176",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/web_sources/xisbn.py": {
-      "status": "queued",
+      "status": "reviewed",
       "baseline_sha256": "299f480ba323a528e12c4a91d5e01f52536ccc35357d4b2d8ecee76afe8a9375",
       "declaration_count": 10,
       "unit_ids": [
         "M176"
-      ]
+      ],
+      "current_sha256": "db2f24d62e827e8515cdc89d1a2fa3591e0b185d6640e66bcec4d1ab8ea54111",
+      "last_changed_by": "M176",
+      "reviewed_by": "M176",
+      "review_checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md"
     },
     "src/LiuXin_alpha/metadata/write_workflows.py": {
       "status": "reviewed",
@@ -83216,7 +83372,7 @@
       "title": "src/LiuXin_alpha/metadata/file_sources/pdb \u2014 __init__, ereader, haodoo, plucker",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/file_sources/pdb",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -83259,7 +83415,11 @@
         }
       ],
       "declaration_count": 27,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m147-m156-2026-10-04/preflight.json",
+        "source_review": "Reviewed PDB wrapper dispatch and identity, path/stream ownership, eReader record creation and section rebuilding, Haodoo fallback, and bounded Plucker record parsing."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -83287,8 +83447,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m147-m156-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m147-m156-2026-10-04/M147-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/M157-boundary.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M147-M156 batch. M157 is next on a new request; its web_sources/base.py selection remains unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M148",
@@ -83296,7 +83471,7 @@
       "title": "src/LiuXin_alpha/metadata/from_database \u2014 __init__, metadata_hydrator_api, metadata_read_source_api",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/from_database",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -83330,7 +83505,11 @@
         }
       ],
       "declaration_count": 35,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m147-m156-2026-10-04/preflight.json",
+        "source_review": "Reviewed composite database-source initialization, typed metadata projection defaults, explicit hydration dispatch, and the minimal schema/row/interlink protocol consumed by hydrators."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -83361,8 +83540,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m147-m156-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m147-m156-2026-10-04/M148-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/M157-boundary.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M147-M156 batch. M157 is next on a new request; its web_sources/base.py selection remains unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M149",
@@ -83370,7 +83564,7 @@
       "title": "src/LiuXin_alpha/metadata/from_database/wemi_sources \u2014 __init__, agents_sources, expression_sources, items_sources",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/from_database/wemi_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -83413,7 +83607,11 @@
         }
       ],
       "declaration_count": 20,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m147-m156-2026-10-04/preflight.json",
+        "source_review": "Reviewed agent participation and credit contracts plus expression and item identity/bundle getter inputs, including preloaded item row context."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -83435,8 +83633,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m147-m156-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m147-m156-2026-10-04/M149-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/M157-boundary.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M147-M156 batch. M157 is next on a new request; its web_sources/base.py selection remains unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M150",
@@ -83444,7 +83657,7 @@
       "title": "src/LiuXin_alpha/metadata/from_database/wemi_sources \u2014 manifestation_sources, work_sources",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/from_database/wemi_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -83469,7 +83682,11 @@
         }
       ],
       "declaration_count": 10,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m147-m156-2026-10-04/preflight.json",
+        "source_review": "Reviewed manifestation and work identity/bundle getter contracts and their shared database dependency boundary."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -83491,8 +83708,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m147-m156-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m147-m156-2026-10-04/M150-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/M157-boundary.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M147-M156 batch. M157 is next on a new request; its web_sources/base.py selection remains unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M151",
@@ -83500,7 +83732,7 @@
       "title": "src/LiuXin_alpha/metadata/local_sources \u2014 __init__",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/local_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -83516,7 +83748,11 @@
         }
       ],
       "declaration_count": 3,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m147-m156-2026-10-04/preflight.json",
+        "source_review": "Reviewed explicit local-source discovery order, short-name import behavior, and propagation of invalid-name and missing-module failures."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -83538,8 +83774,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m147-m156-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m147-m156-2026-10-04/M151-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/M157-boundary.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M147-M156 batch. M157 is next on a new request; its web_sources/base.py selection remains unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M152",
@@ -83547,7 +83798,7 @@
       "title": "src/LiuXin_alpha/metadata/local_sources/isfdb.py \u2014 part 1/2",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/local_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -83588,7 +83839,11 @@
         }
       ],
       "declaration_count": 24,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m147-m156-2026-10-04/preflight.json",
+        "source_review": "Reviewed ISFDB identifier/date normalization, ISBN conversion, artifact database discovery and deterministic candidate path policy."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -83616,8 +83871,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m147-m156-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m147-m156-2026-10-04/M152-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/M157-boundary.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M147-M156 batch. M157 is next on a new request; its web_sources/base.py selection remains unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M153",
@@ -83625,7 +83895,7 @@
       "title": "src/LiuXin_alpha/metadata/local_sources/isfdb.py \u2014 part 2/2",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/local_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "M152"
       ],
@@ -83671,7 +83941,11 @@
         }
       ],
       "declaration_count": 29,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m147-m156-2026-10-04/preflight.json",
+        "source_review": "Reviewed query precedence, read-only schema checks, ranked WEMI candidate SQL, linked metadata projection, cache updates, cancellation and result deduplication."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -83699,8 +83973,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m147-m156-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m147-m156-2026-10-04/M153-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/M157-boundary.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M147-M156 batch. M157 is next on a new request; its web_sources/base.py selection remains unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M154",
@@ -83708,7 +83997,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources \u2014 __init__",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -83724,7 +84013,11 @@
         }
       ],
       "declaration_count": 3,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m147-m156-2026-10-04/preflight.json",
+        "source_review": "Reviewed explicit staged web-source discovery order, short-name import behavior and failure propagation."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -83746,8 +84039,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m147-m156-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m147-m156-2026-10-04/M154-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/M157-boundary.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M147-M156 batch. M157 is next on a new request; its web_sources/base.py selection remains unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M155",
@@ -83755,7 +84063,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources/amazon.py \u2014 part 1/2",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -83784,7 +84092,11 @@
         }
       ],
       "declaration_count": 12,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m147-m156-2026-10-04/preflight.json",
+        "source_review": "Reviewed Amazon helper normalization, JSON-LD and date/language parsing, ISBN validation and explicit search/CAPTCHA error roles."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -83812,8 +84124,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m147-m156-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m147-m156-2026-10-04/M155-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/M157-boundary.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M147-M156 batch. M157 is next on a new request; its web_sources/base.py selection remains unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M156",
@@ -83821,7 +84148,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources/amazon.py \u2014 part 2/2",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "M155"
       ],
@@ -83870,7 +84197,11 @@
         }
       ],
       "declaration_count": 32,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m147-m156-2026-10-04/preflight.json",
+        "source_review": "Reviewed regional identifier/URL policy, query construction, bounded retries, conservative result/detail parsing, metadata and cover caching, cancellation and per-result failure handling."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -83898,8 +84229,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m147-m156-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m147-m156-2026-10-04/M156-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/M157-boundary.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m147-m156-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M147-M156 batch. M157 is next on a new request; its web_sources/base.py selection remains unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M157",
@@ -83907,7 +84253,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources/base.py \u2014 part 1/2",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -83964,7 +84310,11 @@
         }
       ],
       "declaration_count": 40,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed shared text/env helpers, thread-safe logging, urllib browser adaptation, cookies/gzip, user-agent policy, metadata comparison and process-wide caches."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -83993,8 +84343,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M157-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M158",
@@ -84002,7 +84367,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources/base.py \u2014 part 2/2",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "M157"
       ],
@@ -84059,7 +84424,11 @@
         }
       ],
       "declaration_count": 40,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed source option validation, preferences/browser construction, ISBN and cover caches, query tokenization, result ranking and abstract identify/cover contracts."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84088,8 +84457,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M158-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M159",
@@ -84097,7 +84481,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources \u2014 big_book_search, cli, covers",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -84131,7 +84515,11 @@
         }
       ],
       "declaration_count": 34,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed Big Book Search endpoint fallbacks and image parsing, CLI stream/file ownership, and concurrent cover coordination and normalization."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84162,8 +84550,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M159-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M160",
@@ -84171,7 +84574,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources \u2014 douban",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -84187,7 +84590,11 @@
         }
       ],
       "declaration_count": 32,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed Douban identifier/ISBN handling, JSON and legacy XML parsing, retry/API-key policy, metadata caching, cancellation and covers."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84215,8 +84622,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M160-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M161",
@@ -84224,7 +84646,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources \u2014 edelweiss",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -84240,7 +84662,11 @@
         }
       ],
       "declaration_count": 35,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed Edelweiss SKU search, detail-fragment parsing, comments, identifiers, publication fields, bounded retries and cover caching."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84268,8 +84694,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M161-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M162",
@@ -84277,7 +84718,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources \u2014 google",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -84293,7 +84734,11 @@
         }
       ],
       "declaration_count": 40,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed Google Books JSON/feed query and parsing paths, identifiers, comments, retry behavior, cache updates and cover download."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84322,8 +84767,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M162-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M163",
@@ -84331,7 +84791,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources \u2014 google_images",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -84347,7 +84807,11 @@
         }
       ],
       "declaration_count": 32,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed Google Images markup strategies, consent cookies, WSL/rendered-browser fallback, diagnostics, size policy and image validation."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84375,8 +84839,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M163-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M164",
@@ -84384,7 +84863,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources \u2014 http_client",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -84400,7 +84879,11 @@
         }
       ],
       "declaration_count": 12,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed shared status extraction, safe diagnostics, retry classification, capped backoff, cancellation and charset decoding."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84428,8 +84911,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M164-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M165",
@@ -84437,7 +84935,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources \u2014 identify",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -84453,7 +84951,11 @@
         }
       ],
       "declaration_count": 34,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed provider discovery, worker isolation, identifier URLs, concurrent identify ordering, deduplication, merge precedence and timeout policy."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84481,8 +84983,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M165-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M166",
@@ -84490,7 +85007,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources/internet_archive.py \u2014 part 1/2",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -84519,7 +85036,11 @@
         }
       ],
       "declaration_count": 12,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed Internet Archive identifier normalization, date/language/collection parsing, advanced-search query construction and response markers."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84547,8 +85068,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M166-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M167",
@@ -84556,7 +85092,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources/internet_archive.py \u2014 part 2/2",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "M166"
       ],
@@ -84603,7 +85139,11 @@
         }
       ],
       "declaration_count": 30,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed Internet Archive retry requests, search/detail records, metadata projection, cache updates, cancellation and cover retrieval."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84631,8 +85171,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M167-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M168",
@@ -84640,7 +85195,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources \u2014 isbndb, kdl",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -84665,7 +85220,11 @@
         }
       ],
       "declaration_count": 38,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed ISBNDB configured API modes and JSON/XML normalization plus KDL series parsing, query construction and retried lookup."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84694,8 +85253,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M168-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M169",
@@ -84703,7 +85277,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources/library_of_congress.py \u2014 part 1/2",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -84732,7 +85306,11 @@
         }
       ],
       "declaration_count": 12,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed Library of Congress identifiers, ISBN/LCCN normalization, guard-page detection, image ranking and stable text deduplication."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84760,8 +85338,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M169-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M170",
@@ -84769,7 +85362,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources/library_of_congress.py \u2014 part 2/2",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "M169"
       ],
@@ -84820,7 +85413,11 @@
         }
       ],
       "declaration_count": 34,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed Library of Congress search/item requests, challenge recovery, record projection, identifier and resource parsing, caches and covers."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84848,8 +85445,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M170-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M171",
@@ -84857,7 +85469,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources \u2014 library_thing, openlibrary",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -84882,7 +85494,11 @@
         }
       ],
       "declaration_count": 33,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed LibraryThing service failures, login shim and social parsing plus Open Library ISBN validation and cover variant fallback."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84911,8 +85527,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M171-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M172",
@@ -84920,7 +85551,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources \u2014 overdrive",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -84936,7 +85567,11 @@
         }
       ],
       "declaration_count": 29,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed OverDrive identifiers, search/detail markup, JSON-LD fields, series/date/cover normalization, retries and cancellation."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -84964,8 +85599,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M172-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M173",
@@ -84973,7 +85623,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources \u2014 ozon, prefs",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -84998,7 +85648,11 @@
         }
       ],
       "declaration_count": 35,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed OZON identifiers, redirect-loop recovery, search variants, JSON-LD/detail parsing and cover caching plus preference defaults."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -85027,8 +85681,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M173-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M174",
@@ -85036,7 +85705,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources/wikidata.py \u2014 part 1/2",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -85072,7 +85741,11 @@
         }
       ],
       "declaration_count": 19,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed Wikidata identifier, label, description, claim, linked-entity and time normalization helpers."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -85100,8 +85773,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M174-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M175",
@@ -85109,7 +85797,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources/wikidata.py \u2014 part 2/2",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "M174"
       ],
@@ -85154,7 +85842,11 @@
         }
       ],
       "declaration_count": 28,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed Wikidata search/entities/SPARQL requests, entity filtering, linked-label projection, identifiers, dates, languages and cancellation."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -85182,8 +85874,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M175-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M176",
@@ -85191,7 +85898,7 @@
       "title": "src/LiuXin_alpha/metadata/web_sources \u2014 worker, xisbn",
       "track": "M",
       "owner": "src/LiuXin_alpha/metadata/web_sources",
-      "status": "queued",
+      "status": "verified",
       "prerequisites": [
         "G02"
       ],
@@ -85216,7 +85923,11 @@
         }
       ],
       "declaration_count": 30,
-      "preflight": "required",
+      "preflight": {
+        "status": "complete",
+        "checkpoint": "working-memory/test-results/docstrings-m157-m176-2026-10-04/preflight.json",
+        "source_review": "Reviewed serializable metadata/cover worker merging, logs and outputs plus xISBN normalization, network gating and cache behavior."
+      },
       "expected_changes": "Descriptive reST docs only; preserve executable behavior, comments, signatures, constants, and fixture literals.",
       "validation": {
         "static_checks": [
@@ -85247,8 +85958,23 @@
         "appropriate_examples_and_regressions_observed",
         "checkpoint_saved"
       ],
-      "evidence": {},
-      "resume_point": "Read only this scope and necessary dependency excerpts; confirm test selection and runtime doc consumers before editing."
+      "evidence": {
+        "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+        "observations": "working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json",
+        "selected_static": "working-memory/test-results/docstrings-m157-m176-2026-10-04/M176-static.json",
+        "checks": [
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+          "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
+        ]
+      },
+      "resume_point": "Completed in the explicitly authorized M157-M176 batch. M177 is next on a new request; its four metadata test files remain unchanged. Executable behavior, annotations, data and comments are preserved."
     },
     {
       "id": "M177",
@@ -128228,29 +128954,29 @@
   ],
   "future_files_policy": "Re-enumerate via audit_project_docstrings.project_paths; assign new paths and revalidate changed hashes before extending coverage. G01 adds new Python files without silently absorbing them into the baseline.",
   "current": {
-    "as_of_module": "M146",
+    "as_of_module": "M176",
     "total_files": 2671,
-    "reviewed_files": 1225,
-    "remaining_files": 1446,
+    "reviewed_files": 1264,
+    "remaining_files": 1407,
     "declarations": {
       "modules": 2671,
       "functions": 35091,
       "classes": 4399
     },
     "reviewed_declarations": {
-      "modules": 1225,
-      "classes": 1815,
-      "functions": 15587
+      "modules": 1264,
+      "classes": 1862,
+      "functions": 16295
     },
-    "remaining_declarations": 23497,
+    "remaining_declarations": 22703,
     "documentation_units": {
       "total": 1372,
-      "verified": 410,
-      "remaining": 962
+      "verified": 440,
+      "remaining": 932
     },
     "partial_reviewed_declarations": 37,
     "as_of_maintenance": "shim-removal-2026-09-16",
-    "updated_date": "2026-10-03"
+    "updated_date": "2026-10-04"
   },
   "active_batch": {
     "id": "m-2026-09-25",
@@ -128531,43 +129257,53 @@
       "M274"
     ],
     "status": "partial",
-    "authorization": "New explicit request for ten more docstring tasks authorizes M137-M146, 290 declarations across sixteen files, in inventory order. Stop after M146; no commit or publication requested.",
-    "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+    "authorization": "New explicit request for twenty more docstring tasks authorizes M157-M176, 599 declarations across twenty-two files, in inventory order. Stop after M176; no commit or publication requested.",
+    "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
     "progress": {
-      "verified_units": 146,
+      "verified_units": 176,
       "total_units": 274,
-      "verified_declarations": 3714,
+      "verified_declarations": 4508,
       "total_declarations": 7198,
-      "promoted_files": 165,
+      "promoted_files": 204,
       "total_files": 344,
-      "next_unit": "M147"
+      "next_unit": "M177"
     },
     "paused_by_user": false,
     "resume_requires_user_request": true,
-    "resume_unit": "M147",
-    "resumed_on": "2026-10-03",
+    "resume_unit": "M177",
+    "resumed_on": "2026-10-04",
     "authorized_chunk": {
       "unit_ids": [
-        "M137",
-        "M138",
-        "M139",
-        "M140",
-        "M141",
-        "M142",
-        "M143",
-        "M144",
-        "M145",
-        "M146"
+        "M157",
+        "M158",
+        "M159",
+        "M160",
+        "M161",
+        "M162",
+        "M163",
+        "M164",
+        "M165",
+        "M166",
+        "M167",
+        "M168",
+        "M169",
+        "M170",
+        "M171",
+        "M172",
+        "M173",
+        "M174",
+        "M175",
+        "M176"
       ],
       "status": "verified",
-      "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
-      "stop_after": "M146",
-      "verified_units": 10,
-      "verified_declarations": 290,
-      "promoted_files": 16,
+      "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+      "stop_after": "M176",
+      "verified_units": 20,
+      "verified_declarations": 599,
+      "promoted_files": 22,
       "previous_partial_declarations_promoted": 0,
       "partial_declarations": 0,
-      "next_unit": "M147",
+      "next_unit": "M177",
       "resume_requires_user_request": true
     },
     "authorization_history": [
@@ -129016,9 +129752,73 @@
         "resume_requires_user_request": true,
         "resumed_on": "2026-09-29",
         "stop_reason": "Completed all ten explicitly requested units; stopped after M136 with 280 new declarations and twelve complete metadata-source files. M137 requires a new request."
+      },
+      {
+        "authorization": "New explicit request for ten more docstring tasks authorizes M137-M146, 290 declarations across sixteen files, in inventory order. Stop after M146; no commit or publication requested.",
+        "authorized_chunk": {
+          "unit_ids": [
+            "M137",
+            "M138",
+            "M139",
+            "M140",
+            "M141",
+            "M142",
+            "M143",
+            "M144",
+            "M145",
+            "M146"
+          ],
+          "status": "verified",
+          "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+          "stop_after": "M146",
+          "verified_units": 10,
+          "verified_declarations": 290,
+          "promoted_files": 16,
+          "previous_partial_declarations_promoted": 0,
+          "partial_declarations": 0,
+          "next_unit": "M147",
+          "resume_requires_user_request": true
+        },
+        "checkpoint": "working-memory/project-docstrings-m137-m146-2026-10-03.md",
+        "resume_unit": "M147",
+        "resume_requires_user_request": true,
+        "resumed_on": "2026-10-03",
+        "stop_reason": "Completed all ten explicitly requested units; stopped after M146 with 290 new declarations and sixteen complete metadata-source files. M147 requires a new request."
+      },
+      {
+        "authorization": "New explicit request for ten more docstring tasks authorizes M147-M156, 195 declarations across seventeen files, in inventory order. Stop after M156; no commit or publication requested.",
+        "authorized_chunk": {
+          "unit_ids": [
+            "M147",
+            "M148",
+            "M149",
+            "M150",
+            "M151",
+            "M152",
+            "M153",
+            "M154",
+            "M155",
+            "M156"
+          ],
+          "status": "verified",
+          "checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md",
+          "stop_after": "M156",
+          "verified_units": 10,
+          "verified_declarations": 195,
+          "promoted_files": 17,
+          "previous_partial_declarations_promoted": 0,
+          "partial_declarations": 0,
+          "next_unit": "M157",
+          "resume_requires_user_request": true
+        },
+        "checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md",
+        "resume_unit": "M157",
+        "resume_requires_user_request": true,
+        "resumed_on": "2026-10-04",
+        "stop_reason": "Completed all ten explicitly requested units; stopped after M156 with 195 new declarations and seventeen complete metadata-source files. M157 requires a new request."
       }
     ],
-    "stop_reason": "Completed all ten explicitly requested units; stopped after M146 with 290 new declarations and sixteen complete metadata-source files. M147 requires a new request."
+    "stop_reason": "Completed all twenty explicitly requested units; stopped after M176 with 599 new declarations and twenty-two complete metadata-source files. M177 requires a new request."
   },
   "completed_batches": [
     {
@@ -131088,6 +131888,76 @@
         "working-memory/test-results/docstrings-m137-m146-2026-10-03/discovery.json",
         "working-memory/test-results/docstrings-m137-m146-2026-10-03/documentation-checks.json",
         "working-memory/test-results/docstrings-m137-m146-2026-10-03/reconciliation.json"
+      ]
+    },
+    {
+      "id": "m147-m156-2026-10-04",
+      "unit_ids": [
+        "M147",
+        "M148",
+        "M149",
+        "M150",
+        "M151",
+        "M152",
+        "M153",
+        "M154",
+        "M155",
+        "M156"
+      ],
+      "authorization": "New explicit request for ten more docstring tasks authorizes M147-M156, 195 declarations across seventeen files, in inventory order. Stop after M156; no commit or publication requested.",
+      "status": "verified",
+      "checkpoint": "working-memory/project-docstrings-m147-m156-2026-10-04.md",
+      "next_unit": "M157",
+      "checks": [
+        "working-memory/test-results/docstrings-m147-m156-2026-10-04/static.json",
+        "working-memory/test-results/docstrings-m147-m156-2026-10-04/examples-all.json",
+        "working-memory/test-results/docstrings-m147-m156-2026-10-04/runtime-doc-review.json",
+        "working-memory/test-results/docstrings-m147-m156-2026-10-04/M157-boundary.json",
+        "working-memory/test-results/docstrings-m147-m156-2026-10-04/metadata.json",
+        "working-memory/test-results/docstrings-m147-m156-2026-10-04/quality.json",
+        "working-memory/test-results/docstrings-m147-m156-2026-10-04/discovery.json",
+        "working-memory/test-results/docstrings-m147-m156-2026-10-04/documentation-checks.json",
+        "working-memory/test-results/docstrings-m147-m156-2026-10-04/reconciliation.json"
+      ]
+    },
+    {
+      "id": "m157-m176-2026-10-04",
+      "unit_ids": [
+        "M157",
+        "M158",
+        "M159",
+        "M160",
+        "M161",
+        "M162",
+        "M163",
+        "M164",
+        "M165",
+        "M166",
+        "M167",
+        "M168",
+        "M169",
+        "M170",
+        "M171",
+        "M172",
+        "M173",
+        "M174",
+        "M175",
+        "M176"
+      ],
+      "authorization": "New explicit request for twenty more docstring tasks authorizes M157-M176, 599 declarations across twenty-two files, in inventory order. Stop after M176; no commit or publication requested.",
+      "status": "verified",
+      "checkpoint": "working-memory/project-docstrings-m157-m176-2026-10-04.md",
+      "next_unit": "M177",
+      "checks": [
+        "working-memory/test-results/docstrings-m157-m176-2026-10-04/static.json",
+        "working-memory/test-results/docstrings-m157-m176-2026-10-04/examples-all.json",
+        "working-memory/test-results/docstrings-m157-m176-2026-10-04/runtime-doc-review.json",
+        "working-memory/test-results/docstrings-m157-m176-2026-10-04/M177-boundary.json",
+        "working-memory/test-results/docstrings-m157-m176-2026-10-04/metadata.json",
+        "working-memory/test-results/docstrings-m157-m176-2026-10-04/quality.json",
+        "working-memory/test-results/docstrings-m157-m176-2026-10-04/discovery.json",
+        "working-memory/test-results/docstrings-m157-m176-2026-10-04/documentation-checks.json",
+        "working-memory/test-results/docstrings-m157-m176-2026-10-04/reconciliation.json"
       ]
     }
   ],

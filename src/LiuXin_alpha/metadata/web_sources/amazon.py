@@ -1,10 +1,13 @@
 """
-Amazon metadata source.
+Identify books and download covers from regional Amazon sites with conservative parsing, caching and bounded retries.
 
-This is a dependency-light, robust port that supports:
-- identify by ASIN/ISBN/title+author
-- cover download via cached or discovered cover URL
-- conservative HTML parsing with graceful failure paths
+The module makes ordering, fallback, ownership and optional-integration behavior
+explicit for callers.
+
+Example:
+    Exercise amazon with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
 """
 
 from __future__ import annotations
@@ -33,14 +36,42 @@ __docformat__ = "restructuredtext en"
 
 
 class SearchFailed(ValueError):
+    """
+    Signal an Amazon search or detail response that cannot yield usable metadata.
+
+    Example:
+        Exercise SearchFailed with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+    """
     pass
 
 
 class CaptchaError(SearchFailed):
+    """
+    Signal that Amazon returned a CAPTCHA instead of a searchable or detail page.
+
+    Example:
+        Exercise CaptchaError with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+    """
     pass
 
 
 def _as_text(raw) -> str:
+    """
+    Convert optional or hostile scalar input to text without propagating conversion failures.
+
+    Example:
+        Exercise  as text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :return: The normalized row, metadata object or value described above.
+    """
     if isinstance(raw, bytes):
         return raw.decode("utf-8", "replace")
     try:
@@ -50,6 +81,18 @@ def _as_text(raw) -> str:
 
 
 def _first(raw):
+    """
+    Return the first usable scalar from a mapping or iterable while preserving scalar strings and bytes.
+
+    Example:
+        Exercise  first with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :return: The normalized row, metadata object or value described above.
+    """
     if raw is None:
         return None
     if isinstance(raw, (str, bytes)):
@@ -65,16 +108,56 @@ def _first(raw):
 
 
 def _first_identifier_value(identifiers, key):
+    """
+    Return the first value stored for an identifier key in a mapping.
+
+    Example:
+        Exercise  first identifier value with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :param identifiers: Metadata identifier mapping used for source selection and
+        lookup.
+    :param key: Identifier or row key to retrieve.
+    :return: The normalized row, metadata object or value described above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     return _first(identifiers.get(key))
 
 
 def _log(log, level: str, *parts) -> None:
+    """
+    Send a structured message through the shared metadata-source logger adapter.
+
+    Example:
+        Exercise  log with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :param log: Metadata-source logger or compatible logging callback target.
+    :param level: Structured log severity name.
+    :param parts: Message fragments and structured context forwarded to the logger.
+    :return: None.
+    """
     _shared_log_message(log, level, *parts)
 
 
 def _strip_tags(raw: str) -> str:
+    """
+    Convert simple HTML blocks and line breaks into normalized readable text.
+
+    Example:
+        Exercise  strip tags with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :return: The normalized row, metadata object or value described above.
+    """
     text = re.sub(r"<\s*br\s*/?\s*>", "\n", _as_text(raw), flags=re.IGNORECASE)
     text = re.sub(r"</(p|li|div|tr|h[1-6])\s*>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"<[^>]+>", "", text)
@@ -85,6 +168,18 @@ def _strip_tags(raw: str) -> str:
 
 
 def _extract_json_ld_objects(raw_html: str):
+    """
+    Parse valid JSON-LD script blocks and flatten top-level lists.
+
+    Example:
+        Exercise  extract json ld objects with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :param raw_html: Amazon HTML response text to inspect conservatively.
+    :return: The normalized row, metadata object or value described above.
+    """
     out = []
     for block in re.findall(
         r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
@@ -106,6 +201,18 @@ def _extract_json_ld_objects(raw_html: str):
 
 
 def _parse_pubdate(raw: str) -> datetime | None:
+    """
+    Parse supported Amazon publication dates, using midyear precision for year-only text.
+
+    Example:
+        Exercise  parse pubdate with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :return: The normalized row, metadata object or value described above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return None
@@ -154,6 +261,18 @@ _AMAZON_DOMAIN_CHOICES = OrderedDict(
 
 
 def _canonicalize_language(raw: str | None) -> str | None:
+    """
+    Map common language names to canonical codes and discard undetermined values.
+
+    Example:
+        Exercise  canonicalize language with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :return: The normalized row, metadata object or value described above.
+    """
     if not raw:
         return None
     text = _as_text(raw).strip()
@@ -167,6 +286,19 @@ def _canonicalize_language(raw: str | None) -> str | None:
 
 
 def _safe_isbn_from_identifiers(identifiers) -> str | None:
+    """
+    Return the first valid ISBN from supported identifier aliases.
+
+    Example:
+        Exercise  safe isbn from identifiers with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :param identifiers: Metadata identifier mapping used for source selection and
+        lookup.
+    :return: The normalized row, metadata object or value described above.
+    """
     for key in ("isbn", "isbn13", "isbn10"):
         raw = _first_identifier_value(identifiers, key)
         if raw is None:
@@ -181,6 +313,14 @@ def _safe_isbn_from_identifiers(identifiers) -> str | None:
 
 
 class Amazon(Source):
+    """
+    Identify metadata and covers through a selected regional Amazon website.
+
+    Example:
+        Exercise Amazon with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+    """
     name = "Amazon.com"
     version = (1, 0, 0)
     description = _("Downloads metadata and covers from Amazon")
@@ -230,39 +370,148 @@ class Amazon(Source):
     HTTP_RETRY_MAX_SECONDS = 6.0
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize shared source state and align touched identifier fields with the selected domain.
+
+        Example:
+            Exercise Amazon.  init   with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param args: Positional arguments forwarded to the shared source initializer.
+        :param kwargs: Keyword arguments forwarded to the shared source initializer.
+        :return: None.
+        """
         super().__init__(*args, **kwargs)
         self._set_amazon_id_touched_fields()
 
     def _preferred_domain(self) -> str:
+        """
+        Return the configured supported Amazon domain or the US default.
+
+        Example:
+            Exercise Amazon. preferred domain with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :return: The normalized row, metadata object or value described above.
+        """
         candidate = _as_text(self.prefs.get("domain", "com")).lower().strip()
         if candidate not in self.AMAZON_DOMAINS:
             return "com"
         return candidate
 
     def _amazon_identifier_key(self, domain: str) -> str:
+        """
+        Return the metadata identifier key for one regional Amazon domain.
+
+        Example:
+            Exercise Amazon. amazon identifier key with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param domain: Supported regional Amazon domain code.
+        :return: The normalized row, metadata object or value described above.
+        """
         return "amazon" if domain == "com" else f"amazon_{domain}"
 
     def _set_amazon_id_touched_fields(self) -> None:
+        """
+        Replace regional Amazon identifier declarations to match current preferences.
+
+        Example:
+            Exercise Amazon. set amazon id touched fields with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :return: None.
+        """
         domain = self._preferred_domain()
         id_name = "identifier:" + self._amazon_identifier_key(domain)
         base = [x for x in self.touched_fields if not x.startswith("identifier:amazon")]
         self.touched_fields = frozenset(base + [id_name])
 
     def save_settings(self, config_widget):
+        """
+        Persist source settings and refresh the regional identifier field contract.
+
+        Example:
+            Exercise Amazon.save settings with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param config_widget: Source configuration widget whose values are persisted.
+        :return: None.
+        """
         super().save_settings(config_widget)
         self._set_amazon_id_touched_fields()
 
     def _website_domain(self, domain: str) -> str:
+        """
+        Translate a source domain code to its public Amazon DNS suffix.
+
+        Example:
+            Exercise Amazon. website domain with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param domain: Supported regional Amazon domain code.
+        :return: The normalized row, metadata object or value described above.
+        """
         return {"uk": "co.uk", "jp": "co.jp", "br": "com.br"}.get(domain, domain)
 
     def _host_for_domain(self, domain: str) -> str:
+        """
+        Build the canonical Amazon host for a supported domain code.
+
+        Example:
+            Exercise Amazon. host for domain with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param domain: Supported regional Amazon domain code.
+        :return: The normalized row, metadata object or value described above.
+        """
         return f"www.amazon.{self._website_domain(domain)}"
 
     def _detail_url(self, domain: str, asin: str) -> str:
+        """
+        Build the canonical HTTPS product detail URL for a domain and ASIN.
+
+        Example:
+            Exercise Amazon. detail url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param domain: Supported regional Amazon domain code.
+        :param asin: Amazon Standard Identification Number for the product.
+        :return: The normalized row, metadata object or value described above.
+        """
         host = self._host_for_domain(domain)
         return f"https://{host}/dp/{asin}"
 
     def get_domain_and_asin(self, identifiers):
+        """
+        Select a supported Amazon domain and ASIN from an identifier mapping.
+
+        Example:
+            Exercise Amazon.get domain and asin with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param identifiers: Metadata identifier mapping used for source selection and
+            lookup.
+        :return: The normalized row, metadata object or value described above.
+        """
         if not isinstance(identifiers, Mapping):
             return None, None
         for key, raw_val in identifiers.items():
@@ -279,6 +528,19 @@ class Amazon(Source):
         return None, None
 
     def get_book_url(self, identifiers):
+        """
+        Return the identifier tuple and canonical product URL for Amazon-backed metadata.
+
+        Example:
+            Exercise Amazon.get book url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param identifiers: Metadata identifier mapping used for source selection and
+            lookup.
+        :return: The normalized row, metadata object or value described above.
+        """
         domain, asin = self.get_domain_and_asin(identifiers or {})
         if domain and asin:
             idtype = self._amazon_identifier_key(domain)
@@ -286,12 +548,38 @@ class Amazon(Source):
         return None
 
     def get_book_url_name(self, idtype, idval, url):
+        """
+        Return a display label for a regional Amazon identifier link.
+
+        Example:
+            Exercise Amazon.get book url name with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param idtype: Amazon identifier scheme displayed by the metadata link.
+        :param idval: Amazon identifier value associated with the link.
+        :param url: Source URL to parse or request.
+        :return: The normalized row, metadata object or value described above.
+        """
         del idval, url
         if idtype == "amazon":
             return self.name
         return "A" + _as_text(idtype).replace("_", ".")[1:]
 
     def id_from_url(self, url):
+        """
+        Extract a regional Amazon identifier and normalized ASIN from a product URL.
+
+        Example:
+            Exercise Amazon.id from url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param url: Source URL to parse or request.
+        :return: The normalized row, metadata object or value described above.
+        """
         try:
             parsed = urlparse(_as_text(url))
         except Exception:
@@ -317,6 +605,18 @@ class Amazon(Source):
         return self._amazon_identifier_key(domain), asin
 
     def clean_downloaded_metadata(self, mi):
+        """
+        Normalize English title/tag case, authors and ISBN after Amazon parsing.
+
+        Example:
+            Exercise Amazon.clean downloaded metadata with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param mi: Metadata object supplying fields to clean, cache or write.
+        :return: The normalized row, metadata object or value described above.
+        """
         do_case = getattr(mi, "language", None) == "eng" or (
             getattr(mi, "is_null", lambda x: False)("language") and self._preferred_domain() in {"com", "uk"}
         )
@@ -330,6 +630,22 @@ class Amazon(Source):
             mi.set_identifier("isbn", isbn)
 
     def create_query(self, title=None, authors=None, identifiers=None, domain=None):
+        """
+        Build a regional Amazon search URL from ASIN, ISBN or title/author tokens.
+
+        Example:
+            Exercise Amazon.create query with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param title: Book title used for lookup, ranking or result comparison.
+        :param authors: Author values used for lookup, ranking or result comparison.
+        :param identifiers: Metadata identifier mapping used for source selection and
+            lookup.
+        :param domain: Supported regional Amazon domain code.
+        :return: The normalized row, metadata object or value described above.
+        """
         identifiers = identifiers or {}
         domain = _as_text(domain or self._preferred_domain()).lower()
         if domain not in self.AMAZON_DOMAINS:
@@ -366,6 +682,19 @@ class Amazon(Source):
         return f"https://{host}/s/?{urlencode(q)}", domain
 
     def parse_results_page(self, raw_html, result_count=5):
+        """
+        Extract unique ASINs from result attributes and product links up to the requested limit.
+
+        Example:
+            Exercise Amazon.parse results page with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param raw_html: Amazon HTML response text to inspect conservatively.
+        :param result_count: Maximum number of unique search ASINs to return.
+        :return: The normalized row, metadata object or value described above.
+        """
         html = _as_text(raw_html)
         matches = []
         seen = set()
@@ -390,6 +719,17 @@ class Amazon(Source):
         return matches
 
     def _retry_policy(self) -> RetryPolicy:
+        """
+        Build the bounded retry policy used by Amazon HTTP requests.
+
+        Example:
+            Exercise Amazon. retry policy with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :return: The normalized row, metadata object or value described above.
+        """
         return RetryPolicy(
             attempts=int(self.HTTP_RETRY_ATTEMPTS),
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -397,6 +737,18 @@ class Amazon(Source):
         )
 
     def _retry_backoff(self, attempt: int) -> float:
+        """
+        Compute the capped backoff delay for one retry attempt.
+
+        Example:
+            Exercise Amazon. retry backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param attempt: Zero-based retry attempt used to calculate backoff.
+        :return: The normalized row, metadata object or value described above.
+        """
         return compute_backoff_delay(
             attempt=attempt,
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -404,9 +756,38 @@ class Amazon(Source):
         )
 
     def _wait_for_backoff(self, abort, delay: float) -> bool:
+        """
+        Wait interruptibly for a retry delay and report whether the wait completed.
+
+        Example:
+            Exercise Amazon. wait for backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param abort: Event-like cancellation signal checked during source work and backoff.
+        :param delay: Backoff duration in seconds.
+        :return: True when the delay completed; False when abort interrupted it.
+        """
         return wait_for_backoff(abort, delay)
 
     def _open_bytes_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Fetch response bytes through shared bounded retry and abort handling.
+
+        Example:
+            Exercise Amazon. open bytes with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param log: Metadata-source logger or compatible logging callback target.
+        :param abort: Event-like cancellation signal checked during source work and backoff.
+        :param url: Source URL to parse or request.
+        :param timeout: Per-request timeout in seconds.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized row, metadata object or value described above.
+        """
         return call_with_backoff(
             lambda: self.browser().open_novisit(url, timeout=timeout).read(),
             log=log,
@@ -423,12 +804,40 @@ class Amazon(Source):
         )
 
     def _open_text_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Fetch and decode an Amazon response through shared bounded retry handling.
+
+        Example:
+            Exercise Amazon. open text with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param log: Metadata-source logger or compatible logging callback target.
+        :param abort: Event-like cancellation signal checked during source work and backoff.
+        :param url: Source URL to parse or request.
+        :param timeout: Per-request timeout in seconds.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized row, metadata object or value described above.
+        """
         raw = self._open_bytes_with_backoff(log=log, abort=abort, url=url, timeout=timeout, context=context)
         if not raw:
             return ""
         return decode_http_body(raw)
 
     def _parse_detail_rows(self, raw_html: str):
+        """
+        Extract the first value for each colon-delimited product detail label.
+
+        Example:
+            Exercise Amazon. parse detail rows with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param raw_html: Amazon HTML response text to inspect conservatively.
+        :return: The normalized row, metadata object or value described above.
+        """
         lines = _strip_tags(raw_html).splitlines()
         rows = {}
         for line in lines:
@@ -442,6 +851,18 @@ class Amazon(Source):
         return rows
 
     def _parse_cover_url(self, raw_html: str) -> str | None:
+        """
+        Return the preferred high-resolution or social-image cover URL from a detail page.
+
+        Example:
+            Exercise Amazon. parse cover url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param raw_html: Amazon HTML response text to inspect conservatively.
+        :return: The normalized row, metadata object or value described above.
+        """
         patterns = (
             r'id=["\']landingImage["\'][^>]*data-old-hires=["\']([^"\']+)["\']',
             r'id=["\']landingImage["\'][^>]*src=["\']([^"\']+)["\']',
@@ -455,6 +876,18 @@ class Amazon(Source):
         return None
 
     def _parse_title(self, raw_html: str) -> str | None:
+        """
+        Return a normalized product title from product, social or document title markup.
+
+        Example:
+            Exercise Amazon. parse title with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param raw_html: Amazon HTML response text to inspect conservatively.
+        :return: The normalized row, metadata object or value described above.
+        """
         patterns = (
             r'<span[^>]+id=["\']productTitle["\'][^>]*>(.*?)</span>',
             r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\'](.*?)["\']',
@@ -470,6 +903,18 @@ class Amazon(Source):
         return None
 
     def _parse_authors(self, raw_html: str):
+        """
+        Return deduplicated author names from JSON-LD, byline markup or metadata.
+
+        Example:
+            Exercise Amazon. parse authors with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param raw_html: Amazon HTML response text to inspect conservatively.
+        :return: The normalized row, metadata object or value described above.
+        """
         authors = []
         for obj in _extract_json_ld_objects(raw_html):
             if not isinstance(obj, Mapping):
@@ -509,6 +954,18 @@ class Amazon(Source):
         return []
 
     def _parse_comments(self, raw_html: str):
+        """
+        Return product description HTML or a safe paragraph built from JSON-LD text.
+
+        Example:
+            Exercise Amazon. parse comments with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param raw_html: Amazon HTML response text to inspect conservatively.
+        :return: The normalized row, metadata object or value described above.
+        """
         m = re.search(
             r'<div[^>]+id=["\']bookDescription_feature_div["\'][^>]*>(.*?)</div>',
             raw_html,
@@ -527,6 +984,18 @@ class Amazon(Source):
         return None
 
     def _parse_rating(self, raw_html: str) -> float | None:
+        """
+        Convert supported localized five-star text to the metadata ten-point scale.
+
+        Example:
+            Exercise Amazon. parse rating with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param raw_html: Amazon HTML response text to inspect conservatively.
+        :return: The normalized row, metadata object or value described above.
+        """
         patterns = (
             r"([0-9]+(?:[.,][0-9]+)?)\s*(?:out of|von|de|sur|av|つ星のうち)\s*5",
             r"([0-9]+(?:[.,][0-9]+)?)\s*颗星，最多\s*5",
@@ -543,6 +1012,21 @@ class Amazon(Source):
         return None
 
     def _parse_metadata_from_details(self, raw_html: str, domain: str, asin: str, relevance: int):
+        """
+        Build metadata and update ISBN/cover caches from one Amazon detail response.
+
+        Example:
+            Exercise Amazon. parse metadata from details with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param raw_html: Amazon HTML response text to inspect conservatively.
+        :param domain: Supported regional Amazon domain code.
+        :param asin: Amazon Standard Identification Number for the product.
+        :param relevance: Zero-based source-result relevance assigned by candidate order.
+        :return: The normalized row, metadata object or value described above.
+        """
         if "validatecaptcha" in raw_html.lower() or "Type the characters you see in this image" in raw_html:
             raise CaptchaError("Amazon returned a CAPTCHA page")
 
@@ -600,6 +1084,22 @@ class Amazon(Source):
         return mi
 
     def _search_asins(self, log, abort, query_url: str, timeout: int, result_count: int = 5):
+        """
+        Fetch one search page and return its bounded ordered ASIN results.
+
+        Example:
+            Exercise Amazon. search asins with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param log: Metadata-source logger or compatible logging callback target.
+        :param abort: Event-like cancellation signal checked during source work and backoff.
+        :param query_url: Prepared Amazon search URL to fetch.
+        :param timeout: Per-request timeout in seconds.
+        :param result_count: Maximum number of unique search ASINs to return.
+        :return: The normalized row, metadata object or value described above.
+        """
         html = self._open_text_with_backoff(
             log=log,
             abort=abort,
@@ -612,6 +1112,19 @@ class Amazon(Source):
         return self.parse_results_page(html, result_count=result_count)
 
     def get_cached_cover_url(self, identifiers):
+        """
+        Return a cached cover URL by Amazon id or ISBN-to-ASIN mapping.
+
+        Example:
+            Exercise Amazon.get cached cover url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param identifiers: Metadata identifier mapping used for source selection and
+            lookup.
+        :return: The normalized row, metadata object or value described above.
+        """
         domain, asin = self.get_domain_and_asin(identifiers or {})
         if asin is None:
             isbn = _safe_isbn_from_identifiers(identifiers or {})
@@ -631,6 +1144,25 @@ class Amazon(Source):
         identifiers=None,
         timeout=30,
     ):
+        """
+        Search or fetch Amazon detail pages, tolerate per-result failures and enqueue parsed metadata.
+
+        Example:
+            Exercise Amazon.identify with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param log: Metadata-source logger or compatible logging callback target.
+        :param result_queue: Queue receiving parsed metadata or cover results.
+        :param abort: Event-like cancellation signal checked during source work and backoff.
+        :param title: Book title used for lookup, ranking or result comparison.
+        :param authors: Author values used for lookup, ranking or result comparison.
+        :param identifiers: Metadata identifier mapping used for source selection and
+            lookup.
+        :param timeout: Per-request timeout in seconds.
+        :return: None.
+        """
         identifiers = identifiers or {}
         if abort.is_set():
             return
@@ -694,6 +1226,26 @@ class Amazon(Source):
         timeout=30,
         get_best_cover=False,
     ):
+        """
+        Resolve a cached or identified cover URL and enqueue downloaded image bytes.
+
+        Example:
+            Exercise Amazon.download cover with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param log: Metadata-source logger or compatible logging callback target.
+        :param result_queue: Queue receiving parsed metadata or cover results.
+        :param abort: Event-like cancellation signal checked during source work and backoff.
+        :param title: Book title used for lookup, ranking or result comparison.
+        :param authors: Author values used for lookup, ranking or result comparison.
+        :param identifiers: Metadata identifier mapping used for source selection and
+            lookup.
+        :param timeout: Per-request timeout in seconds.
+        :param get_best_cover: Compatibility flag accepted by the shared source interface.
+        :return: None.
+        """
         del get_best_cover
         identifiers = identifiers or {}
         cached_url = self.get_cached_cover_url(identifiers)

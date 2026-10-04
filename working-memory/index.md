@@ -1,23 +1,34 @@
 # Working Memory Index
 
-Current status: **M137–M146 complete**; 290 declarations across sixteen files.
-All sixteen metadata-source files are complete.
-[Latest checkpoint](project-docstrings-m137-m146-2026-10-03.md).
-Metadata progress: **146/274 units, 3,714 declarations, 165 complete files**.
-**M147 is next**; all 27 declarations across four PDB files are unchanged. D remains archived complete.
-Project coverage: **1,225/2,671 complete-file records**, plus **37 partial declarations**.
-All 201 focused regressions and full quality checks passed; three environment-dependent tests skipped.
+Current status: **M157–M176 complete**; 599 declarations across twenty-two files.
+All twenty-two web-source files are complete.
+[Latest checkpoint](project-docstrings-m157-m176-2026-10-04.md).
+Metadata progress: **176/274 units, 4,508 declarations, 204 complete files**.
+**M177 is next**; all 34 declarations across four metadata test files are unchanged. D remains archived complete.
+Project coverage: **1,264/2,671 complete-file records**, plus **37 partial declarations**.
+All 306 focused regressions and full quality checks passed with no skips.
 Discovery records 39 unrelated review-hash differences.
 
-Updated: 2026-10-03
+Updated: 2026-10-04
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [project-docstrings-m157-m176-2026-10-04.md](project-docstrings-m157-m176-2026-10-04.md)
+  Shared web-source contracts, orchestration and 16 provider/worker modules:
+  599 declarations and twenty-two complete files. 306 regressions passed; M177
+  is next.
+
+- [project-docstrings-m147-m156-2026-10-04.md](project-docstrings-m147-m156-2026-10-04.md)
+  PDB readers, database-backed metadata source contracts, local ISFDB and
+  Amazon: 195 declarations and seventeen complete files. 148 regressions passed;
+  historical checkpoint before M157–M176.
+
 - [project-docstrings-m137-m146-2026-10-03.md](project-docstrings-m137-m146-2026-10-03.md)
   ODT, OPF, PDF, legacy ebook/archive readers, registry, text formats and workers:
-  290 declarations and sixteen complete files. 201 regressions passed; M147 is next.
+  290 declarations and sixteen complete files. 201 regressions passed.
+  Historical checkpoint before M147–M156.
 
 - [project-docstrings-m127-m136-2026-09-29.md](project-docstrings-m127-m136-2026-09-29.md)
   Comic, DOCX, EPUB, EXTZ, FB2, string/HTML inference, IMP, LIT, LRF, LRX and

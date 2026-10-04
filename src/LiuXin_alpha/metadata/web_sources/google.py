@@ -1,8 +1,13 @@
 """
-Google Books metadata source.
+Identify books and covers through Google Books JSON and legacy feed representations.
 
-This plugin uses the Google Books Volumes API for identify results and can
-download covers from cached image URLs.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise google with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
 """
 
 from __future__ import annotations
@@ -32,6 +37,19 @@ __docformat__ = "restructuredtext en"
 
 
 def _as_text(raw) -> str:
+    """
+    Convert optional or hostile input to text without propagating conversion failures.
+
+    Example:
+        Exercise  as text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if isinstance(raw, bytes):
         return raw.decode("utf-8", "replace")
     try:
@@ -41,6 +59,19 @@ def _as_text(raw) -> str:
 
 
 def _first(raw):
+    """
+    Perform the google first operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return None
     if isinstance(raw, (str, bytes)):
@@ -54,12 +85,41 @@ def _first(raw):
 
 
 def _first_identifier_value(identifiers, key):
+    """
+    Perform the google first identifier value operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first identifier value with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :param key: Value supplied for key.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     return _first(identifiers.get(key))
 
 
 def _safe_isbn(identifiers) -> str | None:
+    """
+    Return a validated isbn or the documented empty fallback.
+
+    Example:
+        Exercise  safe isbn with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     for key in ("isbn", "isbn13", "isbn10"):
         raw = _first_identifier_value(identifiers, key)
         if raw is None:
@@ -74,10 +134,37 @@ def _safe_isbn(identifiers) -> str | None:
 
 
 def _clean_identifier_key(raw: str) -> str:
+    """
+    Normalize clean identifier key into the provider's canonical safe representation.
+
+    Example:
+        Exercise  clean identifier key with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     return re.sub(r"[^a-z0-9_]+", "_", _as_text(raw).strip().lower())
 
 
 def _log(log, level: str, *parts) -> None:
+    """
+    Forward a structured provider message through the shared logging adapter.
+
+    Example:
+        Exercise  log with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param log: Logger receiving structured provider diagnostics.
+    :param level: Log severity name used for the message.
+    :param parts: Message fragments and structured context to emit.
+    :return: None.
+    """
     _shared_log_message(log, level, *parts)
 
 
@@ -88,6 +175,19 @@ _FEED_NAMESPACES = {"atom": _ATOM_NS, "dc": _DC_NS}
 
 
 def pretty_google_books_comments(raw: str | None) -> str | None:
+    """
+    Sanitize Google Books description text into readable metadata comments.
+
+    Example:
+        Exercise pretty google books comments with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not raw:
         return None
     text = _as_text(raw)
@@ -101,6 +201,14 @@ def pretty_google_books_comments(raw: str | None) -> str | None:
 
 
 class GoogleBooks(Source):
+    """
+    Implement the google metadata-source integration and its explicit recovery policy.
+
+    Example:
+        Exercise GoogleBooks with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+    """
     name = "Google"
     version = (1, 1, 4)
     description = _("Downloads metadata and covers from Google Books")
@@ -139,12 +247,39 @@ class GoogleBooks(Source):
     HTTP_RETRY_MAX_SECONDS = 6.0
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize google state while preserving shared source configuration and caches.
+
+        Example:
+            Exercise GoogleBooks.  init   with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param args: Positional command-line or initializer arguments.
+        :param kwargs: Keyword arguments forwarded to the shared implementation.
+        :return: None.
+        """
         super().__init__(*args, **kwargs)
         # Optional API key. API works for low volume without one.
         self.google_api_key = os.environ.get("GOOGLE_BOOKS_API_KEY")
 
     # URL helpers {{{
     def get_book_url(self, identifiers):
+        """
+        Return canonical provider link tuples for recognized metadata identifiers.
+
+        Example:
+            Exercise GoogleBooks.get book url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         google_id = _first_identifier_value(identifiers or {}, "google")
         if google_id:
             gid = _as_text(google_id).strip()
@@ -153,6 +288,19 @@ class GoogleBooks(Source):
         return None
 
     def id_from_url(self, url):
+        """
+        Extract a normalized provider identifier from a recognized canonical URL.
+
+        Example:
+            Exercise GoogleBooks.id from url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             parsed = urlparse(_as_text(url))
         except Exception:
@@ -169,6 +317,22 @@ class GoogleBooks(Source):
 
     # Query helpers {{{
     def create_query(self, title=None, authors=None, identifiers=None):
+        """
+        Build create query from normalized identifiers and search inputs.
+
+        Example:
+            Exercise GoogleBooks.create query with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         identifiers = identifiers or {}
         isbn = _safe_isbn(identifiers)
         query = ""
@@ -178,6 +342,20 @@ class GoogleBooks(Source):
         elif title or authors:
 
             def build_term(prefix, parts):
+                """
+                Build term from normalized identifiers and search inputs.
+
+                Example:
+                    Exercise GoogleBooks.create query.build term with the owning regression module::
+
+                        python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+                :param prefix: Value supplied for prefix.
+                :param parts: Message fragments and structured context to emit.
+                :return: The normalized provider value, metadata result or collection described
+                    above.
+                """
                 return " ".join(f"in{prefix}:{part}" for part in parts)
 
             title_tokens = list(self.get_title_tokens(title))
@@ -190,12 +368,39 @@ class GoogleBooks(Source):
         return query or None
 
     def _api_params(self, **kwargs):
+        """
+        Perform the google api params operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleBooks. api params with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param kwargs: Keyword arguments forwarded to the shared implementation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         params = {k: _as_text(v) for k, v in kwargs.items() if v is not None and _as_text(v) != ""}
         if self.google_api_key:
             params.setdefault("key", self.google_api_key)
         return params
 
     def _build_api_url(self, path: str = "", **params) -> str:
+        """
+        Build api url from normalized identifiers and search inputs.
+
+        Example:
+            Exercise GoogleBooks. build api url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param path: Filesystem, URL or cookie path used by the operation.
+        :param params: Value supplied for params.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         safe_path = path if not path else "/" + quote(path.lstrip("/"), safe="")
         url = self.GOOGLE_BOOKS_API_ENTRY + safe_path
         if params:
@@ -203,11 +408,38 @@ class GoogleBooks(Source):
         return url
 
     def _request_json(self, path: str = "", timeout: int = 30, **params):
+        """
+        Perform the provider request json operation with explicit timeout and response policy.
+
+        Example:
+            Exercise GoogleBooks. request json with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param path: Filesystem, URL or cookie path used by the operation.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param params: Value supplied for params.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         url = self._build_api_url(path=path, **params)
         raw = self.browser().open_novisit(url, timeout=timeout).read()
         return json.loads(raw)
 
     def _retry_policy(self) -> RetryPolicy:
+        """
+        Build the bounded retry policy used by this provider's HTTP requests.
+
+        Example:
+            Exercise GoogleBooks. retry policy with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return RetryPolicy(
             attempts=int(self.HTTP_RETRY_ATTEMPTS),
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -215,6 +447,19 @@ class GoogleBooks(Source):
         )
 
     def _retry_backoff(self, attempt: int) -> float:
+        """
+        Compute the capped delay for one provider retry attempt.
+
+        Example:
+            Exercise GoogleBooks. retry backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param attempt: Zero-based retry attempt used to calculate backoff.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return compute_backoff_delay(
             attempt=attempt,
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -222,9 +467,40 @@ class GoogleBooks(Source):
         )
 
     def _wait_for_backoff(self, abort, delay: float) -> bool:
+        """
+        Wait interruptibly for a retry delay and report whether it completed.
+
+        Example:
+            Exercise GoogleBooks. wait for backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param delay: Backoff duration in seconds.
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return wait_for_backoff(abort, delay)
 
     def _request_json_with_backoff(self, log, abort, context: str, path: str = "", timeout: int = 30, **params):
+        """
+        Run the request json operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise GoogleBooks. request json with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param context: Short operation label included in retry diagnostics.
+        :param path: Filesystem, URL or cookie path used by the operation.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param params: Value supplied for params.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         url = self._build_api_url(path=path, **params)
         return call_with_backoff(
             lambda: self._request_json(path=path, timeout=timeout, **params),
@@ -242,6 +518,24 @@ class GoogleBooks(Source):
         )
 
     def _request_json_or_none(self, log, abort, context: str, path: str = "", timeout: int = 30, **params):
+        """
+        Perform the provider request json or none operation with explicit timeout and response policy.
+
+        Example:
+            Exercise GoogleBooks. request json or none with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param context: Short operation label included in retry diagnostics.
+        :param path: Filesystem, URL or cookie path used by the operation.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param params: Value supplied for params.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             return self._request_json_with_backoff(
                 log=log,
@@ -261,6 +555,20 @@ class GoogleBooks(Source):
             return None
 
     def _build_feed_url(self, google_id: str | None = None, **params) -> str:
+        """
+        Build feed url from normalized identifiers and search inputs.
+
+        Example:
+            Exercise GoogleBooks. build feed url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param google_id: Value supplied for google id.
+        :param params: Value supplied for params.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if google_id:
             gid = _as_text(google_id).strip()
             return self.GOOGLE_BOOKS_FEED_DETAIL + "/" + quote(gid, safe="")
@@ -271,10 +579,41 @@ class GoogleBooks(Source):
         return url
 
     def _request_text(self, url: str, timeout: int = 30) -> str:
+        """
+        Perform the provider request text operation with explicit timeout and response policy.
+
+        Example:
+            Exercise GoogleBooks. request text with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         raw = self.browser().open_novisit(url, timeout=timeout).read()
         return decode_http_body(raw)
 
     def _request_text_with_backoff(self, log, abort, context: str, url: str, timeout: int = 30) -> str:
+        """
+        Run the request text operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise GoogleBooks. request text with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param context: Short operation label included in retry diagnostics.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return call_with_backoff(
             lambda: self._request_text(url, timeout=timeout),
             log=log,
@@ -291,6 +630,23 @@ class GoogleBooks(Source):
         )
 
     def _request_feed_entries_or_empty(self, log, abort, context: str, url: str, timeout: int = 30):
+        """
+        Perform the provider request feed entries or empty operation with explicit timeout and response policy.
+
+        Example:
+            Exercise GoogleBooks. request feed entries or empty with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param context: Short operation label included in retry diagnostics.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if abort is not None and getattr(abort, "is_set", lambda: False)():
             return []
         try:
@@ -317,6 +673,23 @@ class GoogleBooks(Source):
             return []
 
     def _open_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the open operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise GoogleBooks. open with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return call_with_backoff(
             lambda: self.browser().open_novisit(url, timeout=timeout).read(),
             log=log,
@@ -336,6 +709,19 @@ class GoogleBooks(Source):
 
     # Parsing helpers {{{
     def _cover_url_from_volume_info(self, volume_info):
+        """
+        Perform the google cover url from volume info operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleBooks. cover url from volume info with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param volume_info: Value supplied for volume info.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         image_links = volume_info.get("imageLinks") or {}
         if not isinstance(image_links, Mapping):
             return None
@@ -346,6 +732,20 @@ class GoogleBooks(Source):
         return None
 
     def _postprocess_downloaded_google_metadata(self, mi, relevance=0):
+        """
+        Apply source relevance, identifier caches and shared cleanup to downloaded metadata.
+
+        Example:
+            Exercise GoogleBooks. postprocess downloaded google metadata with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param mi: Metadata object supplying identifiers or receiving normalized fields.
+        :param relevance: Zero-based provider result relevance.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if mi is None:
             return None
         mi.source_relevance = relevance
@@ -362,6 +762,19 @@ class GoogleBooks(Source):
         return mi
 
     def _item_to_metadata(self, item):
+        """
+        Project one provider record into normalized metadata and retain source relevance.
+
+        Example:
+            Exercise GoogleBooks. item to metadata with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param item: Value supplied for item.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         volume = item.get("volumeInfo") or {}
         google_id = _as_text(item.get("id", "")).strip() or None
 
@@ -433,6 +846,19 @@ class GoogleBooks(Source):
 
     @staticmethod
     def _feed_entries_from_payload(payload):
+        """
+        Perform the google feed entries from payload operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleBooks. feed entries from payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         text = decode_http_body(payload).strip()
         if not text:
             return []
@@ -444,6 +870,20 @@ class GoogleBooks(Source):
 
     @staticmethod
     def _feed_texts(entry, xpath: str) -> list[str]:
+        """
+        Perform the google feed texts operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleBooks. feed texts with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param entry: Provider feed or XML entry to inspect.
+        :param xpath: Relative XML query used to select provider values.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         ans = []
         for elem in entry.findall(xpath, _FEED_NAMESPACES):
             text = _as_text(elem.text).strip() if elem.text is not None else ""
@@ -453,11 +893,38 @@ class GoogleBooks(Source):
 
     @classmethod
     def _feed_text(cls, entry, xpath: str) -> str | None:
+        """
+        Perform the google feed text operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleBooks. feed text with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param entry: Provider feed or XML entry to inspect.
+        :param xpath: Relative XML query used to select provider values.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         values = cls._feed_texts(entry, xpath)
         return values[0] if values else None
 
     @classmethod
     def _feed_google_id(cls, entry) -> str | None:
+        """
+        Perform the google feed google id operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleBooks. feed google id with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param entry: Provider feed or XML entry to inspect.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         candidates = [cls._feed_text(entry, "atom:id")]
         for link in entry.findall("atom:link", _FEED_NAMESPACES):
             rel = _as_text(link.attrib.get("rel", "")).lower()
@@ -476,6 +943,19 @@ class GoogleBooks(Source):
 
     @staticmethod
     def _feed_cover_url(entry) -> str | None:
+        """
+        Perform the google feed cover url operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleBooks. feed cover url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param entry: Provider feed or XML entry to inspect.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         for link in entry.findall("atom:link", _FEED_NAMESPACES):
             rel = _as_text(link.attrib.get("rel", "")).lower()
             if rel != _GOOGLE_THUMBNAIL_REL and "thumbnail" not in rel:
@@ -487,6 +967,19 @@ class GoogleBooks(Source):
 
     @staticmethod
     def _feed_identifier_parts(raw: str) -> tuple[str, str] | tuple[None, None]:
+        """
+        Perform the google feed identifier parts operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleBooks. feed identifier parts with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         text = _as_text(raw).strip()
         if not text:
             return (None, None)
@@ -499,6 +992,19 @@ class GoogleBooks(Source):
         return (_clean_identifier_key(key), value.strip())
 
     def _metadata_from_feed_entry(self, entry):
+        """
+        Project one provider record into normalized metadata and retain source relevance.
+
+        Example:
+            Exercise GoogleBooks. metadata from feed entry with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param entry: Provider feed or XML entry to inspect.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         titles = self._feed_texts(entry, "dc:title")
         title = ": ".join(titles) if titles else self._feed_text(entry, "atom:title")
         title = _as_text(title).strip() if title else _("Unknown")
@@ -570,6 +1076,20 @@ class GoogleBooks(Source):
 
     # Source API {{{
     def get_cached_cover_url(self, identifiers):
+        """
+        Return cached cover url when present without network access.
+
+        Example:
+            Exercise GoogleBooks.get cached cover url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         identifiers = identifiers or {}
         google_id = _first_identifier_value(identifiers, "google")
         if google_id is None:
@@ -593,6 +1113,25 @@ class GoogleBooks(Source):
         identifiers=None,
         timeout=30,
     ):
+        """
+        Run provider lookup, honor cancellation, isolate per-result failures and enqueue normalized metadata.
+
+        Example:
+            Exercise GoogleBooks.identify with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: None.
+        """
         identifiers = identifiers or {}
         if abort.is_set():
             return
@@ -711,6 +1250,26 @@ class GoogleBooks(Source):
         timeout=30,
         get_best_cover=False,
     ):
+        """
+        Resolve and download cover candidates, honor cancellation and enqueue valid image bytes.
+
+        Example:
+            Exercise GoogleBooks.download cover with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param get_best_cover: Stop after the best usable cover when true.
+        :return: None.
+        """
         del get_best_cover
         identifiers = identifiers or {}
         cached_url = self.get_cached_cover_url(identifiers)

@@ -1,8 +1,13 @@
 """
-KDL series lookup helper.
+Look up series names and indexes from KDL search markup with bounded retry behavior.
 
-Historically this queried Kent District Library "What's Next" pages to infer
-series name/index for a title/author pair.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise kdl with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
 """
 
 from __future__ import annotations
@@ -46,6 +51,19 @@ HTTP_RETRY_MAX_SECONDS = 6.0
 
 
 def _normalize_title_for_query(title: str | None) -> str:
+    """
+    Normalize normalize title for query into the provider's canonical safe representation.
+
+    Example:
+        Exercise  normalize title for query with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
+
+
+    :param title: Book title used to construct or rank the provider query.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = str(title or "").strip()
     if not text:
         return ""
@@ -56,6 +74,19 @@ def _normalize_title_for_query(title: str | None) -> str:
 
 
 def _author_last_name(authors) -> str:
+    """
+    Perform the kdl author last name operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  author last name with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
+
+
+    :param authors: Author names used to construct or rank the provider query.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not authors:
         return ""
     author = str((authors[0] if isinstance(authors, (list, tuple)) else authors) or "").strip()
@@ -67,12 +98,38 @@ def _author_last_name(authors) -> str:
 
 
 def _safe_series_name(raw: str) -> str:
+    """
+    Return a validated series name or the documented empty fallback.
+
+    Example:
+        Exercise  safe series name with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     series = unescape(str(raw or "")).strip()
     series = re.sub(r"\s+series$", "", series, flags=re.IGNORECASE).strip()
     return series
 
 
 def _series_from_href(href: str) -> str:
+    """
+    Perform the kdl series from href operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  series from href with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
+
+
+    :param href: Value supplied for href.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     href = unescape(str(href or ""))
     query = href.partition("?")[-1] if "?" in href else href
     params = parse_qs(query)
@@ -82,6 +139,19 @@ def _series_from_href(href: str) -> str:
 
 
 def _series_index_from_tail(tail: str):
+    """
+    Perform the kdl series index from tail operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  series index from tail with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
+
+
+    :param tail: Value supplied for tail.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     m = _INDEX_RE.search(str(tail or ""))
     if not m:
         return None
@@ -98,6 +168,19 @@ def _series_index_from_tail(tail: str):
 
 
 def parse_series_from_html(raw_html: str):
+    """
+    Extract a KDL series name and optional numeric position from result markup.
+
+    Example:
+        Exercise parse series from html with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     html = str(raw_html or "")
     if not html:
         return None, None
@@ -122,6 +205,20 @@ def parse_series_from_html(raw_html: str):
 
 
 def build_query_url(title: str | None, authors) -> str | None:
+    """
+    Build a provider query URL from normalized title and author terms.
+
+    Example:
+        Exercise build query url with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
+
+
+    :param title: Book title used to construct or rank the provider query.
+    :param authors: Author names used to construct or rank the provider query.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     clean_title = _normalize_title_for_query(title)
     author_last = _author_last_name(authors)
     if not clean_title or not author_last:
@@ -130,10 +227,36 @@ def build_query_url(title: str | None, authors) -> str | None:
 
 
 def _default_open(url: str, timeout: float):
+    """
+    Perform the kdl default open operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  default open with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
+
+
+    :param url: Provider URL to normalize, request or associate with cached data.
+    :param timeout: Maximum duration in seconds for the network or worker operation.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     return browser().open_novisit(url, timeout=timeout).read()
 
 
 def _retry_policy() -> RetryPolicy:
+    """
+    Build the bounded retry policy used by this provider's HTTP requests.
+
+    Example:
+        Exercise  retry policy with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
+
+
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     return RetryPolicy(
         attempts=int(HTTP_RETRY_ATTEMPTS),
         base_delay=float(HTTP_RETRY_BASE_SECONDS),
@@ -142,6 +265,19 @@ def _retry_policy() -> RetryPolicy:
 
 
 def _retry_backoff(attempt: int) -> float:
+    """
+    Compute the capped delay for one provider retry attempt.
+
+    Example:
+        Exercise  retry backoff with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
+
+
+    :param attempt: Zero-based retry attempt used to calculate backoff.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     return compute_backoff_delay(
         attempt=attempt,
         base_delay=float(HTTP_RETRY_BASE_SECONDS),
@@ -150,10 +286,40 @@ def _retry_backoff(attempt: int) -> float:
 
 
 def _wait_for_backoff(abort, delay: float) -> bool:
+    """
+    Wait interruptibly for a retry delay and report whether it completed.
+
+    Example:
+        Exercise  wait for backoff with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
+
+
+    :param abort: Event-like cancellation signal checked before and during network work.
+    :param delay: Backoff duration in seconds.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     return wait_for_backoff(abort, delay)
 
 
 def _open_with_backoff(url: str, timeout: float, opener=None, log=None, abort=None):
+    """
+    Run the open operation with bounded retry, diagnostics and cancellation.
+
+    Example:
+        Exercise  open with backoff with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
+
+
+    :param url: Provider URL to normalize, request or associate with cached data.
+    :param timeout: Maximum duration in seconds for the network or worker operation.
+    :param opener: Optional request callable replacing the default network opener.
+    :param log: Logger receiving structured provider diagnostics.
+    :param abort: Event-like cancellation signal checked before and during network work.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     op = opener or _default_open
     return call_with_backoff(
         lambda: op(url, timeout),
@@ -172,6 +338,24 @@ def _open_with_backoff(url: str, timeout: float, opener=None, log=None, abort=No
 
 
 def get_series(title, authors, timeout=60, opener=None, log=None, abort=None):
+    """
+    Fetch KDL search markup and return the best parsed series tuple.
+
+    Example:
+        Exercise get series with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_kdl.py
+
+
+    :param title: Book title used to construct or rank the provider query.
+    :param authors: Author names used to construct or rank the provider query.
+    :param timeout: Maximum duration in seconds for the network or worker operation.
+    :param opener: Optional request callable replacing the default network opener.
+    :param log: Logger receiving structured provider diagnostics.
+    :param abort: Event-like cancellation signal checked before and during network work.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     mi = calibreMetaInformation(title, authors)
     query_url = build_query_url(title, authors)
     if not query_url:

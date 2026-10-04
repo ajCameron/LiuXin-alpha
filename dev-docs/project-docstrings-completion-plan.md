@@ -1,11 +1,11 @@
 # Complete project docstrings in bounded modules
 
-Status: **M137–M146 complete**, 2026-10-03. All **290 declarations across sixteen
-files** are verified and every file is complete. All 201 focused regressions,
-290 command-example references, static and full quality checks passed; three
-environment-dependent tests skipped. **M147 is next** on a new request; all 27
-declarations across its four PDB files are unchanged.
-See the [batch checkpoint](../working-memory/project-docstrings-m137-m146-2026-10-03.md).
+Status: **M157–M176 complete**, 2026-10-04. All **599 declarations across twenty-two
+files** are verified and every file is complete. All 306 focused regressions,
+599 command-example references, static and full quality checks passed with no
+skips. **M177 is next** on a new request; all 34 declarations across its four
+metadata test files are unchanged.
+See the [batch checkpoint](../working-memory/project-docstrings-m157-m176-2026-10-04.md).
 D remains archived complete; M is the active bounded campaign.
 
 ## Baseline and navigation
@@ -19,15 +19,14 @@ also need review. These measures are different and must not be added together.
 Since that baseline, G01 and the completed C batches reached 722 complete files.
 After the [shim cleanup](shim-removal-plan.md) and subsequent continuations,
 **D is complete: 232/232 units, 5,685/5,685 declarations, 374/374 files**.
-The active M track has **146/274 verified units**, **3,714/7,198 declarations**,
-and **165/344 complete files** reviewed.
-Current manifest coverage is **1,225/2,671 file review records**,
-**18,627 declarations in complete files**, plus **37 verified partial catalog
-declarations**. Remaining: **1,446 files and 23,497 declarations**.
+The active M track has **176/274 verified units**, **4,508/7,198 declarations**,
+and **204/344 complete files** reviewed.
+Current manifest coverage is **1,264/2,671 file review records**,
+**19,421 declarations in complete files**, plus **37 verified partial catalog
+declarations**. Remaining: **1,407 files and 22,703 declarations**.
 Discovery found no new or missing paths; 39 unrelated review-hash differences
-are recorded. One existing storage API record changed again through concurrent
-review comments outside this batch. Historical maintenance entries, D archive,
-milestones and unrelated records are preserved.
+are recorded, with no drift delta from the prior checkpoint. Historical
+maintenance entries, D archive, milestones and unrelated records are preserved.
 
 The historical D095 checkpoint remains 95/232 units; source removals changed the
 live inventory rather than completing new documentation work. Removed scopes are
@@ -35,7 +34,7 @@ archived in the [reconciliation evidence](../working-memory/test-results/shim-re
 Affected files have new functional baselines in documentation-rebase.after.json;
 their original baseline hashes and historical documentation-only proofs are
 preserved. Do not replay old batch helpers with fixed file/declaration totals.
-The latest ten-unit batch is complete, with M147 next only on request.
+The latest twenty-unit batch is complete, with M177 next only on request.
 
 - [Exact work inventory](project-docstrings-work-units.json): stable module IDs,
   source hashes, exact file/declaration selections, prerequisites, and checkpoints.
@@ -52,6 +51,30 @@ examples, inherited code, preferences, and tracked submodule Python. Retain the
 completed native-C checkpoint separately. Ignored artifacts and anonymous lambdas
 are not named Python declarations to document.
 
+## Completed twenty-unit web-source batch — M157–M176, 2026-10-04
+
+All 599 declarations across twenty-two files are verified, with every file
+complete. The [saved observations](../working-memory/test-results/docstrings-m157-m176-2026-10-04/observations.json)
+record 306 passing non-live regressions, 599 valid command examples, and clean
+static and full quality checks. Docs cover shared source/browser/cache contracts,
+metadata and cover orchestration, retry/backoff helpers, CLI and worker adapters,
+and the Big Book Search, Douban, Edelweiss, Google, Internet Archive, ISBNDB,
+KDL, Library of Congress, LibraryThing, Open Library, OverDrive, OZON, Wikidata
+and xISBN integrations. M177 is next; its four metadata test files remain
+unchanged. Historical records are preserved.
+
+## Completed ten-unit PDB/database-source/ISFDB/Amazon batch — M147–M156, 2026-10-04
+
+All 195 declarations across seventeen files are verified, with every file
+complete. The [saved observations](../working-memory/test-results/docstrings-m147-m156-2026-10-04/observations.json)
+record 148 passing regressions, 195 valid command examples, and clean static and
+full quality checks. Docs cover PDB dispatch and subreaders, database-backed
+metadata hydrator/read-source/WEMI contracts, explicit local/web source discovery,
+local ISFDB queries and WEMI projection, and Amazon regional identifiers, parsing,
+retry, caching and cover behavior. M157 is next; its selected
+`web_sources/base.py` declarations remain unchanged. Historical records are
+preserved; M157–M176 subsequently completed above.
+
 ## Completed ten-unit metadata-source batch — M137–M146, 2026-10-03
 
 All 290 declarations across sixteen files are verified, with every file complete.
@@ -62,7 +85,8 @@ PDF, Plucker/PML/RAR/Rocket eBook, reader-registry mutation, RTF/SNB/Topaz,
 TXT/TXTZ, worker jobs and ZIP dispatch, including parser bounds, cover selection,
 optional tools, fallback policy, registry revisions, merge precedence and
 path/stream ownership. M147 is next; its four PDB files remain unchanged.
-Historical records are preserved.
+That was the boundary at this checkpoint; M147–M156 subsequently completed
+above. Historical records are preserved.
 
 ## Completed ten-unit metadata-source batch — M127–M136, 2026-09-29
 

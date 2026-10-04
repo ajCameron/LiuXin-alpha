@@ -1,8 +1,13 @@
-"""Read-side database source contracts for WEMI entities and agents.
+"""
+Export canonical read-side contracts for work, expression, manifestation, item and agent metadata.
 
-This package is the canonical home for metadata-source interfaces that read
-identity containers, metadata bundles, and read-side snapshots from the
-database layer.
+The module makes ordering, fallback, ownership and optional-integration behavior
+explicit for callers.
+
+Example:
+    Exercise   init   with the owning regression module::
+
+        python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
 """
 
 from LiuXin_alpha.metadata.api.from_database_api.wemi_sources.work_sources import WorkMetadataGetterAPI

@@ -1,5 +1,13 @@
 """
-Command-line entrypoint for web metadata fetching.
+Expose web metadata identification and cover retrieval through a stream-safe command-line interface.
+
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise cli with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
 """
 
 from __future__ import annotations
@@ -30,6 +38,18 @@ __docformat__ = "restructuredtext en"
 
 
 def option_parser():
+    """
+    Perform the cli option parser operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise option parser with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
+
+
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     parser = OptionParser(
         _(
             """\
@@ -76,12 +96,38 @@ of title, authors or ISBN.
 
 
 def _emit_text(stream, text: str) -> None:
+    """
+    Perform the cli emit text operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  emit text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
+
+
+    :param stream: Text or binary output stream receiving CLI data.
+    :param text: Text to emit, normalize or tokenize.
+    :return: None.
+    """
     stream.write(text)
     if not text.endswith("\n"):
         stream.write("\n")
 
 
 def _emit_bytes(stream, data: bytes) -> None:
+    """
+    Perform the cli emit bytes operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  emit bytes with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
+
+
+    :param stream: Text or binary output stream receiving CLI data.
+    :param data: Bytes, mapping or serialized cache data consumed by the operation.
+    :return: None.
+    """
     if hasattr(stream, "buffer"):
         stream.buffer.write(data)
         if not data.endswith(b"\n"):
@@ -91,6 +137,19 @@ def _emit_bytes(stream, data: bytes) -> None:
 
 
 def _save_cover(cover_data: bytes, path: str) -> None:
+    """
+    Perform the cli save cover operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  save cover with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
+
+
+    :param cover_data: Value supplied for cover data.
+    :param path: Filesystem, URL or cookie path used by the operation.
+    :return: None.
+    """
     if save_cover_data_to is not None:
         save_cover_data_to(cover_data, path)
         return
@@ -99,6 +158,19 @@ def _save_cover(cover_data: bytes, path: str) -> None:
 
 
 def _result_to_text(result) -> str:
+    """
+    Perform the cli result to text operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  result to text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
+
+
+    :param result: Provider result tuple to validate and normalize.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     try:
         rendered = str(result)
         if isinstance(rendered, str):
@@ -124,6 +196,19 @@ def _result_to_text(result) -> str:
 
 
 def _parse_identifiers(opts) -> dict[str, str]:
+    """
+    Parse identifiers without inventing absent provider data.
+
+    Example:
+        Exercise  parse identifiers with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
+
+
+    :param opts: Parsed command-line options supplying metadata inputs.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     identifiers: dict[str, str] = {}
     for spec in opts.identifier:
         key, sep, value = str(spec or "").partition(":")
@@ -136,6 +221,18 @@ def _parse_identifiers(opts) -> dict[str, str]:
 
 
 def main(args=None):
+    """
+    Perform the cli main operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise main with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_cli.py
+
+
+    :param args: Positional command-line or initializer arguments.
+    :return: Process exit status or serialized worker result described above.
+    """
     if args is None:
         args = sys.argv
     parser = option_parser()

@@ -1,8 +1,13 @@
-"""Work-facing metadata source contracts.
+"""
+Define database-backed work identity and metadata-bundle getters.
 
-These APIs describe read-side database access for core work identity and
-work metadata bundles. They are source-layer contracts, not metadata
-containers themselves.
+The module makes ordering, fallback, ownership and optional-integration behavior
+explicit for callers.
+
+Example:
+    Exercise work sources with the owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
 """
 
 from __future__ import annotations
@@ -18,17 +23,58 @@ if TYPE_CHECKING:
 
 
 class WorkMetadataGetterAPI(abc.ABC):
-    """Read work identities and work metadata bundles from the database."""
+    """
+    Contract work identity and editable metadata-bundle reads.
+
+    Example:
+        Exercise WorkMetadataGetterAPI with the owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+    """
 
     db: 'DatabaseAPI'
 
     def __init__(self, db: 'DatabaseAPI') -> None:
+        """
+        Bind a work metadata getter to its database dependency.
+
+        Example:
+            Exercise WorkMetadataGetterAPI.  init   with the owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param db: Database dependency used by inherited or typed metadata getters.
+        :return: None.
+        """
         self.db = db
 
     @abc.abstractmethod
     def get_work_identity(self, work_id: 'WorkID') -> 'WorkIdentityAPI':
-        """Get the narrow identity container for one work."""
+        """
+        Return the narrow identity container for one work.
+
+        Example:
+            Exercise WorkMetadataGetterAPI.get work identity with the owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param work_id: Work identifier used to load identity or metadata.
+        :return: The normalized row, metadata object or value described above.
+        """
 
     @abc.abstractmethod
     def get_work_metadata(self, work_id: 'WorkID') -> 'WorkMetadataAPI':
-        """Get the editable metadata bundle for one work."""
+        """
+        Return the editable metadata bundle for one work.
+
+        Example:
+            Exercise WorkMetadataGetterAPI.get work metadata with the owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param work_id: Work identifier used to load identity or metadata.
+        :return: The normalized row, metadata object or value described above.
+        """

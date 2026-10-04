@@ -1,7 +1,13 @@
-"""Item-facing metadata source contracts.
+"""
+Define database-backed item identity and metadata-bundle getters with optional preloaded rows.
 
-These APIs describe read-side database access for core item identity and
-item metadata bundles.
+The module makes ordering, fallback, ownership and optional-integration behavior
+explicit for callers.
+
+Example:
+    Exercise items sources with the owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
 """
 
 from __future__ import annotations
@@ -19,16 +25,46 @@ if TYPE_CHECKING:
 
 
 class ItemMetadataGetterAPI(abc.ABC):
-    """Read item identities and item metadata bundles from the database."""
+    """
+    Contract item identity and editable metadata-bundle reads.
+
+    Example:
+        Exercise ItemMetadataGetterAPI with the owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
+    """
 
     db: 'DatabaseAPI'
 
     def __init__(self, db: 'DatabaseAPI') -> None:
+        """
+        Bind an item metadata getter to its database dependency.
+
+        Example:
+            Exercise ItemMetadataGetterAPI.  init   with the owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
+
+
+        :param db: Database dependency used by inherited or typed metadata getters.
+        :return: None.
+        """
         self.db = db
 
     @abc.abstractmethod
     def get_item_identity(self, item_id: 'ItemID') -> 'ItemIdentityAPI':
-        """Get the narrow identity container for one item."""
+        """
+        Return the narrow identity container for one item.
+
+        Example:
+            Exercise ItemMetadataGetterAPI.get item identity with the owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
+
+
+        :param item_id: Item identifier used to locate the item-centred WEMI slice.
+        :return: The normalized row, metadata object or value described above.
+        """
 
     @abc.abstractmethod
     def get_item_metadata(
@@ -36,8 +72,17 @@ class ItemMetadataGetterAPI(abc.ABC):
         item_id: 'ItemID' | None = None,
         source_row: 'MetadataRecord' | 'Row' | None = None,
     ) -> 'ItemMetadataAPI':
-        """Get the editable metadata bundle for one item.
+        """
+        Return item metadata using an item id or a row that already carries WEMI context.
 
-        Implementations may accept either a concrete ``item_id`` or an
-        already-fetched row/view carrying item and optional WEMI ids.
+        Example:
+            Exercise ItemMetadataGetterAPI.get item metadata with the owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
+
+
+        :param item_id: Item identifier used to locate the item-centred WEMI slice.
+        :param source_row: Optional preloaded row carrying item and related WEMI
+            identifiers.
+        :return: The normalized row, metadata object or value described above.
         """

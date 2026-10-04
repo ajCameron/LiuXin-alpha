@@ -1,10 +1,10 @@
 # D-range documentation pass — 2026-09-14
 
-Current continuation: [M137–M146 complete](project-docstrings-m137-m146-2026-10-03.md),
-2026-10-03. D remains archived complete at 232/232 units, 5,685 declarations and
-374 files. The latest ten metadata units complete 290 declarations across sixteen
-metadata-source files. M147 is next; all 27 declarations across its four PDB files
-remain unchanged. The D completion proof
+Current continuation: [M157–M176 complete](project-docstrings-m157-m176-2026-10-04.md),
+2026-10-04. D remains archived complete at 232/232 units, 5,685 declarations and
+374 files. The latest twenty metadata units complete 599 declarations across
+twenty-two web-source files. M177 is next; all 34 declarations across its four
+metadata test files remain unchanged. The D completion proof
 is retained in the [D229–M006 checkpoint](project-docstrings-d229-m006-2026-09-25.md).
 The older D095 status below is historical.
 
